@@ -1,7 +1,7 @@
 ---
 name: reviewer
 description: レビュー担当ワーカー(安価モデル・修正禁止)。差分やコードをレビューし、指摘レポートを返す。実装完了後の検証時に使う。
-model: gpt-5.3-codex
+model: claude-sonnet-5
 tools: ["read", "search", "shell"]
 ---
 
