@@ -1,6 +1,7 @@
 use wasm_bindgen::prelude::*;
 
 pub(crate) mod bitboard;
+mod endgame;
 mod eval;
 mod tt;
 mod zobrist;
