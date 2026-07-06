@@ -63,6 +63,23 @@ pub struct TranspositionTable {
     /// `buckets.len()` は常に2の累乗になるようにし、`hash & mask` で
     /// 高速にインデックスを計算できるようにする。
     mask: usize,
+    /// このTTに対して最後に探索が実行された際の
+    /// `SearchLimit::exact_from_empties` の値(search.rs参照)。
+    ///
+    /// # なぜ必要か
+    /// このTTに格納される `TTEntry::depth` の意味(スケール)は、
+    /// エントリの元になった局面の空きマス数が「その時点の
+    /// `exact_from_empties` 以下だったか」によって
+    /// (終盤ソルバー: 残り空きマス数 / 中盤探索: 残り探索プライ数)と
+    /// 一意に決まる。しかし、この前提は「同じTTに対して常に同じ
+    /// `exact_from_empties` で探索する」場合にのみ成立する。もし異なる
+    /// `exact_from_empties` で同じTTを使い回すと、スケールの異なる古い
+    /// エントリが `entry.depth as u32 >= depth as u32` の判定を通過して
+    /// 誤ったスコアを返すおそれがある。呼び出し側(`search::search`)は、
+    /// この値と今回の `exact_from_empties` を比較し、不一致であれば
+    /// 探索前に `clear()` してからこのフィールドを更新することで、
+    /// スケール混同を防ぐ。
+    last_exact_from_empties: Option<u8>,
 }
 
 impl TranspositionTable {
@@ -83,6 +100,7 @@ impl TranspositionTable {
         TranspositionTable {
             buckets: vec![Bucket::EMPTY; num_buckets],
             mask: num_buckets - 1,
+            last_exact_from_empties: None,
         }
     }
 
@@ -137,6 +155,18 @@ impl TranspositionTable {
             bucket.depth_slot = None;
             bucket.always_slot = None;
         }
+    }
+
+    /// このTTに対して最後に探索が実行された際の `exact_from_empties` を返す
+    /// (一度も探索が実行されていなければ `None`)。
+    pub fn last_exact_from_empties(&self) -> Option<u8> {
+        self.last_exact_from_empties
+    }
+
+    /// このTTに対して最後に探索が実行された際の `exact_from_empties` を記録する。
+    /// `search::search` がスケール混同防止のクリア処理を行った直後に呼び出す。
+    pub fn set_last_exact_from_empties(&mut self, value: u8) {
+        self.last_exact_from_empties = Some(value);
     }
 
     /// このテーブルが持つバケット数(テスト専用: バケットが衝突するハッシュを

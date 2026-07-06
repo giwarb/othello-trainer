@@ -54,7 +54,10 @@ const CORNER_MASK: u64 = (1u64 << 0) | (1u64 << 7) | (1u64 << 56) | (1u64 << 63)
 /// `board` が真に終局(両者合法手なし、または空きマス0)であることを
 /// 前提とする。空きマスが残っている場合は「石数が多い方が総取り」する
 /// 慣習を適用する。
-fn final_score(board: &Board, side: Side) -> i32 {
+///
+/// `search.rs` の `terminal_score_centi` から再利用されるため `pub(crate)`
+/// にしている(終局ロジックの重複実装を避けるため。T007)。
+pub(crate) fn final_score(board: &Board, side: Side) -> i32 {
     let black = board.black.count_ones() as i32;
     let white = board.white.count_ones() as i32;
     let empties = 64 - black - white;

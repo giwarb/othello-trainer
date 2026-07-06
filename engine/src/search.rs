@@ -23,6 +23,18 @@
 //! 常に終盤ソルバー経由でのみ探索・格納され、それ以外の局面は常に本モジュールの
 //! NegaScoutでのみ探索・格納される)ため、混同は起きない。
 //!
+//! ただしこれは「同じ `tt` に対しては常に同じ `exact_from_empties` で
+//! `search()` を呼ぶ」ことが前提になる。もし将来、同一の `tt` を使い回した
+//! まま異なる `exact_from_empties` で `search()` を呼び直すと、過去に
+//! 書き込まれたエントリのスケール/depth解釈が食い違い、
+//! `entry.depth as u32 >= depth as u32` の判定を通過して誤ったスコアを
+//! 黙って返すおそれがある。これを防ぐため、[`search`] は冒頭で
+//! `tt` に記録されている前回の `exact_from_empties`
+//! (`TranspositionTable::last_exact_from_empties`)と今回の値を比較し、
+//! 不一致であれば探索前に `tt.clear()` を行ってからその値を更新する
+//! (T007)。この安全策はデバッグ限定ではなく、リリースビルドでも常に
+//! 有効な通常ロジックとして実装している。
+//!
 //! # パスの扱い
 //! 手番側に合法手がない場合はパスして相手番で同じ深さ予算のまま再帰する
 //! (パスは深さを消費しない)。両者パス(終局)の場合は、終盤ソルバーと同じ
@@ -32,7 +44,7 @@
 #![allow(dead_code)]
 
 use crate::bitboard::{Board, Side};
-use crate::endgame::solve_exact;
+use crate::endgame::{final_score, solve_exact};
 use crate::eval::evaluate_for;
 use crate::tt::{Bound, TTEntry, TranspositionTable};
 use crate::zobrist::zobrist_hash;
@@ -91,6 +103,18 @@ pub fn search(
     limit: &SearchLimit,
     tt: &mut TranspositionTable,
 ) -> SearchResult {
+    // TTスケール混同防止(T007): 同じ `tt` に対して過去に異なる
+    // `exact_from_empties` で探索していた場合、その古いエントリは
+    // 今回とはスケール/depthの意味が食い違っている可能性があるため、
+    // 安全のためTTを丸ごとクリアしてから今回の値を記録し直す。
+    // (初回呼び出し `None` や、前回と同じ値の場合はクリア不要)
+    if let Some(prev) = tt.last_exact_from_empties() {
+        if prev != limit.exact_from_empties {
+            tt.clear();
+        }
+    }
+    tt.set_last_exact_from_empties(limit.exact_from_empties);
+
     let empties = board.empty_count();
 
     if empties <= limit.exact_from_empties as u32 {
@@ -282,26 +306,12 @@ fn negascout(
 
 /// 終局時の最終石差(`side`から見たcenti-disc値)を計算する。
 ///
-/// `endgame.rs` の `final_score` と同じ「石数が多い方が残り空きマスを
-/// 総取りする」慣習を適用したうえで、centi-discスケール(×100)に変換する。
-/// (`endgame::final_score` はプライベート関数のため、ここでは同じロジックを
-/// 独立に実装している。)
+/// `endgame::final_score`(素の石差、1石=1)を呼び出して centi-disc
+/// スケール(×100)に変換するだけの薄いラッパー。「石数が多い方が
+/// 残り空きマスを総取りする」という終局ロジック自体は `endgame.rs` に
+/// 一本化されており、ここでは重複実装しない(T007)。
 fn terminal_score_centi(board: &Board, side: Side) -> i32 {
-    let black = board.black.count_ones() as i32;
-    let white = board.white.count_ones() as i32;
-    let empties = 64 - black - white;
-
-    let (black, white) = match black.cmp(&white) {
-        std::cmp::Ordering::Greater => (black + empties, white),
-        std::cmp::Ordering::Less => (black, white + empties),
-        std::cmp::Ordering::Equal => (black, white),
-    };
-
-    let diff = (black - white) * 100;
-    match side {
-        Side::Black => diff,
-        Side::White => -diff,
-    }
+    final_score(board, side) * 100
 }
 
 /// 合法手を簡易的なムーブオーダリングで並べ替えて返す。
@@ -520,5 +530,75 @@ mod tests {
         );
 
         assert!(result.best_move.is_some());
+    }
+
+    #[test]
+    fn reusing_tt_across_calls_with_different_exact_from_empties_does_not_crash_and_updates_marker() {
+        // T007: TTスケール混同防止の回帰テスト。
+        // 同じ `TranspositionTable` を使い回したまま `exact_from_empties` を
+        // 変えて2回 `search()` を呼んでもクラッシュせず、かつ2回目の呼び出し
+        // 後には `tt.last_exact_from_empties()` が今回の値に更新されている
+        // ことを確認する(自動クリア処理が有効であることの間接的な確認)。
+        let board = Board::initial();
+        let mut tt = TranspositionTable::new(4);
+
+        let limit_x = default_limit(4, 10);
+        let _ = search(&board, Side::Black, &limit_x, &mut tt);
+        assert_eq!(
+            tt.last_exact_from_empties(),
+            Some(10),
+            "after the first search(), tt should remember exact_from_empties=10"
+        );
+
+        // exact_from_empties を変えて同じTTを使い回す。
+        let limit_y = default_limit(4, 12);
+        let result = search(&board, Side::Black, &limit_y, &mut tt);
+
+        assert!(
+            result.best_move.is_some(),
+            "search() should still return a valid result after reusing the tt \
+             with a different exact_from_empties"
+        );
+        assert_eq!(
+            tt.last_exact_from_empties(),
+            Some(12),
+            "after the second search(), tt should remember the new exact_from_empties=12"
+        );
+    }
+
+    #[test]
+    fn search_terminal_score_matches_endgame_final_score_directly() {
+        // T007: 終局ロジック重複解消の回帰テスト。
+        // `search()` が返す終局スコア(両者パスの局面)が、
+        // `endgame::final_score` を直接呼んだ結果(×100)と一致することを
+        // 確認する。これは `terminal_score_centi` が独自実装ではなく
+        // `endgame::final_score` を呼び出す薄いラッパーになったことの確認。
+        //
+        // 全マスを黒で埋め、1マスだけ空けておくと、その空きマスに隣接する
+        // マスは全て黒なので両者とも合法手がなく即終局する
+        // (endgame.rsの同種のテストと同じ構成)。
+        let mut black = u64::MAX;
+        let hole = 1u64 << 27; // d4
+        black &= !hole;
+        let white = 0u64;
+        let board = Board { black, white };
+
+        assert_eq!(board.empty_count(), 1);
+        assert_eq!(board.legal_moves(Side::Black), 0);
+        assert_eq!(board.legal_moves(Side::White), 0);
+
+        // exact_from_empties=0 にすることで、空き1マスのこの局面は
+        // (1 <= 0 が偽なので)終盤ソルバーには渡らず、必ずNegaScout側の
+        // `negascout` 関数内で両者パス判定 → `terminal_score_centi` の
+        // 経路を通る。
+        let limit = default_limit(4, 0);
+        let mut tt = TranspositionTable::new(4);
+        let result = search(&board, Side::Black, &limit, &mut tt);
+
+        let expected = final_score(&board, Side::Black) * 100;
+        assert_eq!(
+            result.score, expected,
+            "search()'s terminal score should match endgame::final_score(...) * 100 exactly"
+        );
     }
 }
