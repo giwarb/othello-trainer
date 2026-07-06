@@ -1,5 +1,7 @@
 use wasm_bindgen::prelude::*;
 
+pub(crate) mod bitboard;
+
 /// wasm-bindgen 疎通確認用のシンプルな関数。
 /// フロントエンド(/app)から呼び出せることを確認するための最小実装。
 #[wasm_bindgen]
