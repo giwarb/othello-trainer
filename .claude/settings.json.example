@@ -1,0 +1,12 @@
+{
+  "_comment": "内容を確認のうえ settings.json にリネームすると、codex 委譲スクリプトを許可プロンプトなしで実行できます",
+  "permissions": {
+    "allow": [
+      "Bash(codex exec:*)",
+      "Bash(./scripts/codex-task.ps1:*)",
+      "Bash(./scripts/codex-task.sh:*)",
+      "Bash(bash scripts/codex-task.sh:*)",
+      "Bash(powershell -File scripts/codex-task.ps1:*)"
+    ]
+  }
+}
