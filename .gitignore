@@ -17,3 +17,6 @@ __pycache__/
 *.pyc
 .venv/
 target/
+
+# Rust/wasm ビルド成果物
+engine/pkg/
