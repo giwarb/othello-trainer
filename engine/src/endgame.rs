@@ -80,19 +80,42 @@ pub(crate) fn final_score(board: &Board, side: Side) -> i32 {
 /// 返り値は centi-disc スケールではなく素の石差 (1石=1) であることに注意
 /// (モジュール冒頭のドキュメント参照)。
 pub fn solve_exact(board: &Board, side_to_move: Side, tt: &mut TranspositionTable) -> i32 {
-    negamax(board, side_to_move, -64, 64, tt)
+    let mut nodes: u64 = 0;
+    negamax(board, side_to_move, -64, 64, tt, &mut nodes)
+}
+
+/// [`solve_exact`] と同じ完全読みを行い、結果に加えて探索した(`negamax`
+/// を呼び出した)ノード数も返す。
+///
+/// `solve_exact` の既存シグネチャ・挙動は変更せず、ベンチマーク
+/// (`engine/tests/ffo_bench.rs`, T009)がNPSを計測するために追加した
+/// テスト・計測専用のエントリポイント。
+pub fn solve_exact_with_nodes(
+    board: &Board,
+    side_to_move: Side,
+    tt: &mut TranspositionTable,
+) -> (i32, u64) {
+    let mut nodes: u64 = 0;
+    let score = negamax(board, side_to_move, -64, 64, tt, &mut nodes);
+    (score, nodes)
 }
 
 /// negamax + fail-soft alpha-beta + TT による完全読み本体。
 ///
 /// `alpha` / `beta` は `side` から見た石差の窓。
+/// `nodes` はこの関数が呼び出された回数(訪問局面数)を数える
+/// カウンタで、呼び出し元(`solve_exact` / `solve_exact_with_nodes`)が
+/// 用意したものをそのまま渡す。
 fn negamax(
     board: &Board,
     side: Side,
     alpha: i32,
     beta: i32,
     tt: &mut TranspositionTable,
+    nodes: &mut u64,
 ) -> i32 {
+    *nodes += 1;
+
     let empties = board.empty_count();
     if empties == 0 {
         return final_score(board, side);
@@ -127,7 +150,7 @@ fn negamax(
             // 相手にも合法手がない: 終局。
             return final_score(board, side);
         }
-        return -negamax(board, side.opposite(), -beta, -alpha, tt);
+        return -negamax(board, side.opposite(), -beta, -alpha, tt, nodes);
     }
 
     // 合法手を列挙し、隅優先 → 相手の着手後合法手数が少ない順に並べ替える。
@@ -151,7 +174,7 @@ fn negamax(
 
     for mv in moves {
         let next_board = board.apply_move(side, mv);
-        let score = -negamax(&next_board, side.opposite(), -beta, -alpha, tt);
+        let score = -negamax(&next_board, side.opposite(), -beta, -alpha, tt, nodes);
 
         if score > best_score {
             best_score = score;

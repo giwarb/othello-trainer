@@ -1,11 +1,17 @@
 use wasm_bindgen::prelude::*;
 
-pub(crate) mod bitboard;
-mod endgame;
+// `bitboard` / `endgame` / `tt` は `pub` にして、`engine/tests/` 配下の
+// 統合テスト(T009: FFO endgame test ベンチマーク)から
+// `Board`/`Side`/`solve_exact`/`TranspositionTable` を直接利用できるようにする。
+// (統合テストは別クレート扱いになるため `pub(crate)` では参照できない。
+// `#[wasm_bindgen]` は個々の関数/implに付与されるものなのでこの可視性変更
+// 自体はWASM側の公開APIには影響しない)
+pub mod bitboard;
+pub mod endgame;
 mod eval;
 mod protocol;
 mod search;
-mod tt;
+pub mod tt;
 mod zobrist;
 
 use tt::TranspositionTable;
