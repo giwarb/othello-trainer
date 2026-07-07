@@ -22,6 +22,15 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const appRoot = path.resolve(__dirname, '..');
 const distSwPath = path.resolve(appRoot, 'dist/sw.js');
 const PLACEHOLDER = '__BUILD_VERSION__';
+// 置換対象は `const CACHE_VERSION = '__BUILD_VERSION__';` という代入行そのものに
+// 限定する(単純な文字列置換だと、`app/public/sw.js` のコメント中でプレースホルダー
+// 名を説明のために言及している箇所まで巻き込んで置換されてしまい、本番配信物の
+// コメントが「実ビルド値そのものがプレースホルダーである」という自己矛盾した
+// 意味不明な文になってしまうバグがあったため、代入行限定に修正した。
+// 参照: tasks/T023-sw-cache-versioning-fix.md フィードバック)。
+const ASSIGNMENT_PATTERN = new RegExp(
+  `const CACHE_VERSION = '${PLACEHOLDER}';`,
+);
 
 function resolveVersion() {
   try {
@@ -47,16 +56,19 @@ function main() {
   }
 
   const original = readFileSync(distSwPath, 'utf8');
-  if (!original.includes(PLACEHOLDER)) {
+  if (!ASSIGNMENT_PATTERN.test(original)) {
     console.error(
-      `[inject-sw-version] dist/sw.js にプレースホルダー "${PLACEHOLDER}" が見つかりません。` +
-        ' app/public/sw.js の CACHE_VERSION 定義を確認してください。',
+      `[inject-sw-version] dist/sw.js に "const CACHE_VERSION = '${PLACEHOLDER}';" という代入行が` +
+        ' 見つかりません。app/public/sw.js の CACHE_VERSION 定義を確認してください。',
     );
     process.exit(1);
   }
 
   const version = resolveVersion();
-  const updated = original.split(PLACEHOLDER).join(version);
+  const updated = original.replace(
+    ASSIGNMENT_PATTERN,
+    `const CACHE_VERSION = '${version}';`,
+  );
   writeFileSync(distSwPath, updated, 'utf8');
   console.log(`[inject-sw-version] dist/sw.js の CACHE_VERSION を "${version}" に設定しました。`);
 }
