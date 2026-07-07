@@ -227,7 +227,7 @@
         "https://hasera.net/othello/saizen40.html",
         "https://bassy84.net/zyoseki-horse.html"
       ],
-      "notes": "2026-07-08にcurl+grepで両URLともverbatim一致(f5d6c5f4d3)を確認済み。bassy84.net/zyoseki-horse.htmlは「鹿定石」「鶴定石」と並ぶ関連定石として掲載(馬定石・基本形)だが、「兎A」の別名表記はhasera.net側のみで確認、bassy84.net側には見当たらない。前回はhasera.net/jouseki-tate.htmlを誤って出典としていたが、実際にはそのページに存在しなかったため、正しい出典(saizen40.html, zyoseki-horse.html)に訂正した。"
+      "notes": "2026-07-08にcurl+grepで両URLともverbatim一致(f5d6c5f4d3)を確認済み。bassy84.net/zyoseki-horse.htmlは「馬定石・基本形」という単独記事で、「兎A」の別名表記はhasera.net側のみで確認、bassy84.net側には見当たらない。前回はhasera.net/jouseki-tate.htmlを誤って出典としていたが、実際にはそのページに存在しなかったため、正しい出典(saizen40.html, zyoseki-horse.html)に訂正した。(2026-07-08再確認: 以前このnotesに記載していた「鹿定石」「鶴定石」への言及はzyoseki-horse.html自体には存在しないため削除した。この語は関連記事一覧ページ othello-zyoseki-usagi-b.html 側で『馬、鹿、鶴定石』というグループ見出しとして使われていたものを誤って混同していた。)"
     },
     {
       "name": "野兎",
@@ -427,7 +427,7 @@
       "firstMoveBasis": "f5",
       "depth": 23,
       "sources": ["https://bassy84.net/post-1053.html"],
-      "notes": "単一ソース(基本部分11手はシャープローズとしてクロスチェック済み)。2026-07-08にcurlで生HTML取得、iframe kifu=f5d6c5f4e3c6d3f6e6d7g3c4b4b3g5c3b5a5a4a3b6a6f7(23手)がverbatim完全一致することを確認済み。黒15手目でg5に変化する変化定石。ページ内で著者は「Ver3」は自称であり一般名称ではないと明記している。"
+      "notes": "単一ソース(基本部分11手はシャープローズとしてクロスチェック済み)。2026-07-08にcurlで生HTML取得、iframe kifu=f5d6c5f4e3c6d3f6e6d7g3c4b4b3g5c3b5a5a4a3b6a6f7(23手)がverbatim完全一致することを確認済み。本文には「ウサギ（兎）定石より、シャープローズ定石を経て、黒15手目でg5へと変化する定石。最善と言われる15手目b6と同じく【-2】評価ですね。」と記載されている(post-1053.htmlより引用)。(2026-07-08再確認: 以前このnotesに記載していた「ページ内で著者はVer3は自称であり一般名称ではないと明記している」という記述はpost-1053.html本文には存在しないため削除した。この「Ver3は当方で勝手につけました」という一文は、別ページ zyouseki-s-rose.html 内の関連記事カード(リンク先タイトルが同じ『Ver3』作品を指す)の抜粋文であり、post-1053.html自体の本文ではなかった。なお、同種の自称コメントは『Sローズ・15-b6型』(爲則ローズVer2)側では実際にzyouseki-s-tamenorirose-15-b6.html本文に存在することをgrepで確認済みのため、そちらのnotesは修正不要。)"
     },
     {
       "name": "フラットローズ",
