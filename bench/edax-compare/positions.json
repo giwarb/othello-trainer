@@ -1,0 +1,253 @@
+{
+  "_comment": [
+    "T022: 本エンジンとEdaxの評価値比較に使う局面セット。",
+    "opening/midgame は run-comparison.py が eval_cli の `gen` サブコマンド",
+    "(標準オセロ初期局面からのランダム自己対戦。依存クレートを避けるための",
+    "自作xorshift64/splitmix64乱数、engine/src/bin/eval_cli.rs 参照)で",
+    "生成したものであり、定石書に載っている名前つきオープニングではない",
+    "(「代表的な一局面」の意図で生成した、という点に注意)。",
+    "opening: min_empties=55, max_empties=59, count=8, seed=1000",
+    "midgame: min_empties=20, max_empties=40, count=20, seed=2000",
+    "ffo: bench/ffo_positions.json (T009, FFO#40-49, 出典はそのファイル冒頭の_comment を参照) をそのまま合流させたもの。"
+  ],
+  "positions": [
+    {
+      "board": "---------------------------OX------XXX--------------------------",
+      "category": "opening",
+      "id": "opening-1",
+      "side_to_move": "white"
+    },
+    {
+      "board": "---------------------------OOO-----XX-------X-------------------",
+      "category": "opening",
+      "id": "opening-2",
+      "side_to_move": "black"
+    },
+    {
+      "board": "---------------------------OX------XX-------X-------------------",
+      "category": "opening",
+      "id": "opening-3",
+      "side_to_move": "white"
+    },
+    {
+      "board": "---------------------------OX------XOX-------O------------------",
+      "category": "opening",
+      "id": "opening-4",
+      "side_to_move": "black"
+    },
+    {
+      "board": "-------------------X-------XOO-----XXO------XO------------------",
+      "category": "opening",
+      "id": "opening-5",
+      "side_to_move": "white"
+    },
+    {
+      "board": "---------------------X-----OXO-----OO------OX-------------------",
+      "category": "opening",
+      "id": "opening-6",
+      "side_to_move": "black"
+    },
+    {
+      "board": "---------------------------OOO----XXO------XX------X------------",
+      "category": "opening",
+      "id": "opening-7",
+      "side_to_move": "white"
+    },
+    {
+      "board": "------------------OOO-----XXO------XO---------------------------",
+      "category": "opening",
+      "id": "opening-8",
+      "side_to_move": "black"
+    },
+    {
+      "board": "X-OO--O-OOOOXO--XOXOX----XOXOOO-XOXOXOO-XXXX----XO--X---XXX--X--",
+      "category": "midgame",
+      "id": "midgame-1",
+      "side_to_move": "white"
+    },
+    {
+      "board": "O-X------OXO-O----O--O--OOOXXO--O-XXO---O-XXXX---XXXX---X-OO----",
+      "category": "midgame",
+      "id": "midgame-2",
+      "side_to_move": "black"
+    },
+    {
+      "board": "-O-X------OXX-----OXOX--OOXXOOOOXXOOXXOOX-O-XOXX---XOXXX---OXXX-",
+      "category": "midgame",
+      "id": "midgame-3",
+      "side_to_move": "black"
+    },
+    {
+      "board": "-O--O---O-O-O---OXXOOX--OXXOOX--OXOXOX---XOOX---XXO-OXXXOOO-XXX-",
+      "category": "midgame",
+      "id": "midgame-4",
+      "side_to_move": "black"
+    },
+    {
+      "board": "--OX--O--OOX-O----OXOO---XXXOXXOXXXOX-O--XOXXO-XXOOXX-X-OOOOXXX-",
+      "category": "midgame",
+      "id": "midgame-5",
+      "side_to_move": "white"
+    },
+    {
+      "board": "----X-O----XXO---XXOXX-XOX-OXO-X-OOOXOOX--OOXXX---O-OXXO------X-",
+      "category": "midgame",
+      "id": "midgame-6",
+      "side_to_move": "white"
+    },
+    {
+      "board": "-OX-------XXXX---OXXXXX---XXOXO--XXOXX----OOOX--------X---------",
+      "category": "midgame",
+      "id": "midgame-7",
+      "side_to_move": "white"
+    },
+    {
+      "board": "-------------O-X--XOOOX---XOOO----OXXOO-XXXXXXOX-OOO---X-O-----X",
+      "category": "midgame",
+      "id": "midgame-8",
+      "side_to_move": "black"
+    },
+    {
+      "board": "----------OOXO--X-OOOX-X-XXXOOXX--XXXOOX-XOOXOXOXXO-XXO--O-XXXXX",
+      "category": "midgame",
+      "id": "midgame-9",
+      "side_to_move": "black"
+    },
+    {
+      "board": "----X-------XX----OOX-X-XOOOOOOXOOOXXXO--OOOXXXOOOOXOXO-XXXXXOX-",
+      "category": "midgame",
+      "id": "midgame-10",
+      "side_to_move": "white"
+    },
+    {
+      "board": "-O--O----XOOO---XXOOXOO-XXOXOXO-XXXXXXXX---XOXOO----X-XO---XXX--",
+      "category": "midgame",
+      "id": "midgame-11",
+      "side_to_move": "white"
+    },
+    {
+      "board": "--X----O-XX---O--XX-OO---XXXO----OXXX---O-OXXX-----OX-----------",
+      "category": "midgame",
+      "id": "midgame-12",
+      "side_to_move": "black"
+    },
+    {
+      "board": "-XO-OX----X-O-X---OXOO----OOXXO--OOOOX-O---XXOX----XXXOX---O-X-O",
+      "category": "midgame",
+      "id": "midgame-13",
+      "side_to_move": "black"
+    },
+    {
+      "board": "--XXX-----XXXX----OXO-X---OOXOOO--OOOO------OO------OX------O-X-",
+      "category": "midgame",
+      "id": "midgame-14",
+      "side_to_move": "white"
+    },
+    {
+      "board": "--X-------XXO----XOXO---X--XOXX---XXXX---X-O-XOO--X-OOO--X------",
+      "category": "midgame",
+      "id": "midgame-15",
+      "side_to_move": "white"
+    },
+    {
+      "board": "OO-XXXX-XXXXXXO---OXXXX---OXOXX---OXOX----OXXO-----X--O---------",
+      "category": "midgame",
+      "id": "midgame-16",
+      "side_to_move": "white"
+    },
+    {
+      "board": "-XXO----OXXXXX--XOXOX-----OOXO----XOXOO---XOO----X-O------------",
+      "category": "midgame",
+      "id": "midgame-17",
+      "side_to_move": "black"
+    },
+    {
+      "board": "-XO-XXOX-OOXXOOXO-OXOXOX-XOOOOOX-XOOOOO--XOXOOOO--OOO-O---------",
+      "category": "midgame",
+      "id": "midgame-18",
+      "side_to_move": "black"
+    },
+    {
+      "board": "--O-------O---X--OOXXXX--OOOXXX--OXXOOOOXOXXXXXX-O--XXX--O-X-XO-",
+      "category": "midgame",
+      "id": "midgame-19",
+      "side_to_move": "black"
+    },
+    {
+      "board": "XXOOO-X-OOOXOOXX-OOOO-O--OOXOO----OXXO---OXOXXX-OOOOOOX--------X",
+      "category": "midgame",
+      "id": "midgame-20",
+      "side_to_move": "black"
+    },
+    {
+      "id": "ffo-40",
+      "category": "ffo",
+      "board": "O--OOOOX-OOOOOOXOOXXOOOXOOXOOOXXOOOOOOXX---OOOOX----O--X--------",
+      "side_to_move": "black",
+      "ffo_expected_score": 38
+    },
+    {
+      "id": "ffo-41",
+      "category": "ffo",
+      "board": "-OOOOO----OOOOX--OOOOOO-XXXXXOO--XXOOX--OOXOXX----OXXO---OOO--O-",
+      "side_to_move": "black",
+      "ffo_expected_score": 0
+    },
+    {
+      "id": "ffo-42",
+      "category": "ffo",
+      "board": "--OOO-------XX-OOOOOOXOO-OOOOXOOX-OOOXXO---OOXOO---OOOXO--OOOO--",
+      "side_to_move": "black",
+      "ffo_expected_score": 6
+    },
+    {
+      "id": "ffo-43",
+      "category": "ffo",
+      "board": "--XXXXX---XXXX---OOOXX---OOXXXX--OOXXXO-OOOOXOO----XOX----XXXXX-",
+      "side_to_move": "white",
+      "ffo_expected_score": -12
+    },
+    {
+      "id": "ffo-44",
+      "category": "ffo",
+      "board": "--O-X-O---O-XO-O-OOXXXOOOOOOXXXOOOOOXX--XXOOXO----XXXX-----XXX--",
+      "side_to_move": "white",
+      "ffo_expected_score": -14
+    },
+    {
+      "id": "ffo-45",
+      "category": "ffo",
+      "board": "---XXXX-X-XXXO--XXOXOO--XXXOXO--XXOXXO---OXXXOO-O-OOOO------OO--",
+      "side_to_move": "black",
+      "ffo_expected_score": 6
+    },
+    {
+      "id": "ffo-46",
+      "category": "ffo",
+      "board": "---XXX----OOOX----OOOXX--OOOOXXX--OOOOXX--OXOXXX--XXOO---XXXX-O-",
+      "side_to_move": "black",
+      "ffo_expected_score": -8
+    },
+    {
+      "id": "ffo-47",
+      "category": "ffo",
+      "board": "-OOOOO----OOOO---OOOOX--XXXXXX---OXOOX--OOOXOX----OOXX----XXXX--",
+      "side_to_move": "white",
+      "ffo_expected_score": 4
+    },
+    {
+      "id": "ffo-48",
+      "category": "ffo",
+      "board": "-----X--X-XXX---XXXXOO--XOXOOXX-XOOXXX--XOOXX-----OOOX---XXXXXX-",
+      "side_to_move": "white",
+      "ffo_expected_score": 28
+    },
+    {
+      "id": "ffo-49",
+      "category": "ffo",
+      "board": "--OX-O----XXOO--OOOOOXX-OOOOOX--OOOXOXX-OOOOXX-----OOX----X-O---",
+      "side_to_move": "black",
+      "ffo_expected_score": 16
+    }
+  ]
+}

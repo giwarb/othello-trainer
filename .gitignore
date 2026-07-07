@@ -20,3 +20,8 @@ target/
 
 # Rust/wasm ビルド成果物
 engine/pkg/
+
+# T022: Edaxの配布バイナリ(公式リリースからdownload-edax.ps1で都度取得する。
+# ライセンス上の再配布可否が未確認のためコミットしない)
+bench/edax-compare/edax-extract/
+bench/edax-compare/*.zip
