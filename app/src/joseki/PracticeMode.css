@@ -85,6 +85,34 @@
   font-size: 0.9rem;
 }
 
+/* 主役表示: セッションを実際に終わらせた最終ノードの定石名(T026)。目立つように大きめにする。 */
+.joseki-result__final {
+  font-size: 1.1rem;
+  line-height: 1.5;
+}
+
+.joseki-result__final strong {
+  font-size: 1.3rem;
+}
+
+/* 補足表示: 途中で経由した(が、セッションを終わらせたわけではない)定石名。主役より控えめに。 */
+.joseki-result__passed {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  font-size: 0.8rem;
+  opacity: 0.85;
+}
+
+.joseki-result__passed summary {
+  cursor: pointer;
+}
+
+.joseki-result__passed p {
+  margin-top: 0.4rem;
+  font-size: 0.8rem;
+}
+
 /* 狭い画面幅(スマートフォン想定、375px程度)ではボタン・文字を少し縮めて縦積みにする。 */
 @media (max-width: 400px) {
   .joseki-color-select__buttons {
@@ -96,5 +124,13 @@
   .joseki-result {
     padding: 0.75rem;
     font-size: 0.9rem;
+  }
+
+  .joseki-result__final {
+    font-size: 1rem;
+  }
+
+  .joseki-result__final strong {
+    font-size: 1.1rem;
   }
 }

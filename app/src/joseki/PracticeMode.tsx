@@ -48,7 +48,13 @@ interface PracticeState {
 
 interface ClearResultInfo {
   readonly kind: 'clear'
+  /** セッション中に通過した全`isLeaf`ノードの定石名の和集合(補足表示用)。 */
   readonly names: readonly string[]
+  /**
+   * セッションを実際に終わらせた最終ノード(`bookMoves`が真に空だったノード)の定石名。
+   * クリア画面で主役として表示する(T026)。
+   */
+  readonly finalNodeNames: readonly string[]
   readonly moveHistory: readonly number[]
 }
 
@@ -79,6 +85,15 @@ function formatSquares(squares: readonly number[]): string {
 
 function formatBookMoves(moves: readonly JosekiBookMoveView[]): string {
   return moves.map((m) => squareToNotation(m.move)).join(', ')
+}
+
+/**
+ * クリア画面の主役表示用に、最終ノードの定石名を整形する。
+ * 1つの終端局面に複数の定石が合流している場合は「あるいは」で並べ、
+ * それらが同じ最終局面を共有していることが伝わるようにする(T026 要件2・4)。
+ */
+function formatFinalNodeNames(names: readonly string[]): string {
+  return names.join(' あるいは ')
 }
 
 /**
@@ -207,7 +222,7 @@ export function PracticeMode() {
     const moveHistory = [...state.moveHistory, square]
 
     const lookup = lookupJosekiNode(josekiDb, board, nextSide, nextFirstMove)
-    const { clearedLineNames, ended } = advanceClearState(state.clearedLineNames, lookup)
+    const { clearedLineNames, ended, finalNodeNames } = advanceClearState(state.clearedLineNames, lookup)
 
     setState({
       board,
@@ -221,7 +236,7 @@ export function PracticeMode() {
 
     if (ended) {
       setPhase('clear')
-      setResultInfo({ kind: 'clear', names: clearedLineNames, moveHistory })
+      setResultInfo({ kind: 'clear', names: clearedLineNames, finalNodeNames, moveHistory })
       void recordSrsResults(clearedLineNames, 'success')
     }
   }
@@ -356,9 +371,32 @@ export function PracticeMode() {
       {phase === 'clear' && resultInfo?.kind === 'clear' && (
         <section class="joseki-result joseki-result--clear">
           <h2>クリア!</h2>
-          <p>
-            <strong>{resultInfo.names.join('・')}</strong> を最後まで打てました。
+          {/*
+            主役表示: セッションを実際に終わらせた最終ノード(finalNodeNames)。
+            通常は真の終端に達しているので必ず1件以上入っているが、lookupがnullになる
+            防御的ケースのみ空配列になり得るため、その場合は通過した全ライン名(names)に
+            フォールバックする(T026)。
+          */}
+          <p class="joseki-result__final">
+            到達した定石:{' '}
+            <strong>
+              {formatFinalNodeNames(
+                resultInfo.finalNodeNames.length > 0 ? resultInfo.finalNodeNames : resultInfo.names,
+              )}
+            </strong>
+            {' '}をクリアしました!
           </p>
+          {(() => {
+            const finalSet = new Set(resultInfo.finalNodeNames)
+            const passedOnly = resultInfo.names.filter((name) => !finalSet.has(name))
+            if (passedOnly.length === 0) return null
+            return (
+              <details class="joseki-result__passed">
+                <summary>この過程で経由した定石({passedOnly.length}件)</summary>
+                <p>{passedOnly.join('・')}</p>
+              </details>
+            )
+          })()}
           <p class="joseki-result__moves">手順: {formatSquares(resultInfo.moveHistory)}</p>
           <button type="button" onClick={backToColorSelect}>
             もう一度

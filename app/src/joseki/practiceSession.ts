@@ -37,6 +37,13 @@ export interface ClearAdvanceResult {
    * `lookup.bookMoves`が空(その先に定石データが存在しない真の終端)であれば`true`。
    */
   readonly ended: boolean
+  /**
+   * セッションを実際に終わらせた最終ノード(`bookMoves`が真に空だったノード)の`names`。
+   * 1つの終端局面に複数の定石が合流している場合は、それら全ての名前を含む。
+   * `ended`が`false`の場合は常に空配列。`lookup`が`null`(防御的ケース)の場合も、
+   * 終端ノードの`names`自体が取得できないため空配列になる。
+   */
+  readonly finalNodeNames: readonly string[]
 }
 
 /**
@@ -59,6 +66,7 @@ export function advanceClearState(
   }
 
   const ended = (lookup?.bookMoves.length ?? 0) === 0
+  const finalNodeNames = ended && lookup ? lookup.names : []
 
-  return { clearedLineNames, ended }
+  return { clearedLineNames, ended, finalNodeNames }
 }

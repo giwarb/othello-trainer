@@ -23,7 +23,7 @@ describe('advanceClearState', () => {
     expect(result.clearedLineNames).toEqual(['縦取り'])
   })
 
-  it('bookMovesが真に空になったら終了する(真の終端)', () => {
+  it('bookMovesが真に空になったら終了する(真の終端)。finalNodeNamesにその終端ノードのnamesが入る', () => {
     const result = advanceClearState(['縦取り'], {
       isLeaf: true,
       names: ['虎'],
@@ -31,15 +31,37 @@ describe('advanceClearState', () => {
     })
     expect(result.ended).toBe(true)
     expect(result.clearedLineNames).toEqual(['縦取り', '虎'])
+    expect(result.finalNodeNames).toEqual(['虎'])
   })
 
-  it('lookupがnull(定石DBに見つからない防御的ケース)なら終了扱いにする', () => {
+  it('lookupがnull(定石DBに見つからない防御的ケース)なら終了扱いにする。finalNodeNamesは空配列', () => {
     const result = advanceClearState(['縦取り'], null)
     expect(result.ended).toBe(true)
     expect(result.clearedLineNames).toEqual(['縦取り'])
+    expect(result.finalNodeNames).toEqual([])
   })
 
-  it('複数のisLeafノードを通過すると、通過順に定石名が蓄積される(重複除去)', () => {
+  it('継続中(ended=false)はfinalNodeNamesが常に空配列(isLeafでも)', () => {
+    const result = advanceClearState([], {
+      isLeaf: true,
+      names: ['縦取り'],
+      bookMoves: [{ move: 20, weight: 1 }],
+    })
+    expect(result.ended).toBe(false)
+    expect(result.finalNodeNames).toEqual([])
+  })
+
+  it('終端ノードに複数の定石が合流している場合、finalNodeNamesに全ての名前が入る', () => {
+    const result = advanceClearState([], {
+      isLeaf: true,
+      names: ['ローズ基本形', 'シャープローズ', 'フラットローズ'],
+      bookMoves: [],
+    })
+    expect(result.ended).toBe(true)
+    expect(result.finalNodeNames).toEqual(['ローズ基本形', 'シャープローズ', 'フラットローズ'])
+  })
+
+  it('複数のisLeafノードを通過すると、通過順に定石名が蓄積される(重複除去)。finalNodeNamesは最後の終端ノードのnamesのみ', () => {
     let cleared: readonly string[] = []
 
     // 1つ目のisLeafノード(短いライン「縦取り」の終端、長いラインの通過点でもある)を通過。
@@ -49,6 +71,7 @@ describe('advanceClearState', () => {
       bookMoves: [{ move: 1, weight: 1 }],
     })
     expect(step.ended).toBe(false)
+    expect(step.finalNodeNames).toEqual([])
     cleared = step.clearedLineNames
     expect(cleared).toEqual(['縦取り', '虎'])
 
@@ -62,5 +85,7 @@ describe('advanceClearState', () => {
     expect(step.ended).toBe(true)
     // 重複した「虎」は1つだけ、順序は初出順を維持。
     expect(step.clearedLineNames).toEqual(['縦取り', '虎', '猫'])
+    // finalNodeNamesは「本当にセッションを終わらせた最終ノード」のnamesのみ(途中の「縦取り」は含まれない)。
+    expect(step.finalNodeNames).toEqual(['虎', '猫'])
   })
 })
