@@ -16,8 +16,14 @@
 //   activateされたら、現在のバージョン以外のキャッシュを削除する。
 //   (バージョン更新通知UIは本タスクのスコープ外。activate時の自動削除のみ。)
 
-// package.json の "version" と合わせておく(リリースごとに手動で更新する)。
-const CACHE_VERSION = '0.0.0';
+// `__BUILD_VERSION__` はビルド成果物(`dist/sw.js`)に対して、ビルド後処理
+// スクリプト `scripts/inject-sw-version.mjs`(`npm run build` の一部として自動実行)
+// が実際のビルドごとに一意な値(gitコミットハッシュ+ビルド時刻)へ置換する
+// プレースホルダー。手動更新は不要(参照: tasks/T023-sw-cache-versioning-fix.md)。
+// `app/public/sw.js` 自体(このファイル)は `npm run dev` では使われず、
+// `vite preview` 等で直接このプレースホルダーのまま読み込まれても
+// (置換前でも)キャッシュ名として機能上問題は無い。
+const CACHE_VERSION = '__BUILD_VERSION__';
 const CACHE_NAME = `othello-trainer-v${CACHE_VERSION}`;
 
 // アプリシェルのうち、ファイル名が固定(ハッシュなし)なもの。
