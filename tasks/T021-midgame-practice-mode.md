@@ -132,4 +132,19 @@ attempts: 0
 - 「クリア」到達の実機確認は自動化では再現できなかった(上記参照)。ユーザーによる手動プレイでの最終確認を推奨する。
 - `generateSelfPlayPosition`の「上位数手からランダム」の軽い制約(任意)は未実装(タスク仕様上任意)。
 
-**git**: 変更を`app/src/midgame/`(新規)・`app/src/app.tsx`(タブ追加)・本タスクファイルに限定してコミットし、`main`にpushする(他セッションが並行して触っている`CLAUDE.md`/`tasks/STATUS.md`/他タスクファイル/`bench/edax-compare/`等は本タスクの変更に含めない)。push・デプロイ確認・本番Pages確認の結果はこの後に追記する。
+**git・デプロイ・本番確認**:
+- 変更を`app/src/midgame/`(新規)・`app/src/app.tsx`(タブ追加)・本タスクファイルに限定してコミット(`817ba8b`)し、`main`にpush。他セッションが並行して触っている`CLAUDE.md`/`tasks/STATUS.md`/他タスクファイル/`bench/edax-compare/`等は本タスクの変更に含めていない。
+- push直後のGitHub Actionsデプロイ(run `28901002427`)が**失敗**した。原因調査の結果、本タスクの変更とは無関係のインフラ不具合と判明: GitHub Actions上の`wasm-pack`(最新版)がバンドルする`wasm-opt`が、現行の`wasm-bindgen`が生成するwasmモジュール(複数のtableセクションを含む)をパースできず`Only 1 table definition allowed in MVP`で失敗し、`npm run build`(の`prebuild`である`wasm:build`)がビルド段階で落ちていた。これはT016〜T020の一連のコミットがこれまで一度もpushされておらず(CLAUDE.mdのプロジェクト固有情報に記載の想定どおり)、本タスクでの最初のpushで初めてCIのwasmビルドが走ったために顕在化した既存の潜在バグであり、本タスク(中盤練習モード)自体のコードに起因するものではない。
+  - 対処: `engine/Cargo.toml`に`[package.metadata.wasm-pack.profile.release]` `wasm-opt = false`を追加してwasm-opt後処理を無効化(サイズ最適化のための後処理であり正当性には無関係、エラーメッセージ自身が推奨する回避策)。別コミット(`83c644f`)としてpush。
+  - 再デプロイ(run `28901184494`)は**成功**(`gh run watch`で確認、build 29s / deploy 8s)。
+- 本番URL `https://giwarb.github.io/othello-trainer/` に対してPlaywrightで動作確認(一時スクリプト、確認後削除):
+  - 本番URLへのアクセス: OK
+  - 「中盤練習」タブへの切り替え: OK
+  - 判定モード/相手強さ/開始局面ソースを選択して開始→対局画面表示: OK
+  - 着手→厳格モードでの失敗判定まで到達: OK
+  - 失敗時に比較PV(あなたの手→進行/正解手→進行)が表示される: OK
+  - 失敗局面がIndexedDB出題プールに登録される(件数0→1): OK
+  - 「ここからやり直す」で対局画面に復帰: OK
+  - 全7項目OK(`node pw-prod-check.mjs` 実行結果: `TOTAL: 7, OK: 7, NG: 0`)
+- ローカル検証で使った一時Playwrightスクリプト・`npm install --no-save playwright`はいずれもコミット対象外(スクリプトは確認後削除、package.json/package-lock.jsonへの変更なし)。
+- 副作用として、`engine/Cargo.toml`修正の動作確認のためローカルの`app/src/engine/pkg`(gitignore対象、wasm-pack未導入環境での代替ビルド成果物キャッシュ)を一度削除した。以後このマシンでローカル`npm run dev`等を使うには`wasm-pack`の導入が必要(GitHub Actions側は`jetli/wasm-pack-action`で自動導入されるため無関係)。
