@@ -80,6 +80,32 @@ pub struct MoveEvalJson {
     pub score: i32,
     #[serde(rename = "discDiff")]
     pub disc_diff: f64,
+    /// この手が実際にどちらの方式で評価されたか(`"exact"` = 終盤完全読み、
+    /// `"midgame"` = 中盤探索)。`ScoreJson::kind` と同じ語彙・同じ
+    /// JSONフィールド名(`"type"`)を使う。`search::MoveEval::is_exact` を
+    /// そのまま文字列化したもので、着手前の局面の空きマス数ではなく
+    /// **この手について実際に使われた評価方式**を反映する
+    /// (レビュー指摘によりT018で追加。詳細は `eval_kind` のコメント参照)。
+    #[serde(rename = "type")]
+    pub kind: String,
+}
+
+/// [`crate::search::MoveEval::is_exact`] を `ScoreJson`/`MoveEvalJson` の
+/// `type` 文字列(`"exact"` | `"midgame"`)に変換する。
+///
+/// `allMoves` 分岐では、トップレベルの `score.type` および各 `moves[].type`
+/// の両方を、**その手について実際に使われた評価方式**
+/// (`search_all_moves` が返す `MoveEval::is_exact`)から決定する。
+/// 着手前の局面の空きマス数と `limit.exact_from_empties` を比較するだけの
+/// 判定では、着手後に空きマス数が必ず1減ることを考慮できておらず、
+/// `exact_from_empties + 1` の境界で実態と食い違うバグがあった
+/// (レビュー指摘、T018フィードバック参照)。
+fn eval_kind(is_exact: bool) -> &'static str {
+    if is_exact {
+        "exact"
+    } else {
+        "midgame"
+    }
 }
 
 /// `analyze` コマンドの正常応答。本タスクでは常に `is_final: true`。
@@ -174,6 +200,12 @@ pub fn handle_analyze(request_json: &str, tt: &mut TranspositionTable) -> String
         exact_from_empties: request.limit.exact_from_empties,
     };
 
+    // `score_kind`(トップレベルの `score.type`)は、`allMoves` を指定しない
+    // 既存の `analyze`(このすぐ下のブロック)専用のフォールバック値として
+    // のみ使う。**着手前**の局面の空きマス数と `exact_from_empties` の比較
+    // でしかないため、`allMoves: true` の分岐(各手を実際にどちらの方式で
+    // 評価したか)には使わない(レビュー指摘、T018フィードバック参照。
+    // 詳細は `eval_kind` のドキュメントコメントを参照)。
     let score_kind = if empties <= limit.exact_from_empties as u32 {
         "exact"
     } else {
@@ -193,25 +225,41 @@ pub fn handle_analyze(request_json: &str, tt: &mut TranspositionTable) -> String
                 mv: square_to_notation(e.mv),
                 score: e.score,
                 disc_diff: e.score as f64 / 100.0,
+                kind: eval_kind(e.is_exact).to_string(),
             })
             .collect();
 
-        // トップレベルの `depth`/`pv`/`score` は、合法手が0件でなければ
-        // 最善手(`moves`の先頭、スコア降順ソート済み)の情報を使って
-        // 既存の `analyze` 応答と同じ形に揃える(パス・終局で合法手が
-        // 無い場合は空のPV・スコア0のまま返す。エラーにはしない)。
-        let (pv, score_value) = match evals.first() {
-            Some(best) => (vec![square_to_notation(best.mv)], best.score),
-            None => (Vec::new(), 0),
+        // トップレベルの `depth`/`pv`/`score.type` は、合法手が0件でなければ
+        // 最善手(`moves`の先頭、スコア降順ソート済み)が**実際にどちらの
+        // 方式で評価されたか**(`MoveEval::is_exact`)を根拠に決める
+        // (着手前の局面の空きマス数だけで判定すると `exact_from_empties + 1`
+        // の境界で実態と食い違うバグがあった。レビュー指摘、T018フィード
+        // バック参照)。完全読みの場合、`depth` は `search()`(単体API)の
+        // 完全読み経路と同じ規約に合わせ、着手後の残り空きマス数を報告する。
+        // パス・終局で合法手が無い場合のみ、`score_kind`(着手前ベースの
+        // フォールバック)と `limit.max_depth` を使う。
+        let (pv, score_value, top_kind, depth) = match evals.first() {
+            Some(best) => {
+                let pv = vec![square_to_notation(best.mv)];
+                let kind = eval_kind(best.is_exact);
+                let depth = if best.is_exact {
+                    let next_board = board.apply_move(side, 1u64 << best.mv);
+                    next_board.empty_count() as u8
+                } else {
+                    limit.max_depth
+                };
+                (pv, best.score, kind, depth)
+            }
+            None => (Vec::new(), 0, score_kind, limit.max_depth),
         };
 
         let response = AnalyzeResponse {
             id: request.id,
             is_final: true,
-            depth: limit.max_depth,
+            depth,
             pv,
             score: ScoreJson {
-                kind: score_kind.to_string(),
+                kind: top_kind.to_string(),
                 disc_diff: score_value as f64 / 100.0,
             },
             // 各手ごとのノード数集計はスコープ外(T018「やらないこと」)。
@@ -461,12 +509,16 @@ mod tests {
             );
         }
 
-        // 各要素が score/discDiff を持ち、discDiff = score/100 であること。
+        // 各要素が score/discDiff/type を持ち、discDiff = score/100 であること。
+        // 初期局面(exactFromEmpties=10)では、全ての手が探索(midgame)経由
+        // で評価されるはず。
         for m in moves {
             let score = m["score"].as_i64().expect("score should be an integer");
             let disc_diff = m["discDiff"].as_f64().expect("discDiff should be a number");
             assert!((disc_diff - score as f64 / 100.0).abs() < 1e-9);
+            assert_eq!(m["type"], "midgame");
         }
+        assert_eq!(response["score"]["type"], "midgame");
 
         // トップレベルのpvも、moves先頭(最善手)の記法と一致するはず。
         let pv = response["pv"].as_array().expect("pv should be an array");
@@ -509,5 +561,88 @@ mod tests {
         assert!(response.get("error").is_none());
         let moves = response["moves"].as_array().expect("moves should be an array");
         assert!(moves.is_empty());
+    }
+
+    #[test]
+    fn analyze_with_all_moves_true_reports_score_type_matching_actual_evaluation_method_at_boundary() {
+        // レビュー指摘(T018フィードバック1件目)の回帰テスト。
+        //
+        // 現局面の空きマス数がちょうど `exact_from_empties + 1` の境界を
+        // 作る。着手すると空きマス数は必ず1減るので、この境界では
+        // **全ての合法手が実際には完全読み(exact solver)で評価される**。
+        //
+        // 修正前のバグでは、トップレベルの `score.type` を「着手前」の
+        // 局面の空きマス数 (`empties_before`) と `exact_from_empties` の
+        // 比較だけで決めていたため、`empties_before > exact_from_empties`
+        // (境界のちょうど1つ上)であるこのケースで `"midgame"` と誤判定
+        // していた。修正後は各手の実際の評価方式(`moves[].type`)、および
+        // それに基づくトップレベルの `score.type` の両方が `"exact"` に
+        // なるはず。
+        let (board, side) = play_until_empties(8);
+        let empties_before = board.empty_count();
+        let exact_threshold = (empties_before - 1) as u8;
+        assert_eq!(empties_before, exact_threshold as u32 + 1);
+
+        let black = board.black;
+        let white = board.white;
+        let turn = if side == Side::Black { "black" } else { "white" };
+
+        let request = format!(
+            r#"{{"id":11,"cmd":"analyze","board":{{"black":"0x{black:x}","white":"0x{white:x}","turn":"{turn}"}},"limit":{{"depth":20,"exactFromEmpties":{exact_threshold}}},"allMoves":true}}"#
+        );
+
+        let mut engine = Engine::new();
+        let response_json = engine.analyze(&request);
+        let response: serde_json::Value =
+            serde_json::from_str(&response_json).expect("response should be valid JSON");
+        assert!(response.get("error").is_none());
+
+        let moves = response["moves"].as_array().expect("moves should be an array");
+        assert!(!moves.is_empty());
+        for m in moves {
+            assert_eq!(
+                m["type"], "exact",
+                "every move should be exact-solved at the exact_from_empties+1 boundary"
+            );
+        }
+
+        assert_eq!(
+            response["score"]["type"], "exact",
+            "top-level score.type should reflect the actual evaluation method (exact), \
+             not just the pre-move empties count"
+        );
+        assert_eq!(
+            response["depth"].as_u64().unwrap(),
+            exact_threshold as u64,
+            "depth should report the remaining empties after the best move, matching search()'s \
+             exact-solve convention"
+        );
+    }
+
+    #[test]
+    fn analyze_with_all_moves_true_respects_time_ms_and_returns_promptly() {
+        // レビュー指摘(T018フィードバック2件目)の回帰テスト。
+        // time_ms を指定すれば、max_depth が大きくてもエンジンが妥当な
+        // 時間で応答を返すことを確認する(性能目標「0.5〜2秒程度」の
+        // 土台となるタイムアウト機構が実際に効いていることの疎通確認)。
+        let request = format!(
+            r#"{{"id":21,"cmd":"analyze","board":{{"black":"{INITIAL_BLACK}","white":"{INITIAL_WHITE}","turn":"black"}},"limit":{{"depth":20,"timeMs":50,"exactFromEmpties":10}},"allMoves":true}}"#
+        );
+
+        let mut engine = Engine::new();
+        let start = std::time::Instant::now();
+        let response_json = engine.analyze(&request);
+        let elapsed = start.elapsed();
+
+        let response: serde_json::Value =
+            serde_json::from_str(&response_json).expect("response should be valid JSON");
+        assert!(response.get("error").is_none());
+        let moves = response["moves"].as_array().expect("moves should be an array");
+        assert_eq!(moves.len(), 4, "all 4 legal moves should still be present");
+
+        assert!(
+            elapsed < std::time::Duration::from_millis(2000),
+            "analyze() with allMoves:true should honor timeMs and return well within 2s, took {elapsed:?}"
+        );
     }
 }

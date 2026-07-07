@@ -104,6 +104,17 @@ pub struct MoveEval {
     /// 評価値。centi-disc単位(1石=100)、`search_all_moves` に渡した
     /// `side_to_move`(着手前の手番)から見た値。
     pub score: i32,
+    /// この評価値が実際にどちらの方式で計算されたか。
+    /// `true` なら終盤完全読み(`endgame::solve_exact_with_nodes`)、
+    /// `false` なら中盤探索(NegaScout)による評価値であることを示す。
+    ///
+    /// 呼び出し側(`protocol.rs`)が `score.type`(`"exact"`/`"midgame"`)を
+    /// 報告する際、**着手前の局面の空きマス数**ではなく、この
+    /// フィールド(=各手について実際に使われた評価方式)を根拠にすること。
+    /// 着手により空きマス数は必ず1減るため、着手前の空きマス数だけで
+    /// 判定すると `exact_from_empties + 1` の境界で実態と食い違う
+    /// (レビュー指摘によりT018で追加)。
+    pub is_exact: bool,
 }
 
 /// 現在の局面を探索し、最善手と評価値を返す。
@@ -208,10 +219,21 @@ pub fn search(
 /// いずれの経路でも、返す `score` は **`side_to_move`(この関数を呼んだ時点の
 /// 手番)から見た** centi-disc スケールの評価値になるよう符号を揃える
 /// (着手後は相手番になるため、内部で得られる値は必ず反転してから格納する)。
+/// どちらの経路で評価したかは `MoveEval::is_exact` にそのまま記録する
+/// (呼び出し側が `score.type` を報告する際の根拠にする。レビュー指摘対応)。
 ///
 /// `tt` は全合法手の評価を通じて使い回される(探索の重複を減らすため)。
 /// [`search`] 同様、T007のTTスケール混同防止ロジック
 /// (`exact_from_empties` が前回と異なる場合に `tt` をクリアする)が働く。
+///
+/// `limit.time_ms` が指定されている場合、[`search`] と同様、反復深化の
+/// 各深さが完了するごとに経過時間をチェックし、超過していればその時点で
+/// 打ち切る。この経過時間計測は**全合法手を通じた累計**であり
+/// (合法手ごとに予算を新たに割り当て直すのではない)、予算を使い切った
+/// 後に評価される残りの合法手は、それぞれ1回だけ静的評価
+/// (`eval::evaluate_for`)相当の浅い値になる。全合法手の評価を打ち切りなく
+/// 完走した場合と比べて精度は落ちるが、「0.5〜2秒程度で返る」という
+/// 性能目標(タスク背景参照)を守ることを優先する。
 ///
 /// 合法手が0件(パスすべき局面・終局局面)の場合は空の `Vec` を返す
 /// (エラーにしない)。返す順序はスコア降順。
@@ -241,13 +263,24 @@ pub fn search_all_moves(
     let opponent = side_to_move.opposite();
     let mut evals: Vec<MoveEval> = Vec::with_capacity(moves.len());
 
+    // 全合法手を通じた累計の経過時間を計測する(`limit.time_ms` があれば
+    // 参照する)。`search()` の反復深化ループと同じ「1反復完了ごとに
+    // チェック」というポリシーだが、ここでは合法手をまたいで単一の
+    // `start` を共有する(合法手ごとに予算を新たに割り当て直さない、
+    // 実装者判断でシンプルな「全体の経過時間で判定する」方式を採る)。
+    // 予算を使い切った後に評価される合法手は、それぞれの反復深化ループが
+    // depth=1(子局面としては depth=0、静的評価1回分)で即座に打ち切られる
+    // ため、全合法手が必ず `evals` に含まれることは変わらない
+    // (深さが浅くなるだけで、手が欠落することはない)。
+    let start = Instant::now();
+
     for mv in moves {
         let next_board = board.apply_move(side_to_move, 1u64 << mv);
         let next_empties = next_board.empty_count();
 
-        let score = if next_empties <= limit.exact_from_empties as u32 {
+        let (score, is_exact) = if next_empties <= limit.exact_from_empties as u32 {
             let (raw_diff, _nodes) = solve_exact_with_nodes(&next_board, opponent, tt);
-            -(raw_diff * 100)
+            (-(raw_diff * 100), true)
         } else {
             // 反復深化: search()のルート呼び出しと同じ深さの意味を保つため、
             // ここで消費した1手分(mvの着手)を差し引いた `depth - 1` を
@@ -264,11 +297,17 @@ pub fn search_all_moves(
                     nodes: &mut nodes,
                 };
                 best_for_move = -negascout(&next_board, opponent, depth - 1, -INF, INF, &mut ctx);
+
+                if let Some(time_ms) = limit.time_ms {
+                    if start.elapsed().as_millis() as u64 >= time_ms {
+                        break;
+                    }
+                }
             }
-            best_for_move
+            (best_for_move, false)
         };
 
-        evals.push(MoveEval { mv, score });
+        evals.push(MoveEval { mv, score, is_exact });
     }
 
     evals.sort_by_key(|e| std::cmp::Reverse(e.score));
@@ -787,7 +826,102 @@ mod tests {
                 "move {} should be scored via the exact solver",
                 eval.mv
             );
+            assert!(
+                eval.is_exact,
+                "move {} was scored via the exact solver, so is_exact should be true",
+                eval.mv
+            );
         }
+    }
+
+    #[test]
+    fn search_all_moves_is_exact_flag_matches_the_evaluation_method_actually_used_at_the_boundary() {
+        // レビュー指摘(T018フィードバック1件目)の回帰テスト:
+        // 「着手前の局面の空きマス数」と「exact_from_empties」の比較だけで
+        // score.type を決めると、exact_from_empties + 1 という境界で実態と
+        // 食い違う(着手後は必ず空きマスが1減るため、着手前の空きマス数が
+        // ちょうど exact_from_empties + 1 のとき、全ての手は実際には完全
+        // 読みで評価されるが、着手前ベースの判定では「探索(midgame)」だと
+        // 誤判定してしまう)。
+        //
+        // `MoveEval::is_exact` が「着手前の空きマス数」ではなく「各手が
+        // 実際にどちらの方式で評価されたか」を正しく反映していることを、
+        // この境界条件で確認する。
+        let (board, side) = play_until_empties(7, first_move_strategy);
+        let empties_before = board.empty_count();
+        let exact_threshold = (empties_before - 1) as u8; // 境界: empties_before == exact_threshold + 1
+
+        assert_eq!(
+            empties_before,
+            exact_threshold as u32 + 1,
+            "test setup should place empties_before exactly one above exact_threshold"
+        );
+
+        let limit = default_limit(20, exact_threshold);
+        let mut tt = TranspositionTable::new(4);
+        let evals = search_all_moves(&board, side, &limit, &mut tt);
+
+        assert!(!evals.is_empty());
+        for eval in &evals {
+            assert!(
+                eval.is_exact,
+                "move {} should be flagged as exact-solved at the exact_from_empties+1 boundary \
+                 (this is exactly the case the pre-move-empties-based score.type judgement got wrong)",
+                eval.mv
+            );
+        }
+    }
+
+    #[test]
+    fn search_all_moves_is_exact_is_false_when_above_the_exact_threshold() {
+        // 対照テスト: 十分に空きマスが多い(exact_from_empties を大きく
+        // 上回る)局面では、全ての手が探索(NegaScout)経由、つまり
+        // `is_exact == false` になることを確認する。
+        let board = Board::initial();
+        let limit = default_limit(4, 10);
+        let mut tt = TranspositionTable::new(4);
+
+        let evals = search_all_moves(&board, Side::Black, &limit, &mut tt);
+        assert!(!evals.is_empty());
+        for eval in &evals {
+            assert!(
+                !eval.is_exact,
+                "move {} should not be flagged as exact-solved when far from the endgame",
+                eval.mv
+            );
+        }
+    }
+
+    #[test]
+    fn search_all_moves_respects_time_ms_budget_and_returns_promptly() {
+        // レビュー指摘(T018フィードバック2件目)の回帰テスト:
+        // time_ms を指定すれば、たとえ max_depth が大きくても
+        // (合法手数 × 高深度を律儀に反復深化し続けることなく)
+        // 妥当な時間で打ち切られることを確認する。
+        //
+        // 初期局面から depth=20 まで4手すべてを time_ms 制限なしで
+        // 反復深化すると非常に長い時間がかかる(本テストでは実行しない)。
+        // ここでは time_ms=50 を指定し、その予算内に近い時間で
+        // 関数が返ってくること(かつ全4手が欠落なく返ること)を確認する。
+        let board = Board::initial();
+        let limit = SearchLimit {
+            max_depth: 20,
+            time_ms: Some(50),
+            exact_from_empties: 10,
+        };
+        let mut tt = TranspositionTable::new(64);
+
+        let start = std::time::Instant::now();
+        let evals = search_all_moves(&board, Side::Black, &limit, &mut tt);
+        let elapsed = start.elapsed();
+
+        println!("search_all_moves with time_ms=50 finished in {elapsed:?}");
+
+        assert_eq!(evals.len(), 4, "all 4 legal moves should still be present");
+        assert!(
+            elapsed < std::time::Duration::from_millis(2000),
+            "search_all_moves should honor time_ms and return well within 2s, took {elapsed:?}"
+        );
     }
 
     #[test]

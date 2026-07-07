@@ -61,6 +61,13 @@ export interface MoveEvalJson {
   /** 評価値。centi-disc単位(1石=100)、手番視点。 */
   score: number;
   discDiff: number;
+  /**
+   * この手が実際にどちらの方式で評価されたか(`ScoreJson.type` と同じ語彙)。
+   * `"exact"` = 終盤完全読み、`"midgame"` = 中盤探索。着手前の局面の空きマス数
+   * ではなく、この手について実際に使われた評価方式を表す
+   * (レビュー指摘によりT018で追加。`engine/src/protocol.rs` の `eval_kind` 参照)。
+   */
+  type: 'midgame' | 'exact';
 }
 
 /**

@@ -174,18 +174,18 @@ describe('EngineClient', () => {
         nodes: 0,
         nps: 0,
         moves: [
-          { move: 'f5', score: 240, discDiff: 2.4 },
-          { move: 'd3', score: 100, discDiff: 1.0 },
-          { move: 'c4', score: 0, discDiff: 0 },
-          { move: 'e6', score: -50, discDiff: -0.5 },
+          { move: 'f5', score: 240, discDiff: 2.4, type: 'midgame' },
+          { move: 'd3', score: 100, discDiff: 1.0, type: 'midgame' },
+          { move: 'c4', score: 0, discDiff: 0, type: 'midgame' },
+          { move: 'e6', score: -50, discDiff: -0.5, type: 'midgame' },
         ],
       });
 
       await expect(promise).resolves.toEqual([
-        { move: 'f5', score: 240, discDiff: 2.4 },
-        { move: 'd3', score: 100, discDiff: 1.0 },
-        { move: 'c4', score: 0, discDiff: 0 },
-        { move: 'e6', score: -50, discDiff: -0.5 },
+        { move: 'f5', score: 240, discDiff: 2.4, type: 'midgame' },
+        { move: 'd3', score: 100, discDiff: 1.0, type: 'midgame' },
+        { move: 'c4', score: 0, discDiff: 0, type: 'midgame' },
+        { move: 'e6', score: -50, discDiff: -0.5, type: 'midgame' },
       ]);
     });
 

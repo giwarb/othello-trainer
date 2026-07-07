@@ -1,9 +1,9 @@
 ---
 id: T018
 title: 複数候補手一括評価API(全モード共通基盤)
-status: todo
+status: redo
 assignee: implementer
-attempts: 0
+attempts: 1
 ---
 
 # T018: 複数候補手一括評価API(全モード共通基盤)
@@ -56,7 +56,21 @@ attempts: 0
 
 ## フィードバック(やり直し時にオーケストレーターが記入)
 
-(なし)
+2026-07-08 オーケストレーター(1回目のやり直し依頼):
+
+verifierは合格でしたが、reviewerが実害のある具体的なバグを2件発見しました。修正をお願いします。
+
+### 1. 【要修正・バグ】`score.type`/`depth`の不整合(境界条件)
+
+`handle_analyze`は`allMoves`分岐に入る**前**に、現局面(着手前)の空きマス数と`limit.exact_from_empties`を比較して`score_kind`(`"exact"`/`"midgame"`)を決定しています。一方`search_all_moves`内部では、各合法手を**着手した後**の局面の空きマス数で完全読みか探索かを判定しています。着手により空きマス数は必ず1減るため、**現局面の空きマス数が`exact_from_empties + 1`の境界では**、トップレベルの`score_kind`は`"midgame"`と判定されるにもかかわらず、`search_all_moves`内部では全合法手が実際には完全読み(exact solver)で評価される、という矛盾が起きます。
+
+これは「評価値のソース(定石/中盤/終盤)を色分け表示する」というユーザー要望の土台となる情報であり、実際に誤動作すると色分けが不正確になります。**`allMoves`応答の`score.type`(および`depth`)は、実際に使われた評価方式(完全読みか探索か)を正しく反映するように修正してください**。例えば、`search_all_moves`が返す各`MoveEval`に「どちらの方式で評価されたか」を示すフラグ(例: `is_exact: bool`)を追加し、`protocol.rs`側でトップレベルの`score.type`を「最善手(先頭要素)が実際にどちらで評価されたか」に基づいて設定するようにしてください。理想的には、`moves`配列の各要素にも個別に評価ソースを含められるとなお良いです(次タスクでUIが「この手だけ完全読みで確定済み」のような表示をする可能性があるため)。
+
+### 2. 【推奨修正】`search_all_moves`が`limit.time_ms`を無視している
+
+既存の`search()`は反復深化の各深さ完了後に`time_ms`超過をチェックして打ち切りますが、`search_all_moves`の内側ループにはこのチェックがなく、合法手数×`max_depth`まで律儀に反復深化を続けます。タスク背景に記載した「0.5〜2秒程度で返る」という性能目標を担保する仕組みが実質存在しません。`search()`と同様に、各合法手の反復深化中に経過時間をチェックし、`time_ms`を超えたらその時点までの最良結果で打ち切るようにしてください(合法手ごとの予算配分は実装者の判断でよい。例えば全体の`time_ms`を合法手数で均等割りするか、全体の経過時間で判定するか、シンプルな方法で構いません)。
+
+修正後、境界条件(現局面の空きマス数が`exact_from_empties + 1`の局面)を対象にしたテストを追加し、`score.type`が実態と一致することを確認してください。`time_ms`のテストも簡単なもので構わないので追加してください。
 
 ## 作業ログ(担当エージェントが追記)
 
@@ -90,3 +104,26 @@ attempts: 0
     - `requestAnalyzeAll`の最良スコア(0)と`requestAnalyze`のスコア(discDiff 0 → 0)が一致することも確認。
 
   コミット対象: `engine/src/search.rs`・`engine/src/protocol.rs`・`app/src/engine/types.ts`・`app/src/engine/client.ts`・`app/src/engine/client.test.ts`(いずれもT018の変更対象ファイルのみ)。`git status`確認時、`CLAUDE.md`・`tasks/STATUS.md`・他タスクファイル(T012, T013, T016, T017等)・`othello-trainer-design-verbalization.md`・`single_unlabeled.txt`が自分の変更外で既に変更/未追跡状態だったため、本タスクのコミットには一切含めていない(本作業ログ追記のみ`tasks/T018-multi-move-eval.md`を変更)。
+
+- 2026-07-08 implementer(1回目のやり直し対応): reviewer指摘の2件のバグを修正した。
+
+  実施内容:
+  1. 【要修正・バグ】`score.type`/`depth`の境界条件不整合を修正。
+     - `engine/src/search.rs`: `MoveEval`に`pub is_exact: bool`フィールドを追加。`search_all_moves`内で、完全読み(`solve_exact_with_nodes`)経由なら`is_exact: true`、探索(NegaScout)経由なら`false`をその手ごとに記録するようにした(着手前の局面ではなく、各手について実際に使われた評価方式をそのまま保持する)。
+     - `engine/src/protocol.rs`: `MoveEvalJson`に`#[serde(rename="type")] pub kind: String`を追加し、`moves[]`の各要素にも個別の評価ソース(`"exact"`/`"midgame"`)を含めるようにした(reviewerの「理想的には」の推奨も反映)。新設ヘルパー`fn eval_kind(is_exact: bool) -> &'static str`で`MoveEval::is_exact`から文字列に変換。`allMoves`分岐のトップレベル`score.type`/`depth`は、`moves`先頭(最善手)の`MoveEval::is_exact`を根拠に決定するよう変更(旧実装は分岐直前に着手前の空きマス数のみで計算した`score_kind`をそのまま使っていたのがバグの原因)。`score_kind`(着手前ベースの値)は、合法手が0件の場合のフォールバックとしてのみ残した。完全読みの場合の`depth`は、`search()`の完全読み経路と同じ規約(残り空きマス数)に合わせて`next_board.empty_count()`を報告するようにした。
+     - テスト追加: `search.rs`に`search_all_moves_is_exact_flag_matches_the_evaluation_method_actually_used_at_the_boundary`(空きマス数がちょうど`exact_from_empties+1`の境界局面で全手が`is_exact==true`になることを確認)と`search_all_moves_is_exact_is_false_when_above_the_exact_threshold`(対照テスト)、`protocol.rs`に`analyze_with_all_moves_true_reports_score_type_matching_actual_evaluation_method_at_boundary`(同じ境界条件をJSON応答レベルで検証し、`moves[].type`と`score.type`がともに`"exact"`になること、`depth`が残り空きマス数と一致することを確認)を追加。
+  2. 【推奨修正】`search_all_moves`が`limit.time_ms`を無視していた点を修正。
+     - `engine/src/search.rs`: `search_all_moves`冒頭で`Instant::now()`(`web-time`、既存importを再利用)を1回取得し、全合法手を通じた累計経過時間として扱う(合法手ごとに予算を再割り当てしない、シンプルな「全体の経過時間で判定」方式を採用。フィードバックで明示的に許容されている選択肢)。各合法手の反復深化ループ内で、`search()`と同じく1深さ完了ごとに`start.elapsed() >= time_ms`をチェックし、超過していればその深さの結果で打ち切る。予算超過後に評価される残りの合法手も、ループが即座に(depth=1→子局面depth=0の1回)打ち切られるだけで必ず`evals`に追加されるため、「全合法手を返す」という既存の契約(要件3)は壊れない。
+     - テスト追加: `search.rs`に`search_all_moves_respects_time_ms_budget_and_returns_promptly`(`max_depth=20, time_ms=50`で初期局面を評価し、2秒未満で完走し4手すべてが返ることを確認)、`protocol.rs`に`analyze_with_all_moves_true_respects_time_ms_and_returns_promptly`(同じ条件をJSON API経由で確認)を追加。
+  3. `app/src/engine/types.ts`: `MoveEvalJson`に`type: 'midgame' | 'exact'`を追加し、Rust側`MoveEvalJson`の実際のJSON形状と一致させた。`app/src/engine/client.test.ts`のモックレスポンス内`moves`配列にも`type`フィールドを追加(型チェックを通すため)。
+
+  検証結果(すべて自分で実行・確認):
+  - `cargo test -p engine` → 56件全件パス(前回51件 + 本やり直しで追加した5件: search.rs 3件 + protocol.rs 2件)。
+  - `cargo build -p engine --target wasm32-unknown-unknown` → 成功。
+  - `cargo clippy -p engine -- -D warnings` → 警告0。
+  - `cd app && npm run typecheck` → エラー0。
+  - `cd app && npm test` → 7ファイル・62件全件パス(型定義変更に伴うモック更新のみで件数は変わらず)。
+  - `cd app && npm run build` → 成功。
+  - 実機確認(再実施): `npm run dev`(`http://localhost:5173/`)を起動し、Playwright(Chromium)で(1)`app/src/game/othello.ts`のロジックで初期局面から決定的に手を進めて空きマス数8の局面(=`exact_from_empties=7`のとき境界条件`emptiesBefore==exactThreshold+1`)を作り、`client.requestAnalyzeAll(...)`を呼んで返ってきた6手すべての`type`が`"exact"`であることを確認(実際の出力: 6手すべて`"type":"exact"`)。(2)初期局面・`depth:20, timeMs:50`で`client.requestAnalyzeAll(...)`を呼び、約68msで4手全てが返ることを確認(2秒未満、タイムアウト機構が機能していることを確認)。
+
+  コミット対象: `engine/src/search.rs`・`engine/src/protocol.rs`・`app/src/engine/types.ts`・`app/src/engine/client.test.ts`(いずれもT018のやり直し対応で変更したファイルのみ)。`git status`で他タスク由来の変更(`CLAUDE.md`・`tasks/STATUS.md`・他タスクファイル等)が混在していないことを確認済み。
