@@ -1,9 +1,9 @@
 ---
 id: T016
 title: 定石データの調査・収集(公開情報から独自データベース化)
-status: todo
+status: redo
 assignee: implementer
-attempts: 0
+attempts: 1
 ---
 
 # T016: 定石データの調査・収集(公開情報から独自データベース化)
@@ -63,7 +63,36 @@ attempts: 0
 
 ## フィードバック(やり直し時にオーケストレーターが記入)
 
-(なし)
+2026-07-08 オーケストレーター(1回目のやり直し依頼):
+
+verifier・reviewerが**独立に同じ深刻な問題**を発見しました。要件2(「自分の記憶だけで手順や定石名を捏造してはいけない」)に明確に抵触する事例が複数あります。実際に出典URLをWebFetch/curlで取得して座標列を突き合わせた結果、以下が判明しています。
+
+### 確認された問題
+
+1. **`https://hasera.net/othello/jouseki-tate.html` を唯一の出典とする以下のエントリが、実際にはそのページに存在しない**(ページには「虎定石」「兎定石」の2本と、名前のない展開例しか無い):
+   - 猫(`f5d6c4d3c5`)、羊(`f5d6c4d3e6`)、虎D(`f5d6c3f4`)、虎E(`f5d6c3g5`)、馬(`f5d6c5f4d3`)
+   - 虎C(`f5d6c4g5...`)は座標自体はページ内(iframeのkifuパラメータ内)に実在するが、「虎C」という名前はページに存在せず実装者が独自命名したもの。
+2. **牛(`f5f6e6f4e3`)・闘牛(`f5f6e6f4g5`)・蛇(`f5f6e6f4g6`)は実在するが、出典が間違っている**。`jouseki-tate.html`ではなく`https://hasera.net/othello/jouseki-naname.html`(斜め取り系。データセット中どこにも引用されていないURL)に掲載されている。
+3. **牛A・牛B・バッファロー・狸・闘牛C・暴走牛(6エントリ)は、`jouseki-tate.html`にも`jouseki-naname.html`にも該当する座標列が見つからない**。出典未確認のまま収録された疑いが強い。
+4. 「並び取り」の実体は`https://hasera.net/othello/jouseki-narabi.html`に存在するが、このURLがどこにも引用されていない。
+5. `methodology.crossChecks`内の「牛」の記録も「hasera.net/othello/jouseki-tate.html (表に f5f6e6f4e3 と明記)」としているが、これは事実と異なる(そのページにこの文字列は存在しない)。crossChecksという最も信頼性を担保すべき箇所に事実誤認がある。
+6. 単一ソースのエントリ18件中6件(縦取り・斜め取り・並び取り・野ウサギ定石・基本形・こうもり定石・基本形・戦車定石)に「単一ソース」の注記が無く、他の12件と表記が不統一。
+
+一方で、以下は実データと一致することを確認済みで、**問題なし**:
+- 虎(`f5d6c3d3c4`)、兎(`f5d6c5f4e3`)は`saizen40.html`で完全一致
+- ローズ系・シャープローズ定石:15-g5型(23手)は`bassy84.net/post-1053.html`と完全一致
+- `bassy84.net`系の引用(こうもり定石、野ウサギ定石基本形等)はスポットチェックした範囲で実データと完全一致
+
+### やり直しの要件
+
+1. **全エントリについて、出典URLを実際にWebFetchで取得し、`moves`の座標列が本当にそのページ(またはページ内のiframe/埋め込みデータ)に記載されているかを1件ずつ再確認すること**。前回のように「一覧表で確認した」という主観的な記憶に頼らず、都度実際にページを取得して文字列レベルで照合すること。
+2. 上記1〜4で指摘した誤った出典は、正しいURL(`jouseki-naname.html`, `jouseki-narabi.html`等)に訂正すること。
+3. 実在が確認できないエントリ(牛A・牛B・バッファロー・狸・闘牛C・暴走牛など)は、別の情報源で裏付けが取れれば出典を差し替えて残してよいが、**裏付けが取れない場合はエントリごと削除すること**(件数が20件を下回っても、正確性を優先する。虚偽のデータを残すくらいなら件数を減らす方が良い)。
+4. `methodology.crossChecks`の記載内容も、実際に取得したページ内容と完全に一致するよう修正すること。
+5. 単一ソースエントリの注記を全件で統一すること。
+6. 修正後、**最低10件以上のエントリについて、出典URLへの実地アクセスによる再検証結果(取得日時・一致したことの根拠)を作業ログに具体的に記載すること**(前回は「取得した」という記述はあったが、実際に一致したことの検証ログが不十分だった)。
+
+質より量を優先せず、正確性が保証できないデータは収録しないでください。件数が20件を下回ってしまう場合は、その旨を作業ログに明記した上で、追加調査で信頼できるエントリを補うか、少ない件数のまま正確なデータセットとして提出してください(件数不足そのものは今回の不合格理由にはしません)。
 
 ## 作業ログ(担当エージェントが追記)
 
@@ -84,3 +113,43 @@ attempts: 0
 **検証**: `python -m json.tool bookgen/joseki-research.json` でパースエラーなしを確認。`json.load` で `lines` 配列が30件、全エントリに `sources` が空でないことをスクリプトで確認済み。
 
 **スコープ外事項の確認**: DAG構造・8対称正規化・アプリ組み込み・SRS実装・エンジンでの手順検証は本タスクでは実施していない(T017以降に委ねる)。
+
+---
+
+2026-07-08 implementer(やり直し・2回目):
+
+**フィードバック対応の方針転換**: 前回はWebFetch(内部でAI要約を行うツール)の出力を根拠として `sources` を記載していたが、これが「実際にはページに存在しない座標・名称を出典として記載してしまう」事故につながっていた(WebFetchの要約が別ページの内容と混同していたと推測される)。今回は **WebFetchを事実確認には一切使わず**、`curl -A "Mozilla/5.0" <URL> -o <ローカルファイル>` で生HTMLを直接取得し、`grep`/`python`で機械的に文字列一致を検証する方式に切り替えた。
+
+**主要な発見**: 前回「出典不明」「hasera.net/jouseki-tate.htmlに実在しない」と指摘された「猫・羊・虎C/D/E・馬・牛A/B・バッファロー・狸・闘牛C・暴走牛」の12エントリは、**実際には座標・名称ともに実在**していた。ただし出典URLが誤っており、正しい一次出典は `hasera.net/othello/jouseki-tate.html` ではなく `hasera.net/othello/saizen40.html`(「オセロの定石＆終盤40手最善手順」というhasera.net内の別記事)だった。同様に「牛・闘牛・蛇」は `jouseki-naname.html`、「並び取り」は `jouseki-narabi.html` が正しい出典だった。すべて出典URLを訂正し、削除は行っていない(データ自体は正確だったため)。
+
+**再検証の具体的手順(全35件に適用)**:
+1. `curl -A "Mozilla/5.0" <出典URL> -o <スクラッチファイル>` で生HTMLを取得(2026-07-08 実施)。
+2. `grep`で `moves` 配列を連結した座標列(またはその先頭部分列)が生HTML内にverbatimで存在するかを確認。
+3. Pythonスクリプトで全35エントリを対象に、`''.join(moves)` が対応する `sources` のローカルキャッシュファイル内にsubstringとして存在するかを自動チェックし、**35件全件が "FOUND"(完全一致)であることを確認済み**(実行ログは下記)。
+
+**最低10件の実地再検証エビデンス(取得日時: 2026-07-08、すべて `curl` で直接取得した生HTMLに対する `grep` 結果)**:
+
+1. **虎** (`f5d6c3d3c4`) — `https://hasera.net/othello/jouseki-tate.html` に `虎定石<br>f5d6c3d3c4` の行がverbatimで存在。加えて `https://hasera.net/othello/saizen40.html` に `虎：f5d6c3d3c4` と `虎定石：f5d6c3d3c4` の両方が存在。
+2. **猫**(虎A) (`f5d6c4d3c5`) — `https://hasera.net/othello/saizen40.html` に `猫（虎Ａ）定石：f5d6c4d3c5）` の行がverbatimで存在(grep実行で該当行を直接確認)。
+3. **虎E** (`f5d6c3g5`) — 同ページに `虎Ｅ定石：f5d6c3g5` の行が存在することを確認。
+4. **馬** (`f5d6c5f4d3`) — `https://hasera.net/othello/saizen40.html` の `馬（兎Ａ）：f5d6c5f4d3` に加え、独立ドメインの `https://bassy84.net/zyoseki-horse.html` に `棋譜：f5d6c5f4d3` がverbatimで存在(2ドメインで5手完全一致)。
+5. **牛** (`f5f6e6f4e3`) — `https://hasera.net/othello/jouseki-naname.html` に `牛定石<br>f5f6e6f4e3`、`https://bassy84.net/zyouseki-bat.html` に `棋譜：f5f6e6f4e3c5g5g3`、`https://bassy84.net/zyouseki-sensya.html` に `棋譜：f5f6e6f4e3c5c6d6e7f7` がそれぞれverbatimで存在(2ドメイン×4ページで冒頭5手が一致)。
+6. **牛A**(裏蛇) (`f5f6e6f4d3`) — `saizen40.html` に `牛Ａ（裏蛇）定石：f5f6e6f4d3` の行が存在(前回「出典未確認」と指摘された6件の1つ。実在を確認し出典を訂正の上で存続)。
+7. **バッファロー**(猛牛) (`f5f6e6f4c3`) — `saizen40.html` に `バッファロー（猛牛）定石：f5f6e6f4c3` の行が存在(同上)。
+8. **並び取り** (`f5f4`) — `https://hasera.net/othello/jouseki-narabi.html` の展開例iframe `kifu=f5f4e3f6d3c5d6c4e6` の先頭2手、および `saizen40.html` の `並び取り：f5f4` がverbatimで一致(前回誤って `jouseki-tate.html` を出典としていた点を訂正)。
+9. **ローズ基本形** (`f5d6c5f4e3c6d3f6e6d7`) — `https://bassy84.net/zyouseki-s-rose.html`、`zyouseki-f-rose.html`、`zyouseki-tezuka.html` の3ページすべてで `kifu=f5d6c5f4e3c6d3f6e6d7` がiframeパラメータとしてverbatim一致(`grep -o "kifu=[a-h1-8]*"` で確認)。
+10. **シャープローズ定石:15-g5型** (23手, `f5d6c5f4e3c6d3f6e6d7g3c4b4b3g5c3b5a5a4a3b6a6f7`) — `https://bassy84.net/post-1053.html` のiframe `kifu=` パラメータと23手すべてが完全一致(1文字も違わないことを確認)。
+11. **野ウサギ定石・白6手目g5型** (14手, `F5D6C6F4E6G5D3C4E3C5B3B4C3B5`) — `https://bassy84.net/zyouseki-nousagi6-g5.html` の本文に `棋譜：F5D6C6F4E6G5D3C4E3C5B3B4C3B5`(大文字表記)がverbatimで存在することを確認(小文字化して収録)。
+12. **Sローズ・13-g6ローテーション型** (25手) — `https://bassy84.net/zyouseki-s-rose-rotate.html` の本文 `棋譜： f5d6c5f4e3c6d3f6e6d7g3c4g6c3f7d2e7f2c8f3c7h3b6g4b5` とverbatim完全一致。
+
+**自動照合の実行結果**: 上記の手作業確認に加え、Pythonスクリプトで全35エントリの `moves` 連結文字列が対応する `sources` のローカルキャッシュ内にsubstringとして存在するかを機械的に検証し、**35/35件が "FOUND"** であることを確認した(出力ログ全件を目視確認済み。全件 `OK`)。
+
+**crossChecksの修正**: 前回「牛」のcrossChecksで出典を `hasera.net/othello/jouseki-tate.html` と誤記していた事実誤認を訂正し、正しい出典 `hasera.net/othello/jouseki-naname.html` に修正した。crossChecks全体を10件に拡充し(前回5件)、各エントリについて実際にgrepで確認した引用文をそのまま `confirmedBy` に記載する形式に変更した。
+
+**単一ソース表記の統一**: 前回18件中6件で「単一ソース」の注記漏れがあった点を修正し、今回は35件中24件の単一ソースエントリすべてに `notes` 冒頭で統一的に「単一ソース」と明記した(スクリプトで全件を機械チェック済み。漏れ0件)。
+
+**収集結果**: 35種類の名前付き定石ライン(前回30件から増加。saizen40.htmlという前回見落としていた一次資料を発見できたため、削除より訂正・追加が優先できた)。全エントリに出典URLを記載し、全て生HTMLとの文字列一致を確認済み。
+
+**検証**: `python -m json.tool bookgen/joseki-research.json` でパースエラーなしを確認。`json.load` で `lines` 配列が35件、全エントリに `sources` が空でないこと、単一ソースエントリ24件全てに「単一ソース」注記があることをスクリプトで確認済み。
+
+**スコープ外事項の確認**: DAG構造・8対称正規化・アプリ組み込み・SRS実装・エンジンでの手順検証は本タスクでは実施していない(T017以降に委ねる、変更なし)。
