@@ -12,11 +12,12 @@ import {
   type Board as BoardState,
   type Side,
 } from '../game/othello.ts'
-import { getSrsState, getAllSrsStates, putSrsState } from './db.ts'
+import { getAllSrsStates, recordSrsResults } from './db.ts'
 import { judgeMove } from './judgeMove.ts'
 import { loadJosekiDb, lookupJosekiNode, type JosekiBookMoveView } from './lookup.ts'
-import { pickBookMove } from './pickBookMove.ts'
-import { isDue, nextSrsState } from './srs.ts'
+import { pickBookMove, preferMovesTowardTarget } from './pickBookMove.ts'
+import { advanceClearState } from './practiceSession.ts'
+import { isDue } from './srs.ts'
 import type { JosekiDb } from './types.ts'
 import './PracticeMode.css'
 
@@ -36,6 +37,13 @@ interface PracticeState {
   readonly firstMoveSquare: number | null
   readonly lastMove: number | null
   readonly moveHistory: readonly number[]
+  /**
+   * セッション開始からここまでに通過した`isLeaf`ノードの定石名の和集合(重複除去)。
+   * T017のDB設計上、短いラインの終端が長いラインの通過点を兼ねることがあるため、
+   * `isLeaf`到達は即クリアではなく「通過記録」として蓄積し、`bookMoves`が真に空に
+   * なった時点で初めてクリアとする(`practiceSession.ts` 参照)。
+   */
+  readonly clearedLineNames: readonly string[]
 }
 
 interface ClearResultInfo {
@@ -79,10 +87,15 @@ function formatBookMoves(moves: readonly JosekiBookMoveView[]): string {
  * 設計書 `othello-trainer-design.md` §2.6「定石練習モード」(オセロクエスト式)の実装:
  * 1. 色選択(黒/白/ランダム)
  * 2. 相手は現局面の定石DBの `bookMoves` から重み比例のランダム抽選で着手
+ *    (出題対象ラインがまだ辿れる候補があれば優先する)
  * 3. プレイヤーが `bookMoves` に無い手を打つと、`requestAnalyzeAll` の結果を元に
  *    「定石外・惜しい」か「悪手」かを判定してゲームオーバー
- * 4. 定石DBノードが `isLeaf` に達したらクリア
+ * 4. 定石DBノードが `isLeaf` に達しても `bookMoves` が非空ならセッション継続(通過した
+ *    定石名は蓄積する)。`bookMoves` が真に空になった時点で初めてクリア
+ *    (T017のDB設計上、短いラインの終端が長いラインの通過点を兼ねるケースがあるため。
+ *    `practiceSession.ts` 参照)
  * 5. クリア/ゲームオーバーの結果をSRS(間隔反復)としてIndexedDBに記録する
+ *    (クリア時は通過した全ライン名、ゲームオーバー時は出題対象ライン)
  *
  * レスポンシブ対応: 375px幅程度でも崩れないよう `PracticeMode.css` でボタン群・
  * 結果表示を `flex-wrap` させ、狭幅では縦積みにする。
@@ -148,11 +161,22 @@ export function PracticeMode() {
       return
     }
 
+    // 出題対象ライン(targetLineId)がまだ辿れる候補があれば、そちらを優先する(要件5、必須ではないが対応)。
+    // 該当が無ければ preferMovesTowardTarget が元の bookMoves をそのまま返すのでランダム抽選は変わらない。
+    const candidateMoves = targetLineId
+      ? preferMovesTowardTarget(lookupResult.bookMoves, (move) => {
+          const simulatedBoard = applyMove(state.board, state.sideToMove, move)
+          const simulatedSide = opposite(state.sideToMove)
+          const simulatedLookup = lookupJosekiNode(josekiDb, simulatedBoard, simulatedSide, firstMove)
+          return simulatedLookup?.names.includes(targetLineId) ?? false
+        })
+      : lookupResult.bookMoves
+
     let cancelled = false
     setOpponentThinking(true)
     const timer = setTimeout(() => {
       if (cancelled) return
-      const square = pickBookMove(lookupResult.bookMoves)
+      const square = pickBookMove(candidateMoves)
       advance(square)
       setOpponentThinking(false)
     }, OPPONENT_MOVE_DELAY_MS)
@@ -167,7 +191,12 @@ export function PracticeMode() {
 
   /**
    * `square` に着手して局面を進める(定石内であることが確定した手にのみ使う)。
-   * 着手後の局面が定石DBの `isLeaf` ノードであればクリア扱いにし、SRSに正解を記録する。
+   *
+   * 着手後の局面が `isLeaf` でも、`bookMoves` が非空であれば「短いラインの終端」と
+   * 「長いラインの通過点」を兼ねているだけなのでセッションは継続し、通過した定石名を
+   * 蓄積するだけに留める。`bookMoves` が真に空になった(その先に定石データが無い、
+   * 本当の終端に達した)時点で初めてクリア扱いにし、蓄積した全ライン名についてSRSに
+   * 正解を記録する(`practiceSession.ts` の `advanceClearState` 参照)。
    */
   function advance(square: number): void {
     if (!state || !josekiDb) return
@@ -177,6 +206,9 @@ export function PracticeMode() {
     const nextFirstMove = state.firstMoveSquare ?? square
     const moveHistory = [...state.moveHistory, square]
 
+    const lookup = lookupJosekiNode(josekiDb, board, nextSide, nextFirstMove)
+    const { clearedLineNames, ended } = advanceClearState(state.clearedLineNames, lookup)
+
     setState({
       board,
       sideToMove: nextSide,
@@ -184,13 +216,13 @@ export function PracticeMode() {
       firstMoveSquare: nextFirstMove,
       lastMove: square,
       moveHistory,
+      clearedLineNames,
     })
 
-    const lookup = lookupJosekiNode(josekiDb, board, nextSide, nextFirstMove)
-    if (lookup?.isLeaf) {
+    if (ended) {
       setPhase('clear')
-      setResultInfo({ kind: 'clear', names: lookup.names, moveHistory })
-      void recordResult(lookup.names, 'success')
+      setResultInfo({ kind: 'clear', names: clearedLineNames, moveHistory })
+      void recordSrsResults(clearedLineNames, 'success')
     }
   }
 
@@ -225,7 +257,7 @@ export function PracticeMode() {
           correctMoves: judgement.correctMoves,
           moveHistory: state.moveHistory,
         })
-        if (targetLineId) void recordResult([targetLineId], 'fail')
+        if (targetLineId) void recordSrsResults([targetLineId], 'fail')
       }
     } catch (error) {
       console.error('定石外判定のための解析に失敗しました', error)
@@ -234,24 +266,11 @@ export function PracticeMode() {
     }
   }
 
-  /** クリア/ゲームオーバーの結果を、該当ラインのSRS状態としてIndexedDBに記録する。 */
-  async function recordResult(names: readonly string[], result: 'success' | 'fail'): Promise<void> {
-    const now = new Date()
-    for (const name of names) {
-      try {
-        const prev = (await getSrsState(name)) ?? null
-        const next = nextSrsState(prev, name, result, now)
-        await putSrsState(next)
-      } catch (error) {
-        console.error(`SRS状態の更新に失敗しました(line=${name})`, error)
-      }
-    }
-  }
-
   /**
    * 色選択後、練習を開始する。IndexedDBのSRS状態を参照し「本日出題すべき」ラインの中から
    * ランダムに1つを選ぶ(要件6)。該当が無ければ全ラインからランダムに選ぶ。
-   * 選んだラインはゲームオーバー時のSRS記録先として使う(要件5)。
+   * 選んだライン(`targetLineId`)は、ゲームオーバー時のSRS記録先として使うほか、
+   * 相手の着手選択でそのラインを優先するバイアスにも使う(要件5)。
    */
   async function startPractice(choice: Side | 'random'): Promise<void> {
     if (!josekiDb) return
@@ -277,6 +296,7 @@ export function PracticeMode() {
       firstMoveSquare: humanSide === 'black' ? null : notationToSquare('f5'),
       lastMove: null,
       moveHistory: [],
+      clearedLineNames: [],
     })
     setResultInfo(null)
     setPhase('playing')

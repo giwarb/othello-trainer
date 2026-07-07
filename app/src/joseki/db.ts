@@ -11,7 +11,7 @@
  * `window.indexedDB` をそのまま使う(引数省略時の既定値)。
  */
 
-import type { JosekiSrsState } from './srs.ts'
+import { nextSrsState, type JosekiSrsState } from './srs.ts'
 
 export const JOSEKI_DB_NAME = 'othello-trainer'
 export const JOSEKI_DB_VERSION = 1
@@ -86,5 +86,32 @@ export async function putSrsState(
     await requestToPromise(store.put(state))
   } finally {
     db.close()
+  }
+}
+
+/**
+ * 複数のラインID(定石練習モードの1セッションで通過した複数の`isLeaf`ノードの名前など)
+ * について、まとめてSRS結果(成功/失敗)を記録する(やり直し1回目の要件7)。
+ *
+ * 1本の長い定石を最後まで辿ったセッションは、途中で通過した短いラインの終端も
+ * クリアしたことになる(`practiceSession.ts` の `advanceClearState` 参照)ため、
+ * それらすべてについて個別にSRS状態を読み込み・更新・保存する。
+ * 1件の読み書きが失敗しても他のラインの記録は続行し、エラーはログに出すだけに留める
+ * (SRS記録の失敗でユーザーの練習セッション自体が失敗扱いになることを避けるため)。
+ */
+export async function recordSrsResults(
+  lineIds: readonly string[],
+  result: 'success' | 'fail',
+  now: Date = new Date(),
+  factory: IDBFactory = defaultIndexedDb(),
+): Promise<void> {
+  for (const lineId of lineIds) {
+    try {
+      const prev = (await getSrsState(lineId, factory)) ?? null
+      const next = nextSrsState(prev, lineId, result, now)
+      await putSrsState(next, factory)
+    } catch (error) {
+      console.error(`SRS状態の更新に失敗しました(line=${lineId})`, error)
+    }
   }
 }

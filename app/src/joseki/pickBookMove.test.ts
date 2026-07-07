@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { pickBookMove } from './pickBookMove.ts'
+import { pickBookMove, preferMovesTowardTarget } from './pickBookMove.ts'
 import type { JosekiBookMoveView } from './lookup.ts'
 
 describe('pickBookMove', () => {
@@ -63,5 +63,28 @@ describe('pickBookMove', () => {
 
   it('空配列を渡すと例外を投げる', () => {
     expect(() => pickBookMove([])).toThrow(RangeError)
+  })
+})
+
+describe('preferMovesTowardTarget', () => {
+  const bookMoves: JosekiBookMoveView[] = [
+    { move: 1, weight: 1 / 3 },
+    { move: 2, weight: 1 / 3 },
+    { move: 3, weight: 1 / 3 },
+  ]
+
+  it('targetを維持できる候補が存在すれば、その候補だけに絞り込む', () => {
+    const filtered = preferMovesTowardTarget(bookMoves, (move) => move === 2)
+    expect(filtered).toEqual([{ move: 2, weight: 1 / 3 }])
+  })
+
+  it('複数の候補がtargetを維持できる場合は、それらすべてを残す', () => {
+    const filtered = preferMovesTowardTarget(bookMoves, (move) => move === 1 || move === 3)
+    expect(filtered.map((m) => m.move)).toEqual([1, 3])
+  })
+
+  it('targetを維持できる候補が1つも無ければ、元のbookMovesをそのまま返す(フォールバック)', () => {
+    const filtered = preferMovesTowardTarget(bookMoves, () => false)
+    expect(filtered).toBe(bookMoves)
   })
 })

@@ -38,3 +38,22 @@ export function pickBookMove(
   // 浮動小数点誤差でthresholdが僅かに残った場合のフォールバック。
   return bookMoves[bookMoves.length - 1]!.move
 }
+
+/**
+ * 出題対象ライン(`targetLineId`)がまだ辿れる候補手だけに`bookMoves`を絞り込む
+ * (やり直し1回目の要件5: セッション開始時に選んだ出題対象ラインが、相手のランダム
+ * 着手によって実際のプレイでは無関係な別ラインに逸れてしまうと、SRSの復習
+ * スケジューリングの意味が薄れるための改善。必須ではないが対応)。
+ *
+ * `keepsTargetAlive(move)` は、その候補手を選んだ場合に `targetLineId` がまだ
+ * 到達可能かどうかを呼び出し側(定石DBを参照できる側)が判定するコールバック。
+ * 該当する候補が1つも無ければ(=どの手を選んでも出題対象ラインから外れる場合)、
+ * `bookMoves` をそのまま返す(絞り込まない)。
+ */
+export function preferMovesTowardTarget(
+  bookMoves: readonly JosekiBookMoveView[],
+  keepsTargetAlive: (move: number) => boolean,
+): readonly JosekiBookMoveView[] {
+  const filtered = bookMoves.filter((bm) => keepsTargetAlive(bm.move))
+  return filtered.length > 0 ? filtered : bookMoves
+}
