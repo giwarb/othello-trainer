@@ -12,19 +12,21 @@ import { countDiscs, squareToNotation, type Board as BoardState, type Side } fro
 import { loadJosekiDb, lookupJosekiNode } from './joseki/lookup.ts'
 import { PracticeMode } from './joseki/PracticeMode.tsx'
 import type { JosekiDb } from './joseki/types.ts'
+import { PracticeMode as MidgamePracticeMode } from './midgame/PracticeMode.tsx'
 
-/** アプリ全体のモード(T020: 対局/定石練習の切り替え)。 */
-type AppMode = 'play' | 'joseki'
+/** アプリ全体のモード(T020: 対局/定石練習、T021: 中盤練習の切り替え)。 */
+type AppMode = 'play' | 'joseki' | 'midgame'
 
 const MODE_LABEL: Record<AppMode, string> = {
   play: '対局',
   joseki: '定石練習',
+  midgame: '中盤練習',
 }
 
 /**
- * アプリのルートコンポーネント。「対局」「定石練習」モードを切り替えるだけの
- * シンプルなナビゲーション(タブ)を持つ(要件7)。ルーティングライブラリは使わず、
- * ローカルstateで表示するモードを切り替える。
+ * アプリのルートコンポーネント。「対局」「定石練習」「中盤練習」(T021)モードを
+ * 切り替えるだけのシンプルなナビゲーション(タブ)を持つ(要件7・9)。
+ * ルーティングライブラリは使わず、ローカルstateで表示するモードを切り替える。
  *
  * レスポンシブ対応: タブは `flex-wrap` するため375px幅でも崩れない
  * (`app.css` の `.mode-nav` 参照)。
@@ -50,7 +52,9 @@ export function App() {
         ))}
       </nav>
 
-      {mode === 'play' ? <PlayMode /> : <PracticeMode />}
+      {mode === 'play' && <PlayMode />}
+      {mode === 'joseki' && <PracticeMode />}
+      {mode === 'midgame' && <MidgamePracticeMode />}
     </main>
   )
 }

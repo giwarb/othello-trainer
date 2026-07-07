@@ -1,0 +1,154 @@
+.midgame-practice-mode {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.midgame-settings {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.75rem;
+  width: 100%;
+  max-width: 480px;
+  box-sizing: border-box;
+  padding: 0 0.5rem;
+}
+
+.midgame-settings__group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  border: 1px solid #d4d4d8;
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.75rem;
+}
+
+.midgame-settings__group legend {
+  padding: 0 0.3rem;
+  font-weight: bold;
+}
+
+.midgame-settings__option {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  text-align: left;
+}
+
+.midgame-generating {
+  padding: 1rem;
+}
+
+.midgame-practice {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.midgame-practice__quit {
+  background: none;
+  border: 1px solid #d4d4d8;
+  border-radius: 0.4rem;
+  padding: 0.4rem 0.9rem;
+  cursor: pointer;
+}
+
+.midgame-result {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 1rem;
+  box-sizing: border-box;
+  border-radius: 0.6rem;
+  text-align: center;
+}
+
+.midgame-result h2 {
+  margin: 0;
+}
+
+.midgame-result--clear {
+  background: #dcfce7;
+  color: #14532d;
+}
+
+.midgame-result--fail {
+  background: #fee2e2;
+  color: #7f1d1d;
+}
+
+.midgame-result p {
+  margin: 0;
+  max-width: 100%;
+  overflow-wrap: break-word;
+}
+
+.midgame-result__board {
+  position: relative;
+  width: 100%;
+  max-width: 320px;
+}
+
+.midgame-result__compare-pv {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  font-size: 0.9rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.midgame-result__buttons {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-top: 0.4rem;
+}
+
+/* 正解手ハイライト(要件8)。盤面コンテナ上に8x8グリッドの1マス分を
+   絶対配置で重ね、対象マスに枠線を表示する。Canvas自体には手を入れず、
+   `board-container`(position:relative)を基準に%座標で配置する。 */
+.midgame-highlight-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.midgame-highlight-overlay__cell {
+  position: absolute;
+  width: 12.5%;
+  height: 12.5%;
+  box-sizing: border-box;
+  border: 3px solid #facc15;
+  border-radius: 6px;
+}
+
+/* 狭い画面幅(スマートフォン想定、375px程度)ではボタン・文字を少し縮めて縦積みにする。 */
+@media (max-width: 400px) {
+  .midgame-settings__option {
+    font-size: 0.9rem;
+  }
+
+  .midgame-result__buttons {
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+  }
+
+  .midgame-result {
+    padding: 0.75rem;
+    font-size: 0.9rem;
+  }
+}

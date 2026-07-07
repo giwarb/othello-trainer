@@ -1,0 +1,56 @@
+.midgame-eval-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  max-width: 480px;
+  margin: 0 auto;
+  box-sizing: border-box;
+}
+
+.midgame-eval-bar__track {
+  position: relative;
+  flex: 1;
+  height: 0.9rem;
+  border-radius: 999px;
+  background: #e4e4e7;
+  overflow: hidden;
+}
+
+.midgame-eval-bar__fill {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+}
+
+.midgame-eval-bar__fill--positive {
+  background: #16a34a;
+}
+
+.midgame-eval-bar__fill--negative {
+  background: #dc2626;
+}
+
+.midgame-eval-bar__zero {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: #52525b;
+  transform: translateX(-1px);
+}
+
+.midgame-eval-bar__label {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  min-width: 3.2em;
+  text-align: right;
+}
+
+@media (max-width: 400px) {
+  .midgame-eval-bar {
+    gap: 0.4rem;
+    font-size: 0.9rem;
+  }
+}
