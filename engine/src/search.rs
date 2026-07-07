@@ -44,7 +44,7 @@
 #![allow(dead_code)]
 
 use crate::bitboard::{Board, Side};
-use crate::endgame::{final_score, solve_exact};
+use crate::endgame::{final_score, solve_exact, solve_exact_with_nodes};
 use crate::eval::evaluate_for;
 use crate::tt::{Bound, TTEntry, TranspositionTable};
 use crate::zobrist::zobrist_hash;
@@ -94,6 +94,16 @@ pub struct SearchResult {
     pub pv: Vec<u8>,
     /// 探索したノード数。
     pub nodes: u64,
+}
+
+/// [`search_all_moves`] が返す、1つの合法手についての評価値。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct MoveEval {
+    /// 着手先のマス番号(0..63)。
+    pub mv: u8,
+    /// 評価値。centi-disc単位(1石=100)、`search_all_moves` に渡した
+    /// `side_to_move`(着手前の手番)から見た値。
+    pub score: i32,
 }
 
 /// 現在の局面を探索し、最善手と評価値を返す。
@@ -181,6 +191,88 @@ pub fn search(
         pv: Vec::new(),
         nodes: 0,
     })
+}
+
+/// 現在の局面の**全合法手**それぞれについて評価値を返す(T018)。
+///
+/// 悪手判定(「打った手が最善手からどれだけ悪いか」)・定石外判定など、
+/// 全モード共通で必要になる基盤API。[`search`] は最善手1つしか返さないため、
+/// こちらは合法手すべてを列挙し、各手について:
+///
+/// - 着手後の局面の空きマス数が `limit.exact_from_empties` 以下であれば
+///   [`solve_exact_with_nodes`] による完全読みの結果(石差)を centi-disc
+///   スケールに変換して使う。
+/// - それ以外は、着手後の局面に対して `limit.max_depth` までの
+///   NegaScout(PVS)探索を行う。
+///
+/// いずれの経路でも、返す `score` は **`side_to_move`(この関数を呼んだ時点の
+/// 手番)から見た** centi-disc スケールの評価値になるよう符号を揃える
+/// (着手後は相手番になるため、内部で得られる値は必ず反転してから格納する)。
+///
+/// `tt` は全合法手の評価を通じて使い回される(探索の重複を減らすため)。
+/// [`search`] 同様、T007のTTスケール混同防止ロジック
+/// (`exact_from_empties` が前回と異なる場合に `tt` をクリアする)が働く。
+///
+/// 合法手が0件(パスすべき局面・終局局面)の場合は空の `Vec` を返す
+/// (エラーにしない)。返す順序はスコア降順。
+pub fn search_all_moves(
+    board: &Board,
+    side_to_move: Side,
+    limit: &SearchLimit,
+    tt: &mut TranspositionTable,
+) -> Vec<MoveEval> {
+    // TTスケール混同防止(T007と同じロジック。search()参照)。
+    if let Some(prev) = tt.last_exact_from_empties() {
+        if prev != limit.exact_from_empties {
+            tt.clear();
+        }
+    }
+    tt.set_last_exact_from_empties(limit.exact_from_empties);
+
+    let legal = board.legal_moves(side_to_move);
+    let mut moves: Vec<u8> = Vec::with_capacity(legal.count_ones() as usize);
+    let mut remaining = legal;
+    while remaining != 0 {
+        let lsb = remaining & remaining.wrapping_neg();
+        moves.push(lsb.trailing_zeros() as u8);
+        remaining &= remaining - 1;
+    }
+
+    let opponent = side_to_move.opposite();
+    let mut evals: Vec<MoveEval> = Vec::with_capacity(moves.len());
+
+    for mv in moves {
+        let next_board = board.apply_move(side_to_move, 1u64 << mv);
+        let next_empties = next_board.empty_count();
+
+        let score = if next_empties <= limit.exact_from_empties as u32 {
+            let (raw_diff, _nodes) = solve_exact_with_nodes(&next_board, opponent, tt);
+            -(raw_diff * 100)
+        } else {
+            // 反復深化: search()のルート呼び出しと同じ深さの意味を保つため、
+            // ここで消費した1手分(mvの着手)を差し引いた `depth - 1` を
+            // 子局面(next_board, opponent視点)に渡す。こうすることで、
+            // 同じ `limit.max_depth` を指定したときに `search()` が返す
+            // 評価値と、`search_all_moves()` が返す評価値の最大値が
+            // 一致する(整合性は本モジュールのテストで検証する)。
+            let mut best_for_move = -evaluate_for(&next_board, opponent);
+            for depth in 1..=limit.max_depth {
+                let mut nodes: u64 = 0;
+                let mut ctx = SearchCtx {
+                    limit,
+                    tt: &mut *tt,
+                    nodes: &mut nodes,
+                };
+                best_for_move = -negascout(&next_board, opponent, depth - 1, -INF, INF, &mut ctx);
+            }
+            best_for_move
+        };
+
+        evals.push(MoveEval { mv, score });
+    }
+
+    evals.sort_by_key(|e| std::cmp::Reverse(e.score));
+    evals
 }
 
 /// NegaScout探索1回分の実行に必要な文脈をまとめた構造体。
@@ -605,5 +697,116 @@ mod tests {
             result.score, expected,
             "search()'s terminal score should match endgame::final_score(...) * 100 exactly"
         );
+    }
+
+    // ------------------------------------------------------------------
+    // T018: search_all_moves のテスト
+    // ------------------------------------------------------------------
+
+    #[test]
+    fn search_all_moves_from_initial_position_returns_all_four_opening_moves() {
+        let board = Board::initial();
+        let limit = default_limit(4, 10);
+        let mut tt = TranspositionTable::new(4);
+
+        let evals = search_all_moves(&board, Side::Black, &limit, &mut tt);
+
+        assert_eq!(
+            evals.len(),
+            4,
+            "initial position should have exactly 4 legal moves (d3, c4, f5, e6)"
+        );
+
+        let notations: Vec<String> = evals
+            .iter()
+            .map(|e| crate::protocol::square_to_notation(e.mv))
+            .collect();
+        for expected in ["d3", "c4", "f5", "e6"] {
+            assert!(
+                notations.contains(&expected.to_string()),
+                "expected opening move {expected} to be present in {notations:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn search_all_moves_max_score_matches_search_best_score() {
+        // 整合性チェック: search_all_moves() が返す評価値の最大値は、
+        // 同じ局面・同じ limit で search() (単一最善手API) が返す評価値と
+        // 一致するはず(どちらも同じ深さでの厳密なmax-of-children)。
+        let board = Board::initial();
+        let limit = default_limit(4, 10);
+
+        let mut tt_all = TranspositionTable::new(4);
+        let evals = search_all_moves(&board, Side::Black, &limit, &mut tt_all);
+        let max_score = evals
+            .iter()
+            .map(|e| e.score)
+            .max()
+            .expect("initial position should have at least one legal move");
+
+        let mut tt_single = TranspositionTable::new(4);
+        let result = search(&board, Side::Black, &limit, &mut tt_single);
+
+        assert_eq!(
+            max_score, result.score,
+            "the best score among search_all_moves() results should match search()'s score"
+        );
+    }
+
+    #[test]
+    fn search_all_moves_uses_exact_solver_when_next_position_is_within_threshold() {
+        // 各手について、着手後の空きマス数がちょうど exact_from_empties に
+        // 一致するように limit を組み立てる。この条件下では、全ての手の
+        // 評価値が完全読み(solve_exact, 石差×100, 手番反転)に基づいている
+        // はず。
+        let (board, side) = play_until_empties(7, first_move_strategy);
+        let empties_before = board.empty_count();
+        // 着手すると必ず空きマスがちょうど1つ減るので、これで
+        // 「着手後の空きマス数 <= exact_from_empties」を全ての手について
+        // 満たせる。
+        let exact_threshold = (empties_before - 1) as u8;
+        let limit = default_limit(20, exact_threshold);
+
+        let mut tt = TranspositionTable::new(4);
+        let evals = search_all_moves(&board, side, &limit, &mut tt);
+        assert!(!evals.is_empty());
+
+        for eval in &evals {
+            let next_board = board.apply_move(side, 1u64 << eval.mv);
+            assert_eq!(
+                next_board.empty_count(),
+                exact_threshold as u32,
+                "test setup should guarantee next_empties == exact_threshold for every move"
+            );
+
+            let mut tt_direct = TranspositionTable::new(4);
+            let expected = -(solve_exact(&next_board, side.opposite(), &mut tt_direct) * 100);
+            assert_eq!(
+                eval.score, expected,
+                "move {} should be scored via the exact solver",
+                eval.mv
+            );
+        }
+    }
+
+    #[test]
+    fn search_all_moves_returns_empty_vec_when_no_legal_moves() {
+        // 手番側に合法手が無い局面(パス・終局)では、空の Vec を返す
+        // (エラーにしない)。search.rs の他のテストと同様、全マスを黒で
+        // 埋め1マスだけ空けた盤面を使う(白は合法手を持たない)。
+        let mut black = u64::MAX;
+        let hole = 1u64 << 27; // d4
+        black &= !hole;
+        let white = 0u64;
+        let board = Board { black, white };
+
+        assert_eq!(board.legal_moves(Side::White), 0);
+
+        let limit = default_limit(4, 0);
+        let mut tt = TranspositionTable::new(4);
+        let evals = search_all_moves(&board, Side::White, &limit, &mut tt);
+
+        assert!(evals.is_empty());
     }
 }

@@ -36,6 +36,12 @@ export interface AnalyzeRequestMessage {
   cmd: 'analyze';
   board: BoardJson;
   limit: AnalyzeLimit;
+  /**
+   * `true` の場合、最善手1つではなく現局面の全合法手の評価値を
+   * `moves` フィールドとして返してもらう(T018)。省略時は `false` 相当
+   * (既存の `analyze` と同じ挙動)。
+   */
+  allMoves?: boolean;
 }
 
 /** レスポンスの `score` フィールド。 */
@@ -45,8 +51,22 @@ export interface ScoreJson {
 }
 
 /**
+ * `moves` 配列(T018: `allMoves: true` 指定時のみレスポンスに含まれる)の
+ * 各要素。現局面のある1つの合法手についての評価値を表す。
+ * `engine/src/protocol.rs` の `MoveEvalJson` と対応する。
+ */
+export interface MoveEvalJson {
+  /** 着手先マスの記法(`"a1"`〜`"h8"`)。 */
+  move: string;
+  /** 評価値。centi-disc単位(1石=100)、手番視点。 */
+  score: number;
+  discDiff: number;
+}
+
+/**
  * `analyze` コマンドの正常応答。
  * 本タスク(T012)・T008ともに逐次進捗報告はスコープ外のため `final` は常に `true`。
+ * `moves` は `allMoves: true` を指定したリクエストに対してのみ含まれる(T018)。
  */
 export interface AnalyzeResponseMessage {
   id: number;
@@ -56,6 +76,7 @@ export interface AnalyzeResponseMessage {
   score: ScoreJson;
   nodes: number;
   nps: number;
+  moves?: MoveEvalJson[];
 }
 
 /** エンジン側でエラーが発生した場合の応答。JSON構文エラー等で `id` が読み取れない場合は `null`。 */

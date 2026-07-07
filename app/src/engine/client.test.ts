@@ -146,4 +146,73 @@ describe('EngineClient', () => {
     client.terminate();
     expect(worker.terminated).toBe(true);
   });
+
+  describe('requestAnalyzeAll', () => {
+    it('sends an analyze request with allMoves:true and resolves with the moves array', async () => {
+      const { client, worker } = createClient();
+
+      const promise = client.requestAnalyzeAll(board, 'black', limit);
+      expect(worker.sent).toHaveLength(1);
+      expect(worker.sent[0]).toEqual({
+        id: 1,
+        cmd: 'analyze',
+        board: {
+          black: '0x0000000810000000',
+          white: '0x0000001008000000',
+          turn: 'black',
+        },
+        limit,
+        allMoves: true,
+      });
+
+      worker.emit({
+        id: 1,
+        final: true,
+        depth: 6,
+        pv: ['f5'],
+        score: { type: 'midgame', discDiff: 2.4 },
+        nodes: 0,
+        nps: 0,
+        moves: [
+          { move: 'f5', score: 240, discDiff: 2.4 },
+          { move: 'd3', score: 100, discDiff: 1.0 },
+          { move: 'c4', score: 0, discDiff: 0 },
+          { move: 'e6', score: -50, discDiff: -0.5 },
+        ],
+      });
+
+      await expect(promise).resolves.toEqual([
+        { move: 'f5', score: 240, discDiff: 2.4 },
+        { move: 'd3', score: 100, discDiff: 1.0 },
+        { move: 'c4', score: 0, discDiff: 0 },
+        { move: 'e6', score: -50, discDiff: -0.5 },
+      ]);
+    });
+
+    it('resolves with an empty array when the response has no moves field', async () => {
+      const { client, worker } = createClient();
+
+      const promise = client.requestAnalyzeAll(board, 'white', limit);
+      worker.emit({
+        id: 1,
+        final: true,
+        depth: 0,
+        pv: [],
+        score: { type: 'midgame', discDiff: 0 },
+        nodes: 0,
+        nps: 0,
+      });
+
+      await expect(promise).resolves.toEqual([]);
+    });
+
+    it('rejects when the worker returns an error response', async () => {
+      const { client, worker } = createClient();
+
+      const promise = client.requestAnalyzeAll(board, 'black', limit);
+      worker.emit({ id: 1, error: 'invalid request JSON: ...' });
+
+      await expect(promise).rejects.toThrow('invalid request JSON: ...');
+    });
+  });
 });

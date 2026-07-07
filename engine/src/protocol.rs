@@ -12,7 +12,7 @@
 //! [`ErrorResponse`] をJSON化して返す。
 
 use crate::bitboard::{Board, Side};
-use crate::search::{search, SearchLimit};
+use crate::search::{search, search_all_moves, SearchLimit};
 use crate::tt::TranspositionTable;
 use serde::{Deserialize, Serialize};
 // search.rs 同様、`wasm32-unknown-unknown` で実行時panicする
@@ -53,6 +53,11 @@ pub struct AnalyzeRequest {
     #[serde(default, rename = "multiPV")]
     #[allow(dead_code)]
     pub multi_pv: Option<u32>,
+    /// `true` の場合、最善手1つではなく現局面の**全合法手**の評価値を
+    /// `search_all_moves`(T018)で計算し、レスポンスの `moves` フィールドに
+    /// 含める。省略時は `false`(既存の `analyze` と同じ挙動)。
+    #[serde(default, rename = "allMoves")]
+    pub all_moves: bool,
 }
 
 /// レスポンスの `score` フィールド。
@@ -64,7 +69,25 @@ pub struct ScoreJson {
     pub disc_diff: f64,
 }
 
+/// `moves` 配列(T018: `allMoves: true` 指定時のみレスポンスに含まれる)の
+/// 各要素。現局面のある1つの合法手についての評価値を表す。
+#[derive(Debug, Serialize)]
+pub struct MoveEvalJson {
+    /// 着手先マス(`square_to_notation` による `"a1"`〜`"h8"` 記法)。
+    #[serde(rename = "move")]
+    pub mv: String,
+    /// 評価値。centi-disc単位(1石=100)、手番視点。
+    pub score: i32,
+    #[serde(rename = "discDiff")]
+    pub disc_diff: f64,
+}
+
 /// `analyze` コマンドの正常応答。本タスクでは常に `is_final: true`。
+///
+/// `moves` は `allMoves: true` を指定したリクエストに対してのみ
+/// `Some(...)` になる(T018)。`allMoves` を指定しない既存のリクエストでは
+/// 常に `None` となり `skip_serializing_if` によりJSON上のフィールド自体が
+/// 現れないため、既存クライアントとの後方互換性は保たれる。
 #[derive(Debug, Serialize)]
 pub struct AnalyzeResponse {
     pub id: u64,
@@ -75,6 +98,8 @@ pub struct AnalyzeResponse {
     pub score: ScoreJson,
     pub nodes: u64,
     pub nps: u64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub moves: Option<Vec<MoveEvalJson>>,
 }
 
 /// エラー応答。JSONパース自体に失敗して `id` すら読み取れない場合は `None`。
@@ -155,6 +180,51 @@ pub fn handle_analyze(request_json: &str, tt: &mut TranspositionTable) -> String
         "midgame"
     };
 
+    // T018: `allMoves: true` が指定されていれば、最善手1つではなく
+    // 現局面の全合法手の評価値(`search_all_moves`)を計算し、`moves`
+    // フィールドに含めて返す。既存の `analyze`(`allMoves` 省略/false)は
+    // この分岐に入らず、従来どおりの応答を返す(後方互換性の維持)。
+    if request.all_moves {
+        let evals = search_all_moves(&board, side, &limit, tt);
+
+        let moves: Vec<MoveEvalJson> = evals
+            .iter()
+            .map(|e| MoveEvalJson {
+                mv: square_to_notation(e.mv),
+                score: e.score,
+                disc_diff: e.score as f64 / 100.0,
+            })
+            .collect();
+
+        // トップレベルの `depth`/`pv`/`score` は、合法手が0件でなければ
+        // 最善手(`moves`の先頭、スコア降順ソート済み)の情報を使って
+        // 既存の `analyze` 応答と同じ形に揃える(パス・終局で合法手が
+        // 無い場合は空のPV・スコア0のまま返す。エラーにはしない)。
+        let (pv, score_value) = match evals.first() {
+            Some(best) => (vec![square_to_notation(best.mv)], best.score),
+            None => (Vec::new(), 0),
+        };
+
+        let response = AnalyzeResponse {
+            id: request.id,
+            is_final: true,
+            depth: limit.max_depth,
+            pv,
+            score: ScoreJson {
+                kind: score_kind.to_string(),
+                disc_diff: score_value as f64 / 100.0,
+            },
+            // 各手ごとのノード数集計はスコープ外(T018「やらないこと」)。
+            nodes: 0,
+            nps: 0,
+            moves: Some(moves),
+        };
+
+        return serde_json::to_string(&response).unwrap_or_else(|e| {
+            error_json(Some(request.id), format!("failed to serialize response: {e}"))
+        });
+    }
+
     let start = Instant::now();
     let result = search(&board, side, &limit, tt);
     let elapsed_ms = start.elapsed().as_millis() as u64;
@@ -184,6 +254,7 @@ pub fn handle_analyze(request_json: &str, tt: &mut TranspositionTable) -> String
         },
         nodes: result.nodes,
         nps,
+        moves: None,
     };
 
     serde_json::to_string(&response)
@@ -343,5 +414,100 @@ mod tests {
         let response2_json: serde_json::Value = serde_json::from_str(&response2).unwrap();
         assert_eq!(response2_json["id"], 2);
         assert!(response2_json.get("error").is_none());
+    }
+
+    // ------------------------------------------------------------------
+    // T018: `allMoves: true` のテスト
+    // ------------------------------------------------------------------
+
+    /// `analyze_request_json` に `"allMoves":true` を追加したリクエストJSONを組み立てる。
+    fn analyze_all_moves_request_json(
+        id: u64,
+        black: &str,
+        white: &str,
+        turn: &str,
+        depth: u8,
+        exact_from_empties: u8,
+    ) -> String {
+        format!(
+            r#"{{"id":{id},"cmd":"analyze","board":{{"black":"{black}","white":"{white}","turn":"{turn}"}},"limit":{{"depth":{depth},"exactFromEmpties":{exact_from_empties}}},"allMoves":true}}"#
+        )
+    }
+
+    #[test]
+    fn analyze_with_all_moves_true_returns_moves_array_for_all_legal_moves() {
+        let mut engine = Engine::new();
+        let request = analyze_all_moves_request_json(1, INITIAL_BLACK, INITIAL_WHITE, "black", 4, 10);
+
+        let response_json = engine.analyze(&request);
+        let response: serde_json::Value =
+            serde_json::from_str(&response_json).expect("response should be valid JSON");
+
+        assert_eq!(response["id"], 1);
+        assert_eq!(response["final"], true);
+        assert!(response.get("error").is_none());
+
+        let moves = response["moves"].as_array().expect("moves should be an array");
+        assert_eq!(moves.len(), 4, "initial position has 4 legal moves");
+
+        let notations: Vec<&str> = moves
+            .iter()
+            .map(|m| m["move"].as_str().expect("move should be a string"))
+            .collect();
+        for expected in ["d3", "c4", "f5", "e6"] {
+            assert!(
+                notations.contains(&expected),
+                "expected {expected} to be among moves {notations:?}"
+            );
+        }
+
+        // 各要素が score/discDiff を持ち、discDiff = score/100 であること。
+        for m in moves {
+            let score = m["score"].as_i64().expect("score should be an integer");
+            let disc_diff = m["discDiff"].as_f64().expect("discDiff should be a number");
+            assert!((disc_diff - score as f64 / 100.0).abs() < 1e-9);
+        }
+
+        // トップレベルのpvも、moves先頭(最善手)の記法と一致するはず。
+        let pv = response["pv"].as_array().expect("pv should be an array");
+        assert_eq!(pv[0].as_str().unwrap(), notations[0]);
+    }
+
+    #[test]
+    fn analyze_without_all_moves_does_not_include_moves_field() {
+        // 後方互換性: allMoves を指定しない既存のリクエストは、
+        // レスポンスに `moves` フィールド自体が含まれない。
+        let mut engine = Engine::new();
+        let request = analyze_request_json(1, INITIAL_BLACK, INITIAL_WHITE, "black", 4, 10);
+        let response_json = engine.analyze(&request);
+        let response: serde_json::Value = serde_json::from_str(&response_json).unwrap();
+        assert!(
+            response.get("moves").is_none(),
+            "moves field should be absent when allMoves is not specified"
+        );
+    }
+
+    #[test]
+    fn analyze_with_all_moves_true_returns_empty_moves_array_when_no_legal_moves() {
+        // 手番側に合法手が無い局面(黒がほぼ全マスを占め、白の合法手が無い)
+        // を人工的に構築し、`allMoves:true` を指定してもエラーにならず
+        // 空の `moves` 配列を返すことを確認する。
+        let mut black = u64::MAX;
+        let hole = 1u64 << 27; // d4
+        black &= !hole;
+        let white = 0u64;
+
+        let request = format!(
+            r#"{{"id":5,"cmd":"analyze","board":{{"black":"0x{black:x}","white":"0x{white:x}","turn":"white"}},"limit":{{"depth":4,"exactFromEmpties":0}},"allMoves":true}}"#
+        );
+
+        let mut engine = Engine::new();
+        let response_json = engine.analyze(&request);
+        let response: serde_json::Value =
+            serde_json::from_str(&response_json).expect("response should be valid JSON");
+
+        assert!(response.get("error").is_none());
+        let moves = response["moves"].as_array().expect("moves should be an array");
+        assert!(moves.is_empty());
     }
 }

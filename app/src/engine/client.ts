@@ -9,6 +9,7 @@ import type {
   AnalyzeResponseMessage,
   Board,
   EngineResponseMessage,
+  MoveEvalJson,
   Side,
 } from './types';
 import { isErrorResponse } from './types';
@@ -88,6 +89,39 @@ export class EngineClient {
 
     return new Promise<AnalyzeResponseMessage>((resolve, reject) => {
       this.pending.set(id, { resolve, reject });
+      this.worker.postMessage(message);
+    });
+  }
+
+  /**
+   * 盤面・手番・探索条件を指定して、現局面の**全合法手**の評価値をまとめて
+   * リクエストする(T018)。悪手判定(打った手が最善手からどれだけ悪いか)・
+   * 定石外判定など、モード共通の解析基盤として使う。
+   *
+   * 内部的には `requestAnalyze` と同じ `cmd: 'analyze'` に
+   * `allMoves: true` を付けて送るだけであり、リクエストID管理・
+   * エラー処理は共通(`handleMessage`)。レスポンスの `moves` フィールド
+   * (存在しない場合は空配列)を取り出して返す。
+   */
+  requestAnalyzeAll(board: Board, turn: Side, limit: AnalyzeLimit): Promise<MoveEvalJson[]> {
+    const id = this.nextRequestId++;
+    const message: AnalyzeRequestMessage = {
+      id,
+      cmd: 'analyze',
+      board: {
+        black: bigintToHex(board.black),
+        white: bigintToHex(board.white),
+        turn,
+      },
+      limit,
+      allMoves: true,
+    };
+
+    return new Promise<MoveEvalJson[]>((resolve, reject) => {
+      this.pending.set(id, {
+        resolve: (response: AnalyzeResponseMessage) => resolve(response.moves ?? []),
+        reject,
+      });
       this.worker.postMessage(message);
     });
   }
