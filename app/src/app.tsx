@@ -10,7 +10,50 @@ import type { AnalyzeLimit } from './engine/types.ts'
 import { createGame, playMove, requestCpuMove, type GameState } from './game/gameLoop.ts'
 import { countDiscs, squareToNotation, type Board as BoardState, type Side } from './game/othello.ts'
 import { loadJosekiDb, lookupJosekiNode } from './joseki/lookup.ts'
+import { PracticeMode } from './joseki/PracticeMode.tsx'
 import type { JosekiDb } from './joseki/types.ts'
+
+/** アプリ全体のモード(T020: 対局/定石練習の切り替え)。 */
+type AppMode = 'play' | 'joseki'
+
+const MODE_LABEL: Record<AppMode, string> = {
+  play: '対局',
+  joseki: '定石練習',
+}
+
+/**
+ * アプリのルートコンポーネント。「対局」「定石練習」モードを切り替えるだけの
+ * シンプルなナビゲーション(タブ)を持つ(要件7)。ルーティングライブラリは使わず、
+ * ローカルstateで表示するモードを切り替える。
+ *
+ * レスポンシブ対応: タブは `flex-wrap` するため375px幅でも崩れない
+ * (`app.css` の `.mode-nav` 参照)。
+ */
+export function App() {
+  const [mode, setMode] = useState<AppMode>('play')
+
+  return (
+    <main>
+      <h1>オセロトレーナー</h1>
+
+      <nav class="mode-nav" aria-label="モード切り替え">
+        {(Object.keys(MODE_LABEL) as AppMode[]).map((key) => (
+          <button
+            type="button"
+            key={key}
+            class={`mode-nav__tab${mode === key ? ' mode-nav__tab--active' : ''}`}
+            aria-current={mode === key ? 'page' : undefined}
+            onClick={() => setMode(key)}
+          >
+            {MODE_LABEL[key]}
+          </button>
+        ))}
+      </nav>
+
+      {mode === 'play' ? <PlayMode /> : <PracticeMode />}
+    </main>
+  )
+}
 
 /** CPUの強さプリセット(§2.10の簡易版: 3段階)。 */
 type LevelKey = 'weak' | 'normal' | 'strong'
@@ -38,7 +81,8 @@ interface EvalInfo {
   reason: string | null
 }
 
-export function App() {
+/** 対局モード本体(T013/T019)。名称のみ `PlayMode` にリネームし、ロジックは変更していない。 */
+function PlayMode() {
   const [level, setLevel] = useState<LevelKey>('normal')
   const [game, setGame] = useState<GameState>(() => createGame('black'))
   const [thinking, setThinking] = useState(false)
@@ -183,9 +227,7 @@ export function App() {
   const whiteCount = countDiscs(game.board, 'white')
 
   return (
-    <main>
-      <h1>オセロトレーナー</h1>
-
+    <>
       <section class="controls">
         <div class="controls__row">
           <span>新規対局:</span>
@@ -250,6 +292,6 @@ export function App() {
       <section class="settings">
         <BlunderSettings onChange={setBlunderConfig} />
       </section>
-    </main>
+    </>
   )
 }

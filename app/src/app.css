@@ -3,6 +3,36 @@ main {
   padding: 2rem;
 }
 
+.mode-nav {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.mode-nav__tab {
+  padding: 0.5rem 1.2rem;
+  border: 1px solid #d4d4d8;
+  border-radius: 999px;
+  background: #f4f4f5;
+  color: inherit;
+  cursor: pointer;
+  font-size: 1rem;
+}
+
+.mode-nav__tab--active {
+  background: #1e3a8a;
+  border-color: #1e3a8a;
+  color: #ffffff;
+  font-weight: bold;
+}
+
+.notice--error {
+  color: #b91c1c;
+  font-weight: bold;
+}
+
 .controls {
   display: flex;
   flex-direction: column;
@@ -63,4 +93,16 @@ main {
   margin-top: 1.5rem;
   padding: 0 0.5rem;
   box-sizing: border-box;
+}
+
+/* 狭い画面幅(スマートフォン想定、375px程度)ではmainの左右余白を詰める。 */
+@media (max-width: 400px) {
+  main {
+    padding: 1rem 0.5rem;
+  }
+
+  .mode-nav__tab {
+    padding: 0.45rem 0.9rem;
+    font-size: 0.9rem;
+  }
 }

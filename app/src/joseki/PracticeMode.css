@@ -1,0 +1,100 @@
+.joseki-practice-mode {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.joseki-color-select {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0 0.5rem;
+}
+
+.joseki-color-select__buttons {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.joseki-practice {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.joseki-practice__quit {
+  background: none;
+  border: 1px solid #d4d4d8;
+  border-radius: 0.4rem;
+  padding: 0.4rem 0.9rem;
+  cursor: pointer;
+}
+
+.joseki-result {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 1rem;
+  box-sizing: border-box;
+  border-radius: 0.6rem;
+  text-align: center;
+}
+
+.joseki-result h2 {
+  margin: 0;
+}
+
+.joseki-result--clear {
+  background: #dcfce7;
+  color: #14532d;
+}
+
+.joseki-result--gameover {
+  background: #fee2e2;
+  color: #7f1d1d;
+}
+
+.joseki-result p {
+  margin: 0;
+  max-width: 100%;
+  overflow-wrap: break-word;
+}
+
+.joseki-result__moves {
+  font-size: 0.9rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.joseki-result__reason {
+  font-size: 0.9rem;
+}
+
+/* 狭い画面幅(スマートフォン想定、375px程度)ではボタン・文字を少し縮めて縦積みにする。 */
+@media (max-width: 400px) {
+  .joseki-color-select__buttons {
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+  }
+
+  .joseki-result {
+    padding: 0.75rem;
+    font-size: 0.9rem;
+  }
+}
