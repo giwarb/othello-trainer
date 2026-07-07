@@ -2,3 +2,41 @@ main {
   text-align: center;
   padding: 2rem;
 }
+
+.controls {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.controls__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.status {
+  font-weight: bold;
+}
+
+.notice {
+  color: #b45309;
+}
+
+.board-container {
+  max-width: 640px;
+  margin: 0 auto;
+}
+
+.score {
+  font-size: 1.1rem;
+}
+
+.result {
+  font-size: 1.2rem;
+  font-weight: bold;
+}
