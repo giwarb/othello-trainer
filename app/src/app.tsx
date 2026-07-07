@@ -1,10 +1,16 @@
 import { useEffect, useRef, useState } from 'preact/hooks'
 import './app.css'
+import { BlunderSettings } from './blunder/BlunderSettings.tsx'
+import { isBlunder } from './blunder/isBlunder.ts'
+import { DEFAULT_BLUNDER_CONFIG, type BlunderConfig, type EvalSource } from './blunder/types.ts'
+import { EvalBadge, formatDiscDiff } from './components/EvalBadge.tsx'
 import { Board } from './components/Board.tsx'
 import { EngineClient } from './engine/client.ts'
 import type { AnalyzeLimit } from './engine/types.ts'
 import { createGame, playMove, requestCpuMove, type GameState } from './game/gameLoop.ts'
-import { countDiscs, type Side } from './game/othello.ts'
+import { countDiscs, squareToNotation, type Board as BoardState, type Side } from './game/othello.ts'
+import { loadJosekiDb, lookupJosekiNode } from './joseki/lookup.ts'
+import type { JosekiDb } from './joseki/types.ts'
 
 /** CPUの強さプリセット(§2.10の簡易版: 3段階)。 */
 type LevelKey = 'weak' | 'normal' | 'strong'
@@ -23,10 +29,23 @@ function pickRandomSide(): Side {
   return Math.random() < 0.5 ? 'black' : 'white'
 }
 
+/** 直近の人間の着手についての評価表示情報(T019)。CPUの着手には表示しない。 */
+interface EvalInfo {
+  discDiff: number
+  source: EvalSource
+  blunder: boolean
+  /** 悪手だった場合の簡易理由テキスト(悪手でなければ `null`)。 */
+  reason: string | null
+}
+
 export function App() {
   const [level, setLevel] = useState<LevelKey>('normal')
   const [game, setGame] = useState<GameState>(() => createGame('black'))
   const [thinking, setThinking] = useState(false)
+  const [josekiDb, setJosekiDb] = useState<JosekiDb | null>(null)
+  const [firstMoveSquare, setFirstMoveSquare] = useState<number | null>(null)
+  const [blunderConfig, setBlunderConfig] = useState<BlunderConfig>(DEFAULT_BLUNDER_CONFIG)
+  const [evalInfo, setEvalInfo] = useState<EvalInfo | null>(null)
   const engineRef = useRef<EngineClient | null>(null)
 
   function getEngine(): EngineClient {
@@ -43,6 +62,34 @@ export function App() {
       engineRef.current = null
     }
   }, [])
+
+  // 定石DB(public/joseki.json)はコンポーネントのライフタイム中1回だけ読み込む
+  // (loadJosekiDb自体もモジュール内でキャッシュしているため、複数コンポーネントから
+  // 呼ばれても実際のfetchは1回)。
+  useEffect(() => {
+    let cancelled = false
+    loadJosekiDb()
+      .then((db) => {
+        if (!cancelled) setJosekiDb(db)
+      })
+      .catch((error: unknown) => {
+        console.error('定石DBの読み込みに失敗しました', error)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  // その対局で実際に指された初手(黒の最初の着手)を記録する。定石DBの
+  // ルックアップは「初手をf5とみなす」正規化を前提にしており、その変換を
+  // 決めるには実際の初手が必要(app/src/joseki/lookup.ts参照)。人間・CPU
+  // どちらが初手を指した場合でも(白番を選んで開始した場合はCPUが先に
+  // 黒番で指す)、対局中の最初の着手を捉えられるよう`game`全体を見る。
+  useEffect(() => {
+    if (firstMoveSquare === null && game.lastMove !== null) {
+      setFirstMoveSquare(game.lastMove)
+    }
+  }, [game, firstMoveSquare])
 
   // CPUの手番になったら、エンジンに問い合わせて着手を適用する。
   useEffect(() => {
@@ -73,14 +120,62 @@ export function App() {
     // 依存配列にはgameとlevelの両方を含めておく(強さ変更は次の着手から反映される)。
   }, [game, level])
 
+  /**
+   * 着手前の局面(`preBoard`/`preSide`)を対象に `requestAnalyzeAll` を呼び、
+   * 評価ソース(定石/中盤/終盤)・悪手判定結果を求めて `evalInfo` に反映する。
+   * 人間の着手直後にのみ呼ぶ(CPUの着手には表示不要、要件5)。
+   */
+  async function evaluateHumanMove(
+    preBoard: BoardState,
+    preSide: Side,
+    playedSquare: number,
+    firstMove: number,
+  ): Promise<void> {
+    const playedNotation = squareToNotation(playedSquare)
+    try {
+      const moves = await getEngine().requestAnalyzeAll(preBoard, preSide, LEVELS[level].limit)
+      const playedEval = moves.find((m) => m.move === playedNotation)
+      if (!playedEval) return
+
+      const judgement = isBlunder(moves, playedNotation, blunderConfig)
+      const bestEval = moves.find((m) => m.move === judgement.bestMove)
+
+      const josekiHit = josekiDb ? lookupJosekiNode(josekiDb, preBoard, preSide, firstMove) : null
+      const source: EvalSource = josekiHit && !josekiHit.isLeaf ? 'joseki' : playedEval.type
+
+      const reason =
+        judgement.blunder && bestEval
+          ? `最善手 ${judgement.bestMove}(${formatDiscDiff(bestEval.discDiff)})に対し、あなたの手 ${playedNotation} は${formatDiscDiff(
+              playedEval.discDiff,
+            )}(ロス${judgement.lossDiscs.toFixed(1)}石、順位${judgement.rank}位)でした`
+          : null
+
+      setEvalInfo({ discDiff: playedEval.discDiff, source, blunder: judgement.blunder, reason })
+    } catch (error) {
+      console.error('着手の評価取得に失敗しました', error)
+    }
+  }
+
   function handleMove(square: number) {
     if (game.phase !== 'human') return
+
+    const preBoard = game.board
+    const preSide = game.sideToMove
+    // まだ対局の初手が記録されていなければ、この着手自体が初手である
+    // (人間が黒番で開始した場合。firstMoveSquare の記録用useEffectがまだ
+    // 反映されていないタイミングでも、正しい定石ルックアップができるように
+    // ここで直接フォールバックする)。
+    const firstMove = firstMoveSquare ?? square
+
     setGame((prev) => playMove(prev, square))
+    void evaluateHumanMove(preBoard, preSide, square, firstMove)
   }
 
   function startNewGame(choice: Side | 'random') {
     const humanSide = choice === 'random' ? pickRandomSide() : choice
     setThinking(false)
+    setFirstMoveSquare(null)
+    setEvalInfo(null)
     setGame(createGame(humanSide))
   }
 
@@ -135,6 +230,13 @@ export function App() {
         <Board board={game.board} sideToMove={game.sideToMove} lastMove={game.lastMove} onMove={handleMove} />
       </div>
 
+      {evalInfo && (
+        <section class="eval-info">
+          <EvalBadge discDiff={evalInfo.discDiff} source={evalInfo.source} blunder={evalInfo.blunder} />
+          {evalInfo.reason && <p class="eval-info__reason">{evalInfo.reason}</p>}
+        </section>
+      )}
+
       <p class="score">
         黒: {blackCount} / 白: {whiteCount}
       </p>
@@ -144,6 +246,10 @@ export function App() {
           {game.result === 'draw' ? '引き分けです。' : `${sideLabel(game.result as Side)}の勝ちです。`}
         </p>
       )}
+
+      <section class="settings">
+        <BlunderSettings onChange={setBlunderConfig} />
+      </section>
     </main>
   )
 }

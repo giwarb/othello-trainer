@@ -1,0 +1,67 @@
+.blunder-settings {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  text-align: left;
+  width: 100%;
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 0.75rem 1rem;
+  border: 1px solid #d4d4d8;
+  border-radius: 0.5rem;
+  font-size: 0.95rem;
+  box-sizing: border-box;
+}
+
+.blunder-settings__title {
+  font-weight: bold;
+  margin: 0;
+}
+
+.blunder-settings__methods {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.blunder-settings__method {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.blunder-settings__thresholds {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.5rem;
+}
+
+.blunder-settings__threshold {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.9rem;
+}
+
+.blunder-settings__threshold input {
+  width: 6rem;
+  max-width: 100%;
+  padding: 0.25rem 0.4rem;
+  box-sizing: border-box;
+}
+
+/* 狭い画面幅(スマートフォン想定、375px程度)では閾値入力を縦積みにする。 */
+@media (max-width: 400px) {
+  .blunder-settings {
+    padding: 0.6rem 0.75rem;
+    font-size: 0.85rem;
+  }
+
+  .blunder-settings__thresholds {
+    flex-direction: column;
+  }
+
+  .blunder-settings__threshold input {
+    width: 100%;
+  }
+}

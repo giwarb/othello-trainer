@@ -1,0 +1,57 @@
+.eval-badge {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.4em;
+  padding: 0.3em 0.7em;
+  border-radius: 999px;
+  font-size: 0.95rem;
+  line-height: 1.3;
+  font-weight: 700;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.eval-badge__value {
+  font-variant-numeric: tabular-nums;
+}
+
+.eval-badge__source {
+  font-weight: 400;
+  font-size: 0.85em;
+  white-space: nowrap;
+}
+
+.eval-badge__blunder-mark {
+  background: #fee2e2;
+  color: #991b1b;
+  padding: 0.1em 0.5em;
+  border-radius: 999px;
+  font-size: 0.8em;
+  font-weight: 700;
+}
+
+/* 評価ソースごとの色分け(定石=青系、終盤(完全読み)=緑系、中盤(探索)=黄系)。 */
+.eval-badge--joseki {
+  background: #dbeafe;
+  color: #1e3a8a;
+}
+
+.eval-badge--exact {
+  background: #dcfce7;
+  color: #14532d;
+}
+
+.eval-badge--midgame {
+  background: #fef9c3;
+  color: #713f12;
+}
+
+/* 狭い画面幅(スマートフォン想定、375px程度)でも文字が潰れず読める大きさを保つ。 */
+@media (max-width: 400px) {
+  .eval-badge {
+    font-size: 0.85rem;
+    padding: 0.25em 0.55em;
+    gap: 0.3em;
+  }
+}
