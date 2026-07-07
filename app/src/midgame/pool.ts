@@ -3,53 +3,27 @@
  * 永続化する(T021)。
  *
  * `joseki/db.ts`(T020)と同じDB(`othello-trainer`)内に新規ストア`midgamePool`を
- * 追加する形にする(タスク仕様「T020の`josekiSRS`と同じDB内に新ストアを追加する
- * 形でよい」参照)。`joseki/db.ts`はバージョン1で`josekiSRS`ストアのみを作成して
- * いるため、本モジュールはより新しいバージョン(`MIDGAME_DB_VERSION = 2`)でDBを
- * 開く。IndexedDBの仕様上、あるバージョンで一度でも`open`されたDBは、以後それより
- * 低いバージョン指定での`open`でも(アップグレード扱いにならず)問題なく開けるため、
- * `joseki/db.ts`側のバージョン定数(1)を変更する必要はない。
+ * 追加する(タスク仕様「T020の`josekiSRS`と同じDB内に新ストアを追加する形でよい」参照)。
  *
- * また、`onupgradeneeded`内では`josekiSRS`ストアの存在も確認して無ければ作成する
- * (`joseki/db.ts`のインポートで定数を共有し、ストア定義がずれないようにする)。
- * これは、ブラウザにまだ`othello-trainer`DBが一度も作られていない状態で、
- * 本モジュールの関数が`joseki/db.ts`側より先に呼ばれた場合でも、
- * `josekiSRS`ストアが欠けたままにならないようにするための防御。
+ * DB名・バージョン番号・ストア作成ロジックは `db/appDb.ts` に一元化されている
+ * (T021 reviewer指摘のmust 2対応: 以前は本ファイルが独自にバージョン2を定義し、
+ * `joseki/db.ts`が独自にバージョン1を定義していた。IndexedDBの仕様上、
+ * 「現在のDBバージョンより低い番号でopen()するとVersionErrorになる」ため、
+ * 中盤練習モードを1回でも使うとDBがバージョン2に上がり、以後`joseki/db.ts`側の
+ * バージョン1での`open()`(定石練習のSRS記録)がすべて失敗する回帰バグがあった
+ * ——旧実装のコメントにあった「低いバージョンでも問題なく開ける」は誤り。
+ * この修正でDB名・バージョン・全ストアの作成ロジックを`db/appDb.ts`に一元化し、
+ * 本ファイル・`joseki/db.ts`のどちらが先に呼ばれても同じバージョンで正しく
+ * 共存できるようにした。詳細は`db/appDb.ts`のコメント参照)。
  */
 
-import { JOSEKI_DB_NAME, JOSEKI_SRS_STORE } from '../joseki/db.ts'
+import { MIDGAME_POOL_STORE, openAppDb, requestToPromise } from '../db/appDb.ts'
 import type { MidgamePoolEntry } from './types.ts'
 
-export const MIDGAME_DB_VERSION = 2
-export const MIDGAME_POOL_STORE = 'midgamePool'
+export { MIDGAME_POOL_STORE }
 
 function defaultIndexedDb(): IDBFactory {
   return indexedDB
-}
-
-function openDb(factory: IDBFactory): Promise<IDBDatabase> {
-  return new Promise((resolve, reject) => {
-    const request = factory.open(JOSEKI_DB_NAME, MIDGAME_DB_VERSION)
-
-    request.onupgradeneeded = () => {
-      const db = request.result
-      if (!db.objectStoreNames.contains(JOSEKI_SRS_STORE)) {
-        db.createObjectStore(JOSEKI_SRS_STORE, { keyPath: 'lineId' })
-      }
-      if (!db.objectStoreNames.contains(MIDGAME_POOL_STORE)) {
-        db.createObjectStore(MIDGAME_POOL_STORE, { keyPath: 'id' })
-      }
-    }
-    request.onsuccess = () => resolve(request.result)
-    request.onerror = () => reject(request.error ?? new Error('IndexedDBのオープンに失敗しました'))
-  })
-}
-
-function requestToPromise<T>(request: IDBRequest<T>): Promise<T> {
-  return new Promise((resolve, reject) => {
-    request.onsuccess = () => resolve(request.result)
-    request.onerror = () => reject(request.error ?? new Error('IndexedDBの操作に失敗しました'))
-  })
 }
 
 /** 出題プールに1件追加する(同じ`id`が既にあれば上書き)。 */
@@ -57,7 +31,7 @@ export async function addPoolEntry(
   entry: MidgamePoolEntry,
   factory: IDBFactory = defaultIndexedDb(),
 ): Promise<void> {
-  const db = await openDb(factory)
+  const db = await openAppDb(factory)
   try {
     const tx = db.transaction(MIDGAME_POOL_STORE, 'readwrite')
     const store = tx.objectStore(MIDGAME_POOL_STORE)
@@ -71,7 +45,7 @@ export async function addPoolEntry(
 export async function getAllPoolEntries(
   factory: IDBFactory = defaultIndexedDb(),
 ): Promise<MidgamePoolEntry[]> {
-  const db = await openDb(factory)
+  const db = await openAppDb(factory)
   try {
     const tx = db.transaction(MIDGAME_POOL_STORE, 'readonly')
     const store = tx.objectStore(MIDGAME_POOL_STORE)
@@ -87,7 +61,7 @@ export async function removePoolEntry(
   id: string,
   factory: IDBFactory = defaultIndexedDb(),
 ): Promise<void> {
-  const db = await openDb(factory)
+  const db = await openAppDb(factory)
   try {
     const tx = db.transaction(MIDGAME_POOL_STORE, 'readwrite')
     const store = tx.objectStore(MIDGAME_POOL_STORE)

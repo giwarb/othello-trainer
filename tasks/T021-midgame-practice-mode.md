@@ -1,9 +1,9 @@
 ---
 id: T021
 title: 中盤練習モード本体(局面生成+判定モード+相手強さ+UI+ナビゲーション拡張)
-status: in_progress
+status: redo
 assignee: implementer
-attempts: 0
+attempts: 1
 ---
 
 # T021: 中盤練習モード本体(局面生成+判定モード+相手強さ+UI+ナビゲーション拡張)
@@ -84,7 +84,35 @@ attempts: 0
 
 ## フィードバック(やり直し時にオーケストレーターが記入)
 
-(なし)
+2026-07-08 オーケストレーター(1回目のやり直し依頼):
+
+verifierは受け入れ基準のコマンド・本番デプロイ確認について合格でしたが、reviewerが**独立コードレビューで2件の重大バグ(修正必須)**を発見しました。verifierはこれらを検出していません(受け入れ基準のコマンド実行が中心で、`checkEnd`のパス処理・IndexedDBバージョン設計までは踏み込んでいなかったため)。両者の結果を総合し、本タスクは**やり直し**とします。
+
+### must 1: `checkEnd`がパス(片側のみ合法手なし)を「終局」と誤判定し、セッションを不正に打ち切る
+
+`app/src/midgame/PracticeMode.tsx`の`checkEnd`は、`isTerminal(board)`(両者とも合法手なし)を通過した後、`sideToMove`側だけ合法手が無い(`allMoves.length === 0`)場合も**即座に`finishByFinalScore`を呼んで終局扱いにしている**。これは誤り。「手番側だけパスすべきで、相手はまだ指せる」局面は真の終局ではなく、本来は手番を反転して続行すべき(既存の対局モード`app/src/game/gameLoop.ts`の`afterMove`が同じケースを正しく処理している。このロジックを`checkEnd`にも適用すること)。
+
+`exactFromEmpties: 24`が空き24以下で常時有効なため、この誤判定は終盤で高頻度に発生する。オセロの終盤ではパスは珍しくない。**この不具合が、実装者・verifierともに「クリア」到達を自動化で一度も再現できなかった直接の原因である可能性が高い**(パスのたびに正しい進行を待たずに`insufficientMargin`/`reversed`で打ち切られていたため)。「クリア分岐と失敗分岐は同一if文の表裏だから正しいはず」という判断は、この不具合(そもそも判定に入るタイミングが誤っている)を検出できていない。
+
+**修正**: `allMoves.length === 0`の場合、`hasLegalMove(board, opposite(sideToMove))`を確認し、真に両者とも指せない場合のみ`finishByFinalScore`、そうでなければ`sideToMove`を反転してゲームを継続すること。
+
+### must 2: IndexedDBのバージョン不整合により、中盤練習モード使用後に定石練習(T020)のSRS機能が壊れる(実際に再現確認済みの回帰バグ)
+
+`app/src/midgame/pool.ts`は`othello-trainer`DBを`MIDGAME_DB_VERSION = 2`で開くが、`app/src/joseki/db.ts`は同じDB名を`JOSEKI_DB_VERSION = 1`で開く。`pool.ts`のコメントには「低いバージョン指定でも問題なく開ける」とあるが**これは事実誤り**(IndexedDB仕様上、現在のDBバージョンより低い番号での`open()`は`VersionError`で失敗する。reviewerが`fake-indexeddb`で実際に再現済み)。
+
+実運用での影響: ユーザーが中盤練習で1回でも失敗すると(`addPoolEntry`がversion=2でDBを開く)、そのブラウザの`othello-trainer`DBは恒久的にversion 2に上がる。以後、`joseki/db.ts`のversion=1での`open()`(定石練習のSRS記録・出題優先度計算)がすべて`VersionError`で失敗する。`app/src/joseki/PracticeMode.tsx`はこのエラーを`console.error`で握りつぶす/ランダム出題にフォールバックするため、**ユーザーには何も見えないまま定石練習のSRS機能が無効化される**。
+
+**修正**: `pool.ts`が新規ストアを追加する際は、`joseki/db.ts`側の`JOSEKI_DB_VERSION`定数自体を1つ上げて両モジュールで共有するか、`pool.ts`が`joseki/db.ts`のDBオープンロジック・バージョン定数を再利用する設計に変更し、「低いバージョンでの再オープンは失敗する」という仕様に反しない設計にすること。修正後、両モジュールが同じDB・同じバージョンで正しく共存できることをテスト(`fake-indexeddb`)で検証すること。
+
+### should(余力があれば対応、必須ではない)
+- `finishByFinalScore`/クリア判定が「瞬間的な閾値到達」であり、要件6の「+2以上**維持**」(複数手にわたる継続)を厳密には実装していない(実装者は簡略化と明記済み)。must修正後、クリア到達が実機で再現できるようになったら、この簡略化のままでよいか改めて確認すること。
+- `checkEnd`が複数経路(`handlePlayerMove`・相手着手useEffect・session変更useEffect)から呼ばれており、真の終局時に二重発火して出題プールに同一局面が重複登録される懸念(reviewer未確認、要検証)。
+
+### やり直しの要件
+1. must 1・must 2を修正する。
+2. 修正後、**実際に「クリア」画面に到達できることを実機(本番Pagesを含む)で確認する**(must 1の修正により、パス誤判定が解消されクリアに到達しやすくなるはずなので、これを機に再挑戦すること)。
+3. must 2の修正について、定石練習(T020)のSRS機能が中盤練習モード使用後も正常に動作することをIndexedDBレベルで確認する(例: 中盤練習で1回失敗→定石練習でクリア→SRS状態が正しく更新されることを確認)。
+4. 修正後、`npm test`全件パス・typecheck/build成功・git commit/push・デプロイ確認・本番Pages確認を再度行う。
 
 ## 作業ログ(担当エージェントが追記)
 
@@ -148,3 +176,61 @@ attempts: 0
   - 全7項目OK(`node pw-prod-check.mjs` 実行結果: `TOTAL: 7, OK: 7, NG: 0`)
 - ローカル検証で使った一時Playwrightスクリプト・`npm install --no-save playwright`はいずれもコミット対象外(スクリプトは確認後削除、package.json/package-lock.jsonへの変更なし)。
 - 副作用として、`engine/Cargo.toml`修正の動作確認のためローカルの`app/src/engine/pkg`(gitignore対象、wasm-pack未導入環境での代替ビルド成果物キャッシュ)を一度削除した。以後このマシンでローカル`npm run dev`等を使うには`wasm-pack`の導入が必要(GitHub Actions側は`jetli/wasm-pack-action`で自動導入されるため無関係)。
+
+### 2026-07-08 verifier: 受け入れ基準の検証結果(合格)
+
+- 環境: 本環境PATHには既定で`wasm-pack`/`cargo`が無かったが、`$HOME/.cargo/bin`(`wasm-pack.exe`/`cargo.exe`あり)を`PATH`に追加したところ、`npm run` 経由(`pre*`フックの`wasm:build`含む)で以下がすべて成功することを確認した(実装者が`npx`直接実行で代替した内容と同一結果):
+  - `cd app && npm run typecheck` → `pretypecheck`(`wasm:build`)成功 → `tsc --noEmit -p tsconfig.app.json` エラー0。
+  - `cd app && npm test` → `vitest run` で **19ファイル・153テスト全件パス**(既存回帰なし、実装者報告と一致)。
+  - `cd app && npm run build` → `prebuild`(`wasm:build`)成功 → `tsc -b && vite build` 成功、`dist/assets/engine_bg-*.wasm 186.67 kB`等生成確認。
+- `judgeMidgameMove.ts`/`PracticeMode.tsx`のソースを読み、逆転禁止モードの符号計算・終了判定(`checkEnd`)を確認。`checkEnd`は`humanEval >= CLEAR_MARGIN`の単一if/elseでクリア/失敗を振り分けており、実装者の主張どおりクリア分岐と失敗分岐は対称(表裏)であることをコード上で確認した。
+- Playwright(`npx playwright`、Chromiumは既にローカルにインストール済み)で本番URL `https://giwarb.github.io/othello-trainer/` に対し独自に検証スクリプトを作成し以下を再現・確認(実装者の一時スクリプトとは別に、verifierが独立に作成・実行):
+  - 「中盤練習」タブの表示・設定画面(判定モード3種/相手強さ2種/開始局面ソース2種のradio入力、既定値: standard/top3Random/josekiEnd)を確認。
+  - 厳格モードを選択して開始 → 盤面を機械的にクリックして着手 → 「失敗」画面(`最善手ではありませんでした`)に到達、比較PV(`あなたの手 → 相手の最善進行`/`正解手 → 進行`)表示、「ここからやり直す」ボタンで対局画面に復帰することを確認。
+  - 新規ブラウザプロファイル(IndexedDB空)で同じ失敗フローを実行し、`indexedDB.open('othello-trainer')`のバージョンが2、`midgamePool`ストアが存在し、失敗後に件数が1件になっていることを直接確認(出題プール登録の実証)。
+  - 375px幅ビューポートで設定画面・対局画面ともに`document.documentElement.scrollWidth - clientWidth === 0`(横スクロールなし)をスクリーンショット付きで確認、崩れなし。
+  - 既存の「対局」「定石練習」タブが本番環境で引き続き正常表示・動作することを確認(回帰なし)。
+  - 「クリア」到達は本検証でも自動化では再現しなかった(実装者と同様、ランダムクリックでは統計的に優勢2石以上を維持しにくいため)。上記`checkEnd`のコードレビューにより分岐の対称性は確認済みであり、判定モードの失敗分岐(単体テスト含む)とクリア分岐が同一比較の表裏である点から、実装ロジックとしては妥当と判断する。ただし実機での「クリア」到達自体は依然未確認であり、残課題として引き継ぐ。
+- GitHub Actionsログを確認: 失敗run `28901002427` のログで実装者報告どおり`[parse exception: Only 1 table definition allowed in MVP (at 0:1188)]`→`Error: failed to execute wasm-opt`のエラーを確認。修正コミット`83c644f`の`engine/Cargo.toml`diffは`[package.metadata.wasm-pack.profile.release] wasm-opt = false`の追加のみで、エラーメッセージ自体が案内する回避策と一致する最小限の変更であることを確認。再デプロイ`28901184494`は成功(build 29s/deploy 8s)、`dist/assets/engine_bg-*.wasm`は186.61 kB(gzip 76.93 kB、wasm-opt無効化のため未最適化のサイズだが、極端な肥大化ではない)。
+- 追加確認(受け入れ基準外の補足): `cargo test`(engine, release)をバックグラウンドで実行し、コア56テストが全件パス(`test result: ok. 56 passed; 0 failed`)することを確認、`engine/Cargo.toml`の`wasm-opt=false`追加による既存エンジンロジックへの副作用は無い。
+- `git status`確認: `app/`・`engine/`配下に実装者のローカルPlaywright導入等の残留物なし(コミット対象外の一時ファイルは残っていない)。
+
+**判定: 合格**。受け入れ基準の全項目(typecheck/test/build成功、実機確認記載、pushとPages本番動作確認)を独立に再現・確認できた。「クリア」到達の実機再現のみ、実装者・verifierともに自動化では未達成であり、ユーザーによる手動プレイでの最終確認が引き続き推奨される(コードレビューでロジックの妥当性は確認済み)。
+
+### 2026-07-08 implementer: やり直し1回目(must1・must2対応)
+
+**must 1修正: `checkEnd`のパス誤判定**
+
+- `app/src/midgame/resolveMover.ts`を新規作成。実際に手番を持つ側を解決する純粋関数`resolveMover(board, sideToMove): Side | null`を切り出した(`sideToMove`に合法手が無くても相手に合法手があれば相手側を返す=パス、両者とも無ければ`null`=真の終局。`game/gameLoop.ts`の`afterMove`と同じ規則)。
+- `app/src/midgame/PracticeMode.tsx`の`checkEnd`を、この`resolveMover`で実際の手番側を解決してから`requestAnalyzeAll`を呼ぶ形に書き換えた。以前は`sideToMove`側の合法手なしを即座に終局と誤判定していたが、この修正で「片側だけパス」を正しく処理するようになった。
+- **単体テストによる検証**: `app/src/midgame/resolveMover.test.ts`を新規作成(4件)。`app/src/game/gameLoop.test.ts`の「pass handling」テストと全く同じ局面構成手法(`createBoard`で「黒だけがe1に合法手を持ち、白は合法手を持たない」局面を意図的に作る)を使い、reviewerが指摘した不具合シナリオを直接・決定的に再現して検証した:
+  - 手番側に合法手があればそのまま返す
+  - **手番側に合法手が無く相手に合法手があれば相手側を返す(reviewer指摘のバグケースそのもの)**
+  - 両者とも合法手が無ければ`null`(終局)を返す
+  - 通常のケース(相手番に普通に合法手がある)でもそのまま返す
+  この単体テストは、乱数に依存するE2E自動操作よりも高速・決定的にmust1の修正内容そのものを直接証明する(既存コードベースの`gameLoop.test.ts`と同じ検証パターンを踏襲)。
+
+**must 2修正: IndexedDBバージョン不整合**
+
+- `app/src/db/appDb.ts`を新規作成。DB名(`othello-trainer`)・バージョン番号(`APP_DB_VERSION = 2`)・全ストア(`josekiSRS`・`midgamePool`)の作成ロジックをここに一元化し、共通の`openAppDb(factory)`・`requestToPromise`を提供する。
+- `app/src/joseki/db.ts`を、独自定義していた`JOSEKI_DB_VERSION`(誤って1のままだった)・`openDb`・`requestToPromise`を削除し、`db/appDb.ts`の`openAppDb`/`requestToPromise`を使う形に書き換えた(公開API `getSrsState`/`getAllSrsStates`/`putSrsState`/`recordSrsResults`のシグネチャは変更なし。`JOSEKI_DB_NAME`/`JOSEKI_SRS_STORE`は後方互換のため再エクスポート)。
+- `app/src/midgame/pool.ts`を、独自定義していた`MIDGAME_DB_VERSION = 2`・`openDb`・`requestToPromise`を削除し、同じく`db/appDb.ts`を使う形に書き換えた(公開API `addPoolEntry`/`getAllPoolEntries`/`removePoolEntry`のシグネチャは変更なし)。
+- 旧実装のコメントにあった「低いバージョン番号でも問題なく開ける」という記述は誤りだった(IndexedDB仕様上、現在のDBバージョンより低い番号での`open()`は`VersionError`になる)ことを`db/appDb.ts`のコメントに明記した。
+- **単体テストによる検証**: `app/src/db/appDb.test.ts`を新規作成(4件)。reviewerが実際に再現した回帰シナリオ(「中盤練習を先に使う→定石練習のSRS読み書き」および逆順)をそのまま単体テストとして再現し、`VersionError`が発生せず両モジュールが正しく共存することを検証した。加えて`openAppDb`が両ストアを作成すること・データが互いに独立していることも確認。
+
+**typecheck/test/build結果(修正後)**:
+- `npx tsc --noEmit -p tsconfig.app.json` エラー0
+- `npx vitest run` **全21ファイル・163テスト全件パス**(既存回帰なし。内訳: 新規`resolveMover.test.ts` 4件、`appDb.test.ts` 4件を追加。他モジュールのテストは引き続き全件パス)
+  - ※テスト実行中、他セッションが並行して`bookgen/joseki-research.json`を編集していたタイミングで`joseki/buildDb.test.ts`等が一時的に4件失敗する現象が観測されたが、本タスクの変更とは無関係(該当ファイルは他セッションの作業対象で本タスクでは一切触っていない)。他セッションの編集完了後に再実行すると全件パスに戻ることを確認済み。
+- `npx tsc -b && npx vite build` 成功(`dist/assets/engine_bg-*.wasm` 186.80 kB生成確認)
+
+**実機確認(Playwright、`npm run dev`相当のVite dev serverに対して実施、`npm install --no-save playwright`で一時導入・確認後削除)**:
+- must2(IndexedDB共存): 複数回のE2E実行で以下を安定して確認: 中盤練習モードを使った後もDBは`version: 2`・`stores: ["josekiSRS", "midgamePool"]`のまま、定石練習タブに切り替えて実際にプレイしても`VersionError`が一度も発生しないこと、定石練習が正常に開始・進行できること。
+- must1(パス処理・クリア到達): 標準/逆転禁止モードで複数セッションを自動プレイさせ、修正後は正しく数手〜十数手にわたって進行し、判定モードによる正当な失敗(`最善手からのロスが大きすぎました`/`評価の優勢/劣勢が入れ替わりました`)に到達することを確認した(以前のような「パスの度に即座に不正な失敗」は発生しなくなった)。
+  - **検証中に、実機確認スクリプト自体の不具合を発見・修正した**: 「ステータス文字列が変化したら着手完了とみなす」という判定が、「判定中...」というテキストが**出現した瞬間**を「変化」と誤検知しており、実際にはまだ判定処理中の着手を「受理された」と誤判定して次の操作に進んでしまっていた(その結果、後続のクリックが`analyzing`中の再入防止ガードで無視され、スクリプトからは「進行不能」に見えていた)。これはアプリ側のバグではなく検証スクリプトの不備だった。「判定中...」「相手考慮中...」が消える(=settledな状態になる)まで待つよう検証スクリプトを修正したところ、正しく数手先まで進行することを確認できた。
+  - **「クリア」画面への実機到達は、本セッションでも自動化では再現できなかった**。標準モード・逆転禁止モードそれぞれで、複数セッション(のべ数十セッション)・長めのタイムアウト(最大45秒/手)・簡易ヒューリスティック(隅を最優先・隅の隣接マスを回避する、エンジン評価を使わない最小限の定石的補正)を適用した上でも、盤面をランダムに近い形でクリックする自動操作だけでは、終盤(空き24以下)に到達するまでに判定モードの失敗条件(石差ロス超過・評価逆転)に引っかかることが多く、`checkEnd`のクリア分岐(`humanEval >= CLEAR_MARGIN`)に到達する前にセッションが終わってしまうケースが大半だった。
+  - この結果、und must1の核心的なバグ(パスの誤判定によるチェック不能)自体は**単体テスト(`resolveMover.test.ts`)で決定的に修正を証明済み**であり、かつE2Eでも「以前は即座に不正終了していたのが、今は正しく複数手進行して正当な理由で終わる」ことを確認できた。しかし「クリア」画面そのものの実機到達は、盤面をある程度の技量で打つ必要がある性質上、ランダム・準ランダムなクリック操作による自動化では再現が難しく、本セッションでも達成できなかった。**引き続き人手による最終確認(実際にオセロをある程度上手くプレイして「クリア」画面が出ることを目視確認する)を推奨する**。
+
+**git・デプロイ・本番確認**:
+- 変更ファイル: `app/src/midgame/resolveMover.ts`(新規)・`app/src/midgame/resolveMover.test.ts`(新規)・`app/src/db/appDb.ts`(新規)・`app/src/db/appDb.test.ts`(新規)・`app/src/joseki/db.ts`(変更)・`app/src/midgame/pool.ts`(変更)・`app/src/midgame/PracticeMode.tsx`(変更)・本タスクファイル。
+- コミット・push・デプロイ確認・本番Pages確認の結果はこの後に追記する。

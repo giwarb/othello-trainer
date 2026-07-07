@@ -9,38 +9,26 @@
  * 差し替える(vitestの実行環境は `node` のため、`indexedDB` はテスト側で
  * 明示的に用意する必要がある。`db.test.ts` 参照)。本番では
  * `window.indexedDB` をそのまま使う(引数省略時の既定値)。
+ *
+ * DB名・バージョン番号・ストア作成ロジックは `db/appDb.ts` に一元化されている
+ * (T021 reviewer指摘のmust 2対応: 以前は本ファイルが独自にバージョン1を
+ * 定義しており、`midgame/pool.ts`が独自にバージョン2を定義していたため、
+ * 中盤練習モードを使うとDBがバージョン2に上がり、以後本ファイルのバージョン1
+ * での`open()`が`VersionError`で失敗する回帰バグがあった。詳細は`db/appDb.ts`
+ * のコメント参照)。
  */
 
+import { JOSEKI_SRS_STORE, openAppDb, requestToPromise } from '../db/appDb.ts'
 import { nextSrsState, type JosekiSrsState } from './srs.ts'
 
-export const JOSEKI_DB_NAME = 'othello-trainer'
-export const JOSEKI_DB_VERSION = 1
-export const JOSEKI_SRS_STORE = 'josekiSRS'
+// 後方互換のため、既存の呼び出し元(`midgame/pool.ts`等)がこれまでどおり
+// `joseki/db.ts`からDB名・ストア名を参照できるよう再エクスポートする
+// (実体は`db/appDb.ts`に一元化済み)。
+export { APP_DB_NAME as JOSEKI_DB_NAME } from '../db/appDb.ts'
+export { JOSEKI_SRS_STORE }
 
 function defaultIndexedDb(): IDBFactory {
   return indexedDB
-}
-
-function openDb(factory: IDBFactory): Promise<IDBDatabase> {
-  return new Promise((resolve, reject) => {
-    const request = factory.open(JOSEKI_DB_NAME, JOSEKI_DB_VERSION)
-
-    request.onupgradeneeded = () => {
-      const db = request.result
-      if (!db.objectStoreNames.contains(JOSEKI_SRS_STORE)) {
-        db.createObjectStore(JOSEKI_SRS_STORE, { keyPath: 'lineId' })
-      }
-    }
-    request.onsuccess = () => resolve(request.result)
-    request.onerror = () => reject(request.error ?? new Error('IndexedDBのオープンに失敗しました'))
-  })
-}
-
-function requestToPromise<T>(request: IDBRequest<T>): Promise<T> {
-  return new Promise((resolve, reject) => {
-    request.onsuccess = () => resolve(request.result)
-    request.onerror = () => reject(request.error ?? new Error('IndexedDBの操作に失敗しました'))
-  })
 }
 
 /** 指定した1ラインのSRS状態を読み込む。未保存であれば `undefined`。 */
@@ -48,7 +36,7 @@ export async function getSrsState(
   lineId: string,
   factory: IDBFactory = defaultIndexedDb(),
 ): Promise<JosekiSrsState | undefined> {
-  const db = await openDb(factory)
+  const db = await openAppDb(factory)
   try {
     const tx = db.transaction(JOSEKI_SRS_STORE, 'readonly')
     const store = tx.objectStore(JOSEKI_SRS_STORE)
@@ -63,7 +51,7 @@ export async function getSrsState(
 export async function getAllSrsStates(
   factory: IDBFactory = defaultIndexedDb(),
 ): Promise<JosekiSrsState[]> {
-  const db = await openDb(factory)
+  const db = await openAppDb(factory)
   try {
     const tx = db.transaction(JOSEKI_SRS_STORE, 'readonly')
     const store = tx.objectStore(JOSEKI_SRS_STORE)
@@ -79,7 +67,7 @@ export async function putSrsState(
   state: JosekiSrsState,
   factory: IDBFactory = defaultIndexedDb(),
 ): Promise<void> {
-  const db = await openDb(factory)
+  const db = await openAppDb(factory)
   try {
     const tx = db.transaction(JOSEKI_SRS_STORE, 'readwrite')
     const store = tx.objectStore(JOSEKI_SRS_STORE)

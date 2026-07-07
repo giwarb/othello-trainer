@@ -23,6 +23,7 @@ import { generateSelfPlayPosition, pickJosekiEndPosition, type StartPosition } f
 import { judgeMidgameMove, type EvalSign, type JudgeMidgameMoveResult, type JudgeMidgameReasonKind } from './judgeMidgameMove.ts'
 import { pickOpponentMove } from './pickOpponentMove.ts'
 import { addPoolEntry } from './pool.ts'
+import { resolveMover } from './resolveMover.ts'
 import type { JudgeMode, OpponentStrength, StartPositionSource } from './types.ts'
 import './PracticeMode.css'
 
@@ -186,28 +187,35 @@ export function PracticeMode() {
 
   /**
    * 終了判定(要件6)。
-   * - 終局(`isTerminal`)していれば、最終石差でクリア/失敗を確定する。
-   * - 空きマスが24以下なら、`requestAnalyzeAll`(完全読み)でプレイヤー視点の
-   *   評価を求め、+2石以上ならクリア、そうでなければ失敗とする。
+   * - `resolveMover`で実際に手番を持つ側を解決する。`sideToMove`に合法手が無くても
+   *   相手側に合法手があれば単なるパスであり真の終局ではない(`game/gameLoop.ts`の
+   *   `afterMove`と同じ規則。reviewer指摘のmust 1: 以前は`sideToMove`側の合法手なし
+   *   =即終局と誤判定しており、終盤(空き24以下は`exactFromEmpties`により毎手この
+   *   関数を通る)でパスが起きるたびに誤って「失敗」を確定してしまい、クリアまで
+   *   到達できなくなっていた)。両者とも合法手が無い場合のみ真の終局として確定する。
+   * - 実際の手番側に空きマスが24以下なら、`requestAnalyzeAll`(完全読み)で
+   *   プレイヤー視点の評価を求め、+2石以上ならクリア、そうでなければ失敗とする。
    * - それ以外(まだ空き24超)は何もしない(`false`を返す)。
    * 戻り値は「この呼び出しでゲームが終了したか」。
    */
   async function checkEnd(board: BoardState, sideToMove: Side, humanSide: Side): Promise<boolean> {
-    if (isTerminal(board)) {
+    const mover = resolveMover(board, sideToMove)
+    if (mover === null) {
       finishByFinalScore(board, humanSide)
       return true
     }
     if (countEmpty(board) > 24) return false
 
     try {
-      const allMoves = await getEngine().requestAnalyzeAll(board, sideToMove, MIDGAME_ANALYZE_LIMIT)
+      const allMoves = await getEngine().requestAnalyzeAll(board, mover, MIDGAME_ANALYZE_LIMIT)
       if (allMoves.length === 0) {
-        // 手番側に合法手が無い(相手側もパスの可能性がある)。最終石差相当として扱う。
+        // `resolveMover`が`mover`に合法手ありと判定したにもかかわらず`allMoves`が
+        // 空、という通常は起こらないはずの不整合に対する防御的フォールバック。
         finishByFinalScore(board, humanSide)
         return true
       }
       const best = allMoves.reduce((a, b) => (b.discDiff > a.discDiff ? b : a))
-      const humanEval = sideToMove === humanSide ? best.discDiff : -best.discDiff
+      const humanEval = mover === humanSide ? best.discDiff : -best.discDiff
       setEvalBarValue(humanEval)
 
       if (humanEval >= CLEAR_MARGIN) {
