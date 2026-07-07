@@ -12,7 +12,8 @@
     "preview": "vite preview",
     "pretypecheck": "npm run wasm:build",
     "typecheck": "tsc --noEmit -p tsconfig.app.json",
-    "test": "vitest run"
+    "test": "vitest run",
+    "joseki:build": "node --experimental-strip-types src/joseki/generate.ts"
   },
   "dependencies": {
     "preact": "^10.29.3"

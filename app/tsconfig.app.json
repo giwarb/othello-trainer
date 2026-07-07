@@ -4,7 +4,10 @@
     "target": "es2023",
     "module": "esnext",
     "lib": ["ES2023", "DOM"],
-    "types": ["vite/client"],
+    // "node": src/joseki/generate.ts (定石DBビルドスクリプト。node --experimental-strip-types
+    // で直接実行する)と src/joseki/buildDb.test.ts (実データ読み込みにfs/path/urlを使う)
+    // がNode組み込みモジュール(`node:fs`等)を使うために必要(T017)。
+    "types": ["vite/client", "node"],
     "allowArbitraryExtensions": true,
     "skipLibCheck": true,
     "paths": {
