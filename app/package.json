@@ -4,10 +4,15 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
+    "wasm:build": "node src/engine/build-wasm.mjs",
+    "predev": "npm run wasm:build",
     "dev": "vite",
+    "prebuild": "npm run wasm:build",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
-    "typecheck": "tsc --noEmit -p tsconfig.app.json"
+    "pretypecheck": "npm run wasm:build",
+    "typecheck": "tsc --noEmit -p tsconfig.app.json",
+    "test": "vitest run"
   },
   "dependencies": {
     "preact": "^10.29.3"
@@ -16,6 +21,7 @@
     "@preact/preset-vite": "^2.10.5",
     "@types/node": "^24.13.2",
     "typescript": "~6.0.2",
-    "vite": "^8.1.1"
+    "vite": "^8.1.1",
+    "vitest": "^4.1.10"
   }
 }

@@ -12,6 +12,9 @@ dist
 dist-ssr
 *.local
 
+# wasm-pack ビルド成果物(engine/ crateから生成。T012)
+src/engine/pkg
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

@@ -15,7 +15,9 @@ use crate::bitboard::{Board, Side};
 use crate::search::{search, SearchLimit};
 use crate::tt::TranspositionTable;
 use serde::{Deserialize, Serialize};
-use std::time::Instant;
+// search.rs 同様、`wasm32-unknown-unknown` で実行時panicする
+// `std::time::Instant` の代わりに `web-time` のドロップイン実装を使う。
+use web_time::Instant;
 
 /// リクエストの `board` フィールド。
 #[derive(Debug, Deserialize)]

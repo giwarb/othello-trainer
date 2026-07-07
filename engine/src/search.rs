@@ -48,7 +48,12 @@ use crate::endgame::{final_score, solve_exact};
 use crate::eval::evaluate_for;
 use crate::tt::{Bound, TTEntry, TranspositionTable};
 use crate::zobrist::zobrist_hash;
-use std::time::Instant;
+// `std::time::Instant::now()` は `wasm32-unknown-unknown` ターゲットでは
+// 未実装のため実行時に panic する(コンパイルは通ってしまうため、
+// ネイティブの `cargo test` だけでは検出できない)。`web-time` はAPI互換の
+// ドロップイン実装で、wasm上では `Performance.now()` を、それ以外の
+// ターゲットでは `std::time::Instant` をそのまま使う。
+use web_time::Instant;
 
 /// 探索を打ち切るための十分に大きな評価値。centi-discスケールでの理論上の
 /// 最大絶対値(64石差 = 6400)より大きく、かつ `i32` の演算(符号反転・-1)で
