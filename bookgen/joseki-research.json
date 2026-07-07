@@ -148,8 +148,17 @@
   "lines": [
     {
       "name": "虎",
-      "aliases": ["Tora", "Tiger"],
-      "moves": ["f5", "d6", "c3", "d3", "c4"],
+      "aliases": [
+        "Tora",
+        "Tiger"
+      ],
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "d3",
+        "c4"
+      ],
       "firstMoveBasis": "f5",
       "depth": 5,
       "sources": [
@@ -160,53 +169,106 @@
     },
     {
       "name": "猫",
-      "aliases": ["虎A"],
-      "moves": ["f5", "d6", "c4", "d3", "c5"],
+      "aliases": [
+        "虎A"
+      ],
+      "moves": [
+        "f5",
+        "d6",
+        "c4",
+        "d3",
+        "c5"
+      ],
       "firstMoveBasis": "f5",
       "depth": 5,
-      "sources": ["https://hasera.net/othello/saizen40.html"],
+      "sources": [
+        "https://hasera.net/othello/saizen40.html"
+      ],
       "notes": "単一ソース。2026-07-08にcurlで生HTML取得、「猫（虎Ａ）定石：f5d6c4d3c5」の行をgrepでverbatim確認済み(前回はhasera.net/jouseki-tate.htmlを誤って出典としていたが、実際の出典はsaizen40.htmlであったため訂正)。"
     },
     {
       "name": "羊",
-      "aliases": ["虎B"],
-      "moves": ["f5", "d6", "c4", "d3", "e6"],
+      "aliases": [
+        "虎B"
+      ],
+      "moves": [
+        "f5",
+        "d6",
+        "c4",
+        "d3",
+        "e6"
+      ],
       "firstMoveBasis": "f5",
       "depth": 5,
-      "sources": ["https://hasera.net/othello/saizen40.html"],
+      "sources": [
+        "https://hasera.net/othello/saizen40.html"
+      ],
       "notes": "単一ソース。2026-07-08にcurlで生HTML取得、「羊（虎Ｂ）定石：f5d6c4d3e6」をgrepでverbatim確認済み(出典URLを前回のjouseki-tate.htmlからsaizen40.htmlに訂正)。"
     },
     {
       "name": "虎C",
-      "aliases": [],
-      "moves": ["f5", "d6", "c4", "g5"],
+      "aliases": [
+        "No Cat（bassy84.net表記）"
+      ],
+      "moves": [
+        "f5",
+        "d6",
+        "c4",
+        "g5"
+      ],
       "firstMoveBasis": "f5",
       "depth": 4,
-      "sources": ["https://hasera.net/othello/saizen40.html"],
-      "notes": "単一ソース。2026-07-08にcurlで生HTML取得、「虎Ｃ定石：f5d6c4g5」をgrepでverbatim確認済み(出典URLを前回のjouseki-tate.htmlからsaizen40.htmlに訂正)。"
+      "sources": [
+        "https://hasera.net/othello/saizen40.html",
+        "https://bassy84.net/zyouseki-nocat.html"
+      ],
+      "notes": "単一ソース。2026-07-08にcurlで生HTML取得、「虎Ｃ定石：f5d6c4g5」をgrepでverbatim確認済み(出典URLを前回のjouseki-tate.htmlからsaizen40.htmlに訂正)。 2026-07-08追記: bassy84.net/zyouseki-nocat.html(タイトル「No Cat・基本形」)をcurlで取得したところ、本文「棋譜：f5d6c4g5」がverbatimで存在し、本エントリ(虎C)と全く同じ4手であることを確認した。同一の着手列に2つの独立ドメインでそれぞれ別名(虎C／No Cat)が付いているため、重複ラインとして別途追加はせず、本エントリのaliasesに統合した。"
     },
     {
       "name": "虎D",
       "aliases": [],
-      "moves": ["f5", "d6", "c3", "f4"],
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "f4"
+      ],
       "firstMoveBasis": "f5",
       "depth": 4,
-      "sources": ["https://hasera.net/othello/saizen40.html"],
+      "sources": [
+        "https://hasera.net/othello/saizen40.html"
+      ],
       "notes": "単一ソース。2026-07-08にcurlで生HTML取得、「虎Ｄ定石：f5d6c3f4」をgrepでverbatim確認済み(出典URLを前回のjouseki-tate.htmlからsaizen40.htmlに訂正)。"
     },
     {
       "name": "虎E",
       "aliases": [],
-      "moves": ["f5", "d6", "c3", "g5"],
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "g5"
+      ],
       "firstMoveBasis": "f5",
       "depth": 4,
-      "sources": ["https://hasera.net/othello/saizen40.html"],
+      "sources": [
+        "https://hasera.net/othello/saizen40.html"
+      ],
       "notes": "単一ソース。2026-07-08にcurlで生HTML取得、「虎Ｅ定石：f5d6c3g5」をgrepでverbatim確認済み(出典URLを前回のjouseki-tate.htmlからsaizen40.htmlに訂正)。"
     },
     {
       "name": "兎",
-      "aliases": ["Usagi", "Rabbit"],
-      "moves": ["f5", "d6", "c5", "f4", "e3"],
+      "aliases": [
+        "Usagi",
+        "Rabbit"
+      ],
+      "moves": [
+        "f5",
+        "d6",
+        "c5",
+        "f4",
+        "e3"
+      ],
       "firstMoveBasis": "f5",
       "depth": 5,
       "sources": [
@@ -219,8 +281,17 @@
     },
     {
       "name": "馬",
-      "aliases": ["兎A(hasera.net表記のみ)", "馬定石"],
-      "moves": ["f5", "d6", "c5", "f4", "d3"],
+      "aliases": [
+        "兎A(hasera.net表記のみ)",
+        "馬定石"
+      ],
+      "moves": [
+        "f5",
+        "d6",
+        "c5",
+        "f4",
+        "d3"
+      ],
       "firstMoveBasis": "f5",
       "depth": 5,
       "sources": [
@@ -231,8 +302,14 @@
     },
     {
       "name": "野兎",
-      "aliases": ["野ウサギ"],
-      "moves": ["f5", "d6", "c6"],
+      "aliases": [
+        "野ウサギ"
+      ],
+      "moves": [
+        "f5",
+        "d6",
+        "c6"
+      ],
       "firstMoveBasis": "f5",
       "depth": 3,
       "sources": [
@@ -244,8 +321,13 @@
     },
     {
       "name": "縦取り",
-      "aliases": ["Tatedori"],
-      "moves": ["f5", "d6"],
+      "aliases": [
+        "Tatedori"
+      ],
+      "moves": [
+        "f5",
+        "d6"
+      ],
       "firstMoveBasis": "f5",
       "depth": 2,
       "sources": [
@@ -256,8 +338,17 @@
     },
     {
       "name": "牛",
-      "aliases": ["Ushi", "Cow"],
-      "moves": ["f5", "f6", "e6", "f4", "e3"],
+      "aliases": [
+        "Ushi",
+        "Cow"
+      ],
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "e3"
+      ],
       "firstMoveBasis": "f5",
       "depth": 5,
       "sources": [
@@ -270,47 +361,95 @@
     },
     {
       "name": "牛A",
-      "aliases": ["裏蛇"],
-      "moves": ["f5", "f6", "e6", "f4", "d3"],
+      "aliases": [
+        "裏蛇"
+      ],
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "d3"
+      ],
       "firstMoveBasis": "f5",
       "depth": 5,
-      "sources": ["https://hasera.net/othello/saizen40.html"],
+      "sources": [
+        "https://hasera.net/othello/saizen40.html"
+      ],
       "notes": "単一ソース。2026-07-08にcurlで生HTML取得、「牛Ａ（裏蛇）定石：f5f6e6f4d3」をgrepでverbatim確認済み(前回は出典URL未確認の疑いを指摘されたが、saizen40.htmlに実在することを確認できたため出典を明記して存続)。"
     },
     {
       "name": "牛B",
-      "aliases": ["裏狸"],
-      "moves": ["f5", "f6", "e6", "f4", "f3"],
+      "aliases": [
+        "裏狸"
+      ],
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "f3"
+      ],
       "firstMoveBasis": "f5",
       "depth": 5,
-      "sources": ["https://hasera.net/othello/saizen40.html"],
+      "sources": [
+        "https://hasera.net/othello/saizen40.html"
+      ],
       "notes": "単一ソース。2026-07-08にcurlで生HTML取得、「牛Ｂ（裏狸）定石：f5f6e6f4f3」をgrepでverbatim確認済み(前回は出典URL未確認の疑いを指摘されたが、saizen40.htmlに実在することを確認できたため出典を明記して存続)。"
     },
     {
       "name": "バッファロー",
-      "aliases": ["猛牛"],
-      "moves": ["f5", "f6", "e6", "f4", "c3"],
+      "aliases": [
+        "猛牛"
+      ],
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "c3"
+      ],
       "firstMoveBasis": "f5",
       "depth": 5,
-      "sources": ["https://hasera.net/othello/saizen40.html"],
+      "sources": [
+        "https://hasera.net/othello/saizen40.html"
+      ],
       "notes": "単一ソース。2026-07-08にcurlで生HTML取得、「バッファロー（猛牛）定石：f5f6e6f4c3」をgrepでverbatim確認済み(前回は出典URL未確認の疑いを指摘されたが、saizen40.htmlに実在することを確認できたため出典を明記して存続)。"
     },
     {
       "name": "闘牛",
-      "aliases": ["Tougyuu"],
-      "moves": ["f5", "f6", "e6", "f4", "g5"],
+      "aliases": [
+        "Tougyuu",
+        "飛出し牛（bassy84.net表記）"
+      ],
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "g5"
+      ],
       "firstMoveBasis": "f5",
       "depth": 5,
       "sources": [
         "https://hasera.net/othello/saizen40.html",
-        "https://hasera.net/othello/jouseki-naname.html"
+        "https://hasera.net/othello/jouseki-naname.html",
+        "https://bassy84.net/zyouseki-tobidasi.html"
       ],
-      "notes": "2026-07-08にcurl+grepで両URLともverbatim一致を再確認済み(crossChecks参照)。"
+      "notes": "2026-07-08にcurl+grepで両URLともverbatim一致を再確認済み(crossChecks参照)。 2026-07-08追記: bassy84.net/zyouseki-tobidasi.html(タイトル「飛出し牛・基本形」)をcurlで取得したところ、本文「棋譜：f5f6e6f4g5」がverbatimで存在し、本エントリ(闘牛)と全く同じ5手であることを確認した。同一の着手列に2つの独立ドメインでそれぞれ別名(闘牛／飛出し牛)が付いているため、重複ラインとして別途追加はせず、本エントリのaliasesに統合した。"
     },
     {
       "name": "蛇",
-      "aliases": ["闘牛A(hasera.net saizen40.html表記のみ)"],
-      "moves": ["f5", "f6", "e6", "f4", "g6"],
+      "aliases": [
+        "闘牛A(hasera.net saizen40.html表記のみ)"
+      ],
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "g6"
+      ],
       "firstMoveBasis": "f5",
       "depth": 5,
       "sources": [
@@ -321,35 +460,68 @@
     },
     {
       "name": "狸",
-      "aliases": ["闘牛B"],
-      "moves": ["f5", "f6", "e6", "f4", "g4"],
+      "aliases": [
+        "闘牛B"
+      ],
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "g4"
+      ],
       "firstMoveBasis": "f5",
       "depth": 5,
-      "sources": ["https://hasera.net/othello/saizen40.html"],
+      "sources": [
+        "https://hasera.net/othello/saizen40.html"
+      ],
       "notes": "単一ソース。2026-07-08にcurlで生HTML取得、「狸（闘牛Ｂ）定石：f5f6e6f4g4」をgrepでverbatim確認済み(前回は出典URL未確認の疑いを指摘されたが、saizen40.htmlに実在することを確認できたため出典を明記して存続)。"
     },
     {
       "name": "闘牛C",
       "aliases": [],
-      "moves": ["f5", "f6", "e6", "f4", "g3"],
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "g3"
+      ],
       "firstMoveBasis": "f5",
       "depth": 5,
-      "sources": ["https://hasera.net/othello/saizen40.html"],
+      "sources": [
+        "https://hasera.net/othello/saizen40.html"
+      ],
       "notes": "単一ソース。2026-07-08にcurlで生HTML取得、「闘牛Ｃ：f5f6e6f4g3」をgrepでverbatim確認済み(前回は出典URL未確認の疑いを指摘されたが、saizen40.htmlに実在することを確認できたため出典を明記して存続)。"
     },
     {
       "name": "暴走牛",
-      "aliases": ["闘牛D"],
-      "moves": ["f5", "f6", "e6", "f4", "g7"],
+      "aliases": [
+        "闘牛D"
+      ],
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "g7"
+      ],
       "firstMoveBasis": "f5",
       "depth": 5,
-      "sources": ["https://hasera.net/othello/saizen40.html"],
+      "sources": [
+        "https://hasera.net/othello/saizen40.html"
+      ],
       "notes": "単一ソース。2026-07-08にcurlで生HTML取得、「暴走牛（闘牛Ｄ）：f5f6e6f4g7」をgrepでverbatim確認済み(前回は出典URL未確認の疑いを指摘されたが、saizen40.htmlに実在することを確認できたため出典を明記して存続)。"
     },
     {
       "name": "斜め取り",
-      "aliases": ["Nanamedori"],
-      "moves": ["f5", "f6"],
+      "aliases": [
+        "Nanamedori"
+      ],
+      "moves": [
+        "f5",
+        "f6"
+      ],
       "firstMoveBasis": "f5",
       "depth": 2,
       "sources": [
@@ -360,8 +532,13 @@
     },
     {
       "name": "並び取り",
-      "aliases": ["Naraidori"],
-      "moves": ["f5", "f4"],
+      "aliases": [
+        "Naraidori"
+      ],
+      "moves": [
+        "f5",
+        "f4"
+      ],
       "firstMoveBasis": "f5",
       "depth": 2,
       "sources": [
@@ -372,35 +549,93 @@
     },
     {
       "name": "野ウサギ定石・基本形",
-      "aliases": ["野うさぎ定石"],
-      "moves": ["f5", "d6", "c6", "f4", "e6"],
+      "aliases": [
+        "野うさぎ定石"
+      ],
+      "moves": [
+        "f5",
+        "d6",
+        "c6",
+        "f4",
+        "e6"
+      ],
       "firstMoveBasis": "f5",
       "depth": 5,
-      "sources": ["https://bassy84.net/zyouseki-nousagi.html"],
+      "sources": [
+        "https://bassy84.net/zyouseki-nousagi.html"
+      ],
       "notes": "単一ソース(bassy84.net内、ただし『野兎』の冒頭3手はhasera.net等でも確認済み)。2026-07-08にcurlで生HTML取得、iframeコメント「3(黒c6　野ウサギ定石)」およびkifu=f5d6c6f4e6c5をgrepでverbatim確認済み。"
     },
     {
       "name": "野ウサギ定石・白6手目g5型",
       "aliases": [],
-      "moves": ["f5", "d6", "c6", "f4", "e6", "g5", "d3", "c4", "e3", "c5", "b3", "b4", "c3", "b5"],
+      "moves": [
+        "f5",
+        "d6",
+        "c6",
+        "f4",
+        "e6",
+        "g5",
+        "d3",
+        "c4",
+        "e3",
+        "c5",
+        "b3",
+        "b4",
+        "c3",
+        "b5"
+      ],
       "firstMoveBasis": "f5",
       "depth": 14,
-      "sources": ["https://bassy84.net/zyouseki-nousagi6-g5.html"],
+      "sources": [
+        "https://bassy84.net/zyouseki-nousagi6-g5.html"
+      ],
       "notes": "単一ソース。2026-07-08にcurlで生HTML取得、本文「棋譜：F5D6C6F4E6G5D3C4E3C5B3B4C3B5」(大文字表記)をgrepでverbatim確認済み(小文字化して収録)。白6手目g5は最善手とされ、白やや優勢のまま進むとbassy84.netは評価。"
     },
     {
       "name": "野ウサギ定石・白6手目c5対応",
       "aliases": [],
-      "moves": ["f5", "d6", "c6", "f4", "e6", "c5", "b4", "b5", "c4", "b6", "a5", "d7", "a6", "e7"],
+      "moves": [
+        "f5",
+        "d6",
+        "c6",
+        "f4",
+        "e6",
+        "c5",
+        "b4",
+        "b5",
+        "c4",
+        "b6",
+        "a5",
+        "d7",
+        "a6",
+        "e7"
+      ],
       "firstMoveBasis": "f5",
       "depth": 14,
-      "sources": ["https://bassy84.net/zyouseki-nousagi6-c5.html"],
+      "sources": [
+        "https://bassy84.net/zyouseki-nousagi6-c5.html"
+      ],
       "notes": "単一ソース。2026-07-08にcurlで生HTML取得、本文「棋譜： f5d6c6f4e6c5b4b5c4b6a5d7a6e7」をgrepでverbatim確認済み。白6手目c5は次善手(最善はg5型)だが人間的に打ちやすいとbassy84.netは説明。"
     },
     {
       "name": "ローズ基本形",
-      "aliases": ["ローズ定石", "Rose"],
-      "moves": ["f5", "d6", "c5", "f4", "e3", "c6", "d3", "f6", "e6", "d7"],
+      "aliases": [
+        "ローズ定石",
+        "Rose"
+      ],
+      "moves": [
+        "f5",
+        "d6",
+        "c5",
+        "f4",
+        "e3",
+        "c6",
+        "d3",
+        "f6",
+        "e6",
+        "d7"
+      ],
       "firstMoveBasis": "f5",
       "depth": 10,
       "sources": [
@@ -413,93 +648,1789 @@
     },
     {
       "name": "シャープローズ",
-      "aliases": ["Sローズ"],
-      "moves": ["f5", "d6", "c5", "f4", "e3", "c6", "d3", "f6", "e6", "d7", "g3"],
+      "aliases": [
+        "Sローズ"
+      ],
+      "moves": [
+        "f5",
+        "d6",
+        "c5",
+        "f4",
+        "e3",
+        "c6",
+        "d3",
+        "f6",
+        "e6",
+        "d7",
+        "g3"
+      ],
       "firstMoveBasis": "f5",
       "depth": 11,
-      "sources": ["https://bassy84.net/zyouseki-s-rose.html"],
+      "sources": [
+        "https://bassy84.net/zyouseki-s-rose.html"
+      ],
       "notes": "単一ソース(基本部分10手はローズ基本形として複数ソースでクロスチェック済み)。2026-07-08にcurlで生HTML取得、本文「①11-g3：シャープローズ定石」というラベルと、iframe kifu=f5d6c5f4e3c6d3f6e6d7(10手, verbatim一致)＋kifu=f5d6c5f4e3c6d3f6e6d7g3c4(12手、11手目=g3がverbatimで含まれる)を確認し、11手目g3までを収録した。より深いラインは『シャープローズ定石:15-g5型』『Sローズ・13-g6ローテーション型』『Sローズ・13-b4最善型』『Sローズ・15-b6型』を参照。"
     },
     {
       "name": "シャープローズ定石:15-g5型",
-      "aliases": ["爲則ローズVer3"],
-      "moves": ["f5", "d6", "c5", "f4", "e3", "c6", "d3", "f6", "e6", "d7", "g3", "c4", "b4", "b3", "g5", "c3", "b5", "a5", "a4", "a3", "b6", "a6", "f7"],
+      "aliases": [
+        "爲則ローズVer3"
+      ],
+      "moves": [
+        "f5",
+        "d6",
+        "c5",
+        "f4",
+        "e3",
+        "c6",
+        "d3",
+        "f6",
+        "e6",
+        "d7",
+        "g3",
+        "c4",
+        "b4",
+        "b3",
+        "g5",
+        "c3",
+        "b5",
+        "a5",
+        "a4",
+        "a3",
+        "b6",
+        "a6",
+        "f7"
+      ],
       "firstMoveBasis": "f5",
       "depth": 23,
-      "sources": ["https://bassy84.net/post-1053.html"],
+      "sources": [
+        "https://bassy84.net/post-1053.html"
+      ],
       "notes": "単一ソース(基本部分11手はシャープローズとしてクロスチェック済み)。2026-07-08にcurlで生HTML取得、iframe kifu=f5d6c5f4e3c6d3f6e6d7g3c4b4b3g5c3b5a5a4a3b6a6f7(23手)がverbatim完全一致することを確認済み。本文には「ウサギ（兎）定石より、シャープローズ定石を経て、黒15手目でg5へと変化する定石。最善と言われる15手目b6と同じく【-2】評価ですね。」と記載されている(post-1053.htmlより引用)。(2026-07-08再確認: 以前このnotesに記載していた「ページ内で著者はVer3は自称であり一般名称ではないと明記している」という記述はpost-1053.html本文には存在しないため削除した。この「Ver3は当方で勝手につけました」という一文は、別ページ zyouseki-s-rose.html 内の関連記事カード(リンク先タイトルが同じ『Ver3』作品を指す)の抜粋文であり、post-1053.html自体の本文ではなかった。なお、同種の自称コメントは『Sローズ・15-b6型』(爲則ローズVer2)側では実際にzyouseki-s-tamenorirose-15-b6.html本文に存在することをgrepで確認済みのため、そちらのnotesは修正不要。)"
     },
     {
       "name": "フラットローズ",
-      "aliases": ["Fローズ"],
-      "moves": ["f5", "d6", "c5", "f4", "e3", "c6", "d3", "f6", "e6", "d7", "g4"],
+      "aliases": [
+        "Fローズ"
+      ],
+      "moves": [
+        "f5",
+        "d6",
+        "c5",
+        "f4",
+        "e3",
+        "c6",
+        "d3",
+        "f6",
+        "e6",
+        "d7",
+        "g4"
+      ],
       "firstMoveBasis": "f5",
       "depth": 11,
-      "sources": ["https://bassy84.net/zyouseki-f-rose.html"],
+      "sources": [
+        "https://bassy84.net/zyouseki-f-rose.html"
+      ],
       "notes": "単一ソース(基本部分10手はローズ基本形として複数ソースでクロスチェック済み)。2026-07-08にcurlで生HTML取得、本文「②11-g4：フラットローズ定石（本項で紹介）」というラベルと、iframe kifu=f5d6c5f4e3c6d3f6e6d7g4g3g5h4e7(15手、11手目=g4がverbatimで含まれる)を確認し、11手目g4までを収録した。より深いラインは『フラットローズ定石・13-g5ローテーション型』を参照。"
     },
     {
       "name": "手塚システム",
-      "aliases": ["手塚システム2"],
-      "moves": ["f5", "d6", "c5", "f4", "e3", "c6", "d3", "f6", "e6", "d7", "e7"],
+      "aliases": [
+        "手塚システム2"
+      ],
+      "moves": [
+        "f5",
+        "d6",
+        "c5",
+        "f4",
+        "e3",
+        "c6",
+        "d3",
+        "f6",
+        "e6",
+        "d7",
+        "e7"
+      ],
       "firstMoveBasis": "f5",
       "depth": 11,
-      "sources": ["https://bassy84.net/zyouseki-tezuka.html"],
+      "sources": [
+        "https://bassy84.net/zyouseki-tezuka.html"
+      ],
       "notes": "単一ソース(基本部分10手はローズ基本形として複数ソースでクロスチェック済み)。2026-07-08にcurlで生HTML取得、本文「③11-e7：手塚システム（本項で紹介）」というラベルと、iframe kifu=f5d6c5f4e3c6d3f6e6d7e7c7c4f3d8c8(16手、11手目=e7がverbatimで含まれる)を確認し、11手目e7までを収録した。黒が自らc4に中割りの種を作るイメージとbassy84.netは説明。正式名は「手塚システム2」で、元祖「手塚システム1」はバッファロー定石からの変化らしいとページに記載あり(ただし手塚システム1自体の座標は未確認)。"
     },
     {
       "name": "こうもり定石・基本形",
-      "aliases": ["こうもり定石"],
-      "moves": ["f5", "f6", "e6", "f4", "e3", "c5", "g5", "g3"],
+      "aliases": [
+        "こうもり定石"
+      ],
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "e3",
+        "c5",
+        "g5",
+        "g3"
+      ],
       "firstMoveBasis": "f5",
       "depth": 8,
-      "sources": ["https://bassy84.net/zyouseki-bat.html"],
+      "sources": [
+        "https://bassy84.net/zyouseki-bat.html"
+      ],
       "notes": "単一ソース(冒頭5手はhasera.netの『牛』とクロスチェック済み)。2026-07-08にcurlで生HTML取得、本文「棋譜：f5f6e6f4e3c5g5g3」をgrepでverbatim確認済み。牛定石(f5f6e6f4e3)の継続。黒の4変化が展開され、白g3が最善手とbassy84.netは説明。"
     },
     {
       "name": "戦車定石",
-      "aliases": ["Sensya"],
-      "moves": ["f5", "f6", "e6", "f4", "e3", "c5", "c6", "d6", "e7", "f7"],
+      "aliases": [
+        "Sensya"
+      ],
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "e3",
+        "c5",
+        "c6",
+        "d6",
+        "e7",
+        "f7"
+      ],
       "firstMoveBasis": "f5",
       "depth": 10,
-      "sources": ["https://bassy84.net/zyouseki-sensya.html"],
+      "sources": [
+        "https://bassy84.net/zyouseki-sensya.html"
+      ],
       "notes": "単一ソース(冒頭5手はhasera.netの『牛』とクロスチェック済み)。2026-07-08にcurlで生HTML取得、本文「棋譜：f5f6e6f4e3c5c6d6e7f7」をgrepでverbatim確認済み。牛定石(f5f6e6f4e3)の継続で、黒7手目c6以降の形が戦車の見た目に似ることが名前の由来とbassy84.netは説明。"
     },
     {
       "name": "Sローズ・13-g6ローテーション型",
       "aliases": [],
-      "moves": ["f5", "d6", "c5", "f4", "e3", "c6", "d3", "f6", "e6", "d7", "g3", "c4", "g6", "c3", "f7", "d2", "e7", "f2", "c8", "f3", "c7", "h3", "b6", "g4", "b5"],
+      "moves": [
+        "f5",
+        "d6",
+        "c5",
+        "f4",
+        "e3",
+        "c6",
+        "d3",
+        "f6",
+        "e6",
+        "d7",
+        "g3",
+        "c4",
+        "g6",
+        "c3",
+        "f7",
+        "d2",
+        "e7",
+        "f2",
+        "c8",
+        "f3",
+        "c7",
+        "h3",
+        "b6",
+        "g4",
+        "b5"
+      ],
       "firstMoveBasis": "f5",
       "depth": 25,
-      "sources": ["https://bassy84.net/zyouseki-s-rose-rotate.html"],
+      "sources": [
+        "https://bassy84.net/zyouseki-s-rose-rotate.html"
+      ],
       "notes": "単一ソース(基本部分11手はシャープローズとしてクロスチェック済み)。2026-07-08にcurlで生HTML取得、本文「棋譜： f5d6c5f4e3c6d3f6e6d7g3c4g6c3f7d2e7f2c8f3c7h3b6g4b5」をgrepでverbatim確認済み(13手目=g6がタイトル『13-g6』と整合)。"
     },
     {
       "name": "フラットローズ定石・13-g5ローテーション型",
       "aliases": [],
-      "moves": ["f5", "d6", "c5", "f4", "e3", "c6", "d3", "f6", "e6", "d7", "g4", "c4", "g5", "c3", "f7", "d2", "e7", "f2", "c8", "f3", "c7", "d8", "e8", "g3"],
+      "moves": [
+        "f5",
+        "d6",
+        "c5",
+        "f4",
+        "e3",
+        "c6",
+        "d3",
+        "f6",
+        "e6",
+        "d7",
+        "g4",
+        "c4",
+        "g5",
+        "c3",
+        "f7",
+        "d2",
+        "e7",
+        "f2",
+        "c8",
+        "f3",
+        "c7",
+        "d8",
+        "e8",
+        "g3"
+      ],
       "firstMoveBasis": "f5",
       "depth": 24,
-      "sources": ["https://bassy84.net/zyouseki-f-rose13-g5.html"],
+      "sources": [
+        "https://bassy84.net/zyouseki-f-rose13-g5.html"
+      ],
       "notes": "単一ソース(基本部分11手はフラットローズとしてクロスチェック済み)。2026-07-08にcurlで生HTML取得、本文「棋譜： f5d6c5f4e3c6d3f6e6d7g4c4g5c3f7d2e7f2c8f3c7d8e8g3」をgrepでverbatim確認済み(13手目=g5がタイトル『13-g5』と整合)。同一文字列がzyouseki-s-rose.html・zyouseki-tezuka.htmlの関連記事カードにも再掲されており、追加の整合性確認が取れている。"
     },
     {
       "name": "Sローズ・13-b4最善型",
-      "aliases": ["爲則ローズ"],
-      "moves": ["f5", "d6", "c5", "f4", "e3", "c6", "d3", "f6", "e6", "d7", "g3", "c4", "b4", "b3", "b5", "a4", "a2", "a3", "a5"],
+      "aliases": [
+        "爲則ローズ"
+      ],
+      "moves": [
+        "f5",
+        "d6",
+        "c5",
+        "f4",
+        "e3",
+        "c6",
+        "d3",
+        "f6",
+        "e6",
+        "d7",
+        "g3",
+        "c4",
+        "b4",
+        "b3",
+        "b5",
+        "a4",
+        "a2",
+        "a3",
+        "a5"
+      ],
       "firstMoveBasis": "f5",
       "depth": 19,
-      "sources": ["https://bassy84.net/zyouseki-s-tamenorirose.html"],
+      "sources": [
+        "https://bassy84.net/zyouseki-s-tamenorirose.html"
+      ],
       "notes": "単一ソース(基本部分11手はシャープローズとしてクロスチェック済み)。2026-07-08にcurlで生HTML取得、本文「棋譜： f5d6c5f4e3c6d3f6e6d7g3c4b4b3b5a4a2a3a5」をgrepでverbatim確認済み(13手目=b4がタイトル『13-b4』と整合)。「爲則ローズ」はbassy84.net独自呼称の可能性がある(ページ内に由来説明なし)。"
     },
     {
       "name": "Sローズ・15-b6型",
-      "aliases": ["爲則ローズVer2"],
-      "moves": ["f5", "d6", "c5", "f4", "e3", "c6", "d3", "f6", "e6", "d7", "g3", "c4", "b4", "b3", "b6", "c3", "b5", "g4"],
+      "aliases": [
+        "爲則ローズVer2"
+      ],
+      "moves": [
+        "f5",
+        "d6",
+        "c5",
+        "f4",
+        "e3",
+        "c6",
+        "d3",
+        "f6",
+        "e6",
+        "d7",
+        "g3",
+        "c4",
+        "b4",
+        "b3",
+        "b6",
+        "c3",
+        "b5",
+        "g4"
+      ],
       "firstMoveBasis": "f5",
       "depth": 18,
-      "sources": ["https://bassy84.net/zyouseki-s-tamenorirose-15-b6.html"],
+      "sources": [
+        "https://bassy84.net/zyouseki-s-tamenorirose-15-b6.html"
+      ],
       "notes": "単一ソース(基本部分11手はシャープローズとしてクロスチェック済み)。2026-07-08にcurlで生HTML取得、本文「棋譜： f5d6c5f4e3c6d3f6e6d7g3c4b4b3b6c3b5g4」をgrepでverbatim確認済み(15手目=b6がタイトル『15-b6』と整合)。ページ内で著者は「Ver2」は自称であり一般名称ではないと明記している。"
+    },
+    {
+      "name": "コンポス基本形",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "d3",
+        "c4",
+        "f4",
+        "f6",
+        "f3",
+        "e6",
+        "e7",
+        "d7"
+      ],
+      "depth": 11,
+      "sources": [
+        "https://bassy84.net/zyoseki-copmpos.html"
+      ],
+      "notes": "単一ソース(bassy84.net)。2026-07-08にcurlで生HTML取得、`grep -oE '棋譜[：: ]*[a-hA-H0-9 　]{5,80}'`で本文中の「棋譜：f5d6c3d3c4f4f6f3e6e7d7」がverbatimで存在することを確認済み。出典: https://bassy84.net/zyoseki-copmpos.html",
+      "firstMoveBasis": "f5"
+    },
+    {
+      "name": "コンポス･F.A.T型",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "d3",
+        "c4",
+        "f4",
+        "f6",
+        "f3",
+        "e6",
+        "e7",
+        "d7",
+        "g6",
+        "f8",
+        "f7",
+        "g5",
+        "h6",
+        "h4",
+        "g4",
+        "h3",
+        "h5",
+        "h7"
+      ],
+      "depth": 21,
+      "sources": [
+        "https://bassy84.net/zyoseki-copmpos-fat.html"
+      ],
+      "notes": "単一ソース(bassy84.net)。2026-07-08にcurlで生HTML取得、`grep -oE '棋譜[：: ]*[a-hA-H0-9 　]{5,80}'`で本文中の「棋譜：f5d6c3d3c4f4f6f3e6e7d7g6f8f7g5h6h4g4h3h5h7」がverbatimで存在することを確認済み。出典: https://bassy84.net/zyoseki-copmpos-fat.html",
+      "firstMoveBasis": "f5"
+    },
+    {
+      "name": "コンポス14-c5変化型",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "d3",
+        "c4",
+        "f4",
+        "f6",
+        "f3",
+        "e6",
+        "e7",
+        "d7",
+        "g6",
+        "f8",
+        "c5",
+        "c6",
+        "c7",
+        "c8",
+        "b4"
+      ],
+      "depth": 18,
+      "sources": [
+        "https://bassy84.net/zyoseki-copmpos-14-c5.html"
+      ],
+      "notes": "単一ソース(bassy84.net)。2026-07-08にcurlで生HTML取得、`grep -oE '棋譜[：: ]*[a-hA-H0-9 　]{5,80}'`で本文中の「棋譜：f5d6c3d3c4f4f6f3e6e7d7g6f8c5c6c7c8b4」がverbatimで存在することを確認済み。出典: https://bassy84.net/zyoseki-copmpos-14-c5.html",
+      "firstMoveBasis": "f5"
+    },
+    {
+      "name": "D8コンポス13-d8変化型",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "d3",
+        "c4",
+        "f4",
+        "f6",
+        "f3",
+        "e6",
+        "e7",
+        "d7",
+        "g6",
+        "d8",
+        "c5",
+        "c6",
+        "c7",
+        "c8"
+      ],
+      "depth": 17,
+      "sources": [
+        "https://bassy84.net/zyoseki-copmpos-13-d8.html"
+      ],
+      "notes": "単一ソース(bassy84.net)。2026-07-08にcurlで生HTML取得、`grep -oE '棋譜[：: ]*[a-hA-H0-9 　]{5,80}'`で本文中の「棋譜：f5d6c3d3c4f4f6f3e6e7d7g6d8c5c6c7c8」がverbatimで存在することを確認済み。出典: https://bassy84.net/zyoseki-copmpos-13-d8.html",
+      "firstMoveBasis": "f5"
+    },
+    {
+      "name": "シャープコンポス",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "d3",
+        "c4",
+        "f4",
+        "f6",
+        "f3",
+        "e6",
+        "e7",
+        "d7",
+        "g6",
+        "g5",
+        "c5",
+        "b6",
+        "c6",
+        "b5",
+        "c7",
+        "f8",
+        "e8",
+        "f7",
+        "h6",
+        "h4",
+        "b4"
+      ],
+      "depth": 24,
+      "sources": [
+        "https://bassy84.net/zyoseki-copmpos-sharp.html"
+      ],
+      "notes": "単一ソース(bassy84.net)。2026-07-08にcurlで生HTML取得、`grep -oE '棋譜[：: ]*[a-hA-H0-9 　]{5,80}'`で本文中の「棋譜：f5d6c3d3c4f4f6f3e6e7d7g6g5c5b6c6b5c7f8e8f7h6h4b4」がverbatimで存在することを確認済み。出典: https://bassy84.net/zyoseki-copmpos-sharp.html",
+      "firstMoveBasis": "f5"
+    },
+    {
+      "name": "フラットコンポス",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "d3",
+        "c4",
+        "f4",
+        "f6",
+        "f3",
+        "e6",
+        "e7",
+        "d7",
+        "g6",
+        "g5",
+        "c5",
+        "c6",
+        "f7",
+        "e8",
+        "h6",
+        "h4",
+        "c8",
+        "f8",
+        "h5",
+        "h7"
+      ],
+      "depth": 23,
+      "sources": [
+        "https://bassy84.net/zyoseki-copmpos-flat.html"
+      ],
+      "notes": "単一ソース(bassy84.net)。2026-07-08にcurlで生HTML取得、`grep -oE '棋譜[：: ]*[a-hA-H0-9 　]{5,80}'`で本文中の「棋譜：f5d6c3d3c4f4f6f3e6e7d7g6g5c5c6f7e8h6h4c8f8h5h7」がverbatimで存在することを確認済み。出典: https://bassy84.net/zyoseki-copmpos-flat.html",
+      "firstMoveBasis": "f5"
+    },
+    {
+      "name": "ノーカン基本形",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "d3",
+        "c4",
+        "f4",
+        "f6",
+        "g5"
+      ],
+      "depth": 8,
+      "sources": [
+        "https://bassy84.net/zyoseki-nokung.html"
+      ],
+      "notes": "単一ソース(bassy84.net)。2026-07-08にcurlで生HTML取得、`grep -oE '棋譜[：: ]*[a-hA-H0-9 　]{5,80}'`で本文中の「棋譜：f5d6c3d3c4f4f6g5」がverbatimで存在することを確認済み。出典: https://bassy84.net/zyoseki-nokung.html",
+      "firstMoveBasis": "f5"
+    },
+    {
+      "name": "ノーカン最善1 15-h5型",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "d3",
+        "c4",
+        "f4",
+        "f6",
+        "g5",
+        "e6",
+        "d7",
+        "e3",
+        "c5",
+        "f3",
+        "e7",
+        "h5",
+        "e2",
+        "c6",
+        "d2",
+        "c2",
+        "b3",
+        "b4",
+        "g6",
+        "a4"
+      ],
+      "depth": 23,
+      "sources": [
+        "https://bassy84.net/zyoseki-nokung-saizen-15-h5.html"
+      ],
+      "notes": "単一ソース(bassy84.net)。2026-07-08にcurlで生HTML取得、`grep -oE '棋譜[：: ]*[a-hA-H0-9 　]{5,80}'`で本文中の「棋譜：f5d6c3d3c4f4f6g5e6d7e3c5f3e7h5e2c6d2c2b3b4g6a4」がverbatimで存在することを確認済み。出典: https://bassy84.net/zyoseki-nokung-saizen-15-h5.html",
+      "firstMoveBasis": "f5"
+    },
+    {
+      "name": "ノーカン最善2 15-b6型",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "d3",
+        "c4",
+        "f4",
+        "f6",
+        "g5",
+        "e6",
+        "d7",
+        "e3",
+        "c5",
+        "f3",
+        "e7",
+        "b6",
+        "g4",
+        "c6",
+        "g3",
+        "h3",
+        "f2",
+        "h6",
+        "b5"
+      ],
+      "depth": 22,
+      "sources": [
+        "https://bassy84.net/zyoseki-nokung-saizen-15-b6.html"
+      ],
+      "notes": "単一ソース(bassy84.net)。2026-07-08にcurlで生HTML取得、`grep -oE '棋譜[：: ]*[a-hA-H0-9 　]{5,80}'`で本文中の「棋譜：f5d6c3d3c4f4f6g5e6d7e3c5f3e7b6g4c6g3h3f2h6b5」がverbatimで存在することを確認済み。出典: https://bassy84.net/zyoseki-nokung-saizen-15-b6.html",
+      "firstMoveBasis": "f5"
+    },
+    {
+      "name": "ノーカン10-c5型（縦取り殺され）",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "d3",
+        "c4",
+        "f4",
+        "f6",
+        "g5",
+        "e6",
+        "c5",
+        "f3",
+        "b5",
+        "b4",
+        "c2",
+        "c7",
+        "d7",
+        "b3"
+      ],
+      "depth": 17,
+      "sources": [
+        "https://bassy84.net/zyoseki-tatekoro.html"
+      ],
+      "notes": "単一ソース(bassy84.net)。2026-07-08にcurlで生HTML取得、`grep -oE '棋譜[：: ]*[a-hA-H0-9 　]{5,80}'`で本文中の「棋譜：f5d6c3d3c4f4f6g5e6c5f3b5b4c2c7d7b3」がverbatimで存在することを確認済み。出典: https://bassy84.net/zyoseki-tatekoro.html",
+      "firstMoveBasis": "f5"
+    },
+    {
+      "name": "バナナ定石",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "d3",
+        "c4",
+        "f4",
+        "c5",
+        "b4",
+        "b3",
+        "c2",
+        "d7",
+        "c6",
+        "e6",
+        "b5",
+        "a5"
+      ],
+      "depth": 15,
+      "sources": [
+        "https://bassy84.net/zyouseki-banana.html"
+      ],
+      "notes": "単一ソース(bassy84.net)。2026-07-08にcurlで生HTML取得、`grep -oE '棋譜[：: ]*[a-hA-H0-9 　]{5,80}'`で本文中の「棋譜：f5d6c3d3c4f4c5b4b3c2d7c6e6b5a5」がverbatimで存在することを確認済み。出典: https://bassy84.net/zyouseki-banana.html",
+      "firstMoveBasis": "f5"
+    },
+    {
+      "name": "バナナ定石9-b5変化型",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "d3",
+        "c4",
+        "f4",
+        "c5",
+        "b4",
+        "b5",
+        "c6",
+        "f3",
+        "e6",
+        "e3",
+        "g6",
+        "f6",
+        "g5",
+        "d7"
+      ],
+      "depth": 17,
+      "sources": [
+        "https://bassy84.net/zyouseki-banana9-b5.html"
+      ],
+      "notes": "単一ソース(bassy84.net)。2026-07-08にcurlで生HTML取得、`grep -oE '棋譜[：: ]*[a-hA-H0-9 　]{5,80}'`で本文中の「棋譜：f5d6c3d3c4f4c5b4b5c6f3e6e3g6f6g5d7」がverbatimで存在することを確認済み。出典: https://bassy84.net/zyouseki-banana9-b5.html",
+      "firstMoveBasis": "f5"
+    },
+    {
+      "name": "酉定石",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "d3",
+        "c4",
+        "f4",
+        "c5",
+        "b3",
+        "c2",
+        "e3",
+        "d2",
+        "c6",
+        "b4"
+      ],
+      "depth": 13,
+      "sources": [
+        "https://bassy84.net/zyouseki-chicken-14-a3.html",
+        "https://bassy84.net/zyouseki-chicken-14-a4.html",
+        "https://bassy84.net/zyouseki-chicken-14-b5.html"
+      ],
+      "notes": "複数ソース(3ページ)。単独ページに「酉定石」という名称と完全な13手が併記された箇所は無いが、「酉フック14-a3型」「酉ストレート14-a4型」「酉アッパー14-b5型」の3ページをそれぞれcurlで生HTML取得し、3ページとも本文中の「棋譜：」に続く座標列の冒頭13手分(f5d6c3d3c4f4c5b3c2e3d2c6b4)がverbatimで一致することをgrepで確認済み(2026-07-08)。この共通接頭辞を、白14手目でa3(フック)/a4(ストレート)/b5(アッパー)の3方向に分岐する直前の基本形として『酉定石』の名で収録した(ユーザーが名指しした『酉』系統。名称と分岐構造はWebSearchのスニペットで裏付けを取ったうえで、実際のページ本文中の座標列で確認できる範囲のみ収録している)。",
+      "firstMoveBasis": "f5"
+    },
+    {
+      "name": "酉フック14-a3型",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "d3",
+        "c4",
+        "f4",
+        "c5",
+        "b3",
+        "c2",
+        "e3",
+        "d2",
+        "c6",
+        "b4",
+        "a3",
+        "g3",
+        "g4",
+        "f3",
+        "c1",
+        "b5",
+        "a4",
+        "a6",
+        "d1",
+        "e2",
+        "f2"
+      ],
+      "depth": 24,
+      "sources": [
+        "https://bassy84.net/zyouseki-chicken-14-a3.html"
+      ],
+      "notes": "単一ソース(bassy84.net)。2026-07-08にcurlで生HTML取得、`grep -oE '棋譜[：: ]*[a-hA-H0-9 　]{5,80}'`で本文中の「棋譜：f5d6c3d3c4f4c5b3c2e3d2c6b4a3g3g4f3c1b5a4a6d1e2f2」がverbatimで存在することを確認済み。出典: https://bassy84.net/zyouseki-chicken-14-a3.html",
+      "firstMoveBasis": "f5"
+    },
+    {
+      "name": "酉ストレート14-a4型",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "d3",
+        "c4",
+        "f4",
+        "c5",
+        "b3",
+        "c2",
+        "e3",
+        "d2",
+        "c6",
+        "b4",
+        "a4",
+        "b5",
+        "b6",
+        "d7",
+        "e7"
+      ],
+      "depth": 18,
+      "sources": [
+        "https://bassy84.net/zyouseki-chicken-14-a4.html"
+      ],
+      "notes": "単一ソース(bassy84.net)。2026-07-08にcurlで生HTML取得、`grep -oE '棋譜[：: ]*[a-hA-H0-9 　]{5,80}'`で本文中の「棋譜：f5d6c3d3c4f4c5b3c2e3d2c6b4a4b5b6d7e7」がverbatimで存在することを確認済み。出典: https://bassy84.net/zyouseki-chicken-14-a4.html",
+      "firstMoveBasis": "f5"
+    },
+    {
+      "name": "酉アッパー14-b5型",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "d3",
+        "c4",
+        "f4",
+        "c5",
+        "b3",
+        "c2",
+        "e3",
+        "d2",
+        "c6",
+        "b4",
+        "b5",
+        "f2",
+        "e6",
+        "f3",
+        "c1",
+        "a3",
+        "a4",
+        "a5"
+      ],
+      "depth": 21,
+      "sources": [
+        "https://bassy84.net/zyouseki-chicken-14-b5.html"
+      ],
+      "notes": "単一ソース(bassy84.net)。2026-07-08にcurlで生HTML取得、`grep -oE '棋譜[：: ]*[a-hA-H0-9 　]{5,80}'`で本文中の「棋譜：f5d6c3d3c4f4c5b3c2e3d2c6b4b5f2e6f3c1a3a4a5」がverbatimで存在することを確認済み。出典: https://bassy84.net/zyouseki-chicken-14-b5.html",
+      "firstMoveBasis": "f5"
+    },
+    {
+      "name": "FJT",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "d3",
+        "c4",
+        "f4",
+        "c5",
+        "b3",
+        "c2",
+        "b4",
+        "e3",
+        "e6",
+        "c6",
+        "f6",
+        "a5",
+        "a4",
+        "b5",
+        "a6",
+        "d7",
+        "c7",
+        "e7"
+      ],
+      "depth": 21,
+      "sources": [
+        "https://bassy84.net/zyouseki-fjt.html"
+      ],
+      "notes": "単一ソース(bassy84.net)。2026-07-08にcurlで生HTML取得、`grep -oE '棋譜[：: ]*[a-hA-H0-9 　]{5,80}'`で本文中の「棋譜：f5d6c3d3c4f4c5b3c2b4e3e6c6f6a5a4b5a6d7c7e7」がverbatimで存在することを確認済み。出典: https://bassy84.net/zyouseki-fjt.html",
+      "firstMoveBasis": "f5"
+    },
+    {
+      "name": "FJT14-g4型",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "d3",
+        "c4",
+        "f4",
+        "c5",
+        "b3",
+        "c2",
+        "b4",
+        "e3",
+        "e6",
+        "c6",
+        "g4",
+        "f6",
+        "b6",
+        "g6",
+        "g5",
+        "f3",
+        "d7",
+        "f7"
+      ],
+      "depth": 21,
+      "sources": [
+        "https://bassy84.net/zyouseki-fjt-14-g4.html"
+      ],
+      "notes": "単一ソース(bassy84.net)。2026-07-08にcurlで生HTML取得、`grep -oE '棋譜[：: ]*[a-hA-H0-9 　]{5,80}'`で本文中の「棋譜：f5d6c3d3c4f4c5b3c2b4e3e6c6g4f6b6g6g5f3d7f7」がverbatimで存在することを確認済み。出典: https://bassy84.net/zyouseki-fjt-14-g4.html",
+      "firstMoveBasis": "f5"
+    },
+    {
+      "name": "FJT11-c6変化型",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "d3",
+        "c4",
+        "f4",
+        "c5",
+        "b3",
+        "c2",
+        "b4",
+        "c6",
+        "d2",
+        "e6",
+        "b5"
+      ],
+      "depth": 14,
+      "sources": [
+        "https://bassy84.net/zyouseki-fjt-11-c6.html"
+      ],
+      "notes": "単一ソース(bassy84.net)。2026-07-08にcurlで生HTML取得、`grep -oE '棋譜[：: ]*[a-hA-H0-9 　]{5,80}'`で本文中の「棋譜：f5d6c3d3c4f4c5b3c2b4c6d2e6b5」がverbatimで存在することを確認済み。出典: https://bassy84.net/zyouseki-fjt-11-c6.html",
+      "firstMoveBasis": "f5"
+    },
+    {
+      "name": "花形（ローズビル）基本形",
+      "aliases": [
+        "ローズビル"
+      ],
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "d3",
+        "c4",
+        "f4",
+        "c5",
+        "b3",
+        "c2"
+      ],
+      "depth": 9,
+      "sources": [
+        "https://bassy84.net/zyouseki-hanagata.html"
+      ],
+      "notes": "単一ソース(bassy84.net)。2026-07-08にcurlで生HTML取得、`grep -oE '棋譜[：: ]*[a-hA-H0-9 　]{5,80}'`で本文中の「棋譜：f5d6c3d3c4f4c5b3c2」がverbatimで存在することを確認済み。出典: https://bassy84.net/zyouseki-hanagata.html",
+      "firstMoveBasis": "f5"
+    },
+    {
+      "name": "金魚定石",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "d3",
+        "c4",
+        "f4",
+        "c5",
+        "b3",
+        "c2",
+        "e6",
+        "c6",
+        "b4",
+        "b5",
+        "d2",
+        "e3",
+        "a6",
+        "c1",
+        "b6",
+        "f3",
+        "f6",
+        "f7",
+        "e2"
+      ],
+      "depth": 22,
+      "sources": [
+        "https://bassy84.net/zyouseki-kingyo.html"
+      ],
+      "notes": "単一ソース(bassy84.net)。2026-07-08にcurlで生HTML取得、`grep -oE '棋譜[：: ]*[a-hA-H0-9 　]{5,80}'`で本文中の「棋譜：f5d6c3d3c4f4c5b3c2e6c6b4b5d2e3a6c1b6f3f6f7e2」がverbatimで存在することを確認済み。出典: https://bassy84.net/zyouseki-kingyo.html",
+      "firstMoveBasis": "f5"
+    },
+    {
+      "name": "金魚回避11-b4変化型",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "d3",
+        "c4",
+        "f4",
+        "c5",
+        "b3",
+        "c2",
+        "e6",
+        "b4",
+        "f3",
+        "e3",
+        "e2",
+        "f6",
+        "d2",
+        "g4",
+        "b6"
+      ],
+      "depth": 18,
+      "sources": [
+        "https://bassy84.net/zyouseki-kingyo-11-b4.html"
+      ],
+      "notes": "単一ソース(bassy84.net)。2026-07-08にcurlで生HTML取得、`grep -oE '棋譜[：: ]*[a-hA-H0-9 　]{5,80}'`で本文中の「棋譜：f5d6c3d3c4f4c5b3c2e6b4f3e3e2f6d2g4b6」がverbatimで存在することを確認済み。出典: https://bassy84.net/zyouseki-kingyo-11-b4.html",
+      "firstMoveBasis": "f5"
+    },
+    {
+      "name": "まこ虎",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "d3",
+        "c4",
+        "f4",
+        "c5",
+        "b5",
+        "b4",
+        "b3",
+        "c2",
+        "f6",
+        "g4",
+        "e3",
+        "e6",
+        "c6"
+      ],
+      "depth": 16,
+      "sources": [
+        "https://bassy84.net/zyouseki-makotora.html"
+      ],
+      "notes": "単一ソース(bassy84.net)。2026-07-08にcurlで生HTML取得、`grep -oE '棋譜[：: ]*[a-hA-H0-9 　]{5,80}'`で本文中の「棋譜：f5d6c3d3c4f4c5b5b4b3c2f6g4e3e6c6」がverbatimで存在することを確認済み。出典: https://bassy84.net/zyouseki-makotora.html",
+      "firstMoveBasis": "f5"
+    },
+    {
+      "name": "ミサイル定石",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "g5",
+        "c6",
+        "c5",
+        "c4"
+      ],
+      "depth": 7,
+      "sources": [
+        "https://bassy84.net/zyoseki-missile.html"
+      ],
+      "notes": "単一ソース(bassy84.net)。2026-07-08にcurlで生HTML取得、`grep -oE '棋譜[：: ]*[a-hA-H0-9 　]{5,80}'`で本文中の「棋譜：f5d6c3g5c6c5c4」がverbatimで存在することを確認済み。出典: https://bassy84.net/zyoseki-missile.html",
+      "firstMoveBasis": "f5"
+    },
+    {
+      "name": "龍定石",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "f4",
+        "f6"
+      ],
+      "depth": 5,
+      "sources": [
+        "https://bassy84.net/zyoseki-dragon.html"
+      ],
+      "notes": "単一ソース(bassy84.net)。2026-07-08にcurlで生HTML取得、`grep -oE '棋譜[：: ]*[a-hA-H0-9 　]{5,80}'`で本文中の「棋譜：f5d6c3f4f6」がverbatimで存在することを確認済み。出典: https://bassy84.net/zyoseki-dragon.html",
+      "firstMoveBasis": "f5"
+    },
+    {
+      "name": "風神定石9-c5型",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "f4",
+        "f6",
+        "d3",
+        "f3",
+        "b3",
+        "c5",
+        "g4",
+        "g3",
+        "c6",
+        "c4",
+        "e6"
+      ],
+      "depth": 14,
+      "sources": [
+        "https://bassy84.net/zyoseki-fuzin.html"
+      ],
+      "notes": "単一ソース(bassy84.net)。2026-07-08にcurlで生HTML取得、`grep -oE '棋譜[：: ]*[a-hA-H0-9 　]{5,80}'`で本文中の「棋譜：f5d6c3f4f6d3f3b3c5g4g3c6c4e6」がverbatimで存在することを確認済み。出典: https://bassy84.net/zyoseki-fuzin.html",
+      "firstMoveBasis": "f5"
+    },
+    {
+      "name": "竜巻定石9-c7型",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "f4",
+        "f6",
+        "d3",
+        "f3",
+        "b3",
+        "c7",
+        "d7",
+        "e7",
+        "d8",
+        "c6",
+        "f7",
+        "e6",
+        "c5"
+      ],
+      "depth": 16,
+      "sources": [
+        "https://bassy84.net/zyoseki-tatumaki.html"
+      ],
+      "notes": "単一ソース(bassy84.net)。2026-07-08にcurlで生HTML取得、`grep -oE '棋譜[：: ]*[a-hA-H0-9 　]{5,80}'`で本文中の「棋譜：f5d6c3f4f6d3f3b3c7d7e7d8c6f7e6c5」がverbatimで存在することを確認済み。出典: https://bassy84.net/zyoseki-tatumaki.html",
+      "firstMoveBasis": "f5"
+    },
+    {
+      "name": "ザリガニ定石（5-c5変化型）",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "d3",
+        "c5",
+        "f4",
+        "f3",
+        "e3",
+        "c4",
+        "g6"
+      ],
+      "depth": 10,
+      "sources": [
+        "https://bassy84.net/zyoseki-zarigani.html"
+      ],
+      "notes": "単一ソース(bassy84.net)。2026-07-08にcurlで生HTML取得、`grep -oE '棋譜[：: ]*[a-hA-H0-9 　]{5,80}'`で本文中の「棋譜：f5d6c3d3c5f4f3e3c4g6」がverbatimで存在することを確認済み。出典: https://bassy84.net/zyoseki-zarigani.html",
+      "firstMoveBasis": "f5"
+    },
+    {
+      "name": "海老定石",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "d3",
+        "c6",
+        "f4",
+        "e3",
+        "c5",
+        "c4",
+        "b5",
+        "d7"
+      ],
+      "depth": 11,
+      "sources": [
+        "https://bassy84.net/zyoseki-ebi.html"
+      ],
+      "notes": "単一ソース(bassy84.net)。2026-07-08にcurlで生HTML取得、`grep -oE '棋譜[：: ]*[a-hA-H0-9 　]{5,80}'`で本文中の「棋譜：f5d6c3d3c6f4e3c5c4b5d7」がverbatimで存在することを確認済み。出典: https://bassy84.net/zyoseki-ebi.html",
+      "firstMoveBasis": "f5"
+    },
+    {
+      "name": "イエス流8-f4型",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "d3",
+        "c4",
+        "b3",
+        "c6",
+        "f4",
+        "e6",
+        "c5",
+        "b5"
+      ],
+      "depth": 11,
+      "sources": [
+        "https://bassy84.net/zyoseki-yes-8-f4.html"
+      ],
+      "notes": "単一ソース(bassy84.net)。2026-07-08にcurlで生HTML取得、`grep -oE '棋譜[：: ]*[a-hA-H0-9 　]{5,80}'`で本文中の「棋譜：f5d6c3d3c4b3c6f4e6c5b5」がverbatimで存在することを確認済み。出典: https://bassy84.net/zyoseki-yes-8-f4.html",
+      "firstMoveBasis": "f5"
+    },
+    {
+      "name": "イエス流8-b6型",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "d3",
+        "c4",
+        "b3",
+        "c6",
+        "b6",
+        "d7",
+        "e8",
+        "c2",
+        "c1",
+        "a3",
+        "e6",
+        "b4"
+      ],
+      "depth": 15,
+      "sources": [
+        "https://bassy84.net/zyoseki-yes-8-b6.html"
+      ],
+      "notes": "単一ソース(bassy84.net)。2026-07-08にcurlで生HTML取得、`grep -oE '棋譜[：: ]*[a-hA-H0-9 　]{5,80}'`で本文中の「棋譜：f5d6c3d3c4b3c6b6d7e8c2c1a3e6b4」がverbatimで存在することを確認済み。出典: https://bassy84.net/zyoseki-yes-8-b6.html",
+      "firstMoveBasis": "f5"
+    },
+    {
+      "name": "Berg Tiger",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "d3",
+        "c4",
+        "b5",
+        "b4",
+        "f4",
+        "c5",
+        "b3",
+        "c2",
+        "f6",
+        "g4",
+        "e3",
+        "e6",
+        "c6"
+      ],
+      "depth": 16,
+      "sources": [
+        "https://bassy84.net/zyoseki-berg.html"
+      ],
+      "notes": "単一ソース(bassy84.net)。2026-07-08にcurlで生HTML取得、`grep -oE '棋譜[：: ]*[a-hA-H0-9 　]{5,80}'`で本文中の「棋譜：f5d6c3d3c4b5b4f4c5b3c2f6g4e3e6c6」がverbatimで存在することを確認済み。出典: https://bassy84.net/zyoseki-berg.html",
+      "firstMoveBasis": "f5"
+    },
+    {
+      "name": "Leader's Tiger",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "d3",
+        "c4",
+        "f4",
+        "e6",
+        "b3",
+        "e2",
+        "c5",
+        "c6",
+        "e3",
+        "d2",
+        "f6",
+        "f3",
+        "c2"
+      ],
+      "depth": 16,
+      "sources": [
+        "https://bassy84.net/zyoseki-leaderstiger.html"
+      ],
+      "notes": "単一ソース(bassy84.net)。2026-07-08にcurlで生HTML取得、`grep -oE '棋譜[：: ]*[a-hA-H0-9 　]{5,80}'`で本文中の「棋譜：f5d6c3d3c4f4e6b3e2c5c6e3d2f6f3c2」がverbatimで存在することを確認済み。出典: https://bassy84.net/zyoseki-leaderstiger.html",
+      "firstMoveBasis": "f5"
+    },
+    {
+      "name": "Leader's Tiger 8-f6変化（ビン定石）",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "d3",
+        "c4",
+        "f4",
+        "e6",
+        "f6",
+        "e3",
+        "c5",
+        "c6",
+        "b5",
+        "d7",
+        "e7",
+        "b6",
+        "b3",
+        "f8",
+        "c7",
+        "a4"
+      ],
+      "depth": 19,
+      "sources": [
+        "https://bassy84.net/zyoseki-binn.html"
+      ],
+      "notes": "単一ソース(bassy84.net)。2026-07-08にcurlで生HTML取得、`grep -oE '棋譜[：: ]*[a-hA-H0-9 　]{5,80}'`で本文中の「棋譜：f5d6c3d3c4f4e6f6e3c5c6b5d7e7b6b3f8c7a4」がverbatimで存在することを確認済み。出典: https://bassy84.net/zyoseki-binn.html",
+      "firstMoveBasis": "f5"
+    },
+    {
+      "name": "Leader's Tiger 8-f6変化型（坂口流）",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "d3",
+        "c4",
+        "f4",
+        "e6",
+        "f6",
+        "e3",
+        "c5",
+        "c6",
+        "b6",
+        "c7",
+        "b5",
+        "e7",
+        "d7",
+        "f7",
+        "f3"
+      ],
+      "depth": 18,
+      "sources": [
+        "https://bassy84.net/zyoseki-sakaguti.html"
+      ],
+      "notes": "単一ソース(bassy84.net)。2026-07-08にcurlで生HTML取得、`grep -oE '棋譜[：: ]*[a-hA-H0-9 　]{5,80}'`で本文中の「棋譜：f5d6c3d3c4f4e6f6e3c5c6b6c7b5e7d7f7f3」がverbatimで存在することを確認済み。出典: https://bassy84.net/zyoseki-sakaguti.html",
+      "firstMoveBasis": "f5"
+    },
+    {
+      "name": "ブライトウェル",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "d3",
+        "c4",
+        "f4",
+        "e3",
+        "f3",
+        "e6",
+        "f6",
+        "g4",
+        "e2",
+        "d2",
+        "c6",
+        "e7"
+      ],
+      "depth": 15,
+      "sources": [
+        "https://bassy84.net/zyoseki-brightwell.html"
+      ],
+      "notes": "単一ソース(bassy84.net)。2026-07-08にcurlで生HTML取得、`grep -oE '棋譜[：: ]*[a-hA-H0-9 　]{5,80}'`で本文中の「棋譜：f5d6c3d3c4f4e3f3e6f6g4e2d2c6e7」がverbatimで存在することを確認済み。出典: https://bassy84.net/zyoseki-brightwell.html",
+      "firstMoveBasis": "f5"
+    },
+    {
+      "name": "黒3-c4→虎定石化",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "d6",
+        "c4",
+        "d3",
+        "c3",
+        "f4"
+      ],
+      "depth": 6,
+      "sources": [
+        "https://bassy84.net/zyouseki-torahenka.html"
+      ],
+      "notes": "単一ソース(bassy84.net)。2026-07-08にcurlで生HTML取得、`grep -oE '棋譜[：: ]*[a-hA-H0-9 　]{5,80}'`で本文中の「棋譜：f5d6c4d3c3f4」がverbatimで存在することを確認済み。出典: https://bassy84.net/zyouseki-torahenka.html",
+      "firstMoveBasis": "f5"
+    },
+    {
+      "name": "猫定石・基本形",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "d6",
+        "c4",
+        "d3",
+        "c5",
+        "f4"
+      ],
+      "depth": 6,
+      "sources": [
+        "https://bassy84.net/zyouseki-neko.html"
+      ],
+      "notes": "単一ソース(bassy84.net)。2026-07-08にcurlで生HTML取得、`grep -oE '棋譜[：: ]*[a-hA-H0-9 　]{5,80}'`で本文中の「棋譜：f5d6c4d3c5f4」がverbatimで存在することを確認済み。出典: https://bassy84.net/zyouseki-neko.html",
+      "firstMoveBasis": "f5"
+    },
+    {
+      "name": "猫定石・最善型",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "d6",
+        "c4",
+        "d3",
+        "c5",
+        "f4",
+        "e3",
+        "f3",
+        "e2",
+        "c6",
+        "e6",
+        "f6",
+        "d7",
+        "c8"
+      ],
+      "depth": 14,
+      "sources": [
+        "https://bassy84.net/zyouseki-neko-saizen.html"
+      ],
+      "notes": "単一ソース(bassy84.net)。2026-07-08にcurlで生HTML取得、`grep -oE '棋譜[：: ]*[a-hA-H0-9 　]{5,80}'`で本文中の「棋譜：f5d6c4d3c5f4e3f3e2c6e6f6d7c8」がverbatimで存在することを確認済み。出典: https://bassy84.net/zyouseki-neko-saizen.html",
+      "firstMoveBasis": "f5"
+    },
+    {
+      "name": "羊定石・基本形",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "d6",
+        "c4",
+        "d3",
+        "e6",
+        "f4",
+        "e3",
+        "f3"
+      ],
+      "depth": 8,
+      "sources": [
+        "https://bassy84.net/zyouseki-hituzi.html"
+      ],
+      "notes": "単一ソース(bassy84.net)。2026-07-08にcurlで生HTML取得、`grep -oE '棋譜[：: ]*[a-hA-H0-9 　]{5,80}'`で本文中の「棋譜：f5d6c4d3e6f4e3f3」がverbatimで存在することを確認済み。出典: https://bassy84.net/zyouseki-hituzi.html",
+      "firstMoveBasis": "f5"
+    },
+    {
+      "name": "燕定石",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "d6",
+        "c4",
+        "g5",
+        "c6",
+        "c5",
+        "d7",
+        "d3",
+        "b4",
+        "c3",
+        "e3",
+        "b5",
+        "a4"
+      ],
+      "depth": 13,
+      "sources": [
+        "https://bassy84.net/zyouseki-swallow.html"
+      ],
+      "notes": "単一ソース(bassy84.net)。2026-07-08にcurlで生HTML取得、`grep -oE '棋譜[：: ]*[a-hA-H0-9 　]{5,80}'`で本文中の「棋譜：f5d6c4g5c6c5d7d3b4c3e3b5a4」がverbatimで存在することを確認済み。出典: https://bassy84.net/zyouseki-swallow.html",
+      "firstMoveBasis": "f5"
+    },
+    {
+      "name": "ラッコ定石",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "d6",
+        "c4",
+        "g5",
+        "f6",
+        "f4",
+        "f3",
+        "d3",
+        "c3",
+        "g6",
+        "e3",
+        "e6",
+        "c5",
+        "e2",
+        "f2",
+        "c6",
+        "d7"
+      ],
+      "depth": 17,
+      "sources": [
+        "https://bassy84.net/zyouseki-rakko.html"
+      ],
+      "notes": "単一ソース(bassy84.net)。2026-07-08にcurlで生HTML取得、`grep -oE '棋譜[：: ]*[a-hA-H0-9 　]{5,80}'`で本文中の「棋譜：f5d6c4g5f6f4f3d3c3g6e3e6c5e2f2c6d7」がverbatimで存在することを確認済み。出典: https://bassy84.net/zyouseki-rakko.html",
+      "firstMoveBasis": "f5"
+    },
+    {
+      "name": "雪うさぎ/井上流･基本形",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "d6",
+        "c5",
+        "f4",
+        "e3",
+        "c6",
+        "e6",
+        "f6"
+      ],
+      "depth": 8,
+      "sources": [
+        "https://bassy84.net/zyoseki-yukiusagi.html"
+      ],
+      "notes": "単一ソース(bassy84.net)。2026-07-08にcurlで生HTML取得、`grep -oE '棋譜[：: ]*[a-hA-H0-9 　]{5,80}'`で本文中の「棋譜：f5d6c5f4e3c6e6f6」がverbatimで存在することを確認済み。出典: https://bassy84.net/zyoseki-yukiusagi.html",
+      "firstMoveBasis": "f5"
+    },
+    {
+      "name": "横うさぎ・基本形",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "d6",
+        "c5",
+        "f4",
+        "e3",
+        "c6",
+        "d3",
+        "g5"
+      ],
+      "depth": 8,
+      "sources": [
+        "https://bassy84.net/zyoseki-yokousagi.html"
+      ],
+      "notes": "単一ソース(bassy84.net)。2026-07-08にcurlで生HTML取得、`grep -oE '棋譜[：: ]*[a-hA-H0-9 　]{5,80}'`で本文中の「棋譜：f5d6c5f4e3c6d3g5」がverbatimで存在することを確認済み。出典: https://bassy84.net/zyoseki-yokousagi.html",
+      "firstMoveBasis": "f5"
+    },
+    {
+      "name": "三村流7-e6型",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "d6",
+        "c5",
+        "f4",
+        "e3",
+        "d3",
+        "e6",
+        "g5",
+        "c4",
+        "c3",
+        "d2",
+        "f6",
+        "c2",
+        "b5"
+      ],
+      "depth": 14,
+      "sources": [
+        "https://bassy84.net/zyoseki-mimura-7-e6.html"
+      ],
+      "notes": "単一ソース(bassy84.net)。2026-07-08にcurlで生HTML取得、`grep -oE '棋譜[：: ]*[a-hA-H0-9 　]{5,80}'`で本文中の「棋譜：f5d6c5f4e3d3e6g5c4c3d2f6c2b5」がverbatimで存在することを確認済み。出典: https://bassy84.net/zyoseki-mimura-7-e6.html",
+      "firstMoveBasis": "f5"
+    },
+    {
+      "name": "井上流・最善型",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "d6",
+        "c5",
+        "f4",
+        "e3",
+        "c6",
+        "e6",
+        "f7",
+        "d7",
+        "e8",
+        "f3",
+        "f6",
+        "f8",
+        "c4",
+        "e7",
+        "g5",
+        "c8",
+        "d8"
+      ],
+      "depth": 18,
+      "sources": [
+        "https://bassy84.net/zyoseki-inoue-saizen.html"
+      ],
+      "notes": "単一ソース(bassy84.net)。2026-07-08にcurlで生HTML取得、`grep -oE '棋譜[：: ]*[a-hA-H0-9 　]{5,80}'`で本文中の「棋譜：f5d6c5f4e3c6e6f7d7e8f3f6f8c4e7g5c8d8」がverbatimで存在することを確認済み。出典: https://bassy84.net/zyoseki-inoue-saizen.html",
+      "firstMoveBasis": "f5"
+    },
+    {
+      "name": "たまうさぎ9-f3型",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "d6",
+        "c5",
+        "f4",
+        "e3",
+        "c6",
+        "d3",
+        "e2",
+        "f3",
+        "c3",
+        "c4",
+        "d2"
+      ],
+      "depth": 12,
+      "sources": [
+        "https://bassy84.net/zyoseki-tamausagi-9-f3.html"
+      ],
+      "notes": "単一ソース(bassy84.net)。2026-07-08にcurlで生HTML取得、`grep -oE '棋譜[：: ]*[a-hA-H0-9 　]{5,80}'`で本文中の「棋譜：f5d6c5f4e3c6d3e2f3c3c4d2」がverbatimで存在することを確認済み。出典: https://bassy84.net/zyoseki-tamausagi-9-f3.html",
+      "firstMoveBasis": "f5"
+    },
+    {
+      "name": "Ralle定石",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "d6",
+        "c5",
+        "f4",
+        "e3",
+        "c6",
+        "d3",
+        "f3",
+        "e6",
+        "f6",
+        "g4",
+        "g3",
+        "g5",
+        "h5",
+        "h4",
+        "h3",
+        "g6",
+        "h6",
+        "f2",
+        "e2",
+        "f1",
+        "d1"
+      ],
+      "depth": 22,
+      "sources": [
+        "https://bassy84.net/zyoseki-ralle.html"
+      ],
+      "notes": "単一ソース(bassy84.net)。2026-07-08にcurlで生HTML取得、`grep -oE '棋譜[：: ]*[a-hA-H0-9 　]{5,80}'`で本文中の「棋譜：f5d6c5f4e3c6d3f3e6f6g4g3g5h5h4h3g6h6f2e2f1d1」がverbatimで存在することを確認済み。出典: https://bassy84.net/zyoseki-ralle.html",
+      "firstMoveBasis": "f5"
+    },
+    {
+      "name": "大和久流",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "d6",
+        "c5",
+        "f4",
+        "e3",
+        "f6",
+        "f3",
+        "c4",
+        "d3"
+      ],
+      "depth": 9,
+      "sources": [
+        "https://bassy84.net/zyoseki-yamato.html"
+      ],
+      "notes": "単一ソース(bassy84.net)。2026-07-08にcurlで生HTML取得、`grep -oE '棋譜[：: ]*[a-hA-H0-9 　]{5,80}'`で本文中の「棋譜：f5d6c5f4e3f6f3c4d3」がverbatimで存在することを確認済み。出典: https://bassy84.net/zyoseki-yamato.html",
+      "firstMoveBasis": "f5"
+    },
+    {
+      "name": "快速船・基礎形",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "e3",
+        "c5",
+        "c4",
+        "e7",
+        "c6",
+        "e2",
+        "f3",
+        "f2"
+      ],
+      "depth": 12,
+      "sources": [
+        "https://bassy84.net/zyouseki-kaisokusen.html"
+      ],
+      "notes": "単一ソース(bassy84.net)。2026-07-08にcurlで生HTML取得、`grep -oE '棋譜[：: ]*[a-hA-H0-9 　]{5,80}'`で本文中の「棋譜：f5f6e6f4e3c5c4e7c6e2f3f2」がverbatimで存在することを確認済み。出典: https://bassy84.net/zyouseki-kaisokusen.html",
+      "firstMoveBasis": "f5"
+    },
+    {
+      "name": "ヨット定石",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "e3",
+        "c5",
+        "c4",
+        "e7",
+        "b5",
+        "e2",
+        "f3",
+        "f2",
+        "g5",
+        "g4",
+        "g6",
+        "d6",
+        "h3"
+      ],
+      "depth": 17,
+      "sources": [
+        "https://bassy84.net/zyouseki-yotto.html"
+      ],
+      "notes": "単一ソース(bassy84.net)。2026-07-08にcurlで生HTML取得、`grep -oE '棋譜[：: ]*[a-hA-H0-9 　]{5,80}'`で本文中の「棋譜：f5f6e6f4e3c5c4e7b5e2f3f2g5g4g6d6h3」がverbatimで存在することを確認済み。出典: https://bassy84.net/zyouseki-yotto.html",
+      "firstMoveBasis": "f5"
+    },
+    {
+      "name": "沈没船",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "e3",
+        "c5",
+        "c4",
+        "d7",
+        "c6",
+        "e2",
+        "f3",
+        "d3",
+        "c3",
+        "d2"
+      ],
+      "depth": 14,
+      "sources": [
+        "https://bassy84.net/zyouseki-tinbotusen.html"
+      ],
+      "notes": "単一ソース(bassy84.net)。2026-07-08にcurlで生HTML取得、`grep -oE '棋譜[：: ]*[a-hA-H0-9 　]{5,80}'`で本文中の「棋譜：f5f6e6f4e3c5c4d7c6e2f3d3c3d2」がverbatimで存在することを確認済み。出典: https://bassy84.net/zyouseki-tinbotusen.html",
+      "firstMoveBasis": "f5"
+    },
+    {
+      "name": "裏快速船・基本形",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "g5",
+        "e7",
+        "f7",
+        "h5"
+      ],
+      "depth": 8,
+      "sources": [
+        "https://bassy84.net/zyouseki-urakaisokusen.html"
+      ],
+      "notes": "単一ソース(bassy84.net)。2026-07-08にcurlで生HTML取得、`grep -oE '棋譜[：: ]*[a-hA-H0-9 　]{5,80}'`で本文中の「棋譜：f5f6e6f4g5e7f7h5」がverbatimで存在することを確認済み。出典: https://bassy84.net/zyouseki-urakaisokusen.html",
+      "firstMoveBasis": "f5"
+    },
+    {
+      "name": "野いちご定石",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "g5",
+        "e7",
+        "f7",
+        "d6",
+        "f3",
+        "g6",
+        "d8",
+        "h5",
+        "e3",
+        "d7",
+        "c3",
+        "d3",
+        "c4",
+        "c5"
+      ],
+      "depth": 18,
+      "sources": [
+        "https://bassy84.net/zyouseki-noitigo.html"
+      ],
+      "notes": "単一ソース(bassy84.net)。2026-07-08にcurlで生HTML取得、`grep -oE '棋譜[：: ]*[a-hA-H0-9 　]{5,80}'`で本文中の「棋譜：f5f6e6f4g5e7f7d6f3g6d8h5e3d7c3d3c4c5」がverbatimで存在することを確認済み。出典: https://bassy84.net/zyouseki-noitigo.html",
+      "firstMoveBasis": "f5"
+    },
+    {
+      "name": "裏ヨット定石",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "g5",
+        "e7",
+        "f7",
+        "h5",
+        "e8",
+        "c5",
+        "g4",
+        "h4",
+        "e3",
+        "d6",
+        "f3"
+      ],
+      "depth": 15,
+      "sources": [
+        "https://bassy84.net/zyouseki-urayotto.html"
+      ],
+      "notes": "単一ソース(bassy84.net)。2026-07-08にcurlで生HTML取得、`grep -oE '棋譜[：: ]*[a-hA-H0-9 　]{5,80}'`で本文中の「棋譜：f5f6e6f4g5e7f7h5e8c5g4h4e3d6f3」がverbatimで存在することを確認済み。出典: https://bassy84.net/zyouseki-urayotto.html",
+      "firstMoveBasis": "f5"
     }
-  ]
+  ],
+  "revisionNote2_T025": "T025(2026-07-08)でのデータ拡充: ユーザーから『虎系統でローズビルや酉に進行しないのはおかしい』との指摘を受け、bassy84.net内の虎定石関連ページを重点的に追加調査した。具体的には、まず https://bassy84.net/othello.site-map.html (サイト運営者自身が公開している人力サイトマップ)をcurlで取得し、実在するページURL一覧を機械的に抽出した上で、候補となる各ページ(コンポス系・ノーカン系・酉系・FJT・金魚・バナナ・花形(ローズビル)・猫/羊系・牛系・兎系など)を個別にcurlで取得し、本文中の「棋譜：」に続く座標列がverbatimで存在することを1件ずつgrepで確認した上で55ライン追加した(WebFetchの要約は着地点候補の発見にのみ使用し、採否判断は生HTMLの文字列照合のみで行った)。花形（ローズビル）基本形はページタイトル自体に「花形（ローズビル）」と明記されており、ユーザー指摘の『ローズビル』はhasera.net系で言う『兎からのローズ系』とは別に、bassy84.netの虎定石側にも同名の分岐点(白9手目c2までの9手)が存在することを確認した。『酉定石』はページ本文に単独の名称+13手セットとしては存在しないが、酉フック/酉ストレート/酉アッパーの3ページの棋譜共通接頭辞(13手)として抽出し、分岐点の基本形として収録した(詳細はlines内『酉定石』エントリのnotes参照)。また、重複チェックの過程で、虎C(hasera.net)とNo Cat(bassy84.net)、闘牛(hasera.net)と飛出し牛(bassy84.net)がそれぞれ完全に同一の着手列を指していることが判明したため、新規ラインとしては追加せず、既存エントリのaliasesに統合した。"
 }

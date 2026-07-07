@@ -31,9 +31,9 @@ describe('buildJosekiDb with the real bookgen/joseki-research.json', () => {
   const rawLines = loadRawLines()
   const db = buildJosekiDb(rawLines)
 
-  it('reflects all 35 lines from T016', () => {
-    expect(rawLines.length).toBe(35)
-    expect(db.lines.length).toBe(35)
+  it('reflects all 90 lines from T016+T025', () => {
+    expect(rawLines.length).toBe(90)
+    expect(db.lines.length).toBe(90)
     expect(db.lines.map((l) => l.name).sort()).toEqual(rawLines.map((l) => l.name).sort())
   })
 
@@ -107,10 +107,10 @@ describe('buildJosekiDb with the real bookgen/joseki-research.json', () => {
     const rootKey = hashBoard(initialBoard(), 'black')
     const node = db.nodes.get(rootKey)
     expect(node).toBeDefined()
-    // 全35ラインが f5 基準に正規化されているため、初手は常に f5 になる。
+    // 全90ラインが f5 基準に正規化されているため、初手は常に f5 になる。
     const moveSquares = node!.bookMoves.map((bm) => bm.move)
     expect(moveSquares).toEqual([notationToSquare('f5')])
-    expect(node!.names.length).toBe(35)
+    expect(node!.names.length).toBe(90)
   })
 
   it('serializeJosekiDb / deserializeJosekiDb round-trip losslessly', () => {
