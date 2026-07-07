@@ -1,0 +1,384 @@
+{
+  "$schemaNote": "T016: 定石データ調査結果。座標記法は engine/src/bitboard.rs の規約に合わせ a1-h8 (index = rank0*8 + file, a1=0, h8=63)。初手は黒固定、moves は着手順の配列。firstMoveBasis は情報源が採用している初手表記(このデータセットでは全ライン f5 基準)。本ファイルはデータ収集のみを目的とし、DAG化・8対称正規化・アプリ組み込みは後続タスク(T017以降)で行う。",
+  "methodology": {
+    "summary": "日本語のオセロ戦術解説サイト複数(bassy84.net, hasera.net および同一著者による構造化定石データベース othlog.hasera.net/jouseki/, shoginoiroha.com 等)をWebSearch/WebFetchで横断調査し、定石名と着手手順を収集した。手順は自分の記憶で作成せず、必ず実際にWebFetchで内容を取得したページの記載を根拠とした。オセロクエストのアプリ/データベースは情報源として使用していない(意図的に除外)。",
+    "sourcesSurveyed": [
+      {
+        "name": "bassy84.net (オセロ・リバーシの勝ち方、必勝法)",
+        "url": "https://bassy84.net/",
+        "role": "個人運営の定石解説サイト。虎・兎・牛・ローズ・こうもり・戦車など多数の定石ページを持つ主要ソース。"
+      },
+      {
+        "name": "hasera.net / othello",
+        "url": "https://hasera.net/othello/jouseki-tate.html",
+        "role": "定石名と着手座標列を一覧表形式で掲載。虎・兎・牛系21ラインの座標を提供。"
+      },
+      {
+        "name": "hasera.net / othello 終盤40手最善手順ページ",
+        "url": "https://hasera.net/othello/saizen40.html",
+        "role": "虎(f5d6c3d3c4)・兎(f5d6c5f4e3)の基本手順を独立に再掲。クロスチェックに使用。"
+      },
+      {
+        "name": "othlog.hasera.net (オセロ定石集, Vue.js製データベース)",
+        "url": "https://othlog.hasera.net/jouseki/",
+        "role": "縦取り系(虎・コンポス・ノーカン・ローズビル)、斜め取り系(牛・闘牛・裏こうもり)などの分類体系を確認。bassy84.netの分類(虎大量→ローズビル、Stephenson→コンポス/ノーカン)と一致することを確認。"
+      },
+      {
+        "name": "将棋のいろは (shoginoiroha.com)",
+        "url": "https://shoginoiroha.com/othello-joseki.php",
+        "role": "定石の系統分類(縦取り系/斜め取り系/並び取り系)の名称一覧。兎定石の基本パターン(f5→d6→c5)を定性的に確認。"
+      },
+      {
+        "name": "うぐいすの部屋 (uguisu.skr.jp)",
+        "url": "https://uguisu.skr.jp/othello/2-1.html",
+        "role": "縦取り系(うさぎ・馬・虎・つばめ・ねこ・ひつじ)、斜め取り系(牛・ヨット・飛行機・こうもり・バッファロー・たぬき・へび)、並び取り系(ねずみ)の名称一覧。座標なし、名称の裏付けのみ。"
+      }
+    ],
+    "crossChecks": [
+      {
+        "line": "虎 (Tora)",
+        "moves": "f5d6c3d3c4",
+        "confirmedBy": [
+          "hasera.net/othello/jouseki-tate.html (表に f5d6c3d3c4 と明記)",
+          "WebSearch経由で確認したbassy84.net関連ページの記述(「虎の定義は f5d6c3d3c4」「オセロの王道」)"
+        ],
+        "result": "完全一致。2つの独立ドメイン(hasera.net, bassy84.net)で座標が一致した。"
+      },
+      {
+        "line": "兎 (Usagi)",
+        "moves": "f5d6c5f4e3",
+        "confirmedBy": [
+          "hasera.net/othello/jouseki-tate.html (表に f5d6c5f4e3 と明記)",
+          "bassy84.net/zyouseki-f-rose.html および zyouseki-s-rose.html (ローズ基本形の冒頭5手として同一座標 f5d6c5f4e3 を掲載)",
+          "shoginoiroha.com/othello-usagijoseki.php (座標そのものは画像だが「f5→白縦取り→黒c5」という手順の言及で定性的に一致)"
+        ],
+        "result": "完全一致(3ソース中2ソースで座標を直接確認、1ソースは定性的に整合)。"
+      },
+      {
+        "line": "牛 (Ushi)",
+        "moves": "f5f6e6f4e3",
+        "confirmedBy": [
+          "hasera.net/othello/jouseki-tate.html (表に f5f6e6f4e3 と明記)",
+          "bassy84.net/zyouseki-bat.html (こうもり定石基本形の冒頭5手が同一座標 f5f6e6f4e3)",
+          "bassy84.net/zyouseki-sensya.html (戦車定石の冒頭5手も同一座標 f5f6e6f4e3)"
+        ],
+        "result": "完全一致。hasera.net(独立ドメイン)とbassy84.net内の2つの独立ページで座標が一致した。"
+      },
+      {
+        "line": "野兎 / 野ウサギ定石",
+        "moves": "f5d6c6 (hasera.net) を bassy84.net が f5d6c6f4e6 に拡張",
+        "confirmedBy": [
+          "hasera.net/othello/jouseki-tate.html (野兎 = f5d6c6)",
+          "bassy84.net/zyouseki-nousagi.html (野ウサギ定石基本形 = f5d6c6f4e6、冒頭3手 f5d6c6 が一致)"
+        ],
+        "result": "冒頭3手が完全一致。bassy84.netはさらに5手目まで詳細化しているが矛盾はない(先頭部分の上位互換)。"
+      },
+      {
+        "line": "ローズ基本形 (Rose kihon, 10手目d7まで)",
+        "moves": "f5d6c5f4e3c6d3f6e6d7",
+        "confirmedBy": [
+          "bassy84.net/zyouseki-s-rose.html および zyouseki-f-rose.html (共通の基本形として掲載)",
+          "WebSearch経由で確認したhasera.net(saizen40.html等)の記述「兎定石の手順は f5d6c5f4e3 で、兎定石からローズ定石への変化は f5d6c5f4e3-c6d3f6e6d7」"
+        ],
+        "result": "完全一致。bassy84.net内の独立した2ページと、独立ドメインhasera.netの記述が一致した。"
+      }
+    ],
+    "notes": [
+      "オセロクエストのアプリ・ウェブサイト・データベースは、方針(タスク背景欄参照)に従い情報源として意図的に使用していない。",
+      "一部のライン(猫/羊/虎C/虎D/虎E、牛A/牛B/バッファロー/闘牛C/暴走牛など5手目までの短い分岐)はhasera.netの一覧表のみを根拠としており、複数ソースでの座標一致は未確認。該当エントリの notes 欄に '単一ソース' と明記した。",
+      "野ウサギ定石の6手目g5型(14手)は bassy84.net の単独ページのみが出典であり、他ソースでの座標一致は確認できていない。",
+      "本タスクでは着手手順をエンジンで再生・検証すること自体はスコープ外(T016の『やらないこと』参照)。手順の正しさは情報源の記載・突き合わせのみで担保している。"
+    ]
+  },
+  "lines": [
+    {
+      "name": "虎",
+      "aliases": ["Tora", "Tiger"],
+      "moves": ["f5", "d6", "c3", "d3", "c4"],
+      "firstMoveBasis": "f5",
+      "depth": 5,
+      "sources": [
+        "https://hasera.net/othello/jouseki-tate.html",
+        "https://bassy84.net/zyouseki-tora.html"
+      ],
+      "notes": "四大定石の1つ。白2手目d6(縦取り)に対し黒3手目c3。虎大量→ローズビル系、Stephenson→コンポス/ノーカン系に分岐することをbassy84.net/zyouseki-tora.htmlおよびothlog.hasera.net/jouseki/で確認(分類名称が一致)。crossChecksで座標一致を確認済み。"
+    },
+    {
+      "name": "猫",
+      "aliases": ["虎A", "Neko"],
+      "moves": ["f5", "d6", "c4", "d3", "c5"],
+      "firstMoveBasis": "f5",
+      "depth": 5,
+      "sources": ["https://hasera.net/othello/jouseki-tate.html"],
+      "notes": "虎系の黒3手目c4分岐。単一ソース(hasera.net一覧表)のみで確認。bassy84.net/zyouseki-nezumi.html に『黒3-c4→虎定石へ移行』という記述があり分岐点の存在自体は別ページでも言及されているが、座標列そのものの一致は未確認。"
+    },
+    {
+      "name": "羊",
+      "aliases": ["虎B", "Hitsuji"],
+      "moves": ["f5", "d6", "c4", "d3", "e6"],
+      "firstMoveBasis": "f5",
+      "depth": 5,
+      "sources": ["https://hasera.net/othello/jouseki-tate.html"],
+      "notes": "単一ソース(hasera.net一覧表)のみで確認。"
+    },
+    {
+      "name": "虎C",
+      "aliases": [],
+      "moves": ["f5", "d6", "c4", "g5"],
+      "firstMoveBasis": "f5",
+      "depth": 4,
+      "sources": ["https://hasera.net/othello/jouseki-tate.html"],
+      "notes": "単一ソース(hasera.net一覧表)のみで確認。"
+    },
+    {
+      "name": "虎D",
+      "aliases": [],
+      "moves": ["f5", "d6", "c3", "f4"],
+      "firstMoveBasis": "f5",
+      "depth": 4,
+      "sources": ["https://hasera.net/othello/jouseki-tate.html"],
+      "notes": "単一ソース(hasera.net一覧表)のみで確認。"
+    },
+    {
+      "name": "虎E",
+      "aliases": [],
+      "moves": ["f5", "d6", "c3", "g5"],
+      "firstMoveBasis": "f5",
+      "depth": 4,
+      "sources": ["https://hasera.net/othello/jouseki-tate.html"],
+      "notes": "単一ソース(hasera.net一覧表)のみで確認。初期WebSearchのスニペットでも『虎E』の名称は言及されていた(bassy84.net系の分類として)。"
+    },
+    {
+      "name": "兎",
+      "aliases": ["Usagi", "Rabbit"],
+      "moves": ["f5", "d6", "c5", "f4", "e3"],
+      "firstMoveBasis": "f5",
+      "depth": 5,
+      "sources": [
+        "https://hasera.net/othello/jouseki-tate.html",
+        "https://bassy84.net/zyouseki-f-rose.html",
+        "https://bassy84.net/zyouseki-s-rose.html",
+        "https://shoginoiroha.com/othello-usagijoseki.php"
+      ],
+      "notes": "四大定石の1つ。初心者にも推奨される。crossChecksで3ソース中2ソースの座標完全一致を確認済み。ここからローズ基本形(c6d3f6e6d7を継続)に進むのが一般的。"
+    },
+    {
+      "name": "馬",
+      "aliases": ["兎A", "Uma"],
+      "moves": ["f5", "d6", "c5", "f4", "d3"],
+      "firstMoveBasis": "f5",
+      "depth": 5,
+      "sources": ["https://hasera.net/othello/jouseki-tate.html", "https://bassy84.net/othello-zyoseki-usagi-b.html"],
+      "notes": "兎系の分岐。bassy84.net/othello-zyoseki-usagi-b.html でも『馬（兎A）』の名称を確認(座標列は個別ページ未到達のため名称のみのクロスチェック)。"
+    },
+    {
+      "name": "野兎",
+      "aliases": ["野ウサギ", "Nousagi"],
+      "moves": ["f5", "d6", "c6"],
+      "firstMoveBasis": "f5",
+      "depth": 3,
+      "sources": [
+        "https://hasera.net/othello/jouseki-tate.html",
+        "https://bassy84.net/zyouseki-nousagi.html"
+      ],
+      "notes": "縦横の壁に対して黒3手目で斜めに打ち込む変則手。crossChecksで冒頭3手の一致を確認済み。詳細化した『野ウサギ定石・基本形』『野ウサギ定石・白6手目g5型』も参照。"
+    },
+    {
+      "name": "縦取り",
+      "aliases": ["Tatedori"],
+      "moves": ["f5", "d6"],
+      "firstMoveBasis": "f5",
+      "depth": 2,
+      "sources": ["https://hasera.net/othello/jouseki-tate.html"],
+      "notes": "白2手目d6(縦取り)そのものを指す分類の起点。虎・兎・野兎・馬などはすべてこの後に分岐する上位カテゴリ名として複数ソース(hasera.net, uguisu.skr.jp, shoginoiroha.com)で言及されている。"
+    },
+    {
+      "name": "牛",
+      "aliases": ["Ushi", "Cow"],
+      "moves": ["f5", "f6", "e6", "f4", "e3"],
+      "firstMoveBasis": "f5",
+      "depth": 5,
+      "sources": [
+        "https://hasera.net/othello/jouseki-tate.html",
+        "https://bassy84.net/zyouseki-bat.html",
+        "https://bassy84.net/zyouseki-sensya.html"
+      ],
+      "notes": "四大定石の1つ。白2手目f6(斜め取り)に対する黒側の基本進行。crossChecksで座標完全一致を確認済み。ここからこうもり・戦車・牛A/B・バッファロー・闘牛系に分岐する。"
+    },
+    {
+      "name": "牛A",
+      "aliases": ["裏蛇"],
+      "moves": ["f5", "f6", "e6", "f4", "d3"],
+      "firstMoveBasis": "f5",
+      "depth": 5,
+      "sources": ["https://hasera.net/othello/jouseki-tate.html"],
+      "notes": "単一ソース(hasera.net一覧表)のみで確認。"
+    },
+    {
+      "name": "牛B",
+      "aliases": ["裏狸"],
+      "moves": ["f5", "f6", "e6", "f4", "f3"],
+      "firstMoveBasis": "f5",
+      "depth": 5,
+      "sources": ["https://hasera.net/othello/jouseki-tate.html"],
+      "notes": "単一ソース(hasera.net一覧表)のみで確認。"
+    },
+    {
+      "name": "バッファロー",
+      "aliases": ["猛牛"],
+      "moves": ["f5", "f6", "e6", "f4", "c3"],
+      "firstMoveBasis": "f5",
+      "depth": 5,
+      "sources": ["https://hasera.net/othello/jouseki-tate.html"],
+      "notes": "単一ソース(hasera.net一覧表)のみで確認。uguisu.skr.jpでも斜め取り系の名称として『バッファロー（闘牛）定石』が言及されており、名称自体は別ソースでも裏付けられている。"
+    },
+    {
+      "name": "闘牛",
+      "aliases": ["Tougyuu"],
+      "moves": ["f5", "f6", "e6", "f4", "g5"],
+      "firstMoveBasis": "f5",
+      "depth": 5,
+      "sources": ["https://hasera.net/othello/jouseki-tate.html"],
+      "notes": "単一ソース(hasera.net一覧表)のみで確認。"
+    },
+    {
+      "name": "蛇",
+      "aliases": ["闘牛A", "Hebi"],
+      "moves": ["f5", "f6", "e6", "f4", "g6"],
+      "firstMoveBasis": "f5",
+      "depth": 5,
+      "sources": ["https://hasera.net/othello/jouseki-tate.html"],
+      "notes": "単一ソース(hasera.net一覧表)のみで確認。uguisu.skr.jpでも斜め取り系の名称として『へび定石』が言及されている(座標は未確認)。"
+    },
+    {
+      "name": "狸",
+      "aliases": ["闘牛B", "Tanuki"],
+      "moves": ["f5", "f6", "e6", "f4", "g4"],
+      "firstMoveBasis": "f5",
+      "depth": 5,
+      "sources": ["https://hasera.net/othello/jouseki-tate.html"],
+      "notes": "単一ソース(hasera.net一覧表)のみで確認。uguisu.skr.jpでも斜め取り系の名称として『たぬき定石』が言及されている(座標は未確認)。"
+    },
+    {
+      "name": "闘牛C",
+      "aliases": [],
+      "moves": ["f5", "f6", "e6", "f4", "g3"],
+      "firstMoveBasis": "f5",
+      "depth": 5,
+      "sources": ["https://hasera.net/othello/jouseki-tate.html"],
+      "notes": "単一ソース(hasera.net一覧表)のみで確認。"
+    },
+    {
+      "name": "暴走牛",
+      "aliases": ["闘牛D"],
+      "moves": ["f5", "f6", "e6", "f4", "g7"],
+      "firstMoveBasis": "f5",
+      "depth": 5,
+      "sources": ["https://hasera.net/othello/jouseki-tate.html"],
+      "notes": "単一ソース(hasera.net一覧表)のみで確認。"
+    },
+    {
+      "name": "斜め取り",
+      "aliases": ["Nanamedori"],
+      "moves": ["f5", "f6"],
+      "firstMoveBasis": "f5",
+      "depth": 2,
+      "sources": ["https://hasera.net/othello/jouseki-tate.html"],
+      "notes": "白2手目f6(斜め取り)そのものを指す分類の起点。牛系定石群の上位カテゴリ名。uguisu.skr.jpやshoginoiroha.comでも『斜め取り系』という同名の分類が確認できる。"
+    },
+    {
+      "name": "並び取り",
+      "aliases": ["Naraidori"],
+      "moves": ["f5", "f4"],
+      "firstMoveBasis": "f5",
+      "depth": 2,
+      "sources": ["https://hasera.net/othello/jouseki-tate.html"],
+      "notes": "白2手目f4(並び取り)そのものを指す分類の起点。ネズミ系定石群の上位カテゴリ。uguisu.skr.jpでも『並び取り系: ねずみ（鼠）定石』という同名の分類が確認できる。"
+    },
+    {
+      "name": "野ウサギ定石・基本形",
+      "aliases": ["野うさぎ定石"],
+      "moves": ["f5", "d6", "c6", "f4", "e6"],
+      "firstMoveBasis": "f5",
+      "depth": 5,
+      "sources": ["https://bassy84.net/zyouseki-nousagi.html"],
+      "notes": "『野兎』(hasera.net, f5d6c6)の冒頭3手と一致した上で5手目まで詳細化したライン。縦横の壁に対して黒が斜めに打ち込む点が特徴とbassy84.netは説明。"
+    },
+    {
+      "name": "野ウサギ定石・白6手目g5型",
+      "aliases": [],
+      "moves": ["f5", "d6", "c6", "f4", "e6", "g5", "d3", "c4", "e3", "c5", "b3", "b4", "c3", "b5"],
+      "firstMoveBasis": "f5",
+      "depth": 14,
+      "sources": ["https://bassy84.net/zyouseki-nousagi6-g5.html"],
+      "notes": "『野ウサギ定石・基本形』からの継続。白6手目g5は最善手とされ、白やや優勢のまま進むとbassy84.netは評価。単一ソースのみで確認、他サイトでの座標一致は未確認。"
+    },
+    {
+      "name": "ローズ基本形",
+      "aliases": ["ローズ定石", "Rose"],
+      "moves": ["f5", "d6", "c5", "f4", "e3", "c6", "d3", "f6", "e6", "d7"],
+      "firstMoveBasis": "f5",
+      "depth": 10,
+      "sources": [
+        "https://bassy84.net/zyouseki-s-rose.html",
+        "https://bassy84.net/zyouseki-f-rose.html",
+        "https://hasera.net/othello/saizen40.html"
+      ],
+      "notes": "兎定石(f5d6c5f4e3)の継続。黒が3手目でうさぎ系を打った場合、7〜8割程度の頻度でこの形まで進むとbassy84.netは説明。crossChecksで座標完全一致を確認済み。11手目でシャープローズ(g3)/フラットローズ(g4)/手塚システム(e7)の3系統に分岐(bassy84.net調べで黒11手目のうち99%がこの3種のいずれか)。"
+    },
+    {
+      "name": "シャープローズ",
+      "aliases": ["Sローズ"],
+      "moves": ["f5", "d6", "c5", "f4", "e3", "c6", "d3", "f6", "e6", "d7", "g3"],
+      "firstMoveBasis": "f5",
+      "depth": 11,
+      "sources": ["https://bassy84.net/zyouseki-s-rose.html"],
+      "notes": "ローズ基本形の黒11手目g3。単一ソースのみで確認(ただし基本部分10手はローズ基本形としてクロスチェック済み)。より深いライン『シャープローズ定石:15-g5型』も参照。"
+    },
+    {
+      "name": "シャープローズ定石:15-g5型",
+      "aliases": ["爲則ローズVer3"],
+      "moves": ["f5", "d6", "c5", "f4", "e3", "c6", "d3", "f6", "e6", "d7", "g3", "c4", "b4", "b3", "g5", "c3", "b5", "a5", "a4", "a3", "b6", "a6", "f7"],
+      "firstMoveBasis": "f5",
+      "depth": 23,
+      "sources": ["https://bassy84.net/post-1053.html"],
+      "notes": "シャープローズの深化ライン。黒15手目でg5に変化する変化定石。単一ソースのみで確認だが、冒頭11手(ローズ基本形+g3)は他ページとクロスチェック済み。白18手目でe2に変化する別ルートもあり、その場合黒19手目はf1が最善とbassy84.netは言及。"
+    },
+    {
+      "name": "フラットローズ",
+      "aliases": ["Fローズ"],
+      "moves": ["f5", "d6", "c5", "f4", "e3", "c6", "d3", "f6", "e6", "d7", "g4"],
+      "firstMoveBasis": "f5",
+      "depth": 11,
+      "sources": ["https://bassy84.net/zyouseki-f-rose.html"],
+      "notes": "ローズ基本形の黒11手目g4。シャープローズとの違いは中割りの返し方向(平ら方向)。単一ソースのみで確認(基本部分10手はローズ基本形としてクロスチェック済み)。"
+    },
+    {
+      "name": "手塚システム",
+      "aliases": ["手塚システム2"],
+      "moves": ["f5", "d6", "c5", "f4", "e3", "c6", "d3", "f6", "e6", "d7", "e7"],
+      "firstMoveBasis": "f5",
+      "depth": 11,
+      "sources": ["https://bassy84.net/zyouseki-tezuka.html"],
+      "notes": "ローズ基本形の黒11手目e7。黒が自らc4に中割りの種を作るイメージとbassy84.netは説明。単一ソースのみで確認(基本部分10手はローズ基本形としてクロスチェック済み)。"
+    },
+    {
+      "name": "こうもり定石・基本形",
+      "aliases": ["こうもり定石"],
+      "moves": ["f5", "f6", "e6", "f4", "e3", "c5", "g5", "g3"],
+      "firstMoveBasis": "f5",
+      "depth": 8,
+      "sources": ["https://bassy84.net/zyouseki-bat.html"],
+      "notes": "牛定石(f5f6e6f4e3)の継続。黒の4変化が展開され、白g3が最善手とbassy84.netは説明。冒頭5手はhasera.netの『牛』とcrossChecksで座標一致を確認済み。"
+    },
+    {
+      "name": "戦車定石",
+      "aliases": ["Sensya"],
+      "moves": ["f5", "f6", "e6", "f4", "e3", "c5", "c6", "d6", "e7", "f7"],
+      "firstMoveBasis": "f5",
+      "depth": 10,
+      "sources": ["https://bassy84.net/zyouseki-sensya.html"],
+      "notes": "牛定石(f5f6e6f4e3)の継続で、黒7手目c6以降の形が戦車の見た目に似ることが名前の由来とbassy84.netは説明。冒頭5手はhasera.netの『牛』とcrossChecksで座標一致を確認済み。近年は上級者中心にやや採用が増えているとの言及あり。"
+    }
+  ]
+}
