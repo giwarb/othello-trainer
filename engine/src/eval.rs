@@ -7,6 +7,31 @@
 //! `240` を返す。この規約は T005 (探索) / T006 (終盤ソルバー) / T007 (WASM API)
 //! を含むエンジン全体で共通の約束事とする。
 //!
+//! ## T024: 重みのEdax較正(2026-07-08)
+//!
+//! T022(`bench/edax-compare/`)で、当初の重み(`MOBILITY_WEIGHT=10`,
+//! `CORNER_WEIGHT=2500`, `STABLE_WEIGHT=1500`)は「探索の方向づけのための
+//! 目安の重み」として意図的に大きく設定されており、結果として`evaluate`の
+//! 出力(centi-disc換算)がEdaxの評価値(=最終石差の推定値、理論上±64を
+//! 超えない)より一桁以上大きくなる局面が多いことが判明した。本タスクでは、
+//! `bench/edax-compare/calibrate.py` で集めた80局面(T022のopening/midgame
+//! 28局面 + 追加生成52局面)について、各局面の生の特徴量差分
+//! ([`feature_diffs`]、黒視点)とEdax(`-l 12`)の評価値(黒視点に変換)との
+//! 最小二乗回帰(切片なし、`numpy.linalg.lstsq`)を行い、
+//! `mobility=2.5271`, `corner=10.8826`, `stable=0.9275`(いずれも真の石差
+//! 単位、R^2≈0.49)という係数を得た。これを100倍してcenti-disc単位に
+//! 丸めたものが現在の `MOBILITY_WEIGHT`/`CORNER_WEIGHT`/`STABLE_WEIGHT` の値
+//! である。corner_diffとstable_diffは相関が高く(相関係数0.78、隅を持つと
+//! 隣接辺も安定しやすいため)多重共線性の影響を受けており、`stable`の回帰係数が
+//! `mobility`より小さくなる(較正前の設計意図とは重要度の順序が逆転する)結果と
+//! なったが、これは「隅を持つことの効果の一部がすでに`corner_diff`側に
+//! 説明されている」ことの反映であり、単独の特徴量として見た`stable`の限界的な
+//! 価値が小さいこと自体は不合理ではないと判断した。この重み比率の変更が
+//! 探索の手選択の質を劣化させていないことは、`cargo test`・FFOベンチマーク・
+//! 較正前後の自己対戦(`bench/edax-compare/selfplay.py`)・悪手検出チェックの
+//! 再実行で確認済み(詳細は`tasks/T024-eval-scale-calibration.md`の作業ログ、
+//! および`bench/edax-compare/report.md`を参照)。
+//!
 //! # 視点の規約
 //!
 //! [`evaluate`] は **常に黒視点**の値を返す(黒が有利なら正、白が有利なら負)。
@@ -32,31 +57,36 @@ use crate::bitboard::{Board, Side};
 
 /// 着手可能数(モビリティ)の差1手あたりの重み(centi-disc単位)。
 ///
-/// モビリティは終盤に近づくほど重要度が下がる一方、序盤・中盤では
-/// 相手の選択肢を狭めることが優位に直結しやすいため、隅・安定石ほどではないが
-/// 無視できない重みとして 10 (= 0.1石相当/手) 前後を採用する。
-const MOBILITY_WEIGHT: i32 = 10;
+/// T024でEdaxの評価値への最小二乗回帰により較正した値(このファイル冒頭の
+/// 「T024: 重みのEdax較正」を参照)。回帰係数 2.5271 石/手 を100倍して丸めた。
+const MOBILITY_WEIGHT: i32 = 253;
 
 /// 隅(コーナー)1個あたりの重み(centi-disc単位)。
 ///
-/// 隅は一度確保すると絶対にひっくり返されず、かつ隣接する辺の安定化の起点にも
-/// なるため、他のどの要素よりも大きな重みを与える。1個=25石相当という
-/// 目安値を採用する。
-const CORNER_WEIGHT: i32 = 2500;
+/// T024でEdaxの評価値への最小二乗回帰により較正した値(このファイル冒頭の
+/// 「T024: 重みのEdax較正」を参照)。回帰係数 10.8826 石/個 を100倍して丸めた。
+const CORNER_WEIGHT: i32 = 1088;
 
 /// 安定石(隅から辺沿いに連続する、今後ひっくり返されない石)1個あたりの重み
 /// (centi-disc単位)。
 ///
-/// 隅そのものほどではないが、着手可能数の差より重要度が高いという想定で
-/// 15石相当とする。
-const STABLE_WEIGHT: i32 = 1500;
+/// T024でEdaxの評価値への最小二乗回帰により較正した値(このファイル冒頭の
+/// 「T024: 重みのEdax較正」を参照)。回帰係数 0.9275 石/個 を100倍して丸めた。
+const STABLE_WEIGHT: i32 = 93;
 
-/// 盤面を常に黒視点(黒が有利なら正)で評価する。
+/// [`evaluate`] が使う生の(重み付けする前の)特徴量差分。
 ///
-/// モビリティ差・隅の保有差・安定石差を線形結合した軽量ヒューリスティックで、
-/// 石数差そのものは加味しない(オセロは終盤以外では石数を増やすほど不利に
-/// なりやすいため)。
-pub fn evaluate(board: &Board) -> i32 {
+/// T024(Edaxとの評価値較正)で、`engine/src/bin/eval_cli.rs` から各局面の
+/// 特徴量を取り出し、Edaxの評価値との線形回帰に使うために公開している。
+/// フィールドの意味は [`evaluate`] 本体のコメントを参照。
+pub struct EvalFeatures {
+    pub mobility_diff: i32,
+    pub corner_diff: i32,
+    pub stable_diff: i32,
+}
+
+/// 重み付けする前の生の特徴量差分(黒視点: 黒が多い/有利なら正)を計算する。
+pub fn feature_diffs(board: &Board) -> EvalFeatures {
     let mobility_diff = board.legal_moves(Side::Black).count_ones() as i32
         - board.legal_moves(Side::White).count_ones() as i32;
 
@@ -64,6 +94,25 @@ pub fn evaluate(board: &Board) -> i32 {
 
     let stable_diff =
         stable_mask(board, Side::Black).count_ones() as i32 - stable_mask(board, Side::White).count_ones() as i32;
+
+    EvalFeatures {
+        mobility_diff,
+        corner_diff,
+        stable_diff,
+    }
+}
+
+/// 盤面を常に黒視点(黒が有利なら正)で評価する。
+///
+/// モビリティ差・隅の保有差・安定石差を線形結合した軽量ヒューリスティックで、
+/// 石数差そのものは加味しない(オセロは終盤以外では石数を増やすほど不利に
+/// なりやすいため)。
+pub fn evaluate(board: &Board) -> i32 {
+    let EvalFeatures {
+        mobility_diff,
+        corner_diff,
+        stable_diff,
+    } = feature_diffs(board);
 
     mobility_diff * MOBILITY_WEIGHT + corner_diff * CORNER_WEIGHT + stable_diff * STABLE_WEIGHT
 }

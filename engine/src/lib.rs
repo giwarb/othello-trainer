@@ -8,7 +8,12 @@ use wasm_bindgen::prelude::*;
 // 自体はWASM側の公開APIには影響しない)
 pub mod bitboard;
 pub mod endgame;
-mod eval;
+// T024: `eval` を `pub` にして、`engine/src/bin/eval_cli.rs`(T022で追加済みの
+// 開発補助バイナリ)から `eval::feature_diffs` を呼び出し、Edaxとの評価値較正に
+// 使う生の特徴量差分(モビリティ/隅/安定石)を取得できるようにする。
+// WASM公開APIへの影響はない(`#[wasm_bindgen]` は個々の項目に付与されるものであり、
+// モジュールの可視性変更自体はJS側から見えるエクスポートを増やさない)。
+pub mod eval;
 mod protocol;
 mod search;
 pub mod tt;

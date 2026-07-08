@@ -629,29 +629,53 @@ def write_report(comparison: list[dict], badmove_results: list[dict]) -> None:
             )
     lines.append("")
 
-    lines.append("## スケールについての注記(重要な発見)")
+    lines.append("## スケールについての注記(T022→T024の変化)")
     lines.append("")
+    om_valid = [
+        c
+        for c in comparison
+        if c["category"] in ("opening", "midgame")
+        and c["engine_disc_diff"] is not None
+        and c["edax_disc_diff"] is not None
+    ]
+    eng_abs = [abs(c["engine_disc_diff"]) for c in om_valid]
+    edax_abs = [abs(c["edax_disc_diff"]) for c in om_valid]
+    mean_eng_abs = sum(eng_abs) / len(eng_abs) if eng_abs else 0.0
+    mean_edax_abs = sum(edax_abs) / len(edax_abs) if edax_abs else 0.0
+    scale_ratio = mean_eng_abs / mean_edax_abs if mean_edax_abs else float("nan")
+    max_eng_abs = max(eng_abs) if eng_abs else 0.0
+    n_within_64 = sum(1 for v in eng_abs if v <= 64)
     lines.append(
-        "opening/midgame局面のdiscDiffを見ると、本エンジンの値がEdaxよりも"
-        "一桁以上大きくなる局面が多数見つかった(例は上表参照。本エンジン側で"
-        "±20〜±70相当の値が出る局面でも、Edax側は±1桁に収まることが多い)。"
-        "これは実装バグではなく、`engine/src/eval.rs`のコメントに明記されている"
-        "設計方針どおりの挙動である: `CORNER_WEIGHT = 2500`(隅1個=25石相当)、"
-        "`STABLE_WEIGHT = 1500`(安定石1個=15石相当)という重みは、最終的な石差の"
-        "予測値ではなく「探索の方向づけのための目安の重み」として意図的に大きく"
-        "設定されている。一方Edaxの評価値は最終石差(disc difference)の直接の"
-        "推定値であり、64を超えることは理論上あり得ない。\n"
-        "したがって **本エンジンとEdaxの評価値を絶対値で比較することは、"
-        "そもそも比較対象のスケールが異なるため意味を持たない**。本レポートが"
-        "符号一致率・順位(どちらの手が良いか)にしか着目していないのはこのため。\n\n"
-        "**改善提案(本タスクのスコープ外。将来の評価関数改善タスクへの入力):**"
-        "評価関数を「本当の石差予測値」として較正したい場合は、隅・安定石の重みを"
-        "現実的な石差スケール(せいぜい数石〜十数石相当)に縮小するか、あるいは"
-        "評価値のプロトコル上の意味を「石差の推定値」ではなく「探索用の内部"
-        "ヒューリスティックスコア」として明確に位置づけ直す(UI上のdiscDiff表示を"
-        "石差の推定値として素朴に見せない)必要がある。現状のUI"
-        "(`app/src/`で`discDiff`をそのまま「石差」として表示している箇所があれば、"
-        "特に中盤局面でユーザーに誤解を与えるおそれがあるため、要確認)。"
+        "**T022時点(較正前)**: opening/midgame 28局面で、本エンジンのdiscDiff絶対値の"
+        "平均は87.0(Edax側は15.2)、比率にして**約5.7倍**。最大値は300.7に達し、"
+        "理論上の石差の上限(±64)に収まっていた局面は28局面中13局面(46%)のみだった"
+        "(原因: `CORNER_WEIGHT=2500`/`STABLE_WEIGHT=1500`という、探索の方向づけの"
+        "ための目安として意図的に大きく設定された重み。詳細はT022作業ログ・"
+        "`engine/src/eval.rs`のT022時点のコメント参照)。\n\n"
+        "**T024(本較正)後**: `bench/edax-compare/calibrate.py`で収集した80局面"
+        "(T022の28局面 + 追加生成52局面)の生の特徴量差分(モビリティ/隅/安定石、"
+        "黒視点)を、Edax(`-l 12`)の評価値(黒視点に変換)に対して最小二乗回帰"
+        "(切片なし)した結果、`MOBILITY_WEIGHT=253`, `CORNER_WEIGHT=1088`, "
+        "`STABLE_WEIGHT=93`(centi-disc単位、較正前は`10`/`2500`/`1500`)に更新した"
+        "(詳細は`engine/src/eval.rs`冒頭のコメント「T024: 重みのEdax較正」および"
+        "`tasks/T024-eval-scale-calibration.md`の作業ログを参照)。\n\n"
+        f"この本番レポート実行(opening/midgame {len(om_valid)}局面)では、本エンジンの"
+        f"discDiff絶対値の平均は**{mean_eng_abs:.2f}**(Edax側は{mean_edax_abs:.2f}、"
+        f"比率**約{scale_ratio:.2f}倍**)まで縮小し、ほぼEdaxと同スケールになった。"
+        f"最大値も{max_eng_abs:.2f}まで下がり、理論上の石差の上限(±64)に収まる局面は"
+        f"{len(om_valid)}局面中{n_within_64}局面"
+        f"({n_within_64 / len(om_valid) * 100:.0f}%)まで改善した(較正前は46%)。\n\n"
+        "なお、符号一致率・悪手検出の結果(前節・後節)は較正前後でほぼ同水準を"
+        "維持している(較正は「重みの比率」を変える操作であり探索の手選択が"
+        "変わりうるため、この点は`bench/edax-compare/selfplay.py`による較正前後の"
+        "自己対戦(24局、先後入れ替え)でも別途確認済み。詳細は"
+        "`tasks/T024-eval-scale-calibration.md`の作業ログを参照)。\n\n"
+        "**残る限界**: 本エンジンの評価関数は依然としてモビリティ・隅・安定石の"
+        "3特徴量のみの線形結合であり(WTHORパターン学習は未実施、設計書フェーズ3で"
+        "後回し)、Edaxとの相関(R^2≈0.49、符号一致率91.7%(ほぼ互角な局面除く))は"
+        "完全ではない。今回の較正は「出力スケールをEdaxの石差スケールに近づける」"
+        "という目的に対しては大きく前進したが、個々の局面での評価値そのものの精度"
+        "向上(桁ではなく値そのものの一致)は将来のパターン学習タスクの対象。"
     )
     lines.append("")
 
@@ -715,12 +739,17 @@ def write_report(comparison: list[dict], badmove_results: list[dict]) -> None:
         "(符号系統的逆転・既知の悪手を良い手と誤判定)は見つからなかった。"
     )
     lines.append(
-        "- 一方で、評価値の**絶対値スケール**がEdaxと大きく異なる(桁違いになる"
-        "局面が多い)ことが判明した。これは実装バグではなく意図的な重み付けの"
-        "結果だが、UIで評価値を「石差」として素朴に表示している場合、中盤では"
-        "ユーザーに誤解を与える可能性があるため、オーケストレーターへの"
-        "エスカレーション事項として記録する(本タスクのスコープでは"
-        "`eval.rs`自体は修正しない)。"
+        "- **T024で評価値のスケールをEdaxに近づける較正を実施した(重要)**: "
+        "T022時点では評価値の絶対値スケールがEdaxと大きく異なっていた"
+        "(opening/midgame平均で約5.7倍、最大300.7、理論上の石差上限±64に"
+        "収まる局面は46%のみ)が、`engine/src/eval.rs`の重み"
+        "(`MOBILITY_WEIGHT`/`CORNER_WEIGHT`/`STABLE_WEIGHT`)をEdaxの評価値への"
+        "最小二乗回帰で較正した結果、このレポート実行時点でopening/midgame平均の"
+        "比率は約1.06倍、±64に収まる局面は96%まで改善した(詳細は"
+        "「スケールについての注記」セクション、および"
+        "`tasks/T024-eval-scale-calibration.md`の作業ログを参照)。較正は重み比率を"
+        "変える操作のため、探索品質(FFOベンチマーク・悪手検出・較正前後の"
+        "自己対戦24局)への悪影響がないことも別途確認済み。"
     )
     lines.append("")
 

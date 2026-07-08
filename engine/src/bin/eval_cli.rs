@@ -30,6 +30,7 @@
 //! (空)文字列。
 
 use engine::bitboard::{Board, Side};
+use engine::eval::feature_diffs;
 use engine::Engine;
 use serde_json::{json, Value};
 use std::io::{self, Read};
@@ -280,12 +281,22 @@ fn cmd_eval(args: &[String]) {
         let search_resp: Value =
             serde_json::from_str(&engine.analyze(&search_req.to_string())).unwrap_or(Value::Null);
 
+        // T024: 較正用の生の特徴量差分(黒視点、重み付け前)。手番視点への変換は
+        // 回帰スクリプト側の責務とする(黒視点のまま出す方が `eval.rs` の
+        // 規約と一致し、変換ミスの余地が少ない)。
+        let f = feature_diffs(&b);
+
         out.push(json!({
             "id": id,
             "category": category,
             "board": board_str,
             "side_to_move": side_str,
             "empties": b.empty_count(),
+            "featureDiffs": {
+                "mobility": f.mobility_diff,
+                "corner": f.corner_diff,
+                "stable": f.stable_diff,
+            },
             "staticDiscDiff": static_resp.get("score").and_then(|s| s.get("discDiff")),
             "searchDiscDiff": search_resp.get("score").and_then(|s| s.get("discDiff")),
             "searchDepth": search_resp.get("depth"),
