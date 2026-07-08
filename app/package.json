@@ -13,7 +13,8 @@
     "pretypecheck": "npm run wasm:build",
     "typecheck": "tsc --noEmit -p tsconfig.app.json",
     "test": "vitest run",
-    "joseki:build": "node --experimental-strip-types src/joseki/generate.ts"
+    "joseki:build": "node --experimental-strip-types src/joseki/generate.ts",
+    "puzzles:build": "node --experimental-strip-types ../puzzlegen/generate.ts"
   },
   "dependencies": {
     "preact": "^10.29.3"

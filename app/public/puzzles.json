@@ -1,0 +1,9060 @@
+{
+  "generatedAt": "2026-07-08T23:09:10.127Z",
+  "puzzles": [
+    {
+      "id": "tsume-4",
+      "board": {
+        "black": "0x0070fcfcf4fa9616",
+        "white": "0x3f0e00030b050909"
+      },
+      "sideToMove": "white",
+      "empties": 11,
+      "correctMoves": [
+        "b6"
+      ],
+      "bestDiscDiff": 44,
+      "outcome": "win",
+      "clarityMargin": 12,
+      "moves": [
+        {
+          "square": "f1",
+          "discDiffForMover": 30,
+          "isBest": false
+        },
+        {
+          "square": "f2",
+          "discDiffForMover": 14,
+          "isBest": false
+        },
+        {
+          "square": "g2",
+          "discDiffForMover": 10,
+          "isBest": false
+        },
+        {
+          "square": "b6",
+          "discDiffForMover": 44,
+          "isBest": true
+        },
+        {
+          "square": "h7",
+          "discDiffForMover": -4,
+          "isBest": false
+        },
+        {
+          "square": "g8",
+          "discDiffForMover": 32,
+          "isBest": false
+        },
+        {
+          "square": "h8",
+          "discDiffForMover": 32,
+          "isBest": false
+        }
+      ],
+      "difficulty": 4,
+      "difficultyRawScore": 17.38,
+      "tags": []
+    },
+    {
+      "id": "tsume-6",
+      "board": {
+        "black": "0x4070dcecf4fa9616",
+        "white": "0xbf0e20130b050909"
+      },
+      "sideToMove": "white",
+      "empties": 9,
+      "correctMoves": [
+        "b6"
+      ],
+      "bestDiscDiff": 46,
+      "outcome": "win",
+      "clarityMargin": 12,
+      "moves": [
+        {
+          "square": "f1",
+          "discDiffForMover": 32,
+          "isBest": false
+        },
+        {
+          "square": "f2",
+          "discDiffForMover": 24,
+          "isBest": false
+        },
+        {
+          "square": "g2",
+          "discDiffForMover": 10,
+          "isBest": false
+        },
+        {
+          "square": "b6",
+          "discDiffForMover": 46,
+          "isBest": true
+        },
+        {
+          "square": "h7",
+          "discDiffForMover": 34,
+          "isBest": false
+        }
+      ],
+      "difficulty": 4,
+      "difficultyRawScore": 18.92,
+      "tags": []
+    },
+    {
+      "id": "tsume-7",
+      "board": {
+        "black": "0x4070dcecf0f28606",
+        "white": "0xbf0e20130f0d1939"
+      },
+      "sideToMove": "black",
+      "empties": 8,
+      "correctMoves": [
+        "a7"
+      ],
+      "bestDiscDiff": -32,
+      "outcome": "loss",
+      "clarityMargin": 4,
+      "moves": [
+        {
+          "square": "g1",
+          "discDiffForMover": -40,
+          "isBest": false
+        },
+        {
+          "square": "f2",
+          "discDiffForMover": -40,
+          "isBest": false
+        },
+        {
+          "square": "b6",
+          "discDiffForMover": -36,
+          "isBest": false
+        },
+        {
+          "square": "a7",
+          "discDiffForMover": -32,
+          "isBest": true
+        }
+      ],
+      "difficulty": 5,
+      "difficultyRawScore": 27.12,
+      "tags": []
+    },
+    {
+      "id": "tsume-8",
+      "board": {
+        "black": "0x4070dcecf0f2be06",
+        "white": "0xbf0e20130f0d0139"
+      },
+      "sideToMove": "white",
+      "empties": 7,
+      "correctMoves": [
+        "b6"
+      ],
+      "bestDiscDiff": 40,
+      "outcome": "win",
+      "clarityMargin": 6,
+      "moves": [
+        {
+          "square": "g1",
+          "discDiffForMover": 6,
+          "isBest": false
+        },
+        {
+          "square": "g2",
+          "discDiffForMover": 22,
+          "isBest": false
+        },
+        {
+          "square": "b6",
+          "discDiffForMover": 40,
+          "isBest": true
+        },
+        {
+          "square": "h7",
+          "discDiffForMover": 34,
+          "isBest": false
+        }
+      ],
+      "difficulty": 3,
+      "difficultyRawScore": 16.92,
+      "tags": []
+    },
+    {
+      "id": "tsume-9",
+      "board": {
+        "black": "0x40009ccce0f2be06",
+        "white": "0xbffe60331f0d0139"
+      },
+      "sideToMove": "black",
+      "empties": 6,
+      "correctMoves": [
+        "b6"
+      ],
+      "bestDiscDiff": -34,
+      "outcome": "loss",
+      "clarityMargin": 12,
+      "moves": [
+        {
+          "square": "g1",
+          "discDiffForMover": -46,
+          "isBest": false
+        },
+        {
+          "square": "a6",
+          "discDiffForMover": -50,
+          "isBest": false
+        },
+        {
+          "square": "b6",
+          "discDiffForMover": -34,
+          "isBest": true
+        }
+      ],
+      "difficulty": 5,
+      "difficultyRawScore": 27.18,
+      "tags": []
+    },
+    {
+      "id": "tsume-10",
+      "board": {
+        "black": "0x0100652115041cfc",
+        "white": "0x92be9ade6a7b2000"
+      },
+      "sideToMove": "black",
+      "empties": 14,
+      "correctMoves": [
+        "a7",
+        "c8"
+      ],
+      "bestDiscDiff": 28,
+      "outcome": "win",
+      "clarityMargin": 8,
+      "moves": [
+        {
+          "square": "a2",
+          "discDiffForMover": 20,
+          "isBest": false
+        },
+        {
+          "square": "g2",
+          "discDiffForMover": 4,
+          "isBest": false
+        },
+        {
+          "square": "h3",
+          "discDiffForMover": 12,
+          "isBest": false
+        },
+        {
+          "square": "h4",
+          "discDiffForMover": 12,
+          "isBest": false
+        },
+        {
+          "square": "a7",
+          "discDiffForMover": 28,
+          "isBest": true
+        },
+        {
+          "square": "c8",
+          "discDiffForMover": 28,
+          "isBest": true
+        },
+        {
+          "square": "d8",
+          "discDiffForMover": 18,
+          "isBest": false
+        },
+        {
+          "square": "f8",
+          "discDiffForMover": 12,
+          "isBest": false
+        },
+        {
+          "square": "g8",
+          "discDiffForMover": 16,
+          "isBest": false
+        }
+      ],
+      "difficulty": 3,
+      "difficultyRawScore": 14,
+      "tags": [
+        "stable-gain"
+      ]
+    },
+    {
+      "id": "tsume-11",
+      "board": {
+        "black": "0x010167251d143cfc",
+        "white": "0x92be98da626b0000"
+      },
+      "sideToMove": "white",
+      "empties": 13,
+      "correctMoves": [
+        "g7"
+      ],
+      "bestDiscDiff": -28,
+      "outcome": "loss",
+      "clarityMargin": 4,
+      "moves": [
+        {
+          "square": "b1",
+          "discDiffForMover": -32,
+          "isBest": false
+        },
+        {
+          "square": "b2",
+          "discDiffForMover": -34,
+          "isBest": false
+        },
+        {
+          "square": "g7",
+          "discDiffForMover": -28,
+          "isBest": true
+        }
+      ],
+      "difficulty": 3,
+      "difficultyRawScore": 13,
+      "tags": []
+    },
+    {
+      "id": "tsume-13",
+      "board": {
+        "black": "0x090d0f2d1d143cfc",
+        "white": "0x92f2f0d2626b0000"
+      },
+      "sideToMove": "white",
+      "empties": 11,
+      "correctMoves": [
+        "c8"
+      ],
+      "bestDiscDiff": -28,
+      "outcome": "loss",
+      "clarityMargin": 10,
+      "moves": [
+        {
+          "square": "b1",
+          "discDiffForMover": -38,
+          "isBest": false
+        },
+        {
+          "square": "b2",
+          "discDiffForMover": -38,
+          "isBest": false
+        },
+        {
+          "square": "c8",
+          "discDiffForMover": -28,
+          "isBest": true
+        }
+      ],
+      "difficulty": 3,
+      "difficultyRawScore": 14,
+      "tags": []
+    },
+    {
+      "id": "tsume-17",
+      "board": {
+        "black": "0x3f352f2d15307cfc",
+        "white": "0x80cad0d26a4f0200"
+      },
+      "sideToMove": "white",
+      "empties": 7,
+      "correctMoves": [
+        "b1"
+      ],
+      "bestDiscDiff": -24,
+      "outcome": "loss",
+      "clarityMargin": 6,
+      "moves": [
+        {
+          "square": "b1",
+          "discDiffForMover": -24,
+          "isBest": true
+        },
+        {
+          "square": "h2",
+          "discDiffForMover": -36,
+          "isBest": false
+        },
+        {
+          "square": "g8",
+          "discDiffForMover": -30,
+          "isBest": false
+        }
+      ],
+      "difficulty": 2,
+      "difficultyRawScore": 11.86,
+      "tags": [
+        "corner-sacrifice"
+      ]
+    },
+    {
+      "id": "tsume-18",
+      "board": {
+        "black": "0x3f352f2d153000fc",
+        "white": "0x80cad0d26a4ffe00"
+      },
+      "sideToMove": "black",
+      "empties": 6,
+      "correctMoves": [
+        "g8"
+      ],
+      "bestDiscDiff": 36,
+      "outcome": "win",
+      "clarityMargin": 6,
+      "moves": [
+        {
+          "square": "a1",
+          "discDiffForMover": 12,
+          "isBest": false
+        },
+        {
+          "square": "b1",
+          "discDiffForMover": 16,
+          "isBest": false
+        },
+        {
+          "square": "a2",
+          "discDiffForMover": 12,
+          "isBest": false
+        },
+        {
+          "square": "h3",
+          "discDiffForMover": 30,
+          "isBest": false
+        },
+        {
+          "square": "h4",
+          "discDiffForMover": 24,
+          "isBest": false
+        },
+        {
+          "square": "g8",
+          "discDiffForMover": 36,
+          "isBest": true
+        }
+      ],
+      "difficulty": 5,
+      "difficultyRawScore": 39.760000000000005,
+      "tags": [
+        "stable-gain"
+      ]
+    },
+    {
+      "id": "tsume-24",
+      "board": {
+        "black": "0x091fc341f1532f00",
+        "white": "0x00203c3e0eacd0ff"
+      },
+      "sideToMove": "white",
+      "empties": 9,
+      "correctMoves": [
+        "h5",
+        "f8"
+      ],
+      "bestDiscDiff": 10,
+      "outcome": "win",
+      "clarityMargin": 4,
+      "moves": [
+        {
+          "square": "h5",
+          "discDiffForMover": 10,
+          "isBest": true
+        },
+        {
+          "square": "g7",
+          "discDiffForMover": 0,
+          "isBest": false
+        },
+        {
+          "square": "h7",
+          "discDiffForMover": -2,
+          "isBest": false
+        },
+        {
+          "square": "b8",
+          "discDiffForMover": 2,
+          "isBest": false
+        },
+        {
+          "square": "c8",
+          "discDiffForMover": 6,
+          "isBest": false
+        },
+        {
+          "square": "e8",
+          "discDiffForMover": 6,
+          "isBest": false
+        },
+        {
+          "square": "f8",
+          "discDiffForMover": 10,
+          "isBest": true
+        }
+      ],
+      "difficulty": 1,
+      "difficultyRawScore": 9,
+      "tags": [
+        "stable-gain"
+      ]
+    },
+    {
+      "id": "tsume-25",
+      "board": {
+        "black": "0x090fc341f1532f00",
+        "white": "0x20303c3e0eacd0ff"
+      },
+      "sideToMove": "black",
+      "empties": 8,
+      "correctMoves": [
+        "e8"
+      ],
+      "bestDiscDiff": -10,
+      "outcome": "loss",
+      "clarityMargin": 14,
+      "moves": [
+        {
+          "square": "g7",
+          "discDiffForMover": -24,
+          "isBest": false
+        },
+        {
+          "square": "e8",
+          "discDiffForMover": -10,
+          "isBest": true
+        },
+        {
+          "square": "g8",
+          "discDiffForMover": -24,
+          "isBest": false
+        }
+      ],
+      "difficulty": 1,
+      "difficultyRawScore": 8,
+      "tags": []
+    },
+    {
+      "id": "tsume-26",
+      "board": {
+        "black": "0x193fd351f1532f00",
+        "white": "0x20002c2e0eacd0ff"
+      },
+      "sideToMove": "white",
+      "empties": 7,
+      "correctMoves": [
+        "h5"
+      ],
+      "bestDiscDiff": 10,
+      "outcome": "win",
+      "clarityMargin": 4,
+      "moves": [
+        {
+          "square": "h5",
+          "discDiffForMover": 10,
+          "isBest": true
+        },
+        {
+          "square": "g7",
+          "discDiffForMover": 6,
+          "isBest": false
+        },
+        {
+          "square": "h7",
+          "discDiffForMover": 0,
+          "isBest": false
+        },
+        {
+          "square": "b8",
+          "discDiffForMover": -6,
+          "isBest": false
+        },
+        {
+          "square": "c8",
+          "discDiffForMover": 0,
+          "isBest": false
+        },
+        {
+          "square": "g8",
+          "discDiffForMover": 0,
+          "isBest": false
+        }
+      ],
+      "difficulty": 1,
+      "difficultyRawScore": 7,
+      "tags": [
+        "stable-gain"
+      ]
+    },
+    {
+      "id": "tsume-27",
+      "board": {
+        "black": "0x191fc351f1532f00",
+        "white": "0x60203c2e0eacd0ff"
+      },
+      "sideToMove": "black",
+      "empties": 6,
+      "correctMoves": [
+        "h8"
+      ],
+      "bestDiscDiff": 0,
+      "outcome": "draw",
+      "clarityMargin": 18,
+      "moves": [
+        {
+          "square": "g7",
+          "discDiffForMover": -18,
+          "isBest": false
+        },
+        {
+          "square": "h8",
+          "discDiffForMover": 0,
+          "isBest": true
+        }
+      ],
+      "difficulty": 1,
+      "difficultyRawScore": 6,
+      "tags": [
+        "stable-gain"
+      ]
+    },
+    {
+      "id": "tsume-28",
+      "board": {
+        "black": "0x7f7f7f036d401020",
+        "white": "0x808080fc121c0c1c"
+      },
+      "sideToMove": "black",
+      "empties": 14,
+      "correctMoves": [
+        "a3",
+        "f3"
+      ],
+      "bestDiscDiff": 38,
+      "outcome": "win",
+      "clarityMargin": 4,
+      "moves": [
+        {
+          "square": "b1",
+          "discDiffForMover": 24,
+          "isBest": false
+        },
+        {
+          "square": "b2",
+          "discDiffForMover": 22,
+          "isBest": false
+        },
+        {
+          "square": "f2",
+          "discDiffForMover": 34,
+          "isBest": false
+        },
+        {
+          "square": "a3",
+          "discDiffForMover": 38,
+          "isBest": true
+        },
+        {
+          "square": "b3",
+          "discDiffForMover": 18,
+          "isBest": false
+        },
+        {
+          "square": "f3",
+          "discDiffForMover": 38,
+          "isBest": true
+        },
+        {
+          "square": "h4",
+          "discDiffForMover": 32,
+          "isBest": false
+        }
+      ],
+      "difficulty": 3,
+      "difficultyRawScore": 14,
+      "tags": [
+        "stable-gain"
+      ]
+    },
+    {
+      "id": "tsume-29",
+      "board": {
+        "black": "0x7f7f7f43ed401020",
+        "white": "0x808080bc121c0c1c"
+      },
+      "sideToMove": "white",
+      "empties": 13,
+      "correctMoves": [
+        "b3"
+      ],
+      "bestDiscDiff": -32,
+      "outcome": "loss",
+      "clarityMargin": 4,
+      "moves": [
+        {
+          "square": "g1",
+          "discDiffForMover": -36,
+          "isBest": false
+        },
+        {
+          "square": "f2",
+          "discDiffForMover": -38,
+          "isBest": false
+        },
+        {
+          "square": "h2",
+          "discDiffForMover": -44,
+          "isBest": false
+        },
+        {
+          "square": "b3",
+          "discDiffForMover": -32,
+          "isBest": true
+        },
+        {
+          "square": "f3",
+          "discDiffForMover": -36,
+          "isBest": false
+        },
+        {
+          "square": "h3",
+          "discDiffForMover": -38,
+          "isBest": false
+        }
+      ],
+      "difficulty": 5,
+      "difficultyRawScore": 30.78,
+      "tags": []
+    },
+    {
+      "id": "tsume-30",
+      "board": {
+        "black": "0x7f7f7f432d401020",
+        "white": "0x808080bcd29c0c1c"
+      },
+      "sideToMove": "black",
+      "empties": 12,
+      "correctMoves": [
+        "f3"
+      ],
+      "bestDiscDiff": 38,
+      "outcome": "win",
+      "clarityMargin": 6,
+      "moves": [
+        {
+          "square": "b1",
+          "discDiffForMover": 22,
+          "isBest": false
+        },
+        {
+          "square": "b2",
+          "discDiffForMover": 14,
+          "isBest": false
+        },
+        {
+          "square": "f2",
+          "discDiffForMover": 30,
+          "isBest": false
+        },
+        {
+          "square": "a3",
+          "discDiffForMover": 32,
+          "isBest": false
+        },
+        {
+          "square": "b3",
+          "discDiffForMover": 22,
+          "isBest": false
+        },
+        {
+          "square": "f3",
+          "discDiffForMover": 38,
+          "isBest": true
+        }
+      ],
+      "difficulty": 2,
+      "difficultyRawScore": 12,
+      "tags": []
+    },
+    {
+      "id": "tsume-32",
+      "board": {
+        "black": "0x7f7f7f4b3d601000",
+        "white": "0x808080b4c29c0c7c"
+      },
+      "sideToMove": "black",
+      "empties": 10,
+      "correctMoves": [
+        "a3"
+      ],
+      "bestDiscDiff": 38,
+      "outcome": "win",
+      "clarityMargin": 4,
+      "moves": [
+        {
+          "square": "b1",
+          "discDiffForMover": 24,
+          "isBest": false
+        },
+        {
+          "square": "b2",
+          "discDiffForMover": 20,
+          "isBest": false
+        },
+        {
+          "square": "f2",
+          "discDiffForMover": 34,
+          "isBest": false
+        },
+        {
+          "square": "a3",
+          "discDiffForMover": 38,
+          "isBest": true
+        },
+        {
+          "square": "b3",
+          "discDiffForMover": 22,
+          "isBest": false
+        }
+      ],
+      "difficulty": 3,
+      "difficultyRawScore": 16.2,
+      "tags": [
+        "stable-gain"
+      ]
+    },
+    {
+      "id": "tsume-33",
+      "board": {
+        "black": "0x7f7f7f4b3d703000",
+        "white": "0x808080b4c28c0c7c"
+      },
+      "sideToMove": "white",
+      "empties": 9,
+      "correctMoves": [
+        "g2"
+      ],
+      "bestDiscDiff": -34,
+      "outcome": "loss",
+      "clarityMargin": 8,
+      "moves": [
+        {
+          "square": "g2",
+          "discDiffForMover": -34,
+          "isBest": true
+        },
+        {
+          "square": "h2",
+          "discDiffForMover": -42,
+          "isBest": false
+        }
+      ],
+      "difficulty": 4,
+      "difficultyRawScore": 23.98,
+      "tags": [
+        "corner-sacrifice"
+      ]
+    },
+    {
+      "id": "tsume-34",
+      "board": {
+        "black": "0x7f7f7f4b1d303000",
+        "white": "0x808080b4e2cc8c7c"
+      },
+      "sideToMove": "black",
+      "empties": 8,
+      "correctMoves": [
+        "g2"
+      ],
+      "bestDiscDiff": 42,
+      "outcome": "win",
+      "clarityMargin": 4,
+      "moves": [
+        {
+          "square": "b1",
+          "discDiffForMover": 26,
+          "isBest": false
+        },
+        {
+          "square": "b2",
+          "discDiffForMover": 28,
+          "isBest": false
+        },
+        {
+          "square": "g2",
+          "discDiffForMover": 42,
+          "isBest": true
+        },
+        {
+          "square": "a3",
+          "discDiffForMover": 38,
+          "isBest": false
+        },
+        {
+          "square": "b3",
+          "discDiffForMover": 22,
+          "isBest": false
+        }
+      ],
+      "difficulty": 1,
+      "difficultyRawScore": 8,
+      "tags": [
+        "corner-sacrifice"
+      ]
+    },
+    {
+      "id": "tsume-36",
+      "board": {
+        "black": "0x7f7f7f4b1d383400",
+        "white": "0x808080b4e2c4887f"
+      },
+      "sideToMove": "black",
+      "empties": 6,
+      "correctMoves": [
+        "g2",
+        "a3"
+      ],
+      "bestDiscDiff": 26,
+      "outcome": "win",
+      "clarityMargin": 22,
+      "moves": [
+        {
+          "square": "b2",
+          "discDiffForMover": 4,
+          "isBest": false
+        },
+        {
+          "square": "g2",
+          "discDiffForMover": 26,
+          "isBest": true
+        },
+        {
+          "square": "a3",
+          "discDiffForMover": 26,
+          "isBest": true
+        },
+        {
+          "square": "b3",
+          "discDiffForMover": 4,
+          "isBest": false
+        }
+      ],
+      "difficulty": 1,
+      "difficultyRawScore": 6,
+      "tags": [
+        "corner-sacrifice",
+        "stable-gain"
+      ]
+    },
+    {
+      "id": "tsume-37",
+      "board": {
+        "black": "0xfee48090b0808000",
+        "white": "0x001878684c7e7e7f"
+      },
+      "sideToMove": "black",
+      "empties": 14,
+      "correctMoves": [
+        "h1"
+      ],
+      "bestDiscDiff": 32,
+      "outcome": "win",
+      "clarityMargin": 8,
+      "moves": [
+        {
+          "square": "h1",
+          "discDiffForMover": 32,
+          "isBest": true
+        },
+        {
+          "square": "a2",
+          "discDiffForMover": -10,
+          "isBest": false
+        },
+        {
+          "square": "a3",
+          "discDiffForMover": 6,
+          "isBest": false
+        },
+        {
+          "square": "b4",
+          "discDiffForMover": 22,
+          "isBest": false
+        },
+        {
+          "square": "c5",
+          "discDiffForMover": 20,
+          "isBest": false
+        },
+        {
+          "square": "c6",
+          "discDiffForMover": 24,
+          "isBest": false
+        }
+      ],
+      "difficulty": 3,
+      "difficultyRawScore": 14,
+      "tags": [
+        "stable-gain"
+      ]
+    },
+    {
+      "id": "tsume-39",
+      "board": {
+        "black": "0xfeecf480b0808000",
+        "white": "0x0010087c4c7e7e7f"
+      },
+      "sideToMove": "black",
+      "empties": 12,
+      "correctMoves": [
+        "h1"
+      ],
+      "bestDiscDiff": 24,
+      "outcome": "win",
+      "clarityMargin": 4,
+      "moves": [
+        {
+          "square": "h1",
+          "discDiffForMover": 24,
+          "isBest": true
+        },
+        {
+          "square": "a2",
+          "discDiffForMover": -6,
+          "isBest": false
+        },
+        {
+          "square": "a3",
+          "discDiffForMover": 10,
+          "isBest": false
+        },
+        {
+          "square": "b4",
+          "discDiffForMover": 14,
+          "isBest": false
+        },
+        {
+          "square": "b5",
+          "discDiffForMover": 20,
+          "isBest": false
+        }
+      ],
+      "difficulty": 2,
+      "difficultyRawScore": 12,
+      "tags": [
+        "stable-gain"
+      ]
+    },
+    {
+      "id": "tsume-41",
+      "board": {
+        "black": "0xfeecf080b0a0c080",
+        "white": "0x00100e7c4c5e3e7f"
+      },
+      "sideToMove": "black",
+      "empties": 10,
+      "correctMoves": [
+        "b7"
+      ],
+      "bestDiscDiff": 26,
+      "outcome": "win",
+      "clarityMargin": 10,
+      "moves": [
+        {
+          "square": "a2",
+          "discDiffForMover": 8,
+          "isBest": false
+        },
+        {
+          "square": "a3",
+          "discDiffForMover": 6,
+          "isBest": false
+        },
+        {
+          "square": "b4",
+          "discDiffForMover": 14,
+          "isBest": false
+        },
+        {
+          "square": "a5",
+          "discDiffForMover": 16,
+          "isBest": false
+        },
+        {
+          "square": "b5",
+          "discDiffForMover": 16,
+          "isBest": false
+        },
+        {
+          "square": "a6",
+          "discDiffForMover": 16,
+          "isBest": false
+        },
+        {
+          "square": "b7",
+          "discDiffForMover": 26,
+          "isBest": true
+        }
+      ],
+      "difficulty": 2,
+      "difficultyRawScore": 10,
+      "tags": [
+        "corner-sacrifice"
+      ]
+    },
+    {
+      "id": "tsume-42",
+      "board": {
+        "black": "0xfeecf088b4a2ff80",
+        "white": "0x00100e74485c007f"
+      },
+      "sideToMove": "white",
+      "empties": 9,
+      "correctMoves": [
+        "b7"
+      ],
+      "bestDiscDiff": -8,
+      "outcome": "loss",
+      "clarityMargin": 4,
+      "moves": [
+        {
+          "square": "a3",
+          "discDiffForMover": -16,
+          "isBest": false
+        },
+        {
+          "square": "a4",
+          "discDiffForMover": -14,
+          "isBest": false
+        },
+        {
+          "square": "b4",
+          "discDiffForMover": -12,
+          "isBest": false
+        },
+        {
+          "square": "b5",
+          "discDiffForMover": -12,
+          "isBest": false
+        },
+        {
+          "square": "b7",
+          "discDiffForMover": -8,
+          "isBest": true
+        }
+      ],
+      "difficulty": 2,
+      "difficultyRawScore": 12,
+      "tags": [
+        "corner-sacrifice"
+      ]
+    },
+    {
+      "id": "tsume-46",
+      "board": {
+        "black": "0xa07e7e4a970f0000",
+        "white": "0x1800013468f078fe"
+      },
+      "sideToMove": "black",
+      "empties": 14,
+      "correctMoves": [
+        "h2"
+      ],
+      "bestDiscDiff": -30,
+      "outcome": "loss",
+      "clarityMargin": 8,
+      "moves": [
+        {
+          "square": "h2",
+          "discDiffForMover": -30,
+          "isBest": true
+        },
+        {
+          "square": "c8",
+          "discDiffForMover": -38,
+          "isBest": false
+        }
+      ],
+      "difficulty": 3,
+      "difficultyRawScore": 14,
+      "tags": []
+    },
+    {
+      "id": "tsume-48",
+      "board": {
+        "black": "0xa07e7e5aa3c38000",
+        "white": "0x180001245c3c7cfe"
+      },
+      "sideToMove": "black",
+      "empties": 12,
+      "correctMoves": [
+        "b2"
+      ],
+      "bestDiscDiff": -26,
+      "outcome": "loss",
+      "clarityMargin": 24,
+      "moves": [
+        {
+          "square": "b2",
+          "discDiffForMover": -26,
+          "isBest": true
+        },
+        {
+          "square": "c8",
+          "discDiffForMover": -50,
+          "isBest": false
+        }
+      ],
+      "difficulty": 4,
+      "difficultyRawScore": 20.060000000000002,
+      "tags": [
+        "corner-sacrifice"
+      ]
+    },
+    {
+      "id": "tsume-49",
+      "board": {
+        "black": "0xbc7e7e5aa3c38000",
+        "white": "0x000001245c3c7cfe"
+      },
+      "sideToMove": "white",
+      "empties": 11,
+      "correctMoves": [
+        "h5"
+      ],
+      "bestDiscDiff": 50,
+      "outcome": "win",
+      "clarityMargin": 12,
+      "moves": [
+        {
+          "square": "a2",
+          "discDiffForMover": 34,
+          "isBest": false
+        },
+        {
+          "square": "a5",
+          "discDiffForMover": 34,
+          "isBest": false
+        },
+        {
+          "square": "h5",
+          "discDiffForMover": 50,
+          "isBest": true
+        },
+        {
+          "square": "h6",
+          "discDiffForMover": 26,
+          "isBest": false
+        },
+        {
+          "square": "a7",
+          "discDiffForMover": 26,
+          "isBest": false
+        },
+        {
+          "square": "h7",
+          "discDiffForMover": 38,
+          "isBest": false
+        },
+        {
+          "square": "a8",
+          "discDiffForMover": 36,
+          "isBest": false
+        },
+        {
+          "square": "g8",
+          "discDiffForMover": 14,
+          "isBest": false
+        }
+      ],
+      "difficulty": 4,
+      "difficultyRawScore": 25.12,
+      "tags": [
+        "stable-gain"
+      ]
+    },
+    {
+      "id": "tsume-50",
+      "board": {
+        "black": "0xbc7c7a52a3c38000",
+        "white": "0x0102052c5c3c7cfe"
+      },
+      "sideToMove": "black",
+      "empties": 10,
+      "correctMoves": [
+        "b2"
+      ],
+      "bestDiscDiff": -36,
+      "outcome": "loss",
+      "clarityMargin": 14,
+      "moves": [
+        {
+          "square": "b2",
+          "discDiffForMover": -36,
+          "isBest": true
+        },
+        {
+          "square": "a7",
+          "discDiffForMover": -50,
+          "isBest": false
+        },
+        {
+          "square": "b8",
+          "discDiffForMover": -54,
+          "isBest": false
+        }
+      ],
+      "difficulty": 2,
+      "difficultyRawScore": 10,
+      "tags": [
+        "corner-sacrifice"
+      ]
+    },
+    {
+      "id": "tsume-51",
+      "board": {
+        "black": "0xbc7f7a52a3c38000",
+        "white": "0x0100052c5c3c7cfe"
+      },
+      "sideToMove": "white",
+      "empties": 9,
+      "correctMoves": [
+        "h5"
+      ],
+      "bestDiscDiff": 50,
+      "outcome": "win",
+      "clarityMargin": 6,
+      "moves": [
+        {
+          "square": "a2",
+          "discDiffForMover": 26,
+          "isBest": false
+        },
+        {
+          "square": "a5",
+          "discDiffForMover": 34,
+          "isBest": false
+        },
+        {
+          "square": "h5",
+          "discDiffForMover": 50,
+          "isBest": true
+        },
+        {
+          "square": "h6",
+          "discDiffForMover": 36,
+          "isBest": false
+        },
+        {
+          "square": "h7",
+          "discDiffForMover": 44,
+          "isBest": false
+        },
+        {
+          "square": "g8",
+          "discDiffForMover": 36,
+          "isBest": false
+        }
+      ],
+      "difficulty": 4,
+      "difficultyRawScore": 19.740000000000002,
+      "tags": [
+        "stable-gain"
+      ]
+    },
+    {
+      "id": "tsume-52",
+      "board": {
+        "black": "0xbc7f7a52a3c18000",
+        "white": "0x0100052c5c3e7dfe"
+      },
+      "sideToMove": "black",
+      "empties": 8,
+      "correctMoves": [
+        "b2"
+      ],
+      "bestDiscDiff": -26,
+      "outcome": "loss",
+      "clarityMargin": 8,
+      "moves": [
+        {
+          "square": "a1",
+          "discDiffForMover": -34,
+          "isBest": false
+        },
+        {
+          "square": "b2",
+          "discDiffForMover": -26,
+          "isBest": true
+        },
+        {
+          "square": "a5",
+          "discDiffForMover": -34,
+          "isBest": false
+        }
+      ],
+      "difficulty": 5,
+      "difficultyRawScore": 35.14,
+      "tags": [
+        "corner-sacrifice"
+      ]
+    },
+    {
+      "id": "tsume-53",
+      "board": {
+        "black": "0xbc7f7b53a3c18000",
+        "white": "0x0100042c5c3e7dfe"
+      },
+      "sideToMove": "white",
+      "empties": 7,
+      "correctMoves": [
+        "h5"
+      ],
+      "bestDiscDiff": 34,
+      "outcome": "win",
+      "clarityMargin": 14,
+      "moves": [
+        {
+          "square": "h5",
+          "discDiffForMover": 34,
+          "isBest": true
+        },
+        {
+          "square": "h6",
+          "discDiffForMover": 16,
+          "isBest": false
+        },
+        {
+          "square": "h7",
+          "discDiffForMover": 20,
+          "isBest": false
+        },
+        {
+          "square": "b8",
+          "discDiffForMover": 14,
+          "isBest": false
+        },
+        {
+          "square": "g8",
+          "discDiffForMover": 18,
+          "isBest": false
+        }
+      ],
+      "difficulty": 1,
+      "difficultyRawScore": 7,
+      "tags": [
+        "stable-gain"
+      ]
+    },
+    {
+      "id": "tsume-56",
+      "board": {
+        "black": "0xf8f8f8f0e8f8ccfe",
+        "white": "0x0000040c14073201"
+      },
+      "sideToMove": "black",
+      "empties": 13,
+      "correctMoves": [
+        "b7"
+      ],
+      "bestDiscDiff": 60,
+      "outcome": "win",
+      "clarityMargin": 8,
+      "moves": [
+        {
+          "square": "a2",
+          "discDiffForMover": 52,
+          "isBest": false
+        },
+        {
+          "square": "a4",
+          "discDiffForMover": 40,
+          "isBest": false
+        },
+        {
+          "square": "b4",
+          "discDiffForMover": 20,
+          "isBest": false
+        },
+        {
+          "square": "b5",
+          "discDiffForMover": 38,
+          "isBest": false
+        },
+        {
+          "square": "b6",
+          "discDiffForMover": 46,
+          "isBest": false
+        },
+        {
+          "square": "b7",
+          "discDiffForMover": 60,
+          "isBest": true
+        },
+        {
+          "square": "c7",
+          "discDiffForMover": 46,
+          "isBest": false
+        }
+      ],
+      "difficulty": 3,
+      "difficultyRawScore": 16,
+      "tags": [
+        "corner-sacrifice"
+      ]
+    },
+    {
+      "id": "tsume-58",
+      "board": {
+        "black": "0xf8f8f8f4eafcc0fe",
+        "white": "0x0000040814033f01"
+      },
+      "sideToMove": "black",
+      "empties": 11,
+      "correctMoves": [
+        "a4"
+      ],
+      "bestDiscDiff": 30,
+      "outcome": "win",
+      "clarityMargin": 8,
+      "moves": [
+        {
+          "square": "a4",
+          "discDiffForMover": 30,
+          "isBest": true
+        },
+        {
+          "square": "b5",
+          "discDiffForMover": 12,
+          "isBest": false
+        },
+        {
+          "square": "b6",
+          "discDiffForMover": 18,
+          "isBest": false
+        },
+        {
+          "square": "b7",
+          "discDiffForMover": 20,
+          "isBest": false
+        },
+        {
+          "square": "c7",
+          "discDiffForMover": 22,
+          "isBest": false
+        }
+      ],
+      "difficulty": 2,
+      "difficultyRawScore": 11,
+      "tags": []
+    },
+    {
+      "id": "tsume-59",
+      "board": {
+        "black": "0xf8f8f8f4ebfec4fe",
+        "white": "0x0000040814013b01"
+      },
+      "sideToMove": "white",
+      "empties": 10,
+      "correctMoves": [
+        "b5",
+        "b6"
+      ],
+      "bestDiscDiff": -30,
+      "outcome": "loss",
+      "clarityMargin": 4,
+      "moves": [
+        {
+          "square": "a5",
+          "discDiffForMover": -34,
+          "isBest": false
+        },
+        {
+          "square": "b5",
+          "discDiffForMover": -30,
+          "isBest": true
+        },
+        {
+          "square": "b6",
+          "discDiffForMover": -30,
+          "isBest": true
+        }
+      ],
+      "difficulty": 4,
+      "difficultyRawScore": 21.78,
+      "tags": []
+    },
+    {
+      "id": "tsume-60",
+      "board": {
+        "black": "0xf8f8f8f4e8fac4fe",
+        "white": "0x0000040917053b01"
+      },
+      "sideToMove": "black",
+      "empties": 9,
+      "correctMoves": [
+        "b7"
+      ],
+      "bestDiscDiff": 34,
+      "outcome": "win",
+      "clarityMargin": 12,
+      "moves": [
+        {
+          "square": "b5",
+          "discDiffForMover": 8,
+          "isBest": false
+        },
+        {
+          "square": "b6",
+          "discDiffForMover": 18,
+          "isBest": false
+        },
+        {
+          "square": "b7",
+          "discDiffForMover": 34,
+          "isBest": true
+        },
+        {
+          "square": "c7",
+          "discDiffForMover": 22,
+          "isBest": false
+        }
+      ],
+      "difficulty": 1,
+      "difficultyRawScore": 9,
+      "tags": [
+        "corner-sacrifice"
+      ]
+    },
+    {
+      "id": "tsume-62",
+      "board": {
+        "black": "0xf8fafcf8f0eac4fe",
+        "white": "0x000002050f153b01"
+      },
+      "sideToMove": "black",
+      "empties": 7,
+      "correctMoves": [
+        "a7"
+      ],
+      "bestDiscDiff": 34,
+      "outcome": "win",
+      "clarityMargin": 18,
+      "moves": [
+        {
+          "square": "b5",
+          "discDiffForMover": 16,
+          "isBest": false
+        },
+        {
+          "square": "a6",
+          "discDiffForMover": 14,
+          "isBest": false
+        },
+        {
+          "square": "a7",
+          "discDiffForMover": 34,
+          "isBest": true
+        }
+      ],
+      "difficulty": 1,
+      "difficultyRawScore": 7,
+      "tags": [
+        "corner-sacrifice"
+      ]
+    },
+    {
+      "id": "tsume-65",
+      "board": {
+        "black": "0x7f3c716af66c74bc",
+        "white": "0x80c28e1408100800"
+      },
+      "sideToMove": "white",
+      "empties": 13,
+      "correctMoves": [
+        "a3"
+      ],
+      "bestDiscDiff": -2,
+      "outcome": "loss",
+      "clarityMargin": 4,
+      "moves": [
+        {
+          "square": "b1",
+          "discDiffForMover": -10,
+          "isBest": false
+        },
+        {
+          "square": "g1",
+          "discDiffForMover": -30,
+          "isBest": false
+        },
+        {
+          "square": "b2",
+          "discDiffForMover": -8,
+          "isBest": false
+        },
+        {
+          "square": "h2",
+          "discDiffForMover": -16,
+          "isBest": false
+        },
+        {
+          "square": "a3",
+          "discDiffForMover": -2,
+          "isBest": true
+        },
+        {
+          "square": "b3",
+          "discDiffForMover": -10,
+          "isBest": false
+        },
+        {
+          "square": "h3",
+          "discDiffForMover": -6,
+          "isBest": false
+        },
+        {
+          "square": "a4",
+          "discDiffForMover": -12,
+          "isBest": false
+        },
+        {
+          "square": "a5",
+          "discDiffForMover": -16,
+          "isBest": false
+        },
+        {
+          "square": "h5",
+          "discDiffForMover": -6,
+          "isBest": false
+        }
+      ],
+      "difficulty": 5,
+      "difficultyRawScore": 30.98,
+      "tags": []
+    },
+    {
+      "id": "tsume-66",
+      "board": {
+        "black": "0x7f3c716ad62c04bc",
+        "white": "0x80c28e142850f800"
+      },
+      "sideToMove": "black",
+      "empties": 12,
+      "correctMoves": [
+        "a7"
+      ],
+      "bestDiscDiff": 16,
+      "outcome": "win",
+      "clarityMargin": 12,
+      "moves": [
+        {
+          "square": "g1",
+          "discDiffForMover": 4,
+          "isBest": false
+        },
+        {
+          "square": "h3",
+          "discDiffForMover": 4,
+          "isBest": false
+        },
+        {
+          "square": "a5",
+          "discDiffForMover": -2,
+          "isBest": false
+        },
+        {
+          "square": "a7",
+          "discDiffForMover": 16,
+          "isBest": true
+        }
+      ],
+      "difficulty": 3,
+      "difficultyRawScore": 15.52,
+      "tags": [
+        "stable-gain"
+      ]
+    },
+    {
+      "id": "tsume-67",
+      "board": {
+        "black": "0x7f3c716ad66c44fc",
+        "white": "0x80c28e142810b800"
+      },
+      "sideToMove": "white",
+      "empties": 11,
+      "correctMoves": [
+        "h3"
+      ],
+      "bestDiscDiff": -4,
+      "outcome": "loss",
+      "clarityMargin": 16,
+      "moves": [
+        {
+          "square": "b1",
+          "discDiffForMover": -28,
+          "isBest": false
+        },
+        {
+          "square": "b2",
+          "discDiffForMover": -24,
+          "isBest": false
+        },
+        {
+          "square": "a3",
+          "discDiffForMover": -20,
+          "isBest": false
+        },
+        {
+          "square": "b3",
+          "discDiffForMover": -20,
+          "isBest": false
+        },
+        {
+          "square": "h3",
+          "discDiffForMover": -4,
+          "isBest": true
+        },
+        {
+          "square": "a4",
+          "discDiffForMover": -22,
+          "isBest": false
+        },
+        {
+          "square": "a5",
+          "discDiffForMover": -20,
+          "isBest": false
+        },
+        {
+          "square": "h5",
+          "discDiffForMover": -24,
+          "isBest": false
+        }
+      ],
+      "difficulty": 2,
+      "difficultyRawScore": 11,
+      "tags": []
+    },
+    {
+      "id": "tsume-68",
+      "board": {
+        "black": "0x7f3c710a964c44fc",
+        "white": "0x80c28ef46830b800"
+      },
+      "sideToMove": "black",
+      "empties": 10,
+      "correctMoves": [
+        "h3"
+      ],
+      "bestDiscDiff": 24,
+      "outcome": "win",
+      "clarityMargin": 10,
+      "moves": [
+        {
+          "square": "h3",
+          "discDiffForMover": 24,
+          "isBest": true
+        },
+        {
+          "square": "a5",
+          "discDiffForMover": 10,
+          "isBest": false
+        },
+        {
+          "square": "a7",
+          "discDiffForMover": 14,
+          "isBest": false
+        }
+      ],
+      "difficulty": 2,
+      "difficultyRawScore": 10,
+      "tags": [
+        "stable-gain"
+      ]
+    },
+    {
+      "id": "tsume-69",
+      "board": {
+        "black": "0x7f3c712ad6ccc4fc",
+        "white": "0x80c28ed428303800"
+      },
+      "sideToMove": "white",
+      "empties": 9,
+      "correctMoves": [
+        "b3",
+        "a4"
+      ],
+      "bestDiscDiff": -24,
+      "outcome": "loss",
+      "clarityMargin": 4,
+      "moves": [
+        {
+          "square": "b1",
+          "discDiffForMover": -30,
+          "isBest": false
+        },
+        {
+          "square": "b2",
+          "discDiffForMover": -32,
+          "isBest": false
+        },
+        {
+          "square": "a3",
+          "discDiffForMover": -28,
+          "isBest": false
+        },
+        {
+          "square": "b3",
+          "discDiffForMover": -24,
+          "isBest": true
+        },
+        {
+          "square": "a4",
+          "discDiffForMover": -24,
+          "isBest": true
+        },
+        {
+          "square": "a5",
+          "discDiffForMover": -34,
+          "isBest": false
+        }
+      ],
+      "difficulty": 4,
+      "difficultyRawScore": 25.12,
+      "tags": []
+    },
+    {
+      "id": "tsume-70",
+      "board": {
+        "black": "0x7f3c712ad4ccc4fc",
+        "white": "0x80c28ed42a313800"
+      },
+      "sideToMove": "black",
+      "empties": 8,
+      "correctMoves": [
+        "a4"
+      ],
+      "bestDiscDiff": 28,
+      "outcome": "win",
+      "clarityMargin": 8,
+      "moves": [
+        {
+          "square": "b3",
+          "discDiffForMover": 18,
+          "isBest": false
+        },
+        {
+          "square": "a4",
+          "discDiffForMover": 28,
+          "isBest": true
+        },
+        {
+          "square": "a5",
+          "discDiffForMover": 20,
+          "isBest": false
+        },
+        {
+          "square": "a7",
+          "discDiffForMover": 20,
+          "isBest": false
+        }
+      ],
+      "difficulty": 1,
+      "difficultyRawScore": 8,
+      "tags": []
+    },
+    {
+      "id": "tsume-71",
+      "board": {
+        "black": "0x7f3c712ad6cec4fc",
+        "white": "0x80c28ed428313800"
+      },
+      "sideToMove": "white",
+      "empties": 7,
+      "correctMoves": [
+        "a4"
+      ],
+      "bestDiscDiff": -18,
+      "outcome": "loss",
+      "clarityMargin": 10,
+      "moves": [
+        {
+          "square": "b1",
+          "discDiffForMover": -28,
+          "isBest": false
+        },
+        {
+          "square": "b2",
+          "discDiffForMover": -32,
+          "isBest": false
+        },
+        {
+          "square": "a4",
+          "discDiffForMover": -18,
+          "isBest": true
+        },
+        {
+          "square": "a5",
+          "discDiffForMover": -36,
+          "isBest": false
+        }
+      ],
+      "difficulty": 1,
+      "difficultyRawScore": 7,
+      "tags": []
+    },
+    {
+      "id": "tsume-72",
+      "board": {
+        "black": "0x7f3c7128d0cec4fc",
+        "white": "0x80c28ed62f313800"
+      },
+      "sideToMove": "black",
+      "empties": 6,
+      "correctMoves": [
+        "a7"
+      ],
+      "bestDiscDiff": 18,
+      "outcome": "win",
+      "clarityMargin": 4,
+      "moves": [
+        {
+          "square": "a5",
+          "discDiffForMover": 14,
+          "isBest": false
+        },
+        {
+          "square": "a7",
+          "discDiffForMover": 18,
+          "isBest": true
+        }
+      ],
+      "difficulty": 1,
+      "difficultyRawScore": 6,
+      "tags": [
+        "stable-gain"
+      ]
+    },
+    {
+      "id": "tsume-80",
+      "board": {
+        "black": "0x005d7b557b7d781c",
+        "white": "0xffa284aa84828080"
+      },
+      "sideToMove": "white",
+      "empties": 7,
+      "correctMoves": [
+        "a2"
+      ],
+      "bestDiscDiff": 44,
+      "outcome": "win",
+      "clarityMargin": 8,
+      "moves": [
+        {
+          "square": "f1",
+          "discDiffForMover": 10,
+          "isBest": false
+        },
+        {
+          "square": "g1",
+          "discDiffForMover": 36,
+          "isBest": false
+        },
+        {
+          "square": "a2",
+          "discDiffForMover": 44,
+          "isBest": true
+        },
+        {
+          "square": "b2",
+          "discDiffForMover": 30,
+          "isBest": false
+        },
+        {
+          "square": "c2",
+          "discDiffForMover": 16,
+          "isBest": false
+        }
+      ],
+      "difficulty": 1,
+      "difficultyRawScore": 7,
+      "tags": [
+        "corner-sacrifice",
+        "stable-gain"
+      ]
+    },
+    {
+      "id": "tsume-84",
+      "board": {
+        "black": "0x003448e4f6d08000",
+        "white": "0xf9cab418082c7efe"
+      },
+      "sideToMove": "black",
+      "empties": 12,
+      "correctMoves": [
+        "b3"
+      ],
+      "bestDiscDiff": -8,
+      "outcome": "loss",
+      "clarityMargin": 4,
+      "moves": [
+        {
+          "square": "a2",
+          "discDiffForMover": -16,
+          "isBest": false
+        },
+        {
+          "square": "b3",
+          "discDiffForMover": -8,
+          "isBest": true
+        },
+        {
+          "square": "b6",
+          "discDiffForMover": -12,
+          "isBest": false
+        },
+        {
+          "square": "a7",
+          "discDiffForMover": -14,
+          "isBest": false
+        },
+        {
+          "square": "c8",
+          "discDiffForMover": -14,
+          "isBest": false
+        }
+      ],
+      "difficulty": 4,
+      "difficultyRawScore": 25.12,
+      "tags": []
+    },
+    {
+      "id": "tsume-90",
+      "board": {
+        "black": "0x003850e0f6de8000",
+        "white": "0xffc7af1c08207efe"
+      },
+      "sideToMove": "black",
+      "empties": 6,
+      "correctMoves": [
+        "a2",
+        "b5"
+      ],
+      "bestDiscDiff": -14,
+      "outcome": "loss",
+      "clarityMargin": 4,
+      "moves": [
+        {
+          "square": "a1",
+          "discDiffForMover": -18,
+          "isBest": false
+        },
+        {
+          "square": "a2",
+          "discDiffForMover": -14,
+          "isBest": true
+        },
+        {
+          "square": "b5",
+          "discDiffForMover": -14,
+          "isBest": true
+        }
+      ],
+      "difficulty": 4,
+      "difficultyRawScore": 22.5,
+      "tags": [
+        "corner-sacrifice"
+      ]
+    },
+    {
+      "id": "tsume-97",
+      "board": {
+        "black": "0x002d565a3d103800",
+        "white": "0xffd2a8a4c2ed04fe"
+      },
+      "sideToMove": "black",
+      "empties": 8,
+      "correctMoves": [
+        "a2",
+        "h2"
+      ],
+      "bestDiscDiff": -26,
+      "outcome": "loss",
+      "clarityMargin": 4,
+      "moves": [
+        {
+          "square": "a2",
+          "discDiffForMover": -26,
+          "isBest": true
+        },
+        {
+          "square": "b2",
+          "discDiffForMover": -32,
+          "isBest": false
+        },
+        {
+          "square": "g2",
+          "discDiffForMover": -36,
+          "isBest": false
+        },
+        {
+          "square": "h2",
+          "discDiffForMover": -26,
+          "isBest": true
+        },
+        {
+          "square": "b3",
+          "discDiffForMover": -30,
+          "isBest": false
+        },
+        {
+          "square": "a5",
+          "discDiffForMover": -32,
+          "isBest": false
+        }
+      ],
+      "difficulty": 1,
+      "difficultyRawScore": 8,
+      "tags": [
+        "corner-sacrifice"
+      ]
+    },
+    {
+      "id": "tsume-99",
+      "board": {
+        "black": "0x002d565a3d108000",
+        "white": "0xffd2a8a4c2ed7cfe"
+      },
+      "sideToMove": "black",
+      "empties": 6,
+      "correctMoves": [
+        "a2",
+        "b3"
+      ],
+      "bestDiscDiff": -26,
+      "outcome": "loss",
+      "clarityMargin": 4,
+      "moves": [
+        {
+          "square": "a2",
+          "discDiffForMover": -26,
+          "isBest": true
+        },
+        {
+          "square": "b2",
+          "discDiffForMover": -30,
+          "isBest": false
+        },
+        {
+          "square": "b3",
+          "discDiffForMover": -26,
+          "isBest": true
+        }
+      ],
+      "difficulty": 1,
+      "difficultyRawScore": 6,
+      "tags": [
+        "corner-sacrifice"
+      ]
+    },
+    {
+      "id": "tsume-102",
+      "board": {
+        "black": "0xffc0bdaa84800100",
+        "white": "0x003f42547a5f060f"
+      },
+      "sideToMove": "black",
+      "empties": 12,
+      "correctMoves": [
+        "g2"
+      ],
+      "bestDiscDiff": 36,
+      "outcome": "win",
+      "clarityMargin": 12,
+      "moves": [
+        {
+          "square": "d2",
+          "discDiffForMover": 4,
+          "isBest": false
+        },
+        {
+          "square": "e2",
+          "discDiffForMover": 4,
+          "isBest": false
+        },
+        {
+          "square": "f2",
+          "discDiffForMover": 12,
+          "isBest": false
+        },
+        {
+          "square": "g2",
+          "discDiffForMover": 36,
+          "isBest": true
+        },
+        {
+          "square": "h2",
+          "discDiffForMover": 4,
+          "isBest": false
+        },
+        {
+          "square": "f3",
+          "discDiffForMover": 8,
+          "isBest": false
+        },
+        {
+          "square": "a4",
+          "discDiffForMover": 6,
+          "isBest": false
+        },
+        {
+          "square": "a5",
+          "discDiffForMover": 24,
+          "isBest": false
+        }
+      ],
+      "difficulty": 5,
+      "difficultyRawScore": 38.24,
+      "tags": [
+        "corner-sacrifice"
+      ]
+    },
+    {
+      "id": "tsume-104",
+      "board": {
+        "black": "0xffc4baa884800100",
+        "white": "0x003b45577b5f060f"
+      },
+      "sideToMove": "black",
+      "empties": 10,
+      "correctMoves": [
+        "g2"
+      ],
+      "bestDiscDiff": 24,
+      "outcome": "win",
+      "clarityMargin": 20,
+      "moves": [
+        {
+          "square": "d2",
+          "discDiffForMover": 0,
+          "isBest": false
+        },
+        {
+          "square": "e2",
+          "discDiffForMover": 2,
+          "isBest": false
+        },
+        {
+          "square": "f2",
+          "discDiffForMover": -2,
+          "isBest": false
+        },
+        {
+          "square": "g2",
+          "discDiffForMover": 24,
+          "isBest": true
+        },
+        {
+          "square": "h2",
+          "discDiffForMover": 0,
+          "isBest": false
+        },
+        {
+          "square": "f3",
+          "discDiffForMover": 4,
+          "isBest": false
+        }
+      ],
+      "difficulty": 2,
+      "difficultyRawScore": 10,
+      "tags": [
+        "corner-sacrifice"
+      ]
+    },
+    {
+      "id": "tsume-106",
+      "board": {
+        "black": "0xffc4fae8c4804100",
+        "white": "0x003b05173b5f860f"
+      },
+      "sideToMove": "black",
+      "empties": 8,
+      "correctMoves": [
+        "h1"
+      ],
+      "bestDiscDiff": 24,
+      "outcome": "win",
+      "clarityMargin": 10,
+      "moves": [
+        {
+          "square": "h1",
+          "discDiffForMover": 24,
+          "isBest": true
+        },
+        {
+          "square": "d2",
+          "discDiffForMover": 4,
+          "isBest": false
+        },
+        {
+          "square": "e2",
+          "discDiffForMover": 6,
+          "isBest": false
+        },
+        {
+          "square": "f2",
+          "discDiffForMover": 14,
+          "isBest": false
+        },
+        {
+          "square": "f3",
+          "discDiffForMover": 2,
+          "isBest": false
+        }
+      ],
+      "difficulty": 1,
+      "difficultyRawScore": 8,
+      "tags": [
+        "stable-gain"
+      ]
+    },
+    {
+      "id": "tsume-110",
+      "board": {
+        "black": "0xbfdfecdeeffcd0a0",
+        "white": "0x402010201000001c"
+      },
+      "sideToMove": "white",
+      "empties": 13,
+      "correctMoves": [
+        "b6"
+      ],
+      "bestDiscDiff": 0,
+      "outcome": "draw",
+      "clarityMargin": 4,
+      "moves": [
+        {
+          "square": "g1",
+          "discDiffForMover": -20,
+          "isBest": false
+        },
+        {
+          "square": "c2",
+          "discDiffForMover": -12,
+          "isBest": false
+        },
+        {
+          "square": "f2",
+          "discDiffForMover": -28,
+          "isBest": false
+        },
+        {
+          "square": "b3",
+          "discDiffForMover": -6,
+          "isBest": false
+        },
+        {
+          "square": "a5",
+          "discDiffForMover": -4,
+          "isBest": false
+        },
+        {
+          "square": "b6",
+          "discDiffForMover": 0,
+          "isBest": true
+        }
+      ],
+      "difficulty": 5,
+      "difficultyRawScore": 35.120000000000005,
+      "tags": []
+    },
+    {
+      "id": "tsume-111",
+      "board": {
+        "black": "0xbf9fac9eafbc9080",
+        "white": "0x406050605040407c"
+      },
+      "sideToMove": "black",
+      "empties": 12,
+      "correctMoves": [
+        "f2"
+      ],
+      "bestDiscDiff": 20,
+      "outcome": "win",
+      "clarityMargin": 12,
+      "moves": [
+        {
+          "square": "b1",
+          "discDiffForMover": 8,
+          "isBest": false
+        },
+        {
+          "square": "f2",
+          "discDiffForMover": 20,
+          "isBest": true
+        }
+      ],
+      "difficulty": 5,
+      "difficultyRawScore": 26.16,
+      "tags": []
+    },
+    {
+      "id": "tsume-112",
+      "board": {
+        "black": "0xbf9fac9eafbc90fe",
+        "white": "0x4060506050404000"
+      },
+      "sideToMove": "white",
+      "empties": 11,
+      "correctMoves": [
+        "f2"
+      ],
+      "bestDiscDiff": -8,
+      "outcome": "loss",
+      "clarityMargin": 6,
+      "moves": [
+        {
+          "square": "b2",
+          "discDiffForMover": -22,
+          "isBest": false
+        },
+        {
+          "square": "c2",
+          "discDiffForMover": -14,
+          "isBest": false
+        },
+        {
+          "square": "d2",
+          "discDiffForMover": -16,
+          "isBest": false
+        },
+        {
+          "square": "f2",
+          "discDiffForMover": -8,
+          "isBest": true
+        },
+        {
+          "square": "b3",
+          "discDiffForMover": -22,
+          "isBest": false
+        },
+        {
+          "square": "a5",
+          "discDiffForMover": -22,
+          "isBest": false
+        },
+        {
+          "square": "b6",
+          "discDiffForMover": -26,
+          "isBest": false
+        }
+      ],
+      "difficulty": 2,
+      "difficultyRawScore": 11,
+      "tags": []
+    },
+    {
+      "id": "tsume-114",
+      "board": {
+        "black": "0xbf9fa09a878c90fe",
+        "white": "0x40605e6478706000"
+      },
+      "sideToMove": "black",
+      "empties": 9,
+      "correctMoves": [
+        "d2"
+      ],
+      "bestDiscDiff": 26,
+      "outcome": "win",
+      "clarityMargin": 8,
+      "moves": [
+        {
+          "square": "d2",
+          "discDiffForMover": 26,
+          "isBest": true
+        },
+        {
+          "square": "a5",
+          "discDiffForMover": 6,
+          "isBest": false
+        },
+        {
+          "square": "a6",
+          "discDiffForMover": 18,
+          "isBest": false
+        }
+      ],
+      "difficulty": 1,
+      "difficultyRawScore": 9,
+      "tags": []
+    },
+    {
+      "id": "tsume-119",
+      "board": {
+        "black": "0xfefcc2b4dcac4480",
+        "white": "0x01013d4b23501820"
+      },
+      "sideToMove": "white",
+      "empties": 13,
+      "correctMoves": [
+        "b7"
+      ],
+      "bestDiscDiff": -16,
+      "outcome": "loss",
+      "clarityMargin": 12,
+      "moves": [
+        {
+          "square": "c1",
+          "discDiffForMover": -32,
+          "isBest": false
+        },
+        {
+          "square": "g1",
+          "discDiffForMover": -28,
+          "isBest": false
+        },
+        {
+          "square": "b2",
+          "discDiffForMover": -30,
+          "isBest": false
+        },
+        {
+          "square": "f2",
+          "discDiffForMover": -28,
+          "isBest": false
+        },
+        {
+          "square": "b3",
+          "discDiffForMover": -28,
+          "isBest": false
+        },
+        {
+          "square": "b7",
+          "discDiffForMover": -16,
+          "isBest": true
+        }
+      ],
+      "difficulty": 4,
+      "difficultyRawScore": 19,
+      "tags": []
+    },
+    {
+      "id": "tsume-123",
+      "board": {
+        "black": "0xfefcc0b4faffc480",
+        "white": "0x01033f4b05001820"
+      },
+      "sideToMove": "white",
+      "empties": 9,
+      "correctMoves": [
+        "c1"
+      ],
+      "bestDiscDiff": 0,
+      "outcome": "draw",
+      "clarityMargin": 6,
+      "moves": [
+        {
+          "square": "c1",
+          "discDiffForMover": 0,
+          "isBest": true
+        },
+        {
+          "square": "d1",
+          "discDiffForMover": -8,
+          "isBest": false
+        },
+        {
+          "square": "g1",
+          "discDiffForMover": -10,
+          "isBest": false
+        },
+        {
+          "square": "a2",
+          "discDiffForMover": -6,
+          "isBest": false
+        },
+        {
+          "square": "b2",
+          "discDiffForMover": -18,
+          "isBest": false
+        },
+        {
+          "square": "f2",
+          "discDiffForMover": -12,
+          "isBest": false
+        }
+      ],
+      "difficulty": 5,
+      "difficultyRawScore": 33.18,
+      "tags": []
+    },
+    {
+      "id": "tsume-125",
+      "board": {
+        "black": "0xfefcc0b4fafccc84",
+        "white": "0x01033f4b05031120"
+      },
+      "sideToMove": "white",
+      "empties": 7,
+      "correctMoves": [
+        "f2"
+      ],
+      "bestDiscDiff": 4,
+      "outcome": "win",
+      "clarityMargin": 6,
+      "moves": [
+        {
+          "square": "d1",
+          "discDiffForMover": -2,
+          "isBest": false
+        },
+        {
+          "square": "e1",
+          "discDiffForMover": -12,
+          "isBest": false
+        },
+        {
+          "square": "g1",
+          "discDiffForMover": -10,
+          "isBest": false
+        },
+        {
+          "square": "b2",
+          "discDiffForMover": -6,
+          "isBest": false
+        },
+        {
+          "square": "f2",
+          "discDiffForMover": 4,
+          "isBest": true
+        }
+      ],
+      "difficulty": 1,
+      "difficultyRawScore": 7,
+      "tags": []
+    },
+    {
+      "id": "tsume-126",
+      "board": {
+        "black": "0xfefcc0a4f2f8c084",
+        "white": "0x01033f5b0d071f20"
+      },
+      "sideToMove": "black",
+      "empties": 6,
+      "correctMoves": [
+        "a1",
+        "d1"
+      ],
+      "bestDiscDiff": 6,
+      "outcome": "win",
+      "clarityMargin": 6,
+      "moves": [
+        {
+          "square": "a1",
+          "discDiffForMover": 6,
+          "isBest": true
+        },
+        {
+          "square": "b1",
+          "discDiffForMover": -4,
+          "isBest": false
+        },
+        {
+          "square": "d1",
+          "discDiffForMover": 6,
+          "isBest": true
+        },
+        {
+          "square": "e1",
+          "discDiffForMover": 0,
+          "isBest": false
+        }
+      ],
+      "difficulty": 1,
+      "difficultyRawScore": 6,
+      "tags": [
+        "stable-gain"
+      ]
+    },
+    {
+      "id": "tsume-127",
+      "board": {
+        "black": "0x00381898320e0808",
+        "white": "0xffc7e7270d113321"
+      },
+      "sideToMove": "black",
+      "empties": 14,
+      "correctMoves": [
+        "e1",
+        "g4"
+      ],
+      "bestDiscDiff": -40,
+      "outcome": "loss",
+      "clarityMargin": 4,
+      "moves": [
+        {
+          "square": "b1",
+          "discDiffForMover": -46,
+          "isBest": false
+        },
+        {
+          "square": "e1",
+          "discDiffForMover": -40,
+          "isBest": true
+        },
+        {
+          "square": "g2",
+          "discDiffForMover": -44,
+          "isBest": false
+        },
+        {
+          "square": "f3",
+          "discDiffForMover": -48,
+          "isBest": false
+        },
+        {
+          "square": "g4",
+          "discDiffForMover": -40,
+          "isBest": true
+        },
+        {
+          "square": "g5",
+          "discDiffForMover": -48,
+          "isBest": false
+        }
+      ],
+      "difficulty": 3,
+      "difficultyRawScore": 14,
+      "tags": []
+    },
+    {
+      "id": "tsume-129",
+      "board": {
+        "black": "0x00381898321e1800",
+        "white": "0xffc7e7270d01233d"
+      },
+      "sideToMove": "black",
+      "empties": 12,
+      "correctMoves": [
+        "g4"
+      ],
+      "bestDiscDiff": -38,
+      "outcome": "loss",
+      "clarityMargin": 4,
+      "moves": [
+        {
+          "square": "b1",
+          "discDiffForMover": -44,
+          "isBest": false
+        },
+        {
+          "square": "g1",
+          "discDiffForMover": -46,
+          "isBest": false
+        },
+        {
+          "square": "g2",
+          "discDiffForMover": -42,
+          "isBest": false
+        },
+        {
+          "square": "g4",
+          "discDiffForMover": -38,
+          "isBest": true
+        },
+        {
+          "square": "g5",
+          "discDiffForMover": -46,
+          "isBest": false
+        }
+      ],
+      "difficulty": 3,
+      "difficultyRawScore": 15,
+      "tags": []
+    },
+    {
+      "id": "tsume-132",
+      "board": {
+        "black": "0x003818b8429e1a02",
+        "white": "0xffc7e7073d01213d"
+      },
+      "sideToMove": "white",
+      "empties": 9,
+      "correctMoves": [
+        "g5"
+      ],
+      "bestDiscDiff": 44,
+      "outcome": "win",
+      "clarityMargin": 4,
+      "moves": [
+        {
+          "square": "c2",
+          "discDiffForMover": 40,
+          "isBest": false
+        },
+        {
+          "square": "f3",
+          "discDiffForMover": 34,
+          "isBest": false
+        },
+        {
+          "square": "h4",
+          "discDiffForMover": 38,
+          "isBest": false
+        },
+        {
+          "square": "g5",
+          "discDiffForMover": 44,
+          "isBest": true
+        }
+      ],
+      "difficulty": 4,
+      "difficultyRawScore": 18.72,
+      "tags": []
+    },
+    {
+      "id": "tsume-135",
+      "board": {
+        "black": "0x00383068029e1a02",
+        "white": "0xffc7cf97fd41213d"
+      },
+      "sideToMove": "black",
+      "empties": 6,
+      "correctMoves": [
+        "g2"
+      ],
+      "bestDiscDiff": -36,
+      "outcome": "loss",
+      "clarityMargin": 4,
+      "moves": [
+        {
+          "square": "g1",
+          "discDiffForMover": -40,
+          "isBest": false
+        },
+        {
+          "square": "g2",
+          "discDiffForMover": -36,
+          "isBest": true
+        },
+        {
+          "square": "f3",
+          "discDiffForMover": -40,
+          "isBest": false
+        }
+      ],
+      "difficulty": 4,
+      "difficultyRawScore": 17.060000000000002,
+      "tags": [
+        "corner-sacrifice"
+      ]
+    },
+    {
+      "id": "tsume-136",
+      "board": {
+        "black": "0x80c0f0bcc8dcb000",
+        "white": "0x1d3d0f42372241e0"
+      },
+      "sideToMove": "black",
+      "empties": 14,
+      "correctMoves": [
+        "a3",
+        "g8"
+      ],
+      "bestDiscDiff": 14,
+      "outcome": "win",
+      "clarityMargin": 4,
+      "moves": [
+        {
+          "square": "a3",
+          "discDiffForMover": 14,
+          "isBest": true
+        },
+        {
+          "square": "a5",
+          "discDiffForMover": 10,
+          "isBest": false
+        },
+        {
+          "square": "b7",
+          "discDiffForMover": -6,
+          "isBest": false
+        },
+        {
+          "square": "b8",
+          "discDiffForMover": 0,
+          "isBest": false
+        },
+        {
+          "square": "f8",
+          "discDiffForMover": 2,
+          "isBest": false
+        },
+        {
+          "square": "g8",
+          "discDiffForMover": 14,
+          "isBest": true
+        }
+      ],
+      "difficulty": 3,
+      "difficultyRawScore": 14,
+      "tags": [
+        "stable-gain"
+      ]
+    },
+    {
+      "id": "tsume-137",
+      "board": {
+        "black": "0xc0e0f0bcc8dcb000",
+        "white": "0x1d1d0f42372241e0"
+      },
+      "sideToMove": "white",
+      "empties": 13,
+      "correctMoves": [
+        "f8"
+      ],
+      "bestDiscDiff": -14,
+      "outcome": "loss",
+      "clarityMargin": 16,
+      "moves": [
+        {
+          "square": "d1",
+          "discDiffForMover": -34,
+          "isBest": false
+        },
+        {
+          "square": "e1",
+          "discDiffForMover": -30,
+          "isBest": false
+        },
+        {
+          "square": "c2",
+          "discDiffForMover": -30,
+          "isBest": false
+        },
+        {
+          "square": "d2",
+          "discDiffForMover": -38,
+          "isBest": false
+        },
+        {
+          "square": "f8",
+          "discDiffForMover": -14,
+          "isBest": true
+        }
+      ],
+      "difficulty": 3,
+      "difficultyRawScore": 13,
+      "tags": []
+    },
+    {
+      "id": "tsume-140",
+      "board": {
+        "black": "0xfec0d89cc8dcb000",
+        "white": "0x013f2762372241e0"
+      },
+      "sideToMove": "black",
+      "empties": 10,
+      "correctMoves": [
+        "a3"
+      ],
+      "bestDiscDiff": 12,
+      "outcome": "win",
+      "clarityMargin": 6,
+      "moves": [
+        {
+          "square": "b2",
+          "discDiffForMover": -12,
+          "isBest": false
+        },
+        {
+          "square": "a3",
+          "discDiffForMover": 12,
+          "isBest": true
+        },
+        {
+          "square": "a5",
+          "discDiffForMover": 6,
+          "isBest": false
+        }
+      ],
+      "difficulty": 2,
+      "difficultyRawScore": 10,
+      "tags": []
+    },
+    {
+      "id": "tsume-142",
+      "board": {
+        "black": "0xfec4d29bc8dcb000",
+        "white": "0x013b2d64372341e0"
+      },
+      "sideToMove": "black",
+      "empties": 8,
+      "correctMoves": [
+        "a1"
+      ],
+      "bestDiscDiff": 8,
+      "outcome": "win",
+      "clarityMargin": 8,
+      "moves": [
+        {
+          "square": "a1",
+          "discDiffForMover": 8,
+          "isBest": true
+        },
+        {
+          "square": "b2",
+          "discDiffForMover": 0,
+          "isBest": false
+        }
+      ],
+      "difficulty": 1,
+      "difficultyRawScore": 8,
+      "tags": [
+        "stable-gain"
+      ]
+    },
+    {
+      "id": "tsume-144",
+      "board": {
+        "black": "0xfec4d28bc1d9b101",
+        "white": "0x013b2d743e2642e0"
+      },
+      "sideToMove": "black",
+      "empties": 6,
+      "correctMoves": [
+        "b1"
+      ],
+      "bestDiscDiff": 16,
+      "outcome": "win",
+      "clarityMargin": 10,
+      "moves": [
+        {
+          "square": "b1",
+          "discDiffForMover": 16,
+          "isBest": true
+        },
+        {
+          "square": "c1",
+          "discDiffForMover": 6,
+          "isBest": false
+        },
+        {
+          "square": "c2",
+          "discDiffForMover": 6,
+          "isBest": false
+        },
+        {
+          "square": "d2",
+          "discDiffForMover": 4,
+          "isBest": false
+        }
+      ],
+      "difficulty": 2,
+      "difficultyRawScore": 12.2,
+      "tags": [
+        "stable-gain"
+      ]
+    },
+    {
+      "id": "tsume-146",
+      "board": {
+        "black": "0x01364c046c786060",
+        "white": "0xfcc9b3fb93818080"
+      },
+      "sideToMove": "white",
+      "empties": 13,
+      "correctMoves": [
+        "b8"
+      ],
+      "bestDiscDiff": 34,
+      "outcome": "win",
+      "clarityMargin": 4,
+      "moves": [
+        {
+          "square": "e1",
+          "discDiffForMover": 30,
+          "isBest": false
+        },
+        {
+          "square": "c2",
+          "discDiffForMover": 26,
+          "isBest": false
+        },
+        {
+          "square": "d2",
+          "discDiffForMover": 26,
+          "isBest": false
+        },
+        {
+          "square": "e2",
+          "discDiffForMover": 26,
+          "isBest": false
+        },
+        {
+          "square": "b3",
+          "discDiffForMover": 26,
+          "isBest": false
+        },
+        {
+          "square": "c3",
+          "discDiffForMover": 6,
+          "isBest": false
+        },
+        {
+          "square": "b8",
+          "discDiffForMover": 34,
+          "isBest": true
+        }
+      ],
+      "difficulty": 3,
+      "difficultyRawScore": 13,
+      "tags": [
+        "stable-gain"
+      ]
+    },
+    {
+      "id": "tsume-148",
+      "board": {
+        "black": "0x01364c046c787060",
+        "white": "0xfcc9b3fb93818480"
+      },
+      "sideToMove": "white",
+      "empties": 11,
+      "correctMoves": [
+        "b8"
+      ],
+      "bestDiscDiff": 30,
+      "outcome": "win",
+      "clarityMargin": 6,
+      "moves": [
+        {
+          "square": "d1",
+          "discDiffForMover": 24,
+          "isBest": false
+        },
+        {
+          "square": "e1",
+          "discDiffForMover": 22,
+          "isBest": false
+        },
+        {
+          "square": "d2",
+          "discDiffForMover": 24,
+          "isBest": false
+        },
+        {
+          "square": "b3",
+          "discDiffForMover": 22,
+          "isBest": false
+        },
+        {
+          "square": "c3",
+          "discDiffForMover": 6,
+          "isBest": false
+        },
+        {
+          "square": "b8",
+          "discDiffForMover": 30,
+          "isBest": true
+        }
+      ],
+      "difficulty": 2,
+      "difficultyRawScore": 11,
+      "tags": [
+        "stable-gain"
+      ]
+    },
+    {
+      "id": "tsume-150",
+      "board": {
+        "black": "0x013145056d797160",
+        "white": "0xfecebafa92808480"
+      },
+      "sideToMove": "white",
+      "empties": 9,
+      "correctMoves": [
+        "d1"
+      ],
+      "bestDiscDiff": 30,
+      "outcome": "win",
+      "clarityMargin": 4,
+      "moves": [
+        {
+          "square": "d1",
+          "discDiffForMover": 30,
+          "isBest": true
+        },
+        {
+          "square": "e1",
+          "discDiffForMover": 20,
+          "isBest": false
+        },
+        {
+          "square": "d2",
+          "discDiffForMover": 22,
+          "isBest": false
+        },
+        {
+          "square": "b3",
+          "discDiffForMover": 26,
+          "isBest": false
+        },
+        {
+          "square": "c3",
+          "discDiffForMover": 24,
+          "isBest": false
+        }
+      ],
+      "difficulty": 4,
+      "difficultyRawScore": 20.060000000000002,
+      "tags": []
+    },
+    {
+      "id": "tsume-151",
+      "board": {
+        "black": "0x0131450569797160",
+        "white": "0xfecebafa96828480"
+      },
+      "sideToMove": "black",
+      "empties": 8,
+      "correctMoves": [
+        "b1",
+        "c3"
+      ],
+      "bestDiscDiff": -26,
+      "outcome": "loss",
+      "clarityMargin": 4,
+      "moves": [
+        {
+          "square": "b1",
+          "discDiffForMover": -26,
+          "isBest": true
+        },
+        {
+          "square": "d1",
+          "discDiffForMover": -30,
+          "isBest": false
+        },
+        {
+          "square": "c3",
+          "discDiffForMover": -26,
+          "isBest": true
+        }
+      ],
+      "difficulty": 1,
+      "difficultyRawScore": 8,
+      "tags": [
+        "corner-sacrifice"
+      ]
+    },
+    {
+      "id": "tsume-152",
+      "board": {
+        "black": "0x013145056f7f7160",
+        "white": "0xfecebafa90808480"
+      },
+      "sideToMove": "white",
+      "empties": 7,
+      "correctMoves": [
+        "d1"
+      ],
+      "bestDiscDiff": 26,
+      "outcome": "win",
+      "clarityMargin": 4,
+      "moves": [
+        {
+          "square": "d1",
+          "discDiffForMover": 26,
+          "isBest": true
+        },
+        {
+          "square": "e1",
+          "discDiffForMover": 20,
+          "isBest": false
+        },
+        {
+          "square": "b2",
+          "discDiffForMover": 22,
+          "isBest": false
+        },
+        {
+          "square": "d2",
+          "discDiffForMover": 20,
+          "isBest": false
+        }
+      ],
+      "difficulty": 2,
+      "difficultyRawScore": 10.52,
+      "tags": []
+    },
+    {
+      "id": "tsume-153",
+      "board": {
+        "black": "0x013145056f2f4100",
+        "white": "0xfecebafa90d0b4f0"
+      },
+      "sideToMove": "black",
+      "empties": 6,
+      "correctMoves": [
+        "c1"
+      ],
+      "bestDiscDiff": -20,
+      "outcome": "loss",
+      "clarityMargin": 6,
+      "moves": [
+        {
+          "square": "b1",
+          "discDiffForMover": -26,
+          "isBest": false
+        },
+        {
+          "square": "c1",
+          "discDiffForMover": -20,
+          "isBest": true
+        },
+        {
+          "square": "d1",
+          "discDiffForMover": -28,
+          "isBest": false
+        },
+        {
+          "square": "d2",
+          "discDiffForMover": -28,
+          "isBest": false
+        }
+      ],
+      "difficulty": 4,
+      "difficultyRawScore": 22.12,
+      "tags": []
+    },
+    {
+      "id": "tsume-154",
+      "board": {
+        "black": "0x002a140e062010f0",
+        "white": "0xffd5ebf1f9112100"
+      },
+      "sideToMove": "black",
+      "empties": 14,
+      "correctMoves": [
+        "d3"
+      ],
+      "bestDiscDiff": -26,
+      "outcome": "loss",
+      "clarityMargin": 4,
+      "moves": [
+        {
+          "square": "g2",
+          "discDiffForMover": -36,
+          "isBest": false
+        },
+        {
+          "square": "d3",
+          "discDiffForMover": -26,
+          "isBest": true
+        },
+        {
+          "square": "g3",
+          "discDiffForMover": -30,
+          "isBest": false
+        },
+        {
+          "square": "h3",
+          "discDiffForMover": -36,
+          "isBest": false
+        }
+      ],
+      "difficulty": 3,
+      "difficultyRawScore": 17,
+      "tags": []
+    },
+    {
+      "id": "tsume-155",
+      "board": {
+        "black": "0x002a142e46a010f0",
+        "white": "0xffd5ebd1b9112100"
+      },
+      "sideToMove": "white",
+      "empties": 13,
+      "correctMoves": [
+        "h2",
+        "g3"
+      ],
+      "bestDiscDiff": 36,
+      "outcome": "win",
+      "clarityMargin": 4,
+      "moves": [
+        {
+          "square": "d1",
+          "discDiffForMover": 24,
+          "isBest": false
+        },
+        {
+          "square": "d2",
+          "discDiffForMover": 32,
+          "isBest": false
+        },
+        {
+          "square": "g2",
+          "discDiffForMover": 30,
+          "isBest": false
+        },
+        {
+          "square": "h2",
+          "discDiffForMover": 36,
+          "isBest": true
+        },
+        {
+          "square": "b3",
+          "discDiffForMover": 28,
+          "isBest": false
+        },
+        {
+          "square": "c3",
+          "discDiffForMover": 26,
+          "isBest": false
+        },
+        {
+          "square": "d3",
+          "discDiffForMover": 30,
+          "isBest": false
+        },
+        {
+          "square": "g3",
+          "discDiffForMover": 36,
+          "isBest": true
+        }
+      ],
+      "difficulty": 3,
+      "difficultyRawScore": 13,
+      "tags": [
+        "stable-gain"
+      ]
+    },
+    {
+      "id": "tsume-157",
+      "board": {
+        "black": "0x002a142e466030f0",
+        "white": "0xffd5ebd1b9918100"
+      },
+      "sideToMove": "white",
+      "empties": 11,
+      "correctMoves": [
+        "g2",
+        "b3"
+      ],
+      "bestDiscDiff": 40,
+      "outcome": "win",
+      "clarityMargin": 4,
+      "moves": [
+        {
+          "square": "d1",
+          "discDiffForMover": 24,
+          "isBest": false
+        },
+        {
+          "square": "g2",
+          "discDiffForMover": 40,
+          "isBest": true
+        },
+        {
+          "square": "b3",
+          "discDiffForMover": 40,
+          "isBest": true
+        },
+        {
+          "square": "c3",
+          "discDiffForMover": 36,
+          "isBest": false
+        },
+        {
+          "square": "d3",
+          "discDiffForMover": 34,
+          "isBest": false
+        }
+      ],
+      "difficulty": 2,
+      "difficultyRawScore": 11,
+      "tags": []
+    },
+    {
+      "id": "tsume-159",
+      "board": {
+        "black": "0x002a142e1e0830f0",
+        "white": "0xffd5ebd1e1f1c100"
+      },
+      "sideToMove": "white",
+      "empties": 9,
+      "correctMoves": [
+        "b3"
+      ],
+      "bestDiscDiff": 40,
+      "outcome": "win",
+      "clarityMargin": 6,
+      "moves": [
+        {
+          "square": "d1",
+          "discDiffForMover": 30,
+          "isBest": false
+        },
+        {
+          "square": "c2",
+          "discDiffForMover": 30,
+          "isBest": false
+        },
+        {
+          "square": "d2",
+          "discDiffForMover": 34,
+          "isBest": false
+        },
+        {
+          "square": "b3",
+          "discDiffForMover": 40,
+          "isBest": true
+        },
+        {
+          "square": "c3",
+          "discDiffForMover": 30,
+          "isBest": false
+        }
+      ],
+      "difficulty": 4,
+      "difficultyRawScore": 20.060000000000002,
+      "tags": []
+    },
+    {
+      "id": "tsume-161",
+      "board": {
+        "black": "0x002a140e0e0838f0",
+        "white": "0xffd5ebf1f1f1c500"
+      },
+      "sideToMove": "white",
+      "empties": 7,
+      "correctMoves": [
+        "b3",
+        "c3"
+      ],
+      "bestDiscDiff": 30,
+      "outcome": "win",
+      "clarityMargin": 4,
+      "moves": [
+        {
+          "square": "c1",
+          "discDiffForMover": 22,
+          "isBest": false
+        },
+        {
+          "square": "d1",
+          "discDiffForMover": 26,
+          "isBest": false
+        },
+        {
+          "square": "b3",
+          "discDiffForMover": 30,
+          "isBest": true
+        },
+        {
+          "square": "c3",
+          "discDiffForMover": 30,
+          "isBest": true
+        }
+      ],
+      "difficulty": 1,
+      "difficultyRawScore": 7,
+      "tags": []
+    },
+    {
+      "id": "tsume-164",
+      "board": {
+        "black": "0x8ed2e8d8d8f8f8ff",
+        "white": "0x2024142624060200"
+      },
+      "sideToMove": "white",
+      "empties": 13,
+      "correctMoves": [
+        "c2",
+        "e8"
+      ],
+      "bestDiscDiff": -40,
+      "outcome": "loss",
+      "clarityMargin": 12,
+      "moves": [
+        {
+          "square": "c2",
+          "discDiffForMover": -40,
+          "isBest": true
+        },
+        {
+          "square": "a7",
+          "discDiffForMover": -64,
+          "isBest": false
+        },
+        {
+          "square": "d7",
+          "discDiffForMover": -52,
+          "isBest": false
+        },
+        {
+          "square": "a8",
+          "discDiffForMover": -52,
+          "isBest": false
+        },
+        {
+          "square": "e8",
+          "discDiffForMover": -40,
+          "isBest": true
+        }
+      ],
+      "difficulty": 5,
+      "difficultyRawScore": 34.56,
+      "tags": []
+    },
+    {
+      "id": "tsume-165",
+      "board": {
+        "black": "0x8ed0e8d8d8f8f8ff",
+        "white": "0x2126142624060200"
+      },
+      "sideToMove": "black",
+      "empties": 12,
+      "correctMoves": [
+        "d7"
+      ],
+      "bestDiscDiff": 52,
+      "outcome": "win",
+      "clarityMargin": 4,
+      "moves": [
+        {
+          "square": "a2",
+          "discDiffForMover": 36,
+          "isBest": false
+        },
+        {
+          "square": "c2",
+          "discDiffForMover": 40,
+          "isBest": false
+        },
+        {
+          "square": "a3",
+          "discDiffForMover": 16,
+          "isBest": false
+        },
+        {
+          "square": "b4",
+          "discDiffForMover": 22,
+          "isBest": false
+        },
+        {
+          "square": "a5",
+          "discDiffForMover": 32,
+          "isBest": false
+        },
+        {
+          "square": "a6",
+          "discDiffForMover": 26,
+          "isBest": false
+        },
+        {
+          "square": "b6",
+          "discDiffForMover": 20,
+          "isBest": false
+        },
+        {
+          "square": "d7",
+          "discDiffForMover": 52,
+          "isBest": true
+        },
+        {
+          "square": "e8",
+          "discDiffForMover": 48,
+          "isBest": false
+        },
+        {
+          "square": "g8",
+          "discDiffForMover": 36,
+          "isBest": false
+        }
+      ],
+      "difficulty": 2,
+      "difficultyRawScore": 12,
+      "tags": []
+    },
+    {
+      "id": "tsume-167",
+      "board": {
+        "black": "0x80d0f8f8d8f8f8ff",
+        "white": "0x3f2e040624060200"
+      },
+      "sideToMove": "black",
+      "empties": 10,
+      "correctMoves": [
+        "a2",
+        "g8"
+      ],
+      "bestDiscDiff": 52,
+      "outcome": "win",
+      "clarityMargin": 6,
+      "moves": [
+        {
+          "square": "a2",
+          "discDiffForMover": 52,
+          "isBest": true
+        },
+        {
+          "square": "a3",
+          "discDiffForMover": 40,
+          "isBest": false
+        },
+        {
+          "square": "b4",
+          "discDiffForMover": 24,
+          "isBest": false
+        },
+        {
+          "square": "a5",
+          "discDiffForMover": 46,
+          "isBest": false
+        },
+        {
+          "square": "a6",
+          "discDiffForMover": 40,
+          "isBest": false
+        },
+        {
+          "square": "b6",
+          "discDiffForMover": 36,
+          "isBest": false
+        },
+        {
+          "square": "a7",
+          "discDiffForMover": 36,
+          "isBest": false
+        },
+        {
+          "square": "g8",
+          "discDiffForMover": 52,
+          "isBest": true
+        }
+      ],
+      "difficulty": 2,
+      "difficultyRawScore": 10,
+      "tags": [
+        "stable-gain"
+      ]
+    },
+    {
+      "id": "tsume-168",
+      "board": {
+        "black": "0x80d0f8f8d8fffaff",
+        "white": "0x3f2e040624000000"
+      },
+      "sideToMove": "white",
+      "empties": 9,
+      "correctMoves": [
+        "a2"
+      ],
+      "bestDiscDiff": -40,
+      "outcome": "loss",
+      "clarityMargin": 4,
+      "moves": [
+        {
+          "square": "a2",
+          "discDiffForMover": -40,
+          "isBest": true
+        },
+        {
+          "square": "c2",
+          "discDiffForMover": -44,
+          "isBest": false
+        }
+      ],
+      "difficulty": 1,
+      "difficultyRawScore": 9,
+      "tags": []
+    },
+    {
+      "id": "tsume-169",
+      "board": {
+        "black": "0x80d0f8f8d8fbfaff",
+        "white": "0x3f2e040624040400"
+      },
+      "sideToMove": "black",
+      "empties": 8,
+      "correctMoves": [
+        "g8"
+      ],
+      "bestDiscDiff": 44,
+      "outcome": "win",
+      "clarityMargin": 6,
+      "moves": [
+        {
+          "square": "b4",
+          "discDiffForMover": 38,
+          "isBest": false
+        },
+        {
+          "square": "a5",
+          "discDiffForMover": 38,
+          "isBest": false
+        },
+        {
+          "square": "a6",
+          "discDiffForMover": 32,
+          "isBest": false
+        },
+        {
+          "square": "b6",
+          "discDiffForMover": 30,
+          "isBest": false
+        },
+        {
+          "square": "a7",
+          "discDiffForMover": 28,
+          "isBest": false
+        },
+        {
+          "square": "g8",
+          "discDiffForMover": 44,
+          "isBest": true
+        }
+      ],
+      "difficulty": 1,
+      "difficultyRawScore": 8,
+      "tags": [
+        "stable-gain"
+      ]
+    },
+    {
+      "id": "tsume-171",
+      "board": {
+        "black": "0xc0f0f8f8d8f9f8ff",
+        "white": "0x3f0e040624060700"
+      },
+      "sideToMove": "black",
+      "empties": 6,
+      "correctMoves": [
+        "a4"
+      ],
+      "bestDiscDiff": 44,
+      "outcome": "win",
+      "clarityMargin": 4,
+      "moves": [
+        {
+          "square": "a4",
+          "discDiffForMover": 44,
+          "isBest": true
+        },
+        {
+          "square": "b4",
+          "discDiffForMover": 40,
+          "isBest": false
+        },
+        {
+          "square": "a5",
+          "discDiffForMover": 22,
+          "isBest": false
+        },
+        {
+          "square": "a6",
+          "discDiffForMover": 26,
+          "isBest": false
+        },
+        {
+          "square": "b6",
+          "discDiffForMover": 22,
+          "isBest": false
+        },
+        {
+          "square": "a7",
+          "discDiffForMover": 26,
+          "isBest": false
+        }
+      ],
+      "difficulty": 1,
+      "difficultyRawScore": 6,
+      "tags": []
+    },
+    {
+      "id": "tsume-172",
+      "board": {
+        "black": "0x00c0e3122e0e1a71",
+        "white": "0xfc3e1cecd0702004"
+      },
+      "sideToMove": "black",
+      "empties": 14,
+      "correctMoves": [
+        "h2"
+      ],
+      "bestDiscDiff": -26,
+      "outcome": "loss",
+      "clarityMargin": 4,
+      "moves": [
+        {
+          "square": "g2",
+          "discDiffForMover": -34,
+          "isBest": false
+        },
+        {
+          "square": "h2",
+          "discDiffForMover": -26,
+          "isBest": true
+        },
+        {
+          "square": "h3",
+          "discDiffForMover": -36,
+          "isBest": false
+        },
+        {
+          "square": "a7",
+          "discDiffForMover": -32,
+          "isBest": false
+        },
+        {
+          "square": "b8",
+          "discDiffForMover": -30,
+          "isBest": false
+        }
+      ],
+      "difficulty": 4,
+      "difficultyRawScore": 25.060000000000002,
+      "tags": [
+        "corner-sacrifice"
+      ]
+    },
+    {
+      "id": "tsume-174",
+      "board": {
+        "black": "0x02c6eb122a0c1a71",
+        "white": "0xfc3814ecd4722104"
+      },
+      "sideToMove": "black",
+      "empties": 12,
+      "correctMoves": [
+        "h2"
+      ],
+      "bestDiscDiff": -28,
+      "outcome": "loss",
+      "clarityMargin": 4,
+      "moves": [
+        {
+          "square": "g2",
+          "discDiffForMover": -42,
+          "isBest": false
+        },
+        {
+          "square": "h2",
+          "discDiffForMover": -28,
+          "isBest": true
+        },
+        {
+          "square": "a3",
+          "discDiffForMover": -32,
+          "isBest": false
+        },
+        {
+          "square": "h3",
+          "discDiffForMover": -42,
+          "isBest": false
+        }
+      ],
+      "difficulty": 5,
+      "difficultyRawScore": 41.96,
+      "tags": [
+        "corner-sacrifice"
+      ]
+    },
+    {
+      "id": "tsume-175",
+      "board": {
+        "black": "0x02c6eb122a0f1b71",
+        "white": "0xfc3814ecd4702004"
+      },
+      "sideToMove": "white",
+      "empties": 11,
+      "correctMoves": [
+        "a8"
+      ],
+      "bestDiscDiff": 32,
+      "outcome": "win",
+      "clarityMargin": 30,
+      "moves": [
+        {
+          "square": "d1",
+          "discDiffForMover": 2,
+          "isBest": false
+        },
+        {
+          "square": "c2",
+          "discDiffForMover": 2,
+          "isBest": false
+        },
+        {
+          "square": "a4",
+          "discDiffForMover": 0,
+          "isBest": false
+        },
+        {
+          "square": "a5",
+          "discDiffForMover": 0,
+          "isBest": false
+        },
+        {
+          "square": "a7",
+          "discDiffForMover": -2,
+          "isBest": false
+        },
+        {
+          "square": "a8",
+          "discDiffForMover": 32,
+          "isBest": true
+        }
+      ],
+      "difficulty": 2,
+      "difficultyRawScore": 11,
+      "tags": [
+        "stable-gain"
+      ]
+    },
+    {
+      "id": "tsume-176",
+      "board": {
+        "black": "0x00c4eb122a0f1b71",
+        "white": "0xff3a14ecd4702004"
+      },
+      "sideToMove": "black",
+      "empties": 10,
+      "correctMoves": [
+        "a7"
+      ],
+      "bestDiscDiff": -32,
+      "outcome": "loss",
+      "clarityMargin": 4,
+      "moves": [
+        {
+          "square": "g2",
+          "discDiffForMover": -40,
+          "isBest": false
+        },
+        {
+          "square": "h2",
+          "discDiffForMover": -36,
+          "isBest": false
+        },
+        {
+          "square": "h3",
+          "discDiffForMover": -42,
+          "isBest": false
+        },
+        {
+          "square": "a7",
+          "discDiffForMover": -32,
+          "isBest": true
+        }
+      ],
+      "difficulty": 2,
+      "difficultyRawScore": 10,
+      "tags": []
+    },
+    {
+      "id": "tsume-177",
+      "board": {
+        "black": "0x00c7eb122a0f1b71",
+        "white": "0xff3814ecd4702004"
+      },
+      "sideToMove": "white",
+      "empties": 9,
+      "correctMoves": [
+        "a5"
+      ],
+      "bestDiscDiff": 32,
+      "outcome": "win",
+      "clarityMargin": 24,
+      "moves": [
+        {
+          "square": "b1",
+          "discDiffForMover": 8,
+          "isBest": false
+        },
+        {
+          "square": "d1",
+          "discDiffForMover": 2,
+          "isBest": false
+        },
+        {
+          "square": "c2",
+          "discDiffForMover": 2,
+          "isBest": false
+        },
+        {
+          "square": "a4",
+          "discDiffForMover": 0,
+          "isBest": false
+        },
+        {
+          "square": "a5",
+          "discDiffForMover": 32,
+          "isBest": true
+        }
+      ],
+      "difficulty": 1,
+      "difficultyRawScore": 9,
+      "tags": [
+        "stable-gain"
+      ]
+    },
+    {
+      "id": "tsume-178",
+      "board": {
+        "black": "0x00c5e910280d1971",
+        "white": "0xff3a16eed6722206"
+      },
+      "sideToMove": "black",
+      "empties": 8,
+      "correctMoves": [
+        "d1"
+      ],
+      "bestDiscDiff": -8,
+      "outcome": "loss",
+      "clarityMargin": 4,
+      "moves": [
+        {
+          "square": "d1",
+          "discDiffForMover": -8,
+          "isBest": true
+        },
+        {
+          "square": "c2",
+          "discDiffForMover": -20,
+          "isBest": false
+        },
+        {
+          "square": "g2",
+          "discDiffForMover": -16,
+          "isBest": false
+        },
+        {
+          "square": "h2",
+          "discDiffForMover": -14,
+          "isBest": false
+        },
+        {
+          "square": "h3",
+          "discDiffForMover": -22,
+          "isBest": false
+        },
+        {
+          "square": "a4",
+          "discDiffForMover": -12,
+          "isBest": false
+        },
+        {
+          "square": "a5",
+          "discDiffForMover": -18,
+          "isBest": false
+        }
+      ],
+      "difficulty": 1,
+      "difficultyRawScore": 8,
+      "tags": [
+        "stable-gain"
+      ]
+    },
+    {
+      "id": "tsume-179",
+      "board": {
+        "black": "0x00c5e910280d197f",
+        "white": "0xff3a16eed6722200"
+      },
+      "sideToMove": "white",
+      "empties": 7,
+      "correctMoves": [
+        "c2"
+      ],
+      "bestDiscDiff": 8,
+      "outcome": "win",
+      "clarityMargin": 10,
+      "moves": [
+        {
+          "square": "c2",
+          "discDiffForMover": 8,
+          "isBest": true
+        },
+        {
+          "square": "a5",
+          "discDiffForMover": -2,
+          "isBest": false
+        }
+      ],
+      "difficulty": 3,
+      "difficultyRawScore": 15.58,
+      "tags": []
+    },
+    {
+      "id": "tsume-180",
+      "board": {
+        "black": "0x00c4e810280d197f",
+        "white": "0xff3b17efd6722200"
+      },
+      "sideToMove": "black",
+      "empties": 6,
+      "correctMoves": [
+        "c2"
+      ],
+      "bestDiscDiff": 2,
+      "outcome": "win",
+      "clarityMargin": 10,
+      "moves": [
+        {
+          "square": "c2",
+          "discDiffForMover": 2,
+          "isBest": true
+        },
+        {
+          "square": "g2",
+          "discDiffForMover": -10,
+          "isBest": false
+        },
+        {
+          "square": "h2",
+          "discDiffForMover": -8,
+          "isBest": false
+        },
+        {
+          "square": "h3",
+          "discDiffForMover": -14,
+          "isBest": false
+        },
+        {
+          "square": "a4",
+          "discDiffForMover": -10,
+          "isBest": false
+        }
+      ],
+      "difficulty": 1,
+      "difficultyRawScore": 6,
+      "tags": []
+    },
+    {
+      "id": "tsume-183",
+      "board": {
+        "black": "0x080c083020003c10",
+        "white": "0xf0f1f7cfdffec280"
+      },
+      "sideToMove": "black",
+      "empties": 12,
+      "correctMoves": [
+        "a1"
+      ],
+      "bestDiscDiff": -24,
+      "outcome": "loss",
+      "clarityMargin": 4,
+      "moves": [
+        {
+          "square": "a1",
+          "discDiffForMover": -24,
+          "isBest": true
+        },
+        {
+          "square": "a2",
+          "discDiffForMover": -38,
+          "isBest": false
+        },
+        {
+          "square": "a3",
+          "discDiffForMover": -28,
+          "isBest": false
+        }
+      ],
+      "difficulty": 2,
+      "difficultyRawScore": 12,
+      "tags": [
+        "stable-gain"
+      ]
+    },
+    {
+      "id": "tsume-185",
+      "board": {
+        "black": "0x080c083028041e11",
+        "white": "0xf0f1f7cfd7fae0c0"
+      },
+      "sideToMove": "black",
+      "empties": 10,
+      "correctMoves": [
+        "f1"
+      ],
+      "bestDiscDiff": -24,
+      "outcome": "loss",
+      "clarityMargin": 8,
+      "moves": [
+        {
+          "square": "f1",
+          "discDiffForMover": -24,
+          "isBest": true
+        },
+        {
+          "square": "a3",
+          "discDiffForMover": -32,
+          "isBest": false
+        },
+        {
+          "square": "b7",
+          "discDiffForMover": -44,
+          "isBest": false
+        }
+      ],
+      "difficulty": 2,
+      "difficultyRawScore": 10,
+      "tags": []
+    },
+    {
+      "id": "tsume-186",
+      "board": {
+        "black": "0x080c08342a071e11",
+        "white": "0xf0f1f7cbd5f8e0c0"
+      },
+      "sideToMove": "white",
+      "empties": 9,
+      "correctMoves": [
+        "f1"
+      ],
+      "bestDiscDiff": 32,
+      "outcome": "win",
+      "clarityMargin": 10,
+      "moves": [
+        {
+          "square": "b1",
+          "discDiffForMover": 22,
+          "isBest": false
+        },
+        {
+          "square": "c1",
+          "discDiffForMover": 22,
+          "isBest": false
+        },
+        {
+          "square": "d1",
+          "discDiffForMover": 14,
+          "isBest": false
+        },
+        {
+          "square": "f1",
+          "discDiffForMover": 32,
+          "isBest": true
+        },
+        {
+          "square": "a2",
+          "discDiffForMover": 0,
+          "isBest": false
+        },
+        {
+          "square": "b7",
+          "discDiffForMover": 16,
+          "isBest": false
+        },
+        {
+          "square": "b8",
+          "discDiffForMover": 20,
+          "isBest": false
+        },
+        {
+          "square": "c8",
+          "discDiffForMover": 20,
+          "isBest": false
+        }
+      ],
+      "difficulty": 1,
+      "difficultyRawScore": 9,
+      "tags": [
+        "stable-gain"
+      ]
+    },
+    {
+      "id": "tsume-187",
+      "board": {
+        "black": "0x080c08342a070e11",
+        "white": "0xf0f1f7cbd5f8f0e0"
+      },
+      "sideToMove": "black",
+      "empties": 8,
+      "correctMoves": [
+        "a8"
+      ],
+      "bestDiscDiff": -32,
+      "outcome": "loss",
+      "clarityMargin": 6,
+      "moves": [
+        {
+          "square": "b7",
+          "discDiffForMover": -38,
+          "isBest": false
+        },
+        {
+          "square": "a8",
+          "discDiffForMover": -32,
+          "isBest": true
+        }
+      ],
+      "difficulty": 1,
+      "difficultyRawScore": 8,
+      "tags": [
+        "stable-gain"
+      ]
+    },
+    {
+      "id": "tsume-188",
+      "board": {
+        "black": "0x090d09352b070e11",
+        "white": "0xf0f0f6cad4f8f0e0"
+      },
+      "sideToMove": "white",
+      "empties": 7,
+      "correctMoves": [
+        "b8"
+      ],
+      "bestDiscDiff": 32,
+      "outcome": "win",
+      "clarityMargin": 8,
+      "moves": [
+        {
+          "square": "b1",
+          "discDiffForMover": 22,
+          "isBest": false
+        },
+        {
+          "square": "c1",
+          "discDiffForMover": 24,
+          "isBest": false
+        },
+        {
+          "square": "d1",
+          "discDiffForMover": 24,
+          "isBest": false
+        },
+        {
+          "square": "a2",
+          "discDiffForMover": 16,
+          "isBest": false
+        },
+        {
+          "square": "b7",
+          "discDiffForMover": 22,
+          "isBest": false
+        },
+        {
+          "square": "b8",
+          "discDiffForMover": 32,
+          "isBest": true
+        },
+        {
+          "square": "c8",
+          "discDiffForMover": 20,
+          "isBest": false
+        }
+      ],
+      "difficulty": 4,
+      "difficultyRawScore": 24.78,
+      "tags": []
+    },
+    {
+      "id": "tsume-189",
+      "board": {
+        "black": "0x010109352b070e11",
+        "white": "0xfcfcf6cad4f8f0e0"
+      },
+      "sideToMove": "black",
+      "empties": 6,
+      "correctMoves": [
+        "b7"
+      ],
+      "bestDiscDiff": -20,
+      "outcome": "loss",
+      "clarityMargin": 6,
+      "moves": [
+        {
+          "square": "b7",
+          "discDiffForMover": -20,
+          "isBest": true
+        },
+        {
+          "square": "b8",
+          "discDiffForMover": -26,
+          "isBest": false
+        }
+      ],
+      "difficulty": 1,
+      "difficultyRawScore": 6,
+      "tags": []
+    },
+    {
+      "id": "tsume-190",
+      "board": {
+        "black": "0xf880f0abd0a08681",
+        "white": "0x007c0f542f5e1820"
+      },
+      "sideToMove": "black",
+      "empties": 14,
+      "correctMoves": [
+        "d1"
+      ],
+      "bestDiscDiff": 40,
+      "outcome": "win",
+      "clarityMargin": 4,
+      "moves": [
+        {
+          "square": "c1",
+          "discDiffForMover": 34,
+          "isBest": false
+        },
+        {
+          "square": "d1",
+          "discDiffForMover": 40,
+          "isBest": true
+        },
+        {
+          "square": "e1",
+          "discDiffForMover": 36,
+          "isBest": false
+        },
+        {
+          "square": "a2",
+          "discDiffForMover": 32,
+          "isBest": false
+        },
+        {
+          "square": "f2",
+          "discDiffForMover": 36,
+          "isBest": false
+        },
+        {
+          "square": "g2",
+          "discDiffForMover": 34,
+          "isBest": false
+        },
+        {
+          "square": "a3",
+          "discDiffForMover": 34,
+          "isBest": false
+        },
+        {
+          "square": "a7",
+          "discDiffForMover": 20,
+          "isBest": false
+        },
+        {
+          "square": "b7",
+          "discDiffForMover": 26,
+          "isBest": false
+        },
+        {
+          "square": "b8",
+          "discDiffForMover": 26,
+          "isBest": false
+        },
+        {
+          "square": "c8",
+          "discDiffForMover": 30,
+          "isBest": false
+        }
+      ],
+      "difficulty": 5,
+      "difficultyRawScore": 35.92,
+      "tags": []
+    },
+    {
+      "id": "tsume-191",
+      "board": {
+        "black": "0xf880f0abd2b49e91",
+        "white": "0x007c0f542d4a0020"
+      },
+      "sideToMove": "white",
+      "empties": 13,
+      "correctMoves": [
+        "g2"
+      ],
+      "bestDiscDiff": -36,
+      "outcome": "loss",
+      "clarityMargin": 6,
+      "moves": [
+        {
+          "square": "b1",
+          "discDiffForMover": -46,
+          "isBest": false
+        },
+        {
+          "square": "c1",
+          "discDiffForMover": -46,
+          "isBest": false
+        },
+        {
+          "square": "d1",
+          "discDiffForMover": -42,
+          "isBest": false
+        },
+        {
+          "square": "f2",
+          "discDiffForMover": -48,
+          "isBest": false
+        },
+        {
+          "square": "g2",
+          "discDiffForMover": -36,
+          "isBest": true
+        },
+        {
+          "square": "a3",
+          "discDiffForMover": -46,
+          "isBest": false
+        }
+      ],
+      "difficulty": 3,
+      "difficultyRawScore": 16,
+      "tags": []
+    },
+    {
+      "id": "tsume-192",
+      "board": {
+        "black": "0xf880f0abd0b49e91",
+        "white": "0x007c0f542f4b0020"
+      },
+      "sideToMove": "black",
+      "empties": 12,
+      "correctMoves": [
+        "g1"
+      ],
+      "bestDiscDiff": 46,
+      "outcome": "win",
+      "clarityMargin": 8,
+      "moves": [
+        {
+          "square": "g1",
+          "discDiffForMover": 46,
+          "isBest": true
+        },
+        {
+          "square": "a2",
+          "discDiffForMover": 32,
+          "isBest": false
+        },
+        {
+          "square": "f2",
+          "discDiffForMover": 38,
+          "isBest": false
+        },
+        {
+          "square": "g2",
+          "discDiffForMover": 34,
+          "isBest": false
+        },
+        {
+          "square": "a7",
+          "discDiffForMover": 14,
+          "isBest": false
+        },
+        {
+          "square": "b7",
+          "discDiffForMover": 22,
+          "isBest": false
+        },
+        {
+          "square": "b8",
+          "discDiffForMover": 24,
+          "isBest": false
+        },
+        {
+          "square": "c8",
+          "discDiffForMover": 32,
+          "isBest": false
+        }
+      ],
+      "difficulty": 3,
+      "difficultyRawScore": 16.86,
+      "tags": [
+        "stable-gain"
+      ]
+    },
+    {
+      "id": "tsume-194",
+      "board": {
+        "black": "0xf880f0abd0f4b281",
+        "white": "0x007c0f542f0b0c38"
+      },
+      "sideToMove": "black",
+      "empties": 10,
+      "correctMoves": [
+        "a2"
+      ],
+      "bestDiscDiff": 42,
+      "outcome": "win",
+      "clarityMargin": 8,
+      "moves": [
+        {
+          "square": "b1",
+          "discDiffForMover": 34,
+          "isBest": false
+        },
+        {
+          "square": "c1",
+          "discDiffForMover": 34,
+          "isBest": false
+        },
+        {
+          "square": "a2",
+          "discDiffForMover": 42,
+          "isBest": true
+        },
+        {
+          "square": "a7",
+          "discDiffForMover": 10,
+          "isBest": false
+        },
+        {
+          "square": "b7",
+          "discDiffForMover": -4,
+          "isBest": false
+        },
+        {
+          "square": "b8",
+          "discDiffForMover": 18,
+          "isBest": false
+        },
+        {
+          "square": "c8",
+          "discDiffForMover": 10,
+          "isBest": false
+        }
+      ],
+      "difficulty": 2,
+      "difficultyRawScore": 10,
+      "tags": [
+        "stable-gain"
+      ]
+    },
+    {
+      "id": "tsume-199",
+      "board": {
+        "black": "0x0000006260e0c8fc",
+        "white": "0x3f7f7e1c1e1e3400"
+      },
+      "sideToMove": "black",
+      "empties": 14,
+      "correctMoves": [
+        "a3",
+        "h7"
+      ],
+      "bestDiscDiff": -4,
+      "outcome": "loss",
+      "clarityMargin": 4,
+      "moves": [
+        {
+          "square": "b1",
+          "discDiffForMover": -8,
+          "isBest": false
+        },
+        {
+          "square": "b2",
+          "discDiffForMover": -18,
+          "isBest": false
+        },
+        {
+          "square": "a3",
+          "discDiffForMover": -4,
+          "isBest": true
+        },
+        {
+          "square": "a4",
+          "discDiffForMover": -14,
+          "isBest": false
+        },
+        {
+          "square": "a5",
+          "discDiffForMover": -18,
+          "isBest": false
+        },
+        {
+          "square": "h7",
+          "discDiffForMover": -4,
+          "isBest": true
+        },
+        {
+          "square": "g8",
+          "discDiffForMover": -22,
+          "isBest": false
+        }
+      ],
+      "difficulty": 3,
+      "difficultyRawScore": 14,
+      "tags": [
+        "corner-sacrifice"
+      ]
+    },
+    {
+      "id": "tsume-200",
+      "board": {
+        "black": "0x4040406260e0c8fc",
+        "white": "0x3f3f3e1c1e1e3400"
+      },
+      "sideToMove": "white",
+      "empties": 13,
+      "correctMoves": [
+        "a6"
+      ],
+      "bestDiscDiff": 22,
+      "outcome": "win",
+      "clarityMargin": 6,
+      "moves": [
+        {
+          "square": "a4",
+          "discDiffForMover": 14,
+          "isBest": false
+        },
+        {
+          "square": "h4",
+          "discDiffForMover": 6,
+          "isBest": false
+        },
+        {
+          "square": "a5",
+          "discDiffForMover": 14,
+          "isBest": false
+        },
+        {
+          "square": "h5",
+          "discDiffForMover": 0,
+          "isBest": false
+        },
+        {
+          "square": "a6",
+          "discDiffForMover": 22,
+          "isBest": true
+        },
+        {
+          "square": "h6",
+          "discDiffForMover": 8,
+          "isBest": false
+        },
+        {
+          "square": "h7",
+          "discDiffForMover": 16,
+          "isBest": false
+        },
+        {
+          "square": "h8",
+          "discDiffForMover": 14,
+          "isBest": false
+        }
+      ],
+      "difficulty": 5,
+      "difficultyRawScore": 55.74,
+      "tags": [
+        "stable-gain"
+      ]
+    },
+    {
+      "id": "tsume-201",
+      "board": {
+        "black": "0x0000406260e0c8fc",
+        "white": "0xff7f3e1c1e1e3400"
+      },
+      "sideToMove": "black",
+      "empties": 12,
+      "correctMoves": [
+        "a6"
+      ],
+      "bestDiscDiff": -14,
+      "outcome": "loss",
+      "clarityMargin": 8,
+      "moves": [
+        {
+          "square": "b1",
+          "discDiffForMover": -22,
+          "isBest": false
+        },
+        {
+          "square": "b2",
+          "discDiffForMover": -38,
+          "isBest": false
+        },
+        {
+          "square": "a3",
+          "discDiffForMover": -22,
+          "isBest": false
+        },
+        {
+          "square": "a4",
+          "discDiffForMover": -32,
+          "isBest": false
+        },
+        {
+          "square": "a5",
+          "discDiffForMover": -44,
+          "isBest": false
+        },
+        {
+          "square": "a6",
+          "discDiffForMover": -14,
+          "isBest": true
+        }
+      ],
+      "difficulty": 2,
+      "difficultyRawScore": 12,
+      "tags": []
+    },
+    {
+      "id": "tsume-203",
+      "board": {
+        "black": "0x00007b6060e0c8fc",
+        "white": "0xff7f041e1f1e3400"
+      },
+      "sideToMove": "black",
+      "empties": 10,
+      "correctMoves": [
+        "b1"
+      ],
+      "bestDiscDiff": -12,
+      "outcome": "loss",
+      "clarityMargin": 4,
+      "moves": [
+        {
+          "square": "b1",
+          "discDiffForMover": -12,
+          "isBest": true
+        },
+        {
+          "square": "a2",
+          "discDiffForMover": -26,
+          "isBest": false
+        },
+        {
+          "square": "b2",
+          "discDiffForMover": -32,
+          "isBest": false
+        },
+        {
+          "square": "a3",
+          "discDiffForMover": -24,
+          "isBest": false
+        },
+        {
+          "square": "a5",
+          "discDiffForMover": -16,
+          "isBest": false
+        }
+      ],
+      "difficulty": 2,
+      "difficultyRawScore": 10,
+      "tags": [
+        "corner-sacrifice",
+        "stable-gain"
+      ]
+    },
+    {
+      "id": "tsume-213",
+      "board": {
+        "black": "0xfe7f1bf2c7f01000",
+        "white": "0x0100240c380e4ff3"
+      },
+      "sideToMove": "white",
+      "empties": 9,
+      "correctMoves": [
+        "f2",
+        "h2"
+      ],
+      "bestDiscDiff": 14,
+      "outcome": "win",
+      "clarityMargin": 6,
+      "moves": [
+        {
+          "square": "f2",
+          "discDiffForMover": 14,
+          "isBest": true
+        },
+        {
+          "square": "h2",
+          "discDiffForMover": 14,
+          "isBest": true
+        },
+        {
+          "square": "a3",
+          "discDiffForMover": 8,
+          "isBest": false
+        },
+        {
+          "square": "a5",
+          "discDiffForMover": 8,
+          "isBest": false
+        },
+        {
+          "square": "g6",
+          "discDiffForMover": 2,
+          "isBest": false
+        },
+        {
+          "square": "h6",
+          "discDiffForMover": 2,
+          "isBest": false
+        }
+      ],
+      "difficulty": 4,
+      "difficultyRawScore": 25.64,
+      "tags": [
+        "stable-gain"
+      ]
+    },
+    {
+      "id": "tsume-215",
+      "board": {
+        "black": "0xfe7e1af0c5f41c04",
+        "white": "0x0101250f3a0a43f3"
+      },
+      "sideToMove": "white",
+      "empties": 7,
+      "correctMoves": [
+        "a3"
+      ],
+      "bestDiscDiff": 22,
+      "outcome": "win",
+      "clarityMargin": 8,
+      "moves": [
+        {
+          "square": "d1",
+          "discDiffForMover": 14,
+          "isBest": false
+        },
+        {
+          "square": "f2",
+          "discDiffForMover": 8,
+          "isBest": false
+        },
+        {
+          "square": "h2",
+          "discDiffForMover": 8,
+          "isBest": false
+        },
+        {
+          "square": "a3",
+          "discDiffForMover": 22,
+          "isBest": true
+        },
+        {
+          "square": "g6",
+          "discDiffForMover": 0,
+          "isBest": false
+        },
+        {
+          "square": "h6",
+          "discDiffForMover": 6,
+          "isBest": false
+        },
+        {
+          "square": "h7",
+          "discDiffForMover": 10,
+          "isBest": false
+        }
+      ],
+      "difficulty": 1,
+      "difficultyRawScore": 7,
+      "tags": [
+        "stable-gain"
+      ]
+    },
+    {
+      "id": "tsume-218",
+      "board": {
+        "black": "0x7fa3f9a2bcdcbcb0",
+        "white": "0x001c045c40204048"
+      },
+      "sideToMove": "white",
+      "empties": 13,
+      "correctMoves": [
+        "b3",
+        "b4"
+      ],
+      "bestDiscDiff": -20,
+      "outcome": "loss",
+      "clarityMargin": 4,
+      "moves": [
+        {
+          "square": "c1",
+          "discDiffForMover": -30,
+          "isBest": false
+        },
+        {
+          "square": "b2",
+          "discDiffForMover": -26,
+          "isBest": false
+        },
+        {
+          "square": "b3",
+          "discDiffForMover": -20,
+          "isBest": true
+        },
+        {
+          "square": "a4",
+          "discDiffForMover": -24,
+          "isBest": false
+        },
+        {
+          "square": "b4",
+          "discDiffForMover": -20,
+          "isBest": true
+        },
+        {
+          "square": "a5",
+          "discDiffForMover": -26,
+          "isBest": false
+        },
+        {
+          "square": "g7",
+          "discDiffForMover": -28,
+          "isBest": false
+        }
+      ],
+      "difficulty": 4,
+      "difficultyRawScore": 21.060000000000002,
+      "tags": []
+    },
+    {
+      "id": "tsume-219",
+      "board": {
+        "black": "0x7f8399a2bcdcbcb0",
+        "white": "0x007c645c40204048"
+      },
+      "sideToMove": "black",
+      "empties": 12,
+      "correctMoves": [
+        "c1",
+        "b4"
+      ],
+      "bestDiscDiff": 28,
+      "outcome": "win",
+      "clarityMargin": 6,
+      "moves": [
+        {
+          "square": "c1",
+          "discDiffForMover": 28,
+          "isBest": true
+        },
+        {
+          "square": "b4",
+          "discDiffForMover": 28,
+          "isBest": true
+        },
+        {
+          "square": "b6",
+          "discDiffForMover": 22,
+          "isBest": false
+        },
+        {
+          "square": "h8",
+          "discDiffForMover": 22,
+          "isBest": false
+        }
+      ],
+      "difficulty": 5,
+      "difficultyRawScore": 33.56,
+      "tags": []
+    },
+    {
+      "id": "tsume-221",
+      "board": {
+        "black": "0xffc3b9b2bcdc80b0",
+        "white": "0x003c444c40207e48"
+      },
+      "sideToMove": "black",
+      "empties": 10,
+      "correctMoves": [
+        "b6"
+      ],
+      "bestDiscDiff": 24,
+      "outcome": "win",
+      "clarityMargin": 4,
+      "moves": [
+        {
+          "square": "a1",
+          "discDiffForMover": 18,
+          "isBest": false
+        },
+        {
+          "square": "b1",
+          "discDiffForMover": 16,
+          "isBest": false
+        },
+        {
+          "square": "c1",
+          "discDiffForMover": 16,
+          "isBest": false
+        },
+        {
+          "square": "a2",
+          "discDiffForMover": 16,
+          "isBest": false
+        },
+        {
+          "square": "b4",
+          "discDiffForMover": 20,
+          "isBest": false
+        },
+        {
+          "square": "b6",
+          "discDiffForMover": 24,
+          "isBest": true
+        }
+      ],
+      "difficulty": 5,
+      "difficultyRawScore": 40.56,
+      "tags": []
+    },
+    {
+      "id": "tsume-228",
+      "board": {
+        "black": "0xfe84989cdefe9008",
+        "white": "0x00786563210121e0"
+      },
+      "sideToMove": "black",
+      "empties": 12,
+      "correctMoves": [
+        "g2"
+      ],
+      "bestDiscDiff": -2,
+      "outcome": "loss",
+      "clarityMargin": 6,
+      "moves": [
+        {
+          "square": "e1",
+          "discDiffForMover": -18,
+          "isBest": false
+        },
+        {
+          "square": "g2",
+          "discDiffForMover": -2,
+          "isBest": true
+        },
+        {
+          "square": "b6",
+          "discDiffForMover": -16,
+          "isBest": false
+        },
+        {
+          "square": "b7",
+          "discDiffForMover": -8,
+          "isBest": false
+        }
+      ],
+      "difficulty": 2,
+      "difficultyRawScore": 12,
+      "tags": []
+    },
+    {
+      "id": "tsume-229",
+      "board": {
+        "black": "0xfe849e9edefe9008",
+        "white": "0x00786161210121e0"
+      },
+      "sideToMove": "white",
+      "empties": 11,
+      "correctMoves": [
+        "e1"
+      ],
+      "bestDiscDiff": 16,
+      "outcome": "win",
+      "clarityMargin": 4,
+      "moves": [
+        {
+          "square": "e1",
+          "discDiffForMover": 16,
+          "isBest": true
+        },
+        {
+          "square": "b2",
+          "discDiffForMover": -8,
+          "isBest": false
+        },
+        {
+          "square": "c2",
+          "discDiffForMover": 8,
+          "isBest": false
+        },
+        {
+          "square": "d2",
+          "discDiffForMover": 12,
+          "isBest": false
+        },
+        {
+          "square": "g2",
+          "discDiffForMover": 10,
+          "isBest": false
+        },
+        {
+          "square": "a7",
+          "discDiffForMover": 0,
+          "isBest": false
+        },
+        {
+          "square": "b7",
+          "discDiffForMover": -10,
+          "isBest": false
+        }
+      ],
+      "difficulty": 2,
+      "difficultyRawScore": 11,
+      "tags": [
+        "stable-gain"
+      ]
+    },
+    {
+      "id": "tsume-231",
+      "board": {
+        "black": "0xfe848eceeefe8808",
+        "white": "0x00787131110131f0"
+      },
+      "sideToMove": "white",
+      "empties": 9,
+      "correctMoves": [
+        "g2"
+      ],
+      "bestDiscDiff": 16,
+      "outcome": "win",
+      "clarityMargin": 6,
+      "moves": [
+        {
+          "square": "c1",
+          "discDiffForMover": 4,
+          "isBest": false
+        },
+        {
+          "square": "b2",
+          "discDiffForMover": -14,
+          "isBest": false
+        },
+        {
+          "square": "c2",
+          "discDiffForMover": 10,
+          "isBest": false
+        },
+        {
+          "square": "g2",
+          "discDiffForMover": 16,
+          "isBest": true
+        },
+        {
+          "square": "a7",
+          "discDiffForMover": 4,
+          "isBest": false
+        },
+        {
+          "square": "b7",
+          "discDiffForMover": -12,
+          "isBest": false
+        }
+      ],
+      "difficulty": 1,
+      "difficultyRawScore": 9,
+      "tags": []
+    },
+    {
+      "id": "tsume-234",
+      "board": {
+        "black": "0xfe848e8e8e8efc00",
+        "white": "0x00787171717101fc"
+      },
+      "sideToMove": "white",
+      "empties": 6,
+      "correctMoves": [
+        "b1",
+        "a7"
+      ],
+      "bestDiscDiff": 14,
+      "outcome": "win",
+      "clarityMargin": 10,
+      "moves": [
+        {
+          "square": "b1",
+          "discDiffForMover": 14,
+          "isBest": true
+        },
+        {
+          "square": "b2",
+          "discDiffForMover": 2,
+          "isBest": false
+        },
+        {
+          "square": "a7",
+          "discDiffForMover": 14,
+          "isBest": true
+        },
+        {
+          "square": "b7",
+          "discDiffForMover": 4,
+          "isBest": false
+        }
+      ],
+      "difficulty": 1,
+      "difficultyRawScore": 6,
+      "tags": [
+        "corner-sacrifice",
+        "stable-gain"
+      ]
+    },
+    {
+      "id": "tsume-235",
+      "board": {
+        "black": "0x00000263425cb840",
+        "white": "0xfffefc9cbca04080"
+      },
+      "sideToMove": "white",
+      "empties": 14,
+      "correctMoves": [
+        "a7"
+      ],
+      "bestDiscDiff": 58,
+      "outcome": "win",
+      "clarityMargin": 6,
+      "moves": [
+        {
+          "square": "c1",
+          "discDiffForMover": 52,
+          "isBest": false
+        },
+        {
+          "square": "d1",
+          "discDiffForMover": 50,
+          "isBest": false
+        },
+        {
+          "square": "e1",
+          "discDiffForMover": 52,
+          "isBest": false
+        },
+        {
+          "square": "f1",
+          "discDiffForMover": 48,
+          "isBest": false
+        },
+        {
+          "square": "b2",
+          "discDiffForMover": 44,
+          "isBest": false
+        },
+        {
+          "square": "c2",
+          "discDiffForMover": 46,
+          "isBest": false
+        },
+        {
+          "square": "a3",
+          "discDiffForMover": 48,
+          "isBest": false
+        },
+        {
+          "square": "b3",
+          "discDiffForMover": 18,
+          "isBest": false
+        },
+        {
+          "square": "a4",
+          "discDiffForMover": 46,
+          "isBest": false
+        },
+        {
+          "square": "a6",
+          "discDiffForMover": 44,
+          "isBest": false
+        },
+        {
+          "square": "a7",
+          "discDiffForMover": 58,
+          "isBest": true
+        }
+      ],
+      "difficulty": 3,
+      "difficultyRawScore": 14,
+      "tags": [
+        "stable-gain"
+      ]
+    },
+    {
+      "id": "tsume-236",
+      "board": {
+        "black": "0x00000063425cb840",
+        "white": "0xfffffe9cbca04080"
+      },
+      "sideToMove": "white",
+      "empties": 13,
+      "correctMoves": [
+        "a6"
+      ],
+      "bestDiscDiff": 58,
+      "outcome": "win",
+      "clarityMargin": 6,
+      "moves": [
+        {
+          "square": "c1",
+          "discDiffForMover": 52,
+          "isBest": false
+        },
+        {
+          "square": "d1",
+          "discDiffForMover": 46,
+          "isBest": false
+        },
+        {
+          "square": "e1",
+          "discDiffForMover": 52,
+          "isBest": false
+        },
+        {
+          "square": "f1",
+          "discDiffForMover": 48,
+          "isBest": false
+        },
+        {
+          "square": "b2",
+          "discDiffForMover": 44,
+          "isBest": false
+        },
+        {
+          "square": "c2",
+          "discDiffForMover": 42,
+          "isBest": false
+        },
+        {
+          "square": "a3",
+          "discDiffForMover": 50,
+          "isBest": false
+        },
+        {
+          "square": "b3",
+          "discDiffForMover": 28,
+          "isBest": false
+        },
+        {
+          "square": "a4",
+          "discDiffForMover": 44,
+          "isBest": false
+        },
+        {
+          "square": "a6",
+          "discDiffForMover": 58,
+          "isBest": true
+        }
+      ],
+      "difficulty": 3,
+      "difficultyRawScore": 13,
+      "tags": [
+        "stable-gain"
+      ]
+    },
+    {
+      "id": "tsume-237",
+      "board": {
+        "black": "0x00000061425cb840",
+        "white": "0xffffff9ebca04080"
+      },
+      "sideToMove": "white",
+      "empties": 12,
+      "correctMoves": [
+        "a4"
+      ],
+      "bestDiscDiff": 58,
+      "outcome": "win",
+      "clarityMargin": 6,
+      "moves": [
+        {
+          "square": "c1",
+          "discDiffForMover": 52,
+          "isBest": false
+        },
+        {
+          "square": "d1",
+          "discDiffForMover": 50,
+          "isBest": false
+        },
+        {
+          "square": "e1",
+          "discDiffForMover": 52,
+          "isBest": false
+        },
+        {
+          "square": "f1",
+          "discDiffForMover": 48,
+          "isBest": false
+        },
+        {
+          "square": "b2",
+          "discDiffForMover": 42,
+          "isBest": false
+        },
+        {
+          "square": "c2",
+          "discDiffForMover": 40,
+          "isBest": false
+        },
+        {
+          "square": "a3",
+          "discDiffForMover": 36,
+          "isBest": false
+        },
+        {
+          "square": "b3",
+          "discDiffForMover": 36,
+          "isBest": false
+        },
+        {
+          "square": "a4",
+          "discDiffForMover": 58,
+          "isBest": true
+        }
+      ],
+      "difficulty": 2,
+      "difficultyRawScore": 12,
+      "tags": [
+        "stable-gain"
+      ]
+    },
+    {
+      "id": "tsume-238",
+      "board": {
+        "black": "0x00000060405cb840",
+        "white": "0xffffff9fbfa04080"
+      },
+      "sideToMove": "white",
+      "empties": 11,
+      "correctMoves": [
+        "b2"
+      ],
+      "bestDiscDiff": 58,
+      "outcome": "win",
+      "clarityMargin": 6,
+      "moves": [
+        {
+          "square": "c1",
+          "discDiffForMover": 46,
+          "isBest": false
+        },
+        {
+          "square": "d1",
+          "discDiffForMover": 44,
+          "isBest": false
+        },
+        {
+          "square": "e1",
+          "discDiffForMover": 42,
+          "isBest": false
+        },
+        {
+          "square": "f1",
+          "discDiffForMover": 44,
+          "isBest": false
+        },
+        {
+          "square": "b2",
+          "discDiffForMover": 58,
+          "isBest": true
+        },
+        {
+          "square": "c2",
+          "discDiffForMover": 38,
+          "isBest": false
+        },
+        {
+          "square": "b3",
+          "discDiffForMover": 52,
+          "isBest": false
+        }
+      ],
+      "difficulty": 2,
+      "difficultyRawScore": 11,
+      "tags": [
+        "corner-sacrifice"
+      ]
+    },
+    {
+      "id": "tsume-239",
+      "board": {
+        "black": "0x00000060404cb040",
+        "white": "0xffffff9fbfb04884"
+      },
+      "sideToMove": "black",
+      "empties": 10,
+      "correctMoves": [
+        "d1"
+      ],
+      "bestDiscDiff": -46,
+      "outcome": "loss",
+      "clarityMargin": 8,
+      "moves": [
+        {
+          "square": "d1",
+          "discDiffForMover": -46,
+          "isBest": true
+        },
+        {
+          "square": "e1",
+          "discDiffForMover": -56,
+          "isBest": false
+        },
+        {
+          "square": "c2",
+          "discDiffForMover": -54,
+          "isBest": false
+        }
+      ],
+      "difficulty": 2,
+      "difficultyRawScore": 10,
+      "tags": []
+    },
+    {
+      "id": "tsume-240",
+      "board": {
+        "black": "0x00000060404cb850",
+        "white": "0xffffff9fbfb04084"
+      },
+      "sideToMove": "white",
+      "empties": 9,
+      "correctMoves": [
+        "b2"
+      ],
+      "bestDiscDiff": 56,
+      "outcome": "win",
+      "clarityMargin": 4,
+      "moves": [
+        {
+          "square": "d1",
+          "discDiffForMover": 50,
+          "isBest": false
+        },
+        {
+          "square": "f1",
+          "discDiffForMover": 38,
+          "isBest": false
+        },
+        {
+          "square": "b2",
+          "discDiffForMover": 56,
+          "isBest": true
+        },
+        {
+          "square": "c2",
+          "discDiffForMover": 42,
+          "isBest": false
+        },
+        {
+          "square": "b3",
+          "discDiffForMover": 52,
+          "isBest": false
+        }
+      ],
+      "difficulty": 4,
+      "difficultyRawScore": 18.72,
+      "tags": [
+        "corner-sacrifice"
+      ]
+    },
+    {
+      "id": "tsume-241",
+      "board": {
+        "black": "0x0000006040448810",
+        "white": "0xffffff9fbfb870e4"
+      },
+      "sideToMove": "black",
+      "empties": 8,
+      "correctMoves": [
+        "d1"
+      ],
+      "bestDiscDiff": -38,
+      "outcome": "loss",
+      "clarityMargin": 6,
+      "moves": [
+        {
+          "square": "d1",
+          "discDiffForMover": -38,
+          "isBest": true
+        },
+        {
+          "square": "c2",
+          "discDiffForMover": -44,
+          "isBest": false
+        }
+      ],
+      "difficulty": 1,
+      "difficultyRawScore": 8,
+      "tags": []
+    },
+    {
+      "id": "tsume-242",
+      "board": {
+        "black": "0x0000006040649818",
+        "white": "0xffffff9fbf9860e4"
+      },
+      "sideToMove": "white",
+      "empties": 7,
+      "correctMoves": [
+        "b3"
+      ],
+      "bestDiscDiff": 38,
+      "outcome": "win",
+      "clarityMargin": 10,
+      "moves": [
+        {
+          "square": "b2",
+          "discDiffForMover": 28,
+          "isBest": false
+        },
+        {
+          "square": "c2",
+          "discDiffForMover": 24,
+          "isBest": false
+        },
+        {
+          "square": "b3",
+          "discDiffForMover": 38,
+          "isBest": true
+        }
+      ],
+      "difficulty": 2,
+      "difficultyRawScore": 10,
+      "tags": []
+    },
+    {
+      "id": "tsume-243",
+      "board": {
+        "black": "0x0000006040609818",
+        "white": "0xffffff9fbf9c62e4"
+      },
+      "sideToMove": "black",
+      "empties": 6,
+      "correctMoves": [
+        "c2"
+      ],
+      "bestDiscDiff": -28,
+      "outcome": "loss",
+      "clarityMargin": 12,
+      "moves": [
+        {
+          "square": "b1",
+          "discDiffForMover": -44,
+          "isBest": false
+        },
+        {
+          "square": "c2",
+          "discDiffForMover": -28,
+          "isBest": true
+        },
+        {
+          "square": "b3",
+          "discDiffForMover": -40,
+          "isBest": false
+        }
+      ],
+      "difficulty": 1,
+      "difficultyRawScore": 6,
+      "tags": []
+    },
+    {
+      "id": "tsume-244",
+      "board": {
+        "black": "0x80600d02062c08f8",
+        "white": "0x7f1fb27cf850f000"
+      },
+      "sideToMove": "black",
+      "empties": 14,
+      "correctMoves": [
+        "h3"
+      ],
+      "bestDiscDiff": -12,
+      "outcome": "loss",
+      "clarityMargin": 6,
+      "moves": [
+        {
+          "square": "h3",
+          "discDiffForMover": -12,
+          "isBest": true
+        },
+        {
+          "square": "h5",
+          "discDiffForMover": -28,
+          "isBest": false
+        },
+        {
+          "square": "g6",
+          "discDiffForMover": -18,
+          "isBest": false
+        }
+      ],
+      "difficulty": 3,
+      "difficultyRawScore": 14,
+      "tags": [
+        "stable-gain"
+      ]
+    },
+    {
+      "id": "tsume-245",
+      "board": {
+        "black": "0x80600d0206ecc8f8",
+        "white": "0x7f1fb27cf8103000"
+      },
+      "sideToMove": "white",
+      "empties": 13,
+      "correctMoves": [
+        "h7"
+      ],
+      "bestDiscDiff": 12,
+      "outcome": "win",
+      "clarityMargin": 4,
+      "moves": [
+        {
+          "square": "c1",
+          "discDiffForMover": -2,
+          "isBest": false
+        },
+        {
+          "square": "b2",
+          "discDiffForMover": 2,
+          "isBest": false
+        },
+        {
+          "square": "c2",
+          "discDiffForMover": 6,
+          "isBest": false
+        },
+        {
+          "square": "a3",
+          "discDiffForMover": 4,
+          "isBest": false
+        },
+        {
+          "square": "b3",
+          "discDiffForMover": 2,
+          "isBest": false
+        },
+        {
+          "square": "a4",
+          "discDiffForMover": 2,
+          "isBest": false
+        },
+        {
+          "square": "a5",
+          "discDiffForMover": 6,
+          "isBest": false
+        },
+        {
+          "square": "g6",
+          "discDiffForMover": 8,
+          "isBest": false
+        },
+        {
+          "square": "h7",
+          "discDiffForMover": 12,
+          "isBest": true
+        }
+      ],
+      "difficulty": 4,
+      "difficultyRawScore": 22.72,
+      "tags": []
+    },
+    {
+      "id": "tsume-249",
+      "board": {
+        "black": "0x80000c82c7ecc8f8",
+        "white": "0x7fffb37d38103000"
+      },
+      "sideToMove": "white",
+      "empties": 9,
+      "correctMoves": [
+        "b3"
+      ],
+      "bestDiscDiff": 8,
+      "outcome": "win",
+      "clarityMargin": 4,
+      "moves": [
+        {
+          "square": "c1",
+          "discDiffForMover": -8,
+          "isBest": false
+        },
+        {
+          "square": "b2",
+          "discDiffForMover": 2,
+          "isBest": false
+        },
+        {
+          "square": "c2",
+          "discDiffForMover": 2,
+          "isBest": false
+        },
+        {
+          "square": "a3",
+          "discDiffForMover": 4,
+          "isBest": false
+        },
+        {
+          "square": "b3",
+          "discDiffForMover": 8,
+          "isBest": true
+        }
+      ],
+      "difficulty": 5,
+      "difficultyRawScore": 36.900000000000006,
+      "tags": []
+    },
+    {
+      "id": "tsume-250",
+      "board": {
+        "black": "0x80000c82c4ecc8f8",
+        "white": "0x7fffb37d3b113000"
+      },
+      "sideToMove": "black",
+      "empties": 8,
+      "correctMoves": [
+        "b3"
+      ],
+      "bestDiscDiff": -4,
+      "outcome": "loss",
+      "clarityMargin": 4,
+      "moves": [
+        {
+          "square": "b3",
+          "discDiffForMover": -4,
+          "isBest": true
+        },
+        {
+          "square": "g6",
+          "discDiffForMover": -8,
+          "isBest": false
+        }
+      ],
+      "difficulty": 1,
+      "difficultyRawScore": 8,
+      "tags": []
+    },
+    {
+      "id": "tsume-252",
+      "board": {
+        "black": "0x80007ce2d4e8c8f8",
+        "white": "0x7fff831d2b153200"
+      },
+      "sideToMove": "black",
+      "empties": 6,
+      "correctMoves": [
+        "a1"
+      ],
+      "bestDiscDiff": -6,
+      "outcome": "loss",
+      "clarityMargin": 6,
+      "moves": [
+        {
+          "square": "a1",
+          "discDiffForMover": -6,
+          "isBest": true
+        },
+        {
+          "square": "c2",
+          "discDiffForMover": -12,
+          "isBest": false
+        },
+        {
+          "square": "b3",
+          "discDiffForMover": -14,
+          "isBest": false
+        }
+      ],
+      "difficulty": 1,
+      "difficultyRawScore": 6,
+      "tags": [
+        "stable-gain"
+      ]
+    },
+    {
+      "id": "tsume-254",
+      "board": {
+        "black": "0x8282a2b2aeaeb2a3",
+        "white": "0x41795d4d50500c00"
+      },
+      "sideToMove": "white",
+      "empties": 13,
+      "correctMoves": [
+        "g1"
+      ],
+      "bestDiscDiff": 4,
+      "outcome": "win",
+      "clarityMargin": 4,
+      "moves": [
+        {
+          "square": "d1",
+          "discDiffForMover": -8,
+          "isBest": false
+        },
+        {
+          "square": "e1",
+          "discDiffForMover": -8,
+          "isBest": false
+        },
+        {
+          "square": "g1",
+          "discDiffForMover": 4,
+          "isBest": true
+        },
+        {
+          "square": "a2",
+          "discDiffForMover": -12,
+          "isBest": false
+        },
+        {
+          "square": "g2",
+          "discDiffForMover": -16,
+          "isBest": false
+        },
+        {
+          "square": "a3",
+          "discDiffForMover": -12,
+          "isBest": false
+        },
+        {
+          "square": "a4",
+          "discDiffForMover": -16,
+          "isBest": false
+        },
+        {
+          "square": "c7",
+          "discDiffForMover": -2,
+          "isBest": false
+        },
+        {
+          "square": "c8",
+          "discDiffForMover": 0,
+          "isBest": false
+        }
+      ],
+      "difficulty": 5,
+      "difficultyRawScore": 38.84,
+      "tags": []
+    },
+    {
+      "id": "tsume-256",
+      "board": {
+        "black": "0x8080a2b2aeaebab3",
+        "white": "0x477b5d4d50500400"
+      },
+      "sideToMove": "white",
+      "empties": 11,
+      "correctMoves": [
+        "g1"
+      ],
+      "bestDiscDiff": 6,
+      "outcome": "win",
+      "clarityMargin": 6,
+      "moves": [
+        {
+          "square": "c1",
+          "discDiffForMover": -4,
+          "isBest": false
+        },
+        {
+          "square": "d1",
+          "discDiffForMover": -4,
+          "isBest": false
+        },
+        {
+          "square": "g1",
+          "discDiffForMover": 6,
+          "isBest": true
+        },
+        {
+          "square": "a2",
+          "discDiffForMover": 0,
+          "isBest": false
+        },
+        {
+          "square": "g2",
+          "discDiffForMover": -8,
+          "isBest": false
+        },
+        {
+          "square": "a3",
+          "discDiffForMover": -6,
+          "isBest": false
+        },
+        {
+          "square": "a4",
+          "discDiffForMover": -10,
+          "isBest": false
+        },
+        {
+          "square": "c7",
+          "discDiffForMover": -2,
+          "isBest": false
+        }
+      ],
+      "difficulty": 5,
+      "difficultyRawScore": 36.120000000000005,
+      "tags": []
+    },
+    {
+      "id": "tsume-258",
+      "board": {
+        "black": "0x8080a2b2aaafb9b3",
+        "white": "0x477b5d4d54500600"
+      },
+      "sideToMove": "white",
+      "empties": 9,
+      "correctMoves": [
+        "g1"
+      ],
+      "bestDiscDiff": 6,
+      "outcome": "win",
+      "clarityMargin": 6,
+      "moves": [
+        {
+          "square": "c1",
+          "discDiffForMover": -8,
+          "isBest": false
+        },
+        {
+          "square": "d1",
+          "discDiffForMover": -10,
+          "isBest": false
+        },
+        {
+          "square": "g1",
+          "discDiffForMover": 6,
+          "isBest": true
+        },
+        {
+          "square": "g2",
+          "discDiffForMover": -8,
+          "isBest": false
+        },
+        {
+          "square": "a4",
+          "discDiffForMover": -2,
+          "isBest": false
+        },
+        {
+          "square": "c7",
+          "discDiffForMover": 0,
+          "isBest": false
+        }
+      ],
+      "difficulty": 5,
+      "difficultyRawScore": 32.980000000000004,
+      "tags": []
+    },
+    {
+      "id": "tsume-261",
+      "board": {
+        "black": "0x80fcaeb4acad99b3",
+        "white": "0x4703514b53522640"
+      },
+      "sideToMove": "black",
+      "empties": 6,
+      "correctMoves": [
+        "g2"
+      ],
+      "bestDiscDiff": 4,
+      "outcome": "win",
+      "clarityMargin": 10,
+      "moves": [
+        {
+          "square": "c1",
+          "discDiffForMover": -6,
+          "isBest": false
+        },
+        {
+          "square": "g2",
+          "discDiffForMover": 4,
+          "isBest": true
+        },
+        {
+          "square": "f8",
+          "discDiffForMover": -6,
+          "isBest": false
+        }
+      ],
+      "difficulty": 3,
+      "difficultyRawScore": 15.72,
+      "tags": []
+    },
+    {
+      "id": "tsume-263",
+      "board": {
+        "black": "0x8086c2c4fa101c16",
+        "white": "0x3f393d3b054f0100"
+      },
+      "sideToMove": "white",
+      "empties": 13,
+      "correctMoves": [
+        "f2"
+      ],
+      "bestDiscDiff": 28,
+      "outcome": "win",
+      "clarityMargin": 4,
+      "moves": [
+        {
+          "square": "d1",
+          "discDiffForMover": 20,
+          "isBest": false
+        },
+        {
+          "square": "f1",
+          "discDiffForMover": 24,
+          "isBest": false
+        },
+        {
+          "square": "f2",
+          "discDiffForMover": 28,
+          "isBest": true
+        },
+        {
+          "square": "f3",
+          "discDiffForMover": 24,
+          "isBest": false
+        },
+        {
+          "square": "h3",
+          "discDiffForMover": 16,
+          "isBest": false
+        },
+        {
+          "square": "g7",
+          "discDiffForMover": 14,
+          "isBest": false
+        }
+      ],
+      "difficulty": 3,
+      "difficultyRawScore": 13,
+      "tags": []
+    },
+    {
+      "id": "tsume-265",
+      "board": {
+        "black": "0x8086c0c0f2021e16",
+        "white": "0x3f393f3f0d5d2100"
+      },
+      "sideToMove": "white",
+      "empties": 11,
+      "correctMoves": [
+        "d1"
+      ],
+      "bestDiscDiff": 30,
+      "outcome": "win",
+      "clarityMargin": 4,
+      "moves": [
+        {
+          "square": "a1",
+          "discDiffForMover": 24,
+          "isBest": false
+        },
+        {
+          "square": "d1",
+          "discDiffForMover": 30,
+          "isBest": true
+        },
+        {
+          "square": "f1",
+          "discDiffForMover": 26,
+          "isBest": false
+        },
+        {
+          "square": "f3",
+          "discDiffForMover": 24,
+          "isBest": false
+        },
+        {
+          "square": "h3",
+          "discDiffForMover": 26,
+          "isBest": false
+        },
+        {
+          "square": "g7",
+          "discDiffForMover": 26,
+          "isBest": false
+        }
+      ],
+      "difficulty": 5,
+      "difficultyRawScore": 27.5,
+      "tags": []
+    },
+    {
+      "id": "tsume-266",
+      "board": {
+        "black": "0x8086c0c0f2021c16",
+        "white": "0x3f393f3f0d5d2301"
+      },
+      "sideToMove": "black",
+      "empties": 10,
+      "correctMoves": [
+        "f3"
+      ],
+      "bestDiscDiff": -24,
+      "outcome": "loss",
+      "clarityMargin": 18,
+      "moves": [
+        {
+          "square": "g2",
+          "discDiffForMover": -44,
+          "isBest": false
+        },
+        {
+          "square": "h2",
+          "discDiffForMover": -44,
+          "isBest": false
+        },
+        {
+          "square": "f3",
+          "discDiffForMover": -24,
+          "isBest": true
+        },
+        {
+          "square": "g7",
+          "discDiffForMover": -44,
+          "isBest": false
+        },
+        {
+          "square": "g8",
+          "discDiffForMover": -42,
+          "isBest": false
+        }
+      ],
+      "difficulty": 2,
+      "difficultyRawScore": 10,
+      "tags": []
+    },
+    {
+      "id": "tsume-267",
+      "board": {
+        "black": "0x8086c0c0f23e1c16",
+        "white": "0x3f393f3f0d412301"
+      },
+      "sideToMove": "white",
+      "empties": 9,
+      "correctMoves": [
+        "d1"
+      ],
+      "bestDiscDiff": 24,
+      "outcome": "win",
+      "clarityMargin": 4,
+      "moves": [
+        {
+          "square": "d1",
+          "discDiffForMover": 24,
+          "isBest": true
+        },
+        {
+          "square": "f1",
+          "discDiffForMover": 2,
+          "isBest": false
+        },
+        {
+          "square": "g2",
+          "discDiffForMover": 14,
+          "isBest": false
+        },
+        {
+          "square": "h3",
+          "discDiffForMover": 18,
+          "isBest": false
+        },
+        {
+          "square": "g7",
+          "discDiffForMover": 20,
+          "isBest": false
+        }
+      ],
+      "difficulty": 1,
+      "difficultyRawScore": 9,
+      "tags": [
+        "stable-gain"
+      ]
+    },
+    {
+      "id": "tsume-269",
+      "board": {
+        "black": "0x8086c0c0f2f41010",
+        "white": "0x3f393f3f0d0b2f0f"
+      },
+      "sideToMove": "white",
+      "empties": 7,
+      "correctMoves": [
+        "f1"
+      ],
+      "bestDiscDiff": 26,
+      "outcome": "win",
+      "clarityMargin": 8,
+      "moves": [
+        {
+          "square": "f1",
+          "discDiffForMover": 26,
+          "isBest": true
+        },
+        {
+          "square": "g2",
+          "discDiffForMover": 14,
+          "isBest": false
+        },
+        {
+          "square": "h2",
+          "discDiffForMover": 18,
+          "isBest": false
+        }
+      ],
+      "difficulty": 1,
+      "difficultyRawScore": 7,
+      "tags": [
+        "stable-gain"
+      ]
+    },
+    {
+      "id": "tsume-270",
+      "board": {
+        "black": "0x8086c0c0e2d41010",
+        "white": "0x3f393f3f1d2b6f0f"
+      },
+      "sideToMove": "black",
+      "empties": 6,
+      "correctMoves": [
+        "h1"
+      ],
+      "bestDiscDiff": -14,
+      "outcome": "loss",
+      "clarityMargin": 4,
+      "moves": [
+        {
+          "square": "f1",
+          "discDiffForMover": -26,
+          "isBest": false
+        },
+        {
+          "square": "g1",
+          "discDiffForMover": -34,
+          "isBest": false
+        },
+        {
+          "square": "h1",
+          "discDiffForMover": -14,
+          "isBest": true
+        },
+        {
+          "square": "h2",
+          "discDiffForMover": -28,
+          "isBest": false
+        },
+        {
+          "square": "g7",
+          "discDiffForMover": -18,
+          "isBest": false
+        }
+      ],
+      "difficulty": 1,
+      "difficultyRawScore": 6,
+      "tags": [
+        "stable-gain"
+      ]
+    },
+    {
+      "id": "tsume-277",
+      "board": {
+        "black": "0xfe866a32e7103838",
+        "white": "0x013915cd18204000"
+      },
+      "sideToMove": "white",
+      "empties": 17,
+      "correctMoves": [
+        "b3"
+      ],
+      "bestDiscDiff": -6,
+      "outcome": "loss",
+      "clarityMargin": 4,
+      "moves": [
+        {
+          "square": "c1",
+          "discDiffForMover": -18,
+          "isBest": false
+        },
+        {
+          "square": "g1",
+          "discDiffForMover": -20,
+          "isBest": false
+        },
+        {
+          "square": "c2",
+          "discDiffForMover": -22,
+          "isBest": false
+        },
+        {
+          "square": "a3",
+          "discDiffForMover": -16,
+          "isBest": false
+        },
+        {
+          "square": "b3",
+          "discDiffForMover": -6,
+          "isBest": true
+        },
+        {
+          "square": "c3",
+          "discDiffForMover": -14,
+          "isBest": false
+        },
+        {
+          "square": "d3",
+          "discDiffForMover": -12,
+          "isBest": false
+        },
+        {
+          "square": "g3",
+          "discDiffForMover": -10,
+          "isBest": false
+        },
+        {
+          "square": "h3",
+          "discDiffForMover": -20,
+          "isBest": false
+        },
+        {
+          "square": "h6",
+          "discDiffForMover": -18,
+          "isBest": false
+        },
+        {
+          "square": "g7",
+          "discDiffForMover": -16,
+          "isBest": false
+        }
+      ],
+      "difficulty": 5,
+      "difficultyRawScore": 56.18,
+      "tags": []
+    },
+    {
+      "id": "tsume-278",
+      "board": {
+        "black": "0xfe860a22e7103838",
+        "white": "0x017975dd18204000"
+      },
+      "sideToMove": "black",
+      "empties": 16,
+      "correctMoves": [
+        "c3"
+      ],
+      "bestDiscDiff": 16,
+      "outcome": "win",
+      "clarityMargin": 10,
+      "moves": [
+        {
+          "square": "h1",
+          "discDiffForMover": 2,
+          "isBest": false
+        },
+        {
+          "square": "h2",
+          "discDiffForMover": 2,
+          "isBest": false
+        },
+        {
+          "square": "c3",
+          "discDiffForMover": 16,
+          "isBest": true
+        },
+        {
+          "square": "d3",
+          "discDiffForMover": 4,
+          "isBest": false
+        },
+        {
+          "square": "g3",
+          "discDiffForMover": 6,
+          "isBest": false
+        },
+        {
+          "square": "h3",
+          "discDiffForMover": 0,
+          "isBest": false
+        },
+        {
+          "square": "h6",
+          "discDiffForMover": 6,
+          "isBest": false
+        }
+      ],
+      "difficulty": 5,
+      "difficultyRawScore": 30.439999999999998,
+      "tags": []
+    },
+    {
+      "id": "tsume-282",
+      "board": {
+        "black": "0x070f13071b3160c8",
+        "white": "0x10702c38644e0f07"
+      },
+      "sideToMove": "white",
+      "empties": 15,
+      "correctMoves": [
+        "f1",
+        "e2"
+      ],
+      "bestDiscDiff": -14,
+      "outcome": "loss",
+      "clarityMargin": 8,
+      "moves": [
+        {
+          "square": "e1",
+          "discDiffForMover": -24,
+          "isBest": false
+        },
+        {
+          "square": "f1",
+          "discDiffForMover": -14,
+          "isBest": true
+        },
+        {
+          "square": "e2",
+          "discDiffForMover": -14,
+          "isBest": true
+        },
+        {
+          "square": "d8",
+          "discDiffForMover": -22,
+          "isBest": false
+        }
+      ],
+      "difficulty": 3,
+      "difficultyRawScore": 15,
+      "tags": []
+    },
+    {
+      "id": "tsume-284",
+      "board": {
+        "black": "0x001c4c6c00201838",
+        "white": "0xffc2b290f8dce0c0"
+      },
+      "sideToMove": "black",
+      "empties": 16,
+      "correctMoves": [
+        "f7"
+      ],
+      "bestDiscDiff": -34,
+      "outcome": "loss",
+      "clarityMargin": 14,
+      "moves": [
+        {
+          "square": "c2",
+          "discDiffForMover": -48,
+          "isBest": false
+        },
+        {
+          "square": "b3",
+          "discDiffForMover": -60,
+          "isBest": false
+        },
+        {
+          "square": "b4",
+          "discDiffForMover": -48,
+          "isBest": false
+        },
+        {
+          "square": "c4",
+          "discDiffForMover": -48,
+          "isBest": false
+        },
+        {
+          "square": "a5",
+          "discDiffForMover": -56,
+          "isBest": false
+        },
+        {
+          "square": "a6",
+          "discDiffForMover": -52,
+          "isBest": false
+        },
+        {
+          "square": "a7",
+          "discDiffForMover": -48,
+          "isBest": false
+        },
+        {
+          "square": "f7",
+          "discDiffForMover": -34,
+          "isBest": true
+        }
+      ],
+      "difficulty": 3,
+      "difficultyRawScore": 16,
+      "tags": []
+    },
+    {
+      "id": "tsume-285",
+      "board": {
+        "black": "0x001c4c6c04281838",
+        "white": "0xffc2b290f8d4e0c0"
+      },
+      "sideToMove": "white",
+      "empties": 15,
+      "correctMoves": [
+        "f7"
+      ],
+      "bestDiscDiff": 48,
+      "outcome": "win",
+      "clarityMargin": 14,
+      "moves": [
+        {
+          "square": "c1",
+          "discDiffForMover": 32,
+          "isBest": false
+        },
+        {
+          "square": "c2",
+          "discDiffForMover": 34,
+          "isBest": false
+        },
+        {
+          "square": "b3",
+          "discDiffForMover": 30,
+          "isBest": false
+        },
+        {
+          "square": "b4",
+          "discDiffForMover": 30,
+          "isBest": false
+        },
+        {
+          "square": "b5",
+          "discDiffForMover": 32,
+          "isBest": false
+        },
+        {
+          "square": "f7",
+          "discDiffForMover": 48,
+          "isBest": true
+        }
+      ],
+      "difficulty": 4,
+      "difficultyRawScore": 20.38,
+      "tags": []
+    },
+    {
+      "id": "tsume-288",
+      "board": {
+        "black": "0x02027eeed6b24290",
+        "white": "0x81450111294d3d03"
+      },
+      "sideToMove": "white",
+      "empties": 15,
+      "correctMoves": [
+        "h2"
+      ],
+      "bestDiscDiff": 22,
+      "outcome": "win",
+      "clarityMargin": 4,
+      "moves": [
+        {
+          "square": "c1",
+          "discDiffForMover": 12,
+          "isBest": false
+        },
+        {
+          "square": "g1",
+          "discDiffForMover": 18,
+          "isBest": false
+        },
+        {
+          "square": "h2",
+          "discDiffForMover": 22,
+          "isBest": true
+        },
+        {
+          "square": "h6",
+          "discDiffForMover": 4,
+          "isBest": false
+        },
+        {
+          "square": "d7",
+          "discDiffForMover": 14,
+          "isBest": false
+        },
+        {
+          "square": "e7",
+          "discDiffForMover": 12,
+          "isBest": false
+        },
+        {
+          "square": "f7",
+          "discDiffForMover": 16,
+          "isBest": false
+        },
+        {
+          "square": "h7",
+          "discDiffForMover": 18,
+          "isBest": false
+        },
+        {
+          "square": "c8",
+          "discDiffForMover": 12,
+          "isBest": false
+        }
+      ],
+      "difficulty": 5,
+      "difficultyRawScore": 37.84,
+      "tags": []
+    },
+    {
+      "id": "tsume-291",
+      "board": {
+        "black": "0x7878387a7c408000",
+        "white": "0x8484c58583bf5482"
+      },
+      "sideToMove": "white",
+      "empties": 15,
+      "correctMoves": [
+        "f2"
+      ],
+      "bestDiscDiff": -16,
+      "outcome": "loss",
+      "clarityMargin": 4,
+      "moves": [
+        {
+          "square": "f2",
+          "discDiffForMover": -16,
+          "isBest": true
+        },
+        {
+          "square": "b6",
+          "discDiffForMover": -20,
+          "isBest": false
+        }
+      ],
+      "difficulty": 3,
+      "difficultyRawScore": 15,
+      "tags": []
+    },
+    {
+      "id": "tsume-292",
+      "board": {
+        "black": "0x1d39f3e3bf3a0509",
+        "white": "0x00040c1c40c50202"
+      },
+      "sideToMove": "white",
+      "empties": 17,
+      "correctMoves": [
+        "c1"
+      ],
+      "bestDiscDiff": -4,
+      "outcome": "loss",
+      "clarityMargin": 12,
+      "moves": [
+        {
+          "square": "c1",
+          "discDiffForMover": -4,
+          "isBest": true
+        },
+        {
+          "square": "d2",
+          "discDiffForMover": -16,
+          "isBest": false
+        },
+        {
+          "square": "e2",
+          "discDiffForMover": -18,
+          "isBest": false
+        },
+        {
+          "square": "f2",
+          "discDiffForMover": -18,
+          "isBest": false
+        },
+        {
+          "square": "g2",
+          "discDiffForMover": -16,
+          "isBest": false
+        },
+        {
+          "square": "b7",
+          "discDiffForMover": -24,
+          "isBest": false
+        },
+        {
+          "square": "g7",
+          "discDiffForMover": -40,
+          "isBest": false
+        },
+        {
+          "square": "h7",
+          "discDiffForMover": -22,
+          "isBest": false
+        },
+        {
+          "square": "f8",
+          "discDiffForMover": -16,
+          "isBest": false
+        },
+        {
+          "square": "g8",
+          "discDiffForMover": -22,
+          "isBest": false
+        }
+      ],
+      "difficulty": 3,
+      "difficultyRawScore": 17,
+      "tags": []
+    },
+    {
+      "id": "tsume-293",
+      "board": {
+        "black": "0x1d39f3e3b7320109",
+        "white": "0x00040c1c48cd0e02"
+      },
+      "sideToMove": "black",
+      "empties": 16,
+      "correctMoves": [
+        "e1"
+      ],
+      "bestDiscDiff": 16,
+      "outcome": "win",
+      "clarityMargin": 4,
+      "moves": [
+        {
+          "square": "c1",
+          "discDiffForMover": 10,
+          "isBest": false
+        },
+        {
+          "square": "e1",
+          "discDiffForMover": 16,
+          "isBest": true
+        },
+        {
+          "square": "e2",
+          "discDiffForMover": -10,
+          "isBest": false
+        },
+        {
+          "square": "f2",
+          "discDiffForMover": 0,
+          "isBest": false
+        },
+        {
+          "square": "g2",
+          "discDiffForMover": -2,
+          "isBest": false
+        },
+        {
+          "square": "h2",
+          "discDiffForMover": 8,
+          "isBest": false
+        },
+        {
+          "square": "b7",
+          "discDiffForMover": 0,
+          "isBest": false
+        },
+        {
+          "square": "b8",
+          "discDiffForMover": 12,
+          "isBest": false
+        }
+      ],
+      "difficulty": 5,
+      "difficultyRawScore": 32.44,
+      "tags": []
+    },
+    {
+      "id": "tsume-296",
+      "board": {
+        "black": "0xfc00b8f0f45a0c00",
+        "white": "0x00fe440e0aa0e0f0"
+      },
+      "sideToMove": "black",
+      "empties": 16,
+      "correctMoves": [
+        "c3"
+      ],
+      "bestDiscDiff": 6,
+      "outcome": "win",
+      "clarityMargin": 4,
+      "moves": [
+        {
+          "square": "e2",
+          "discDiffForMover": 2,
+          "isBest": false
+        },
+        {
+          "square": "a3",
+          "discDiffForMover": -4,
+          "isBest": false
+        },
+        {
+          "square": "c3",
+          "discDiffForMover": 6,
+          "isBest": true
+        },
+        {
+          "square": "a4",
+          "discDiffForMover": -6,
+          "isBest": false
+        },
+        {
+          "square": "a5",
+          "discDiffForMover": -4,
+          "isBest": false
+        },
+        {
+          "square": "a6",
+          "discDiffForMover": -6,
+          "isBest": false
+        },
+        {
+          "square": "b6",
+          "discDiffForMover": -24,
+          "isBest": false
+        },
+        {
+          "square": "a8",
+          "discDiffForMover": 0,
+          "isBest": false
+        },
+        {
+          "square": "b8",
+          "discDiffForMover": 0,
+          "isBest": false
+        }
+      ],
+      "difficulty": 5,
+      "difficultyRawScore": 43.56,
+      "tags": []
+    },
+    {
+      "id": "tsume-298",
+      "board": {
+        "black": "0x78fc7c38d8dafa91",
+        "white": "0x800082c424240400"
+      },
+      "sideToMove": "white",
+      "empties": 17,
+      "correctMoves": [
+        "c1",
+        "d1"
+      ],
+      "bestDiscDiff": 0,
+      "outcome": "draw",
+      "clarityMargin": 4,
+      "moves": [
+        {
+          "square": "c1",
+          "discDiffForMover": 0,
+          "isBest": true
+        },
+        {
+          "square": "d1",
+          "discDiffForMover": 0,
+          "isBest": true
+        },
+        {
+          "square": "f1",
+          "discDiffForMover": -10,
+          "isBest": false
+        },
+        {
+          "square": "g1",
+          "discDiffForMover": -6,
+          "isBest": false
+        },
+        {
+          "square": "a2",
+          "discDiffForMover": -8,
+          "isBest": false
+        },
+        {
+          "square": "a3",
+          "discDiffForMover": -4,
+          "isBest": false
+        },
+        {
+          "square": "a4",
+          "discDiffForMover": -4,
+          "isBest": false
+        },
+        {
+          "square": "b7",
+          "discDiffForMover": -6,
+          "isBest": false
+        },
+        {
+          "square": "b8",
+          "discDiffForMover": -22,
+          "isBest": false
+        },
+        {
+          "square": "c8",
+          "discDiffForMover": -18,
+          "isBest": false
+        }
+      ],
+      "difficulty": 3,
+      "difficultyRawScore": 17,
+      "tags": []
+    },
+    {
+      "id": "tsume-300",
+      "board": {
+        "black": "0x78fc7c38d8cafe99",
+        "white": "0x800082c424340004"
+      },
+      "sideToMove": "white",
+      "empties": 15,
+      "correctMoves": [
+        "f1"
+      ],
+      "bestDiscDiff": 2,
+      "outcome": "win",
+      "clarityMargin": 18,
+      "moves": [
+        {
+          "square": "f1",
+          "discDiffForMover": 2,
+          "isBest": true
+        },
+        {
+          "square": "g1",
+          "discDiffForMover": -22,
+          "isBest": false
+        },
+        {
+          "square": "a2",
+          "discDiffForMover": -22,
+          "isBest": false
+        },
+        {
+          "square": "a3",
+          "discDiffForMover": -22,
+          "isBest": false
+        },
+        {
+          "square": "b7",
+          "discDiffForMover": -16,
+          "isBest": false
+        },
+        {
+          "square": "b8",
+          "discDiffForMover": -22,
+          "isBest": false
+        },
+        {
+          "square": "c8",
+          "discDiffForMover": -22,
+          "isBest": false
+        }
+      ],
+      "difficulty": 3,
+      "difficultyRawScore": 15,
+      "tags": []
+    },
+    {
+      "id": "tsume-302",
+      "board": {
+        "black": "0x0000001400504400",
+        "white": "0xfffefce8fc2c38f8"
+      },
+      "sideToMove": "black",
+      "empties": 16,
+      "correctMoves": [
+        "c1"
+      ],
+      "bestDiscDiff": -52,
+      "outcome": "loss",
+      "clarityMargin": 10,
+      "moves": [
+        {
+          "square": "c1",
+          "discDiffForMover": -52,
+          "isBest": true
+        },
+        {
+          "square": "b2",
+          "discDiffForMover": -62,
+          "isBest": false
+        },
+        {
+          "square": "b3",
+          "discDiffForMover": -64,
+          "isBest": false
+        }
+      ],
+      "difficulty": 3,
+      "difficultyRawScore": 16,
+      "tags": []
+    },
+    {
+      "id": "tsume-304",
+      "board": {
+        "black": "0xfe7f03170e061205",
+        "white": "0x01007c6870780c00"
+      },
+      "sideToMove": "white",
+      "empties": 17,
+      "correctMoves": [
+        "f1"
+      ],
+      "bestDiscDiff": -12,
+      "outcome": "loss",
+      "clarityMargin": 4,
+      "moves": [
+        {
+          "square": "d1",
+          "discDiffForMover": -16,
+          "isBest": false
+        },
+        {
+          "square": "e1",
+          "discDiffForMover": -16,
+          "isBest": false
+        },
+        {
+          "square": "f1",
+          "discDiffForMover": -12,
+          "isBest": true
+        },
+        {
+          "square": "a2",
+          "discDiffForMover": -24,
+          "isBest": false
+        },
+        {
+          "square": "f2",
+          "discDiffForMover": -16,
+          "isBest": false
+        },
+        {
+          "square": "a3",
+          "discDiffForMover": -40,
+          "isBest": false
+        },
+        {
+          "square": "a4",
+          "discDiffForMover": -18,
+          "isBest": false
+        }
+      ],
+      "difficulty": 5,
+      "difficultyRawScore": 49.56,
+      "tags": []
+    },
+    {
+      "id": "tsume-305",
+      "board": {
+        "black": "0xfe7f03170e060205",
+        "white": "0x01007c6870781c08"
+      },
+      "sideToMove": "black",
+      "empties": 16,
+      "correctMoves": [
+        "f1"
+      ],
+      "bestDiscDiff": 16,
+      "outcome": "win",
+      "clarityMargin": 4,
+      "moves": [
+        {
+          "square": "e1",
+          "discDiffForMover": 10,
+          "isBest": false
+        },
+        {
+          "square": "f1",
+          "discDiffForMover": 16,
+          "isBest": true
+        },
+        {
+          "square": "f2",
+          "discDiffForMover": 8,
+          "isBest": false
+        },
+        {
+          "square": "g2",
+          "discDiffForMover": -14,
+          "isBest": false
+        },
+        {
+          "square": "h2",
+          "discDiffForMover": 2,
+          "isBest": false
+        },
+        {
+          "square": "h3",
+          "discDiffForMover": 12,
+          "isBest": false
+        },
+        {
+          "square": "h4",
+          "discDiffForMover": 6,
+          "isBest": false
+        },
+        {
+          "square": "h5",
+          "discDiffForMover": 4,
+          "isBest": false
+        },
+        {
+          "square": "h6",
+          "discDiffForMover": -2,
+          "isBest": false
+        }
+      ],
+      "difficulty": 4,
+      "difficultyRawScore": 19,
+      "tags": []
+    },
+    {
+      "id": "tsume-306",
+      "board": {
+        "black": "0xfe7fff572e160a05",
+        "white": "0x0100002850681408"
+      },
+      "sideToMove": "white",
+      "empties": 15,
+      "correctMoves": [
+        "b1"
+      ],
+      "bestDiscDiff": 2,
+      "outcome": "win",
+      "clarityMargin": 8,
+      "moves": [
+        {
+          "square": "b1",
+          "discDiffForMover": 2,
+          "isBest": true
+        },
+        {
+          "square": "a2",
+          "discDiffForMover": -10,
+          "isBest": false
+        },
+        {
+          "square": "a3",
+          "discDiffForMover": -8,
+          "isBest": false
+        },
+        {
+          "square": "a4",
+          "discDiffForMover": -6,
+          "isBest": false
+        },
+        {
+          "square": "h5",
+          "discDiffForMover": -8,
+          "isBest": false
+        },
+        {
+          "square": "h7",
+          "discDiffForMover": -22,
+          "isBest": false
+        }
+      ],
+      "difficulty": 3,
+      "difficultyRawScore": 15,
+      "tags": []
+    },
+    {
+      "id": "tsume-307",
+      "board": {
+        "black": "0xe1d7a18183050804",
+        "white": "0x1e285e7e7c020201"
+      },
+      "sideToMove": "white",
+      "empties": 17,
+      "correctMoves": [
+        "c2"
+      ],
+      "bestDiscDiff": -22,
+      "outcome": "loss",
+      "clarityMargin": 18,
+      "moves": [
+        {
+          "square": "c2",
+          "discDiffForMover": -22,
+          "isBest": true
+        },
+        {
+          "square": "d3",
+          "discDiffForMover": -40,
+          "isBest": false
+        }
+      ],
+      "difficulty": 3,
+      "difficultyRawScore": 17,
+      "tags": []
+    },
+    {
+      "id": "tsume-308",
+      "board": {
+        "black": "0xe1d7a18183010804",
+        "white": "0x1e285e7e7c060601"
+      },
+      "sideToMove": "black",
+      "empties": 16,
+      "correctMoves": [
+        "d1"
+      ],
+      "bestDiscDiff": 22,
+      "outcome": "win",
+      "clarityMargin": 6,
+      "moves": [
+        {
+          "square": "b1",
+          "discDiffForMover": 6,
+          "isBest": false
+        },
+        {
+          "square": "d1",
+          "discDiffForMover": 22,
+          "isBest": true
+        },
+        {
+          "square": "a2",
+          "discDiffForMover": 4,
+          "isBest": false
+        },
+        {
+          "square": "d3",
+          "discDiffForMover": 16,
+          "isBest": false
+        },
+        {
+          "square": "e3",
+          "discDiffForMover": 12,
+          "isBest": false
+        },
+        {
+          "square": "f3",
+          "discDiffForMover": 10,
+          "isBest": false
+        },
+        {
+          "square": "g3",
+          "discDiffForMover": 14,
+          "isBest": false
+        }
+      ],
+      "difficulty": 3,
+      "difficultyRawScore": 16,
+      "tags": []
+    },
+    {
+      "id": "tsume-309",
+      "board": {
+        "black": "0xe1d7e1a3970f0804",
+        "white": "0x1e281e5c68000601"
+      },
+      "sideToMove": "white",
+      "empties": 15,
+      "correctMoves": [
+        "e2"
+      ],
+      "bestDiscDiff": -16,
+      "outcome": "loss",
+      "clarityMargin": 4,
+      "moves": [
+        {
+          "square": "d1",
+          "discDiffForMover": -26,
+          "isBest": false
+        },
+        {
+          "square": "a2",
+          "discDiffForMover": -22,
+          "isBest": false
+        },
+        {
+          "square": "e2",
+          "discDiffForMover": -16,
+          "isBest": true
+        },
+        {
+          "square": "e3",
+          "discDiffForMover": -20,
+          "isBest": false
+        },
+        {
+          "square": "f3",
+          "discDiffForMover": -24,
+          "isBest": false
+        }
+      ],
+      "difficulty": 5,
+      "difficultyRawScore": 38.04,
+      "tags": []
+    },
+    {
+      "id": "tsume-310",
+      "board": {
+        "black": "0x0026150a3f040000",
+        "white": "0xff5868f4c0f99888"
+      },
+      "sideToMove": "white",
+      "empties": 17,
+      "correctMoves": [
+        "a7"
+      ],
+      "bestDiscDiff": 34,
+      "outcome": "win",
+      "clarityMargin": 4,
+      "moves": [
+        {
+          "square": "b2",
+          "discDiffForMover": 24,
+          "isBest": false
+        },
+        {
+          "square": "c2",
+          "discDiffForMover": 30,
+          "isBest": false
+        },
+        {
+          "square": "b3",
+          "discDiffForMover": 30,
+          "isBest": false
+        },
+        {
+          "square": "a5",
+          "discDiffForMover": 24,
+          "isBest": false
+        },
+        {
+          "square": "b6",
+          "discDiffForMover": 6,
+          "isBest": false
+        },
+        {
+          "square": "a7",
+          "discDiffForMover": 34,
+          "isBest": true
+        }
+      ],
+      "difficulty": 3,
+      "difficultyRawScore": 17,
+      "tags": [
+        "stable-gain"
+      ]
+    },
+    {
+      "id": "tsume-312",
+      "board": {
+        "black": "0x0026170e3b000000",
+        "white": "0xff5868f0c4fd9c88"
+      },
+      "sideToMove": "white",
+      "empties": 15,
+      "correctMoves": [
+        "a7"
+      ],
+      "bestDiscDiff": 30,
+      "outcome": "win",
+      "clarityMargin": 22,
+      "moves": [
+        {
+          "square": "b3",
+          "discDiffForMover": -4,
+          "isBest": false
+        },
+        {
+          "square": "a5",
+          "discDiffForMover": 8,
+          "isBest": false
+        },
+        {
+          "square": "a7",
+          "discDiffForMover": 30,
+          "isBest": true
+        }
+      ],
+      "difficulty": 3,
+      "difficultyRawScore": 15,
+      "tags": [
+        "stable-gain"
+      ]
+    },
+    {
+      "id": "tsume-316",
+      "board": {
+        "black": "0x000c3af21c5c7201",
+        "white": "0x3f03050d232308e4"
+      },
+      "sideToMove": "white",
+      "empties": 17,
+      "correctMoves": [
+        "c2"
+      ],
+      "bestDiscDiff": 42,
+      "outcome": "win",
+      "clarityMargin": 6,
+      "moves": [
+        {
+          "square": "b1",
+          "discDiffForMover": 24,
+          "isBest": false
+        },
+        {
+          "square": "d1",
+          "discDiffForMover": 30,
+          "isBest": false
+        },
+        {
+          "square": "c2",
+          "discDiffForMover": 42,
+          "isBest": true
+        },
+        {
+          "square": "h2",
+          "discDiffForMover": 36,
+          "isBest": false
+        },
+        {
+          "square": "h3",
+          "discDiffForMover": 18,
+          "isBest": false
+        },
+        {
+          "square": "g4",
+          "discDiffForMover": 20,
+          "isBest": false
+        },
+        {
+          "square": "g6",
+          "discDiffForMover": 32,
+          "isBest": false
+        },
+        {
+          "square": "h6",
+          "discDiffForMover": 32,
+          "isBest": false
+        },
+        {
+          "square": "e7",
+          "discDiffForMover": 34,
+          "isBest": false
+        },
+        {
+          "square": "f7",
+          "discDiffForMover": 28,
+          "isBest": false
+        }
+      ],
+      "difficulty": 3,
+      "difficultyRawScore": 17,
+      "tags": []
+    },
+    {
+      "id": "tsume-318",
+      "board": {
+        "black": "0x000c3afa1c5a7301",
+        "white": "0x3f03050523250ce4"
+      },
+      "sideToMove": "white",
+      "empties": 15,
+      "correctMoves": [
+        "b1"
+      ],
+      "bestDiscDiff": 42,
+      "outcome": "win",
+      "clarityMargin": 12,
+      "moves": [
+        {
+          "square": "b1",
+          "discDiffForMover": 42,
+          "isBest": true
+        },
+        {
+          "square": "d1",
+          "discDiffForMover": 14,
+          "isBest": false
+        },
+        {
+          "square": "h2",
+          "discDiffForMover": 20,
+          "isBest": false
+        },
+        {
+          "square": "h3",
+          "discDiffForMover": 16,
+          "isBest": false
+        },
+        {
+          "square": "g4",
+          "discDiffForMover": 16,
+          "isBest": false
+        },
+        {
+          "square": "g6",
+          "discDiffForMover": 30,
+          "isBest": false
+        },
+        {
+          "square": "h6",
+          "discDiffForMover": 24,
+          "isBest": false
+        },
+        {
+          "square": "e7",
+          "discDiffForMover": 26,
+          "isBest": false
+        },
+        {
+          "square": "f7",
+          "discDiffForMover": 22,
+          "isBest": false
+        },
+        {
+          "square": "g7",
+          "discDiffForMover": 18,
+          "isBest": false
+        }
+      ],
+      "difficulty": 4,
+      "difficultyRawScore": 23.060000000000002,
+      "tags": []
+    },
+    {
+      "id": "tsume-319",
+      "board": {
+        "black": "0x98f8a89cb8d4c700",
+        "white": "0x04045760442830e1"
+      },
+      "sideToMove": "white",
+      "empties": 17,
+      "correctMoves": [
+        "d2"
+      ],
+      "bestDiscDiff": 4,
+      "outcome": "win",
+      "clarityMargin": 4,
+      "moves": [
+        {
+          "square": "b1",
+          "discDiffForMover": 0,
+          "isBest": false
+        },
+        {
+          "square": "c1",
+          "discDiffForMover": -14,
+          "isBest": false
+        },
+        {
+          "square": "d2",
+          "discDiffForMover": 4,
+          "isBest": true
+        },
+        {
+          "square": "a3",
+          "discDiffForMover": -2,
+          "isBest": false
+        },
+        {
+          "square": "b3",
+          "discDiffForMover": -2,
+          "isBest": false
+        },
+        {
+          "square": "b5",
+          "discDiffForMover": -2,
+          "isBest": false
+        },
+        {
+          "square": "f8",
+          "discDiffForMover": -6,
+          "isBest": false
+        },
+        {
+          "square": "g8",
+          "discDiffForMover": -16,
+          "isBest": false
+        }
+      ],
+      "difficulty": 3,
+      "difficultyRawScore": 17,
+      "tags": []
+    },
+    {
+      "id": "tsume-320",
+      "board": {
+        "black": "0x9898a89cb8d4c700",
+        "white": "0x44645760442830e1"
+      },
+      "sideToMove": "black",
+      "empties": 16,
+      "correctMoves": [
+        "b8",
+        "f8"
+      ],
+      "bestDiscDiff": 16,
+      "outcome": "win",
+      "clarityMargin": 10,
+      "moves": [
+        {
+          "square": "d1",
+          "discDiffForMover": 6,
+          "isBest": false
+        },
+        {
+          "square": "e1",
+          "discDiffForMover": -2,
+          "isBest": false
+        },
+        {
+          "square": "d2",
+          "discDiffForMover": 0,
+          "isBest": false
+        },
+        {
+          "square": "b3",
+          "discDiffForMover": 2,
+          "isBest": false
+        },
+        {
+          "square": "b4",
+          "discDiffForMover": 4,
+          "isBest": false
+        },
+        {
+          "square": "a5",
+          "discDiffForMover": -2,
+          "isBest": false
+        },
+        {
+          "square": "b5",
+          "discDiffForMover": 0,
+          "isBest": false
+        },
+        {
+          "square": "a7",
+          "discDiffForMover": 0,
+          "isBest": false
+        },
+        {
+          "square": "b7",
+          "discDiffForMover": 0,
+          "isBest": false
+        },
+        {
+          "square": "b8",
+          "discDiffForMover": 16,
+          "isBest": true
+        },
+        {
+          "square": "f8",
+          "discDiffForMover": 16,
+          "isBest": true
+        }
+      ],
+      "difficulty": 3,
+      "difficultyRawScore": 16,
+      "tags": [
+        "corner-sacrifice",
+        "stable-gain"
+      ]
+    },
+    {
+      "id": "tsume-324",
+      "board": {
+        "black": "0x1ffed4ca5d321e04",
+        "white": "0xe0002a3420458101"
+      },
+      "sideToMove": "white",
+      "empties": 15,
+      "correctMoves": [
+        "a5"
+      ],
+      "bestDiscDiff": 20,
+      "outcome": "win",
+      "clarityMargin": 4,
+      "moves": [
+        {
+          "square": "e1",
+          "discDiffForMover": 12,
+          "isBest": false
+        },
+        {
+          "square": "f2",
+          "discDiffForMover": -6,
+          "isBest": false
+        },
+        {
+          "square": "d3",
+          "discDiffForMover": 16,
+          "isBest": false
+        },
+        {
+          "square": "h3",
+          "discDiffForMover": 6,
+          "isBest": false
+        },
+        {
+          "square": "b4",
+          "discDiffForMover": 16,
+          "isBest": false
+        },
+        {
+          "square": "h4",
+          "discDiffForMover": 10,
+          "isBest": false
+        },
+        {
+          "square": "a5",
+          "discDiffForMover": 20,
+          "isBest": true
+        }
+      ],
+      "difficulty": 5,
+      "difficultyRawScore": 32.46,
+      "tags": [
+        "stable-gain"
+      ]
+    },
+    {
+      "id": "tsume-325",
+      "board": {
+        "black": "0x00604c542c782400",
+        "white": "0xff9fb3a9d0800000"
+      },
+      "sideToMove": "white",
+      "empties": 20,
+      "correctMoves": [
+        "h2",
+        "b5"
+      ],
+      "bestDiscDiff": 58,
+      "outcome": "win",
+      "clarityMargin": 6,
+      "moves": [
+        {
+          "square": "b1",
+          "discDiffForMover": 44,
+          "isBest": false
+        },
+        {
+          "square": "e1",
+          "discDiffForMover": 46,
+          "isBest": false
+        },
+        {
+          "square": "f1",
+          "discDiffForMover": 48,
+          "isBest": false
+        },
+        {
+          "square": "g1",
+          "discDiffForMover": 34,
+          "isBest": false
+        },
+        {
+          "square": "d2",
+          "discDiffForMover": 42,
+          "isBest": false
+        },
+        {
+          "square": "e2",
+          "discDiffForMover": 40,
+          "isBest": false
+        },
+        {
+          "square": "g2",
+          "discDiffForMover": 32,
+          "isBest": false
+        },
+        {
+          "square": "h2",
+          "discDiffForMover": 58,
+          "isBest": true
+        },
+        {
+          "square": "b3",
+          "discDiffForMover": 52,
+          "isBest": false
+        },
+        {
+          "square": "c3",
+          "discDiffForMover": 30,
+          "isBest": false
+        },
+        {
+          "square": "b4",
+          "discDiffForMover": 48,
+          "isBest": false
+        },
+        {
+          "square": "b5",
+          "discDiffForMover": 58,
+          "isBest": true
+        }
+      ],
+      "difficulty": 4,
+      "difficultyRawScore": 20,
+      "tags": [
+        "corner-sacrifice",
+        "stable-gain"
+      ]
+    },
+    {
+      "id": "tsume-331",
+      "board": {
+        "black": "0x0121150004202000",
+        "white": "0xfcd8eafffad98000"
+      },
+      "sideToMove": "black",
+      "empties": 20,
+      "correctMoves": [
+        "c7"
+      ],
+      "bestDiscDiff": -6,
+      "outcome": "loss",
+      "clarityMargin": 8,
+      "moves": [
+        {
+          "square": "e2",
+          "discDiffForMover": -14,
+          "isBest": false
+        },
+        {
+          "square": "c3",
+          "discDiffForMover": -28,
+          "isBest": false
+        },
+        {
+          "square": "a4",
+          "discDiffForMover": -20,
+          "isBest": false
+        },
+        {
+          "square": "c7",
+          "discDiffForMover": -6,
+          "isBest": true
+        }
+      ],
+      "difficulty": 5,
+      "difficultyRawScore": 31.78,
+      "tags": []
+    },
+    {
+      "id": "tsume-332",
+      "board": {
+        "black": "0x0121151014383000",
+        "white": "0xfcd8eaefeac18000"
+      },
+      "sideToMove": "white",
+      "empties": 19,
+      "correctMoves": [
+        "c7"
+      ],
+      "bestDiscDiff": 14,
+      "outcome": "win",
+      "clarityMargin": 4,
+      "moves": [
+        {
+          "square": "d1",
+          "discDiffForMover": 4,
+          "isBest": false
+        },
+        {
+          "square": "e1",
+          "discDiffForMover": 4,
+          "isBest": false
+        },
+        {
+          "square": "f1",
+          "discDiffForMover": -4,
+          "isBest": false
+        },
+        {
+          "square": "g1",
+          "discDiffForMover": 6,
+          "isBest": false
+        },
+        {
+          "square": "c2",
+          "discDiffForMover": 10,
+          "isBest": false
+        },
+        {
+          "square": "d2",
+          "discDiffForMover": 10,
+          "isBest": false
+        },
+        {
+          "square": "g2",
+          "discDiffForMover": 2,
+          "isBest": false
+        },
+        {
+          "square": "b3",
+          "discDiffForMover": 6,
+          "isBest": false
+        },
+        {
+          "square": "c3",
+          "discDiffForMover": -2,
+          "isBest": false
+        },
+        {
+          "square": "b7",
+          "discDiffForMover": -10,
+          "isBest": false
+        },
+        {
+          "square": "c7",
+          "discDiffForMover": 14,
+          "isBest": true
+        }
+      ],
+      "difficulty": 5,
+      "difficultyRawScore": 47.120000000000005,
+      "tags": []
+    },
+    {
+      "id": "tsume-334",
+      "board": {
+        "black": "0xf04080d080808080",
+        "white": "0x0f3e7f2f3a307010"
+      },
+      "sideToMove": "black",
+      "empties": 20,
+      "correctMoves": [
+        "g3"
+      ],
+      "bestDiscDiff": 50,
+      "outcome": "win",
+      "clarityMargin": 10,
+      "moves": [
+        {
+          "square": "f1",
+          "discDiffForMover": 36,
+          "isBest": false
+        },
+        {
+          "square": "d2",
+          "discDiffForMover": 14,
+          "isBest": false
+        },
+        {
+          "square": "a3",
+          "discDiffForMover": 30,
+          "isBest": false
+        },
+        {
+          "square": "c3",
+          "discDiffForMover": 34,
+          "isBest": false
+        },
+        {
+          "square": "g3",
+          "discDiffForMover": 50,
+          "isBest": true
+        },
+        {
+          "square": "a4",
+          "discDiffForMover": 34,
+          "isBest": false
+        },
+        {
+          "square": "c4",
+          "discDiffForMover": 40,
+          "isBest": false
+        },
+        {
+          "square": "a7",
+          "discDiffForMover": 40,
+          "isBest": false
+        }
+      ],
+      "difficulty": 5,
+      "difficultyRawScore": 38.18,
+      "tags": []
+    },
+    {
+      "id": "tsume-336",
+      "board": {
+        "black": "0xf000a0f0a0a0e0a0",
+        "white": "0x0ffe5f0f1a101010"
+      },
+      "sideToMove": "black",
+      "empties": 18,
+      "correctMoves": [
+        "d2"
+      ],
+      "bestDiscDiff": 36,
+      "outcome": "win",
+      "clarityMargin": 4,
+      "moves": [
+        {
+          "square": "d1",
+          "discDiffForMover": 30,
+          "isBest": false
+        },
+        {
+          "square": "d2",
+          "discDiffForMover": 36,
+          "isBest": true
+        },
+        {
+          "square": "a3",
+          "discDiffForMover": 14,
+          "isBest": false
+        },
+        {
+          "square": "c3",
+          "discDiffForMover": 24,
+          "isBest": false
+        },
+        {
+          "square": "d3",
+          "discDiffForMover": 32,
+          "isBest": false
+        },
+        {
+          "square": "a4",
+          "discDiffForMover": 14,
+          "isBest": false
+        },
+        {
+          "square": "c4",
+          "discDiffForMover": 24,
+          "isBest": false
+        },
+        {
+          "square": "a7",
+          "discDiffForMover": 2,
+          "isBest": false
+        }
+      ],
+      "difficulty": 4,
+      "difficultyRawScore": 26.060000000000002,
+      "tags": []
+    },
+    {
+      "id": "tsume-337",
+      "board": {
+        "black": "0x1018123bbc426000",
+        "white": "0x80e0e8c4423c1c3e"
+      },
+      "sideToMove": "black",
+      "empties": 20,
+      "correctMoves": [
+        "c6"
+      ],
+      "bestDiscDiff": -18,
+      "outcome": "loss",
+      "clarityMargin": 8,
+      "moves": [
+        {
+          "square": "b2",
+          "discDiffForMover": -36,
+          "isBest": false
+        },
+        {
+          "square": "a3",
+          "discDiffForMover": -30,
+          "isBest": false
+        },
+        {
+          "square": "h3",
+          "discDiffForMover": -28,
+          "isBest": false
+        },
+        {
+          "square": "a4",
+          "discDiffForMover": -28,
+          "isBest": false
+        },
+        {
+          "square": "c6",
+          "discDiffForMover": -18,
+          "isBest": true
+        },
+        {
+          "square": "c7",
+          "discDiffForMover": -26,
+          "isBest": false
+        },
+        {
+          "square": "f8",
+          "discDiffForMover": -38,
+          "isBest": false
+        },
+        {
+          "square": "g8",
+          "discDiffForMover": -46,
+          "isBest": false
+        }
+      ],
+      "difficulty": 5,
+      "difficultyRawScore": 48.120000000000005,
+      "tags": []
+    },
+    {
+      "id": "tsume-338",
+      "board": {
+        "black": "0x5078527bfc426000",
+        "white": "0x8080a884023c1c3e"
+      },
+      "sideToMove": "white",
+      "empties": 19,
+      "correctMoves": [
+        "g1",
+        "c6"
+      ],
+      "bestDiscDiff": 46,
+      "outcome": "win",
+      "clarityMargin": 4,
+      "moves": [
+        {
+          "square": "g1",
+          "discDiffForMover": 46,
+          "isBest": true
+        },
+        {
+          "square": "h1",
+          "discDiffForMover": 16,
+          "isBest": false
+        },
+        {
+          "square": "b2",
+          "discDiffForMover": 20,
+          "isBest": false
+        },
+        {
+          "square": "h2",
+          "discDiffForMover": -4,
+          "isBest": false
+        },
+        {
+          "square": "a3",
+          "discDiffForMover": 40,
+          "isBest": false
+        },
+        {
+          "square": "h3",
+          "discDiffForMover": 18,
+          "isBest": false
+        },
+        {
+          "square": "a4",
+          "discDiffForMover": 40,
+          "isBest": false
+        },
+        {
+          "square": "a6",
+          "discDiffForMover": 42,
+          "isBest": false
+        },
+        {
+          "square": "c6",
+          "discDiffForMover": 46,
+          "isBest": true
+        },
+        {
+          "square": "a7",
+          "discDiffForMover": 32,
+          "isBest": false
+        },
+        {
+          "square": "b7",
+          "discDiffForMover": 26,
+          "isBest": false
+        },
+        {
+          "square": "c7",
+          "discDiffForMover": 28,
+          "isBest": false
+        },
+        {
+          "square": "d8",
+          "discDiffForMover": 42,
+          "isBest": false
+        },
+        {
+          "square": "f8",
+          "discDiffForMover": 30,
+          "isBest": false
+        }
+      ],
+      "difficulty": 5,
+      "difficultyRawScore": 33.44,
+      "tags": [
+        "corner-sacrifice"
+      ]
+    },
+    {
+      "id": "tsume-340",
+      "board": {
+        "black": "0xfcfcdf80fcc08000",
+        "white": "0x0000207f023c4080"
+      },
+      "sideToMove": "black",
+      "empties": 20,
+      "correctMoves": [
+        "a3"
+      ],
+      "bestDiscDiff": 28,
+      "outcome": "win",
+      "clarityMargin": 14,
+      "moves": [
+        {
+          "square": "f1",
+          "discDiffForMover": 4,
+          "isBest": false
+        },
+        {
+          "square": "g1",
+          "discDiffForMover": 14,
+          "isBest": false
+        },
+        {
+          "square": "b2",
+          "discDiffForMover": 6,
+          "isBest": false
+        },
+        {
+          "square": "c2",
+          "discDiffForMover": 10,
+          "isBest": false
+        },
+        {
+          "square": "d2",
+          "discDiffForMover": 10,
+          "isBest": false
+        },
+        {
+          "square": "e2",
+          "discDiffForMover": 8,
+          "isBest": false
+        },
+        {
+          "square": "f2",
+          "discDiffForMover": 2,
+          "isBest": false
+        },
+        {
+          "square": "a3",
+          "discDiffForMover": 28,
+          "isBest": true
+        },
+        {
+          "square": "b3",
+          "discDiffForMover": 2,
+          "isBest": false
+        },
+        {
+          "square": "a4",
+          "discDiffForMover": 8,
+          "isBest": false
+        }
+      ],
+      "difficulty": 4,
+      "difficultyRawScore": 20,
+      "tags": []
+    },
+    {
+      "id": "tsume-341",
+      "board": {
+        "black": "0xfcfcdf84fec18000",
+        "white": "0x0000207b003c4080"
+      },
+      "sideToMove": "white",
+      "empties": 19,
+      "correctMoves": [
+        "a7"
+      ],
+      "bestDiscDiff": -28,
+      "outcome": "loss",
+      "clarityMargin": 6,
+      "moves": [
+        {
+          "square": "b3",
+          "discDiffForMover": -36,
+          "isBest": false
+        },
+        {
+          "square": "a7",
+          "discDiffForMover": -28,
+          "isBest": true
+        },
+        {
+          "square": "b7",
+          "discDiffForMover": -34,
+          "isBest": false
+        },
+        {
+          "square": "b8",
+          "discDiffForMover": -38,
+          "isBest": false
+        }
+      ],
+      "difficulty": 4,
+      "difficultyRawScore": 22,
+      "tags": [
+        "corner-sacrifice"
+      ]
+    },
+    {
+      "id": "tsume-342",
+      "board": {
+        "black": "0xfcfcdc80f6c18000",
+        "white": "0x0001237f083c4080"
+      },
+      "sideToMove": "black",
+      "empties": 18,
+      "correctMoves": [
+        "b2"
+      ],
+      "bestDiscDiff": 28,
+      "outcome": "win",
+      "clarityMargin": 4,
+      "moves": [
+        {
+          "square": "f1",
+          "discDiffForMover": 16,
+          "isBest": false
+        },
+        {
+          "square": "g1",
+          "discDiffForMover": 22,
+          "isBest": false
+        },
+        {
+          "square": "b2",
+          "discDiffForMover": 28,
+          "isBest": true
+        },
+        {
+          "square": "c2",
+          "discDiffForMover": 16,
+          "isBest": false
+        },
+        {
+          "square": "d2",
+          "discDiffForMover": 16,
+          "isBest": false
+        },
+        {
+          "square": "e2",
+          "discDiffForMover": 16,
+          "isBest": false
+        },
+        {
+          "square": "f2",
+          "discDiffForMover": 16,
+          "isBest": false
+        },
+        {
+          "square": "b3",
+          "discDiffForMover": 18,
+          "isBest": false
+        },
+        {
+          "square": "a4",
+          "discDiffForMover": 24,
+          "isBest": false
+        },
+        {
+          "square": "b7",
+          "discDiffForMover": 12,
+          "isBest": false
+        }
+      ],
+      "difficulty": 5,
+      "difficultyRawScore": 31.12,
+      "tags": [
+        "corner-sacrifice"
+      ]
+    },
+    {
+      "id": "tsume-343",
+      "board": {
+        "black": "0x0204083064ec1414",
+        "white": "0x815b370f1b1160e0"
+      },
+      "sideToMove": "black",
+      "empties": 20,
+      "correctMoves": [
+        "b3"
+      ],
+      "bestDiscDiff": -32,
+      "outcome": "loss",
+      "clarityMargin": 14,
+      "moves": [
+        {
+          "square": "d2",
+          "discDiffForMover": -46,
+          "isBest": false
+        },
+        {
+          "square": "h2",
+          "discDiffForMover": -46,
+          "isBest": false
+        },
+        {
+          "square": "b3",
+          "discDiffForMover": -32,
+          "isBest": true
+        },
+        {
+          "square": "g6",
+          "discDiffForMover": -46,
+          "isBest": false
+        },
+        {
+          "square": "f7",
+          "discDiffForMover": -60,
+          "isBest": false
+        },
+        {
+          "square": "c8",
+          "discDiffForMover": -48,
+          "isBest": false
+        },
+        {
+          "square": "d8",
+          "discDiffForMover": -50,
+          "isBest": false
+        },
+        {
+          "square": "e8",
+          "discDiffForMover": -48,
+          "isBest": false
+        },
+        {
+          "square": "f8",
+          "discDiffForMover": -48,
+          "isBest": false
+        }
+      ],
+      "difficulty": 5,
+      "difficultyRawScore": 31.060000000000002,
+      "tags": []
+    },
+    {
+      "id": "tsume-344",
+      "board": {
+        "black": "0x2214083064ec1414",
+        "white": "0x814b370f1b1160e0"
+      },
+      "sideToMove": "white",
+      "empties": 19,
+      "correctMoves": [
+        "c8"
+      ],
+      "bestDiscDiff": 48,
+      "outcome": "win",
+      "clarityMargin": 10,
+      "moves": [
+        {
+          "square": "b1",
+          "discDiffForMover": 32,
+          "isBest": false
+        },
+        {
+          "square": "d1",
+          "discDiffForMover": 38,
+          "isBest": false
+        },
+        {
+          "square": "b2",
+          "discDiffForMover": 32,
+          "isBest": false
+        },
+        {
+          "square": "d2",
+          "discDiffForMover": 34,
+          "isBest": false
+        },
+        {
+          "square": "b3",
+          "discDiffForMover": 36,
+          "isBest": false
+        },
+        {
+          "square": "h4",
+          "discDiffForMover": 36,
+          "isBest": false
+        },
+        {
+          "square": "g5",
+          "discDiffForMover": 28,
+          "isBest": false
+        },
+        {
+          "square": "g6",
+          "discDiffForMover": 32,
+          "isBest": false
+        },
+        {
+          "square": "f7",
+          "discDiffForMover": 30,
+          "isBest": false
+        },
+        {
+          "square": "c8",
+          "discDiffForMover": 48,
+          "isBest": true
+        },
+        {
+          "square": "d8",
+          "discDiffForMover": 26,
+          "isBest": false
+        },
+        {
+          "square": "e8",
+          "discDiffForMover": 32,
+          "isBest": false
+        }
+      ],
+      "difficulty": 4,
+      "difficultyRawScore": 19,
+      "tags": [
+        "stable-gain"
+      ]
+    },
+    {
+      "id": "tsume-345",
+      "board": {
+        "black": "0x2010083064ec1414",
+        "white": "0x874f370f1b1160e0"
+      },
+      "sideToMove": "black",
+      "empties": 18,
+      "correctMoves": [
+        "h2",
+        "g5"
+      ],
+      "bestDiscDiff": -48,
+      "outcome": "loss",
+      "clarityMargin": 4,
+      "moves": [
+        {
+          "square": "d2",
+          "discDiffForMover": -52,
+          "isBest": false
+        },
+        {
+          "square": "h2",
+          "discDiffForMover": -48,
+          "isBest": true
+        },
+        {
+          "square": "g5",
+          "discDiffForMover": -48,
+          "isBest": true
+        },
+        {
+          "square": "g6",
+          "discDiffForMover": -52,
+          "isBest": false
+        },
+        {
+          "square": "h6",
+          "discDiffForMover": -58,
+          "isBest": false
+        },
+        {
+          "square": "f7",
+          "discDiffForMover": -56,
+          "isBest": false
+        },
+        {
+          "square": "d8",
+          "discDiffForMover": -60,
+          "isBest": false
+        }
+      ],
+      "difficulty": 4,
+      "difficultyRawScore": 21,
+      "tags": []
+    },
+    {
+      "id": "tsume-348",
+      "board": {
+        "black": "0x18183c7ab7c08080",
+        "white": "0x27274385483a3400"
+      },
+      "sideToMove": "black",
+      "empties": 18,
+      "correctMoves": [
+        "d2",
+        "h6"
+      ],
+      "bestDiscDiff": 10,
+      "outcome": "win",
+      "clarityMargin": 6,
+      "moves": [
+        {
+          "square": "b1",
+          "discDiffForMover": -2,
+          "isBest": false
+        },
+        {
+          "square": "d1",
+          "discDiffForMover": 0,
+          "isBest": false
+        },
+        {
+          "square": "e1",
+          "discDiffForMover": 0,
+          "isBest": false
+        },
+        {
+          "square": "f1",
+          "discDiffForMover": -8,
+          "isBest": false
+        },
+        {
+          "square": "a2",
+          "discDiffForMover": 0,
+          "isBest": false
+        },
+        {
+          "square": "b2",
+          "discDiffForMover": -2,
+          "isBest": false
+        },
+        {
+          "square": "d2",
+          "discDiffForMover": 10,
+          "isBest": true
+        },
+        {
+          "square": "g2",
+          "discDiffForMover": 4,
+          "isBest": false
+        },
+        {
+          "square": "c3",
+          "discDiffForMover": 4,
+          "isBest": false
+        },
+        {
+          "square": "h6",
+          "discDiffForMover": 10,
+          "isBest": true
+        },
+        {
+          "square": "g7",
+          "discDiffForMover": 2,
+          "isBest": false
+        },
+        {
+          "square": "h7",
+          "discDiffForMover": -4,
+          "isBest": false
+        },
+        {
+          "square": "g8",
+          "discDiffForMover": -12,
+          "isBest": false
+        }
+      ],
+      "difficulty": 4,
+      "difficultyRawScore": 26.060000000000002,
+      "tags": [
+        "stable-gain"
+      ]
+    }
+  ]
+}

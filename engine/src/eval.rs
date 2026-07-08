@@ -131,6 +131,16 @@ fn corner_count(board: &Board, side: Side) -> u32 {
     (own & CORNERS).count_ones()
 }
 
+/// `side` の安定石(簡易判定、[`stable_mask`]と同じロジック)の数を返す。
+///
+/// T027(`engine/src/bin/puzzlegen.rs`)の「確定石」タグ簡易判定
+/// (着手前後で安定石数が増えたか)のために、既存の非公開関数 [`stable_mask`]
+/// をそのまま呼び出す薄いラッパーとして公開する。判定ロジック自体は
+/// [`stable_mask`]/[`evaluate`]と共通(再実装しない)。
+pub fn stable_count(board: &Board, side: Side) -> u32 {
+    stable_mask(board, side).count_ones()
+}
+
 /// 盤面の4隅に対応するビットマスク(a1, h1, a8, h8)。
 const CORNERS: u64 = (1u64 << 0) | (1u64 << 7) | (1u64 << 56) | (1u64 << 63);
 
