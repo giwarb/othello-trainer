@@ -1,0 +1,184 @@
+.tsume-practice-mode {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.tsume-settings {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.75rem;
+  width: 100%;
+  max-width: 480px;
+  box-sizing: border-box;
+  padding: 0 0.5rem;
+}
+
+.tsume-stats-summary {
+  font-size: 0.9rem;
+  color: #3f3f46;
+}
+
+.tsume-stats-summary p {
+  margin: 0 0 0.3rem;
+}
+
+.tsume-stats-summary__tags {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.5rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.tsume-settings__group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  border: 1px solid #d4d4d8;
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.75rem;
+}
+
+.tsume-settings__group legend {
+  padding: 0 0.3rem;
+  font-weight: bold;
+}
+
+.tsume-settings__buttons {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.tsume-practice {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.tsume-practice__meta {
+  font-size: 0.85rem;
+  color: #52525b;
+  margin: 0;
+}
+
+.tsume-practice__feedback {
+  font-size: 0.95rem;
+  font-weight: bold;
+  color: #15803d;
+  margin: 0;
+}
+
+.tsume-practice__quit {
+  background: none;
+  border: 1px solid #d4d4d8;
+  border-radius: 0.4rem;
+  padding: 0.4rem 0.9rem;
+  cursor: pointer;
+}
+
+.tsume-result {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 1rem;
+  box-sizing: border-box;
+  border-radius: 0.6rem;
+  text-align: center;
+}
+
+.tsume-result h2 {
+  margin: 0;
+}
+
+.tsume-result--clear {
+  background: #dcfce7;
+  color: #14532d;
+}
+
+.tsume-result--fail {
+  background: #fee2e2;
+  color: #7f1d1d;
+}
+
+.tsume-result p {
+  margin: 0;
+  max-width: 100%;
+  overflow-wrap: break-word;
+}
+
+.tsume-result__board {
+  max-width: 320px;
+}
+
+.tsume-result__moves {
+  width: 100%;
+  max-width: 320px;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+  font-variant-numeric: tabular-nums;
+  color: #27272a;
+}
+
+.tsume-result__moves caption {
+  font-size: 0.8rem;
+  margin-bottom: 0.3rem;
+}
+
+.tsume-result__moves th,
+.tsume-result__moves td {
+  border: 1px solid #d4d4d8;
+  padding: 0.2rem 0.5rem;
+}
+
+.tsume-result__moves-row--played {
+  background: #fecaca;
+  font-weight: bold;
+}
+
+.tsume-result__moves-row--best {
+  background: #bbf7d0;
+}
+
+.tsume-result__buttons {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-top: 0.4rem;
+}
+
+/* 狭い画面幅(スマートフォン想定、375px程度)ではボタン・文字を少し縮めて縦積みにする。 */
+@media (max-width: 400px) {
+  .tsume-settings__buttons {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .tsume-result__buttons {
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+  }
+
+  .tsume-result {
+    padding: 0.75rem;
+    font-size: 0.9rem;
+  }
+}

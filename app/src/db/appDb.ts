@@ -26,14 +26,18 @@ export const APP_DB_NAME = 'othello-trainer'
  * 現在のスキーマバージョン。
  * - v1: `josekiSRS`ストア(T020)
  * - v2: `midgamePool`ストア追加(T021)
+ * - v3: `tsumeAttempts`ストア追加(T028)
  */
-export const APP_DB_VERSION = 2
+export const APP_DB_VERSION = 3
 
 /** 定石練習モード(T020)のSRS状態ストア。キーは`JosekiSrsState.lineId`。 */
 export const JOSEKI_SRS_STORE = 'josekiSRS'
 
 /** 中盤練習モード(T021)の出題プールストア。キーは`MidgamePoolEntry.id`。 */
 export const MIDGAME_POOL_STORE = 'midgamePool'
+
+/** 詰めオセロプレイモード(T028)の挑戦履歴ストア。キーは`PuzzleAttemptRecord.id`。 */
+export const TSUME_ATTEMPTS_STORE = 'tsumeAttempts'
 
 /** `APP_DB_VERSION`時点で存在すべき全ストアを作成する(既存なら何もしない)。 */
 function upgrade(db: IDBDatabase): void {
@@ -42,6 +46,9 @@ function upgrade(db: IDBDatabase): void {
   }
   if (!db.objectStoreNames.contains(MIDGAME_POOL_STORE)) {
     db.createObjectStore(MIDGAME_POOL_STORE, { keyPath: 'id' })
+  }
+  if (!db.objectStoreNames.contains(TSUME_ATTEMPTS_STORE)) {
+    db.createObjectStore(TSUME_ATTEMPTS_STORE, { keyPath: 'id' })
   }
 }
 

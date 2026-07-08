@@ -13,19 +13,21 @@ import { loadJosekiDb, lookupJosekiNode } from './joseki/lookup.ts'
 import { PracticeMode } from './joseki/PracticeMode.tsx'
 import type { JosekiDb } from './joseki/types.ts'
 import { PracticeMode as MidgamePracticeMode } from './midgame/PracticeMode.tsx'
+import { PlayMode as TsumePlayMode } from './tsume/PlayMode.tsx'
 
-/** アプリ全体のモード(T020: 対局/定石練習、T021: 中盤練習の切り替え)。 */
-type AppMode = 'play' | 'joseki' | 'midgame'
+/** アプリ全体のモード(T020: 対局/定石練習、T021: 中盤練習、T028: 詰めオセロの切り替え)。 */
+type AppMode = 'play' | 'joseki' | 'midgame' | 'tsume'
 
 const MODE_LABEL: Record<AppMode, string> = {
   play: '対局',
   joseki: '定石練習',
   midgame: '中盤練習',
+  tsume: '詰めオセロ',
 }
 
 /**
- * アプリのルートコンポーネント。「対局」「定石練習」「中盤練習」(T021)モードを
- * 切り替えるだけのシンプルなナビゲーション(タブ)を持つ(要件7・9)。
+ * アプリのルートコンポーネント。「対局」「定石練習」「中盤練習」「詰めオセロ」(T028)
+ * モードを切り替えるだけのシンプルなナビゲーション(タブ)を持つ(要件7・9)。
  * ルーティングライブラリは使わず、ローカルstateで表示するモードを切り替える。
  *
  * レスポンシブ対応: タブは `flex-wrap` するため375px幅でも崩れない
@@ -55,6 +57,7 @@ export function App() {
       {mode === 'play' && <PlayMode />}
       {mode === 'joseki' && <PracticeMode />}
       {mode === 'midgame' && <MidgamePracticeMode />}
+      {mode === 'tsume' && <TsumePlayMode />}
     </main>
   )
 }
