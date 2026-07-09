@@ -1,7 +1,7 @@
 ---
 id: T039
 title: 盤面セル評価オーバーレイ(候補手ごとの評価インジケータ)+ 対局モードへの統合
-status: todo
+status: review
 assignee: implementer
 attempts: 0
 ---
@@ -73,4 +73,11 @@ attempts: 0
   - `npm test`(`app/`配下): 54ファイル・455件全件パス(新規テスト12件超を含む)。
   - `npm run build`(`app/`配下): 成功(`tsc -b && vite build && inject-sw-version`)。ビルド中、並行作業中の他エージェントによる`train/`クレートの一時的な不整合(`cargo metadata`失敗)で`prebuild`(wasm再ビルド)が一度失敗したが、`engine`クレート自体は本タスクで変更していないため既存の`app/src/engine/pkg`を使い`npx tsc -b && npx vite build && node scripts/inject-sw-version.mjs`を直接実行して成功を確認(その後`npm run dev`実行時には`train`側が修正されており`wasm:build`も正常完了した)。
   - 実機確認(`npm run dev`、Playwrightスクリプトで自動化): オーバーレイ既定OFF→ONで黒の初手4マスに評価インジケータ(すべて`best`分類、損失0)が表示される→オーバーレイのマスを`force`クリック(pointer-events:noneを貫通してCanvas側のクリックが正しく発火することを確認)→着手が通常どおり進行(CPUが応答して対局が続く)→OFFにすると表示が消える→ONにしてリロードすると設定(true)が維持される、をすべて確認。コンソール/ページエラーなし。
-  - 本番公開URL(`https://giwarb.github.io/othello-trainer/`)での確認は、変更をpush・GitHub Actionsデプロイ確認後に追記する。
+  - 本番デプロイ・公開確認: mainにpush(commit `07b154d`)し、GitHub Actions「Deploy to GitHub Pages」(run 29016456964)が`build`→`deploy`とも成功したことを`gh run watch`で確認した。その後Playwright(`chromium`、`npx playwright install chromium`済み)で本番URL(`https://giwarb.github.io/othello-trainer/`)にアクセスし、ローカル確認と同じ手順(既定OFF→ONで黒の初手4マスにオーバーレイ表示(すべて`best`)→オーバーレイ上をforceクリックしてもCanvas側のクリックが正常に発火し着手が進行→OFFで表示が消える→ONにしてリロードすると設定`true`が維持される)をすべて確認した。コンソール/ページエラーなし。
+
+## 受け入れ基準チェック結果
+
+- [x] `npm test`(`app/`配下): 54ファイル・455件全件パス。
+- [x] `npm run build`(`app/`配下): 成功(`tsc -b && vite build && inject-sw-version`)。
+- [x] 実機確認(`npm run dev` + Playwright自動化): 上記のとおり全項目確認済み。
+- [x] mainへpush・GitHub Actionsデプロイ成功・本番公開URLでのPlaywright確認: commit `07b154d`、run 29016456964 成功、本番URLでの動作確認済み。
