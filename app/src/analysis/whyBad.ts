@@ -116,8 +116,14 @@ function isLineFull(board: Board, line: readonly number[]): boolean {
  * 食い違う)ため、意図的に別実装のまま残している。将来的に両者を統一する
  * 場合は、`eval.rs`側の評価関数自体の較正(重みの再計算)も必要になる点に
  * 注意すること。
+ *
+ * 【T032追記】盤面オーバーレイ(`motifs.ts`の`computeBoardHighlights`)で
+ * 「確定石」をマス単位でハイライト表示する必要が生じたため、内部の`Set<number>`
+ * (安定と判定されたマス集合)を`computeStableSquares`として切り出しエクスポートした。
+ * `countStableDiscs`自体の計算ロジック・戻り値(個数)は変更していない
+ * (`.size`を返すだけの薄いラッパーになった)。
  */
-export function countStableDiscs(board: Board, side: Side): number {
+export function computeStableSquares(board: Board, side: Side): Set<number> {
   const ownSquares: number[] = []
   for (let sq = 0; sq < 64; sq++) {
     if (cellAt(board, sq) === side) ownSquares.push(sq)
@@ -152,7 +158,11 @@ export function countStableDiscs(board: Board, side: Side): number {
     }
   }
 
-  return stable.size
+  return stable
+}
+
+export function countStableDiscs(board: Board, side: Side): number {
+  return computeStableSquares(board, side).size
 }
 
 export interface WhyBadStability {

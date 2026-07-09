@@ -20,6 +20,8 @@ import type { Puzzle } from '../tsume/types.ts'
 import { ANALYZE_LIMIT } from './analyzeGame.ts'
 import { AttributionWaterfall } from './AttributionWaterfall.tsx'
 import { buildAttribution, replayContinuation } from './attribution.ts'
+import { BoardOverlay, type OverlayVisibility } from './BoardOverlay.tsx'
+import './BoardOverlay.css'
 import {
   addBranchMove,
   createBranchTree,
@@ -31,10 +33,24 @@ import {
   type BranchTree,
 } from './branchTree.ts'
 import { buildComparePv, type ComparePvResult } from './comparePv.ts'
+import { computeBoardHighlights, detectMotifs, type BoardHighlights, type MotifDefinition } from './motifs.ts'
 import { buildInstantTsumePuzzle, sendToMidgamePractice } from './sendToPractice.ts'
-import type { AttributionBreakdown, MoveAnalysis } from './types.ts'
-import { analyzeWhyBad } from './whyBad.ts'
+import type { AttributionBreakdown, FeatureSet, MoveAnalysis } from './types.ts'
+import { analyzeWhyBad, computeStableSquares } from './whyBad.ts'
 import './BlunderPanel.css'
+
+const MOTIF_KIND_LABEL: Record<MotifDefinition['kind'], string> = {
+  good: '良い手',
+  bad: '悪い手',
+  trap: '罠',
+}
+
+const OVERLAY_TOGGLES: readonly { key: keyof OverlayVisibility; label: string }[] = [
+  { key: 'frontier', label: 'フロンティア石' },
+  { key: 'stable', label: '確定石' },
+  { key: 'seed', label: '種石' },
+  { key: 'dangerousCorners', label: '危険なX/C打ちマス' },
+]
 
 /** 相手(エンジン)の着手までの見せかけの「考慮時間」(ミリ秒、他モードと同じ演出)。 */
 const OPPONENT_MOVE_DELAY_MS = 300
@@ -117,6 +133,52 @@ function BranchTreeView({
  */
 export function BlunderPanel({ moveAnalysis, gameMoves, engine, onClose }: BlunderPanelProps) {
   const whyBad = analyzeWhyBad(moveAnalysis.board, moveAnalysis.side, notationToSquare(moveAnalysis.move))
+
+  // --- モチーフ検出タグ + 盤面オーバーレイ(T032) -----------------------------
+  // T031の特徴量層(`engine/src/explain.rs`の`featureSet`コマンド)を取得し、
+  // `motifs.ts`のモチーフ検出+盤面オーバーレイ用マス集合の算出に使う。
+  const [featureSet, setFeatureSet] = useState<FeatureSet | null>(null)
+  const [featureSetError, setFeatureSetError] = useState<string | null>(null)
+  const [overlayVisible, setOverlayVisible] = useState<OverlayVisibility>({
+    frontier: false,
+    stable: false,
+    seed: false,
+    dangerousCorners: false,
+  })
+
+  useEffect(() => {
+    let cancelled = false
+    setFeatureSet(null)
+    setFeatureSetError(null)
+
+    engine
+      .requestFeatureSet(moveAnalysis.board, moveAnalysis.side, moveAnalysis.move)
+      .then((resp) => {
+        if (!cancelled) setFeatureSet(resp.features)
+      })
+      .catch((error: unknown) => {
+        console.error('特徴量の取得に失敗しました', error)
+        if (!cancelled) setFeatureSetError('モチーフ検出用の特徴量取得に失敗しました。')
+      })
+
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line
+  }, [])
+
+  const motifContext = featureSet
+    ? {
+        beforeBoard: moveAnalysis.board,
+        side: moveAnalysis.side,
+        square: notationToSquare(moveAnalysis.move),
+        features: featureSet,
+      }
+    : null
+  const motifs: MotifDefinition[] = motifContext ? detectMotifs(motifContext) : []
+  const boardHighlights: BoardHighlights | null = motifContext
+    ? computeBoardHighlights(motifContext, computeStableSquares)
+    : null
 
   // --- 比較PV(要件1) -----------------------------------------------------
   const [comparePv, setComparePv] = useState<ComparePvResult | null>(null)
@@ -373,8 +435,9 @@ export function BlunderPanel({ moveAnalysis, gameMoves, engine, onClose }: Blund
 
         <section class="blunder-panel__section">
           <h3>着手前の局面</h3>
-          <div class="board-container blunder-panel__board">
+          <div class="board-container blunder-panel__board board-with-overlay">
             <Board board={moveAnalysis.board} sideToMove={moveAnalysis.side} />
+            {boardHighlights && <BoardOverlay highlights={boardHighlights} visible={overlayVisible} />}
           </div>
           <p class="status">
             実際の手: {moveAnalysis.move}{' '}
@@ -385,6 +448,41 @@ export function BlunderPanel({ moveAnalysis, gameMoves, engine, onClose }: Blund
             <EvalBadge discDiff={moveAnalysis.bestDiscDiff} source={moveAnalysis.isExact ? 'exact' : 'midgame'} />
           </p>
           <p class="status">ロス: {moveAnalysis.lossDiscs.toFixed(1)}石</p>
+
+          {featureSetError && <p class="notice notice--error">{featureSetError}</p>}
+          {!featureSet && !featureSetError && <p class="notice">モチーフ・盤面オーバーレイを計算中...</p>}
+
+          {motifs.length > 0 && (
+            <ul class="blunder-panel__motifs">
+              {motifs.map((motif) => (
+                <li key={motif.key} class={`motif-badge motif-badge--${motif.kind}`}>
+                  {motif.label}
+                  <span class="motif-badge__kind">({MOTIF_KIND_LABEL[motif.kind]})</span>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          {boardHighlights && (
+            <div class="board-overlay-controls">
+              {OVERLAY_TOGGLES.map(({ key, label }) => (
+                <label key={key}>
+                  <input
+                    type="checkbox"
+                    checked={overlayVisible[key]}
+                    onChange={(event) =>
+                      setOverlayVisible((prev) => ({
+                        ...prev,
+                        [key]: (event.target as HTMLInputElement).checked,
+                      }))
+                    }
+                  />
+                  <span class={`board-overlay-controls__swatch board-overlay-controls__swatch--${key}`} />
+                  {label}
+                </label>
+              ))}
+            </div>
+          )}
         </section>
 
         <section class="blunder-panel__section">

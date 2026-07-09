@@ -1,0 +1,84 @@
+.board-with-overlay {
+  position: relative;
+  width: 100%;
+  max-width: 280px;
+  margin: 0 auto;
+}
+
+.board-overlay {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  grid-template-rows: repeat(8, 1fr);
+  pointer-events: none;
+}
+
+.board-overlay__cell {
+  box-sizing: border-box;
+}
+
+.board-overlay__cell--frontier {
+  background: rgba(59, 130, 246, 0.35);
+  box-shadow: inset 0 0 0 2px rgba(37, 99, 235, 0.7);
+}
+
+.board-overlay__cell--stable {
+  background: rgba(16, 185, 129, 0.35);
+  box-shadow: inset 0 0 0 2px rgba(5, 150, 105, 0.7);
+}
+
+.board-overlay__cell--seed {
+  background: rgba(245, 158, 11, 0.4);
+  box-shadow: inset 0 0 0 2px rgba(217, 119, 6, 0.8);
+}
+
+.board-overlay__cell--dangerousCorners {
+  background: rgba(239, 68, 68, 0.4);
+  box-shadow: inset 0 0 0 2px rgba(220, 38, 38, 0.8);
+}
+
+.board-overlay-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  font-size: 0.85rem;
+}
+
+.board-overlay-controls label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  white-space: nowrap;
+}
+
+.board-overlay-controls__swatch {
+  display: inline-block;
+  width: 0.8em;
+  height: 0.8em;
+  border-radius: 0.2em;
+  flex-shrink: 0;
+}
+
+.board-overlay-controls__swatch--frontier {
+  background: rgba(59, 130, 246, 0.8);
+}
+
+.board-overlay-controls__swatch--stable {
+  background: rgba(16, 185, 129, 0.8);
+}
+
+.board-overlay-controls__swatch--seed {
+  background: rgba(245, 158, 11, 0.9);
+}
+
+.board-overlay-controls__swatch--dangerousCorners {
+  background: rgba(239, 68, 68, 0.9);
+}
+
+@media (max-width: 400px) {
+  .board-overlay-controls {
+    font-size: 0.78rem;
+    gap: 0.4rem;
+  }
+}
