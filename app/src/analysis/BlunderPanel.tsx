@@ -18,6 +18,8 @@ import { resolveMover } from '../midgame/resolveMover.ts'
 import { judgePuzzleMove } from '../tsume/judgePuzzleMove.ts'
 import type { Puzzle } from '../tsume/types.ts'
 import { ANALYZE_LIMIT } from './analyzeGame.ts'
+import { AttributionWaterfall } from './AttributionWaterfall.tsx'
+import { buildAttribution, replayContinuation } from './attribution.ts'
 import {
   addBranchMove,
   createBranchTree,
@@ -30,7 +32,7 @@ import {
 } from './branchTree.ts'
 import { buildComparePv, type ComparePvResult } from './comparePv.ts'
 import { buildInstantTsumePuzzle, sendToMidgamePractice } from './sendToPractice.ts'
-import type { MoveAnalysis } from './types.ts'
+import type { AttributionBreakdown, MoveAnalysis } from './types.ts'
 import { analyzeWhyBad } from './whyBad.ts'
 import './BlunderPanel.css'
 
@@ -121,6 +123,12 @@ export function BlunderPanel({ moveAnalysis, gameMoves, engine, onClose }: Blund
   const [comparePvLoading, setComparePvLoading] = useState(true)
   const [comparePvError, setComparePvError] = useState<string | null>(null)
 
+  // --- 評価内訳分解(要件4、T031) -------------------------------------------
+  // 比較PVの末端局面(実際の進行の末端 vs 最善進行の末端)間の評価差を、
+  // 現行評価関数の3項(モビリティ・隅・確定石)に分解して表示する。
+  const [attribution, setAttribution] = useState<AttributionBreakdown | null>(null)
+  const [attributionError, setAttributionError] = useState<string | null>(null)
+
   useEffect(() => {
     let cancelled = false
     setComparePvLoading(true)
@@ -137,7 +145,28 @@ export function BlunderPanel({ moveAnalysis, gameMoves, engine, onClose }: Blund
           bestPv = resp.pv
         }
         if (cancelled) return
-        setComparePv(buildComparePv(gameMoves, moveAnalysis.ply, moveAnalysis.bestMove, bestPv))
+        const pvResult = buildComparePv(gameMoves, moveAnalysis.ply, moveAnalysis.bestMove, bestPv)
+        setComparePv(pvResult)
+
+        // 比較PVの末端局面を求め、評価内訳分解を取得する(要件5: PV中間局面
+        // でも分解できる設計だが、本タスクでは末端同士の比較のみUIに表示する)。
+        try {
+          const playedEndBoard = replayContinuation(
+            moveAnalysis.board,
+            moveAnalysis.side,
+            pvResult.playedContinuation,
+          )
+          const bestEndBoard = replayContinuation(moveAnalysis.board, moveAnalysis.side, pvResult.bestContinuation)
+          const [playedTerms, bestTerms] = await Promise.all([
+            engine.requestEvalTerms(playedEndBoard, moveAnalysis.side),
+            engine.requestEvalTerms(bestEndBoard, moveAnalysis.side),
+          ])
+          if (cancelled) return
+          setAttribution(buildAttribution(playedTerms, bestTerms, moveAnalysis.side))
+        } catch (error) {
+          console.error('評価内訳分解の計算に失敗しました', error)
+          if (!cancelled) setAttributionError('評価内訳の取得に失敗しました。')
+        }
       } catch (error) {
         console.error('比較PV取得のための解析に失敗しました', error)
         if (!cancelled) setComparePvError('比較PVの取得に失敗しました。')
@@ -387,6 +416,18 @@ export function BlunderPanel({ moveAnalysis, gameMoves, engine, onClose }: Blund
                 ))}
               </p>
             </div>
+          )}
+        </section>
+
+        <section class="blunder-panel__section">
+          <h3>評価内訳(実際の進行 vs 最善進行の末端局面)</h3>
+          {!attribution && !attributionError && <p class="notice">評価内訳を計算中...</p>}
+          {attributionError && <p class="notice notice--error">{attributionError}</p>}
+          {attribution && (
+            <AttributionWaterfall
+              breakdown={attribution}
+              title={`${sideLabel(moveAnalysis.side)}番から見た評価差の内訳(石差)`}
+            />
           )}
         </section>
 

@@ -92,8 +92,114 @@ export interface ErrorResponseMessage {
   error: string;
 }
 
+// ---------------------------------------------------------------------
+// T031: 特徴量層・評価内訳分解層(`Engine::explain`、`engine/src/explain.rs`)
+// ---------------------------------------------------------------------
+
+/**
+ * `evalTerms` コマンドのリクエスト。現行評価関数(`eval.rs`)の3項
+ * (モビリティ差・隅差・安定石差)の生の特徴量差分を1局面ぶん取得する。
+ * 加重・合算(waterfall分解の構築)は `app/src/analysis/attribution.ts` の
+ * 純粋関数で行う(`engine/src/explain.rs` モジュール冒頭のコメント参照)。
+ */
+export interface EvalTermsRequestMessage {
+  id: number;
+  cmd: 'evalTerms';
+  board: BoardJson;
+}
+
+/** `evalTerms` コマンドの正常応答。`engine/src/explain.rs` の `EvalTermsResponse` と対応する。 */
+export interface EvalTermsResponseMessage {
+  id: number;
+  final: true;
+  /** 黒視点(黒が多い/有利なら正)の着手可能数差。 */
+  mobilityDiff: number;
+  /** 黒視点の隅の保有数差。 */
+  cornerDiff: number;
+  /** 黒視点の安定石(確定石、簡易判定)差。 */
+  stableDiff: number;
+  /** `eval::evaluate` の生の出力(黒視点、centi-disc単位、1石=100)。 */
+  evaluateBlack: number;
+}
+
+/**
+ * `featureSet` コマンドのリクエスト。設計書§1「特徴量層」の12特徴量のうち
+ * Rust側(`engine/src/explain.rs`)で計算する11個(余裕手を除く)を、
+ * ある局面である1手について取得する。
+ */
+export interface FeatureSetRequestMessage {
+  id: number;
+  cmd: 'featureSet';
+  board: BoardJson;
+  /** 着手先マスの記法("a1"〜"h8")。`board` の手番にとって合法手である必要がある。 */
+  move: string;
+}
+
+/** 辺の形の簡易分類(`engine/src/explain.rs` の `EdgeShapeKind` と対応)。 */
+export type EdgeShapeKind = 'block' | 'both_corners_open' | 'wing' | 'one_corner_open' | 'open';
+
+export interface EdgeShapeJson {
+  edge: 'top' | 'bottom' | 'left' | 'right';
+  shape: EdgeShapeKind;
+  emptyCount: number;
+}
+
+export interface CornerRiskJson {
+  kind: 'x' | 'c';
+  corner: string;
+  stableRisk: number;
+}
+
+export interface ParityRegionJson {
+  size: number;
+  parity: 'odd' | 'even';
+  squares: string[];
+}
+
+export interface LineJson {
+  name: 'main_diagonal' | 'anti_diagonal';
+  mover: number;
+  opponent: number;
+  empty: number;
+}
+
+/** 設計書§1「特徴量層」の12特徴量のうちRust側で計算する11個(余裕手を除く)。 */
+export interface FeatureSetJson {
+  mobilityDiff: number;
+  moverMobilityBefore: number;
+  opponentMobilityBefore: number;
+  opponentMobilityAfter: number;
+  moverMobilityAfter: number;
+  potentialMobilityDiff: number;
+  openness: number;
+  isUchiwari: boolean;
+  frontierDiff: number;
+  newOpponentMoves: string[];
+  lostOwnMoves: string[];
+  stableDiff: number;
+  edgeShapes: EdgeShapeJson[];
+  cornerRisk: CornerRiskJson | null;
+  parityRegions: ParityRegionJson[];
+  seedStones: string[];
+  lines: LineJson[];
+}
+
+/** `featureSet` コマンドの正常応答。 */
+export interface FeatureSetResponseMessage {
+  id: number;
+  final: true;
+  features: FeatureSetJson;
+}
+
 /** Workerから返ってくるメッセージ(正常応答またはエラー応答)。 */
-export type EngineResponseMessage = AnalyzeResponseMessage | ErrorResponseMessage;
+export type EngineResponseMessage =
+  | AnalyzeResponseMessage
+  | EvalTermsResponseMessage
+  | FeatureSetResponseMessage
+  | ErrorResponseMessage;
+
+/** Workerへ送るメッセージ全体(コマンド種別で分岐する)。 */
+export type EngineRequestMessage = AnalyzeRequestMessage | EvalTermsRequestMessage | FeatureSetRequestMessage;
 
 /** `EngineResponseMessage` がエラー応答かどうかを判定する型ガード。 */
 export function isErrorResponse(message: EngineResponseMessage): message is ErrorResponseMessage {

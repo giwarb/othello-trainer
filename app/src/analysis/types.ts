@@ -8,6 +8,7 @@
  */
 
 import type { Board, Side } from '../game/othello.ts'
+import type { FeatureSetJson } from '../engine/types.ts'
 
 /** 入力された1局の棋譜(着手列、`parseTranscript`の出力または手動並べの記録)。 */
 export interface GameRecord {
@@ -79,4 +80,51 @@ export interface ClassifyThresholds {
   readonly dubious: number
   /** この値以上で「悪手」(??)。 */
   readonly blunder: number
+}
+
+// ---------------------------------------------------------------------
+// T031: 言語化支援「特徴量層」・「評価内訳分解層」
+// (`othello-trainer-design-verbalization.md` §1・§2、`app/src/analysis/attribution.ts`)
+// ---------------------------------------------------------------------
+
+/**
+ * 設計書§1「特徴量層」の12特徴量のうち、Rust側(`engine/src/explain.rs`の
+ * `featureSet`コマンド)で計算する11個(「余裕手」を除く)。
+ * `engine/src/explain.rs`の`FeatureSetJson`と対応する
+ * (`engine/src/protocol.rs`同様、Rust側の型と1:1対応させる規約)。
+ */
+export type FeatureSet = FeatureSetJson
+
+/**
+ * 1局面ぶんの現行評価関数(`engine/src/eval.rs`)の生の特徴量差分(黒視点)。
+ * `EngineClient.requestEvalTerms`(`cmd: "evalTerms"`)の応答から
+ * `id`/`final`を除いたもの。`app/src/analysis/attribution.ts`の
+ * `buildAttribution`の入力になる。
+ */
+export interface EvalTerms {
+  readonly mobilityDiff: number
+  readonly cornerDiff: number
+  readonly stableDiff: number
+  /** `eval::evaluate`の生の出力(黒視点、centi-disc単位、1石=100)。 */
+  readonly evaluateBlack: number
+}
+
+/**
+ * 評価内訳分解(waterfall分解)の1項目。
+ * `othello-trainer-design-verbalization.md` §2「評価内訳分解層」を、現行の
+ * 3項評価(モビリティ・隅・安定石)に厳密に分解する形へスコープ縮小した版
+ * (`attribution.ts`モジュール冒頭のコメント参照)。
+ */
+export interface AttributionTerm {
+  readonly key: 'mobility' | 'corner' | 'stable'
+  readonly label: string
+  /** 石差単位(centi-discではない)。`perspective`側から見て正ならプラス寄与。 */
+  readonly delta: number
+}
+
+/** `buildAttribution`が返す分解結果全体。 */
+export interface AttributionBreakdown {
+  readonly terms: readonly AttributionTerm[]
+  /** `terms`の`delta`の合計(石差単位)。 */
+  readonly total: number
 }

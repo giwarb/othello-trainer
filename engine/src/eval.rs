@@ -59,20 +59,24 @@ use crate::bitboard::{Board, Side};
 ///
 /// T024でEdaxの評価値への最小二乗回帰により較正した値(このファイル冒頭の
 /// 「T024: 重みのEdax較正」を参照)。回帰係数 2.5271 石/手 を100倍して丸めた。
-const MOBILITY_WEIGHT: i32 = 253;
+///
+/// T031(`explain.rs`)の評価内訳分解層(waterfall分解)が同じ重みを厳密に
+/// 再利用できるよう `pub(crate)` にしている(数値を複製すると較正値の
+/// 二重管理・drift のリスクがあるため)。
+pub(crate) const MOBILITY_WEIGHT: i32 = 253;
 
 /// 隅(コーナー)1個あたりの重み(centi-disc単位)。
 ///
 /// T024でEdaxの評価値への最小二乗回帰により較正した値(このファイル冒頭の
 /// 「T024: 重みのEdax較正」を参照)。回帰係数 10.8826 石/個 を100倍して丸めた。
-const CORNER_WEIGHT: i32 = 1088;
+pub(crate) const CORNER_WEIGHT: i32 = 1088;
 
 /// 安定石(隅から辺沿いに連続する、今後ひっくり返されない石)1個あたりの重み
 /// (centi-disc単位)。
 ///
 /// T024でEdaxの評価値への最小二乗回帰により較正した値(このファイル冒頭の
 /// 「T024: 重みのEdax較正」を参照)。回帰係数 0.9275 石/個 を100倍して丸めた。
-const STABLE_WEIGHT: i32 = 93;
+pub(crate) const STABLE_WEIGHT: i32 = 93;
 
 /// [`evaluate`] が使う生の(重み付けする前の)特徴量差分。
 ///
@@ -142,14 +146,20 @@ pub fn stable_count(board: &Board, side: Side) -> u32 {
 }
 
 /// 盤面の4隅に対応するビットマスク(a1, h1, a8, h8)。
-const CORNERS: u64 = (1u64 << 0) | (1u64 << 7) | (1u64 << 56) | (1u64 << 63);
+///
+/// T031(`explain.rs`)のX/C打ちリスク判定・種石検出でも同じ隅定義を使うため
+/// `pub(crate)` にしている。
+pub(crate) const CORNERS: u64 = (1u64 << 0) | (1u64 << 7) | (1u64 << 56) | (1u64 << 63);
 
 // 4辺それぞれに沿ったマス目のビット位置(端から端への順)。
 // 添字が小さい側の要素が「前端」、大きい側の要素が「後端」に対応する。
-const TOP_EDGE: [u32; 8] = [0, 1, 2, 3, 4, 5, 6, 7]; // a1..h1
-const BOTTOM_EDGE: [u32; 8] = [56, 57, 58, 59, 60, 61, 62, 63]; // a8..h8
-const LEFT_EDGE: [u32; 8] = [0, 8, 16, 24, 32, 40, 48, 56]; // a1..a8
-const RIGHT_EDGE: [u32; 8] = [7, 15, 23, 31, 39, 47, 55, 63]; // h1..h8
+//
+// T031(`explain.rs`)の「辺の形」特徴量計算でも同じ辺定義を再利用するため
+// `pub(crate)` にしている(重複再定義を避ける)。
+pub(crate) const TOP_EDGE: [u32; 8] = [0, 1, 2, 3, 4, 5, 6, 7]; // a1..h1
+pub(crate) const BOTTOM_EDGE: [u32; 8] = [56, 57, 58, 59, 60, 61, 62, 63]; // a8..h8
+pub(crate) const LEFT_EDGE: [u32; 8] = [0, 8, 16, 24, 32, 40, 48, 56]; // a1..a8
+pub(crate) const RIGHT_EDGE: [u32; 8] = [7, 15, 23, 31, 39, 47, 55, 63]; // h1..h8
 
 /// 指定した手番の安定石(簡易判定)をビットマスクで返す。
 ///

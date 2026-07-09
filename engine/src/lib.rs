@@ -14,6 +14,10 @@ pub mod endgame;
 // WASM公開APIへの影響はない(`#[wasm_bindgen]` は個々の項目に付与されるものであり、
 // モジュールの可視性変更自体はJS側から見えるエクスポートを増やさない)。
 pub mod eval;
+// T031: 特徴量層・評価内訳分解層(`Engine::explain`から呼ばれる)。
+// `protocol`と同様、モジュール自体は非公開でよい(`Engine`のメソッド越しに
+// WASM APIとして公開する)。
+mod explain;
 mod protocol;
 mod search;
 pub mod tt;
@@ -56,6 +60,15 @@ impl Engine {
     /// JSON文字列を返す(詳細は `protocol::handle_analyze` を参照)。
     pub fn analyze(&mut self, request_json: &str) -> String {
         protocol::handle_analyze(request_json, &mut self.tt)
+    }
+
+    /// T031: 特徴量層(`cmd: "featureSet"`)・評価内訳分解層の生データ
+    /// (`cmd: "evalTerms"`)を計算し、JSON文字列で返す。
+    ///
+    /// `analyze`とは異なり探索(置換表)を使わないため `&self` で十分。
+    /// 本メソッドもpanicしない(詳細は `explain::handle_explain` を参照)。
+    pub fn explain(&self, request_json: &str) -> String {
+        explain::handle_explain(request_json)
     }
 }
 

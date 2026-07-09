@@ -145,6 +145,45 @@ pub fn square_to_notation(idx: u8) -> String {
     format!("{}{}", (b'a' + file) as char, (b'1' + rank) as char)
 }
 
+/// `"a1"`〜`"h8"` の記法をマス番号(0..63)に変換する。[`square_to_notation`] の逆変換。
+///
+/// T031(`explain.rs`)の `move` フィールド解析で使う。不正な記法(長さ違反・
+/// 範囲外の文字)は `Err` を返す(呼び出し元は絶対にpanicしないという本モジュールの
+/// 方針に従い、この関数もpanicしない)。
+pub fn notation_to_square(notation: &str) -> Result<u8, String> {
+    let bytes = notation.as_bytes();
+    if bytes.len() != 2 {
+        return Err(format!("invalid square notation: {notation}"));
+    }
+    let file = bytes[0];
+    let rank = bytes[1];
+    if !(b'a'..=b'h').contains(&file) || !(b'1'..=b'8').contains(&rank) {
+        return Err(format!("invalid square notation: {notation}"));
+    }
+    Ok((rank - b'1') * 8 + (file - b'a'))
+}
+
+/// [`BoardJson`] を `(Board, Side)` にパースする。
+///
+/// `handle_analyze` と `explain::handle_explain` の両方から使う共通ロジック
+/// (16進数パース・`turn` の妥当性検証)。絶対にpanicしない: 不正な入力は
+/// `Err(String)`(エラーメッセージ)を返す。
+pub(crate) fn parse_board(board: &BoardJson) -> Result<(Board, Side), String> {
+    let black_hex = board.black.strip_prefix("0x").unwrap_or(board.black.as_str());
+    let white_hex = board.white.strip_prefix("0x").unwrap_or(board.white.as_str());
+
+    let black = u64::from_str_radix(black_hex, 16).map_err(|e| format!("invalid board.black: {e}"))?;
+    let white = u64::from_str_radix(white_hex, 16).map_err(|e| format!("invalid board.white: {e}"))?;
+
+    let side = match board.turn.as_str() {
+        "black" => Side::Black,
+        "white" => Side::White,
+        other => return Err(format!("invalid board.turn: {other}")),
+    };
+
+    Ok((Board { black, white }, side))
+}
+
 /// JSONリクエスト文字列を解析して探索を実行し、JSONレスポンス文字列を返す。
 ///
 /// `tt` は呼び出しをまたいで同じインスタンスを使い回すことを想定している
@@ -163,35 +202,10 @@ pub fn handle_analyze(request_json: &str, tt: &mut TranspositionTable) -> String
         return error_json(Some(request.id), format!("unsupported command: {cmd}"));
     }
 
-    let black_hex = request
-        .board
-        .black
-        .strip_prefix("0x")
-        .unwrap_or(request.board.black.as_str());
-    let white_hex = request
-        .board
-        .white
-        .strip_prefix("0x")
-        .unwrap_or(request.board.white.as_str());
-
-    let black = match u64::from_str_radix(black_hex, 16) {
+    let (board, side) = match parse_board(&request.board) {
         Ok(v) => v,
-        Err(e) => return error_json(Some(request.id), format!("invalid board.black: {e}")),
+        Err(e) => return error_json(Some(request.id), e),
     };
-    let white = match u64::from_str_radix(white_hex, 16) {
-        Ok(v) => v,
-        Err(e) => return error_json(Some(request.id), format!("invalid board.white: {e}")),
-    };
-
-    let side = match request.board.turn.as_str() {
-        "black" => Side::Black,
-        "white" => Side::White,
-        other => {
-            return error_json(Some(request.id), format!("invalid board.turn: {other}"));
-        }
-    };
-
-    let board = Board { black, white };
     let empties = board.empty_count();
 
     let limit = SearchLimit {
@@ -314,7 +328,7 @@ pub fn handle_analyze(request_json: &str, tt: &mut TranspositionTable) -> String
 /// `serde_json::to_string` 自体が失敗することは通常あり得ない
 /// (`ErrorResponse` は `Option<u64>` と `String` のみで構成される単純な
 /// 構造体のため)が、万一に備えて手書きの最小限のJSONにフォールバックする。
-fn error_json(id: Option<u64>, error: String) -> String {
+pub(crate) fn error_json(id: Option<u64>, error: String) -> String {
     let response = ErrorResponse { id, error };
     serde_json::to_string(&response)
         .unwrap_or_else(|_| "{\"id\":null,\"error\":\"failed to serialize error response\"}".to_string())

@@ -214,6 +214,49 @@ impl Board {
     }
 }
 
+/// マスク `mask` の各ビットについて、8方向すべての隣接マスを合わせたビットマスクを
+/// 返す(`mask` 自身のビットは含まない)。
+///
+/// T031(`explain.rs`)のフロンティア石数・潜在手数・開放度・確定石危険度等、
+/// 複数の特徴量計算で共通に使う「1マス膨張(dilate)」操作。既存の `DIRECTIONS`
+/// (8方向シフト、[`Board::legal_moves`] 等で使っているのと同じもの)をそのまま
+/// 再利用し、新たな境界処理ロジックは追加しない。
+pub(crate) fn dilate8(mask: u64) -> u64 {
+    DIRECTIONS.iter().fold(0u64, |acc, dir| acc | dir(mask))
+}
+
+#[cfg(test)]
+mod dilate8_tests {
+    use super::*;
+
+    #[test]
+    fn dilate8_of_single_center_square_returns_8_neighbors() {
+        // d4 = index 27 (file=3, rank=3, 0-indexed)。中央付近なので8近傍全てが盤内。
+        let d4 = 1u64 << 27;
+        let dilated = dilate8(d4);
+        assert_eq!(dilated.count_ones(), 8);
+        // d4自身は含まれない。
+        assert_eq!(dilated & d4, 0);
+    }
+
+    #[test]
+    fn dilate8_of_corner_square_returns_3_neighbors_without_wraparound() {
+        // a1 = index 0。盤の角なので隣接マスは3つ(b1, a2, b2)のみ。
+        let a1 = 1u64;
+        let dilated = dilate8(a1);
+        assert_eq!(dilated.count_ones(), 3);
+        // 列の回り込み(h1やh2など)が発生していないことを確認。
+        let h1 = 1u64 << 7;
+        let h2 = 1u64 << 15;
+        assert_eq!(dilated & (h1 | h2), 0);
+    }
+
+    #[test]
+    fn dilate8_of_empty_mask_is_empty() {
+        assert_eq!(dilate8(0), 0);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

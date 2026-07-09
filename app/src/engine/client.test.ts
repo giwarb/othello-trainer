@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { EngineClient, type WorkerLike } from './client';
-import type { AnalyzeRequestMessage, EngineResponseMessage } from './types';
+import type { EngineRequestMessage, EngineResponseMessage } from './types';
 
 /**
  * 実際のWorker/WASMを起動せず、リクエストID管理ロジックのみを検証するための
@@ -8,12 +8,12 @@ import type { AnalyzeRequestMessage, EngineResponseMessage } from './types';
  * 任意のタイミングでレスポンスメッセージを配信できる。
  */
 class FakeWorker implements WorkerLike {
-  readonly sent: AnalyzeRequestMessage[] = [];
+  readonly sent: EngineRequestMessage[] = [];
   private listener: ((event: MessageEvent) => void) | undefined;
   terminated = false;
 
   postMessage(message: unknown): void {
-    this.sent.push(message as AnalyzeRequestMessage);
+    this.sent.push(message as EngineRequestMessage);
   }
 
   addEventListener(_type: 'message', listener: (event: MessageEvent) => void): void {
@@ -213,6 +213,102 @@ describe('EngineClient', () => {
       worker.emit({ id: 1, error: 'invalid request JSON: ...' });
 
       await expect(promise).rejects.toThrow('invalid request JSON: ...');
+    });
+  });
+
+  describe('requestEvalTerms (T031)', () => {
+    it('sends an evalTerms request and resolves with the eval terms response', async () => {
+      const { client, worker } = createClient();
+
+      const promise = client.requestEvalTerms(board, 'black');
+      expect(worker.sent).toHaveLength(1);
+      expect(worker.sent[0]).toEqual({
+        id: 1,
+        cmd: 'evalTerms',
+        board: {
+          black: '0x0000000810000000',
+          white: '0x0000001008000000',
+          turn: 'black',
+        },
+      });
+
+      worker.emit({
+        id: 1,
+        final: true,
+        mobilityDiff: 2,
+        cornerDiff: 0,
+        stableDiff: 1,
+        evaluateBlack: 599,
+      });
+
+      await expect(promise).resolves.toEqual({
+        id: 1,
+        final: true,
+        mobilityDiff: 2,
+        cornerDiff: 0,
+        stableDiff: 1,
+        evaluateBlack: 599,
+      });
+    });
+
+    it('rejects when the worker returns an error response', async () => {
+      const { client, worker } = createClient();
+
+      const promise = client.requestEvalTerms(board, 'white');
+      worker.emit({ id: 1, error: 'invalid board.black: ...' });
+
+      await expect(promise).rejects.toThrow('invalid board.black: ...');
+    });
+  });
+
+  describe('requestFeatureSet (T031)', () => {
+    it('sends a featureSet request with the move and resolves with the features', async () => {
+      const { client, worker } = createClient();
+
+      const promise = client.requestFeatureSet(board, 'black', 'd3');
+      expect(worker.sent).toHaveLength(1);
+      expect(worker.sent[0]).toEqual({
+        id: 1,
+        cmd: 'featureSet',
+        board: {
+          black: '0x0000000810000000',
+          white: '0x0000001008000000',
+          turn: 'black',
+        },
+        move: 'd3',
+      });
+
+      const features = {
+        mobilityDiff: 1,
+        moverMobilityBefore: 4,
+        opponentMobilityBefore: 4,
+        opponentMobilityAfter: 3,
+        moverMobilityAfter: 3,
+        potentialMobilityDiff: 0,
+        openness: 4,
+        isUchiwari: false,
+        frontierDiff: 0,
+        newOpponentMoves: [],
+        lostOwnMoves: [],
+        stableDiff: 0,
+        edgeShapes: [],
+        cornerRisk: null,
+        parityRegions: [],
+        seedStones: [],
+        lines: [],
+      };
+      worker.emit({ id: 1, final: true, features });
+
+      await expect(promise).resolves.toEqual({ id: 1, final: true, features });
+    });
+
+    it('rejects when the worker returns an error response (e.g. illegal move)', async () => {
+      const { client, worker } = createClient();
+
+      const promise = client.requestFeatureSet(board, 'black', 'a1');
+      worker.emit({ id: 1, error: 'illegal move: a1' });
+
+      await expect(promise).rejects.toThrow('illegal move: a1');
     });
   });
 });

@@ -9,10 +9,18 @@ import type {
   AnalyzeResponseMessage,
   Board,
   EngineResponseMessage,
+  ErrorResponseMessage,
+  EvalTermsRequestMessage,
+  EvalTermsResponseMessage,
+  FeatureSetRequestMessage,
+  FeatureSetResponseMessage,
   MoveEvalJson,
   Side,
 } from './types';
 import { isErrorResponse } from './types';
+
+/** `EngineResponseMessage` からエラー応答を除いた、正常応答のみの型。 */
+type SuccessResponse = Exclude<EngineResponseMessage, ErrorResponseMessage>;
 
 /**
  * `Worker` のうち本クライアントが実際に使用する最小限のインターフェース。
@@ -32,7 +40,7 @@ function createDefaultWorker(): WorkerLike {
 }
 
 interface PendingRequest {
-  resolve: (response: AnalyzeResponseMessage) => void;
+  resolve: (response: SuccessResponse) => void;
   reject: (error: Error) => void;
 }
 
@@ -88,7 +96,7 @@ export class EngineClient {
     };
 
     return new Promise<AnalyzeResponseMessage>((resolve, reject) => {
-      this.pending.set(id, { resolve, reject });
+      this.pending.set(id, { resolve: (response) => resolve(response as AnalyzeResponseMessage), reject });
       this.worker.postMessage(message);
     });
   }
@@ -119,9 +127,58 @@ export class EngineClient {
 
     return new Promise<MoveEvalJson[]>((resolve, reject) => {
       this.pending.set(id, {
-        resolve: (response: AnalyzeResponseMessage) => resolve(response.moves ?? []),
+        resolve: (response) => resolve((response as AnalyzeResponseMessage).moves ?? []),
         reject,
       });
+      this.worker.postMessage(message);
+    });
+  }
+
+  /**
+   * T031: 現行評価関数(`eval.rs`)の3項(モビリティ差・隅差・安定石差)の
+   * 生の特徴量差分を1局面ぶんリクエストする。`app/src/analysis/attribution.ts`の
+   * `buildAttribution`(純粋関数)に渡し、2局面間の評価差の内訳(waterfall分解)
+   * を構築するために使う。探索を伴わないため`limit`は不要。
+   */
+  requestEvalTerms(board: Board, turn: Side): Promise<EvalTermsResponseMessage> {
+    const id = this.nextRequestId++;
+    const message: EvalTermsRequestMessage = {
+      id,
+      cmd: 'evalTerms',
+      board: {
+        black: bigintToHex(board.black),
+        white: bigintToHex(board.white),
+        turn,
+      },
+    };
+
+    return new Promise<EvalTermsResponseMessage>((resolve, reject) => {
+      this.pending.set(id, { resolve: (response) => resolve(response as EvalTermsResponseMessage), reject });
+      this.worker.postMessage(message);
+    });
+  }
+
+  /**
+   * T031: 設計書§1「特徴量層」の12特徴量のうちRust側(`engine/src/explain.rs`)
+   * で計算する11個(余裕手を除く)を、ある局面である1手についてリクエストする。
+   * 本タスク時点ではUIには未統合(将来のモチーフ検出・言語化テンプレート生成
+   * タスクからの利用を見込んだAPI)。`move`は`turn`にとって合法手である必要がある。
+   */
+  requestFeatureSet(board: Board, turn: Side, move: string): Promise<FeatureSetResponseMessage> {
+    const id = this.nextRequestId++;
+    const message: FeatureSetRequestMessage = {
+      id,
+      cmd: 'featureSet',
+      board: {
+        black: bigintToHex(board.black),
+        white: bigintToHex(board.white),
+        turn,
+      },
+      move,
+    };
+
+    return new Promise<FeatureSetResponseMessage>((resolve, reject) => {
+      this.pending.set(id, { resolve: (response) => resolve(response as FeatureSetResponseMessage), reject });
       this.worker.postMessage(message);
     });
   }

@@ -8,7 +8,7 @@
 // ディレクトリ(.gitignore対象)。`npm run dev` / `npm run build` の前に
 // `build-wasm.mjs` が自動実行され生成される想定(`../../package.json` 参照)。
 import init, { Engine } from './pkg/engine.js';
-import type { AnalyzeRequestMessage, EngineResponseMessage } from './types';
+import type { EngineRequestMessage, EngineResponseMessage } from './types';
 
 // Worker内のグローバルスコープ。`tsconfig.app.json` は `lib: ["ES2023", "DOM"]`
 // を使っており(メインスレッド用の型)、Worker専用の `lib: "webworker"` を
@@ -16,7 +16,7 @@ import type { AnalyzeRequestMessage, EngineResponseMessage } from './types';
 // 衝突するため、Workerとのやり取りに必要な最小限のインターフェースだけを
 // 明示してキャストする。
 interface DedicatedWorkerScope {
-  onmessage: ((event: MessageEvent<AnalyzeRequestMessage>) => void) | null;
+  onmessage: ((event: MessageEvent<EngineRequestMessage>) => void) | null;
   postMessage(message: EngineResponseMessage): void;
 }
 
@@ -35,13 +35,17 @@ function ensureEngineReady(): Promise<void> {
   return readyPromise;
 }
 
-workerScope.onmessage = (event: MessageEvent<AnalyzeRequestMessage>): void => {
+workerScope.onmessage = (event: MessageEvent<EngineRequestMessage>): void => {
   const request = event.data;
   void ensureEngineReady().then(() => {
     if (!engine) {
       return;
     }
-    const responseJson = engine.analyze(JSON.stringify(request));
+    // `cmd: 'analyze'` は既存の`Engine::analyze`(探索・置換表を使う)、
+    // それ以外(T031で追加した`'evalTerms'`/`'featureSet'`)は
+    // `Engine::explain`(探索を伴わない特徴量計算)に振り分ける。
+    const responseJson =
+      request.cmd === 'analyze' ? engine.analyze(JSON.stringify(request)) : engine.explain(JSON.stringify(request));
     const response = JSON.parse(responseJson) as EngineResponseMessage;
     workerScope.postMessage(response);
   });
