@@ -21,7 +21,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
-use train::patterns;
+use engine::patterns;
 use train::regression::{Model, TrainConfig};
 use train::train_data::{self, Sample};
 use train::wthor;

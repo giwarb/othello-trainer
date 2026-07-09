@@ -1,45 +1,35 @@
 //! パターン特徴量に対するオンライン確率的勾配降下法(SGD)による線形回帰学習。
 //!
 //! 特徴は「アクティブな(パターンID, ステージ, 状態インデックス)の組」の集合
-//! (1局面につき[`crate::patterns::generate_patterns`]の要素数=22個)。予測値は
+//! (1局面につき[`engine::patterns::generate_patterns`]の要素数=22個)。予測値は
 //! アクティブな重みの単純合計。目的関数は (予測値 − 実際の最終石差)^2 + L2正則化。
+//!
+//! # T043: `engine::pattern_eval::PatternWeights`への委譲
+//!
+//! パターン形状の定義・重みのバイナリフォーマット入出力・スコアリング
+//! (`predict`相当)は、T043で`engine::pattern_eval::PatternWeights`に一本化した
+//! ([`Model`]はこれをラップし、学習専用ロジック(SGD勾配更新)だけをここに持つ)。
+//! バイナリフォーマットの読み書きロジックを2箇所に複製しないため、
+//! [`Model::to_bytes`]/[`Model::from_bytes`]は`PatternWeights`へそのまま委譲する。
 //!
 //! # ステージ分割
 //!
 //! 石差の意味合いは序盤・終盤で大きく異なるため、空きマス数によって
-//! [`NUM_STAGES`]個のステージに分割し、ステージごとに独立した重みテーブルを持つ
-//! ([`stage_for_empty_count`])。
+//! ステージに分割し、ステージごとに独立した重みテーブルを持つ
+//! (`engine::pattern_eval::stage_for_empty_count`)。
 
-use crate::patterns::{self, PatternCells};
-use crate::train_data::Sample;
 use engine::bitboard::Board;
+use engine::pattern_eval::{stage_for_empty_count, PatternWeights};
+use engine::patterns::{pattern_state_index, PatternCells};
 
-/// ステージ数。`stage = empty_count / STAGE_EMPTY_DIVISOR`で、空きマス数0..60を
-/// 0..12の13段階に分ける(60/5=12が最大インデックス)。
-pub const NUM_STAGES: usize = 13;
-/// ステージ分割の除数(空きマス5個ごとに1ステージ)。
-pub const STAGE_EMPTY_DIVISOR: u32 = 5;
+use crate::train_data::Sample;
 
-/// 空きマス数からステージ番号(`0 .. NUM_STAGES`)を求める。
-pub fn stage_for_empty_count(empty_count: u32) -> usize {
-    ((empty_count / STAGE_EMPTY_DIVISOR) as usize).min(NUM_STAGES - 1)
-}
-
-/// 1パターン分の重みテーブル(ステージごとに状態数分のf32配列を持つ)。
-#[derive(Debug, Clone)]
-pub struct PatternWeights {
-    /// このパターンの状態数(3^パターン長)。
-    pub num_states: u32,
-    /// `stage_tables[stage][state_index]`が重み。
-    pub stage_tables: Vec<Vec<f32>>,
-}
-
-/// 学習対象のパターン評価モデル。パターン形状の定義(`patterns`)と、
-/// それに対応する重み(`weights`、`weights[i]`が`patterns[i]`の重み)を持つ。
+/// 学習対象のパターン評価モデル。パターン形状の定義・重みは
+/// [`engine::pattern_eval::PatternWeights`]が持ち、本構造体は学習専用の
+/// ロジック(SGD勾配更新)だけを追加する薄いラッパー。
 #[derive(Debug, Clone)]
 pub struct Model {
-    pub patterns: Vec<PatternCells>,
-    pub weights: Vec<PatternWeights>,
+    pub weights: PatternWeights,
 }
 
 /// SGD学習のハイパーパラメータ。
@@ -69,28 +59,14 @@ impl Default for TrainConfig {
 impl Model {
     /// パターン定義から、全重みを0初期化したモデルを作る。
     pub fn new(patterns: Vec<PatternCells>) -> Self {
-        let weights = patterns
-            .iter()
-            .map(|cells| {
-                let num_states = patterns::num_states(cells.len());
-                PatternWeights {
-                    num_states,
-                    stage_tables: vec![vec![0f32; num_states as usize]; NUM_STAGES],
-                }
-            })
-            .collect();
-        Model { patterns, weights }
+        Model {
+            weights: PatternWeights::zeroed(patterns),
+        }
     }
 
     /// 局面(`board`・`mover`)の予測値(mover視点の最終石差の予測)を返す。
     pub fn predict(&self, board: &Board, mover: engine::bitboard::Side) -> f32 {
-        let stage = stage_for_empty_count(board.empty_count());
-        let mut sum = 0f32;
-        for (pattern_id, cells) in self.patterns.iter().enumerate() {
-            let state = patterns::pattern_state_index(cells, board, mover);
-            sum += self.weights[pattern_id].stage_tables[stage][state as usize];
-        }
-        sum
+        self.weights.score(board, mover)
     }
 
     /// 1サンプルについてSGD1ステップの更新を行う。
@@ -98,19 +74,20 @@ impl Model {
         let stage = stage_for_empty_count(sample.board.empty_count());
 
         let states: Vec<u32> = self
+            .weights
             .patterns
             .iter()
-            .map(|cells| patterns::pattern_state_index(cells, &sample.board, sample.mover))
+            .map(|cells| pattern_state_index(cells, &sample.board, sample.mover))
             .collect();
         let prediction: f32 = states
             .iter()
             .enumerate()
-            .map(|(pattern_id, &state)| self.weights[pattern_id].stage_tables[stage][state as usize])
+            .map(|(pattern_id, &state)| self.weights.tables[pattern_id].stage_tables[stage][state as usize])
             .sum();
 
         let error = prediction - sample.outcome as f32;
         for (pattern_id, &state) in states.iter().enumerate() {
-            let w = &mut self.weights[pattern_id].stage_tables[stage][state as usize];
+            let w = &mut self.weights.tables[pattern_id].stage_tables[stage][state as usize];
             let grad = error + cfg.l2 * *w;
             *w -= cfg.learning_rate * grad;
         }
@@ -161,100 +138,16 @@ impl Model {
         sum / samples.len() as f64
     }
 
-    /// 重みファイルのバイナリ形式にシリアライズする。
-    ///
-    /// フォーマット(すべてリトルエンディアン、詳細は`train/weights/README.md`参照):
-    /// - magic: 4バイト `b"PWV1"`
-    /// - version: u32 (=1)
-    /// - num_patterns: u32
-    /// - num_stages: u32
-    /// - パターンごと(`patterns`生成順): cell_count: u32, 続けて
-    ///   `num_stages * 3^cell_count`個のf32(ステージ0の状態0..N, ステージ1の状態0..N, ...)
+    /// 重みファイルのバイナリ形式にシリアライズする(`PatternWeights::to_bytes`
+    /// への委譲、詳細は`train/weights/README.md`参照)。
     pub fn to_bytes(&self) -> Vec<u8> {
-        let mut buf = Vec::new();
-        buf.extend_from_slice(b"PWV1");
-        buf.extend_from_slice(&1u32.to_le_bytes());
-        buf.extend_from_slice(&(self.patterns.len() as u32).to_le_bytes());
-        buf.extend_from_slice(&(NUM_STAGES as u32).to_le_bytes());
-
-        for (pattern_id, cells) in self.patterns.iter().enumerate() {
-            buf.extend_from_slice(&(cells.len() as u32).to_le_bytes());
-            let pw = &self.weights[pattern_id];
-            for stage_table in &pw.stage_tables {
-                for &w in stage_table {
-                    buf.extend_from_slice(&w.to_le_bytes());
-                }
-            }
-        }
-
-        buf
+        self.weights.to_bytes()
     }
 
-    /// [`to_bytes`]の逆変換。パターン形状定義は保存せず、読み込み時に
-    /// [`patterns::generate_patterns`]を再生成して突き合わせる(セル数の一致を検証する)。
+    /// [`to_bytes`](Self::to_bytes)の逆変換(`PatternWeights::from_bytes`への委譲)。
     pub fn from_bytes(bytes: &[u8]) -> Result<Model, String> {
-        let mut pos = 0usize;
-        let read_bytes = |pos: &mut usize, n: usize| -> Result<&[u8], String> {
-            if *pos + n > bytes.len() {
-                return Err("重みファイルが途中で終わっています".to_string());
-            }
-            let slice = &bytes[*pos..*pos + n];
-            *pos += n;
-            Ok(slice)
-        };
-
-        let magic = read_bytes(&mut pos, 4)?;
-        if magic != b"PWV1" {
-            return Err(format!("不正なマジックバイト: {magic:?}"));
-        }
-        let version = u32::from_le_bytes(read_bytes(&mut pos, 4)?.try_into().unwrap());
-        if version != 1 {
-            return Err(format!("未対応のバージョン: {version}"));
-        }
-        let num_patterns = u32::from_le_bytes(read_bytes(&mut pos, 4)?.try_into().unwrap());
-        let num_stages = u32::from_le_bytes(read_bytes(&mut pos, 4)?.try_into().unwrap());
-        if num_stages as usize != NUM_STAGES {
-            return Err(format!(
-                "ステージ数が一致しません(ファイル={num_stages}, 期待={NUM_STAGES})"
-            ));
-        }
-
-        let pattern_defs = patterns::generate_patterns();
-        if pattern_defs.len() != num_patterns as usize {
-            return Err(format!(
-                "パターン数が一致しません(ファイル={num_patterns}, 現在の定義={})",
-                pattern_defs.len()
-            ));
-        }
-
-        let mut weights = Vec::with_capacity(pattern_defs.len());
-        for cells in &pattern_defs {
-            let cell_count = u32::from_le_bytes(read_bytes(&mut pos, 4)?.try_into().unwrap());
-            if cell_count as usize != cells.len() {
-                return Err(format!(
-                    "パターンのセル数が一致しません(ファイル={cell_count}, 現在の定義={})",
-                    cells.len()
-                ));
-            }
-            let num_states = patterns::num_states(cell_count as usize);
-            let mut stage_tables = Vec::with_capacity(NUM_STAGES);
-            for _ in 0..NUM_STAGES {
-                let mut table = Vec::with_capacity(num_states as usize);
-                for _ in 0..num_states {
-                    let w = f32::from_le_bytes(read_bytes(&mut pos, 4)?.try_into().unwrap());
-                    table.push(w);
-                }
-                stage_tables.push(table);
-            }
-            weights.push(PatternWeights {
-                num_states,
-                stage_tables,
-            });
-        }
-
         Ok(Model {
-            patterns: pattern_defs,
-            weights,
+            weights: PatternWeights::from_bytes(bytes)?,
         })
     }
 }
@@ -304,14 +197,7 @@ fn shuffle_indices(n: usize, seed: u64) -> Vec<usize> {
 mod tests {
     use super::*;
     use engine::bitboard::Side;
-
-    #[test]
-    fn stage_for_empty_count_buckets_correctly() {
-        assert_eq!(stage_for_empty_count(0), 0);
-        assert_eq!(stage_for_empty_count(4), 0);
-        assert_eq!(stage_for_empty_count(5), 1);
-        assert_eq!(stage_for_empty_count(60), 12);
-    }
+    use engine::patterns;
 
     #[test]
     fn new_model_predicts_zero_everywhere() {

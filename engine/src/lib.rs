@@ -18,8 +18,19 @@ pub mod eval;
 // `protocol`と同様、モジュール自体は非公開でよい(`Engine`のメソッド越しに
 // WASM APIとして公開する)。
 mod explain;
+// T043: パターン特徴量の定義(`train`クレートと共有、複製を避けるため`engine`
+// 側に一本化)と、WTHOR学習済み重み(`train/weights/pattern_v1.bin`)の
+// 読み込み専用構造体・スコアリング関数。`train`クレートおよび
+// `bench/edax-compare`用のCLIバイナリから利用するため`pub`にしている。
+pub mod pattern_eval;
+pub mod patterns;
 mod protocol;
-mod search;
+// T043: `bench/edax-compare`用のCLIバイナリ(`eval_cli`)からパターン評価を
+// 使った探索を直接呼び出せるよう`pub`にする(T024で`eval`をpubにしたのと
+// 同じ理由。WASM公開APIには影響しない、`#[wasm_bindgen]`は個々の項目に
+// 付与されるものでありモジュールの可視性変更自体はJS側のエクスポートを
+// 増やさない)。
+pub mod search;
 pub mod tt;
 mod zobrist;
 

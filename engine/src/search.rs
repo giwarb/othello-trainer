@@ -1,12 +1,20 @@
 //! 中盤探索エンジン: 反復深化 + PVS(NegaScout) + 置換表(T003) + 終盤完全読み(T006)。
 //!
 //! # 概要
-//! [`search`] が本モジュールの唯一の公開エントリポイントである。
-//! 空きマス数が [`SearchLimit::exact_from_empties`] 以下になった局面
-//! (探索木の途中で到達した局面も含む)では、評価関数を一切使わず
-//! T006 (`endgame::solve_exact`) による完全読みに切り替える。
-//! それ以外の局面は T004 の `evaluate_for` をリーフ評価に使った
-//! NegaScout (PVS) で反復深化探索する。
+//! [`search`] / [`search_all_moves`] が既存呼び出し元向けの公開エントリポイント
+//! である(常に3項ヒューリスティック評価を使う)。空きマス数が
+//! [`SearchLimit::exact_from_empties`] 以下になった局面(探索木の途中で到達した
+//! 局面も含む)では、評価関数を一切使わず T006 (`endgame::solve_exact`) による
+//! 完全読みに切り替える。それ以外の局面は静的評価([`static_eval`])をリーフ評価
+//! に使った NegaScout (PVS) で反復深化探索する。
+//!
+//! T043で、静的評価をT041のパターン評価(`pattern_eval::PatternWeights`)に
+//! 差し替えられる [`search_with_eval`] / [`search_all_moves_with_eval`] を追加した
+//! (`weights: Option<&PatternWeights>` が `Some` ならパターン評価、`None` なら
+//! 従来の3項ヒューリスティック評価。`search`/`search_all_moves` はこれらの
+//! `weights: None` 版の薄いラッパーであり、挙動・シグネチャとも変更していない)。
+//! 終盤完全読み(`endgame::solve_exact`系)は静的評価を一切呼ばないため、
+//! パターン評価の有無によらず常に同じ結果を返す。
 //!
 //! # スケールの規約
 //! `SearchResult::score` は centi-disc 単位(1石 = 100)・手番視点。
@@ -46,6 +54,7 @@
 use crate::bitboard::{Board, Side};
 use crate::endgame::{final_score, solve_exact, solve_exact_bounded, solve_exact_with_nodes, TimeBudget};
 use crate::eval::evaluate_for;
+use crate::pattern_eval::PatternWeights;
 use crate::tt::{Bound, TTEntry, TranspositionTable};
 use crate::zobrist::zobrist_hash;
 // `std::time::Instant::now()` は `wasm32-unknown-unknown` ターゲットでは
@@ -62,6 +71,23 @@ const INF: i32 = 1_000_000;
 
 /// 4隅 (a1, h1, a8, h8) に対応するビットマスク。
 const CORNER_MASK: u64 = (1u64 << 0) | (1u64 << 7) | (1u64 << 56) | (1u64 << 63);
+
+/// 静的評価(葉ノード評価)を計算する。`weights`が`Some`ならT043のパターン評価
+/// (`PatternWeights::score`、素の石差単位)をcenti-discスケール(×100、
+/// 四捨五入)に変換して使い、`None`なら従来の3項ヒューリスティック評価
+/// (`eval::evaluate_for`)を使う(グレースフルフォールバック)。
+///
+/// 終盤完全読み(`endgame::solve_exact`系)はこの関数を一切呼び出さない
+/// (完全読みは石差の全数探索でありヒューリスティック評価を使わないため)。
+/// パターン評価は本関数経由でのみ中盤ヒューリスティック探索(`negascout`の
+/// 葉ノード評価・反復深化が一度も完了しなかった場合のフォールバック)に
+/// 使われる。
+fn static_eval(board: &Board, side: Side, weights: Option<&PatternWeights>) -> i32 {
+    match weights {
+        Some(w) => (w.score(board, side) * 100.0).round() as i32,
+        None => evaluate_for(board, side),
+    }
+}
 
 /// 探索の制御パラメータ。
 ///
@@ -147,11 +173,28 @@ pub struct MoveEval {
 ///   `endgame::solve_exact` による完全読みの結果を返す。
 /// - それ以外は depth=1 から `limit.max_depth` まで反復深化しながら
 ///   NegaScout(PVS)探索を行う。各反復は `tt` を使い回す。
+///
+/// 静的評価には常に従来の3項ヒューリスティック評価(`eval::evaluate_for`)を
+/// 使う。パターン評価(T043)を使いたい場合は [`search_with_eval`] を使うこと
+/// (既存の呼び出し元・シグネチャへの影響を避けるため、本関数はそのまま
+/// 変更していない)。
 pub fn search(
     board: &Board,
     side_to_move: Side,
     limit: &SearchLimit,
     tt: &mut TranspositionTable,
+) -> SearchResult {
+    search_with_eval(board, side_to_move, limit, tt, None)
+}
+
+/// [`search`]と同じだが、`weights`が`Some`ならT043のパターン評価を中盤探索の
+/// 静的評価に使う(`None`なら[`search`]と全く同じ挙動)。
+pub fn search_with_eval(
+    board: &Board,
+    side_to_move: Side,
+    limit: &SearchLimit,
+    tt: &mut TranspositionTable,
+    weights: Option<&PatternWeights>,
 ) -> SearchResult {
     // TTスケール混同防止(T007): 同じ `tt` に対して過去に異なる
     // `exact_from_empties` で探索していた場合、その古いエントリは
@@ -215,6 +258,7 @@ pub fn search(
                 nodes: &mut nodes,
                 start,
                 timed_out: &mut timed_out,
+                weights,
             };
             negascout(board, side_to_move, depth, -INF, INF, &mut ctx)
         };
@@ -259,7 +303,7 @@ pub fn search(
         // depth=1すら一度も完走できなかった場合。反復が一度も行われな
         // かった場合、静的評価をそのまま返す。
         best_move: None,
-        score: evaluate_for(board, side_to_move),
+        score: static_eval(board, side_to_move, weights),
         depth: 0,
         pv: Vec::new(),
         nodes: 0,
@@ -300,11 +344,26 @@ pub fn search(
 ///
 /// 合法手が0件(パスすべき局面・終局局面)の場合は空の `Vec` を返す
 /// (エラーにしない)。返す順序はスコア降順。
+///
+/// 静的評価には常に従来の3項ヒューリスティック評価を使う。パターン評価
+/// (T043)を使いたい場合は [`search_all_moves_with_eval`] を使うこと。
 pub fn search_all_moves(
     board: &Board,
     side_to_move: Side,
     limit: &SearchLimit,
     tt: &mut TranspositionTable,
+) -> Vec<MoveEval> {
+    search_all_moves_with_eval(board, side_to_move, limit, tt, None)
+}
+
+/// [`search_all_moves`]と同じだが、`weights`が`Some`ならT043のパターン評価を
+/// 静的評価に使う(`None`なら[`search_all_moves`]と全く同じ挙動)。
+pub fn search_all_moves_with_eval(
+    board: &Board,
+    side_to_move: Side,
+    limit: &SearchLimit,
+    tt: &mut TranspositionTable,
+    weights: Option<&PatternWeights>,
 ) -> Vec<MoveEval> {
     // TTスケール混同防止(T007と同じロジック。search()参照)。
     if let Some(prev) = tt.last_exact_from_empties() {
@@ -356,7 +415,7 @@ pub fn search_all_moves(
                     let budget = TimeBudget { start, time_ms };
                     match solve_exact_bounded(&next_board, opponent, tt, budget) {
                         Some(raw_diff) => (-(raw_diff * 100), true),
-                        None => (-evaluate_for(&next_board, opponent), false),
+                        None => (-static_eval(&next_board, opponent, weights), false),
                     }
                 }
                 None => {
@@ -371,7 +430,7 @@ pub fn search_all_moves(
             // 同じ `limit.max_depth` を指定したときに `search()` が返す
             // 評価値と、`search_all_moves()` が返す評価値の最大値が
             // 一致する(整合性は本モジュールのテストで検証する)。
-            let mut best_for_move = -evaluate_for(&next_board, opponent);
+            let mut best_for_move = -static_eval(&next_board, opponent, weights);
             for depth in 1..=limit.max_depth {
                 let mut nodes: u64 = 0;
                 let mut timed_out = false;
@@ -382,6 +441,7 @@ pub fn search_all_moves(
                         nodes: &mut nodes,
                         start,
                         timed_out: &mut timed_out,
+                        weights,
                     };
                     -negascout(&next_board, opponent, depth - 1, -INF, INF, &mut ctx)
                 };
@@ -441,6 +501,10 @@ struct SearchCtx<'a> {
     /// `search`/`search_all_moves`はこのフラグを見て、そのイテレーション
     /// の結果を丸ごと破棄し、直前に完了したイテレーションの結果を使う。
     timed_out: &'a mut bool,
+    /// T043: `negascout`の葉ノード評価(`depth == 0`)に使う静的評価。
+    /// `Some`ならパターン評価、`None`なら従来の3項ヒューリスティック評価
+    /// (`static_eval`参照)。
+    weights: Option<&'a PatternWeights>,
 }
 
 /// `negascout`の再帰中に時間予算をチェックする頻度(ノード数に1回)。
@@ -524,7 +588,7 @@ fn negascout(
     }
 
     if depth == 0 {
-        return evaluate_for(board, side);
+        return static_eval(board, side, ctx.weights);
     }
 
     let hash = zobrist_hash(board, side);

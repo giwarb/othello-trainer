@@ -3,8 +3,10 @@
 //! `bench/edax-compare/` の比較スクリプトから呼び出されることのみを想定した
 //! 開発補助バイナリであり、アプリ本体・WASM APIには一切影響しない
 //! (`lib.rs` の `pub struct Engine` / `pub mod bitboard` など、既存の公開API
-//! のみを使って実装しており、`eval`/`search`/`protocol` 等の非公開モジュールに
-//! 手を加えたり可視性を変更したりはしていない)。
+//! のみを使って実装している。T043で`patterns`/`pattern_eval`/`search`を
+//! `pub mod`にした際も、あくまでモジュールの可視性変更のみであり
+//! `#[wasm_bindgen]`はどの項目にも新規追加していないため、WASM公開API
+//! (JS側から見えるエクスポート)への影響はない)。
 //!
 //! # サブコマンド
 //!
@@ -16,13 +18,19 @@
 //!   あくまで「代表的な序盤/中盤の一局面」を再現可能な形で生成するための
 //!   簡易ジェネレータである(T022の作業ログ参照)。
 //!   標準出力にJSON配列 `[{id, category, board, side_to_move}, ...]` を出力する。
-//! - `eval --depth N --exact-from-empties M`
+//! - `eval --depth N --exact-from-empties M [--pattern-weights PATH]`
 //!   標準入力からJSON配列(`gen`と同じ形。`ffo_positions.json`を変換した
-//!   ものでもよい)を読み込み、各局面について
-//!   `Engine::analyze`(既存の公開WASM APIと全く同じJSONプロトコル、
-//!   `protocol.rs`)を使って (a) 静的評価のみ(`depth=0`,
+//!   ものでもよい)を読み込み、各局面について (a) 静的評価のみ(`depth=0`,
 //!   `exactFromEmpties=0`) と (b) 指定した `--depth`/`--exact-from-empties`
 //!   での評価、の2つを計算し、結果をJSON配列で標準出力に出す。
+//!   `--pattern-weights PATH` を指定すると(T043)、3項ヒューリスティック
+//!   評価の代わりにT041で学習したパターン評価(`train/weights/pattern_v1.bin`
+//!   形式、`engine::pattern_eval::PatternWeights::from_bytes`)を静的評価に
+//!   使う。省略時は従来どおり `Engine::analyze`(既存の公開WASM APIと全く
+//!   同じJSONプロトコル、`protocol.rs`)経由で評価する(挙動は変更していない)。
+//! - `moves --depth N --exact-from-empties M [--pattern-weights PATH]`
+//!   同様に `--pattern-weights` を指定すると、全合法手のランキングを
+//!   パターン評価で計算する。
 //!
 //! 盤面の局面表現は本リポジトリ既存の規約 (`bench/ffo_positions.json` および
 //! Edaxの `.obf` 形式と同じ) に従う: 64文字 (a1,b1,...,h1,a2,...,h8の順、
@@ -31,9 +39,42 @@
 
 use engine::bitboard::{Board, Side};
 use engine::eval::feature_diffs;
+use engine::pattern_eval::PatternWeights;
+use engine::search::{self, SearchLimit};
+use engine::tt::TranspositionTable;
 use engine::Engine;
 use serde_json::{json, Value};
 use std::io::{self, Read};
+
+/// `--pattern-weights PATH` が指定されていれば、そのファイルを読み込んで
+/// [`PatternWeights`] を返す(読み込み・パース失敗時はエラーメッセージを
+/// stderrに出して終了コード1で終了する)。指定が無ければ `None`
+/// (呼び出し側は従来どおり3項ヒューリスティック評価を使う)。
+fn load_pattern_weights(args: &[String]) -> Option<PatternWeights> {
+    let path = get_arg(args, "--pattern-weights")?;
+    let bytes = std::fs::read(&path).unwrap_or_else(|e| {
+        eprintln!("failed to read pattern weights file {path}: {e}");
+        std::process::exit(1);
+    });
+    let weights = PatternWeights::from_bytes(&bytes).unwrap_or_else(|e| {
+        eprintln!("failed to parse pattern weights file {path}: {e}");
+        std::process::exit(1);
+    });
+    Some(weights)
+}
+
+/// [`search::MoveEval::is_exact`] / [`search::SearchResult::is_exact`] を
+/// `protocol.rs` の `ScoreJson`/`MoveEvalJson` と同じ語彙(`"exact"`/
+/// `"midgame"`)に変換する(`protocol` モジュールは非公開なのでこのCLI
+/// 内で同じ変換を再定義している。ロジック自体は if/else 1行のみで
+/// ドリフトの実害は小さい)。
+fn eval_kind(is_exact: bool) -> &'static str {
+    if is_exact {
+        "exact"
+    } else {
+        "midgame"
+    }
+}
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
@@ -45,7 +86,7 @@ fn main() {
         "apply" => cmd_apply(&args[2..]),
         _ => {
             eprintln!(
-                "usage:\n  eval_cli gen --category NAME --min-empties N --max-empties M --count C --seed S\n  eval_cli eval --depth N --exact-from-empties M   (JSON配列を標準入力から読む)\n  eval_cli moves --depth N --exact-from-empties M  (単一局面のJSONオブジェクトを標準入力から読み、全合法手のスコアを返す)"
+                "usage:\n  eval_cli gen --category NAME --min-empties N --max-empties M --count C --seed S\n  eval_cli eval --depth N --exact-from-empties M [--pattern-weights PATH]   (JSON配列を標準入力から読む)\n  eval_cli moves --depth N --exact-from-empties M [--pattern-weights PATH]  (単一局面のJSONオブジェクトを標準入力から読み、全合法手のスコアを返す)"
             );
             std::process::exit(2);
         }
@@ -126,6 +167,16 @@ fn obf_to_board(s: &str) -> Board {
         }
     }
     Board { black, white }
+}
+
+/// マス番号(0..63)を `"a1"`〜`"h8"` の記法に変換する。
+/// `protocol::square_to_notation`と同じ規約だが、`protocol`モジュールは
+/// 非公開でこのCLI(別クレート扱いのbinターゲット)からは参照できないため、
+/// この1行の純粋関数だけをこのファイル内で再定義している。
+fn square_to_notation(idx: u8) -> String {
+    let file = idx % 8;
+    let rank = idx / 8;
+    format!("{}{}", (b'a' + file) as char, (b'1' + rank) as char)
 }
 
 fn side_name(s: Side) -> &'static str {
@@ -221,10 +272,13 @@ fn cmd_gen(args: &[String]) {
 }
 
 /// 標準入力のJSON配列の各局面について、静的評価(depth=0)と指定深さ/完全読み
-/// 設定での評価を、`Engine::analyze`(既存公開API)経由で計算する。
+/// 設定での評価を計算する。`--pattern-weights` 省略時は従来どおり
+/// `Engine::analyze`(既存公開API)経由、指定時は`engine::search`を直接
+/// 呼び出しパターン評価(T043)を使う。
 fn cmd_eval(args: &[String]) {
     let depth = get_arg_u32(args, "--depth", Some(10)) as u8;
     let exact_from_empties = get_arg_u32(args, "--exact-from-empties", Some(0)) as u8;
+    let pattern_weights = load_pattern_weights(args);
 
     let mut input = String::new();
     io::stdin()
@@ -260,26 +314,91 @@ fn cmd_eval(args: &[String]) {
 
         let b = obf_to_board(&board_str);
         let side = parse_side(&side_str);
-        let black_hex = format!("{:x}", b.black);
-        let white_hex = format!("{:x}", b.white);
 
-        let static_req = json!({
-            "id": idx,
-            "cmd": "analyze",
-            "board": { "black": black_hex, "white": white_hex, "turn": side_name(side) },
-            "limit": { "depth": 0, "exactFromEmpties": 0 }
-        });
-        let static_resp: Value =
-            serde_json::from_str(&engine.analyze(&static_req.to_string())).unwrap_or(Value::Null);
+        let (static_disc_diff, search_disc_diff, search_depth, search_kind, best_move) =
+            match &pattern_weights {
+                None => {
+                    let black_hex = format!("{:x}", b.black);
+                    let white_hex = format!("{:x}", b.white);
 
-        let search_req = json!({
-            "id": idx,
-            "cmd": "analyze",
-            "board": { "black": black_hex, "white": white_hex, "turn": side_name(side) },
-            "limit": { "depth": depth, "exactFromEmpties": exact_from_empties }
-        });
-        let search_resp: Value =
-            serde_json::from_str(&engine.analyze(&search_req.to_string())).unwrap_or(Value::Null);
+                    let static_req = json!({
+                        "id": idx,
+                        "cmd": "analyze",
+                        "board": { "black": &black_hex, "white": &white_hex, "turn": side_name(side) },
+                        "limit": { "depth": 0, "exactFromEmpties": 0 }
+                    });
+                    let static_resp: Value = serde_json::from_str(&engine.analyze(&static_req.to_string()))
+                        .unwrap_or(Value::Null);
+
+                    let search_req = json!({
+                        "id": idx,
+                        "cmd": "analyze",
+                        "board": { "black": &black_hex, "white": &white_hex, "turn": side_name(side) },
+                        "limit": { "depth": depth, "exactFromEmpties": exact_from_empties }
+                    });
+                    let search_resp: Value = serde_json::from_str(&engine.analyze(&search_req.to_string()))
+                        .unwrap_or(Value::Null);
+
+                    (
+                        static_resp
+                            .get("score")
+                            .and_then(|s| s.get("discDiff"))
+                            .cloned()
+                            .unwrap_or(Value::Null),
+                        search_resp
+                            .get("score")
+                            .and_then(|s| s.get("discDiff"))
+                            .cloned()
+                            .unwrap_or(Value::Null),
+                        search_resp.get("depth").cloned().unwrap_or(Value::Null),
+                        search_resp
+                            .get("score")
+                            .and_then(|s| s.get("type"))
+                            .cloned()
+                            .unwrap_or(Value::Null),
+                        search_resp
+                            .get("pv")
+                            .and_then(|p| p.get(0))
+                            .cloned()
+                            .unwrap_or(Value::Null),
+                    )
+                }
+                Some(w) => {
+                    // T043: パターン評価(`search::search_with_eval`)を直接呼び出す
+                    // (`Engine::analyze`/`protocol.rs`はまだパターン評価の重みを
+                    // 受け取れないため、WASM API配線は次タスクの対象。
+                    // このCLIはEdax比較専用の開発補助ツールなので直接呼んでよい)。
+                    let static_limit = SearchLimit {
+                        max_depth: 0,
+                        time_ms: None,
+                        exact_from_empties: 0,
+                    };
+                    let mut tt_static = TranspositionTable::new(16);
+                    let static_result =
+                        search::search_with_eval(&b, side, &static_limit, &mut tt_static, Some(w));
+
+                    let search_limit = SearchLimit {
+                        max_depth: depth,
+                        time_ms: None,
+                        exact_from_empties,
+                    };
+                    let mut tt_search = TranspositionTable::new(16);
+                    let search_result =
+                        search::search_with_eval(&b, side, &search_limit, &mut tt_search, Some(w));
+
+                    (
+                        json!(static_result.score as f64 / 100.0),
+                        json!(search_result.score as f64 / 100.0),
+                        json!(search_result.depth),
+                        json!(eval_kind(search_result.is_exact)),
+                        search_result
+                            .best_move
+                            .map(square_to_notation)
+                            .map(Value::from)
+                            .unwrap_or(Value::Null),
+                    )
+                }
+            };
 
         // T024: 較正用の生の特徴量差分(黒視点、重み付け前)。手番視点への変換は
         // 回帰スクリプト側の責務とする(黒視点のまま出す方が `eval.rs` の
@@ -297,11 +416,11 @@ fn cmd_eval(args: &[String]) {
                 "corner": f.corner_diff,
                 "stable": f.stable_diff,
             },
-            "staticDiscDiff": static_resp.get("score").and_then(|s| s.get("discDiff")),
-            "searchDiscDiff": search_resp.get("score").and_then(|s| s.get("discDiff")),
-            "searchDepth": search_resp.get("depth"),
-            "searchKind": search_resp.get("score").and_then(|s| s.get("type")),
-            "bestMove": search_resp.get("pv").and_then(|p| p.get(0)).cloned().unwrap_or(Value::Null),
+            "staticDiscDiff": static_disc_diff,
+            "searchDiscDiff": search_disc_diff,
+            "searchDepth": search_depth,
+            "searchKind": search_kind,
+            "bestMove": best_move,
             "requestedDepth": depth,
             "requestedExactFromEmpties": exact_from_empties,
         }));
@@ -382,6 +501,7 @@ fn cmd_moves(args: &[String]) {
     // T034診断用: `timeMs` を任意で指定できるようにする(本番 `ANALYZE_LIMIT`
     // と同じ条件を再現するため)。省略時は従来どおり時間無制限。
     let time_ms = get_arg(args, "--time-ms").map(|v| v.parse::<u64>().expect("invalid --time-ms"));
+    let pattern_weights = load_pattern_weights(args);
 
     let mut input = String::new();
     io::stdin()
@@ -403,31 +523,63 @@ fn cmd_moves(args: &[String]) {
     let b = obf_to_board(&board_str);
     let side = parse_side(&side_str);
 
-    let mut limit = json!({ "depth": depth, "exactFromEmpties": exact_from_empties });
-    if let Some(t) = time_ms {
-        limit["timeMs"] = json!(t);
-    }
-
-    let req = json!({
-        "id": 0,
-        "cmd": "analyze",
-        "board": { "black": format!("{:x}", b.black), "white": format!("{:x}", b.white), "turn": side_name(side) },
-        "limit": limit,
-        "allMoves": true
-    });
-
-    let mut engine = Engine::new();
     let start = std::time::Instant::now();
-    let resp: Value = serde_json::from_str(&engine.analyze(&req.to_string())).unwrap_or(Value::Null);
+
+    let moves_json: Value = match &pattern_weights {
+        None => {
+            let mut limit = json!({ "depth": depth, "exactFromEmpties": exact_from_empties });
+            if let Some(t) = time_ms {
+                limit["timeMs"] = json!(t);
+            }
+
+            let req = json!({
+                "id": 0,
+                "cmd": "analyze",
+                "board": { "black": format!("{:x}", b.black), "white": format!("{:x}", b.white), "turn": side_name(side) },
+                "limit": limit,
+                "allMoves": true
+            });
+
+            let mut engine = Engine::new();
+            let resp: Value =
+                serde_json::from_str(&engine.analyze(&req.to_string())).unwrap_or(Value::Null);
+            resp.get("moves").cloned().unwrap_or(Value::Null)
+        }
+        Some(w) => {
+            // T043: パターン評価を使う場合は`Engine::analyze`を経由せず
+            // `search::search_all_moves_with_eval`を直接呼ぶ(理由は`cmd_eval`
+            // 内の同種の分岐のコメントを参照)。
+            let limit = SearchLimit {
+                max_depth: depth,
+                time_ms,
+                exact_from_empties,
+            };
+            let mut tt = TranspositionTable::new(16);
+            let evals = search::search_all_moves_with_eval(&b, side, &limit, &mut tt, Some(w));
+            let moves: Vec<Value> = evals
+                .iter()
+                .map(|e| {
+                    json!({
+                        "move": square_to_notation(e.mv),
+                        "score": e.score,
+                        "discDiff": e.score as f64 / 100.0,
+                        "type": eval_kind(e.is_exact),
+                    })
+                })
+                .collect();
+            Value::Array(moves)
+        }
+    };
+
     let elapsed = start.elapsed();
-    eprintln!("[eval_cli moves] elapsed={elapsed:?} depth={depth} exact_from_empties={exact_from_empties} time_ms={time_ms:?}");
+    eprintln!("[eval_cli moves] elapsed={elapsed:?} depth={depth} exact_from_empties={exact_from_empties} time_ms={time_ms:?} pattern_weights={}", pattern_weights.is_some());
 
     println!(
         "{}",
         json!({
             "board": board_str,
             "side_to_move": side_str,
-            "moves": resp.get("moves").cloned().unwrap_or(Value::Null),
+            "moves": moves_json,
         })
     );
 }
