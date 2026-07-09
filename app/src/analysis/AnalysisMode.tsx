@@ -19,10 +19,6 @@ import { EvalGraph, type EvalGraphMarker, type EvalGraphPoint } from './EvalGrap
 import { parseTranscript, TranscriptParseError } from './parseTranscript.ts'
 import { loadClassifyThresholds, saveClassifyThresholds } from './thresholdSettings.ts'
 import type { AnalyzeGameProgress, ClassifyThresholds, MoveAnalysis, MoveClassification } from './types.ts'
-import { buildGameSummaryInput } from '../llm/buildStructuredInput.ts'
-import { CommentaryView } from '../llm/CommentaryView.tsx'
-import { buildGameSummaryUserMessage, GAME_SUMMARY_SYSTEM_PROMPT } from '../llm/prompt.ts'
-import { LlmSettings } from '../llm/LlmSettings.tsx'
 import './AnalysisMode.css'
 
 type Phase = 'input' | 'analyzing' | 'result'
@@ -362,8 +358,6 @@ export function AnalysisMode() {
               />
             </label>
           </fieldset>
-
-          <LlmSettings />
         </section>
       )}
 
@@ -404,15 +398,6 @@ export function AnalysisMode() {
               if (m && isBlunderMarker(m)) setOpenBlunderPly(m.ply)
             }}
           />
-
-          <section class="analysis-result__game-summary">
-            <h3>AI感想戦(任意)</h3>
-            <CommentaryView
-              buttonLabel="AI感想戦を生成"
-              systemPrompt={GAME_SUMMARY_SYSTEM_PROMPT}
-              userMessage={buildGameSummaryUserMessage(buildGameSummaryInput(results))}
-            />
-          </section>
 
           {currentBoard && (
             <div class="analysis-result__board-area">
