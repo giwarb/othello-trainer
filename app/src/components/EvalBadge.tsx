@@ -25,6 +25,11 @@ export function formatDiscDiff(value: number): string {
  * 評価値・評価ソース(定石/中盤/終盤、色分け)・悪手マークを表示する
  * モード共通のバッジコンポーネント(T019)。
  *
+ * `source === 'joseki'`のときは`discDiff`の数値を表示しない(T046)。
+ * 定石内の評価値は毎回浅いヒューリスティック探索で計算された値であり
+ * 本質的にノイズが大きく、そのまま数値を出すと「定石なのに評価が
+ * 無意味に暴れる」矛盾した見え方になるため、「定石」ラベルのみとする。
+ *
  * レスポンシブ対応: `flex-wrap` + 相対単位(em/rem)により、狭い画面幅
  * (375px程度)でも折り返しはするが文字が潰れたり画面からはみ出したり
  * しない(`EvalBadge.css` 参照)。
@@ -32,7 +37,7 @@ export function formatDiscDiff(value: number): string {
 export function EvalBadge({ discDiff, source, blunder = false }: EvalBadgeProps) {
   return (
     <span class={`eval-badge eval-badge--${source}${blunder ? ' eval-badge--blunder' : ''}`}>
-      <span class="eval-badge__value">{formatDiscDiff(discDiff)}</span>
+      {source !== 'joseki' && <span class="eval-badge__value">{formatDiscDiff(discDiff)}</span>}
       <span class="eval-badge__source">{SOURCE_LABEL[source]}</span>
       {blunder && <span class="eval-badge__blunder-mark">悪手</span>}
     </span>

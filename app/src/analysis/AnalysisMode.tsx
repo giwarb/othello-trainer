@@ -48,17 +48,41 @@ function sideLabel(side: Side): string {
   return side === 'black' ? '黒' : '白'
 }
 
-/** `MoveAnalysis[]`(要件3〜5)から評価グラフ用の点列を作る(要件6)。 */
+/**
+ * `MoveAnalysis[]`(要件3〜5)から評価グラフ用の点列を作る(要件6)。
+ *
+ * T046: 定石内の手(`evalSource === 'joseki'`)の評価値は毎回浅い探索による
+ * ノイズの大きい値であり、そのまま折れ線に使うと「定石なのに評価が
+ * 無意味に上下する」矛盾した見え方になる。そのため定石区間の`value`は
+ * 0(互角)に固定し、定石を外れた時点から実際のヒューリスティック評価値の
+ * 変動が始まるようにする。
+ */
 function buildGraphPoints(results: readonly MoveAnalysis[]): EvalGraphPoint[] {
   if (results.length === 0) return []
+  const valueFor = (m: MoveAnalysis, raw: number) => (m.evalSource === 'joseki' ? 0 : raw)
   const points: EvalGraphPoint[] = [
-    { ply: 0, value: results[0]!.blackAdvantageBefore, isExact: results[0]!.isExact },
+    {
+      ply: 0,
+      value: valueFor(results[0]!, results[0]!.blackAdvantageBefore),
+      isExact: results[0]!.isExact,
+      evalSource: results[0]!.evalSource,
+    },
   ]
   for (let i = 1; i < results.length; i++) {
-    points.push({ ply: i, value: results[i]!.blackAdvantageBefore, isExact: results[i]!.isExact })
+    points.push({
+      ply: i,
+      value: valueFor(results[i]!, results[i]!.blackAdvantageBefore),
+      isExact: results[i]!.isExact,
+      evalSource: results[i]!.evalSource,
+    })
   }
   const last = results[results.length - 1]!
-  points.push({ ply: results.length, value: last.blackAdvantageAfter, isExact: last.isExact })
+  points.push({
+    ply: results.length,
+    value: valueFor(last, last.blackAdvantageAfter),
+    isExact: last.isExact,
+    evalSource: last.evalSource,
+  })
   return points
 }
 

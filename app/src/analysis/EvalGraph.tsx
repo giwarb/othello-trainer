@@ -1,13 +1,20 @@
+import type { EvalSource } from '../blunder/types.ts'
 import type { MoveClassification } from './types.ts'
 import './EvalGraph.css'
 
 /** グラフ上の1点(局面)。`ply`は0(初期局面)〜`moves.length`(最終局面)。 */
 export interface EvalGraphPoint {
   readonly ply: number
-  /** 黒視点の評価値(石差、クリップ前)。 */
+  /** 黒視点の評価値(石差、クリップ前)。定石区間は0(互角)に固定される(T046)。 */
   readonly value: number
   /** この点に至る直前の解析(`ply`>0の場合)が完全読みだったか。`ply === 0`では未使用。 */
   readonly isExact: boolean
+  /**
+   * この局面(`ply`手目時点)の評価ソース(T046)。`isExact`と同じ規約で
+   * `MoveAnalysis.evalSource`をそのまま転記したもの。帯の色分け
+   * (定石/中盤/終盤の3色)に使う。
+   */
+  readonly evalSource: EvalSource
 }
 
 /** 悪手マーカー(要件6)。`ply`はその手を打った**後**の局面(グラフ上のx位置)。 */
@@ -51,6 +58,12 @@ function clamp(v: number): number {
   return Math.max(-CLAMP, Math.min(CLAMP, v))
 }
 
+/** 帯の色分けクラス(T046: 定石/完全読み/ヒューリスティックの3区分、定石を優先)。 */
+function bandClass(point: EvalGraphPoint): string {
+  if (point.evalSource === 'joseki') return 'eval-graph__band--joseki'
+  return point.isExact ? 'eval-graph__band--exact' : 'eval-graph__band--midgame'
+}
+
 /**
  * 評価グラフ(要件6、設計書§6.3)。
  *
@@ -82,17 +95,32 @@ export function EvalGraph({ points, markers, currentPly = null, onSelectPly, onM
         aria-label="評価グラフ(横軸: 手数、縦軸: 石差、黒優勢が上)"
         preserveAspectRatio="xMidYMid meet"
       >
-        {/* 完全読み/ヒューリスティック区間の帯(要件6)。 */}
+        {/* 定石/完全読み/ヒューリスティック区間の帯(要件6、T046で定石区間を追加)。 */}
         {points.slice(0, -1).map((p, i) => {
           const next = points[i + 1]!
           const x1 = xFor(p.ply)
           const x2 = xFor(next.ply)
+          // 定石区間は`value`が常に0(=zeroY)のため、通常の「線〜0石線」塗り
+          // (曲線とゼロ線の間)では面積が潰れて色が見えなくなってしまう。
+          // そのため定石区間だけはプロット全高の帯として描画する(T046)。
+          if (bandClass(next) === 'eval-graph__band--joseki') {
+            return (
+              <rect
+                key={`band-${p.ply}`}
+                class="eval-graph__band eval-graph__band--joseki"
+                x={x1}
+                y={PADDING_Y}
+                width={x2 - x1}
+                height={PLOT_HEIGHT}
+              />
+            )
+          }
           const y1 = yFor(p.value)
           const y2 = yFor(next.value)
           return (
             <polygon
               key={`band-${p.ply}`}
-              class={`eval-graph__band${next.isExact ? ' eval-graph__band--exact' : ' eval-graph__band--midgame'}`}
+              class={`eval-graph__band ${bandClass(next)}`}
               points={`${x1},${y1} ${x2},${y2} ${x2},${zeroY} ${x1},${zeroY}`}
             />
           )
@@ -140,6 +168,10 @@ export function EvalGraph({ points, markers, currentPly = null, onSelectPly, onM
         })}
       </svg>
       <p class="eval-graph__legend">
+        <span class="eval-graph__legend-item">
+          <span class="eval-graph__legend-swatch eval-graph__legend-swatch--joseki" />
+          序盤(定石)
+        </span>
         <span class="eval-graph__legend-item">
           <span class="eval-graph__legend-swatch eval-graph__legend-swatch--exact" />
           終盤(完全読み確定)

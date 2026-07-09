@@ -19,6 +19,10 @@
   stroke: none;
 }
 
+.eval-graph__band--joseki {
+  fill: rgba(202, 138, 4, 0.18);
+}
+
 .eval-graph__band--exact {
   fill: rgba(37, 99, 235, 0.22);
 }
@@ -87,6 +91,10 @@
   width: 0.9rem;
   height: 0.6rem;
   border-radius: 0.15rem;
+}
+
+.eval-graph__legend-swatch--joseki {
+  background: rgba(202, 138, 4, 0.35);
 }
 
 .eval-graph__legend-swatch--exact {
