@@ -214,12 +214,25 @@ pub fn handle_analyze(request_json: &str, tt: &mut TranspositionTable) -> String
         exact_from_empties: request.limit.exact_from_empties,
     };
 
-    // `score_kind`(トップレベルの `score.type`)は、`allMoves` を指定しない
-    // 既存の `analyze`(このすぐ下のブロック)専用のフォールバック値として
-    // のみ使う。**着手前**の局面の空きマス数と `exact_from_empties` の比較
-    // でしかないため、`allMoves: true` の分岐(各手を実際にどちらの方式で
-    // 評価したか)には使わない(レビュー指摘、T018フィードバック参照。
-    // 詳細は `eval_kind` のドキュメントコメントを参照)。
+    // `score_kind`は、**着手前**の局面の空きマス数と `exact_from_empties`
+    // の比較だけで事前計算した値であり、実際にどちらの方式で評価された
+    // かは反映しない。そのため `allMoves: true` の分岐(各手を実際に
+    // どちらの方式で評価したか)には使わない(レビュー指摘、T018フィード
+    // バック参照。詳細は `eval_kind` のドキュメントコメントを参照)。
+    //
+    // T034での訂正: 以前は「`allMoves`を指定しない既存の`analyze`専用の
+    // 値」として、非`allMoves`応答の`score.type`にもそのまま使っていたが、
+    // これは誤りだった。`search()`のルート分岐に時間予算付き完全読み
+    // (`solve_exact_bounded`)を導入したことで、「空きマス数的には
+    // `exact_from_empties`以下だが、タイムアウトにより実際には完全読みを
+    // 完走できなかった」局面が`search()`から`is_exact: false`の結果を
+    // 返しうるようになったため、着手前の空きマス数だけで判定する
+    // `score_kind`では「exact」と誤表示してしまう(レビュー指摘、T034
+    // フィードバック参照)。非`allMoves`応答は下で`result.is_exact`
+    // (`search()`が実際に使った評価方式)を根拠に決定するよう修正した。
+    // `score_kind`自体は、`allMoves: true`かつ合法手が0件(パス・終局)の
+    // 場合のフォールバック値としてのみ、引き続き使う(この場合は実際の
+    // 探索が行われないため`is_exact`相当の情報が存在しない)。
     let score_kind = if empties <= limit.exact_from_empties as u32 {
         "exact"
     } else {
@@ -311,7 +324,11 @@ pub fn handle_analyze(request_json: &str, tt: &mut TranspositionTable) -> String
         depth: result.depth,
         pv,
         score: ScoreJson {
-            kind: score_kind.to_string(),
+            // T034: 着手前の空きマス数ベースの`score_kind`ではなく、
+            // `search()`が実際に使った評価方式(`result.is_exact`)を
+            // 根拠にする(`allMoves`分岐の`eval_kind(best.is_exact)`と
+            // 同じ方針。レビュー指摘、T034フィードバック参照)。
+            kind: eval_kind(result.is_exact).to_string(),
             disc_diff: result.score as f64 / 100.0,
         },
         nodes: result.nodes,
@@ -453,6 +470,52 @@ mod tests {
         let response_json = engine.analyze(&request);
         let response: serde_json::Value = serde_json::from_str(&response_json).unwrap();
         assert_eq!(response["score"]["type"], "exact");
+    }
+
+    #[test]
+    fn score_type_is_midgame_not_exact_when_root_exact_solve_times_out() {
+        // T034レビュー指摘(1回目のやり直し)の回帰テスト。
+        //
+        // `search()`のルート分岐(局面自体の空きマス数が`exactFromEmpties`
+        // 以下)は、`timeMs`が指定されていれば`solve_exact_bounded`を使う
+        // ようになった(T034)。この完全読みがタイムアウトした場合、
+        // `search()`は通常の反復深化(NegaScout)経路にフォールバックし、
+        // それも一度も完走できなければ最終的に静的評価1回分の値を返す
+        // (`SearchResult::is_exact = false`)。
+        //
+        // 修正前のバグ: `protocol.rs`はこのフォールバックを考慮せず、
+        // **着手前**の局面の空きマス数と`exactFromEmpties`の比較だけで
+        // 事前計算した`score_kind`をそのまま`score.type`に使っていたため、
+        // タイムアウトで得られた不正確な静的評価値が`"exact"`(確定)だと
+        // 誤って報告されてしまっていた(`BlunderPanel.tsx`のフリー分岐
+        // 探索機能で「確定」の緑バッジとして誤表示される実害があった)。
+        //
+        // ここでは空き18の局面(完全読みに一定のノード数を要する)に対し、
+        // `timeMs: 1`という極端に短い予算を与えて確実にタイムアウトさせ、
+        // `score.type`が`"midgame"`(実際に使われた評価方式)を正しく
+        // 報告することを確認する。
+        let (board, side) = play_until_empties(18);
+        let exact_threshold = board.empty_count() as u8;
+        let black = board.black;
+        let white = board.white;
+        let turn = if side == Side::Black { "black" } else { "white" };
+
+        let request = format!(
+            r#"{{"id":100,"cmd":"analyze","board":{{"black":"0x{black:x}","white":"0x{white:x}","turn":"{turn}"}},"limit":{{"depth":20,"timeMs":1,"exactFromEmpties":{exact_threshold}}}}}"#
+        );
+
+        let mut engine = Engine::new();
+        let response_json = engine.analyze(&request);
+        let response: serde_json::Value =
+            serde_json::from_str(&response_json).expect("response should be valid JSON");
+
+        assert!(response.get("error").is_none(), "response should not be an error: {response}");
+        assert_eq!(
+            response["score"]["type"], "midgame",
+            "when the root exact solve times out (timeMs=1 on an 18-empties position), \
+             score.type must reflect the actual (incomplete/static) evaluation method \
+             ('midgame'), not the pre-move-empties-based guess ('exact'); got response={response}"
+        );
     }
 
     #[test]

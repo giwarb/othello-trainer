@@ -72,8 +72,14 @@ pub struct SearchLimit {
     /// 反復深化で到達する最大深さ(プライ数)。
     pub max_depth: u8,
     /// 探索の時間制限(ミリ秒)。`None` なら時間制限なし。
-    /// 簡易実装として、反復深化の各深さが完了するごとにチェックし、
-    /// 超過していればそこで探索を打ち切る。
+    /// 反復深化の各深さが完了するごとにチェックするだけでなく、
+    /// `negascout`/`endgame::negamax`の再帰の途中でも`TIME_CHECK_NODE_INTERVAL`
+    /// (1024)ノードごとに経過時間をチェックし、超過していれば探索を
+    /// (完了を待たずに)打ち切る(T034)。以前は「1つの深さの探索が
+    /// 完了するごと」にしかチェックしておらず、探索木の内部で無条件に
+    /// 呼ばれる完全読み(`endgame::solve_exact`)が「重い」局面に当たった
+    /// 際に時間予算を数十〜数百倍超過してしまう不具合があったため、
+    /// より細かい粒度でのチェックに変更した。
     pub time_ms: Option<u64>,
     /// この数値以下の空きマス数になったら終盤完全読み(T006)に切り替える。
     /// 設計書の既定値は24。
@@ -94,6 +100,24 @@ pub struct SearchResult {
     pub pv: Vec<u8>,
     /// 探索したノード数。
     pub nodes: u64,
+    /// この結果が実際にどちらの方式で得られたか。
+    /// `true` なら終盤完全読み(`endgame::solve_exact`/`solve_exact_bounded`
+    /// を打ち切りなく完走できた場合)、`false` なら中盤探索(NegaScout、
+    /// または`solve_exact_bounded`がタイムアウトした後の静的評価
+    /// フォールバック)による評価値であることを示す。
+    ///
+    /// [`MoveEval::is_exact`] と同じ理由(レビュー指摘、T018)により、
+    /// 呼び出し側(`protocol.rs`)が `score.type`(`"exact"`/`"midgame"`)を
+    /// 報告する際は、**着手前の局面の空きマス数と`exact_from_empties`の
+    /// 比較だけで事前計算した値ではなく**、必ずこのフィールド(=実際に
+    /// 使われた評価方式)を根拠にすること。T034で`search()`のルート分岐に
+    /// 時間予算付き完全読み(`solve_exact_bounded`)を導入したことで、
+    /// 「空きマス数的にはexact_from_empties以下だが、タイムアウトにより
+    /// 実際には完全読みを完走できず、通常の反復深化(またはその反復すら
+    /// 一度も完了せず単発の静的評価)にフォールバックした」という
+    /// ケースが生まれたため、事前計算した空きマス数ベースの判定では
+    /// 「exact」と誤表示されてしまう(レビュー指摘、T034フィードバック)。
+    pub is_exact: bool,
 }
 
 /// [`search_all_moves`] が返す、1つの合法手についての評価値。
@@ -169,8 +193,13 @@ pub fn search(
                 depth: empties as u8,
                 pv,
                 nodes: 1,
+                is_exact: true,
             };
         }
+        // T034: `exact`が`None`(タイムアウト)だった場合はここで`return`せず
+        // 下の反復深化ループへフォールバックする。以降で構築される
+        // `SearchResult`はすべて`is_exact: false`(完全読みを完走できて
+        // いないため)。
     }
 
     let mut total_nodes: u64 = 0;
@@ -210,6 +239,11 @@ pub fn search(
             depth,
             pv,
             nodes: total_nodes,
+            // T034: このループはNegaScout(中盤探索)経由の結果であり、
+            // ルート局面自体を完全読みし切ったわけではないため常にfalse
+            // (葉の一部が`solve_exact_bounded`で完全読みされていたとしても、
+            // ルートから見た最終結果としては「完全読み」を名乗れない)。
+            is_exact: false,
         });
 
         if let Some(time_ms) = limit.time_ms {
@@ -220,13 +254,16 @@ pub fn search(
     }
 
     last_result.unwrap_or_else(|| SearchResult {
-        // max_depth == 0 のような呼び出しへのフォールバック。反復が一度も
-        // 行われなかった場合、静的評価をそのまま返す。
+        // max_depth == 0 のような呼び出しへのフォールバック、または
+        // (T034)ルート分岐の完全読みがタイムアウトし、かつ反復深化の
+        // depth=1すら一度も完走できなかった場合。反復が一度も行われな
+        // かった場合、静的評価をそのまま返す。
         best_move: None,
         score: evaluate_for(board, side_to_move),
         depth: 0,
         pv: Vec::new(),
         nodes: 0,
+        is_exact: false,
     })
 }
 
