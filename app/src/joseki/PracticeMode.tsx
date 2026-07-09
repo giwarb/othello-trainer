@@ -1,7 +1,10 @@
 import { useEffect, useRef, useState } from 'preact/hooks'
+import { loadClassifyThresholds } from '../analysis/thresholdSettings.ts'
+import type { ClassifyThresholds } from '../analysis/types.ts'
 import { Board } from '../components/Board.tsx'
+import { MoveEvalOverlay } from '../components/MoveEvalOverlay.tsx'
 import { EngineClient } from '../engine/client.ts'
-import type { AnalyzeLimit } from '../engine/types.ts'
+import type { AnalyzeLimit, MoveEvalJson } from '../engine/types.ts'
 import {
   applyMove,
   initialBoard,
@@ -12,6 +15,7 @@ import {
   type Board as BoardState,
   type Side,
 } from '../game/othello.ts'
+import { loadMoveEvalOverlayEnabled, saveMoveEvalOverlayEnabled } from '../settings/moveEvalOverlaySettings.ts'
 import { getAllSrsStates, recordSrsResults } from './db.ts'
 import { judgeMove } from './judgeMove.ts'
 import { loadJosekiDb, lookupJosekiNode, type JosekiBookMoveView } from './lookup.ts'
@@ -124,6 +128,11 @@ export function PracticeMode() {
   const [resultInfo, setResultInfo] = useState<ResultInfo | null>(null)
   const [opponentThinking, setOpponentThinking] = useState(false)
   const [analyzing, setAnalyzing] = useState(false)
+  const [moveEvalOverlayEnabled, setMoveEvalOverlayEnabled] = useState<boolean>(() =>
+    loadMoveEvalOverlayEnabled(localStorage),
+  )
+  const [classifyThresholds] = useState<ClassifyThresholds>(() => loadClassifyThresholds(localStorage))
+  const [overlayMoves, setOverlayMoves] = useState<MoveEvalJson[] | null>(null)
   const engineRef = useRef<EngineClient | null>(null)
 
   function getEngine(): EngineClient {
@@ -203,6 +212,38 @@ export function PracticeMode() {
     }
     // eslint-disable-next-line
   }, [phase, state, josekiDb])
+
+  // 盤面セル評価オーバーレイ(T039をT042で展開)。人間の手番になった時点で、表示ONの
+  // 場合のみ現局面(着手前)の全合法手の評価をまとめて取得する。判定中(`analyzing`、
+  // `handleHumanClick`が別途`requestAnalyzeAll`を呼んでいる最中)は重複リクエストを
+  // 避けるため取得しない(要件5)。相手の手番・判定中はオーバーレイをクリアする。
+  useEffect(() => {
+    if (phase !== 'playing' || !state || state.sideToMove !== state.humanSide || !moveEvalOverlayEnabled || analyzing) {
+      setOverlayMoves(null)
+      return
+    }
+
+    let cancelled = false
+    getEngine()
+      .requestAnalyzeAll(state.board, state.sideToMove, ANALYZE_LIMIT)
+      .then((moves) => {
+        if (!cancelled) setOverlayMoves(moves)
+      })
+      .catch((error: unknown) => {
+        console.error('候補手評価オーバーレイの取得に失敗しました', error)
+      })
+
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line
+  }, [phase, state, moveEvalOverlayEnabled, analyzing])
+
+  /** オーバーレイ表示ON/OFFを切り替え、`localStorage`へ永続化する(T039・T042、他モードと共有)。 */
+  function handleToggleMoveEvalOverlay(enabled: boolean): void {
+    setMoveEvalOverlayEnabled(enabled)
+    saveMoveEvalOverlayEnabled(localStorage, enabled)
+  }
 
   /**
    * `square` に着手して局面を進める(定石内であることが確定した手にのみ使う)。
@@ -354,12 +395,26 @@ export function PracticeMode() {
             {opponentThinking ? '(相手考慮中...)' : ''}
             {analyzing ? '(判定中...)' : ''}
           </p>
-          <div class="board-container">
+          <label class="move-eval-overlay-toggle">
+            <input
+              type="checkbox"
+              checked={moveEvalOverlayEnabled}
+              onChange={(event) => handleToggleMoveEvalOverlay((event.target as HTMLInputElement).checked)}
+            />
+            候補手評価を表示
+          </label>
+          <div class="board-container board-with-move-eval-overlay">
             <Board
               board={state.board}
               sideToMove={state.sideToMove}
               lastMove={state.lastMove}
               onMove={(square) => void handleHumanClick(square)}
+            />
+            <MoveEvalOverlay
+              allMoves={overlayMoves}
+              mover={state.sideToMove}
+              thresholds={classifyThresholds}
+              visible={moveEvalOverlayEnabled}
             />
           </div>
           <button type="button" class="joseki-practice__quit" onClick={backToColorSelect}>

@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'preact/hooks'
 import { Board } from '../components/Board.tsx'
 import { EvalBadge } from '../components/EvalBadge.tsx'
+import { MoveEvalOverlay } from '../components/MoveEvalOverlay.tsx'
 import type { EngineClient } from '../engine/client.ts'
-import type { AnalyzeLimit } from '../engine/types.ts'
+import type { AnalyzeLimit, MoveEvalJson } from '../engine/types.ts'
 import {
   applyMove,
   hasLegalMove,
@@ -15,6 +16,7 @@ import {
   type Side,
 } from '../game/othello.ts'
 import { resolveMover } from '../midgame/resolveMover.ts'
+import { loadMoveEvalOverlayEnabled, saveMoveEvalOverlayEnabled } from '../settings/moveEvalOverlaySettings.ts'
 import { judgePuzzleMove } from '../tsume/judgePuzzleMove.ts'
 import type { Puzzle } from '../tsume/types.ts'
 import { ANALYZE_LIMIT } from './analyzeGame.ts'
@@ -37,7 +39,8 @@ import { computeBoardHighlights, detectMotifs, type BoardHighlights, type MotifD
 import { buildRefutationResult, type RefutationResult } from './refutation.ts'
 import { RefutationView } from './RefutationView.tsx'
 import { buildInstantTsumePuzzle, sendToMidgamePractice } from './sendToPractice.ts'
-import type { AttributionBreakdown, EvalTerms, FeatureSet, MoveAnalysis } from './types.ts'
+import { loadClassifyThresholds } from './thresholdSettings.ts'
+import type { AttributionBreakdown, ClassifyThresholds, EvalTerms, FeatureSet, MoveAnalysis } from './types.ts'
 import { analyzeWhyBad, computeStableSquares } from './whyBad.ts'
 import { GlossaryPopover } from '../verbalize/GlossaryPopover.tsx'
 import { buildStructuredInput } from '../llm/buildStructuredInput.ts'
@@ -291,6 +294,45 @@ export function BlunderPanel({ moveAnalysis, gameMoves, engine, onClose }: Blund
   )
   const [branchBusy, setBranchBusy] = useState(false)
   const [branchError, setBranchError] = useState<string | null>(null)
+
+  // 盤面セル評価オーバーレイ(T039をT042で展開)。フリー分岐探索の現局面(手番側が
+  // 存在する場合のみ)の全合法手評価をまとめて取得する。他の悪手分析パネル内の
+  // 盤面(着手前局面の表示・詰めオセロ即席判定の盤面)は非対象(タスク仕様のスコープ外)。
+  const [moveEvalOverlayEnabled, setMoveEvalOverlayEnabled] = useState<boolean>(() =>
+    loadMoveEvalOverlayEnabled(localStorage),
+  )
+  const [classifyThresholds] = useState<ClassifyThresholds>(() => loadClassifyThresholds(localStorage))
+  const [branchOverlayMoves, setBranchOverlayMoves] = useState<MoveEvalJson[] | null>(null)
+
+  useEffect(() => {
+    const mover = currentMover(branchTree)
+    const node = currentNode(branchTree)
+    if (!moveEvalOverlayEnabled || mover === null || branchBusy) {
+      setBranchOverlayMoves(null)
+      return
+    }
+
+    let cancelled = false
+    engine
+      .requestAnalyzeAll(node.board, mover, ANALYZE_LIMIT)
+      .then((moves) => {
+        if (!cancelled) setBranchOverlayMoves(moves)
+      })
+      .catch((error: unknown) => {
+        console.error('候補手評価オーバーレイの取得に失敗しました', error)
+      })
+
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line
+  }, [branchTree, moveEvalOverlayEnabled, branchBusy])
+
+  /** オーバーレイ表示ON/OFFを切り替え、`localStorage`へ永続化する(T039・T042、他モードと共有)。 */
+  function handleToggleMoveEvalOverlay(enabled: boolean): void {
+    setMoveEvalOverlayEnabled(enabled)
+    saveMoveEvalOverlayEnabled(localStorage, enabled)
+  }
 
   async function handleBranchMove(square: number): Promise<void> {
     if (branchBusy) return
@@ -607,14 +649,28 @@ export function BlunderPanel({ moveAnalysis, gameMoves, engine, onClose }: Blund
             手番: {branchMover ? sideLabel(branchMover) : '終局'}
             {branchBusy ? '(評価取得中...)' : ''}
           </p>
+          <label class="move-eval-overlay-toggle">
+            <input
+              type="checkbox"
+              checked={moveEvalOverlayEnabled}
+              onChange={(event) => handleToggleMoveEvalOverlay((event.target as HTMLInputElement).checked)}
+            />
+            候補手評価を表示
+          </label>
           {branchError && <p class="notice notice--error">{branchError}</p>}
           <div class="blunder-panel__branch-area">
-            <div class="board-container blunder-panel__board">
+            <div class="board-container blunder-panel__board board-with-move-eval-overlay">
               <Board
                 board={branchNode.board}
                 sideToMove={branchMover ?? branchNode.side}
                 lastMove={branchLastMove}
                 onMove={(square) => void handleBranchMove(square)}
+              />
+              <MoveEvalOverlay
+                allMoves={branchOverlayMoves}
+                mover={branchMover ?? branchNode.side}
+                thresholds={classifyThresholds}
+                visible={moveEvalOverlayEnabled}
               />
             </div>
             <div class="blunder-panel__branch-tree-wrap">

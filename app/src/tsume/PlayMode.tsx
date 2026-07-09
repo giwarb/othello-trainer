@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from 'preact/hooks'
+import { loadClassifyThresholds } from '../analysis/thresholdSettings.ts'
+import type { ClassifyThresholds } from '../analysis/types.ts'
 import { Board } from '../components/Board.tsx'
 import { formatDiscDiff } from '../components/EvalBadge.tsx'
+import { MoveEvalOverlay } from '../components/MoveEvalOverlay.tsx'
 import { EngineClient } from '../engine/client.ts'
 import { hexToBigint } from '../engine/hex.ts'
 import type { AnalyzeLimit, MoveEvalJson } from '../engine/types.ts'
@@ -15,6 +18,7 @@ import {
   type Board as BoardState,
   type Side,
 } from '../game/othello.ts'
+import { loadMoveEvalOverlayEnabled, saveMoveEvalOverlayEnabled } from '../settings/moveEvalOverlaySettings.ts'
 import { todaysPuzzle } from './dailyPuzzle.ts'
 import { judgePuzzleMove } from './judgePuzzleMove.ts'
 import { loadPuzzles } from './loadPuzzles.ts'
@@ -144,6 +148,12 @@ export function PlayMode() {
   const [analyzing, setAnalyzing] = useState(false)
   /** 直前の自分の着手が最善結果を維持できていたことを示す一時的なフィードバック(要件2)。 */
   const [lastMoveCorrect, setLastMoveCorrect] = useState(false)
+
+  const [moveEvalOverlayEnabled, setMoveEvalOverlayEnabled] = useState<boolean>(() =>
+    loadMoveEvalOverlayEnabled(localStorage),
+  )
+  const [classifyThresholds] = useState<ClassifyThresholds>(() => loadClassifyThresholds(localStorage))
+  const [overlayMoves, setOverlayMoves] = useState<MoveEvalJson[] | null>(null)
 
   const engineRef = useRef<EngineClient | null>(null)
 
@@ -315,6 +325,46 @@ export function PlayMode() {
     // eslint-disable-next-line
   }, [phase, session])
 
+  // 盤面セル評価オーバーレイ(T039をT042で展開)。出題中(人間の手番)になった時点で、
+  // 表示ONの場合のみ現局面(着手前)の全合法手の完全読み結果をまとめて取得する。
+  // 詰めオセロは完全読み判定のため、これをONにすると事実上正解手が見えてしまうが、
+  // ユーザーが明示的にトグルをONにした場合のみなので許容する(タスク仕様参照)。
+  // 判定中(`analyzing`)は重複リクエストを避けるため取得しない(要件5)。
+  useEffect(() => {
+    if (
+      phase !== 'playing' ||
+      !session ||
+      session.sideToMove !== session.humanSide ||
+      !moveEvalOverlayEnabled ||
+      analyzing
+    ) {
+      setOverlayMoves(null)
+      return
+    }
+
+    let cancelled = false
+    const limit = puzzleAnalyzeLimit(session.puzzle)
+    getEngine()
+      .requestAnalyzeAll(session.board, session.sideToMove, limit)
+      .then((moves) => {
+        if (!cancelled) setOverlayMoves(moves)
+      })
+      .catch((error: unknown) => {
+        console.error('候補手評価オーバーレイの取得に失敗しました', error)
+      })
+
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line
+  }, [phase, session, moveEvalOverlayEnabled, analyzing])
+
+  /** オーバーレイ表示ON/OFFを切り替え、`localStorage`へ永続化する(T039・T042、他モードと共有)。 */
+  function handleToggleMoveEvalOverlay(enabled: boolean): void {
+    setMoveEvalOverlayEnabled(enabled)
+    saveMoveEvalOverlayEnabled(localStorage, enabled)
+  }
+
   /**
    * プレイヤーがボードをクリックしたときの処理(要件2・4)。
    * `analyzing`(前回の判定が完了する前)であれば無視する(連打防止、`midgame/PracticeMode.tsx`と同じ方針)。
@@ -461,12 +511,27 @@ export function PlayMode() {
           </p>
           {lastMoveCorrect && <p class="tsume-practice__feedback">✓ 正解(最善を維持しています)</p>}
 
-          <div class="board-container">
+          <label class="move-eval-overlay-toggle">
+            <input
+              type="checkbox"
+              checked={moveEvalOverlayEnabled}
+              onChange={(event) => handleToggleMoveEvalOverlay((event.target as HTMLInputElement).checked)}
+            />
+            候補手評価を表示
+          </label>
+
+          <div class="board-container board-with-move-eval-overlay">
             <Board
               board={session.board}
               sideToMove={session.sideToMove}
               lastMove={session.lastMove}
               onMove={(square) => void handlePlayerMove(square)}
+            />
+            <MoveEvalOverlay
+              allMoves={overlayMoves}
+              mover={session.sideToMove}
+              thresholds={classifyThresholds}
+              visible={moveEvalOverlayEnabled}
             />
           </div>
 
