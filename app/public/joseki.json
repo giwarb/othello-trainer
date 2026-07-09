@@ -99,7 +99,29 @@
         "沈没船",
         "裏快速船・基本形",
         "野いちご定石",
-        "裏ヨット定石"
+        "裏ヨット定石",
+        "ネズミ定石：基本",
+        "ネズミ定石・最善型",
+        "ネズミ定石　4-f2変化型（旅チュー）",
+        "鶴定石",
+        "白大量取り",
+        "マムシ定石・基本形",
+        "コブラ定石・基本形（Lysons）",
+        "つちのこ定石・基本形",
+        "バシリスク定石・基本形",
+        "砂蛇・基本形",
+        "丸岡バッファロー・基本形",
+        "谷田バッファロー・基本形",
+        "北陸バッファロー・基本形",
+        "e7バッファロー・基本形",
+        "猫定石・坂口流",
+        "Kung",
+        "裏こうもり・基本形",
+        "白裏大量　8-g6型",
+        "狸定石・最善型",
+        "Shaman11-g6型",
+        "ロジステロ流基本形",
+        "ライトニングボルト基本形"
       ],
       "isLeaf": false
     },
@@ -212,7 +234,29 @@
         "沈没船",
         "裏快速船・基本形",
         "野いちご定石",
-        "裏ヨット定石"
+        "裏ヨット定石",
+        "ネズミ定石：基本",
+        "ネズミ定石・最善型",
+        "ネズミ定石　4-f2変化型（旅チュー）",
+        "鶴定石",
+        "白大量取り",
+        "マムシ定石・基本形",
+        "コブラ定石・基本形（Lysons）",
+        "つちのこ定石・基本形",
+        "バシリスク定石・基本形",
+        "砂蛇・基本形",
+        "丸岡バッファロー・基本形",
+        "谷田バッファロー・基本形",
+        "北陸バッファロー・基本形",
+        "e7バッファロー・基本形",
+        "猫定石・坂口流",
+        "Kung",
+        "裏こうもり・基本形",
+        "白裏大量　8-g6型",
+        "狸定石・最善型",
+        "Shaman11-g6型",
+        "ロジステロ流基本形",
+        "ライトニングボルト基本形"
       ],
       "isLeaf": false
     },
@@ -311,7 +355,13 @@
         "井上流・最善型",
         "たまうさぎ9-f3型",
         "Ralle定石",
-        "大和久流"
+        "大和久流",
+        "鶴定石",
+        "猫定石・坂口流",
+        "Kung",
+        "Shaman11-g6型",
+        "ロジステロ流基本形",
+        "ライトニングボルト基本形"
       ],
       "isLeaf": true
     },
@@ -373,7 +423,10 @@
         "Leader's Tiger",
         "Leader's Tiger 8-f6変化（ビン定石）",
         "Leader's Tiger 8-f6変化型（坂口流）",
-        "ブライトウェル"
+        "ブライトウェル",
+        "Kung",
+        "ロジステロ流基本形",
+        "ライトニングボルト基本形"
       ],
       "isLeaf": false
     },
@@ -429,7 +482,10 @@
         "Leader's Tiger",
         "Leader's Tiger 8-f6変化（ビン定石）",
         "Leader's Tiger 8-f6変化型（坂口流）",
-        "ブライトウェル"
+        "ブライトウェル",
+        "Kung",
+        "ロジステロ流基本形",
+        "ライトニングボルト基本形"
       ],
       "isLeaf": false
     },
@@ -484,7 +540,10 @@
         "Leader's Tiger 8-f6変化（ビン定石）",
         "Leader's Tiger 8-f6変化型（坂口流）",
         "ブライトウェル",
-        "黒3-c4→虎定石化"
+        "黒3-c4→虎定石化",
+        "Kung",
+        "ロジステロ流基本形",
+        "ライトニングボルト基本形"
       ],
       "isLeaf": true
     },
@@ -511,7 +570,8 @@
         "猫定石・最善型",
         "羊定石・基本形",
         "燕定石",
-        "ラッコ定石"
+        "ラッコ定石",
+        "猫定石・坂口流"
       ],
       "isLeaf": false
     },
@@ -540,7 +600,8 @@
         "黒3-c4→虎定石化",
         "猫定石・基本形",
         "猫定石・最善型",
-        "羊定石・基本形"
+        "羊定石・基本形",
+        "猫定石・坂口流"
       ],
       "isLeaf": false
     },
@@ -556,7 +617,8 @@
       "names": [
         "猫",
         "猫定石・基本形",
-        "猫定石・最善型"
+        "猫定石・最善型",
+        "猫定石・坂口流"
       ],
       "isLeaf": true
     },
@@ -655,7 +717,9 @@
         "井上流・最善型",
         "たまうさぎ9-f3型",
         "Ralle定石",
-        "大和久流"
+        "大和久流",
+        "鶴定石",
+        "Shaman11-g6型"
       ],
       "isLeaf": false
     },
@@ -663,12 +727,17 @@
       "bookMoves": [
         {
           "move": 20,
-          "weight": 0.5,
+          "weight": 0.3333333333333333,
           "eval": null
         },
         {
           "move": 19,
-          "weight": 0.5,
+          "weight": 0.3333333333333333,
+          "eval": null
+        },
+        {
+          "move": 51,
+          "weight": 0.3333333333333333,
           "eval": null
         }
       ],
@@ -691,7 +760,9 @@
         "井上流・最善型",
         "たまうさぎ9-f3型",
         "Ralle定石",
-        "大和久流"
+        "大和久流",
+        "鶴定石",
+        "Shaman11-g6型"
       ],
       "isLeaf": false
     },
@@ -731,7 +802,8 @@
         "井上流・最善型",
         "たまうさぎ9-f3型",
         "Ralle定石",
-        "大和久流"
+        "大和久流",
+        "Shaman11-g6型"
       ],
       "isLeaf": true
     },
@@ -787,7 +859,20 @@
         "沈没船",
         "裏快速船・基本形",
         "野いちご定石",
-        "裏ヨット定石"
+        "裏ヨット定石",
+        "白大量取り",
+        "マムシ定石・基本形",
+        "コブラ定石・基本形（Lysons）",
+        "つちのこ定石・基本形",
+        "バシリスク定石・基本形",
+        "砂蛇・基本形",
+        "丸岡バッファロー・基本形",
+        "谷田バッファロー・基本形",
+        "北陸バッファロー・基本形",
+        "e7バッファロー・基本形",
+        "裏こうもり・基本形",
+        "白裏大量　8-g6型",
+        "狸定石・最善型"
       ],
       "isLeaf": true
     },
@@ -817,7 +902,20 @@
         "沈没船",
         "裏快速船・基本形",
         "野いちご定石",
-        "裏ヨット定石"
+        "裏ヨット定石",
+        "白大量取り",
+        "マムシ定石・基本形",
+        "コブラ定石・基本形（Lysons）",
+        "つちのこ定石・基本形",
+        "バシリスク定石・基本形",
+        "砂蛇・基本形",
+        "丸岡バッファロー・基本形",
+        "谷田バッファロー・基本形",
+        "北陸バッファロー・基本形",
+        "e7バッファロー・基本形",
+        "裏こうもり・基本形",
+        "白裏大量　8-g6型",
+        "狸定石・最善型"
       ],
       "isLeaf": false
     },
@@ -887,7 +985,20 @@
         "沈没船",
         "裏快速船・基本形",
         "野いちご定石",
-        "裏ヨット定石"
+        "裏ヨット定石",
+        "白大量取り",
+        "マムシ定石・基本形",
+        "コブラ定石・基本形（Lysons）",
+        "つちのこ定石・基本形",
+        "バシリスク定石・基本形",
+        "砂蛇・基本形",
+        "丸岡バッファロー・基本形",
+        "谷田バッファロー・基本形",
+        "北陸バッファロー・基本形",
+        "e7バッファロー・基本形",
+        "裏こうもり・基本形",
+        "白裏大量　8-g6型",
+        "狸定石・最善型"
       ],
       "isLeaf": false
     },
@@ -895,7 +1006,12 @@
       "bookMoves": [
         {
           "move": 34,
-          "weight": 1,
+          "weight": 0.5,
+          "eval": null
+        },
+        {
+          "move": 43,
+          "weight": 0.5,
           "eval": null
         }
       ],
@@ -906,7 +1022,8 @@
         "戦車定石",
         "快速船・基礎形",
         "ヨット定石",
-        "沈没船"
+        "沈没船",
+        "白大量取り"
       ],
       "isLeaf": true
     },
@@ -927,14 +1044,92 @@
       "isLeaf": true
     },
     "101808040000_202030000000_white": {
-      "bookMoves": [],
+      "bookMoves": [
+        {
+          "move": 51,
+          "weight": 0.25,
+          "eval": null
+        },
+        {
+          "move": 43,
+          "weight": 0.25,
+          "eval": null
+        },
+        {
+          "move": 26,
+          "weight": 0.25,
+          "eval": null
+        },
+        {
+          "move": 52,
+          "weight": 0.25,
+          "eval": null
+        }
+      ],
       "nonBookEval": null,
       "names": [
-        "バッファロー"
+        "バッファロー",
+        "丸岡バッファロー・基本形",
+        "谷田バッファロー・基本形",
+        "北陸バッファロー・基本形",
+        "e7バッファロー・基本形"
       ],
       "isLeaf": true
     },
     "107800000000_200038000000_white": {
+      "bookMoves": [
+        {
+          "move": 52,
+          "weight": 0.5,
+          "eval": null
+        },
+        {
+          "move": 43,
+          "weight": 0.5,
+          "eval": null
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "闘牛",
+        "裏快速船・基本形",
+        "野いちご定石",
+        "裏ヨット定石",
+        "裏こうもり・基本形",
+        "白裏大量　8-g6型"
+      ],
+      "isLeaf": true
+    },
+    "701800000000_2038000000_white": {
+      "bookMoves": [
+        {
+          "move": 34,
+          "weight": 0.3333333333333333,
+          "eval": null
+        },
+        {
+          "move": 42,
+          "weight": 0.3333333333333333,
+          "eval": null
+        },
+        {
+          "move": 43,
+          "weight": 0.3333333333333333,
+          "eval": null
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "蛇",
+        "マムシ定石・基本形",
+        "コブラ定石・基本形（Lysons）",
+        "つちのこ定石・基本形",
+        "バシリスク定石・基本形",
+        "砂蛇・基本形"
+      ],
+      "isLeaf": true
+    },
+    "103840000000_200038000000_white": {
       "bookMoves": [
         {
           "move": 52,
@@ -944,26 +1139,8 @@
       ],
       "nonBookEval": null,
       "names": [
-        "闘牛",
-        "裏快速船・基本形",
-        "野いちご定石",
-        "裏ヨット定石"
-      ],
-      "isLeaf": true
-    },
-    "701800000000_2038000000_white": {
-      "bookMoves": [],
-      "nonBookEval": null,
-      "names": [
-        "蛇"
-      ],
-      "isLeaf": true
-    },
-    "103840000000_200038000000_white": {
-      "bookMoves": [],
-      "nonBookEval": null,
-      "names": [
-        "狸"
+        "狸",
+        "狸定石・最善型"
       ],
       "isLeaf": true
     },
@@ -984,10 +1161,19 @@
       "isLeaf": true
     },
     "3800000000_38000000_black": {
-      "bookMoves": [],
+      "bookMoves": [
+        {
+          "move": 20,
+          "weight": 1,
+          "eval": null
+        }
+      ],
       "nonBookEval": null,
       "names": [
-        "並び取り"
+        "並び取り",
+        "ネズミ定石：基本",
+        "ネズミ定石・最善型",
+        "ネズミ定石　4-f2変化型（旅チュー）"
       ],
       "isLeaf": true
     },
@@ -1272,12 +1458,17 @@
       "bookMoves": [
         {
           "move": 19,
-          "weight": 0.5,
+          "weight": 0.3333333333333333,
           "eval": null
         },
         {
           "move": 44,
-          "weight": 0.5,
+          "weight": 0.3333333333333333,
+          "eval": null
+        },
+        {
+          "move": 21,
+          "weight": 0.3333333333333333,
           "eval": null
         }
       ],
@@ -1296,7 +1487,8 @@
         "横うさぎ・基本形",
         "井上流・最善型",
         "たまうさぎ9-f3型",
-        "Ralle定石"
+        "Ralle定石",
+        "Shaman11-g6型"
       ],
       "isLeaf": false
     },
@@ -2259,7 +2451,10 @@
         "Leader's Tiger 8-f6変化（ビン定石）",
         "Leader's Tiger 8-f6変化型（坂口流）",
         "ブライトウェル",
-        "黒3-c4→虎定石化"
+        "黒3-c4→虎定石化",
+        "Kung",
+        "ロジステロ流基本形",
+        "ライトニングボルト基本形"
       ],
       "isLeaf": true
     },
@@ -2267,12 +2462,17 @@
       "bookMoves": [
         {
           "move": 21,
-          "weight": 0.5,
+          "weight": 0.3333333333333333,
           "eval": null
         },
         {
           "move": 38,
-          "weight": 0.5,
+          "weight": 0.3333333333333333,
+          "eval": null
+        },
+        {
+          "move": 25,
+          "weight": 0.3333333333333333,
           "eval": null
         }
       ],
@@ -2287,7 +2487,10 @@
         "ノーカン基本形",
         "ノーカン最善1 15-h5型",
         "ノーカン最善2 15-b6型",
-        "ノーカン10-c5型（縦取り殺され）"
+        "ノーカン10-c5型（縦取り殺され）",
+        "Kung",
+        "ロジステロ流基本形",
+        "ライトニングボルト基本形"
       ],
       "isLeaf": false
     },
@@ -2295,7 +2498,12 @@
       "bookMoves": [
         {
           "move": 44,
-          "weight": 1,
+          "weight": 0.5,
+          "eval": null
+        },
+        {
+          "move": 20,
+          "weight": 0.5,
           "eval": null
         }
       ],
@@ -2306,7 +2514,9 @@
         "コンポス14-c5変化型",
         "D8コンポス13-d8変化型",
         "シャープコンポス",
-        "フラットコンポス"
+        "フラットコンポス",
+        "ロジステロ流基本形",
+        "ライトニングボルト基本形"
       ],
       "isLeaf": false
     },
@@ -2325,7 +2535,8 @@
         "コンポス14-c5変化型",
         "D8コンポス13-d8変化型",
         "シャープコンポス",
-        "フラットコンポス"
+        "フラットコンポス",
+        "ロジステロ流基本形"
       ],
       "isLeaf": false
     },
@@ -2333,7 +2544,12 @@
       "bookMoves": [
         {
           "move": 51,
-          "weight": 1,
+          "weight": 0.5,
+          "eval": null
+        },
+        {
+          "move": 42,
+          "weight": 0.5,
           "eval": null
         }
       ],
@@ -2344,7 +2560,8 @@
         "コンポス14-c5変化型",
         "D8コンポス13-d8変化型",
         "シャープコンポス",
-        "フラットコンポス"
+        "フラットコンポス",
+        "ロジステロ流基本形"
       ],
       "isLeaf": false
     },
@@ -6081,7 +6298,8 @@
       "nonBookEval": null,
       "names": [
         "猫定石・基本形",
-        "猫定石・最善型"
+        "猫定石・最善型",
+        "猫定石・坂口流"
       ],
       "isLeaf": true
     },
@@ -6095,7 +6313,8 @@
       ],
       "nonBookEval": null,
       "names": [
-        "猫定石・最善型"
+        "猫定石・最善型",
+        "猫定石・坂口流"
       ],
       "isLeaf": false
     },
@@ -6103,13 +6322,19 @@
       "bookMoves": [
         {
           "move": 12,
-          "weight": 1,
+          "weight": 0.5,
+          "eval": null
+        },
+        {
+          "move": 10,
+          "weight": 0.5,
           "eval": null
         }
       ],
       "nonBookEval": null,
       "names": [
-        "猫定石・最善型"
+        "猫定石・最善型",
+        "猫定石・坂口流"
       ],
       "isLeaf": false
     },
@@ -7452,7 +7677,12 @@
       "bookMoves": [
         {
           "move": 53,
-          "weight": 1,
+          "weight": 0.5,
+          "eval": null
+        },
+        {
+          "move": 20,
+          "weight": 0.5,
           "eval": null
         }
       ],
@@ -7460,7 +7690,8 @@
       "names": [
         "裏快速船・基本形",
         "野いちご定石",
-        "裏ヨット定石"
+        "裏ヨット定石",
+        "裏こうもり・基本形"
       ],
       "isLeaf": false
     },
@@ -7739,6 +7970,1419 @@
         "裏ヨット定石"
       ],
       "isLeaf": true
+    },
+    "3810100000_28000000_white": {
+      "bookMoves": [
+        {
+          "move": 45,
+          "weight": 0.5,
+          "eval": null
+        },
+        {
+          "move": 13,
+          "weight": 0.5,
+          "eval": null
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "ネズミ定石：基本",
+        "ネズミ定石・最善型",
+        "ネズミ定石　4-f2変化型（旅チュー）"
+      ],
+      "isLeaf": false
+    },
+    "810100000_203028000000_black": {
+      "bookMoves": [
+        {
+          "move": 19,
+          "weight": 1,
+          "eval": null
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "ネズミ定石：基本",
+        "ネズミ定石・最善型"
+      ],
+      "isLeaf": false
+    },
+    "818180000_203020000000_white": {
+      "bookMoves": [
+        {
+          "move": 34,
+          "weight": 1,
+          "eval": null
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "ネズミ定石：基本",
+        "ネズミ定石・最善型"
+      ],
+      "isLeaf": false
+    },
+    "18180000_203c20000000_black": {
+      "bookMoves": [
+        {
+          "move": 43,
+          "weight": 1,
+          "eval": null
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "ネズミ定石：基本",
+        "ネズミ定石・最善型"
+      ],
+      "isLeaf": false
+    },
+    "80818180000_203420000000_white": {
+      "bookMoves": [
+        {
+          "move": 26,
+          "weight": 1,
+          "eval": null
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "ネズミ定石：基本",
+        "ネズミ定石・最善型"
+      ],
+      "isLeaf": false
+    },
+    "80800180000_20343c000000_black": {
+      "bookMoves": [
+        {
+          "move": 44,
+          "weight": 1,
+          "eval": null
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "ネズミ定石：基本",
+        "ネズミ定石・最善型"
+      ],
+      "isLeaf": false
+    },
+    "181810180000_20242c000000_white": {
+      "bookMoves": [
+        {
+          "move": 50,
+          "weight": 1,
+          "eval": null
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "ネズミ定石：基本",
+        "ネズミ定石・最善型"
+      ],
+      "isLeaf": true
+    },
+    "100810180000_428342c000000_black": {
+      "bookMoves": [
+        {
+          "move": 51,
+          "weight": 1,
+          "eval": null
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "ネズミ定石・最善型"
+      ],
+      "isLeaf": false
+    },
+    "8180810180000_420342c000000_white": {
+      "bookMoves": [
+        {
+          "move": 42,
+          "weight": 1,
+          "eval": null
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "ネズミ定石・最善型"
+      ],
+      "isLeaf": false
+    },
+    "8000810180000_43c342c000000_black": {
+      "bookMoves": [
+        {
+          "move": 38,
+          "weight": 1,
+          "eval": null
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "ネズミ定石・最善型"
+      ],
+      "isLeaf": false
+    },
+    "8007830180000_43c040c000000_white": {
+      "bookMoves": [
+        {
+          "move": 22,
+          "weight": 1,
+          "eval": null
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "ネズミ定石・最善型"
+      ],
+      "isLeaf": false
+    },
+    "8006810180000_43c142c400000_black": {
+      "bookMoves": [
+        {
+          "move": 21,
+          "weight": 1,
+          "eval": null
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "ネズミ定石・最善型"
+      ],
+      "isLeaf": false
+    },
+    "8006830380000_43c140c400000_white": {
+      "bookMoves": [
+        {
+          "move": 11,
+          "weight": 1,
+          "eval": null
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "ネズミ定石・最善型"
+      ],
+      "isLeaf": false
+    },
+    "8006830300000_43c140c480800_black": {
+      "bookMoves": [
+        {
+          "move": 10,
+          "weight": 1,
+          "eval": null
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "ネズミ定石・最善型"
+      ],
+      "isLeaf": false
+    },
+    "8006830380400_43c140c400800_white": {
+      "bookMoves": [
+        {
+          "move": 52,
+          "weight": 1,
+          "eval": null
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "ネズミ定石・最善型"
+      ],
+      "isLeaf": false
+    },
+    "6830380400_1c3c140c400800_black": {
+      "bookMoves": [],
+      "nonBookEval": null,
+      "names": [
+        "ネズミ定石・最善型"
+      ],
+      "isLeaf": true
+    },
+    "3810000000_28102000_black": {
+      "bookMoves": [
+        {
+          "move": 12,
+          "weight": 1,
+          "eval": null
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "ネズミ定石　4-f2変化型（旅チュー）"
+      ],
+      "isLeaf": false
+    },
+    "3810101000_28002000_white": {
+      "bookMoves": [
+        {
+          "move": 45,
+          "weight": 1,
+          "eval": null
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "ネズミ定石　4-f2変化型（旅チュー）"
+      ],
+      "isLeaf": false
+    },
+    "810101000_203028002000_black": {
+      "bookMoves": [
+        {
+          "move": 19,
+          "weight": 1,
+          "eval": null
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "ネズミ定石　4-f2変化型（旅チュー）"
+      ],
+      "isLeaf": false
+    },
+    "818181000_203020002000_white": {
+      "bookMoves": [
+        {
+          "move": 26,
+          "weight": 1,
+          "eval": null
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "ネズミ定石　4-f2変化型（旅チュー）"
+      ],
+      "isLeaf": false
+    },
+    "800181000_20303c002000_black": {
+      "bookMoves": [
+        {
+          "move": 21,
+          "weight": 1,
+          "eval": null
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "ネズミ定石　4-f2変化型（旅チュー）"
+      ],
+      "isLeaf": false
+    },
+    "810381000_20302c002000_white": {
+      "bookMoves": [
+        {
+          "move": 4,
+          "weight": 1,
+          "eval": null
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "ネズミ定石　4-f2変化型（旅チュー）"
+      ],
+      "isLeaf": false
+    },
+    "800280000_20303c103010_black": {
+      "bookMoves": [
+        {
+          "move": 5,
+          "weight": 1,
+          "eval": null
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "ネズミ定石　4-f2変化型（旅チュー）"
+      ],
+      "isLeaf": false
+    },
+    "800283020_20303c100010_white": {
+      "bookMoves": [
+        {
+          "move": 6,
+          "weight": 1,
+          "eval": null
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "ネズミ定石　4-f2変化型（旅チュー）"
+      ],
+      "isLeaf": false
+    },
+    "800281000_20303c102070_black": {
+      "bookMoves": [
+        {
+          "move": 44,
+          "weight": 1,
+          "eval": null
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "ネズミ定石　4-f2変化型（旅チュー）"
+      ],
+      "isLeaf": false
+    },
+    "101810381000_20202c002070_white": {
+      "bookMoves": [
+        {
+          "move": 34,
+          "weight": 1,
+          "eval": null
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "ネズミ定石　4-f2変化型（旅チュー）"
+      ],
+      "isLeaf": false
+    },
+    "100010381000_203c2c002070_black": {
+      "bookMoves": [
+        {
+          "move": 42,
+          "weight": 1,
+          "eval": null
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "ネズミ定石　4-f2変化型（旅チュー）"
+      ],
+      "isLeaf": false
+    },
+    "140810381000_20342c002070_white": {
+      "bookMoves": [
+        {
+          "move": 43,
+          "weight": 1,
+          "eval": null
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "ネズミ定石　4-f2変化型（旅チュー）"
+      ],
+      "isLeaf": false
+    },
+    "40010381000_383c2c002070_black": {
+      "bookMoves": [],
+      "nonBookEval": null,
+      "names": [
+        "ネズミ定石　4-f2変化型（旅チュー）"
+      ],
+      "isLeaf": true
+    },
+    "8082c00000000_1038000000_white": {
+      "bookMoves": [
+        {
+          "move": 45,
+          "weight": 1,
+          "eval": null
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "鶴定石"
+      ],
+      "isLeaf": false
+    },
+    "8080c00000000_203038000000_black": {
+      "bookMoves": [
+        {
+          "move": 19,
+          "weight": 1,
+          "eval": null
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "鶴定石"
+      ],
+      "isLeaf": false
+    },
+    "8080c08080000_203030000000_white": {
+      "bookMoves": [
+        {
+          "move": 18,
+          "weight": 1,
+          "eval": null
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "鶴定石"
+      ],
+      "isLeaf": false
+    },
+    "8080c00080000_203038040000_black": {
+      "bookMoves": [
+        {
+          "move": 20,
+          "weight": 1,
+          "eval": null
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "鶴定石"
+      ],
+      "isLeaf": false
+    },
+    "8080c08180000_203030040000_white": {
+      "bookMoves": [
+        {
+          "move": 21,
+          "weight": 1,
+          "eval": null
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "鶴定石"
+      ],
+      "isLeaf": false
+    },
+    "8080c08000000_2030303c0000_black": {
+      "bookMoves": [
+        {
+          "move": 30,
+          "weight": 1,
+          "eval": null
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "鶴定石"
+      ],
+      "isLeaf": false
+    },
+    "8080c78000000_2030003c0000_white": {
+      "bookMoves": [
+        {
+          "move": 38,
+          "weight": 1,
+          "eval": null
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "鶴定石"
+      ],
+      "isLeaf": false
+    },
+    "8080c58000000_2070203c0000_black": {
+      "bookMoves": [
+        {
+          "move": 44,
+          "weight": 1,
+          "eval": null
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "鶴定石"
+      ],
+      "isLeaf": false
+    },
+    "8183c58000000_2040203c0000_white": {
+      "bookMoves": [
+        {
+          "move": 46,
+          "weight": 1,
+          "eval": null
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "鶴定石"
+      ],
+      "isLeaf": false
+    },
+    "8181c48000000_6060303c0000_black": {
+      "bookMoves": [
+        {
+          "move": 22,
+          "weight": 1,
+          "eval": null
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "鶴定石"
+      ],
+      "isLeaf": false
+    },
+    "8181c68400000_6060103c0000_white": {
+      "bookMoves": [
+        {
+          "move": 31,
+          "weight": 1,
+          "eval": null
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "鶴定石"
+      ],
+      "isLeaf": false
+    },
+    "8181c08400000_6060f03c0000_black": {
+      "bookMoves": [],
+      "nonBookEval": null,
+      "names": [
+        "鶴定石"
+      ],
+      "isLeaf": true
+    },
+    "10100000_383828000000_black": {
+      "bookMoves": [],
+      "nonBookEval": null,
+      "names": [
+        "白大量取り"
+      ],
+      "isLeaf": true
+    },
+    "700000000000_3c38000000_black": {
+      "bookMoves": [
+        {
+          "move": 30,
+          "weight": 0.5,
+          "eval": null
+        },
+        {
+          "move": 21,
+          "weight": 0.5,
+          "eval": null
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "マムシ定石・基本形",
+        "バシリスク定石・基本形",
+        "砂蛇・基本形"
+      ],
+      "isLeaf": false
+    },
+    "702040000000_1c38000000_white": {
+      "bookMoves": [
+        {
+          "move": 38,
+          "weight": 1,
+          "eval": null
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "マムシ定石・基本形",
+        "バシリスク定石・基本形"
+      ],
+      "isLeaf": false
+    },
+    "700040000000_7c38000000_black": {
+      "bookMoves": [
+        {
+          "move": 31,
+          "weight": 0.5,
+          "eval": null
+        },
+        {
+          "move": 21,
+          "weight": 0.5,
+          "eval": null
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "マムシ定石・基本形",
+        "バシリスク定石・基本形"
+      ],
+      "isLeaf": false
+    },
+    "7040c0000000_3c38000000_white": {
+      "bookMoves": [],
+      "nonBookEval": null,
+      "names": [
+        "マムシ定石・基本形"
+      ],
+      "isLeaf": true
+    },
+    "701000000000_42838000000_black": {
+      "bookMoves": [],
+      "nonBookEval": null,
+      "names": [
+        "コブラ定石・基本形（Lysons）"
+      ],
+      "isLeaf": true
+    },
+    "700000000000_83838000000_black": {
+      "bookMoves": [],
+      "nonBookEval": null,
+      "names": [
+        "つちのこ定石・基本形"
+      ],
+      "isLeaf": true
+    },
+    "702060200000_5c18000000_white": {
+      "bookMoves": [
+        {
+          "move": 20,
+          "weight": 1,
+          "eval": null
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "バシリスク定石・基本形"
+      ],
+      "isLeaf": false
+    },
+    "702040200000_5c38100000_black": {
+      "bookMoves": [],
+      "nonBookEval": null,
+      "names": [
+        "バシリスク定石・基本形"
+      ],
+      "isLeaf": true
+    },
+    "702020200000_1c18000000_white": {
+      "bookMoves": [],
+      "nonBookEval": null,
+      "names": [
+        "砂蛇・基本形"
+      ],
+      "isLeaf": true
+    },
+    "1808040000_8302030000000_black": {
+      "bookMoves": [],
+      "nonBookEval": null,
+      "names": [
+        "丸岡バッファロー・基本形"
+      ],
+      "isLeaf": true
+    },
+    "808040000_383030000000_black": {
+      "bookMoves": [
+        {
+          "move": 21,
+          "weight": 1,
+          "eval": null
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "谷田バッファロー・基本形"
+      ],
+      "isLeaf": false
+    },
+    "818240000_383020000000_white": {
+      "bookMoves": [],
+      "nonBookEval": null,
+      "names": [
+        "谷田バッファロー・基本形"
+      ],
+      "isLeaf": true
+    },
+    "101800040000_20203c000000_black": {
+      "bookMoves": [
+        {
+          "move": 19,
+          "weight": 1,
+          "eval": null
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "北陸バッファロー・基本形"
+      ],
+      "isLeaf": false
+    },
+    "1018080c0000_202034000000_white": {
+      "bookMoves": [],
+      "nonBookEval": null,
+      "names": [
+        "北陸バッファロー・基本形"
+      ],
+      "isLeaf": true
+    },
+    "808040000_10303030000000_black": {
+      "bookMoves": [],
+      "nonBookEval": null,
+      "names": [
+        "e7バッファロー・基本形"
+      ],
+      "isLeaf": true
+    },
+    "2c1c080400_81020300000_white": {
+      "bookMoves": [
+        {
+          "move": 42,
+          "weight": 1,
+          "eval": null
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "猫定石・坂口流"
+      ],
+      "isLeaf": false
+    },
+    "240c080400_c1830300000_black": {
+      "bookMoves": [
+        {
+          "move": 44,
+          "weight": 1,
+          "eval": null
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "猫定石・坂口流"
+      ],
+      "isLeaf": false
+    },
+    "102c0c080400_c1030300000_white": {
+      "bookMoves": [
+        {
+          "move": 11,
+          "weight": 1,
+          "eval": null
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "猫定石・坂口流"
+      ],
+      "isLeaf": false
+    },
+    "102404000400_c1838380800_black": {
+      "bookMoves": [
+        {
+          "move": 30,
+          "weight": 1,
+          "eval": null
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "猫定石・坂口流"
+      ],
+      "isLeaf": false
+    },
+    "10247c000400_c1800380800_white": {
+      "bookMoves": [
+        {
+          "move": 41,
+          "weight": 1,
+          "eval": null
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "猫定石・坂口流"
+      ],
+      "isLeaf": false
+    },
+    "102074000400_e1c08380800_black": {
+      "bookMoves": [
+        {
+          "move": 33,
+          "weight": 1,
+          "eval": null
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "猫定石・坂口流"
+      ],
+      "isLeaf": false
+    },
+    "103e74000400_e0008380800_white": {
+      "bookMoves": [
+        {
+          "move": 18,
+          "weight": 1,
+          "eval": null
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "猫定石・坂口流"
+      ],
+      "isLeaf": false
+    },
+    "103a70000400_e040c3c0800_black": {
+      "bookMoves": [],
+      "nonBookEval": null,
+      "names": [
+        "猫定石・坂口流"
+      ],
+      "isLeaf": true
+    },
+    "203000040000_8083e080000_black": {
+      "bookMoves": [
+        {
+          "move": 21,
+          "weight": 1,
+          "eval": null
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "Kung"
+      ],
+      "isLeaf": false
+    },
+    "203020240000_8081e080000_white": {
+      "bookMoves": [
+        {
+          "move": 44,
+          "weight": 1,
+          "eval": null
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "Kung"
+      ],
+      "isLeaf": false
+    },
+    "202020240000_18181e080000_black": {
+      "bookMoves": [
+        {
+          "move": 20,
+          "weight": 1,
+          "eval": null
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "Kung"
+      ],
+      "isLeaf": false
+    },
+    "2020203c0000_18181e000000_white": {
+      "bookMoves": [
+        {
+          "move": 38,
+          "weight": 1,
+          "eval": null
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "Kung"
+      ],
+      "isLeaf": false
+    },
+    "2000203c0000_18781e000000_black": {
+      "bookMoves": [
+        {
+          "move": 46,
+          "weight": 1,
+          "eval": null
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "Kung"
+      ],
+      "isLeaf": false
+    },
+    "6020303c0000_18580e000000_white": {
+      "bookMoves": [
+        {
+          "move": 30,
+          "weight": 1,
+          "eval": null
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "Kung"
+      ],
+      "isLeaf": false
+    },
+    "6000003c0000_18787e000000_black": {
+      "bookMoves": [
+        {
+          "move": 31,
+          "weight": 1,
+          "eval": null
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "Kung"
+      ],
+      "isLeaf": false
+    },
+    "6040803c0000_18387e000000_white": {
+      "bookMoves": [
+        {
+          "move": 39,
+          "weight": 1,
+          "eval": null
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "Kung"
+      ],
+      "isLeaf": false
+    },
+    "6000803c0000_18f87e000000_black": {
+      "bookMoves": [
+        {
+          "move": 47,
+          "weight": 1,
+          "eval": null
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "Kung"
+      ],
+      "isLeaf": false
+    },
+    "e0c0a03c0000_18385e000000_white": {
+      "bookMoves": [
+        {
+          "move": 22,
+          "weight": 1,
+          "eval": null
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "Kung"
+      ],
+      "isLeaf": false
+    },
+    "e0c0803c0000_18387e400000_black": {
+      "bookMoves": [
+        {
+          "move": 23,
+          "weight": 1,
+          "eval": null
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "Kung"
+      ],
+      "isLeaf": false
+    },
+    "e0c080fc0000_18387e000000_white": {
+      "bookMoves": [
+        {
+          "move": 53,
+          "weight": 1,
+          "eval": null
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "Kung"
+      ],
+      "isLeaf": false
+    },
+    "c0c080fc0000_2038387e000000_black": {
+      "bookMoves": [
+        {
+          "move": 61,
+          "weight": 1,
+          "eval": null
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "Kung"
+      ],
+      "isLeaf": false
+    },
+    "2020e0e0a0fc0000_18185e000000_white": {
+      "bookMoves": [
+        {
+          "move": 13,
+          "weight": 1,
+          "eval": null
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "Kung"
+      ],
+      "isLeaf": false
+    },
+    "2020e0e0a0ec0000_18185e102000_black": {
+      "bookMoves": [
+        {
+          "move": 5,
+          "weight": 1,
+          "eval": null
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "Kung"
+      ],
+      "isLeaf": false
+    },
+    "2020e0e0a0ec2020_18185e100000_white": {
+      "bookMoves": [],
+      "nonBookEval": null,
+      "names": [
+        "Kung"
+      ],
+      "isLeaf": true
+    },
+    "6820100000_10301018000000_white": {
+      "bookMoves": [],
+      "nonBookEval": null,
+      "names": [
+        "裏こうもり・基本形"
+      ],
+      "isLeaf": true
+    },
+    "6000000000_381838000000_black": {
+      "bookMoves": [
+        {
+          "move": 52,
+          "weight": 1,
+          "eval": null
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "白裏大量　8-g6型"
+      ],
+      "isLeaf": false
+    },
+    "10206000000000_181838000000_white": {
+      "bookMoves": [
+        {
+          "move": 46,
+          "weight": 1,
+          "eval": null
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "白裏大量　8-g6型"
+      ],
+      "isLeaf": false
+    },
+    "10004000000000_783838000000_black": {
+      "bookMoves": [
+        {
+          "move": 34,
+          "weight": 1,
+          "eval": null
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "白裏大量　8-g6型"
+      ],
+      "isLeaf": false
+    },
+    "10087c00000000_700038000000_white": {
+      "bookMoves": [
+        {
+          "move": 26,
+          "weight": 1,
+          "eval": null
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "白裏大量　8-g6型"
+      ],
+      "isLeaf": false
+    },
+    "10087400000000_70083c000000_black": {
+      "bookMoves": [
+        {
+          "move": 21,
+          "weight": 1,
+          "eval": null
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "白裏大量　8-g6型"
+      ],
+      "isLeaf": false
+    },
+    "10087420200000_70081c000000_white": {
+      "bookMoves": [],
+      "nonBookEval": null,
+      "names": [
+        "白裏大量　8-g6型"
+      ],
+      "isLeaf": true
+    },
+    "2840000000_10301038000000_black": {
+      "bookMoves": [
+        {
+          "move": 53,
+          "weight": 1,
+          "eval": null
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "狸定石・最善型"
+      ],
+      "isLeaf": false
+    },
+    "20302840000000_10001038000000_white": {
+      "bookMoves": [
+        {
+          "move": 38,
+          "weight": 1,
+          "eval": null
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "狸定石・最善型"
+      ],
+      "isLeaf": false
+    },
+    "20100840000000_10207038000000_black": {
+      "bookMoves": [
+        {
+          "move": 20,
+          "weight": 1,
+          "eval": null
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "狸定石・最善型"
+      ],
+      "isLeaf": false
+    },
+    "20101850100000_10206028000000_white": {
+      "bookMoves": [
+        {
+          "move": 19,
+          "weight": 1,
+          "eval": null
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "狸定石・最善型"
+      ],
+      "isLeaf": false
+    },
+    "20101840100000_10206038080000_black": {
+      "bookMoves": [
+        {
+          "move": 39,
+          "weight": 1,
+          "eval": null
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "狸定石・最善型"
+      ],
+      "isLeaf": false
+    },
+    "2010f840100000_10200038080000_white": {
+      "bookMoves": [],
+      "nonBookEval": null,
+      "names": [
+        "狸定石・最善型"
+      ],
+      "isLeaf": true
+    },
+    "2428300000_c1810000000_white": {
+      "bookMoves": [
+        {
+          "move": 38,
+          "weight": 1,
+          "eval": null
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "Shaman11-g6型"
+      ],
+      "isLeaf": false
+    },
+    "428300000_c7810000000_black": {
+      "bookMoves": [
+        {
+          "move": 44,
+          "weight": 1,
+          "eval": null
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "Shaman11-g6型"
+      ],
+      "isLeaf": false
+    },
+    "101438300000_c6800000000_white": {
+      "bookMoves": [
+        {
+          "move": 45,
+          "weight": 1,
+          "eval": null
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "Shaman11-g6型"
+      ],
+      "isLeaf": false
+    },
+    "1438300000_3c6800000000_black": {
+      "bookMoves": [
+        {
+          "move": 46,
+          "weight": 1,
+          "eval": null
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "Shaman11-g6型"
+      ],
+      "isLeaf": false
+    },
+    "403438300000_3c4800000000_white": {
+      "bookMoves": [
+        {
+          "move": 30,
+          "weight": 1,
+          "eval": null
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "Shaman11-g6型"
+      ],
+      "isLeaf": false
+    },
+    "401438300000_3c6840000000_black": {
+      "bookMoves": [
+        {
+          "move": 51,
+          "weight": 1,
+          "eval": null
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "Shaman11-g6型"
+      ],
+      "isLeaf": false
+    },
+    "8481c38300000_346040000000_white": {
+      "bookMoves": [
+        {
+          "move": 19,
+          "weight": 1,
+          "eval": null
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "Shaman11-g6型"
+      ],
+      "isLeaf": false
+    },
+    "8481c28300000_346050080000_black": {
+      "bookMoves": [
+        {
+          "move": 52,
+          "weight": 1,
+          "eval": null
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "Shaman11-g6型"
+      ],
+      "isLeaf": false
+    },
+    "18581c28300000_246050080000_white": {
+      "bookMoves": [
+        {
+          "move": 18,
+          "weight": 1,
+          "eval": null
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "Shaman11-g6型"
+      ],
+      "isLeaf": false
+    },
+    "18580c20300000_2470580c0000_black": {
+      "bookMoves": [
+        {
+          "move": 26,
+          "weight": 1,
+          "eval": null
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "Shaman11-g6型"
+      ],
+      "isLeaf": false
+    },
+    "18580c3c300000_2470400c0000_white": {
+      "bookMoves": [
+        {
+          "move": 25,
+          "weight": 1,
+          "eval": null
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "Shaman11-g6型"
+      ],
+      "isLeaf": false
+    },
+    "18580c00300000_24707e0c0000_black": {
+      "bookMoves": [],
+      "nonBookEval": null,
+      "names": [
+        "Shaman11-g6型"
+      ],
+      "isLeaf": true
+    },
+    "3c280c040000_10001030280000_white": {
+      "bookMoves": [],
+      "nonBookEval": null,
+      "names": [
+        "ロジステロ流基本形"
+      ],
+      "isLeaf": true
+    },
+    "20301c1c0000_80820200000_white": {
+      "bookMoves": [],
+      "nonBookEval": null,
+      "names": [
+        "ライトニングボルト基本形"
+      ],
+      "isLeaf": true
     }
   },
   "lines": [
@@ -7993,7 +9637,9 @@
     {
       "id": "闘牛C",
       "name": "闘牛C",
-      "aliases": [],
+      "aliases": [
+        "ロケット定石（bassy84.net表記）"
+      ],
       "moveSeq": [
         37,
         45,
@@ -9644,6 +11290,417 @@
         21
       ],
       "depth": 15
+    },
+    {
+      "id": "ネズミ定石：基本",
+      "name": "ネズミ定石：基本",
+      "aliases": [],
+      "moveSeq": [
+        37,
+        29,
+        20,
+        45,
+        19,
+        34,
+        43,
+        26,
+        44
+      ],
+      "depth": 9
+    },
+    {
+      "id": "ネズミ定石・最善型",
+      "name": "ネズミ定石・最善型",
+      "aliases": [],
+      "moveSeq": [
+        37,
+        29,
+        20,
+        45,
+        19,
+        34,
+        43,
+        26,
+        44,
+        50,
+        51,
+        42,
+        38,
+        22,
+        21,
+        11,
+        10,
+        52
+      ],
+      "depth": 18
+    },
+    {
+      "id": "ネズミ定石　4-f2変化型（旅チュー）",
+      "name": "ネズミ定石　4-f2変化型（旅チュー）",
+      "aliases": [],
+      "moveSeq": [
+        37,
+        29,
+        20,
+        13,
+        12,
+        45,
+        19,
+        26,
+        21,
+        4,
+        5,
+        6,
+        44,
+        34,
+        42,
+        43
+      ],
+      "depth": 16
+    },
+    {
+      "id": "鶴定石",
+      "name": "鶴定石",
+      "aliases": [],
+      "moveSeq": [
+        37,
+        43,
+        34,
+        29,
+        51,
+        45,
+        19,
+        18,
+        20,
+        21,
+        30,
+        38,
+        44,
+        46,
+        22,
+        31
+      ],
+      "depth": 16
+    },
+    {
+      "id": "白大量取り",
+      "name": "白大量取り",
+      "aliases": [],
+      "moveSeq": [
+        37,
+        45,
+        44,
+        29,
+        20,
+        43
+      ],
+      "depth": 6
+    },
+    {
+      "id": "マムシ定石・基本形",
+      "name": "マムシ定石・基本形",
+      "aliases": [],
+      "moveSeq": [
+        37,
+        45,
+        44,
+        29,
+        46,
+        34,
+        30,
+        38,
+        31
+      ],
+      "depth": 9
+    },
+    {
+      "id": "コブラ定石・基本形（Lysons）",
+      "name": "コブラ定石・基本形（Lysons）",
+      "aliases": [],
+      "moveSeq": [
+        37,
+        45,
+        44,
+        29,
+        46,
+        42
+      ],
+      "depth": 6
+    },
+    {
+      "id": "つちのこ定石・基本形",
+      "name": "つちのこ定石・基本形",
+      "aliases": [],
+      "moveSeq": [
+        37,
+        45,
+        44,
+        29,
+        46,
+        43
+      ],
+      "depth": 6
+    },
+    {
+      "id": "バシリスク定石・基本形",
+      "name": "バシリスク定石・基本形",
+      "aliases": [],
+      "moveSeq": [
+        37,
+        45,
+        44,
+        29,
+        46,
+        34,
+        30,
+        38,
+        21,
+        20
+      ],
+      "depth": 10
+    },
+    {
+      "id": "砂蛇・基本形",
+      "name": "砂蛇・基本形",
+      "aliases": [],
+      "moveSeq": [
+        37,
+        45,
+        44,
+        29,
+        46,
+        34,
+        21
+      ],
+      "depth": 7
+    },
+    {
+      "id": "丸岡バッファロー・基本形",
+      "name": "丸岡バッファロー・基本形",
+      "aliases": [],
+      "moveSeq": [
+        37,
+        45,
+        44,
+        29,
+        18,
+        51
+      ],
+      "depth": 6
+    },
+    {
+      "id": "谷田バッファロー・基本形",
+      "name": "谷田バッファロー・基本形",
+      "aliases": [],
+      "moveSeq": [
+        37,
+        45,
+        44,
+        29,
+        18,
+        43,
+        21
+      ],
+      "depth": 7
+    },
+    {
+      "id": "北陸バッファロー・基本形",
+      "name": "北陸バッファロー・基本形",
+      "aliases": [],
+      "moveSeq": [
+        37,
+        45,
+        44,
+        29,
+        18,
+        26,
+        19
+      ],
+      "depth": 7
+    },
+    {
+      "id": "e7バッファロー・基本形",
+      "name": "e7バッファロー・基本形",
+      "aliases": [],
+      "moveSeq": [
+        37,
+        45,
+        44,
+        29,
+        18,
+        52
+      ],
+      "depth": 6
+    },
+    {
+      "id": "猫定石・坂口流",
+      "name": "猫定石・坂口流",
+      "aliases": [],
+      "moveSeq": [
+        37,
+        43,
+        26,
+        19,
+        34,
+        29,
+        20,
+        21,
+        10,
+        42,
+        44,
+        11,
+        30,
+        41,
+        33,
+        18
+      ],
+      "depth": 16
+    },
+    {
+      "id": "Kung",
+      "name": "Kung",
+      "aliases": [],
+      "moveSeq": [
+        37,
+        43,
+        18,
+        19,
+        26,
+        29,
+        45,
+        25,
+        21,
+        44,
+        20,
+        38,
+        46,
+        30,
+        31,
+        39,
+        47,
+        22,
+        23,
+        53,
+        61,
+        13,
+        5
+      ],
+      "depth": 23
+    },
+    {
+      "id": "裏こうもり・基本形",
+      "name": "裏こうもり・基本形",
+      "aliases": [],
+      "moveSeq": [
+        37,
+        45,
+        44,
+        29,
+        38,
+        52,
+        20
+      ],
+      "depth": 7
+    },
+    {
+      "id": "白裏大量　8-g6型",
+      "name": "白裏大量　8-g6型",
+      "aliases": [],
+      "moveSeq": [
+        37,
+        45,
+        44,
+        29,
+        38,
+        43,
+        52,
+        46,
+        34,
+        26,
+        21
+      ],
+      "depth": 11
+    },
+    {
+      "id": "狸定石・最善型",
+      "name": "狸定石・最善型",
+      "aliases": [],
+      "moveSeq": [
+        37,
+        45,
+        44,
+        29,
+        30,
+        52,
+        53,
+        38,
+        20,
+        19,
+        39
+      ],
+      "depth": 11
+    },
+    {
+      "id": "Shaman11-g6型",
+      "name": "Shaman11-g6型",
+      "aliases": [],
+      "moveSeq": [
+        37,
+        43,
+        34,
+        29,
+        20,
+        42,
+        21,
+        38,
+        44,
+        45,
+        46,
+        30,
+        51,
+        19,
+        52,
+        18,
+        26,
+        25
+      ],
+      "depth": 18
+    },
+    {
+      "id": "ロジステロ流基本形",
+      "name": "ロジステロ流基本形",
+      "aliases": [],
+      "moveSeq": [
+        37,
+        43,
+        18,
+        19,
+        26,
+        29,
+        45,
+        21,
+        44,
+        52,
+        42
+      ],
+      "depth": 11
+    },
+    {
+      "id": "ライトニングボルト基本形",
+      "name": "ライトニングボルト基本形",
+      "aliases": [],
+      "moveSeq": [
+        37,
+        43,
+        18,
+        19,
+        26,
+        29,
+        45,
+        21,
+        20
+      ],
+      "depth": 9
     }
   ]
 }

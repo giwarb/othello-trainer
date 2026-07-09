@@ -24,7 +24,7 @@ describe('lookupJosekiNode', () => {
     const result = lookupJosekiNode(db, initialBoard(), 'black', notationToSquare('f5'))
     expect(result).not.toBeNull()
     expect(result!.bookMoves.map((bm) => bm.move)).toEqual([notationToSquare('f5')])
-    expect(result!.names.length).toBe(90)
+    expect(result!.names.length).toBe(112)
   })
 
   it('検出: 「虎」の手順(f5-d6-c3-d3-c4)を実際に打ち進めた各局面がすべて定石DBに見つかる', () => {
@@ -126,7 +126,7 @@ describe('loadJosekiDb', () => {
     })) as unknown as typeof fetch
 
     const loaded = await loadJosekiDb(succeedingFetch, '/base/')
-    expect(loaded.lines.length).toBe(90)
+    expect(loaded.lines.length).toBe(112)
 
     resetJosekiDbCacheForTest()
   })

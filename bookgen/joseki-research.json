@@ -479,7 +479,9 @@
     },
     {
       "name": "闘牛C",
-      "aliases": [],
+      "aliases": [
+        "ロケット定石（bassy84.net表記）"
+      ],
       "moves": [
         "f5",
         "f6",
@@ -490,9 +492,10 @@
       "firstMoveBasis": "f5",
       "depth": 5,
       "sources": [
-        "https://hasera.net/othello/saizen40.html"
+        "https://hasera.net/othello/saizen40.html",
+        "https://bassy84.net/zyouseki-rocket.html"
       ],
-      "notes": "単一ソース。2026-07-08にcurlで生HTML取得、「闘牛Ｃ：f5f6e6f4g3」をgrepでverbatim確認済み(前回は出典URL未確認の疑いを指摘されたが、saizen40.htmlに実在することを確認できたため出典を明記して存続)。"
+      "notes": "単一ソース。2026-07-08にcurlで生HTML取得、「闘牛Ｃ：f5f6e6f4g3」をgrepでverbatim確認済み(前回は出典URL未確認の疑いを指摘されたが、saizen40.htmlに実在することを確認できたため出典を明記して存続)。 2026-07-10(T050)追記: note.com/mjulinの独立した一覧で「ロケット定石」の名が挙がっていたため調査したところ、bassy84.net/zyouseki-rocket.html(タイトル「ロケット定石・基本形」)の本文「棋譜：f5f6e6f4g3」が本エントリ(闘牛C)と全く同じ5手であることをcurl+grepで確認した。同一の着手列に2ドメインでそれぞれ別名(闘牛C／ロケット定石)が付いているため、T025の前例(虎C/No Cat、闘牛/飛出し牛)と同様に重複ラインとしては別途追加せず、本エントリのaliasesに統合した。"
     },
     {
       "name": "暴走牛",
@@ -2430,7 +2433,507 @@
       ],
       "notes": "単一ソース(bassy84.net)。2026-07-08にcurlで生HTML取得、`grep -oE '棋譜[：: ]*[a-hA-H0-9 　]{5,80}'`で本文中の「棋譜：f5f6e6f4g5e7f7h5e8c5g4h4e3d6f3」がverbatimで存在することを確認済み。出典: https://bassy84.net/zyouseki-urayotto.html",
       "firstMoveBasis": "f5"
+    },
+    {
+      "name": "ネズミ定石：基本",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "f4",
+        "e3",
+        "f6",
+        "d3",
+        "c5",
+        "d6",
+        "c4",
+        "e6"
+      ],
+      "firstMoveBasis": "f5",
+      "depth": 9,
+      "sources": [
+        "https://bassy84.net/zyouseki1-nezumi.html"
+      ],
+      "notes": "複数の独立した一覧サイト(uguisu.skr.jp、note.com/mjulinのオセロクエスト戦法一覧)で「鼠(ねずみ)定石」が虎・兎・牛と並ぶ有名な定石名として言及されているにもかかわらず、既存90ラインには一切収録されていなかった(並び取り f5f4 のカテゴリノードのみ存在)ため、T050監査で最優先追加。2026-07-10にcurlで生HTML取得、iframe `kifu=f5f4e3f6d3c5d6c4e6` がverbatimで存在することを確認済み。ページ本文には「このネズミ定石はあまり打たないです。」と記載。"
+    },
+    {
+      "name": "ネズミ定石・最善型",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "f4",
+        "e3",
+        "f6",
+        "d3",
+        "c5",
+        "d6",
+        "c4",
+        "e6",
+        "c7",
+        "d7",
+        "c6",
+        "g5",
+        "g3",
+        "f3",
+        "d2",
+        "c2",
+        "e7"
+      ],
+      "firstMoveBasis": "f5",
+      "depth": 18,
+      "sources": [
+        "https://bassy84.net/zyouseki-nezumi-saizen.html"
+      ],
+      "notes": "単一ソース(基本部分9手はネズミ定石：基本としてクロスチェック済み)。2026-07-10にcurlで生HTML取得、本文「棋譜：f5f4e3f6d3c5d6c4e6c7d7c6g5g3f3d2c2e7」がverbatimで存在することを確認済み。「ネズミ定石の典型的な進行。この辺まで来ると、ネズミの面影はない。」との記載あり。"
+    },
+    {
+      "name": "ネズミ定石　4-f2変化型（旅チュー）",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "f4",
+        "e3",
+        "f2",
+        "e2",
+        "f6",
+        "d3",
+        "c4",
+        "f3",
+        "e1",
+        "f1",
+        "g1",
+        "e6",
+        "c5",
+        "c6",
+        "d6"
+      ],
+      "firstMoveBasis": "f5",
+      "depth": 16,
+      "sources": [
+        "https://bassy84.net/zyouseki-nezumi-4-f2.html"
+      ],
+      "notes": "単一ソース(冒頭3手f5f4e3はネズミ定石：基本と共通、黒4手目でf6ではなくf2に分岐)。2026-07-10にcurlで生HTML取得、本文「棋譜：f5f4e3f2e2f6d3c4f3e1f1g1e6c5c6d6」がverbatimで存在することを確認済み。"
+    },
+    {
+      "name": "鶴定石",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "d6",
+        "c5",
+        "f4",
+        "d7",
+        "f6",
+        "d3",
+        "c3",
+        "e3",
+        "f3",
+        "g4",
+        "g5",
+        "e6",
+        "g6",
+        "g3",
+        "h4"
+      ],
+      "firstMoveBasis": "f5",
+      "depth": 16,
+      "sources": [
+        "https://bassy84.net/zyoseki-turu.html"
+      ],
+      "notes": "note.com/mjulinのオセロクエスト戦法一覧(縦・兎定石系)に「鶴定石」の名が挙げられており、T025時点では対応する実ページを確認できず収録を見送っていたが、T050で https://bassy84.net/zyoseki-turu.html (兎定石カテゴリ配下)というページが実在することを確認した。2026-07-10にcurlで生HTML取得、`<title>鶴定石-ウサギ（兎）定石－オセロ必勝法［無料］</title>`および本文「棋譜：f5d6c5f4d7f6d3c3e3f3g4g5e6g6g3h4」がverbatimで存在することを確認済み。兎(f5d6c5f4)の4手目までは共通、5手目でe3(兎)・d3(馬)ではなくd7に分岐する変化。なお同系統で言及される「鹿定石」は、サイトマップ上に対応する個別ページが見つからず(T025と同じ結論)、本タスクでも追加を見送った。"
+    },
+    {
+      "name": "白大量取り",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "e3",
+        "d6"
+      ],
+      "firstMoveBasis": "f5",
+      "depth": 6,
+      "sources": [
+        "https://bassy84.net/zyouseki-tairyou.html"
+      ],
+      "notes": "note.com/mjulinの独立した一覧(斜め・牛定石系)に名前が挙がっている定石。牛(f5f6e6f4e3)の6手目継続としてd6を打つ変化。2026-07-10にcurlで生HTML取得、`<title>白大量取り-牛定石－オセロ必勝法［無料］</title>`および本文「棋譜：f5f6e6f4e3d6」がverbatimで存在することを確認済み。"
+    },
+    {
+      "name": "マムシ定石・基本形",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "g6",
+        "c5",
+        "g4",
+        "g5",
+        "h4"
+      ],
+      "firstMoveBasis": "f5",
+      "depth": 9,
+      "sources": [
+        "https://bassy84.net/zyouseki-mamusi.html"
+      ],
+      "notes": "note.com/mjulinの独立した一覧(斜め・飛び出し系)に名前が挙がっている定石。蛇(f5f6e6f4g6)継続の変化。2026-07-10にcurlで生HTML取得、本文「棋譜：f5f6e6f4g6c5g4g5h4」がverbatimで存在することを確認済み。"
+    },
+    {
+      "name": "コブラ定石・基本形（Lysons）",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "g6",
+        "c6"
+      ],
+      "firstMoveBasis": "f5",
+      "depth": 6,
+      "sources": [
+        "https://bassy84.net/zyouseki-cobra.html"
+      ],
+      "notes": "note.com/mjulinの独立した一覧(斜め・飛び出し系)に名前が挙がっている定石。蛇(f5f6e6f4g6)継続の変化。2026-07-10にcurlで生HTML取得、`<title>コブラ定石・基本形（Lysons）-牛定石－オセロ必勝法［無料］</title>`および本文「棋譜：f5f6e6f4g6c6」がverbatimで存在することを確認済み。"
+    },
+    {
+      "name": "つちのこ定石・基本形",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "g6",
+        "d6"
+      ],
+      "firstMoveBasis": "f5",
+      "depth": 6,
+      "sources": [
+        "https://bassy84.net/zyouseki-tutinoko.html"
+      ],
+      "notes": "note.com/mjulinの独立した一覧(斜め・飛び出し系)に名前が挙がっている定石。蛇(f5f6e6f4g6)継続の変化。2026-07-10にcurlで生HTML取得、本文「棋譜：f5f6e6f4g6d6」がverbatimで存在することを確認済み。"
+    },
+    {
+      "name": "バシリスク定石・基本形",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "g6",
+        "c5",
+        "g4",
+        "g5",
+        "f3",
+        "e3"
+      ],
+      "firstMoveBasis": "f5",
+      "depth": 10,
+      "sources": [
+        "https://bassy84.net/zyouseki-basirisuku.html"
+      ],
+      "notes": "note.com/mjulinの独立した一覧(斜め・飛び出し系)に名前が挙がっている定石。蛇(f5f6e6f4g6)継続の変化。2026-07-10にcurlで生HTML取得、本文「棋譜：f5f6e6f4g6c5g4g5f3e3」がverbatimで存在することを確認済み。"
+    },
+    {
+      "name": "砂蛇・基本形",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "g6",
+        "c5",
+        "f3"
+      ],
+      "firstMoveBasis": "f5",
+      "depth": 7,
+      "sources": [
+        "https://bassy84.net/zyouseki-sunahebi.html"
+      ],
+      "notes": "note.com/mjulinの独立した一覧に「砂ヘビ」として名前が挙がっている定石。蛇(f5f6e6f4g6)継続の変化。2026-07-10にcurlで生HTML取得、本文「棋譜：f5f6e6f4g6c5f3」がverbatimで存在することを確認済み。"
+    },
+    {
+      "name": "丸岡バッファロー・基本形",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "c3",
+        "d7"
+      ],
+      "firstMoveBasis": "f5",
+      "depth": 6,
+      "sources": [
+        "https://bassy84.net/zyouseki-maruokabuffalo.html"
+      ],
+      "notes": "note.com/mjulinの独立した一覧に地名付きバッファロー系統として名前が挙がっている定石群の1つ。バッファロー(f5f6e6f4c3)継続の変化。2026-07-10にcurlで生HTML取得、本文「棋譜：f5f6e6f4c3d7」がverbatimで存在することを確認済み。"
+    },
+    {
+      "name": "谷田バッファロー・基本形",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "c3",
+        "d6",
+        "f3"
+      ],
+      "firstMoveBasis": "f5",
+      "depth": 7,
+      "sources": [
+        "https://bassy84.net/zyouseki-tanidabuffalo.html"
+      ],
+      "notes": "note.com/mjulinの独立した一覧に名前が挙がっている定石。バッファロー(f5f6e6f4c3)継続の変化。2026-07-10にcurlで生HTML取得、本文「棋譜：f5f6e6f4c3d6f3」がverbatimで存在することを確認済み。"
+    },
+    {
+      "name": "北陸バッファロー・基本形",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "c3",
+        "c4",
+        "d3"
+      ],
+      "firstMoveBasis": "f5",
+      "depth": 7,
+      "sources": [
+        "https://bassy84.net/zyouseki-hokurikubuffalo.html"
+      ],
+      "notes": "note.com/mjulinの独立した一覧に名前が挙がっている定石。バッファロー(f5f6e6f4c3)継続の変化。2026-07-10にcurlで生HTML取得、本文「棋譜：f5f6e6f4c3c4d3」がverbatimで存在することを確認済み。"
+    },
+    {
+      "name": "e7バッファロー・基本形",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "c3",
+        "e7"
+      ],
+      "firstMoveBasis": "f5",
+      "depth": 6,
+      "sources": [
+        "https://bassy84.net/zyouseki-e7buffalo.html"
+      ],
+      "notes": "バッファロー(f5f6e6f4c3)継続の変化。2026-07-10にcurlで生HTML取得、本文「棋譜：f5f6e6f4c3e7」がverbatimで存在することを確認済み。"
+    },
+    {
+      "name": "猫定石・坂口流",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "d6",
+        "c4",
+        "d3",
+        "c5",
+        "f4",
+        "e3",
+        "f3",
+        "c2",
+        "c6",
+        "e6",
+        "d2",
+        "g4",
+        "b6",
+        "b5",
+        "c3"
+      ],
+      "firstMoveBasis": "f5",
+      "depth": 16,
+      "sources": [
+        "https://bassy84.net/zyouseki-neko-sakaguti.html"
+      ],
+      "notes": "note.com/mjulinの独立した一覧(縦・猫定石系)に名前が挙がっている定石。猫(f5d6c4d3c5)継続の変化。2026-07-10にcurlで生HTML取得、`<title>猫定石・坂口流-猫定石－オセロ必勝法［無料］</title>`および本文「棋譜：f5d6c4d3c5f4e3f3c2c6e6d2g4b6b5c3」がverbatimで存在することを確認済み。"
+    },
+    {
+      "name": "Kung",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "d3",
+        "c4",
+        "f4",
+        "f6",
+        "b4",
+        "f3",
+        "e6",
+        "e3",
+        "g5",
+        "g6",
+        "g4",
+        "h4",
+        "h5",
+        "h6",
+        "g3",
+        "h3",
+        "f7",
+        "f8",
+        "f2",
+        "f1"
+      ],
+      "firstMoveBasis": "f5",
+      "depth": 23,
+      "sources": [
+        "https://bassy84.net/zyoseki-kung.html"
+      ],
+      "notes": "既存収録済みの「ノーカン」系統(黒8手目b4を回避してg5と打つ変化)の対になる、黒8手目b4を選ぶ本来の「Kung」系統。ノーカン基本形(f5d6c3d3c4f4f6g5)と7手目までf5d6c3d3c4f4f6を共有し、8手目で分岐(ノーカン=g5、Kung=b4)する関係にあることを確認。2026-07-10にcurlで生HTML取得、`<title>Kung-虎定石－オセロ必勝法［無料］</title>`および本文「棋譜：f5d6c3d3c4f4f6b4f3e6e3g5g6g4h4h5h6g3h3f7f8f2f1」がverbatimで存在することを確認済み。"
+    },
+    {
+      "name": "裏こうもり・基本形",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "g5",
+        "e7",
+        "e3"
+      ],
+      "firstMoveBasis": "f5",
+      "depth": 7,
+      "sources": [
+        "https://bassy84.net/zyouseki-urabat.html"
+      ],
+      "notes": "note.com/mjulinの独立した一覧に名前が挙がっている定石。既存の「闘牛」(f5f6e6f4g5)継続の変化で、既存収録済みの「こうもり定石・基本形」(牛のe3分岐から派生)とは別系統。2026-07-10にcurlで生HTML取得、本文「棋譜：f5f6e6f4g5e7e3」がverbatimで存在することを確認済み。"
+    },
+    {
+      "name": "白裏大量　8-g6型",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "g5",
+        "d6",
+        "e7",
+        "g6",
+        "c5",
+        "c4",
+        "f3"
+      ],
+      "firstMoveBasis": "f5",
+      "depth": 11,
+      "sources": [
+        "https://bassy84.net/zyouseki-uratairyou-8-g6.html"
+      ],
+      "notes": "note.com/mjulinの独立した一覧に「白裏大量」として名前が挙がっている定石。闘牛(f5f6e6f4g5)継続の変化。2026-07-10にcurlで生HTML取得、本文「棋譜：f5f6e6f4g5d6e7g6c5c4f3」がverbatimで存在することを確認済み。"
+    },
+    {
+      "name": "狸定石・最善型",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "g4",
+        "e7",
+        "f7",
+        "g5",
+        "e3",
+        "d3",
+        "h5"
+      ],
+      "firstMoveBasis": "f5",
+      "depth": 11,
+      "sources": [
+        "https://bassy84.net/zyouseki-tanuki-saizen.html"
+      ],
+      "notes": "既存収録済みの「狸」(f5f6e6f4g4)の最善進行版。2026-07-10にcurlで生HTML取得、本文「棋譜：f5f6e6f4g4e7f7g5e3d3h5」がverbatimで存在することを確認済み。"
+    },
+    {
+      "name": "Shaman11-g6型",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "d6",
+        "c5",
+        "f4",
+        "e3",
+        "c6",
+        "f3",
+        "g5",
+        "e6",
+        "f6",
+        "g6",
+        "g4",
+        "d7",
+        "d3",
+        "e7",
+        "c3",
+        "c4",
+        "b4"
+      ],
+      "firstMoveBasis": "f5",
+      "depth": 18,
+      "sources": [
+        "https://bassy84.net/zyoseki-shaman-11-g6.html"
+      ],
+      "notes": "note.com/mjulinの独立した一覧(縦・兎定石系)に名前が挙がっている定石。兎(f5d6c5f4e3)継続で、既存の「ローズ基本形」(6手目c6は共通、7手目でd3ではなくf3に分岐)とは別系統。2026-07-10にcurlで生HTML取得、`<title>Shaman11-g6型-ウサギ（兎）定石－オセロ必勝法［無料］</title>`および本文「棋譜：f5d6c5f4e3c6f3g5e6f6g6g4d7d3e7c3c4b4」がverbatimで存在することを確認済み。"
+    },
+    {
+      "name": "ロジステロ流基本形",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "d3",
+        "c4",
+        "f4",
+        "f6",
+        "f3",
+        "e6",
+        "e7",
+        "c6"
+      ],
+      "firstMoveBasis": "f5",
+      "depth": 11,
+      "sources": [
+        "https://bassy84.net/zyoseki-logisterro.html"
+      ],
+      "notes": "note.com/mjulinの独立した一覧(縦・虎定石系)に名前が挙がっている定石。虎(f5d6c3d3c4)継続で、7手目までf5d6c3d3c4f4f6を既存の「ノーカン」「Kung」と共有し、8手目でf3を選ぶ変化。2026-07-10にcurlで生HTML取得、`<title>ロジステロ流基本形-虎定石－オセロ必勝法［無料］</title>`および本文「棋譜：f5d6c3d3c4f4f6f3e6e7c6」がverbatimで存在することを確認済み。"
+    },
+    {
+      "name": "ライトニングボルト基本形",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "d3",
+        "c4",
+        "f4",
+        "f6",
+        "f3",
+        "e3"
+      ],
+      "firstMoveBasis": "f5",
+      "depth": 9,
+      "sources": [
+        "https://bassy84.net/zyoseki-lightningbolt.html"
+      ],
+      "notes": "note.com/mjulinの独立した一覧(縦・虎定石系)に名前が挙がっている定石。ロジステロ流と8手目までf5d6c3d3c4f4f6f3を共有し、9手目でe3を選ぶ変化。2026-07-10にcurlで生HTML取得、`<title>ライトニングボルト基本形-虎定石－オセロ必勝法［無料］</title>`および本文「棋譜：f5d6c3d3c4f4f6f3e3」がverbatimで存在することを確認済み。"
     }
   ],
-  "revisionNote2_T025": "T025(2026-07-08)でのデータ拡充: ユーザーから『虎系統でローズビルや酉に進行しないのはおかしい』との指摘を受け、bassy84.net内の虎定石関連ページを重点的に追加調査した。具体的には、まず https://bassy84.net/othello.site-map.html (サイト運営者自身が公開している人力サイトマップ)をcurlで取得し、実在するページURL一覧を機械的に抽出した上で、候補となる各ページ(コンポス系・ノーカン系・酉系・FJT・金魚・バナナ・花形(ローズビル)・猫/羊系・牛系・兎系など)を個別にcurlで取得し、本文中の「棋譜：」に続く座標列がverbatimで存在することを1件ずつgrepで確認した上で55ライン追加した(WebFetchの要約は着地点候補の発見にのみ使用し、採否判断は生HTMLの文字列照合のみで行った)。花形（ローズビル）基本形はページタイトル自体に「花形（ローズビル）」と明記されており、ユーザー指摘の『ローズビル』はhasera.net系で言う『兎からのローズ系』とは別に、bassy84.netの虎定石側にも同名の分岐点(白9手目c2までの9手)が存在することを確認した。『酉定石』はページ本文に単独の名称+13手セットとしては存在しないが、酉フック/酉ストレート/酉アッパーの3ページの棋譜共通接頭辞(13手)として抽出し、分岐点の基本形として収録した(詳細はlines内『酉定石』エントリのnotes参照)。また、重複チェックの過程で、虎C(hasera.net)とNo Cat(bassy84.net)、闘牛(hasera.net)と飛出し牛(bassy84.net)がそれぞれ完全に同一の着手列を指していることが判明したため、新規ラインとしては追加せず、既存エントリのaliasesに統合した。"
+  "revisionNote2_T025": "T025(2026-07-08)でのデータ拡充: ユーザーから『虎系統でローズビルや酉に進行しないのはおかしい』との指摘を受け、bassy84.net内の虎定石関連ページを重点的に追加調査した。具体的には、まず https://bassy84.net/othello.site-map.html (サイト運営者自身が公開している人力サイトマップ)をcurlで取得し、実在するページURL一覧を機械的に抽出した上で、候補となる各ページ(コンポス系・ノーカン系・酉系・FJT・金魚・バナナ・花形(ローズビル)・猫/羊系・牛系・兎系など)を個別にcurlで取得し、本文中の「棋譜：」に続く座標列がverbatimで存在することを1件ずつgrepで確認した上で55ライン追加した(WebFetchの要約は着地点候補の発見にのみ使用し、採否判断は生HTMLの文字列照合のみで行った)。花形（ローズビル）基本形はページタイトル自体に「花形（ローズビル）」と明記されており、ユーザー指摘の『ローズビル』はhasera.net系で言う『兎からのローズ系』とは別に、bassy84.netの虎定石側にも同名の分岐点(白9手目c2までの9手)が存在することを確認した。『酉定石』はページ本文に単独の名称+13手セットとしては存在しないが、酉フック/酉ストレート/酉アッパーの3ページの棋譜共通接頭辞(13手)として抽出し、分岐点の基本形として収録した(詳細はlines内『酉定石』エントリのnotes参照)。また、重複チェックの過程で、虎C(hasera.net)とNo Cat(bassy84.net)、闘牛(hasera.net)と飛出し牛(bassy84.net)がそれぞれ完全に同一の着手列を指していることが判明したため、新規ラインとしては追加せず、既存エントリのaliasesに統合した。",
+  "revisionNote3_T050": "T050(2026-07-10)での有名定石監査・拡充: ユーザー要望『定石はとにかく有名どころをしっかり押さえてほしい』を受け、既存90ラインが日本語圏で有名な定石名を網羅できているか監査した。監査フェーズでは、bassy84.net/hasera.net以外の独立した情報源として (1) https://uguisu.skr.jp/othello/2-1.html (縦取り/斜め取り/並び取りの3カテゴリ別に定石名一覧、着手列の記載は無し)、(2) https://note.com/mjulin/n/n30822fb12a26 (『オセロクエスト戦法一覧』、着手列の記載は無いがオセロクエストが使う定石名の網羅的な一覧)をWebFetchで取得し、定石名のリストを作成した。この2ソースを既存90ラインと突き合わせた結果、最大の欠落は『鼠(ねずみ)定石』系統が丸ごと未収録だったこと(並び取りf5f4のカテゴリノードのみで名前付きラインが皆無。虎・兎・牛と並んで言及される著名な系統であるにもかかわらず欠落)、および白大量取り・マムシ・コブラ・つちのこ・バシリスク・砂蛇・裏こうもり・白裏大量・地名付きバッファロー(丸岡/谷田/北陸/e7)・猫定石坂口流・Kung(ノーカンの対になる分岐)・鶴定石・Shaman・ロジステロ流・ライトニングボルトが未収録だったことと判明した。追加フェーズでは、bassy84.netのサイトマップ(othello.site-map.html、T025で使用したものを再取得)から上記候補の実ページURLを機械的に特定し、全て`curl -A \"Mozilla/5.0\"`で生HTML取得のうえ`grep -oE '棋譜[：: ]*[a-hA-H0-9　]{5,150}'`(または`kifu=`パラメータ)で着手列がverbatimで存在することを1件ずつ確認してから22ライン追加した(ネズミ定石：基本／ネズミ定石・最善型／ネズミ定石4-f2変化型（旅チュー）／鶴定石／白大量取り／マムシ定石・基本形／コブラ定石・基本形（Lysons）／つちのこ定石・基本形／バシリスク定石・基本形／砂蛇・基本形／丸岡バッファロー・基本形／谷田バッファロー・基本形／北陸バッファロー・基本形／e7バッファロー・基本形／猫定石・坂口流／Kung／裏こうもり・基本形／白裏大量　8-g6型／狸定石・最善型／Shaman11-g6型／ロジステロ流基本形／ライトニングボルト基本形)。加えて、note.com/mjulinの一覧にあった『ロケット定石』を調査したところ、bassy84.net/zyouseki-rocket.html(棋譜：f5f6e6f4g3)が既存の『闘牛C』(hasera.net、f5f6e6f4g3)と完全に同一の着手列であることが判明したため、T025の前例(虎C/No Cat等)に倣い新規ラインとしては追加せず、闘牛Cのaliases/sourcesに統合した。また、note.com/mjulinの一覧にあった『たまプラーザ』はbassy84.net/zyoseki-tamapura.htmlを調査したところ、サイトマップ上のリンク文言は『たまぷらーざ基本形』だが実際に配信されているページの`<title>`・パンくずリスト・本文がいずれも『フラットコンポス』(既存収録済み、別URL zyoseki-copmpos-flat.html由来で異なる着手列)を指しており、サイト側のリンク文言とページ内容が一致しない状態だったため、正しい着手列を確定できず追加を見送った(不確実なデータより収録見送りを優先するという方針を遵守)。同様に、あっくん定石・虎メインライン・Ishii・Stephenson・Aubrey(Feldborg)・飛行機(Aircraft)・Hamilton・Lollipop・Wing Variation・Bhagat等、note.com/mjulinの一覧にのみ登場し bassy84.net/hasera.netのサイトマップ上に対応する個別ページを発見できなかった名称については、時間的制約の中で実ページを特定できなかったため追加を見送った(将来のタスクでbassy84.net以外のサイトも含めさらに調査すれば見つかる可能性がある)。全追加ラインについて、Pythonスクリプトで座標文字列がa-h/1-8の範囲内であること・depthフィールドとmoves配列長の整合・名前重複0件・着手列重複0件(闘牛C/ロケット定石を除く)を検証した。"
 }
