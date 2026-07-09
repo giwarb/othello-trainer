@@ -1,19 +1,23 @@
 import { useEffect, useRef, useState } from 'preact/hooks'
 import './app.css'
 import { AnalysisMode } from './analysis/AnalysisMode.tsx'
+import { loadClassifyThresholds } from './analysis/thresholdSettings.ts'
+import type { ClassifyThresholds } from './analysis/types.ts'
 import { BlunderSettings } from './blunder/BlunderSettings.tsx'
 import { isBlunder } from './blunder/isBlunder.ts'
 import { DEFAULT_BLUNDER_CONFIG, type BlunderConfig, type EvalSource } from './blunder/types.ts'
 import { EvalBadge, formatDiscDiff } from './components/EvalBadge.tsx'
 import { Board } from './components/Board.tsx'
+import { MoveEvalOverlay } from './components/MoveEvalOverlay.tsx'
 import { EngineClient } from './engine/client.ts'
-import type { AnalyzeLimit } from './engine/types.ts'
+import type { AnalyzeLimit, MoveEvalJson } from './engine/types.ts'
 import { createGame, playMove, requestCpuMove, type GameState } from './game/gameLoop.ts'
 import { countDiscs, squareToNotation, type Board as BoardState, type Side } from './game/othello.ts'
 import { loadJosekiDb, lookupJosekiNode } from './joseki/lookup.ts'
 import { PracticeMode } from './joseki/PracticeMode.tsx'
 import type { JosekiDb } from './joseki/types.ts'
 import { PracticeMode as MidgamePracticeMode } from './midgame/PracticeMode.tsx'
+import { loadMoveEvalOverlayEnabled, saveMoveEvalOverlayEnabled } from './settings/moveEvalOverlaySettings.ts'
 import { PlayMode as TsumePlayMode } from './tsume/PlayMode.tsx'
 import { VerbalizeMode } from './verbalize/VerbalizeMode.tsx'
 
@@ -107,6 +111,11 @@ function PlayMode() {
   const [firstMoveSquare, setFirstMoveSquare] = useState<number | null>(null)
   const [blunderConfig, setBlunderConfig] = useState<BlunderConfig>(DEFAULT_BLUNDER_CONFIG)
   const [evalInfo, setEvalInfo] = useState<EvalInfo | null>(null)
+  const [moveEvalOverlayEnabled, setMoveEvalOverlayEnabled] = useState<boolean>(() =>
+    loadMoveEvalOverlayEnabled(localStorage),
+  )
+  const [classifyThresholds] = useState<ClassifyThresholds>(() => loadClassifyThresholds(localStorage))
+  const [overlayMoves, setOverlayMoves] = useState<MoveEvalJson[] | null>(null)
   const engineRef = useRef<EngineClient | null>(null)
 
   function getEngine(): EngineClient {
@@ -180,6 +189,40 @@ function PlayMode() {
     // eslint disabled equivalent: levelはCPU思考開始時点の値を使えばよく、
     // 依存配列にはgameとlevelの両方を含めておく(強さ変更は次の着手から反映される)。
   }, [game, level])
+
+  // 盤面セル評価オーバーレイ(T039)。人間の手番になった時点で、表示ONの場合のみ
+  // 現局面(着手前)の全合法手の評価をまとめて取得する。`evaluateHumanMove`
+  // (人間の着手*後*にその1手だけを評価するもの)とは目的・タイミングが異なるため
+  // 状態を分けている(将来的に1回のリクエストへ統合する余地はあるが、本タスクの
+  // スコープ外・作業ログ参照)。CPUの手番中は取得せず、直前(人間手番時)の結果を
+  // クリアする。
+  useEffect(() => {
+    if (game.phase !== 'human' || !moveEvalOverlayEnabled) {
+      setOverlayMoves(null)
+      return
+    }
+
+    let cancelled = false
+    getEngine()
+      .requestAnalyzeAll(game.board, game.sideToMove, LEVELS[level].limit)
+      .then((moves) => {
+        if (!cancelled) setOverlayMoves(moves)
+      })
+      .catch((error: unknown) => {
+        console.error('候補手評価オーバーレイの取得に失敗しました', error)
+      })
+
+    return () => {
+      cancelled = true
+    }
+    // eslint disabled equivalent: CPU思考エフェクトと同様、levelは取得開始時点の値でよい。
+  }, [game, moveEvalOverlayEnabled, level])
+
+  /** オーバーレイ表示ON/OFFを切り替え、`localStorage`へ永続化する(T039、要件4)。 */
+  function handleToggleMoveEvalOverlay(enabled: boolean) {
+    setMoveEvalOverlayEnabled(enabled)
+    saveMoveEvalOverlayEnabled(localStorage, enabled)
+  }
 
   /**
    * 着手前の局面(`preBoard`/`preSide`)を対象に `requestAnalyzeAll` を呼び、
@@ -274,6 +317,17 @@ function PlayMode() {
             </select>
           </label>
         </div>
+
+        <div class="controls__row">
+          <label class="move-eval-overlay-toggle">
+            <input
+              type="checkbox"
+              checked={moveEvalOverlayEnabled}
+              onChange={(event) => handleToggleMoveEvalOverlay((event.target as HTMLInputElement).checked)}
+            />
+            候補手評価を表示
+          </label>
+        </div>
       </section>
 
       <p class="status">
@@ -285,8 +339,14 @@ function PlayMode() {
 
       {game.passMessage && <p class="notice">{game.passMessage}</p>}
 
-      <div class="board-container">
+      <div class="board-container board-with-move-eval-overlay">
         <Board board={game.board} sideToMove={game.sideToMove} lastMove={game.lastMove} onMove={handleMove} />
+        <MoveEvalOverlay
+          allMoves={overlayMoves}
+          mover={game.sideToMove}
+          thresholds={classifyThresholds}
+          visible={moveEvalOverlayEnabled}
+        />
       </div>
 
       {evalInfo && (
