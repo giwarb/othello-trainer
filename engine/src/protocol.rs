@@ -12,7 +12,8 @@
 //! [`ErrorResponse`] をJSON化して返す。
 
 use crate::bitboard::{Board, Side};
-use crate::search::{search, search_all_moves, SearchLimit};
+use crate::pattern_eval::PatternWeights;
+use crate::search::{search_all_moves_with_eval, search_with_eval, SearchLimit};
 use crate::tt::TranspositionTable;
 use serde::{Deserialize, Serialize};
 // search.rs 同様、`wasm32-unknown-unknown` で実行時panicする
@@ -189,9 +190,15 @@ pub(crate) fn parse_board(board: &BoardJson) -> Result<(Board, Side), String> {
 /// `tt` は呼び出しをまたいで同じインスタンスを使い回すことを想定している
 /// (`Engine::analyze` から呼ばれ、`Engine` が保持する置換表を渡す)。
 ///
+/// `weights`(T045)が`Some`なら中盤探索の静的評価にT044のパターン評価v2を
+/// 使い(`search_with_eval`/`search_all_moves_with_eval`)、`None`なら従来の
+/// 3項ヒューリスティック評価を使う(`Engine::load_pattern_weights`が
+/// 呼ばれていない、または失敗した場合のグレースフルフォールバック)。
+/// 終盤完全読みの結果には影響しない。
+///
 /// 絶対にpanicしない: JSONパース失敗・16進数パース失敗・不正な `turn`/`cmd`
 /// はすべて [`ErrorResponse`] のJSON文字列として返す。
-pub fn handle_analyze(request_json: &str, tt: &mut TranspositionTable) -> String {
+pub fn handle_analyze(request_json: &str, tt: &mut TranspositionTable, weights: Option<&PatternWeights>) -> String {
     let request: AnalyzeRequest = match serde_json::from_str(request_json) {
         Ok(req) => req,
         Err(e) => return error_json(None, format!("invalid request JSON: {e}")),
@@ -244,7 +251,7 @@ pub fn handle_analyze(request_json: &str, tt: &mut TranspositionTable) -> String
     // フィールドに含めて返す。既存の `analyze`(`allMoves` 省略/false)は
     // この分岐に入らず、従来どおりの応答を返す(後方互換性の維持)。
     if request.all_moves {
-        let evals = search_all_moves(&board, side, &limit, tt);
+        let evals = search_all_moves_with_eval(&board, side, &limit, tt, weights);
 
         let moves: Vec<MoveEvalJson> = evals
             .iter()
@@ -301,7 +308,7 @@ pub fn handle_analyze(request_json: &str, tt: &mut TranspositionTable) -> String
     }
 
     let start = Instant::now();
-    let result = search(&board, side, &limit, tt);
+    let result = search_with_eval(&board, side, &limit, tt, weights);
     let elapsed_ms = start.elapsed().as_millis() as u64;
 
     // 経過時間が極端に短い(0ms)場合はゼロ除算を避け、nodesをそのままnpsとする

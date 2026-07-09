@@ -34,6 +34,7 @@ pub mod search;
 pub mod tt;
 mod zobrist;
 
+use pattern_eval::PatternWeights;
 use tt::TranspositionTable;
 
 /// wasm-bindgen 疎通確認用のシンプルな関数。
@@ -48,19 +49,49 @@ pub fn ping() -> String {
 /// 内部に置換表(TT)を保持し、`analyze` の呼び出しをまたいで使い回す。
 /// これによりWorkerが同じ `Engine` インスタンスを使い続ける限り、
 /// 探索が高速化される設計になっている。
+///
+/// T045: `weights` にT044で学習済みのWTHORパターン評価v2
+/// (`train/weights/pattern_v2.bin`)を[`Engine::load_pattern_weights`]で
+/// 読み込ませると、以降の`analyze`呼び出しはこのパターン評価を中盤探索の
+/// 静的評価に使う(`search::search_with_eval`経由)。`load_pattern_weights`が
+/// 一度も呼ばれていない場合、または呼び出しが失敗した場合は`None`のままで、
+/// 従来の3項ヒューリスティック評価(`eval::evaluate_for`)にグレースフル
+/// フォールバックする(`josekiDb: null`と同じ考え方。詳細は
+/// `tasks/T045-pattern-eval-wasm-wiring.md`参照)。終盤完全読み
+/// (`endgame::solve_exact`系)は静的評価を一切使わないため、`weights`の
+/// 有無によらず常に同じ結果を返す。
 #[wasm_bindgen]
 pub struct Engine {
     tt: TranspositionTable,
+    weights: Option<PatternWeights>,
 }
 
 #[wasm_bindgen]
 impl Engine {
     /// 新しい `Engine` を生成する。置換表は設計書の既定値である64MBで確保する。
+    /// パターン評価の重みは未読み込み(`None`)の状態で始まり、従来の3項評価で
+    /// 動作する。
     #[wasm_bindgen(constructor)]
     pub fn new() -> Engine {
         Engine {
             tt: TranspositionTable::new(64),
+            weights: None,
         }
+    }
+
+    /// T045: WTHOR学習済みパターン評価v2の重みファイル(`pattern_v2.bin`、
+    /// `PatternWeights::to_bytes`が書き出した形式)のバイト列を読み込む。
+    ///
+    /// 成功すれば、以後の`analyze`呼び出しはこの重みを使ってパターン評価で
+    /// 中盤探索するようになる。パース失敗時(不正なバイト列)は`Err`を返し、
+    /// **既存の`self.weights`は変更しない**(呼び出し元がこのエラーを無視
+    /// しても、それ以前の状態のまま動作し続けられる。呼び出し元(JS側)は
+    /// 通常、fetch失敗・パース失敗時は`console.error`のみで続行し、従来の
+    /// 3項評価にフォールバックする設計を想定している)。
+    pub fn load_pattern_weights(&mut self, bytes: &[u8]) -> Result<(), JsValue> {
+        let weights = PatternWeights::from_bytes(bytes).map_err(|e| JsValue::from_str(&e))?;
+        self.weights = Some(weights);
+        Ok(())
     }
 
     /// JSON形式のリクエスト(設計書 §2.4)を解析して探索を実行し、
@@ -70,7 +101,7 @@ impl Engine {
     /// 16進数パース失敗、未対応の`cmd`など)は `error` フィールドを含む
     /// JSON文字列を返す(詳細は `protocol::handle_analyze` を参照)。
     pub fn analyze(&mut self, request_json: &str) -> String {
-        protocol::handle_analyze(request_json, &mut self.tt)
+        protocol::handle_analyze(request_json, &mut self.tt, self.weights.as_ref())
     }
 
     /// T031: 特徴量層(`cmd: "featureSet"`)・評価内訳分解層の生データ

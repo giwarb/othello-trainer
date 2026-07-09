@@ -364,10 +364,12 @@ fn cmd_eval(args: &[String]) {
                     )
                 }
                 Some(w) => {
-                    // T043: パターン評価(`search::search_with_eval`)を直接呼び出す
-                    // (`Engine::analyze`/`protocol.rs`はまだパターン評価の重みを
-                    // 受け取れないため、WASM API配線は次タスクの対象。
-                    // このCLIはEdax比較専用の開発補助ツールなので直接呼んでよい)。
+                    // T043: パターン評価(`search::search_with_eval`)を直接呼び出す。
+                    // T045で`Engine::analyze`/`protocol.rs`もパターン評価の重み
+                    // (`Engine::load_pattern_weights`で読み込んだもの)を受け取れる
+                    // ようになったが、このCLIはEdax比較専用の開発補助ツールであり
+                    // `Engine`インスタンスを介さず`search`モジュールを直接呼んでも
+                    // 支障はないため、変更せずそのままにしている。
                     let static_limit = SearchLimit {
                         max_depth: 0,
                         time_ms: None,

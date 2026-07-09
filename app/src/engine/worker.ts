@@ -25,11 +25,40 @@ const workerScope = self as unknown as DedicatedWorkerScope;
 let engine: Engine | undefined;
 let readyPromise: Promise<void> | undefined;
 
+// T045: WTHOR学習済みパターン評価v2(`train/weights/pattern_v2.bin`を
+// `app/public/pattern_v2.bin`にコピーしたもの)。`public/joseki.json`と同様に
+// 静的アセットとして配置し、`import.meta.env.BASE_URL`(GitHub Pagesの
+// サブパス配信 `vite.config.ts` 参照)を前置してfetchする。
+const PATTERN_WEIGHTS_URL = `${import.meta.env.BASE_URL}pattern_v2.bin`;
+
+/**
+ * `pattern_v2.bin` をfetchして `engine.load_pattern_weights` に渡す。
+ *
+ * fetch失敗(オフライン・404等)・パース失敗のいずれも `console.error` の
+ * みで飲み込み、例外を外に伝播させない。これにより`Engine`は従来の3項
+ * ヒューリスティック評価で動作を続ける(`josekiDb: null` と同じ、
+ * グレースフルフォールバックの考え方。`tasks/T045-pattern-eval-wasm-wiring.md`
+ * 参照)。
+ */
+async function loadPatternWeights(target: Engine): Promise<void> {
+  try {
+    const response = await fetch(PATTERN_WEIGHTS_URL);
+    if (!response.ok) {
+      throw new Error(`failed to fetch pattern_v2.bin: ${response.status}`);
+    }
+    const bytes = new Uint8Array(await response.arrayBuffer());
+    target.load_pattern_weights(bytes);
+  } catch (error) {
+    console.error('[worker] failed to load pattern weights, falling back to heuristic eval:', error);
+  }
+}
+
 /** WASMモジュールの初期化と `Engine` インスタンスの生成を1回だけ行う。 */
 function ensureEngineReady(): Promise<void> {
   if (!readyPromise) {
-    readyPromise = init().then(() => {
+    readyPromise = init().then(async () => {
       engine = new Engine();
+      await loadPatternWeights(engine);
     });
   }
   return readyPromise;
