@@ -76,5 +76,9 @@ attempts: 0
   - `npx vitest run`(`app/`配下): 52ファイル・441件全件パス(新規3件含む)。
   - `npm run build`(`app/`配下): 成功(`tsc -b && vite build`、`dist/`生成、`inject-sw-version`も正常完了)。
   - 実機確認(`vite preview`、ローカル): Playwright(`chromium`)で棋譜解析モードに「酉定石」13手(`bookgen/joseki-research.json`)+「酉フック14-a3型」の14・15手目(`a3`,`g3`、いずれもDB収録済みのため定石内が継続)+定石DBに存在しない16手目(`e6`)、計16手を入力して解析。結果: 1〜15手目は評価ソース「定石」・分類◎・逆転タグなし・ロス±0.0で表示され、16手目(`e6`)のみ評価ソースが「中盤(探索)」に戻り、通常のロス計算・逆転判定(このケースでは自然に逆転扱いとなった)が行われることを確認。コンソールエラーなし。
-  - 本番デプロイ・Playwright確認: 後続の作業ログに追記予定(mainへのpush・GitHub Actionsデプロイ完了・本番URLでの確認は別エントリで追記)。
-  - 一時検証スクリプト`app/t038-legal.mjs`・`app/t038-verify.mjs`(Playwrightでの手動E2E確認用)は確認後に削除済み(過去タスクT035〜T037と同様、リポジトリにはPlaywright E2Eテストの正式な仕組み(`playwright.config`等)が存在せず、手動検証スクリプトはコミット対象外とする慣例に合わせた)。
+  - 一時検証スクリプト`app/t038-legal.mjs`・`app/t038-verify.mjs`・`app/t038-prod-verify.mjs`(Playwrightでの手動E2E確認用)は確認後に削除済み(過去タスクT035〜T037と同様、リポジトリにはPlaywright E2Eテストの正式な仕組み(`playwright.config`等)が存在せず、手動検証スクリプトはコミット対象外とする慣例に合わせた)。
+- 2026-07-09 implementer: mainへコミット・push・本番デプロイ・本番確認まで完了。
+  - コミット`4ff20a4`(「app: 棋譜解析モードに定石DB連携を追加、定石内の手を悪手誤判定から除外(T038)」)で`app/src/analysis/{types.ts,analyzeGame.ts,analyzeGame.test.ts,AnalysisMode.tsx,BlunderPanel.tsx}`・`app/src/llm/buildStructuredInput.test.ts`・`tasks/T038-analysis-joseki-integration.md`のみをコミット(`CLAUDE.md`・他タスクファイルの変更はオーケストレーター管理分のため含めず)。`git push origin main`成功(`ed6bde8..4ff20a4`)。
+  - GitHub Actions「Deploy to GitHub Pages」(run 29007795888)を`gh run watch`で監視、build・deployとも成功(約1分)。
+  - 本番URL(`https://giwarb.github.io/othello-trainer/`)でPlaywright(`chromium`、headless)により、ローカル確認と同一の16手(酉定石13手+酉フック14-a3型の14・15手目+定石外16手目`e6`)を棋譜解析モードで解析。結果はローカルと完全に一致: 1〜15手目は評価ソース「定石」・分類◎・逆転タグなし・ロス±0.0、16手目(`e6`)のみ評価ソースが「中盤(探索)」に戻り通常の逆転判定(自然に逆転扱い)が行われた。コンソールエラーなし。
+  - 以上により受け入れ基準(`npm test`全件パス・新規定石連携テストパス・`npm run build`成功・実機確認・本番push/デプロイ/Playwright確認)を全て満たした。仕様上曖昧だった点・判断が必要だった点はなし。
