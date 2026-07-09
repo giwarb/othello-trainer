@@ -47,12 +47,13 @@ export function computeCellEvals(
 }
 
 /**
- * ロス量を「±0」「-1.2」のような短い表示用文字列に整形する(要件、
+ * ロス量を「±0」「-1」のような短い表示用文字列に整形する(要件、
  * `MoveEvalOverlay.tsx`のマーカーに小さく表示する数値)。
- * 四捨五入して0になる場合(最善手自身を含む)は`±0`にする。
+ * 四捨五入して0になる場合(最善手自身を含む)は`±0`にする(T049で
+ * 小数点第1位表示から整数表示に変更。Edax同様、石数差らしい整数で表示する)。
  */
 export function formatLoss(lossDiscs: number): string {
-  const rounded = Math.round(lossDiscs * 10) / 10
+  const rounded = Math.round(lossDiscs)
   if (rounded <= 0) return '±0'
-  return `-${rounded.toFixed(1)}`
+  return `-${rounded}`
 }

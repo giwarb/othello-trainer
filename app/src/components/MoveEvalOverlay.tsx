@@ -44,7 +44,7 @@ export function MoveEvalOverlay({ allMoves, mover, thresholds, visible }: MoveEv
         const cellEval = cellEvals.get(sq)
         if (!cellEval) return <div key={sq} class="move-eval-overlay__cell" />
 
-        const label = `${SIDE_LABEL[mover]}番 ロス${cellEval.lossDiscs.toFixed(1)}石`
+        const label = `${SIDE_LABEL[mover]}番 ロス${Math.round(cellEval.lossDiscs)}石`
         return (
           <div
             key={sq}

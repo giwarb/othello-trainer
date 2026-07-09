@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'preact/hooks'
 import { Board } from '../components/Board.tsx'
-import { EvalBadge } from '../components/EvalBadge.tsx'
+import { EvalBadge, formatDiscDiff } from '../components/EvalBadge.tsx'
 import { MoveEvalOverlay } from '../components/MoveEvalOverlay.tsx'
 import type { EngineClient } from '../engine/client.ts'
 import type { AnalyzeLimit, MoveEvalJson } from '../engine/types.ts'
@@ -526,7 +526,7 @@ export function BlunderPanel({ moveAnalysis, gameMoves, engine, onClose }: Blund
             最善手: {moveAnalysis.bestMove}{' '}
             <EvalBadge discDiff={moveAnalysis.bestDiscDiff} source={moveAnalysis.evalSource} />
           </p>
-          <p class="status">ロス: {moveAnalysis.lossDiscs.toFixed(1)}石</p>
+          <p class="status">ロス: {Math.round(moveAnalysis.lossDiscs)}石</p>
 
           {featureSetError && <p class="notice notice--error">{featureSetError}</p>}
           {!featureSet && !featureSetError && <p class="notice">モチーフ・盤面オーバーレイを計算中...</p>}
@@ -697,8 +697,8 @@ export function BlunderPanel({ moveAnalysis, gameMoves, engine, onClose }: Blund
           {tsumePhase === 'playing' && tsumeSession && tsumePuzzle && (
             <div class="blunder-panel__tsume">
               <p class="status">
-                {sideLabel(tsumePuzzle.sideToMove)}番、最善で{tsumePuzzle.bestDiscDiff >= 0 ? '+' : ''}
-                {tsumePuzzle.bestDiscDiff.toFixed(1)}(空き{tsumePuzzle.empties}マス)
+                {sideLabel(tsumePuzzle.sideToMove)}番、最善で{formatDiscDiff(tsumePuzzle.bestDiscDiff)}
+                (空き{tsumePuzzle.empties}マス)
               </p>
               <p class="status">
                 手番: {sideLabel(tsumeSession.sideToMove)}

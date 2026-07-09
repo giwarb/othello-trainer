@@ -173,7 +173,7 @@ export function describeRefutationStep(lineLabel: string, step: RefutationStep):
   const criticalTerms = step.breakdown.terms.filter((term) => step.criticalTermKeys.includes(term.key))
   const parts = criticalTerms.map((term) => {
     const sign = term.delta >= 0 ? '+' : ''
-    return `${term.label}の寄与が${sign}${term.delta.toFixed(1)}動きました`
+    return `${term.label}の寄与が${sign}${Math.round(term.delta)}動きました`
   })
   return `${step.stepIndex + 1}手目(${lineLabel}、${step.move})で、${parts.join('、')}`
 }

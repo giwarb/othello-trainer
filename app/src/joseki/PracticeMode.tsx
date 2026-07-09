@@ -472,7 +472,7 @@ export function PracticeMode() {
           {resultInfo.bestMove && resultInfo.playedDiscDiff !== null && (
             <p class="joseki-result__reason">
               最善手 {resultInfo.bestMove} に対し、あなたの手 {squareToNotation(resultInfo.playedSquare)} は
-              ロス{resultInfo.lossDiscs.toFixed(1)}石でした。
+              ロス{Math.round(resultInfo.lossDiscs)}石でした。
             </p>
           )}
           <p class="joseki-result__moves">手順: {formatSquares(resultInfo.moveHistory)}</p>

@@ -465,7 +465,7 @@ export function AnalysisMode() {
                     <td>
                       <EvalBadge discDiff={m.playedDiscDiff} source={m.evalSource} />
                     </td>
-                    <td>{m.lossDiscs > 0 ? formatDiscDiff(-m.lossDiscs) : '±0.0'}</td>
+                    <td>{m.lossDiscs > 0 ? formatDiscDiff(-m.lossDiscs) : '±0'}</td>
                     <td>
                       {isBlunderMarker(m) ? (
                         <button

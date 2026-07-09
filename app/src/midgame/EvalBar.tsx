@@ -1,3 +1,4 @@
+import { formatDiscDiff } from '../components/EvalBadge.tsx'
 import './EvalBar.css'
 
 export interface EvalBarProps {
@@ -20,7 +21,7 @@ const CLAMP = 16
 export function EvalBar({ discDiff }: EvalBarProps) {
   const clamped = Math.max(-CLAMP, Math.min(CLAMP, discDiff))
   const percent = ((clamped + CLAMP) / (CLAMP * 2)) * 100
-  const label = discDiff >= 0 ? `+${discDiff.toFixed(1)}` : discDiff.toFixed(1)
+  const label = formatDiscDiff(discDiff)
 
   // 中央(50% = 互角)を起点に、優勢側へ向かって帯を伸ばす形で表示する。
   const fillLeft = Math.min(50, percent)

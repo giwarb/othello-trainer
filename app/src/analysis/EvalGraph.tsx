@@ -1,4 +1,5 @@
 import type { EvalSource } from '../blunder/types.ts'
+import { formatDiscDiff } from '../components/EvalBadge.tsx'
 import type { MoveClassification } from './types.ts'
 import './EvalGraph.css'
 
@@ -145,7 +146,7 @@ export function EvalGraph({ points, markers, currentPly = null, onSelectPly, onM
             r={p.ply === currentPly ? 4 : 2.5}
             onClick={() => onSelectPly?.(p.ply)}
           >
-            <title>{`${p.ply}手目時点: ${p.value >= 0 ? '+' : ''}${p.value.toFixed(1)}石`}</title>
+            <title>{`${p.ply}手目時点: ${formatDiscDiff(p.value)}石`}</title>
           </circle>
         ))}
 

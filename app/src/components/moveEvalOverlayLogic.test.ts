@@ -59,8 +59,9 @@ describe('formatLoss', () => {
     expect(formatLoss(0.04)).toBe('±0')
   })
 
-  it('正のロス量は"-N.N"の形式で返す', () => {
-    expect(formatLoss(1.2)).toBe('-1.2')
-    expect(formatLoss(6)).toBe('-6.0')
+  it('正のロス量は"-N"の形式で整数表示する(T049)', () => {
+    expect(formatLoss(1.2)).toBe('-1')
+    expect(formatLoss(1.6)).toBe('-2')
+    expect(formatLoss(6)).toBe('-6')
   })
 })

@@ -251,7 +251,7 @@ function PlayMode() {
         judgement.blunder && bestEval
           ? `最善手 ${judgement.bestMove}(${formatDiscDiff(bestEval.discDiff)})に対し、あなたの手 ${playedNotation} は${formatDiscDiff(
               playedEval.discDiff,
-            )}(ロス${judgement.lossDiscs.toFixed(1)}石、順位${judgement.rank}位)でした`
+            )}(ロス${Math.round(judgement.lossDiscs)}石、順位${judgement.rank}位)でした`
           : null
 
       setEvalInfo({ discDiff: playedEval.discDiff, source, blunder: judgement.blunder, reason })

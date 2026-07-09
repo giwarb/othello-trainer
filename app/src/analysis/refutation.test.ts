@@ -134,6 +134,6 @@ describe('analysis/refutation: describeRefutationStep', () => {
     expect(text).toContain('2手目')
     expect(text).toContain('実際の進行')
     expect(text).toContain('隅')
-    expect(text).toContain('+5.0')
+    expect(text).toContain('+5')
   })
 })
