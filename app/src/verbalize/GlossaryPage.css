@@ -1,0 +1,58 @@
+.glossary-page {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  max-width: 640px;
+  box-sizing: border-box;
+  padding: 0 0.5rem;
+}
+
+.glossary-page__back {
+  align-self: flex-start;
+  background: none;
+  border: 1px solid #d4d4d8;
+  border-radius: 0.4rem;
+  padding: 0.3rem 0.8rem;
+  cursor: pointer;
+}
+
+.glossary-page__group {
+  width: 100%;
+  text-align: left;
+}
+
+.glossary-page__group-title {
+  margin: 0 0 0.4rem;
+  font-size: 0.95rem;
+}
+
+.glossary-page__list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.glossary-page__item {
+  padding: 0.35rem 0.8rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 999px;
+  background: #f8fafc;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.glossary-page__item:hover {
+  background: #e2e8f0;
+}
+
+@media (max-width: 400px) {
+  .glossary-page__item {
+    font-size: 0.85rem;
+    padding: 0.3rem 0.65rem;
+  }
+}

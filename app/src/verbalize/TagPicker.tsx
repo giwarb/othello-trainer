@@ -3,6 +3,12 @@ import { ATTRIBUTION_REASON_TAGS, MAX_CHOSEN_TAGS, MOTIF_REASON_TAGS } from './r
 export interface TagPickerProps {
   readonly chosenTags: readonly string[]
   readonly onToggle: (id: string) => void
+  /**
+   * T036要件2「1タップ導線」: 指定した場合、各タグラベルの隣に用語集を開く
+   * 「?」ボタンを表示する(省略時はボタンを表示しない、既存の`PracticeMode.tsx`は
+   * 未対応のまま据え置く)。
+   */
+  readonly onInfo?: (id: string) => void
 }
 
 /**
@@ -10,7 +16,7 @@ export interface TagPickerProps {
  * 共通コンポーネント(タグ一覧の描画ロジックを二重管理しないため切り出した)。
  * スタイルは`PracticeMode.css`の`.verbalize-tags__*`クラスを共用する。
  */
-export function TagPicker({ chosenTags, onToggle }: TagPickerProps) {
+export function TagPicker({ chosenTags, onToggle, onInfo }: TagPickerProps) {
   return (
     <>
       <div class="verbalize-tags__group">
@@ -25,6 +31,19 @@ export function TagPicker({ chosenTags, onToggle }: TagPickerProps) {
                 onChange={() => onToggle(tag.id)}
               />
               {tag.label}
+              {onInfo && (
+                <button
+                  type="button"
+                  class="verbalize-tags__info"
+                  aria-label={`${tag.label}の用語集を見る`}
+                  onClick={(event) => {
+                    event.preventDefault()
+                    onInfo(tag.id)
+                  }}
+                >
+                  ?
+                </button>
+              )}
             </label>
           ))}
         </div>
@@ -42,6 +61,19 @@ export function TagPicker({ chosenTags, onToggle }: TagPickerProps) {
                 onChange={() => onToggle(tag.id)}
               />
               {tag.label}
+              {onInfo && (
+                <button
+                  type="button"
+                  class="verbalize-tags__info"
+                  aria-label={`${tag.label}の用語集を見る`}
+                  onClick={(event) => {
+                    event.preventDefault()
+                    onInfo(tag.id)
+                  }}
+                >
+                  ?
+                </button>
+              )}
             </label>
           ))}
         </div>

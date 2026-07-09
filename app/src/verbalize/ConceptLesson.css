@@ -1,0 +1,29 @@
+.concept-lesson__exit {
+  align-self: flex-start;
+  background: none;
+  border: 1px solid #d4d4d8;
+  border-radius: 0.4rem;
+  padding: 0.3rem 0.8rem;
+  cursor: pointer;
+}
+
+.concept-lesson__summary {
+  background: #f8fafc;
+  color: inherit;
+}
+
+.concept-lesson__buttons {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-top: 0.4rem;
+}
+
+@media (max-width: 400px) {
+  .concept-lesson__buttons {
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+  }
+}

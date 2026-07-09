@@ -1,0 +1,118 @@
+.glossary-entry-detail {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.6rem;
+  width: 100%;
+  max-width: 560px;
+  box-sizing: border-box;
+  text-align: left;
+}
+
+.glossary-entry-detail__header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.glossary-entry-detail__label {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.glossary-entry-detail__badge {
+  display: inline-block;
+  padding: 0.2em 0.6em;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.glossary-entry-detail__badge--motif-good {
+  background: #dcfce7;
+  color: #14532d;
+}
+
+.glossary-entry-detail__badge--motif-bad {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.glossary-entry-detail__badge--motif-trap {
+  background: #ede9fe;
+  color: #5b21b6;
+}
+
+.glossary-entry-detail__badge--attribution {
+  background: #dbeafe;
+  color: #1e3a8a;
+}
+
+.glossary-entry-detail__definition {
+  margin: 0;
+  line-height: 1.5;
+}
+
+.glossary-entry-detail__lesson-button {
+  align-self: flex-start;
+  padding: 0.4rem 0.9rem;
+  border: 1px solid #1e3a8a;
+  border-radius: 0.4rem;
+  background: #eff6ff;
+  color: #1e3a8a;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+.glossary-entry-detail__examples {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.glossary-entry-detail__example-group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.glossary-entry-detail__example-group-title {
+  margin: 0;
+  font-weight: bold;
+  font-size: 0.85rem;
+  align-self: flex-start;
+}
+
+.glossary-entry-detail__example {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  width: 100%;
+}
+
+.glossary-entry-detail__board {
+  width: 100%;
+  max-width: 220px;
+  margin: 0 auto;
+}
+
+.glossary-entry-detail__example-caption {
+  margin: 0;
+  font-size: 0.8rem;
+  color: #52525b;
+}
+
+@media (max-width: 400px) {
+  .glossary-entry-detail__label {
+    font-size: 0.95rem;
+  }
+
+  .glossary-entry-detail__lesson-button {
+    width: 100%;
+    box-sizing: border-box;
+    text-align: center;
+  }
+}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildProblemFromEntry, filterPoolBySource, pickProblem } from './pickProblem.ts'
+import { buildProblemFromEntry, deserializeBoard, filterPoolBySource, pickProblem, weightedRandomIndex } from './pickProblem.ts'
 import type { MidgamePoolEntry } from '../midgame/types.ts'
 
 function makeEntry(id: string, overrides: Partial<MidgamePoolEntry> = {}): MidgamePoolEntry {
@@ -49,6 +49,39 @@ describe('verbalize/pickProblem', () => {
       const entries = [makeEntry('a'), makeEntry('b'), makeEntry('c')]
       expect(pickProblem(entries, 'pool', () => 0)?.id).toBe('a')
       expect(pickProblem(entries, 'pool', () => 0.99)?.id).toBe('c')
+    })
+  })
+
+  describe('deserializeBoard', () => {
+    it('16進文字列の盤面をbigintに復元する', () => {
+      const entry = makeEntry('a')
+      const board = deserializeBoard(entry)
+      expect(board.black).toBe(BigInt('0x0000000810000000'))
+      expect(board.white).toBe(BigInt('0x0000001008000000'))
+    })
+  })
+
+  describe('weightedRandomIndex(T036要件6)', () => {
+    it('重みが全て等しければ均等抽選と同じ範囲でインデックスを返す', () => {
+      expect(weightedRandomIndex([1, 1, 1], () => 0)).toBe(0)
+      expect(weightedRandomIndex([1, 1, 1], () => 0.99)).toBe(2)
+    })
+
+    it('重みが大きい候補ほど広いrandom()区間で選ばれる(弱点タグ優先の重み付け)', () => {
+      // 合計4、[0,3)がindex0(重み3)、[3,4)がindex1(重み1)
+      const weights = [3, 1]
+      expect(weightedRandomIndex(weights, () => 0)).toBe(0)
+      expect(weightedRandomIndex(weights, () => 0.7)).toBe(0) // 0.7*4=2.8 < 3
+      expect(weightedRandomIndex(weights, () => 0.8)).toBe(1) // 0.8*4=3.2 >= 3
+    })
+
+    it('重みの合計が0以下なら一様ランダムにフォールバックする', () => {
+      expect(weightedRandomIndex([0, 0, 0], () => 0)).toBe(0)
+      expect(weightedRandomIndex([0, 0, 0], () => 0.99)).toBe(2)
+    })
+
+    it('空配列はRangeErrorを投げる', () => {
+      expect(() => weightedRandomIndex([])).toThrow(RangeError)
     })
   })
 })

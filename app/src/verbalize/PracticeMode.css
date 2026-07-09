@@ -106,6 +106,22 @@
   font-size: 0.9rem;
 }
 
+.verbalize-tags__info {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.1em;
+  height: 1.1em;
+  border-radius: 50%;
+  border: 1px solid #94a3b8;
+  background: #f8fafc;
+  color: #334155;
+  font-size: 0.75em;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+}
+
 .verbalize-tags__freetext {
   display: flex;
   flex-direction: column;

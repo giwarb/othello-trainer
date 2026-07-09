@@ -106,6 +106,20 @@
   box-sizing: border-box;
 }
 
+/* T036要件2: モチーフバッジをボタン化(用語集への1タップ導線)しても
+   見た目が既存のバッジと変わらないよう、ボタン固有のデフォルトスタイルを打ち消す。 */
+.motif-badge--button {
+  border: none;
+  cursor: pointer;
+  font: inherit;
+}
+
+.motif-badge--button:hover,
+.motif-badge--button:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 1px;
+}
+
 .motif-badge__kind {
   font-weight: 400;
   font-size: 0.85em;

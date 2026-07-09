@@ -39,6 +39,7 @@ import { RefutationView } from './RefutationView.tsx'
 import { buildInstantTsumePuzzle, sendToMidgamePractice } from './sendToPractice.ts'
 import type { AttributionBreakdown, EvalTerms, FeatureSet, MoveAnalysis } from './types.ts'
 import { analyzeWhyBad, computeStableSquares } from './whyBad.ts'
+import { GlossaryPopover } from '../verbalize/GlossaryPopover.tsx'
 import './BlunderPanel.css'
 
 const MOTIF_KIND_LABEL: Record<MotifDefinition['kind'], string> = {
@@ -147,6 +148,8 @@ export function BlunderPanel({ moveAnalysis, gameMoves, engine, onClose }: Blund
     seed: false,
     dangerousCorners: false,
   })
+  /** T036要件2: モチーフバッジから用語集詳細への1タップ導線。 */
+  const [glossaryPopoverTagId, setGlossaryPopoverTagId] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -489,9 +492,15 @@ export function BlunderPanel({ moveAnalysis, gameMoves, engine, onClose }: Blund
           {motifs.length > 0 && (
             <ul class="blunder-panel__motifs">
               {motifs.map((motif) => (
-                <li key={motif.key} class={`motif-badge motif-badge--${motif.kind}`}>
-                  {motif.label}
-                  <span class="motif-badge__kind">({MOTIF_KIND_LABEL[motif.kind]})</span>
+                <li key={motif.key}>
+                  <button
+                    type="button"
+                    class={`motif-badge motif-badge--${motif.kind} motif-badge--button`}
+                    onClick={() => setGlossaryPopoverTagId(motif.key)}
+                  >
+                    {motif.label}
+                    <span class="motif-badge__kind">({MOTIF_KIND_LABEL[motif.kind]})</span>
+                  </button>
                 </li>
               ))}
             </ul>
@@ -660,6 +669,14 @@ export function BlunderPanel({ moveAnalysis, gameMoves, engine, onClose }: Blund
             </p>
           )}
         </section>
+
+        {glossaryPopoverTagId && (
+          <GlossaryPopover
+            tagId={glossaryPopoverTagId}
+            engine={engine}
+            onClose={() => setGlossaryPopoverTagId(null)}
+          />
+        )}
       </div>
     </div>
   )

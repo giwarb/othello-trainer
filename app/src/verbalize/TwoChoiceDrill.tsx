@@ -8,14 +8,17 @@ import type { AnalyzeLimit } from '../engine/types.ts'
 import { applyMove, notationToSquare, opposite } from '../game/othello.ts'
 import { getAllPoolEntries } from '../midgame/pool.ts'
 import type { MidgamePoolEntry } from '../midgame/types.ts'
-import { getAttemptsForPosition, saveAttempt } from './attemptsStore.ts'
+import { getAllAttempts, getAttemptsForPosition, saveAttempt } from './attemptsStore.ts'
+import { computeConceptStats, conceptWeight, type ConceptStat } from './conceptStats.ts'
+import { GlossaryPopover } from './GlossaryPopover.tsx'
 import {
   attributionConcentration,
+  computeTargetTags,
   judgeVerbalization,
   type JudgeVerbalizationResult,
   TWO_CHOICE_CONCENTRATION_THRESHOLD,
 } from './judgeVerbalization.ts'
-import { filterPoolBySource, pickProblem } from './pickProblem.ts'
+import { filterPoolBySource, pickProblem, weightedRandomIndex } from './pickProblem.ts'
 import { findReasonTag, MAX_CHOSEN_TAGS } from './reasonTags.ts'
 import { TagPicker } from './TagPicker.tsx'
 import type { ProblemSource, VerbalizeAttemptRecord, VerbalizeCaseKind, VerbalizeProblem } from './types.ts'
@@ -32,6 +35,23 @@ const DRILL_ANALYZE_LIMIT: AnalyzeLimit = { depth: 16, timeMs: 300, exactFromEmp
  * 代替する(タスク仕様「本タスクでのスコープ縮小」で明示的に許容されている方式)。
  */
 const MAX_SELECTION_ATTEMPTS = 6
+
+/**
+ * T036要件3「概念レッスン」用: 特定タグ(`requiredTagId`)に絞り込んで候補を探す際の
+ * 最大試行回数。狙ったタグに一致する局面はランダムサンプリングでは見つかりにくいため
+ * 通常の`MAX_SELECTION_ATTEMPTS`より広めに取るが、無限ループ・ハングを避けるため
+ * 上限は必ず設ける(CLAUDE.mdの完全読み・深い探索のtime_ms予算ルールと同じ精神で、
+ * 「回数」を上限とする形で対応する)。
+ */
+const MAX_CONCEPT_SELECTION_ATTEMPTS = 15
+
+/**
+ * T036要件6「出題バイアスへの反映」: 閾値を満たす候補を何件集めてから
+ * 弱点タグ優先の重み付き抽選(`weightedRandomIndex`)で1件選ぶか。既存の
+ * `MAX_SELECTION_ATTEMPTS`(6)を超えない範囲に収め、既存のエンジン呼び出し
+ * コストを増やしすぎないようにする。
+ */
+const MAX_QUALIFIED_CANDIDATES = 3
 
 const SOURCE_OPTIONS: readonly { value: ProblemSource; label: string }[] = [
   { value: 'pool', label: '中盤練習プール(全件)' },
@@ -52,7 +72,11 @@ const CASE_MESSAGE: Record<VerbalizeCaseKind, string> = {
   wrongBoth: '手も理由も違いました。関連しそうな概念の簡単な説明を確認してみましょう。',
 }
 
-interface DrillProblem {
+/**
+ * T035「二択比較ドリル」1問ぶんのデータ。T036の`ConceptLesson.tsx`が特定タグに
+ * 絞り込んで再利用するため、本インターフェースと`buildDrillProblem`をexportする。
+ */
+export interface DrillProblem {
   readonly problem: VerbalizeProblem
   /** 探索(深い読み)で評価が高かった方の手(=正解)。 */
   readonly bestMove: string
@@ -63,6 +87,8 @@ interface DrillProblem {
   /** `bestMove`について検出されたモチーフ。 */
   readonly motifs: readonly MotifDefinition[]
   readonly concentration: number
+  /** `judgeVerbalization.ts`の`computeTargetTags`(要件6・T036概念レッスンのタグ絞り込みに使う)。 */
+  readonly targetTags: readonly string[]
 }
 
 type Phase = 'settings' | 'loading' | 'choosing' | 'tags' | 'result'
@@ -74,32 +100,58 @@ interface ResultData {
   readonly pastAttempts: readonly VerbalizeAttemptRecord[]
 }
 
-interface DrillEngine {
+/** `buildDrillProblem`が要求する最小限のエンジンインターフェース。`ConceptLesson.tsx`も再利用する。 */
+export interface DrillEngine {
   requestAnalyzeAll: EngineClient['requestAnalyzeAll']
   requestEvalTerms: EngineClient['requestEvalTerms']
   requestFeatureSet: EngineClient['requestFeatureSet']
 }
 
+/** `buildDrillProblem`の挙動を制御する追加オプション(T036で追加)。 */
+export interface BuildDrillProblemOptions {
+  /**
+   * T036要件6: タグ別弱点統計(`conceptStats.ts`)。指定した場合、閾値を満たす候補が
+   * 複数見つかったとき、弱点タグ(正答率・理由正答率が低いタグ)に関連する候補ほど
+   * 選ばれやすくなるよう重み付き抽選する。省略時(既定の空Map)は従来どおり均等抽選。
+   */
+  readonly conceptStats?: ReadonlyMap<string, ConceptStat>
+  /**
+   * T036要件3(概念レッスン用): 指定した場合、`computeTargetTags`の結果にこのタグIDを
+   * 含む候補が見つかるまで探し、見つかった時点で即座に返す(弱点重み付けは適用しない、
+   * 濃度閾値も問わない)。見つからなければ`null`を返す(呼び出し側で
+   * 「見つかりませんでした」を表示する)。
+   */
+  readonly requiredTagId?: string
+}
+
 /**
- * 1問ぶんの二択比較ドリル局面を組み立てる(要件7、設計書§6.2)。
+ * 1問ぶんの二択比較ドリル局面を組み立てる(要件7、設計書§6.2)。T036で
+ * `ConceptLesson.tsx`(特定タグへの絞り込み)・弱点タグ優先の重み付け(要件6)に
+ * 対応させるため、`options`を追加してexportした(ロジックの二重管理を避けるため、
+ * `ConceptLesson.tsx`は本関数をそのまま再利用する)。
  *
  * `entries`(`source`でフィルタ前のプール全件)からランダムに局面を選び、探索
  * (`requestAnalyzeAll`)で評価上位2手を候補とする。2候補それぞれを打った局面の
  * 評価内訳分解(`buildAttribution`)を求め、寄与の集中度(`attributionConcentration`)が
- * 閾値以上になる局面が見つかるまで最大`MAX_SELECTION_ATTEMPTS`回試す。見つからなければ
- * 最後に試した局面をそのままフォールバックとして返す(事前生成パイプライン無しの簡易版)。
+ * 閾値以上になる局面を探す。`options.requiredTagId`未指定時は、閾値を満たす候補を
+ * 最大`MAX_QUALIFIED_CANDIDATES`件集めた上で弱点重み付き抽選(`options.conceptStats`)
+ * により1件選ぶ(見つからなければ最後に試した局面をフォールバックとして返す、
+ * 事前生成パイプライン無しの簡易版)。
  */
-async function buildDrillProblem(
+export async function buildDrillProblem(
   engine: DrillEngine,
   entries: readonly MidgamePoolEntry[],
   source: ProblemSource,
   random: () => number = Math.random,
+  options: BuildDrillProblemOptions = {},
 ): Promise<DrillProblem | null> {
+  const maxAttempts = options.requiredTagId ? MAX_CONCEPT_SELECTION_ATTEMPTS : MAX_SELECTION_ATTEMPTS
   let fallback: DrillProblem | null = null
+  const qualified: DrillProblem[] = []
 
-  for (let attempt = 0; attempt < MAX_SELECTION_ATTEMPTS; attempt++) {
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
     const problem = pickProblem(entries, source, random)
-    if (!problem) return null
+    if (!problem) break
 
     const allMoves = await engine.requestAnalyzeAll(problem.board, problem.sideToMove, DRILL_ANALYZE_LIMIT)
     if (allMoves.length < 2) continue
@@ -126,13 +178,37 @@ async function buildDrillProblem(
       features: featureResp.features,
     })
     const concentration = attributionConcentration(attribution)
-    const options: [string, string] = random() < 0.5 ? [best.move, other.move] : [other.move, best.move]
+    const targetTags = computeTargetTags(attribution, motifs)
+    const options2: [string, string] = random() < 0.5 ? [best.move, other.move] : [other.move, best.move]
 
-    const drill: DrillProblem = { problem, bestMove: best.move, options, attribution, motifs, concentration }
+    const drill: DrillProblem = {
+      problem,
+      bestMove: best.move,
+      options: options2,
+      attribution,
+      motifs,
+      concentration,
+      targetTags,
+    }
+
+    if (options.requiredTagId) {
+      if (targetTags.includes(options.requiredTagId)) return drill
+      continue
+    }
+
     fallback = drill
-    if (concentration >= TWO_CHOICE_CONCENTRATION_THRESHOLD) return drill
+    if (concentration >= TWO_CHOICE_CONCENTRATION_THRESHOLD) {
+      qualified.push(drill)
+      if (qualified.length >= MAX_QUALIFIED_CANDIDATES) break
+    }
   }
 
+  if (options.requiredTagId) return null
+
+  if (qualified.length > 0) {
+    const weights = qualified.map((d) => conceptWeight(d.targetTags, options.conceptStats ?? new Map()))
+    return qualified[weightedRandomIndex(weights, random)]!
+  }
   return fallback
 }
 
@@ -158,6 +234,9 @@ export function TwoChoiceDrill() {
   const [judging, setJudging] = useState(false)
   const [judgeError, setJudgeError] = useState<string | null>(null)
   const [resultData, setResultData] = useState<ResultData | null>(null)
+
+  /** T036要件2: 理由タグ選択UI(`TagPicker`)から用語集への1タップ導線用。 */
+  const [glossaryPopoverTagId, setGlossaryPopoverTagId] = useState<string | null>(null)
 
   const engineRef = useRef<EngineClient | null>(null)
 
@@ -197,7 +276,10 @@ export function TwoChoiceDrill() {
     setPhase('loading')
     setBuildError(null)
     try {
-      const drill = await buildDrillProblem(getEngine(), pool, source)
+      // T036要件6: 弱点タグ(正答率・理由正答率が低いタグ)を優先する重み付けのため、
+      // 過去の挑戦記録から`conceptStats`を求めて渡す(1回の出題ごとに1回だけIndexedDBを読む)。
+      const conceptStats = computeConceptStats(await getAllAttempts())
+      const drill = await buildDrillProblem(getEngine(), pool, source, Math.random, { conceptStats })
       if (!drill) {
         setBuildError('2択に足る候補手を持つ局面が見つかりませんでした。もう一度お試しください。')
         setPhase('settings')
@@ -374,7 +456,7 @@ export function TwoChoiceDrill() {
                 理由タグを1〜3個選んでください({chosenTags.length}/{MAX_CHOSEN_TAGS})
               </p>
 
-              <TagPicker chosenTags={chosenTags} onToggle={toggleTag} />
+              <TagPicker chosenTags={chosenTags} onToggle={toggleTag} onInfo={setGlossaryPopoverTagId} />
 
               <label class="verbalize-tags__freetext">
                 自由記述メモ(任意)
@@ -467,6 +549,14 @@ export function TwoChoiceDrill() {
             </button>
           </div>
         </section>
+      )}
+
+      {glossaryPopoverTagId && (
+        <GlossaryPopover
+          tagId={glossaryPopoverTagId}
+          engine={getEngine()}
+          onClose={() => setGlossaryPopoverTagId(null)}
+        />
       )}
     </div>
   )
