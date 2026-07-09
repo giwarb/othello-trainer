@@ -25,3 +25,8 @@ engine/pkg/
 # ライセンス上の再配布可否が未確認のためコミットしない)
 bench/edax-compare/edax-extract/
 bench/edax-compare/*.zip
+
+# T040: WTHOR棋譜データ(FFO公式サイト https://www.ffothello.org/informatique/la-base-wthor/
+# から都度ダウンロードして学習にローカルで使うのみ。再配布可否が明記されていない
+# グレーゾーンのデータのためコミットしない)
+train/data/
