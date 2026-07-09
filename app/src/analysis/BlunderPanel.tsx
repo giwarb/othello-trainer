@@ -19,7 +19,7 @@ import { judgePuzzleMove } from '../tsume/judgePuzzleMove.ts'
 import type { Puzzle } from '../tsume/types.ts'
 import { ANALYZE_LIMIT } from './analyzeGame.ts'
 import { AttributionWaterfall } from './AttributionWaterfall.tsx'
-import { buildAttribution, replayContinuation } from './attribution.ts'
+import { buildAttribution, replayContinuationSteps } from './attribution.ts'
 import { BoardOverlay, type OverlayVisibility } from './BoardOverlay.tsx'
 import './BoardOverlay.css'
 import {
@@ -34,8 +34,10 @@ import {
 } from './branchTree.ts'
 import { buildComparePv, type ComparePvResult } from './comparePv.ts'
 import { computeBoardHighlights, detectMotifs, type BoardHighlights, type MotifDefinition } from './motifs.ts'
+import { buildRefutationResult, type RefutationResult } from './refutation.ts'
+import { RefutationView } from './RefutationView.tsx'
 import { buildInstantTsumePuzzle, sendToMidgamePractice } from './sendToPractice.ts'
-import type { AttributionBreakdown, FeatureSet, MoveAnalysis } from './types.ts'
+import type { AttributionBreakdown, EvalTerms, FeatureSet, MoveAnalysis } from './types.ts'
 import { analyzeWhyBad, computeStableSquares } from './whyBad.ts'
 import './BlunderPanel.css'
 
@@ -191,6 +193,12 @@ export function BlunderPanel({ moveAnalysis, gameMoves, engine, onClose }: Blund
   const [attribution, setAttribution] = useState<AttributionBreakdown | null>(null)
   const [attributionError, setAttributionError] = useState<string | null>(null)
 
+  // --- 反証層(要件1〜4、T033) ----------------------------------------------
+  // 比較PVの各手ごとの評価内訳分解(T031の`buildAttribution`をPV中間局面にも
+  // 適用したもの)から、寄与が急変した手(回収点)を検出する(`refutation.ts`)。
+  const [refutation, setRefutation] = useState<RefutationResult | null>(null)
+  const [refutationError, setRefutationError] = useState<string | null>(null)
+
   useEffect(() => {
     let cancelled = false
     setComparePvLoading(true)
@@ -210,24 +218,50 @@ export function BlunderPanel({ moveAnalysis, gameMoves, engine, onClose }: Blund
         const pvResult = buildComparePv(gameMoves, moveAnalysis.ply, moveAnalysis.bestMove, bestPv)
         setComparePv(pvResult)
 
-        // 比較PVの末端局面を求め、評価内訳分解を取得する(要件5: PV中間局面
-        // でも分解できる設計だが、本タスクでは末端同士の比較のみUIに表示する)。
+        // 比較PVの各手ごとの局面(開始局面含む)を複製し、それぞれの評価内訳
+        // (`EvalTerms`)を取得する(要件5: PV中間局面でも分解する。T033はさらに
+        // 隣接局面同士の差分から回収点を検出する)。末端同士の比較(`attribution`、
+        // 既存のT031表示)は、この系列の最後の要素から導出することで、
+        // 同じ局面に対するエンジン呼び出しの重複を避ける。
         try {
-          const playedEndBoard = replayContinuation(
+          const playedBoards = replayContinuationSteps(
             moveAnalysis.board,
             moveAnalysis.side,
             pvResult.playedContinuation,
           )
-          const bestEndBoard = replayContinuation(moveAnalysis.board, moveAnalysis.side, pvResult.bestContinuation)
-          const [playedTerms, bestTerms] = await Promise.all([
-            engine.requestEvalTerms(playedEndBoard, moveAnalysis.side),
-            engine.requestEvalTerms(bestEndBoard, moveAnalysis.side),
+          const bestBoards = replayContinuationSteps(moveAnalysis.board, moveAnalysis.side, pvResult.bestContinuation)
+          const fetchTermsSequence = (boards: readonly BoardState[]): Promise<EvalTerms[]> =>
+            Promise.all(boards.map((board) => engine.requestEvalTerms(board, moveAnalysis.side)))
+          const [playedTermsSequence, bestTermsSequence] = await Promise.all([
+            fetchTermsSequence(playedBoards),
+            fetchTermsSequence(bestBoards),
           ])
           if (cancelled) return
-          setAttribution(buildAttribution(playedTerms, bestTerms, moveAnalysis.side))
+
+          setAttribution(
+            buildAttribution(
+              playedTermsSequence[playedTermsSequence.length - 1]!,
+              bestTermsSequence[bestTermsSequence.length - 1]!,
+              moveAnalysis.side,
+            ),
+          )
+          setRefutation(
+            buildRefutationResult(
+              moveAnalysis.board,
+              moveAnalysis.side,
+              pvResult.playedContinuation,
+              pvResult.bestContinuation,
+              playedTermsSequence,
+              bestTermsSequence,
+              moveAnalysis.side,
+            ),
+          )
         } catch (error) {
-          console.error('評価内訳分解の計算に失敗しました', error)
-          if (!cancelled) setAttributionError('評価内訳の取得に失敗しました。')
+          console.error('評価内訳分解・反証層の計算に失敗しました', error)
+          if (!cancelled) {
+            setAttributionError('評価内訳の取得に失敗しました。')
+            setRefutationError('回収点の検出に失敗しました。')
+          }
         }
       } catch (error) {
         console.error('比較PV取得のための解析に失敗しました', error)
@@ -527,6 +561,13 @@ export function BlunderPanel({ moveAnalysis, gameMoves, engine, onClose }: Blund
               title={`${sideLabel(moveAnalysis.side)}番から見た評価差の内訳(石差)`}
             />
           )}
+        </section>
+
+        <section class="blunder-panel__section">
+          <h3>反証層: 回収点(寄与が急変した手)</h3>
+          {!refutation && !refutationError && <p class="notice">回収点を検出中...</p>}
+          {refutationError && <p class="notice notice--error">{refutationError}</p>}
+          {refutation && <RefutationView refutation={refutation} />}
         </section>
 
         <section class="blunder-panel__section">

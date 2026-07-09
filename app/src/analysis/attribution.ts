@@ -99,16 +99,23 @@ export function buildAttribution(termsA: EvalTerms, termsB: EvalTerms, perspecti
 
 /**
  * 局面`board`(`side`が手番)から`moves`(最大8手程度を想定するが件数は問わない)
- * を順番に適用し、末端局面を返す。パス(手番側に合法手が無い)は
- * `resolveMover`で自動的に処理する(`analyzeGame.ts`の`replayGame`と同じ方針だが、
- * こちらは任意の開始局面から末端局面のみを返す軽量版)。
+ * を順番に適用し、各手を打った直後の局面をすべて返す(`result[0]`が開始局面
+ * `board`そのもの、`result[i]`が`moves[0..i)`を適用した後の局面。長さは常に
+ * `moves.length + 1`)。パス(手番側に合法手が無い)は`resolveMover`で自動的に
+ * 処理する(`analyzeGame.ts`の`replayGame`と同じ方針)。
+ *
+ * T033(反証層)がPV中間局面ごとの評価内訳分解を計算するために、末端局面
+ * だけでなく全ステップの局面を必要としたため、`replayContinuation`(末端局面
+ * のみ返す版)から本関数へロジックを一本化した(`replayContinuation`は本関数の
+ * 最後の要素を返すだけの薄いラッパーにした。ロジックの二重管理を避けるため)。
  *
  * 比較PV(`comparePv.ts`の`buildComparePv`が返す`playedContinuation`/
  * `bestContinuation`)は既に検証済みの手順であることが多いが、念のため
- * `replayGame`と同じ`TranscriptReplayError`を投げて呼び出し側にエラーとして
- * 伝える(非合法手・手順の途中の終局を無視して局面を誤魔化さないため)。
+ * `TranscriptReplayError`を投げて呼び出し側にエラーとして伝える(非合法手・
+ * 手順の途中の終局を無視して局面を誤魔化さないため)。
  */
-export function replayContinuation(board: Board, side: Side, moves: readonly string[]): Board {
+export function replayContinuationSteps(board: Board, side: Side, moves: readonly string[]): Board[] {
+  const boards: Board[] = [board]
   let currentBoard = board
   let currentMover: Side | null = resolveMover(board, side)
 
@@ -121,9 +128,19 @@ export function replayContinuation(board: Board, side: Side, moves: readonly str
       throw new TranscriptReplayError(`${i + 1}手目 "${moves[i]}" はこの局面で合法手ではありません`)
     }
     currentBoard = applyMove(currentBoard, currentMover, square)
+    boards.push(currentBoard)
     const nextSide = opposite(currentMover)
     currentMover = resolveMover(currentBoard, nextSide)
   }
 
-  return currentBoard
+  return boards
+}
+
+/**
+ * `replayContinuationSteps`の末端局面のみを返す軽量版
+ * (T030/T031から使われている既存API。挙動は変更していない)。
+ */
+export function replayContinuation(board: Board, side: Side, moves: readonly string[]): Board {
+  const boards = replayContinuationSteps(board, side, moves)
+  return boards[boards.length - 1]!
 }
