@@ -113,4 +113,10 @@ attempts: 0
   - (e) 同一トランスクリプトを2回解析: 1回目72,745ms → 2回目73ms(キャッシュヒットにより約1000倍高速化)を確認。
   - (f) ビューポート375px幅で`document.documentElement.scrollWidth === clientWidth`(横スクロールなし)を入力画面・結果画面の両方で確認。スクリーンショットも目視確認済み(タブ・設定UI・グラフ・ムーブリストいずれも折り返され崩れていない)。
   - 追加で盤面クリックによる手動並べ入力(`盤面で並べる`タブ)も、着手記録・1手戻すが正しく動作することを別スクリプトで確認済み。
-- 本番Pages環境(`https://giwarb.github.io/othello-trainer/`)での確認結果は本追記の後半に記載(コミット・push・GitHub Actionsデプロイ完了後に実施)。
+**コミット・push・デプロイ・本番確認**
+
+- コミット `fb7818b`(タスク対象外ファイル(`CLAUDE.md`・`STATUS.md`・他タスクファイル等、他セッションで並行変更中だったもの)は含めず、`app/src/app.tsx`・`app/src/db/appDb.ts`・`app/src/analysis/`・本タスクファイルのみを明示的に`git add`してコミット)。
+- `git push origin main` → GitHub Actions `Deploy to GitHub Pages`(run 28984775477)が`build`(35s)・`deploy`(9s)とも成功したことを`gh run watch`で確認。
+- 本番URL(`https://giwarb.github.io/othello-trainer/`)に対して同じPlaywrightスクリプトを再実行し、要件10の(a)〜(f)全項目が成功することを確認(1回目解析69,190ms → 2回目71ms、キャッシュヒットによる高速化も本番で再現)。
+- 回帰確認: 既存4モード(対局/定石練習/中盤練習/詰めオセロ)のタブが本番環境でエラーなく表示されることも別スクリプトで確認済み(pageerrorイベントなし)。
+- 検証に使った使い捨てPlaywrightスクリプト(`app/scripts/verify-t029.mjs`等)・ランダム棋譜生成スクリプト・スクリーンショットは、リポジトリに残す価値がないため確認後に削除した(コミットしていない)。
