@@ -24,6 +24,12 @@ export interface EvalGraphProps {
   readonly currentPly?: number | null
   /** グラフ上のいずれかの局面がクリックされたときに呼ばれる。 */
   readonly onSelectPly?: (ply: number) => void
+  /**
+   * 悪手マーカー(?!/?/??、逆転悪手)がクリックされたときに呼ばれる(T030、
+   * 悪手分析パネルを開く用途)。省略時はマーカークリックも`onSelectPly`と
+   * 同じ(局面ジャンプのみ)動作になる。
+   */
+  readonly onMarkerClick?: (ply: number) => void
 }
 
 /** 評価値のクリップ範囲(石差)。`midgame/EvalBar.tsx`の`CLAMP`定数と同じ値を踏襲する。 */
@@ -56,7 +62,7 @@ function clamp(v: number): number {
  * レスポンシブ対応: SVGの`viewBox`を使い、CSS側で`width:100%; height:auto`とする
  * ことでコンテナ幅に追従する(`Board.tsx`のようなJS側のリサイズ処理は不要)。
  */
-export function EvalGraph({ points, markers, currentPly = null, onSelectPly }: EvalGraphProps) {
+export function EvalGraph({ points, markers, currentPly = null, onSelectPly, onMarkerClick }: EvalGraphProps) {
   const maxPly = Math.max(1, points.length - 1)
   const width = Math.max(320, maxPly * 10)
   const plotWidth = width - PADDING_X * 2
@@ -126,7 +132,7 @@ export function EvalGraph({ points, markers, currentPly = null, onSelectPly }: E
               x={xFor(p.ply)}
               y={yFor(p.value) - 8}
               text-anchor="middle"
-              onClick={() => onSelectPly?.(p.ply)}
+              onClick={() => (onMarkerClick ?? onSelectPly)?.(p.ply)}
             >
               {MARKER_LABEL[marker.classification]}
             </text>

@@ -185,6 +185,21 @@
   font-weight: bold;
 }
 
+.analysis-result__movelist-blunder-button {
+  background: none;
+  border: 1px solid #dc2626;
+  color: #dc2626;
+  border-radius: 0.3rem;
+  padding: 0.1rem 0.4rem;
+  font: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.analysis-result__movelist-blunder-button:hover {
+  background: #fee2e2;
+}
+
 @media (max-width: 400px) {
   .analysis-input__tab {
     font-size: 0.85rem;

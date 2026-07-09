@@ -12,6 +12,7 @@ import {
   type Side,
 } from '../game/othello.ts'
 import { analyzeGame, replayGame, TranscriptReplayError } from './analyzeGame.ts'
+import { BlunderPanel } from './BlunderPanel.tsx'
 import { EvalGraph, type EvalGraphMarker, type EvalGraphPoint } from './EvalGraph.tsx'
 import { parseTranscript, TranscriptParseError } from './parseTranscript.ts'
 import { loadClassifyThresholds, saveClassifyThresholds } from './thresholdSettings.ts'
@@ -61,9 +62,12 @@ function buildGraphPoints(results: readonly MoveAnalysis[]): EvalGraphPoint[] {
 
 /** 悪手マーカー(要件6): 分類が◎以外、または逆転が起きた手をグラフ上のx位置(手の直後)にマークする。 */
 function buildGraphMarkers(results: readonly MoveAnalysis[]): EvalGraphMarker[] {
-  return results
-    .filter((m) => m.classification !== 'best' || m.reversal)
-    .map((m) => ({ ply: m.ply + 1, classification: m.classification, reversal: m.reversal }))
+  return results.filter(isBlunderMarker).map((m) => ({ ply: m.ply + 1, classification: m.classification, reversal: m.reversal }))
+}
+
+/** T030の悪手分析パネルを開ける対象か(分類が◎以外、または逆転が起きた手)。 */
+function isBlunderMarker(m: MoveAnalysis): boolean {
+  return m.classification !== 'best' || m.reversal
 }
 
 /** 各局面(ply 0〜moves.length)の盤面・手番・直前手を作る(盤面ジャンプ表示用)。 */
@@ -118,6 +122,9 @@ export function AnalysisMode() {
   const [results, setResults] = useState<MoveAnalysis[] | null>(null)
   const [elapsedMs, setElapsedMs] = useState<number | null>(null)
   const [selectedPly, setSelectedPly] = useState(0)
+
+  /** T030: 悪手分析パネルを開いている対象の`ply`(未オープンなら`null`)。 */
+  const [openBlunderPly, setOpenBlunderPly] = useState<number | null>(null)
 
   const engineRef = useRef<EngineClient | null>(null)
 
@@ -363,6 +370,11 @@ export function AnalysisMode() {
             markers={graphMarkers}
             currentPly={selectedPly}
             onSelectPly={setSelectedPly}
+            onMarkerClick={(ply) => {
+              setSelectedPly(ply)
+              const m = results[ply - 1]
+              if (m && isBlunderMarker(m)) setOpenBlunderPly(m.ply)
+            }}
           />
 
           {currentBoard && (
@@ -409,15 +421,38 @@ export function AnalysisMode() {
                     </td>
                     <td>{m.lossDiscs > 0 ? formatDiscDiff(-m.lossDiscs) : '±0.0'}</td>
                     <td>
-                      {CLASSIFICATION_LABEL[m.classification]}
-                      {m.classification !== 'best' && ` ${CLASSIFICATION_TEXT[m.classification]}`}
-                      {m.reversal && ' (逆転)'}
+                      {isBlunderMarker(m) ? (
+                        <button
+                          type="button"
+                          class="analysis-result__movelist-blunder-button"
+                          onClick={(event) => {
+                            event.stopPropagation()
+                            setOpenBlunderPly(m.ply)
+                          }}
+                        >
+                          {CLASSIFICATION_LABEL[m.classification]}
+                          {m.classification !== 'best' && ` ${CLASSIFICATION_TEXT[m.classification]}`}
+                          {m.reversal && ' (逆転)'}
+                        </button>
+                      ) : (
+                        CLASSIFICATION_LABEL[m.classification]
+                      )}
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
+
+          {openBlunderPly !== null && results[openBlunderPly] && (
+            <BlunderPanel
+              key={openBlunderPly}
+              moveAnalysis={results[openBlunderPly]!}
+              gameMoves={results.map((m) => m.move)}
+              engine={getEngine()}
+              onClose={() => setOpenBlunderPly(null)}
+            />
+          )}
         </section>
       )}
     </div>
