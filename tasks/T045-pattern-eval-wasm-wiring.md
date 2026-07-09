@@ -96,4 +96,17 @@ T044で完成したパターン評価v2(`train/weights/pattern_v2.bin`)は、Eda
 - オフライン確認: `context.setOffline(true)`にしてリロードしても`pattern_v2.bin`へのリクエストがstatus 200で成功(Service Worker経由のキャッシュから)、対局モードの盤面が表示され着手も引き続き機能した(コンソールエラーなし)。なお`joseki.json`はこの検証セッションでは同じオフラインリロードで`Failed to fetch`が発生したが、これは`sw.js`の既存のプリキャッシュ対象外という既存挙動に起因するものであり、本タスクで変更していない箇所・スコープ外(`joseki.json`自体は本タスクの変更対象ではない)。
 - 終盤完全読み区間については、`engine::endgame::solve_exact`系の関数群がそもそも`weights`パラメータを一切持たない(コード上の構造的な保証)ことを確認した上で、既存の`protocol.rs`単体テスト(`score_type_is_exact_when_within_exact_from_empties_threshold`等)が本タスクの変更後も無変更のまま全件パスすることで裏付けた。実際に盤面を60マス空きから0まで打ち切ってUI上で完全読み結果を確認するプレイスルーは、対局を最後まで進める必要があり検証コストが高いため実施していない(コードの構造的保証+既存テストの回帰確認で十分と判断)。
 
-**次のステップ**: mainへのpush、GitHub Actionsデプロイ確認、本番URLでの同等のPlaywright確認を続けて実施する(以下に追記)。
+**mainへのpush・GitHub Actionsデプロイ・本番確認**
+
+- コミット`80fb31b`(`engine/app: パターン評価v2をWASM経由でアプリの新デフォルト評価に配線(T045)`)を`main`にpush済み。
+- GitHub Actions「Deploy to GitHub Pages」(run ID `29053981983`)が`success`で完了(`build`46s + `deploy`9s、`gh run watch`で確認)。
+- 本番URL(`https://giwarb.github.io/othello-trainer/`)にPlaywright(chromium)でアクセスして確認:
+  - `pattern_v2.bin`へのリクエストがオンライン初回ロードでstatus 200。
+  - 「候補手評価を表示」を有効化し初期局面の4候補手のオーバーレイを取得したところ、`{"title":"黒番 ロス0.2石","text":"-0.2"}`が2件、`{"title":"黒番 ロス0.0石","text":"±0"}`が2件 — ローカル検証で確認したパターン評価v2由来の値(`f5`/`e6`が最善でロス0、`d3`/`c4`がロス約0.2)と完全に一致し、本番でもパターン評価v2が実際に使われていることを確認した。
+  - `f5`をクリックしてCPUの応手まで進めても、コンソールエラーは0件。
+  - `context.setOffline(true)`でオフラインにしてリロードしても、`pattern_v2.bin`は引き続きstatus 200(Service Worker経由のキャッシュ)で取得でき、盤面(canvas)が表示され着手も引き続き機能し、コンソールエラーは0件だった。
+- 以上により、受け入れ基準の全項目(ビルド成功・`npm test`全件パス・`npm run build`成功・NPS比較記録・実機確認・本番デプロイ確認)を満たしたと判断する。
+
+**判断に迷った点(なければ「なし」)**
+
+- `pattern_v2.bin`をService Workerの明示的なプリキャッシュ対象(`FIXED_SHELL_URLS`)に加えるかどうかを検討したが、既存の`joseki.json`/`puzzles.json`も同様に明示的プリキャッシュ対象ではなく、汎用のcache-first fetchハンドラのみでオフライン対応している設計だったため、同じ方針(`sw.js`は変更しない)を踏襲した。ローカル・本番いずれのPlaywright確認でも、一度オンラインで対局操作(パターン評価の利用)を行った後であればオフラインでも`pattern_v2.bin`が問題なく取得できることを確認済み。もしオーケストレーター側で「初回訪問時にオフラインになる可能性も考慮し明示的にプリキャッシュすべき」という判断であれば、`FIXED_SHELL_URLS`に`./pattern_v2.bin`を追加する小さな追加変更で対応可能(既存方針からの逸脱が必要と判断されれば追加タスクとして実施する)。
