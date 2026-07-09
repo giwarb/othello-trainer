@@ -146,5 +146,9 @@ attempts: 0
   - コンソールエラー無し。
   - 検証に使った一時スクリプト(`app/scripts/verify-t030-local.mjs`)は確認後に削除済み(リポジトリに残す
     成果物ではないため)。
-- 本番デプロイ確認: このあとgit push→GitHub Actionsのデプロイ完了確認→本番Pages URLでの同等の確認を実施し、
-  結果をこのログに追記する(下記追記予定)。
+- 本番デプロイ確認: `git commit`(`db863ce`)→`git push origin main`→`gh run watch 28986422505 --exit-status`で
+  GitHub Actionsの`Deploy to GitHub Pages`ワークフロー(build/deployとも成功)完了を確認したのち、Playwright CLIで
+  本番Pages URL(`https://giwarb.github.io/othello-trainer/`)に対して上記ローカル検証と同一のシナリオ
+  (棋譜解析→悪手マーカークリック→比較PV(a)・フリー分岐探索(b)・ヒューリスティック理由(c)・中盤練習への送り
+  (d、IndexedDB `midgamePool`への`source:blunder-review`登録)・375px幅レスポンシブ(e))を実行し、全項目で
+  ローカルと同じ結果(OK)を確認した。検証に使った一時スクリプトは確認後に削除済み。
