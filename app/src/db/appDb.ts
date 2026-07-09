@@ -28,8 +28,9 @@ export const APP_DB_NAME = 'othello-trainer'
  * - v2: `midgamePool`ストア追加(T021)
  * - v3: `tsumeAttempts`ストア追加(T028)
  * - v4: `analysisCache`ストア追加(T029)
+ * - v5: `verbalizeAttempts`ストア追加(T035)
  */
-export const APP_DB_VERSION = 4
+export const APP_DB_VERSION = 5
 
 /** 定石練習モード(T020)のSRS状態ストア。キーは`JosekiSrsState.lineId`。 */
 export const JOSEKI_SRS_STORE = 'josekiSRS'
@@ -46,6 +47,12 @@ export const TSUME_ATTEMPTS_STORE = 'tsumeAttempts'
  */
 export const ANALYSIS_CACHE_STORE = 'analysisCache'
 
+/**
+ * 言語化トレーニングモード(T035)の挑戦記録(選んだ手・理由タグ・自由記述・採点結果)
+ * ストア。キーは`VerbalizeAttemptRecord.id`。
+ */
+export const VERBALIZE_ATTEMPTS_STORE = 'verbalizeAttempts'
+
 /** `APP_DB_VERSION`時点で存在すべき全ストアを作成する(既存なら何もしない)。 */
 function upgrade(db: IDBDatabase): void {
   if (!db.objectStoreNames.contains(JOSEKI_SRS_STORE)) {
@@ -59,6 +66,9 @@ function upgrade(db: IDBDatabase): void {
   }
   if (!db.objectStoreNames.contains(ANALYSIS_CACHE_STORE)) {
     db.createObjectStore(ANALYSIS_CACHE_STORE, { keyPath: 'key' })
+  }
+  if (!db.objectStoreNames.contains(VERBALIZE_ATTEMPTS_STORE)) {
+    db.createObjectStore(VERBALIZE_ATTEMPTS_STORE, { keyPath: 'id' })
   }
 }
 

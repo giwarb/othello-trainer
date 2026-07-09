@@ -1,0 +1,36 @@
+.two-choice-drill__options {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.75rem;
+}
+
+.two-choice-drill__option-button {
+  min-width: 5rem;
+  padding: 0.6rem 1.2rem;
+  font-size: 1.1rem;
+  font-weight: bold;
+  border: 2px solid #1e3a8a;
+  border-radius: 0.5rem;
+  background: #eff6ff;
+  color: #1e3a8a;
+  cursor: pointer;
+}
+
+.two-choice-drill__option-button:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.two-choice-drill__option-button--chosen {
+  background: #1e3a8a;
+  color: #ffffff;
+}
+
+@media (max-width: 400px) {
+  .two-choice-drill__option-button {
+    min-width: 4rem;
+    padding: 0.5rem 0.9rem;
+    font-size: 1rem;
+  }
+}

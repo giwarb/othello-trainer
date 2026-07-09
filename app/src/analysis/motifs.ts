@@ -466,6 +466,20 @@ export function detectMotifs(ctx: MotifContext): MotifDefinition[] {
   return MOTIF_ENTRIES.filter((entry) => entry.detect(ctx)).map(({ key, label, kind }) => ({ key, label, kind }))
 }
 
+/**
+ * 全モチーフ定義(検出関数を除く、`key`/`label`/`kind`のみ)の一覧。
+ *
+ * T035(言語化トレーニングモード、`verbalize/reasonTags.ts`)が、特定局面の
+ * コンテキスト(`MotifContext`)なしに理由タグ選択UI用の全モチーフ一覧を必要と
+ * するために追加した。検出ロジック(`MOTIF_ENTRIES`・各`detect*`関数)自体は
+ * 変更していない、単なる一覧のエクスポート。
+ */
+export const MOTIF_CATALOG: readonly MotifDefinition[] = MOTIF_ENTRIES.map(({ key, label, kind }) => ({
+  key,
+  label,
+  kind,
+}))
+
 // ---------------------------------------------------------------------
 // 盤面オーバーレイ用: 特徴量由来のマス集合(要件3)
 // ---------------------------------------------------------------------

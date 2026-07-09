@@ -1,0 +1,39 @@
+.verbalize-mode {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.verbalize-mode__sub-nav {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.4rem;
+}
+
+.verbalize-mode__sub-tab {
+  padding: 0.35rem 0.9rem;
+  border: 1px solid #94a3b8;
+  border-radius: 999px;
+  background: #f8fafc;
+  color: inherit;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.verbalize-mode__sub-tab--active {
+  background: #334155;
+  border-color: #334155;
+  color: #ffffff;
+  font-weight: bold;
+}
+
+@media (max-width: 400px) {
+  .verbalize-mode__sub-tab {
+    padding: 0.3rem 0.7rem;
+    font-size: 0.85rem;
+  }
+}

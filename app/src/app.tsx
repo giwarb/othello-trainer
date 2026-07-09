@@ -15,12 +15,13 @@ import { PracticeMode } from './joseki/PracticeMode.tsx'
 import type { JosekiDb } from './joseki/types.ts'
 import { PracticeMode as MidgamePracticeMode } from './midgame/PracticeMode.tsx'
 import { PlayMode as TsumePlayMode } from './tsume/PlayMode.tsx'
+import { VerbalizeMode } from './verbalize/VerbalizeMode.tsx'
 
 /**
  * アプリ全体のモード(T020: 対局/定石練習、T021: 中盤練習、T028: 詰めオセロ、
- * T029: 棋譜解析の切り替え)。
+ * T029: 棋譜解析、T035: 言語化トレーニングの切り替え)。
  */
-type AppMode = 'play' | 'joseki' | 'midgame' | 'tsume' | 'analysis'
+type AppMode = 'play' | 'joseki' | 'midgame' | 'tsume' | 'analysis' | 'verbalize'
 
 const MODE_LABEL: Record<AppMode, string> = {
   play: '対局',
@@ -28,12 +29,14 @@ const MODE_LABEL: Record<AppMode, string> = {
   midgame: '中盤練習',
   tsume: '詰めオセロ',
   analysis: '棋譜解析',
+  verbalize: '言語化トレーニング',
 }
 
 /**
  * アプリのルートコンポーネント。「対局」「定石練習」「中盤練習」「詰めオセロ」(T028)
- * 「棋譜解析」(T029)モードを切り替えるだけのシンプルなナビゲーション(タブ)を持つ
- * (要件7・9)。ルーティングライブラリは使わず、ローカルstateで表示するモードを切り替える。
+ * 「棋譜解析」(T029)「言語化トレーニング」(T035)モードを切り替えるだけのシンプルな
+ * ナビゲーション(タブ)を持つ(要件7・9、T035要件8)。ルーティングライブラリは使わず、
+ * ローカルstateで表示するモードを切り替える。
  *
  * レスポンシブ対応: タブは `flex-wrap` するため375px幅でも崩れない
  * (`app.css` の `.mode-nav` 参照)。
@@ -64,6 +67,7 @@ export function App() {
       {mode === 'midgame' && <MidgamePracticeMode />}
       {mode === 'tsume' && <TsumePlayMode />}
       {mode === 'analysis' && <AnalysisMode />}
+      {mode === 'verbalize' && <VerbalizeMode />}
     </main>
   )
 }

@@ -1,0 +1,247 @@
+.verbalize-practice-mode {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.verbalize-settings {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.75rem;
+  width: 100%;
+  max-width: 480px;
+  box-sizing: border-box;
+  padding: 0 0.5rem;
+}
+
+.verbalize-settings__group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  border: 1px solid #d4d4d8;
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.75rem;
+}
+
+.verbalize-settings__group legend {
+  padding: 0 0.3rem;
+  font-weight: bold;
+}
+
+.verbalize-settings__option {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  text-align: left;
+}
+
+.verbalize-problem {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  max-width: 640px;
+  box-sizing: border-box;
+}
+
+.verbalize-problem__quit {
+  background: none;
+  border: 1px solid #d4d4d8;
+  border-radius: 0.4rem;
+  padding: 0.4rem 0.9rem;
+  cursor: pointer;
+}
+
+.verbalize-tags {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.6rem;
+  width: 100%;
+  max-width: 560px;
+  box-sizing: border-box;
+  padding: 0.75rem;
+  border: 1px solid #d4d4d8;
+  border-radius: 0.6rem;
+  text-align: left;
+}
+
+.verbalize-tags__reselect {
+  background: none;
+  border: none;
+  color: #1e3a8a;
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 0;
+  font: inherit;
+}
+
+.verbalize-tags__group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.verbalize-tags__group-title {
+  margin: 0;
+  font-weight: bold;
+  font-size: 0.9rem;
+}
+
+.verbalize-tags__checkboxes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 0.9rem;
+}
+
+.verbalize-tags__checkbox {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.9rem;
+}
+
+.verbalize-tags__freetext {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  font-weight: bold;
+}
+
+.verbalize-tags__freetext textarea {
+  font: inherit;
+  padding: 0.4rem;
+  border: 1px solid #d4d4d8;
+  border-radius: 0.4rem;
+  resize: vertical;
+  box-sizing: border-box;
+  width: 100%;
+}
+
+.verbalize-tags__buttons {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.verbalize-result {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 1rem;
+  box-sizing: border-box;
+  border-radius: 0.6rem;
+  text-align: center;
+}
+
+.verbalize-result h2 {
+  margin: 0;
+}
+
+.verbalize-result p {
+  margin: 0;
+  max-width: 100%;
+  overflow-wrap: break-word;
+}
+
+.verbalize-result--correctBoth {
+  background: #dcfce7;
+  color: #14532d;
+}
+
+.verbalize-result--correctMoveWrongReason {
+  background: #fef9c3;
+  color: #713f12;
+}
+
+.verbalize-result--wrongMoveCorrectReason {
+  background: #dbeafe;
+  color: #1e3a8a;
+}
+
+.verbalize-result--wrongBoth {
+  background: #fee2e2;
+  color: #7f1d1d;
+}
+
+.verbalize-result__tags {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  width: 100%;
+}
+
+.verbalize-result__motifs {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.4rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.verbalize-result__lesson,
+.verbalize-result__history {
+  width: 100%;
+  text-align: left;
+  background: rgba(255, 255, 255, 0.5);
+  border-radius: 0.4rem;
+  padding: 0.5rem 0.75rem;
+  box-sizing: border-box;
+}
+
+.verbalize-result__lesson ul,
+.verbalize-result__history ul {
+  margin: 0.3rem 0 0;
+  padding-left: 1.2rem;
+}
+
+.verbalize-result__history-date {
+  font-variant-numeric: tabular-nums;
+  color: #52525b;
+  margin-right: 0.3rem;
+}
+
+.verbalize-result__buttons {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-top: 0.4rem;
+}
+
+/* 狭い画面幅(スマートフォン想定、375px程度)ではボタン・文字を少し縮めて縦積みにする。 */
+@media (max-width: 400px) {
+  .verbalize-settings__option,
+  .verbalize-tags__checkbox {
+    font-size: 0.85rem;
+  }
+
+  .verbalize-result__buttons,
+  .verbalize-tags__buttons {
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+  }
+
+  .verbalize-result {
+    padding: 0.75rem;
+    font-size: 0.9rem;
+  }
+
+  .verbalize-tags {
+    padding: 0.5rem;
+  }
+}
