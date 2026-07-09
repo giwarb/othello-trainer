@@ -1,9 +1,9 @@
 ---
 id: T046
 title: 定石内の手で評価値・評価グラフが無意味に上下する表示を修正
-status: todo
+status: done
 assignee: implementer
-attempts: 0
+attempts: 1
 ---
 
 # T046: 定石内の手で評価値・評価グラフが無意味に上下する表示を修正
@@ -67,4 +67,5 @@ attempts: 0
   - `npm test`(`app/`配下): 51ファイル・439件全件パス。
   - `npm run build`(`app/`配下): 成功(`tsc -b && vite build`エラーなし)。
   - 実機確認(`npm run dev`、Playwright/Chromiumで自動操作): 酉定石の13手(`f5d6c3d3c4f4c5b3c2e3d2c6b4`)+定石を外れる3手(`c1d1f3`)、計16手のトランスクリプトを解析。結果: 1〜13手目は評価バッジが数値なしで「定石」ラベルのみ(`eval-badge__value`要素が存在しないことを確認)、評価グラフの該当区間は折れ線が完全にフラット(全点のcy座標が同一値96)かつ背景が琥珀色の全高帯(`eval-graph__band--joseki`、12本)で表示された。14手目(c1)で定石を外れると同時に数値表示(-10.3等)・「中盤(探索)」ラベル・悪手判定(??悪手・逆転)が復活し、グラフの折れ線も通常通り変動(cy: 126.85→16→52.35→29.35)することを確認。スクリーンショットで凡例に「序盤(定石)」「終盤(完全読み確定)」「中盤(ヒューリスティック探索)」の3項目が表示されることも確認。
-  - 本番デプロイ・Playwright確認: 以下に追記予定。
+  - 本番デプロイ・Playwright確認: `git push origin main`(コミット`ee6020e`)後、`gh run watch 29055670865`でGitHub Actions「Deploy to GitHub Pages」の成功(build・deployとも成功)を確認。その後、本番公開URL(`https://giwarb.github.io/othello-trainer/`)に対して上記と同じPlaywrightスクリプト(Chromium、`playwright` npmパッケージ)で同一トランスクリプトを解析し、ローカルと同一の結果(1〜13手目は「定石」ラベルのみ・数値非表示、評価グラフがフラット+琥珀色の全高帯、14手目以降は数値・「中盤(探索)」・悪手判定が復活しグラフも変動)を確認。スクリーンショットも取得し目視で色分け(序盤=琥珀色、終盤=青、中盤=グレー)を確認した。
+- 全受け入れ基準を満たしたためstatusを`done`に更新。
