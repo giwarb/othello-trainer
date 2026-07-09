@@ -131,4 +131,21 @@ attempts: 0
 
 ### 本番デプロイ確認
 
-(コミット・push後にこのセクションへ追記する。)
+- コミット`cb9ff91`(`app: 言語化支援 反証層(回収点検出)を実装(T033)`)を
+  `git push origin main`でpush。
+- GitHub Actions「Deploy to GitHub Pages」(run 28992729059)を`gh run watch`で
+  完了まで監視し、`build`・`deploy`両ジョブとも成功(成功ステータス確認済み)。
+- 本番URL(`https://giwarb.github.io/othello-trainer/`)に対して、ローカル確認と
+  同一のPlaywrightスクリプト(同じランダム棋譜)を実行し、以下をすべて確認:
+  - 棋譜解析→悪手マーカー(23件)→悪手分析パネルを開き、「反証層: 回収点
+    (寄与が急変した手)」セクションが表示され、実際の進行側で3件の回収点
+    (例:「4手目(実際の進行、f4)で、着手可能数の寄与が-5.1動きました」)が
+    検出・表示されること。
+  - ステップ実行UI(前へ/次へ)でステップ表示が正しく変化し、回収点一覧の
+    クリックで該当ステップへジャンプできること。
+  - 375px幅で`document.documentElement.scrollWidth === clientWidth`
+    (横スクロール無し)、`.refutation-view`の幅が339.8px(375px以内)である
+    こと。スクリーンショットでも崩れていないことを目視確認。
+  - 出力は`ALL CHECKS PASSED (PRODUCTION)`。
+- 検証用スクリプト・スクリーンショットは一時ファイルでありコミットには
+  含めていない(確認後に削除済み)。
