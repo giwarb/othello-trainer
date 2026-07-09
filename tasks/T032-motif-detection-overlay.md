@@ -1,7 +1,7 @@
 ---
 id: T032
 title: 言語化支援 モチーフ検出タグ + 盤面可視化オーバーレイ
-status: in_progress
+status: review
 assignee: implementer
 attempts: 0
 ---
@@ -54,11 +54,11 @@ attempts: 0
 - 用語集・概念別弱点統計(T035で実装予定)
 
 ## 受け入れ基準(検証コマンド)
-- [ ] `cd app && npm run typecheck` がエラー0で通る
-- [ ] `cd app && npm test` で本タスクの単体テストが全件パスする(既存テストの回帰がないこと)
-- [ ] `cd app && npm run build` が成功する
-- [ ] 作業ログに、実装した/しなかったモチーフの一覧と判断根拠、実機確認結果が記載されている
-- [ ] **(2026-07-08運用ルール)** 変更をmainにコミット・push・GitHub Actionsデプロイ成功を確認し、`playwright`で本番Pages URL上での動作を確認する
+- [x] `cd app && npm run typecheck` がエラー0で通る
+- [x] `cd app && npm test` で本タスクの単体テストが全件パスする(既存テストの回帰がないこと)
+- [x] `cd app && npm run build` が成功する
+- [x] 作業ログに、実装した/しなかったモチーフの一覧と判断根拠、実機確認結果が記載されている
+- [x] **(2026-07-08運用ルール)** 変更をmainにコミット・push・GitHub Actionsデプロイ成功を確認し、`playwright`で本番Pages URL上での動作を確認する
 
 ## フィードバック(やり直し時にオーケストレーターが記入)
 
@@ -112,4 +112,15 @@ attempts: 0
   - `npx tsc -b && npx vite build && node scripts/inject-sw-version.mjs`: ビルド成功(環境にcargo/wasm-pack が無いため`npm run typecheck`/`npm run build`のnpm scriptそのものではなく、その中身(pretypecheck/prebuildのwasm再ビルドを除く)を直接実行。`app/src/engine/pkg/`は本タスクでRustを変更していないため既存のビルド成果物をそのまま使用)
   - 実機確認(ローカル、`vite preview`+Playwright、サブエージェントに委譲・上記ログ参照): 18手の実対局を解析し、BlunderPanelで実際にモチーフバッジ(例: 「壁作り」「自滅」「種石供給」)が表示されることを確認。オーバーレイ4種のうちfrontier/seed/dangerousCornersの3種はチェックでハイライトセル出現を確認、stable(確定石)はその対局中に隅が確定しなかったため実ブラウザでは非空ケースを確認できなかった。この残課題を埋めるため、`motifs.test.ts`に「隅を保持した局面でも`computeBoardHighlights`のstableが正しく非空になる」単体テストを追加し(`computeStableSquares`は`whyBad.test.ts`で既に隅保持時に1個を返すことが検証済みのロジックをそのまま再利用しているため、この単体テストでオーバーレイ側の配線が正しいことを確認できる)、コード上の正しさを担保した。375px幅でも横スクロール無し・表示崩れ無しを確認済み。コンソールエラー無し。
 
-  次のステップ(このセッション内で継続実施): git commit → push → GitHub Actionsデプロイ確認 → 本番Pages URLでのPlaywright確認。
+  git commit(`e7325f1`)→ `git push origin main` → GitHub Actionsデプロイ(`gh run watch 28991140851`、build/deployとも成功、約1分弱)まで完了。
+
+- 2026-07-09 implementer: 本番Pages URL(`https://giwarb.github.io/othello-trainer/`)でのPlaywright確認をサブエージェントに委譲し完了(受け入れ基準5)。結果:
+  - `page.url()`で実際に本番URLであることを確認した上でテスト(localhostではない)。
+  - 自作の合法性チェッカーで検証済みの18手棋譜(`f5d6c7f6e6d7g6f4c3g4f3b8e7f7h4d3c2h6`)を解析、18手全てが非最善(`?!`/`??`/`?`+一部「逆転」)として分類され、BlunderPanel(`role="dialog" aria-label="悪手分析"`)が正常にオープン。
+  - モチーフバッジ: 1手目(黒f5)で`.blunder-panel__motifs`に「壁作り(悪い手)」「自滅(悪い手)」の2バッジが実際に表示されることを確認。
+  - 盤面オーバーレイ: 4種のチェックボックス(フロンティア石/確定石/種石/危険なX/C打ちマス)全てが存在。全てチェックした状態で`.board-overlay__cell--frontier`が4件、`.board-overlay__cell--dangerousCorners`が12件、スクリーンショット上でも青(フロンティア)・赤(危険マス)の枠が可視。stable/seedは0件だったが、この局面(序盤・隅未確定・辺未着手)では確定石も種石も存在しないのが正しい挙動であり不具合ではない(前回のローカル確認で判明した「stable」の非空ケースは、`motifs.test.ts`に追加した隅保持局面のユニットテストで別途カバー済み)。
+  - 375×812幅でも`document.documentElement.scrollWidth`が375ちょうどで横スクロール無し、バッジ・チェックボックスの表示崩れ無し。
+  - コンソールエラー: `console`/`pageerror`とも0件。
+  - **総合判定: 本番環境で正常に動作することを確認(不具合なし)。**
+
+  以上により受け入れ基準を全項目満たしたため、本タスクは完了とする。
