@@ -481,11 +481,11 @@ export function BlunderPanel({ moveAnalysis, gameMoves, engine, onClose }: Blund
           </div>
           <p class="status">
             実際の手: {moveAnalysis.move}{' '}
-            <EvalBadge discDiff={moveAnalysis.playedDiscDiff} source={moveAnalysis.isExact ? 'exact' : 'midgame'} />
+            <EvalBadge discDiff={moveAnalysis.playedDiscDiff} source={moveAnalysis.evalSource} />
           </p>
           <p class="status">
             最善手: {moveAnalysis.bestMove}{' '}
-            <EvalBadge discDiff={moveAnalysis.bestDiscDiff} source={moveAnalysis.isExact ? 'exact' : 'midgame'} />
+            <EvalBadge discDiff={moveAnalysis.bestDiscDiff} source={moveAnalysis.evalSource} />
           </p>
           <p class="status">ロス: {moveAnalysis.lossDiscs.toFixed(1)}石</p>
 

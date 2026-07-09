@@ -21,6 +21,7 @@ function makeMoveAnalysis(overrides: Partial<MoveAnalysis> = {}): MoveAnalysis {
     side: 'black',
     board,
     isExact: false,
+    evalSource: 'midgame',
     bestMove: 'c3',
     bestDiscDiff: 4,
     playedDiscDiff: -2,

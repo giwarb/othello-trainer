@@ -11,6 +11,8 @@ import {
   type Board as BoardState,
   type Side,
 } from '../game/othello.ts'
+import { loadJosekiDb } from '../joseki/lookup.ts'
+import type { JosekiDb } from '../joseki/types.ts'
 import { analyzeGame, replayGame, TranscriptReplayError } from './analyzeGame.ts'
 import { BlunderPanel } from './BlunderPanel.tsx'
 import { EvalGraph, type EvalGraphMarker, type EvalGraphPoint } from './EvalGraph.tsx'
@@ -132,6 +134,11 @@ export function AnalysisMode() {
 
   const engineRef = useRef<EngineClient | null>(null)
 
+  // T038: 定石DBを読み込んでおき、`analyzeGame`に渡す(定石内の手の悪手誤判定除外)。
+  // ロードに失敗しても`josekiDb`は`null`のままとなり、`analyzeGame`側が
+  // フォールバック(定石照会スキップ、従来通りの評価)する(要件3)。
+  const [josekiDb, setJosekiDb] = useState<JosekiDb | null>(null)
+
   function getEngine(): EngineClient {
     if (!engineRef.current) {
       engineRef.current = new EngineClient()
@@ -143,6 +150,20 @@ export function AnalysisMode() {
     return () => {
       engineRef.current?.terminate()
       engineRef.current = null
+    }
+  }, [])
+
+  useEffect(() => {
+    let cancelled = false
+    loadJosekiDb()
+      .then((db) => {
+        if (!cancelled) setJosekiDb(db)
+      })
+      .catch((error: unknown) => {
+        console.error('定石DBの読み込みに失敗しました(定石内の手の判定なしで解析を続行します)', error)
+      })
+    return () => {
+      cancelled = true
     }
   }, [])
 
@@ -169,6 +190,7 @@ export function AnalysisMode() {
       const analyzed = await analyzeGame(getEngine(), moves, {
         thresholds,
         onProgress: setProgress,
+        josekiDb,
       })
       setElapsedMs(performance.now() - startedAt)
       setResults(analyzed)
@@ -432,7 +454,7 @@ export function AnalysisMode() {
                     <td>{sideLabel(m.side)}</td>
                     <td>{m.move}</td>
                     <td>
-                      <EvalBadge discDiff={m.playedDiscDiff} source={m.isExact ? 'exact' : 'midgame'} />
+                      <EvalBadge discDiff={m.playedDiscDiff} source={m.evalSource} />
                     </td>
                     <td>{m.lossDiscs > 0 ? formatDiscDiff(-m.lossDiscs) : '±0.0'}</td>
                     <td>

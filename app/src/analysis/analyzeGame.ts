@@ -17,6 +17,14 @@
  * 問題での経験)を避けるため、`ANALYZE_LIMIT.exactFromEmpties`は22に固定して
  * いる(エンジン側`engine/src/search.rs`の規約により、空き23以上の局面では
  * 完全読みは使われずdepth18の探索で打ち切られる)。
+ *
+ * 定石DB連携(T038): `options.josekiDb`にロード済みの`JosekiDb`が渡された場合、
+ * 各局面で`lookupJosekiNode`を呼び、実際に打った手が定石DBの候補手集合に含まれて
+ * いれば「定石内」とみなす。定石内の手は評価ソース(`evalSource`)を`'joseki'`、
+ * 分類を`'best'`、`lossDiscs`を`0`、逆転判定を`false`に上書きする(序盤の
+ * ヒューリスティック評価のノイズによる悪手誤判定を避けるため)。`josekiDb`が
+ * `null`または省略された場合(ロード失敗時のフォールバック含む)は、この上書きを
+ * 一切行わず従来通り`exact`/`midgame`のみで評価する。
  */
 
 import type { AnalyzeLimit, MoveEvalJson } from '../engine/types.ts'
@@ -30,7 +38,9 @@ import {
   type Board,
   type Side,
 } from '../game/othello.ts'
+import { lookupJosekiNode } from '../joseki/lookup.ts'
 import { hashBoard } from '../joseki/normalize.ts'
+import type { JosekiDb } from '../joseki/types.ts'
 import { resolveMover } from '../midgame/resolveMover.ts'
 import { cacheKey, getCachedAnalysis, putCachedAnalysis } from './cache.ts'
 import { classifyMove, DEFAULT_CLASSIFY_THRESHOLDS } from './classifyMove.ts'
@@ -111,6 +121,12 @@ export interface AnalyzeGameOptions {
   readonly onProgress?: (progress: AnalyzeGameProgress) => void
   /** テスト用のIndexedDBファクトリ差し替え口(省略時は実際の`indexedDB`)。 */
   readonly dbFactory?: IDBFactory
+  /**
+   * 定石DB(T038)。呼び出し元が`loadJosekiDb()`でロード済みのものを渡す。
+   * `null`または省略時は定石照会をスキップし、従来通り全手を`exact`/`midgame`
+   * 評価のまま扱う(定石DBロード失敗時のフォールバックにも使う)。
+   */
+  readonly josekiDb?: JosekiDb | null
 }
 
 function pickBest(moves: readonly MoveEvalJson[]): MoveEvalJson {
@@ -149,6 +165,11 @@ export async function analyzeGame(
   const total = moves.length
   if (total === 0) return []
 
+  const josekiDb = options.josekiDb ?? null
+  // 定石DAGの対称正規化(`joseki/normalize.ts`)の基準となる、この対局の実際の初手。
+  // `firstMoveSquare`が確定すれば対局全体を通して使い回せる(`joseki/PracticeMode.tsx`と同じ設計)。
+  const firstMoveSquare = notationToSquare(moves[0]!)
+
   const results: MoveAnalysis[] = new Array(total)
 
   // 最終局面の黒視点評価値を先に求める。真の終局(両者とも合法手なし)であれば
@@ -179,18 +200,28 @@ export async function analyzeGame(
     const lossDiscs = Math.max(0, best.discDiff - played.discDiff)
     const blackAdvantageBefore = mover === 'black' ? best.discDiff : -best.discDiff
 
+    // 定石DB連携(T038): この局面が定石DBに登録されており、実際に打った手が
+    // 定石ラインの候補手に含まれていれば「定石内」とみなし、悪手判定・逆転判定を
+    // `'best'`/`false`で上書きする(要件1・2)。`josekiDb`が`null`(ロード失敗
+    // またはオプション未指定)なら常にスキップし、従来通りの評価に戻る(要件3)。
+    const josekiLookup = josekiDb ? lookupJosekiNode(josekiDb, pos.board, mover, firstMoveSquare) : null
+    const playedSquare = notationToSquare(playedNotation)
+    const inBook = josekiLookup !== null && josekiLookup.bookMoves.some((bm) => bm.move === playedSquare)
+
     results[i] = {
       ply: i,
       move: playedNotation,
       side: mover,
       board: pos.board,
       isExact: best.type === 'exact',
+      evalSource: inBook ? 'joseki' : best.type === 'exact' ? 'exact' : 'midgame',
+      josekiNames: inBook ? josekiLookup!.names : undefined,
       bestMove: best.move,
       bestDiscDiff: best.discDiff,
       playedDiscDiff: played.discDiff,
-      lossDiscs,
-      classification: classifyMove(lossDiscs, thresholds),
-      reversal: Math.sign(blackAdvantageBefore) !== Math.sign(nextBlackAdvantage),
+      lossDiscs: inBook ? 0 : lossDiscs,
+      classification: inBook ? 'best' : classifyMove(lossDiscs, thresholds),
+      reversal: inBook ? false : Math.sign(blackAdvantageBefore) !== Math.sign(nextBlackAdvantage),
       blackAdvantageBefore,
       blackAdvantageAfter: nextBlackAdvantage,
     }

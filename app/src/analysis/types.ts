@@ -9,6 +9,7 @@
 
 import type { Board, Side } from '../game/othello.ts'
 import type { FeatureSetJson } from '../engine/types.ts'
+import type { EvalSource } from '../blunder/types.ts'
 
 /** 入力された1局の棋譜(着手列、`parseTranscript`の出力または手動並べの記録)。 */
 export interface GameRecord {
@@ -44,6 +45,17 @@ export interface MoveAnalysis {
   readonly board: Board
   /** 着手前局面の解析(最善手の評価)が完全読みだったか(空き22以下)。 */
   readonly isExact: boolean
+  /**
+   * 評価ソード(T038、`othello-trainer-design-verbalization.md`)。
+   * 「定石内の手なら`'joseki'`、そうでなく`isExact`が真なら`'exact'`、それ以外は
+   * `'midgame'`」の優先順位で`analyzeGame`が決定する。`EvalBadge`の色分け表示に使う。
+   */
+  readonly evalSource: EvalSource
+  /**
+   * 定石内の手(`evalSource === 'joseki'`)の場合、この局面が属する定石ライン名
+   * (`JosekiLookupResult.node.names`)。定石外の手では`undefined`。
+   */
+  readonly josekiNames?: readonly string[]
   /** 着手前局面における最善手の記法。 */
   readonly bestMove: string
   /** 最善手の評価値(石差、`side`視点)。 */
