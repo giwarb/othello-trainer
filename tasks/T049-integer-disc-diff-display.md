@@ -1,9 +1,9 @@
 ---
 id: T049
 title: 評価値表示を石数差らしい整数表示に変更(Edax準拠)
-status: todo
+status: done
 assignee: implementer
-attempts: 0
+attempts: 1
 ---
 
 # T049: 評価値表示を石数差らしい整数表示に変更(Edax準拠)
@@ -106,4 +106,13 @@ attempts: 0
       整数表示になっていることを確認。
     - 棋譜解析モード: ムーブリストの「ロス」列が`±0`(整数)、評価グラフの
       `<title>`ツールチップが`"0手目時点: +0石"`のように整数表示になっていることを確認。
-  - mainへのpush・GitHub Actionsデプロイ確認・本番Playwright確認は次のログに追記する。
+  - mainへpush(commit `5711c98`)、GitHub Actions「Deploy to GitHub Pages」(run 29058461725)が
+    `build`→`deploy`とも成功したことを`gh run watch`で確認。
+  - 本番公開URL(`https://giwarb.github.io/othello-trainer/`)でPlaywright(`npx playwright`経由、
+    Node APIをスクリプトで操作)により実機確認:
+    - 対局モード: 「候補手評価を表示」ONで盤面オーバーレイの数値が`-26`/`±0`/`-12`/`-12`と
+      整数表示(ローカルの`npm run dev`確認時と同じ値)。
+    - 棋譜解析モード: ムーブリストの「ロス」列が`±0`、評価グラフの`<title>`ツールチップが
+      `"0手目時点: +0石"`のように整数表示。ローカル確認結果と一致し、キャッシュの
+      不整合等も見られなかった。
+  - 受け入れ基準4項目すべて満たしたためstatusを`done`とする。
