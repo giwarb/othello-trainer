@@ -40,6 +40,9 @@ import { buildInstantTsumePuzzle, sendToMidgamePractice } from './sendToPractice
 import type { AttributionBreakdown, EvalTerms, FeatureSet, MoveAnalysis } from './types.ts'
 import { analyzeWhyBad, computeStableSquares } from './whyBad.ts'
 import { GlossaryPopover } from '../verbalize/GlossaryPopover.tsx'
+import { buildStructuredInput } from '../llm/buildStructuredInput.ts'
+import { CommentaryView } from '../llm/CommentaryView.tsx'
+import { buildCommentaryUserMessage, COMMENTARY_SYSTEM_PROMPT } from '../llm/prompt.ts'
 import './BlunderPanel.css'
 
 const MOTIF_KIND_LABEL: Record<MotifDefinition['kind'], string> = {
@@ -586,6 +589,16 @@ export function BlunderPanel({ moveAnalysis, gameMoves, engine, onClose }: Blund
               <li key={i}>{reason}</li>
             ))}
           </ul>
+        </section>
+
+        <section class="blunder-panel__section">
+          <h3>AI講評(任意)</h3>
+          <CommentaryView
+            systemPrompt={COMMENTARY_SYSTEM_PROMPT}
+            userMessage={buildCommentaryUserMessage(
+              buildStructuredInput(moveAnalysis, whyBad, motifs, attribution, refutation, comparePv),
+            )}
+          />
         </section>
 
         <section class="blunder-panel__section">

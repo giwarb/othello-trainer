@@ -1,0 +1,26 @@
+.commentary-view {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.commentary-view__text {
+  margin: 0;
+  padding: 0.6rem 0.75rem;
+  background: #f4f4f5;
+  border-radius: 0.4rem;
+  font-size: 0.9rem;
+  white-space: pre-wrap;
+}
+
+.commentary-view__hint {
+  margin: 0;
+  font-size: 0.8rem;
+  color: #71717a;
+}
+
+@media (max-width: 400px) {
+  .commentary-view__text {
+    font-size: 0.85rem;
+  }
+}
