@@ -27,8 +27,9 @@ export const APP_DB_NAME = 'othello-trainer'
  * - v1: `josekiSRS`ストア(T020)
  * - v2: `midgamePool`ストア追加(T021)
  * - v3: `tsumeAttempts`ストア追加(T028)
+ * - v4: `analysisCache`ストア追加(T029)
  */
-export const APP_DB_VERSION = 3
+export const APP_DB_VERSION = 4
 
 /** 定石練習モード(T020)のSRS状態ストア。キーは`JosekiSrsState.lineId`。 */
 export const JOSEKI_SRS_STORE = 'josekiSRS'
@@ -38,6 +39,12 @@ export const MIDGAME_POOL_STORE = 'midgamePool'
 
 /** 詰めオセロプレイモード(T028)の挑戦履歴ストア。キーは`PuzzleAttemptRecord.id`。 */
 export const TSUME_ATTEMPTS_STORE = 'tsumeAttempts'
+
+/**
+ * 棋譜解析モード(T029)の局面解析結果キャッシュストア。
+ * キーは`analysis/cache.ts`の`cacheKey()`が作る`"${positionHash}|${limitTag}"`文字列。
+ */
+export const ANALYSIS_CACHE_STORE = 'analysisCache'
 
 /** `APP_DB_VERSION`時点で存在すべき全ストアを作成する(既存なら何もしない)。 */
 function upgrade(db: IDBDatabase): void {
@@ -49,6 +56,9 @@ function upgrade(db: IDBDatabase): void {
   }
   if (!db.objectStoreNames.contains(TSUME_ATTEMPTS_STORE)) {
     db.createObjectStore(TSUME_ATTEMPTS_STORE, { keyPath: 'id' })
+  }
+  if (!db.objectStoreNames.contains(ANALYSIS_CACHE_STORE)) {
+    db.createObjectStore(ANALYSIS_CACHE_STORE, { keyPath: 'key' })
   }
 }
 

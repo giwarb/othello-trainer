@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'preact/hooks'
 import './app.css'
+import { AnalysisMode } from './analysis/AnalysisMode.tsx'
 import { BlunderSettings } from './blunder/BlunderSettings.tsx'
 import { isBlunder } from './blunder/isBlunder.ts'
 import { DEFAULT_BLUNDER_CONFIG, type BlunderConfig, type EvalSource } from './blunder/types.ts'
@@ -15,20 +16,24 @@ import type { JosekiDb } from './joseki/types.ts'
 import { PracticeMode as MidgamePracticeMode } from './midgame/PracticeMode.tsx'
 import { PlayMode as TsumePlayMode } from './tsume/PlayMode.tsx'
 
-/** アプリ全体のモード(T020: 対局/定石練習、T021: 中盤練習、T028: 詰めオセロの切り替え)。 */
-type AppMode = 'play' | 'joseki' | 'midgame' | 'tsume'
+/**
+ * アプリ全体のモード(T020: 対局/定石練習、T021: 中盤練習、T028: 詰めオセロ、
+ * T029: 棋譜解析の切り替え)。
+ */
+type AppMode = 'play' | 'joseki' | 'midgame' | 'tsume' | 'analysis'
 
 const MODE_LABEL: Record<AppMode, string> = {
   play: '対局',
   joseki: '定石練習',
   midgame: '中盤練習',
   tsume: '詰めオセロ',
+  analysis: '棋譜解析',
 }
 
 /**
  * アプリのルートコンポーネント。「対局」「定石練習」「中盤練習」「詰めオセロ」(T028)
- * モードを切り替えるだけのシンプルなナビゲーション(タブ)を持つ(要件7・9)。
- * ルーティングライブラリは使わず、ローカルstateで表示するモードを切り替える。
+ * 「棋譜解析」(T029)モードを切り替えるだけのシンプルなナビゲーション(タブ)を持つ
+ * (要件7・9)。ルーティングライブラリは使わず、ローカルstateで表示するモードを切り替える。
  *
  * レスポンシブ対応: タブは `flex-wrap` するため375px幅でも崩れない
  * (`app.css` の `.mode-nav` 参照)。
@@ -58,6 +63,7 @@ export function App() {
       {mode === 'joseki' && <PracticeMode />}
       {mode === 'midgame' && <MidgamePracticeMode />}
       {mode === 'tsume' && <TsumePlayMode />}
+      {mode === 'analysis' && <AnalysisMode />}
     </main>
   )
 }
