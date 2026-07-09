@@ -10,14 +10,30 @@
  * モデルである(46パターン評価はフェーズ3で後回し、ユーザー承認済み)。
  * そのため本モジュールは46グループではなく、**現行の3項への厳密な分解**
  * として実装する(`buildAttribution`)。3項の合計が実際の評価差と一致する
- * ことは線形結合であることから数学的に保証されるが、`attribution.test.ts`
- * では実際にWASM経由で取得した `evaluateBlack`(`eval::evaluate` の生の
- * 出力)とも突き合わせ、下記の重み定数が `engine/src/eval.rs` の値と
- * driftしていないことも検証する。
+ * ことは線形結合であることから数学的に保証される。
  *
  * 「辺の形」「斜めライン」「地域偶数」は現行評価関数に存在しない概念のため、
  * この評価内訳分解には含めない(要件どおり、特徴量としての計算は
  * `engine/src/explain.rs` の `featureSet` コマンドで別途行う)。
+ *
+ * ## T031やり直し1回目(2026-07-09): 重み定数の複製を廃止(must 2対応)
+ *
+ * 【訂正】以前の版は本モジュールに`eval.rs`の重み定数(`MOBILITY_WEIGHT`等)を
+ * 手動で複製し、コード内コメント・作業ログで「`attribution.test.ts`がWASM経由の
+ * 実際の評価値と突き合わせてdriftを検証している」と主張していたが、これは
+ * 事実ではなかった(reviewer/verifier指摘)。当時の`attribution.test.ts`は
+ * 自作のテストデータ同士を同じハードコード定数で比較するだけの循環参照であり、
+ * 実エンジンの値とは一切突き合わせていなかった。
+ *
+ * 修正: 重みの適用自体をRust側(`engine/src/explain.rs`の`evalTerms`コマンド)に
+ * 移し、`EvalTerms`に加重後3項(`mobilityTerm`/`cornerTerm`/`stableTerm`、
+ * centi-disc単位)を追加した。本モジュールはこれらの値をそのまま差し引くだけで
+ * よく、重み定数を一切持たない(=driftしようがない)。加重後3項の合計が
+ * 実際の`eval::evaluate`出力と厳密に一致することは、Rust側の単体テスト
+ * (`engine/src/explain.rs`の`eval_terms_weighted_sum_matches_actual_evaluate_output`
+ * 等)で、本物の`eval::evaluate`との直接比較により検証している(このプロジェクトの
+ * 単体テストは実際のWASM/Workerを起動しない設計方針(`vitest.config.ts`参照)
+ * のため、この突き合わせはWASMの実体を持つRust側で行うのが自然かつ確実)。
  *
  * このファイルは`comparePv.ts`(T030)と同じ設計方針を踏襲し、エンジン呼び出し
  * を含まない純粋関数のみで構成する(`EvalTerms`は呼び出し側が
@@ -38,17 +54,6 @@ import type { AttributionBreakdown, AttributionTerm, EvalTerms } from './types.t
 
 export type { AttributionBreakdown, AttributionTerm, EvalTerms } from './types.ts'
 
-/**
- * 現行評価関数(`engine/src/eval.rs`)の重み(centi-disc単位、T024でEdaxの
- * 評価値へ回帰較正済み)。**この3つの値は`engine/src/eval.rs`の
- * `MOBILITY_WEIGHT`/`CORNER_WEIGHT`/`STABLE_WEIGHT`と同じ値に保つこと。**
- * Rust側の値が変わった場合はここも更新する必要がある(`attribution.test.ts`
- * がWASM経由の実際の評価値との突き合わせでdriftを検出する)。
- */
-const MOBILITY_WEIGHT = 253
-const CORNER_WEIGHT = 1088
-const STABLE_WEIGHT = 93
-
 const TERM_LABELS: Record<AttributionTerm['key'], string> = {
   mobility: '着手可能数',
   corner: '隅',
@@ -56,8 +61,14 @@ const TERM_LABELS: Record<AttributionTerm['key'], string> = {
 }
 
 /**
- * 2局面(`termsA`, `termsB`、いずれも黒視点の生特徴量差分)の評価差を、
- * 現行評価関数の3項(モビリティ・隅・安定石)それぞれの寄与に厳密に分解する。
+ * 2局面(`termsA`, `termsB`)の評価差を、現行評価関数の3項(モビリティ・隅・
+ * 安定石)それぞれの寄与に厳密に分解する。
+ *
+ * `termsA`/`termsB`の`mobilityTerm`/`cornerTerm`/`stableTerm`はRust側
+ * (`engine/src/explain.rs`)で既に`eval.rs`の重み定数を適用済みの値
+ * (黒視点、centi-disc単位)であり、本関数は重み定数を一切知らずに単純な
+ * 引き算だけで分解結果を組み立てる(モジュール冒頭「T031やり直し1回目」の
+ * コメント参照)。
  *
  * `perspective`が`'white'`の場合は符号を反転する(白視点で見て「損」が
  * 正しく負として表示されるようにするため)。
@@ -70,9 +81,9 @@ export function buildAttribution(termsA: EvalTerms, termsB: EvalTerms, perspecti
   const sign = perspective === 'black' ? 1 : -1
 
   const rawTerms: readonly [AttributionTerm['key'], number][] = [
-    ['mobility', MOBILITY_WEIGHT * (termsA.mobilityDiff - termsB.mobilityDiff)],
-    ['corner', CORNER_WEIGHT * (termsA.cornerDiff - termsB.cornerDiff)],
-    ['stable', STABLE_WEIGHT * (termsA.stableDiff - termsB.stableDiff)],
+    ['mobility', termsA.mobilityTerm - termsB.mobilityTerm],
+    ['corner', termsA.cornerTerm - termsB.cornerTerm],
+    ['stable', termsA.stableTerm - termsB.stableTerm],
   ]
 
   const terms: AttributionTerm[] = rawTerms.map(([key, centiDiscDelta]) => ({

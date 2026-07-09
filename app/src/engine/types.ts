@@ -98,9 +98,18 @@ export interface ErrorResponseMessage {
 
 /**
  * `evalTerms` コマンドのリクエスト。現行評価関数(`eval.rs`)の3項
- * (モビリティ差・隅差・安定石差)の生の特徴量差分を1局面ぶん取得する。
- * 加重・合算(waterfall分解の構築)は `app/src/analysis/attribution.ts` の
- * 純粋関数で行う(`engine/src/explain.rs` モジュール冒頭のコメント参照)。
+ * (モビリティ差・隅差・安定石差)の生の特徴量差分と、重み適用済みの3項を
+ * 1局面ぶん取得する。
+ *
+ * 【T031やり直し1回目・must 2対応】以前は生の特徴量差分のみを返し、加重
+ * (重み定数の適用)はTypeScript側(`app/src/analysis/attribution.ts`)で
+ * 行っていたが、TS側が`eval.rs`の重み定数を複製する必要がありdrift
+ * (Rust側の重みが変わってもTS側が無言でズレる)のリスクがあった
+ * (reviewer/verifier指摘)。修正: Rust側(`engine/src/explain.rs`)で
+ * 重み適用まで完了させ、`mobilityTerm`/`cornerTerm`/`stableTerm`
+ * (加重後、centi-disc単位)を追加フィールドとして返す。TS側はこれらの値を
+ * 差し引くだけでよく、重み定数を一切知らずに済む(`attribution.ts`
+ * モジュール冒頭のコメント参照)。
  */
 export interface EvalTermsRequestMessage {
   id: number;
@@ -118,7 +127,13 @@ export interface EvalTermsResponseMessage {
   cornerDiff: number;
   /** 黒視点の安定石(確定石、簡易判定)差。 */
   stableDiff: number;
-  /** `eval::evaluate` の生の出力(黒視点、centi-disc単位、1石=100)。 */
+  /** `mobilityDiff * eval::MOBILITY_WEIGHT`(黒視点、centi-disc単位、1石=100)。 */
+  mobilityTerm: number;
+  /** `cornerDiff * eval::CORNER_WEIGHT`(黒視点、centi-disc単位)。 */
+  cornerTerm: number;
+  /** `stableDiff * eval::STABLE_WEIGHT`(黒視点、centi-disc単位)。 */
+  stableTerm: number;
+  /** `eval::evaluate` の生の出力(黒視点、centi-disc単位、1石=100)。`mobilityTerm + cornerTerm + stableTerm` と厳密に一致する。 */
   evaluateBlack: number;
 }
 

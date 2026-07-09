@@ -238,6 +238,9 @@ describe('EngineClient', () => {
         mobilityDiff: 2,
         cornerDiff: 0,
         stableDiff: 1,
+        mobilityTerm: 506,
+        cornerTerm: 0,
+        stableTerm: 93,
         evaluateBlack: 599,
       });
 
@@ -247,6 +250,9 @@ describe('EngineClient', () => {
         mobilityDiff: 2,
         cornerDiff: 0,
         stableDiff: 1,
+        mobilityTerm: 506,
+        cornerTerm: 0,
+        stableTerm: 93,
         evaluateBlack: 599,
       });
     });

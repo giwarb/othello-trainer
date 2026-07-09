@@ -96,15 +96,27 @@ export interface ClassifyThresholds {
 export type FeatureSet = FeatureSetJson
 
 /**
- * 1局面ぶんの現行評価関数(`engine/src/eval.rs`)の生の特徴量差分(黒視点)。
- * `EngineClient.requestEvalTerms`(`cmd: "evalTerms"`)の応答から
- * `id`/`final`を除いたもの。`app/src/analysis/attribution.ts`の
+ * 1局面ぶんの現行評価関数(`engine/src/eval.rs`)の生の特徴量差分+加重後3項
+ * (いずれも黒視点)。`EngineClient.requestEvalTerms`(`cmd: "evalTerms"`)の
+ * 応答から`id`/`final`を除いたもの。`app/src/analysis/attribution.ts`の
  * `buildAttribution`の入力になる。
+ *
+ * `mobilityTerm`/`cornerTerm`/`stableTerm`はRust側(`engine/src/explain.rs`)で
+ * 既に`eval.rs`の重み定数を適用済みの値(centi-disc単位)であり、
+ * `buildAttribution`はこれらをそのまま差し引くだけでよい(TS側は重み定数を
+ * 一切持たない。T031やり直し1回目・must 2対応、`attribution.ts`モジュール
+ * 冒頭のコメント参照)。
  */
 export interface EvalTerms {
   readonly mobilityDiff: number
   readonly cornerDiff: number
   readonly stableDiff: number
+  /** `mobilityDiff * eval::MOBILITY_WEIGHT`(黒視点、centi-disc単位)。 */
+  readonly mobilityTerm: number
+  /** `cornerDiff * eval::CORNER_WEIGHT`(黒視点、centi-disc単位)。 */
+  readonly cornerTerm: number
+  /** `stableDiff * eval::STABLE_WEIGHT`(黒視点、centi-disc単位)。 */
+  readonly stableTerm: number
   /** `eval::evaluate`の生の出力(黒視点、centi-disc単位、1石=100)。 */
   readonly evaluateBlack: number
 }

@@ -104,6 +104,18 @@ function isLineFull(board: Board, line: readonly number[]): boolean {
  * この判定は「確実に安定である」ことの十分条件を反復的に広げていくだけなので
  * 確定石を見逃すことはあっても(過小評価)、安定でない石を確定石と誤判定する
  * ことはない(過大評価はしない)。「簡易判定」として位置づける理由。
+ *
+ * 【T031やり直し1回目「should」対応】確定石数の算出は本関数(4軸固定点反復、
+ * TS側)と`engine/src/eval.rs`の`stable_mask`(隅から辺方向へ連続する同色石のみ、
+ * Rust側)の2種類が併存している。前者の方がより多くの確定石を検出できる
+ * (例: 辺以外での挟み込み不能な形も検出しうる)ため、同じ局面でも
+ * `BlunderPanel`内の「なぜ悪いか」(本関数)と「評価内訳分解」
+ * (`attribution.ts`、`eval::stable_count`経由)とで確定石数の表示値が
+ * 異なりうる。評価内訳分解は現行の`eval::evaluate`が実際に使っている値と
+ * 厳密に一致させる必要がある(でなければwaterfallの合計が実評価差と
+ * 食い違う)ため、意図的に別実装のまま残している。将来的に両者を統一する
+ * 場合は、`eval.rs`側の評価関数自体の較正(重みの再計算)も必要になる点に
+ * 注意すること。
  */
 export function countStableDiscs(board: Board, side: Side): number {
   const ownSquares: number[] = []

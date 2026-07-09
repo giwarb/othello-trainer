@@ -9,17 +9,27 @@
 //! (46パターン評価はフェーズ3で後回し、ユーザー承認済み)。そのため本モジュールの
 //! 「評価内訳分解」は46グループではなく、**現行の3項(モビリティ差・隅差・
 //! 安定石差)への厳密な分解**として実装する(`evalTerms` コマンド)。
-//! この3項の値(`eval::feature_diffs`)を返すだけに留め、加重・合算による
-//! waterfall分解自体はTypeScript側の純粋関数 (`app/src/analysis/attribution.ts`)
-//! で行う設計にした。理由: (1) `attribution.ts` を「2つの局面の生データを受け取り
-//! 分解結果を組み立てる純粋関数」として実装しやすくテストしやすい、
-//! (2) 分解ロジック自体は単純な重み付き引き算であり、Rust/TSどちらに置いても
-//! 複雑度は変わらないため、UI側で完結させたほうが将来の表示調整
-//! (ラベル文言・グルーピング等)がしやすい。重み定数 (`MOBILITY_WEIGHT` 等)は
-//! `eval.rs` から `pub(crate)` で参照できるため、Rust側の値のみを信頼できる
-//! ソースとして保つ。TS側の重み複製がdriftしていないことは、
-//! `evalTerms` が返す `evaluateBlack`(本物の `eval::evaluate` 出力)との
-//! 突き合わせテストで検証する(`app/src/analysis/attribution.test.ts`)。
+//!
+//! ## T031やり直し1回目(2026-07-09): 重み付け済み3項をRust側で計算するよう変更
+//!
+//! 当初は生の特徴量差分(`eval::feature_diffs`)のみを返し、加重・合算(waterfall
+//! 分解の構築)はTypeScript側の純粋関数(`app/src/analysis/attribution.ts`)で
+//! 行う設計だった。しかしこの設計はTS側に重み定数(`MOBILITY_WEIGHT`等)の
+//! 複製を要求し、`eval.rs`の重みが変わった場合にTS側が無言でズレたままテストが
+//! 通り続けるdrift問題を構造的に防げていなかった(reviewer/verifier指摘、
+//! `tasks/T031-feature-layer-attribution.md`のフィードバック参照)。
+//!
+//! 修正: `evalTerms`レスポンスに、Rust側で既に計算済みの**加重後の3項**
+//! (`mobilityTerm`/`cornerTerm`/`stableTerm`、centi-disc単位、`eval.rs`の
+//! `MOBILITY_WEIGHT`等をそのまま使って計算)を追加フィールドとして含めるように
+//! した。TS側の`buildAttribution`はこれらの値をそのまま差し引くだけで済み、
+//! 重み定数を一切知る必要がなくなった(`attribution.ts`から重み定数の複製を
+//! 削除済み)。`mobility_term + corner_term + stable_term`が`eval::evaluate`の
+//! 出力と厳密に一致することは、下記の単体テスト
+//! (`eval_terms_weighted_sum_matches_actual_evaluate_output`)で、実際の
+//! `eval::evaluate`(本物の評価関数、テスト用のダミー値ではない)との突き合わせ
+//! により検証している。これにより、TS側は重みを知らないため原理的にdriftし
+//! ようがなく、Rust側の正しさは実評価関数との直接比較で担保される。
 //!
 //! 設計書§1「特徴量層」の12特徴量は `compute_features` (`featureSet` コマンド)
 //! で計算する。「辺の形」「斜めライン」「地域偶数」は現行評価関数に存在しない
@@ -608,10 +618,12 @@ struct FeatureSetResponse {
 }
 
 /// `evalTerms` コマンドの応答。現行評価関数(`eval.rs`)の3項
-/// (モビリティ・隅・安定石)の生の特徴量差分と、参考として実際の評価値
-/// (黒視点、centi-disc単位)を返す。加重・合算(waterfall分解の構築)は
-/// TypeScript側の `app/src/analysis/attribution.ts` が行う(モジュール冒頭の
-/// ドキュメント参照)。
+/// (モビリティ・隅・安定石)の生の特徴量差分に加え、`eval.rs`の重み定数を
+/// 適用済みの**加重後の3項**(`mobilityTerm`/`cornerTerm`/`stableTerm`、
+/// centi-disc単位)、および参考として実際の評価値(黒視点、centi-disc単位)を
+/// 返す。TypeScript側の `app/src/analysis/attribution.ts` はこの加重後3項を
+/// 差し引くだけでよく、重み定数を複製する必要がない(モジュール冒頭の
+/// 「T031やり直し1回目」ドキュメント参照)。
 #[derive(Debug, Serialize)]
 struct EvalTermsResponse {
     id: u64,
@@ -623,6 +635,15 @@ struct EvalTermsResponse {
     corner_diff: i32,
     #[serde(rename = "stableDiff")]
     stable_diff: i32,
+    /// `mobility_diff * eval::MOBILITY_WEIGHT`(centi-disc単位)。
+    #[serde(rename = "mobilityTerm")]
+    mobility_term: i32,
+    /// `corner_diff * eval::CORNER_WEIGHT`(centi-disc単位)。
+    #[serde(rename = "cornerTerm")]
+    corner_term: i32,
+    /// `stable_diff * eval::STABLE_WEIGHT`(centi-disc単位)。
+    #[serde(rename = "stableTerm")]
+    stable_term: i32,
     #[serde(rename = "evaluateBlack")]
     evaluate_black: i32,
 }
@@ -664,6 +685,9 @@ fn handle_eval_terms(value: serde_json::Value, id: Option<u64>) -> String {
         mobility_diff: features.mobility_diff,
         corner_diff: features.corner_diff,
         stable_diff: features.stable_diff,
+        mobility_term: features.mobility_diff * eval::MOBILITY_WEIGHT,
+        corner_term: features.corner_diff * eval::CORNER_WEIGHT,
+        stable_term: features.stable_diff * eval::STABLE_WEIGHT,
         evaluate_black: eval::evaluate(&board),
     };
     serde_json::to_string(&response)
@@ -724,6 +748,25 @@ mod tests {
         assert_eq!(features.opponent_mobility_before, board.legal_moves(Side::White).count_ones());
     }
 
+    // --- 2. 潜在手数差 ---------------------------------------------------------
+
+    #[test]
+    fn potential_mobility_diff_matches_hand_computed_value_after_d3() {
+        // T031やり直し1回目「should」対応: 特徴量2に既知の期待値と照合する
+        // 個別の単体テストが無かったため追加する。
+        //
+        // 初期局面で黒がd3に着手した後の局面: 黒{d3,d4,e4,d5}(index 19,27,28,35)、
+        // 白{e5}(index 36)のみ。
+        // potential_mover(黒) = 白石(e5)の8近傍のうち空きマス数
+        //   = {f4,f5,d6,e6,f6} の5マス。
+        // potential_opp(白) = 黒石4つの8近傍の空きマスの和集合
+        //   = {c2,d2,e2,c3,e3,c4,c5,f3,f4,f5,c6,d6,e6} の13マス。
+        // potential_mobility_diff = 5 - 13 = -8。
+        let board = Board::initial();
+        let features = compute_features(&board, Side::Black, sq("d3"));
+        assert_eq!(features.potential_mobility_diff, -8);
+    }
+
     // --- 3. 開放度・中割り判定 -----------------------------------------------
 
     #[test]
@@ -739,14 +782,17 @@ mod tests {
     // --- 4. フロンティア石数差 ------------------------------------------------
 
     #[test]
-    fn frontier_diff_is_zero_on_symmetric_initial_position_after_a_move() {
-        // 初期局面は中央4石が互いに隣接し合っており、どの初手を打っても
-        // 手番側・相手側とも1つずつフロンティア石が増える対称な形になる。
+    fn frontier_diff_matches_hand_computed_value_after_d3() {
+        // 初期局面で黒がd3に着手した後の局面: 黒{d3,d4,e4,d5}, 白{e5}のみ
+        // (盤上に石はこの5個だけ)。盤がほぼ全面空きのため、この5石は
+        // いずれも8近傍に少なくとも1つ空きマスを持ち、全てフロンティア石になる。
+        // よって frontier_mover(黒)=4, frontier_opp(白)=1, diff=3
+        // (要修正フィードバック「should」対応: 以前は`abs()<=8`という緩い
+        // 上限チェックのみで、テスト名の「zero」という主張と矛盾していた。
+        // 手計算した厳密値と一致することを検証するよう修正した)。
         let board = Board::initial();
         let features = compute_features(&board, Side::Black, sq("d3"));
-        // フロンティア差の厳密な値は形状に依存するため、ここでは「計算が
-        // 破綻していない(異常値でない)」ことのみ確認する。
-        assert!(features.frontier_diff.abs() <= 8);
+        assert_eq!(features.frontier_diff, 3);
     }
 
     // --- 5. 新規に生む相手の手/消える自分の手 -----------------------------------
@@ -949,11 +995,96 @@ mod tests {
         assert!(response.get("error").is_none(), "unexpected error: {response_json}");
         assert_eq!(response["id"], 1);
         assert_eq!(response["final"], true);
-        // 初期局面は完全対称なので3項すべて0のはず。
+        // 初期局面は完全対称なので3項すべて0のはず(加重後の3項も同様に0)。
         assert_eq!(response["mobilityDiff"], 0);
         assert_eq!(response["cornerDiff"], 0);
         assert_eq!(response["stableDiff"], 0);
+        assert_eq!(response["mobilityTerm"], 0);
+        assert_eq!(response["cornerTerm"], 0);
+        assert_eq!(response["stableTerm"], 0);
         assert_eq!(response["evaluateBlack"], 0);
+    }
+
+    /// T031やり直し1回目・must 2の回帰テスト:
+    /// `evalTerms`が返す加重後3項(`mobilityTerm`/`cornerTerm`/`stableTerm`)の
+    /// 合計は、**本物の`eval::evaluate`**(テスト用のダミー値ではない、実際の
+    /// 評価関数)の出力と厳密に一致しなければならない。初期局面は対称で全項が
+    /// 0になり自明に一致してしまうため、非対称な局面(黒が全隅を保持)で検証する。
+    #[test]
+    fn eval_terms_weighted_sum_matches_actual_evaluate_output() {
+        let corners = (1u64 << 0) | (1u64 << 7) | (1u64 << 56) | (1u64 << 63);
+        // 隅4つに加えて非対称なモビリティ差も生む配置にする。
+        let black = corners | (1u64 << sq("d4")) | (1u64 << sq("e4"));
+        let white = 1u64 << sq("d5");
+        let board = Board { black, white };
+
+        let request = format!(
+            r#"{{"id":1,"cmd":"evalTerms","board":{{"black":"0x{black:x}","white":"0x{white:x}","turn":"black"}}}}"#
+        );
+        let response_json = handle_explain(&request);
+        let response: serde_json::Value = serde_json::from_str(&response_json).expect("valid JSON");
+        assert!(response.get("error").is_none(), "unexpected error: {response_json}");
+
+        let mobility_term = response["mobilityTerm"].as_i64().unwrap();
+        let corner_term = response["cornerTerm"].as_i64().unwrap();
+        let stable_term = response["stableTerm"].as_i64().unwrap();
+        let weighted_sum = mobility_term + corner_term + stable_term;
+
+        // 実際の評価関数(本物の`eval::evaluate`、Rustのソースオブトゥルース)を
+        // 同じ局面に対して直接呼び出し、加重後3項の合計と厳密に一致することを
+        // 検証する(TS側は重み定数を持たないため、この一致がRust側だけで
+        // 担保されていればTS側は自動的に正しい)。
+        let actual_evaluate = eval::evaluate(&board) as i64;
+        assert_eq!(
+            weighted_sum, actual_evaluate,
+            "weighted sum of terms ({weighted_sum}) must exactly equal eval::evaluate() ({actual_evaluate})"
+        );
+        assert_eq!(response["evaluateBlack"].as_i64().unwrap(), actual_evaluate);
+
+        // 非自明な(0でない)局面であることも確認しておく(このテストが本当に
+        // 非対称なケースを検証していることの担保)。
+        assert_ne!(weighted_sum, 0);
+    }
+
+    /// 上記と同様だが、2局面間の**差分**(`attribution.ts`の`buildAttribution`が
+    /// 実際に行う計算と同じ形)でも一致することを検証する。
+    #[test]
+    fn eval_terms_weighted_sum_difference_matches_actual_evaluate_difference_between_two_boards() {
+        let corners = (1u64 << 0) | (1u64 << 7) | (1u64 << 56) | (1u64 << 63);
+        let board_a = Board {
+            black: corners | (1u64 << sq("d4")),
+            white: 1u64 << sq("d5"),
+        };
+        let board_b = Board {
+            black: 1u64 << sq("a1"),
+            white: (1u64 << sq("h1")) | (1u64 << sq("d5")) | (1u64 << sq("e4")),
+        };
+
+        let terms_for = |board: &Board| -> (i64, i64, i64, i64) {
+            let request = format!(
+                r#"{{"id":1,"cmd":"evalTerms","board":{{"black":"0x{:x}","white":"0x{:x}","turn":"black"}}}}"#,
+                board.black, board.white
+            );
+            let response_json = handle_explain(&request);
+            let response: serde_json::Value = serde_json::from_str(&response_json).expect("valid JSON");
+            (
+                response["mobilityTerm"].as_i64().unwrap(),
+                response["cornerTerm"].as_i64().unwrap(),
+                response["stableTerm"].as_i64().unwrap(),
+                response["evaluateBlack"].as_i64().unwrap(),
+            )
+        };
+
+        let (mob_a, corner_a, stable_a, eval_a) = terms_for(&board_a);
+        let (mob_b, corner_b, stable_b, eval_b) = terms_for(&board_b);
+
+        let weighted_diff_sum = (mob_a - mob_b) + (corner_a - corner_b) + (stable_a - stable_b);
+        let actual_eval_diff = eval_a - eval_b;
+
+        assert_eq!(
+            weighted_diff_sum, actual_eval_diff,
+            "sum of term differences ({weighted_diff_sum}) must equal eval::evaluate() difference ({actual_eval_diff})"
+        );
     }
 
     #[test]
