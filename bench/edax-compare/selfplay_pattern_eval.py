@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""T043: パターン評価(T041の学習済み重み)と旧3項ヒューリスティック評価の
-自己対戦による棋力比較。
+"""T043/T044: パターン評価(T041の`pattern_v1.bin`、T044の対称重み共有
+`pattern_v2.bin`)と旧3項ヒューリスティック評価の自己対戦による棋力比較。
 
 `bench/edax-compare/selfplay.py`(T024、較正前後のヒューリスティック評価同士の
 自己対戦)と同じ設計(`eval_cli moves`の最上位手を選び続ける、開始局面を複数
@@ -10,8 +10,14 @@
 あったが、T043では重みが実行時にファイルから読み込まれるため1つのバイナリで
 比較できる)。
 
+T044で`--weights`オプションを追加し、比較対象のパターン重みファイルを
+選べるようにした(デフォルトは`pattern_v2.bin`)。`--weights`に
+`pattern_v1.bin`を指定すればT043と同じv1 vs 旧ヒューリスティックの比較も
+そのまま再現できる。
+
 使い方(リポジトリルートから):
     python bench/edax-compare/selfplay_pattern_eval.py --games 24 --depth 6
+    python bench/edax-compare/selfplay_pattern_eval.py --weights train/weights/pattern_v1.bin
 """
 
 from __future__ import annotations
@@ -28,7 +34,7 @@ print = functools.partial(print, flush=True)
 ROOT = Path(__file__).resolve().parents[2]
 COMPARE_DIR = Path(__file__).resolve().parent
 EVAL_CLI = ROOT / "target" / "release" / "eval_cli.exe"
-PATTERN_WEIGHTS = ROOT / "train" / "weights" / "pattern_v1.bin"
+DEFAULT_PATTERN_WEIGHTS = ROOT / "train" / "weights" / "pattern_v2.bin"
 
 
 def run(cmd: list[str], input_text: str | None = None) -> str:
@@ -38,11 +44,11 @@ def run(cmd: list[str], input_text: str | None = None) -> str:
     return result.stdout
 
 
-def best_move(use_pattern: bool, board: str, side: str, depth: int) -> dict | None:
+def best_move(use_pattern: bool, weights_path: Path, board: str, side: str, depth: int) -> dict | None:
     input_json = json.dumps({"board": board, "side_to_move": side})
     cmd = [str(EVAL_CLI), "moves", "--depth", str(depth), "--exact-from-empties", "0"]
     if use_pattern:
-        cmd += ["--pattern-weights", str(PATTERN_WEIGHTS)]
+        cmd += ["--pattern-weights", str(weights_path)]
     out = run(cmd, input_text=input_json)
     moves = json.loads(out)["moves"]
     if not moves:
@@ -82,7 +88,9 @@ def gen_start_positions(count: int, seed: int, min_empties: int = 44, max_emptie
     return json.loads(out)
 
 
-def play_game(pattern_is_black: bool, depth: int, start_board: str, start_side: str, max_plies: int = 200) -> tuple[int, int]:
+def play_game(
+    pattern_is_black: bool, weights_path: Path, depth: int, start_board: str, start_side: str, max_plies: int = 200
+) -> tuple[int, int]:
     """指定した開始局面から1局対局し、(黒石数, 白石数)を返す。"""
     board = start_board
     side = start_side
@@ -90,7 +98,7 @@ def play_game(pattern_is_black: bool, depth: int, start_board: str, start_side: 
     consecutive_no_move = 0
     plies = 0
     while consecutive_no_move < 2 and plies < max_plies:
-        mv = best_move(use_pattern[side], board, side, depth)
+        mv = best_move(use_pattern[side], weights_path, board, side, depth)
         if mv is None:
             consecutive_no_move += 1
             side = "white" if side == "black" else "black"
@@ -108,16 +116,32 @@ def main() -> None:
     ap.add_argument("--starts", type=int, default=12, help="開始局面の種類数(この2倍が総対局数になる)")
     ap.add_argument("--depth", type=int, default=6, help="探索深さ(両者共通)")
     ap.add_argument("--seed", type=int, default=9000, help="開始局面生成の乱数シード")
+    ap.add_argument(
+        "--weights",
+        type=Path,
+        default=DEFAULT_PATTERN_WEIGHTS,
+        help="パターン評価側が使う重みファイル(既定: pattern_v2.bin、T044)。"
+        "pattern_v1.binを指定すればT043と同じv1 vs 旧ヒューリスティック比較を再現できる。",
+    )
+    ap.add_argument(
+        "--output",
+        type=Path,
+        default=None,
+        help="結果JSONの出力先(既定: selfplay_pattern_eval_results_<重みファイル名の拡張子抜き>.json)",
+    )
     args = ap.parse_args()
 
     if not EVAL_CLI.exists():
         raise RuntimeError(f"{EVAL_CLI} not found. Run `cargo build --release -p engine --bin eval_cli` first.")
-    if not PATTERN_WEIGHTS.exists():
-        raise RuntimeError(f"{PATTERN_WEIGHTS} not found. Run T041's train_patterns first.")
+    if not args.weights.exists():
+        raise RuntimeError(f"{args.weights} not found. Run train_patterns first.")
+
+    output_path = args.output or (COMPARE_DIR / f"selfplay_pattern_eval_results_{args.weights.stem}.json")
 
     print(f"Generating {args.starts} diverse start positions (seed={args.seed})...")
     starts = gen_start_positions(args.starts, args.seed)
     print(f"  {len(starts)} start positions generated")
+    print(f"Pattern eval weights: {args.weights}")
 
     total_games = len(starts) * 2
     results = []
@@ -131,7 +155,7 @@ def main() -> None:
         for pattern_is_black in (True, False):
             game_no += 1
             black_discs, white_discs = play_game(
-                pattern_is_black, args.depth, start["board"], start["side_to_move"]
+                pattern_is_black, args.weights, args.depth, start["board"], start["side_to_move"]
             )
             pattern_discs = black_discs if pattern_is_black else white_discs
             heuristic_discs = white_discs if pattern_is_black else black_discs
@@ -171,9 +195,10 @@ def main() -> None:
     print(f"pattern wins: {n_pattern_wins}, heuristic wins: {n_heuristic_wins}, draws: {n_draws}")
     print(f"average disc margin (pattern - heuristic): {total_pattern_disc_margin / total_games:+.2f}")
 
-    (COMPARE_DIR / "selfplay_pattern_eval_results.json").write_text(
+    output_path.write_text(
         json.dumps(
             {
+                "weights": str(args.weights),
                 "depth": args.depth,
                 "games": total_games,
                 "pattern_wins": n_pattern_wins,
@@ -188,7 +213,7 @@ def main() -> None:
         + "\n",
         encoding="utf-8",
     )
-    print("Wrote selfplay_pattern_eval_results.json")
+    print(f"Wrote {output_path.name}")
 
 
 if __name__ == "__main__":

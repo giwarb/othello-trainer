@@ -12,6 +12,17 @@
 //! バイナリフォーマットの読み書きロジックを2箇所に複製しないため、
 //! [`Model::to_bytes`]/[`Model::from_bytes`]は`PatternWeights`へそのまま委譲する。
 //!
+//! # T044: 対称重み共有(v2)に合わせたSGD更新
+//!
+//! T044で`PatternWeights`の重みテーブルが「インスタンスごと」(22テーブル)から
+//! 「クラスごと」(6テーブル、対称オービットで共有)に変更された。1局面には
+//! 依然として22個のアクティブな特徴(各パターンインスタンス)があるが、
+//! 複数のインスタンスが同じクラスの同じ重みセルを参照しうる(例えば
+//! 局面がたまたま対称な場合)。`sgd_step`はこれを特別扱いせず、22個の
+//! (クラスID, 状態インデックス)を単純に順番に処理する(同じセルが複数回
+//! 現れれば、その回数分だけ逐次的に勾配更新が適用される。これは重み共有の
+//! 自然な帰結であり、既存の学習ループ構造は変えていない)。
+//!
 //! # ステージ分割
 //!
 //! 石差の意味合いは序盤・終盤で大きく異なるため、空きマス数によって
@@ -70,24 +81,30 @@ impl Model {
     }
 
     /// 1サンプルについてSGD1ステップの更新を行う。
+    ///
+    /// T044: 22パターンインスタンスそれぞれについて、(そのインスタンスが
+    /// 属するクラスID, 代表インスタンスのセル順序に揃えたセル列で計算した
+    /// 状態インデックス)の組を求め、対応するクラスの重みテーブルを
+    /// 読み書きする(`PatternWeights::score`と同じ`aligned_cells`を使う)。
     fn sgd_step(&mut self, sample: &Sample, cfg: &TrainConfig) {
         let stage = stage_for_empty_count(sample.board.empty_count());
 
-        let states: Vec<u32> = self
-            .weights
-            .patterns
-            .iter()
-            .map(|cells| pattern_state_index(cells, &sample.board, sample.mover))
+        let class_of = &self.weights.class_info.class_of;
+        let aligned_cells = &self.weights.class_info.aligned_cells;
+        let entries: Vec<(usize, u32)> = (0..self.weights.patterns.len())
+            .map(|i| {
+                let state = pattern_state_index(&aligned_cells[i], &sample.board, sample.mover);
+                (class_of[i], state)
+            })
             .collect();
-        let prediction: f32 = states
+        let prediction: f32 = entries
             .iter()
-            .enumerate()
-            .map(|(pattern_id, &state)| self.weights.tables[pattern_id].stage_tables[stage][state as usize])
+            .map(|&(class_id, state)| self.weights.class_tables[class_id].stage_tables[stage][state as usize])
             .sum();
 
         let error = prediction - sample.outcome as f32;
-        for (pattern_id, &state) in states.iter().enumerate() {
-            let w = &mut self.weights.tables[pattern_id].stage_tables[stage][state as usize];
+        for &(class_id, state) in &entries {
+            let w = &mut self.weights.class_tables[class_id].stage_tables[stage][state as usize];
             let grad = error + cfg.l2 * *w;
             *w -= cfg.learning_rate * grad;
         }
@@ -199,6 +216,28 @@ mod tests {
     use engine::bitboard::Side;
     use engine::patterns;
 
+    /// T044: `Board::initial()`は8対称変換すべてに関して(トリット単位でも)
+    /// ほぼ対称な局面であり、対称オービットで重みを共有するv2では、同じクラスの
+    /// 複数インスタンスが偶然「全く同じ状態」に揃ってしまう(1サンプル内で
+    /// 同一の重みセルが複数回アクティブになる)。これ自体は重み共有の正しい
+    /// 帰結だが、下記の単発SGDテストが想定する「1サンプルあたり22個の
+    /// 独立した重みが1回ずつ動く」という前提を崩し、学習率の安定域の見積もりが
+    /// 変わってしまう。テストの意図(SGDが誤差を減らす/収束する)を保ったまま
+    /// この偶然の衝突を避けるため、ランダムだが非対称な局面を使う。
+    fn asymmetric_test_board() -> Board {
+        let mut rng = Xorshift64::new(0xABCDEF12345);
+        let mut black = 0u64;
+        let mut white = 0u64;
+        for c in 0u8..64 {
+            match rng.next_u64() % 3 {
+                0 => {}
+                1 => black |= 1u64 << c,
+                _ => white |= 1u64 << c,
+            }
+        }
+        Board { black, white }
+    }
+
     #[test]
     fn new_model_predicts_zero_everywhere() {
         let patterns = patterns::generate_patterns();
@@ -212,7 +251,7 @@ mod tests {
         let patterns = patterns::generate_patterns();
         let mut model = Model::new(patterns);
         let sample = Sample {
-            board: Board::initial(),
+            board: asymmetric_test_board(),
             mover: Side::Black,
             outcome: 10,
         };
@@ -243,7 +282,7 @@ mod tests {
         let patterns = patterns::generate_patterns();
         let mut model = Model::new(patterns);
         let sample = Sample {
-            board: Board::initial(),
+            board: asymmetric_test_board(),
             mover: Side::Black,
             outcome: 8,
         };

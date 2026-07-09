@@ -1,28 +1,30 @@
 #!/usr/bin/env python3
-"""T043: パターン評価(T041で学習した`train/weights/pattern_v1.bin`)と
-旧3項ヒューリスティック評価(`engine/src/eval.rs`)を、それぞれEdaxの評価値との
-近さで比較する検証スクリプト。
+"""T043/T044: パターン評価(T041の`pattern_v1.bin`、T044の対称重み共有
+`pattern_v2.bin`)と旧3項ヒューリスティック評価(`engine/src/eval.rs`)を、
+それぞれEdaxの評価値との近さで比較する検証スクリプト。
 
 T022/T024(`run-comparison.py`)で整備した比較基盤(`eval_cli gen`による局面生成、
 Edaxの`-solve`実行・出力パース)を再利用しつつ、`eval_cli eval`
 (T043で追加した`--pattern-weights PATH`オプション)を使って
-「旧3項評価」「新パターン評価」「Edax」の3系統の評価値を同一局面セットで比較する。
+「旧3項評価」「パターン評価v1」「パターン評価v2」「Edax」の4系統の評価値を
+同一局面セットで比較する。
 
 やること:
   1. `eval_cli gen`でopening/midgame局面を生成する(`run-comparison.py`と
      同じ生成方式・パラメータ)。
   2. 各局面について、探索深さを揃えた(depth-limited)評価値を
      (a) 旧3項ヒューリスティック評価(`eval_cli eval`、`--pattern-weights`無し)
-     (b) 新パターン評価(`eval_cli eval --pattern-weights train/weights/pattern_v1.bin`)
-     (c) Edax(`wEdax-x86-64.exe -solve -l MIDGAME_DEPTH`)
-     の3系統で計算する。
-  3. Edaxとの平均絶対誤差(MAE)・符号一致率を(a)(b)それぞれについて集計し、
+     (b) パターン評価v1(`eval_cli eval --pattern-weights train/weights/pattern_v1.bin`)
+     (c) パターン評価v2(`eval_cli eval --pattern-weights train/weights/pattern_v2.bin`、T044)
+     (d) Edax(`wEdax-x86-64.exe -solve -l MIDGAME_DEPTH`)
+     の4系統で計算する。
+  3. Edaxとの平均絶対誤差(MAE)・符号一致率を(a)(b)(c)それぞれについて集計し、
      `pattern_eval_report.md`に書き出す(要件4: 「Edaxに近づいたか」の直接測定)。
 
 前提: `bench/edax-compare/edax-extract/`にEdaxが展開済み(`download-edax.ps1`)、
 `cargo build --release -p engine --bin eval_cli`でビルド済みであること
-(未ビルドなら自動でビルドする)。`train/weights/pattern_v1.bin`が存在すること
-(T041で生成済み)。
+(未ビルドなら自動でビルドする)。`train/weights/pattern_v1.bin`・
+`train/weights/pattern_v2.bin`が存在すること(それぞれT041・T044で生成済み)。
 
 実行方法(リポジトリルートから):
     python bench/edax-compare/compare_pattern_eval.py
@@ -45,7 +47,8 @@ EVAL_CLI = ROOT / "target" / "release" / "eval_cli.exe"
 EDAX_DIR = COMPARE_DIR / "edax-extract"
 EDAX_EXE = EDAX_DIR / "wEdax-x86-64.exe"
 EDAX_EVAL_DATA = EDAX_DIR / "data" / "eval.dat"
-PATTERN_WEIGHTS = ROOT / "train" / "weights" / "pattern_v1.bin"
+PATTERN_WEIGHTS_V1 = ROOT / "train" / "weights" / "pattern_v1.bin"
+PATTERN_WEIGHTS_V2 = ROOT / "train" / "weights" / "pattern_v2.bin"
 
 # run-comparison.py(T022/T024)と同じ探索深さ・局面生成パラメータを使い、
 # 過去の結果と直接比較できるようにする。
@@ -102,9 +105,13 @@ def ensure_edax_available() -> None:
 
 
 def ensure_pattern_weights_available() -> None:
-    if not PATTERN_WEIGHTS.exists():
+    if not PATTERN_WEIGHTS_V1.exists():
         raise RuntimeError(
-            f"{PATTERN_WEIGHTS} not found. Run `cargo run -p train --release --bin train_patterns` first (T041)."
+            f"{PATTERN_WEIGHTS_V1} not found (T041). This file is kept for comparison and should not be regenerated."
+        )
+    if not PATTERN_WEIGHTS_V2.exists():
+        raise RuntimeError(
+            f"{PATTERN_WEIGHTS_V2} not found. Run `cargo run -p train --release --bin train_patterns` first (T044)."
         )
 
 
@@ -128,13 +135,13 @@ def gen_positions(category: str, min_empties: int, max_empties: int, count: int,
     return json.loads(out)
 
 
-def engine_eval(positions: list[dict], depth: int, pattern_weights: bool) -> list[dict]:
+def engine_eval(positions: list[dict], depth: int, pattern_weights: Path | None) -> list[dict]:
     if not positions:
         return []
     input_json = json.dumps(positions)
     cmd = [str(EVAL_CLI), "eval", "--depth", str(depth), "--exact-from-empties", "0"]
-    if pattern_weights:
-        cmd += ["--pattern-weights", str(PATTERN_WEIGHTS)]
+    if pattern_weights is not None:
+        cmd += ["--pattern-weights", str(pattern_weights)]
     out = run(cmd, input_text=input_json)
     return json.loads(out)
 
@@ -205,10 +212,13 @@ def main() -> None:
     all_positions = opening + midgame
 
     print("Evaluating with heuristic (3-feature) eval...")
-    heuristic_results = {r["id"]: r for r in engine_eval(all_positions, MIDGAME_DEPTH, pattern_weights=False)}
+    heuristic_results = {r["id"]: r for r in engine_eval(all_positions, MIDGAME_DEPTH, pattern_weights=None)}
 
-    print("Evaluating with pattern eval (T041 weights)...")
-    pattern_results = {r["id"]: r for r in engine_eval(all_positions, MIDGAME_DEPTH, pattern_weights=True)}
+    print("Evaluating with pattern eval v1 (T041 weights, no sharing)...")
+    pattern_v1_results = {r["id"]: r for r in engine_eval(all_positions, MIDGAME_DEPTH, pattern_weights=PATTERN_WEIGHTS_V1)}
+
+    print("Evaluating with pattern eval v2 (T044 weights, symmetry sharing)...")
+    pattern_v2_results = {r["id"]: r for r in engine_eval(all_positions, MIDGAME_DEPTH, pattern_weights=PATTERN_WEIGHTS_V2)}
 
     print("Evaluating with Edax...")
     edax_results: dict[str, dict] = {}
@@ -219,23 +229,35 @@ def main() -> None:
     for p in all_positions:
         pid = p["id"]
         h = heuristic_results.get(pid, {})
-        pt = pattern_results.get(pid, {})
+        p1 = pattern_v1_results.get(pid, {})
+        p2 = pattern_v2_results.get(pid, {})
         x = edax_results.get(pid, {})
         heuristic_diff = h.get("searchDiscDiff")
-        pattern_diff = pt.get("searchDiscDiff")
+        pattern_v1_diff = p1.get("searchDiscDiff")
+        pattern_v2_diff = p2.get("searchDiscDiff")
         edax_diff = x.get("discDiff")
+
+        def abs_err(v):
+            return abs(v - edax_diff) if v is not None and edax_diff is not None else None
+
+        def sign_agree(v):
+            return sign(v) == sign(edax_diff) if v is not None and edax_diff is not None else None
+
         comparison.append(
             {
                 "id": pid,
                 "category": p["category"],
                 "empties": h.get("empties"),
                 "heuristic_disc_diff": heuristic_diff,
-                "pattern_disc_diff": pattern_diff,
+                "pattern_v1_disc_diff": pattern_v1_diff,
+                "pattern_v2_disc_diff": pattern_v2_diff,
                 "edax_disc_diff": edax_diff,
-                "heuristic_abs_err": abs(heuristic_diff - edax_diff) if heuristic_diff is not None and edax_diff is not None else None,
-                "pattern_abs_err": abs(pattern_diff - edax_diff) if pattern_diff is not None and edax_diff is not None else None,
-                "heuristic_sign_agree": sign(heuristic_diff) == sign(edax_diff) if heuristic_diff is not None and edax_diff is not None else None,
-                "pattern_sign_agree": sign(pattern_diff) == sign(edax_diff) if pattern_diff is not None and edax_diff is not None else None,
+                "heuristic_abs_err": abs_err(heuristic_diff),
+                "pattern_v1_abs_err": abs_err(pattern_v1_diff),
+                "pattern_v2_abs_err": abs_err(pattern_v2_diff),
+                "heuristic_sign_agree": sign_agree(heuristic_diff),
+                "pattern_v1_sign_agree": sign_agree(pattern_v1_diff),
+                "pattern_v2_sign_agree": sign_agree(pattern_v2_diff),
             }
         )
 
@@ -251,79 +273,106 @@ def main() -> None:
 
 def write_report(comparison: list[dict]) -> None:
     lines = []
-    lines.append("# T043: パターン評価 vs 旧3項ヒューリスティック評価 — Edax(v4.6)との近さ比較")
+    lines.append("# T043/T044: パターン評価(v1/v2) vs 旧3項ヒューリスティック評価 — Edax(v4.6)との近さ比較")
     lines.append("")
     lines.append(
         "本レポートは自動生成される(`bench/edax-compare/compare_pattern_eval.py`)。"
         "再生成する場合は `python bench/edax-compare/compare_pattern_eval.py` を実行すること"
-        "(事前に `train/weights/pattern_v1.bin`(T041)と Edax(`download-edax.ps1`)が必要)。"
+        "(事前に `train/weights/pattern_v1.bin`(T041)・`train/weights/pattern_v2.bin`(T044)と"
+        " Edax(`download-edax.ps1`)が必要)。"
     )
     lines.append("")
     lines.append(
         f"局面セットは`run-comparison.py`(T022/T024)と同じopening({OPENING_COUNT}局面)"
         f"/midgame({MIDGAME_COUNT}局面)生成パラメータを使用(探索深さ{MIDGAME_DEPTH}手読み、"
-        "本エンジン・Edax共通)。"
+        "本エンジン・Edax共通)。v2(T044)はパターンインスタンスを対称オービットで"
+        "6クラスにグループ化し重みを共有したモデル(v1は22インスタンス独立)。"
     )
     lines.append("")
 
-    valid = [c for c in comparison if c["heuristic_abs_err"] is not None and c["pattern_abs_err"] is not None]
+    valid = [
+        c
+        for c in comparison
+        if c["heuristic_abs_err"] is not None
+        and c["pattern_v1_abs_err"] is not None
+        and c["pattern_v2_abs_err"] is not None
+    ]
     n = len(valid)
     heuristic_mae = sum(c["heuristic_abs_err"] for c in valid) / n if n else float("nan")
-    pattern_mae = sum(c["pattern_abs_err"] for c in valid) / n if n else float("nan")
+    v1_mae = sum(c["pattern_v1_abs_err"] for c in valid) / n if n else float("nan")
+    v2_mae = sum(c["pattern_v2_abs_err"] for c in valid) / n if n else float("nan")
     heuristic_agree = sum(1 for c in valid if c["heuristic_sign_agree"])
-    pattern_agree = sum(1 for c in valid if c["pattern_sign_agree"])
+    v1_agree = sum(1 for c in valid if c["pattern_v1_sign_agree"])
+    v2_agree = sum(1 for c in valid if c["pattern_v2_sign_agree"])
 
     lines.append("## Edaxとの平均絶対誤差(MAE)・符号一致率")
     lines.append("")
     lines.append("| 評価関数 | 局面数 | Edaxとの平均絶対誤差(石) | 符号一致 | 符号一致率 |")
     lines.append("|---|---:|---:|---:|---:|")
-    lines.append(f"| 旧3項ヒューリスティック評価 | {n} | {heuristic_mae:.2f} | {heuristic_agree} | {heuristic_agree / n * 100:.1f}% |" if n else "| 旧3項ヒューリスティック評価 | 0 | N/A | N/A | N/A |")
-    lines.append(f"| 新パターン評価(T041) | {n} | {pattern_mae:.2f} | {pattern_agree} | {pattern_agree / n * 100:.1f}% |" if n else "| 新パターン評価(T041) | 0 | N/A | N/A | N/A |")
+    if n:
+        lines.append(f"| 旧3項ヒューリスティック評価 | {n} | {heuristic_mae:.2f} | {heuristic_agree} | {heuristic_agree / n * 100:.1f}% |")
+        lines.append(f"| パターン評価v1(T041、重み共有なし) | {n} | {v1_mae:.2f} | {v1_agree} | {v1_agree / n * 100:.1f}% |")
+        lines.append(f"| パターン評価v2(T044、対称重み共有) | {n} | {v2_mae:.2f} | {v2_agree} | {v2_agree / n * 100:.1f}% |")
+    else:
+        lines.append("| 旧3項ヒューリスティック評価 | 0 | N/A | N/A | N/A |")
+        lines.append("| パターン評価v1(T041、重み共有なし) | 0 | N/A | N/A | N/A |")
+        lines.append("| パターン評価v2(T044、対称重み共有) | 0 | N/A | N/A | N/A |")
     lines.append("")
 
     lines.append("## カテゴリ別")
     lines.append("")
-    lines.append("| カテゴリ | 局面数 | 旧評価MAE | 新評価MAE | 旧評価符号一致率 | 新評価符号一致率 |")
-    lines.append("|---|---:|---:|---:|---:|---:|")
+    lines.append("| カテゴリ | 局面数 | 旧評価MAE | v1 MAE | v2 MAE | 旧評価符号一致率 | v1符号一致率 | v2符号一致率 |")
+    lines.append("|---|---:|---:|---:|---:|---:|---:|---:|")
     for cat in ["opening", "midgame"]:
         items = [c for c in valid if c["category"] == cat]
         m = len(items)
         if m == 0:
-            lines.append(f"| {cat} | 0 | N/A | N/A | N/A | N/A |")
+            lines.append(f"| {cat} | 0 | N/A | N/A | N/A | N/A | N/A | N/A |")
             continue
         h_mae = sum(c["heuristic_abs_err"] for c in items) / m
-        p_mae = sum(c["pattern_abs_err"] for c in items) / m
+        v1_m = sum(c["pattern_v1_abs_err"] for c in items) / m
+        v2_m = sum(c["pattern_v2_abs_err"] for c in items) / m
         h_agree = sum(1 for c in items if c["heuristic_sign_agree"]) / m * 100
-        p_agree = sum(1 for c in items if c["pattern_sign_agree"]) / m * 100
-        lines.append(f"| {cat} | {m} | {h_mae:.2f} | {p_mae:.2f} | {h_agree:.1f}% | {p_agree:.1f}% |")
+        v1_a = sum(1 for c in items if c["pattern_v1_sign_agree"]) / m * 100
+        v2_a = sum(1 for c in items if c["pattern_v2_sign_agree"]) / m * 100
+        lines.append(f"| {cat} | {m} | {h_mae:.2f} | {v1_m:.2f} | {v2_m:.2f} | {h_agree:.1f}% | {v1_a:.1f}% | {v2_a:.1f}% |")
     lines.append("")
 
     lines.append("## 局面ごとの詳細")
     lines.append("")
-    lines.append("| id | 空きマス数 | 旧評価 | 新評価 | Edax | 旧誤差 | 新誤差 |")
-    lines.append("|---|---:|---:|---:|---:|---:|---:|")
+    lines.append("| id | 空きマス数 | 旧評価 | v1評価 | v2評価 | Edax | 旧誤差 | v1誤差 | v2誤差 |")
+    lines.append("|---|---:|---:|---:|---:|---:|---:|---:|---:|")
     for c in comparison:
         lines.append(
-            f"| {c['id']} | {c['empties']} | {c['heuristic_disc_diff']} | {c['pattern_disc_diff']} | "
-            f"{c['edax_disc_diff']} | {c['heuristic_abs_err']} | {c['pattern_abs_err']} |"
+            f"| {c['id']} | {c['empties']} | {c['heuristic_disc_diff']} | {c['pattern_v1_disc_diff']} | "
+            f"{c['pattern_v2_disc_diff']} | {c['edax_disc_diff']} | {c['heuristic_abs_err']} | "
+            f"{c['pattern_v1_abs_err']} | {c['pattern_v2_abs_err']} |"
         )
     lines.append("")
 
     lines.append("## 結論")
     lines.append("")
     if n:
-        if pattern_mae < heuristic_mae:
+        if v2_mae < v1_mae:
             lines.append(
-                f"- 新パターン評価はEdaxとの平均絶対誤差が**{pattern_mae:.2f}石**であり、"
-                f"旧3項評価の{heuristic_mae:.2f}石より小さい(Edaxに近づいた)。"
+                f"- パターン評価v2(対称重み共有)はEdaxとの平均絶対誤差が**{v2_mae:.2f}石**であり、"
+                f"v1の{v1_mae:.2f}石より小さい(v1からさらにEdaxに近づいた)。"
             )
         else:
             lines.append(
-                f"- 新パターン評価のEdaxとの平均絶対誤差は{pattern_mae:.2f}石であり、"
-                f"旧3項評価の{heuristic_mae:.2f}石を下回っていない(悪化または同水準)。"
+                f"- パターン評価v2のEdaxとの平均絶対誤差は{v2_mae:.2f}石であり、"
+                f"v1の{v1_mae:.2f}石を下回っていない(悪化または同水準)。"
+            )
+        if v2_mae < heuristic_mae:
+            lines.append(
+                f"- v2は旧3項評価({heuristic_mae:.2f}石)と比べても近い。"
+            )
+        else:
+            lines.append(
+                f"- v2は旧3項評価({heuristic_mae:.2f}石)を下回っていない。"
             )
         lines.append(
-            f"- 符号一致率は旧評価{heuristic_agree / n * 100:.1f}% -> 新評価{pattern_agree / n * 100:.1f}%。"
+            f"- 符号一致率は旧評価{heuristic_agree / n * 100:.1f}% -> v1 {v1_agree / n * 100:.1f}% -> v2 {v2_agree / n * 100:.1f}%。"
         )
     lines.append("")
 

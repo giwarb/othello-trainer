@@ -1,5 +1,9 @@
-//! WTHOR棋譜データからパターン評価の重みをSGDで学習し、`train/weights/pattern_v1.bin`
+//! WTHOR棋譜データからパターン評価の重みをSGDで学習し、`train/weights/pattern_v2.bin`
 //! に書き出すCLIバイナリ。
+//!
+//! T044で対称変換による重み共有(22パターンインスタンス→6クラス)を導入した
+//! (v2)。`train/weights/pattern_v1.bin`(T041、重み共有なし)は比較用に
+//! 残しており、本バイナリはもう上書きしない(常にv2として書き出す)。
 //!
 //! 使い方:
 //! ```text
@@ -185,7 +189,7 @@ fn main() -> ExitCode {
         "ベースライン(訓練データ平均={train_mean:.4}を予測): MSE={baseline_mean_mse:.4}  MAE={baseline_mean_mae:.4}"
     );
 
-    let out_path = Path::new("train/weights/pattern_v1.bin");
+    let out_path = Path::new("train/weights/pattern_v2.bin");
     if let Some(parent) = out_path.parent() {
         if let Err(e) = fs::create_dir_all(parent) {
             eprintln!("重み出力ディレクトリの作成に失敗しました: {e}");

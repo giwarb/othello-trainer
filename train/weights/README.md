@@ -1,12 +1,50 @@
-# `pattern_v1.bin` フォーマット仕様
+# `pattern_v1.bin` / `pattern_v2.bin` フォーマット仕様
 
-T041で生成した、パターン評価(v1、22パターン)の学習済み重みファイル。
-`train/src/bin/train_patterns.rs`が生成する。バイナリの入出力ロジック自体は
-T043で`engine::pattern_eval::PatternWeights::to_bytes` / `from_bytes`に
-一本化した(`train::regression::Model::to_bytes`/`from_bytes`はこれへの
-薄い委譲)。エンジン本体(`engine/src/search.rs`)からもこの重みを読み込んで
-中盤探索の静的評価に使える(`search::search_with_eval`/
-`search_all_moves_with_eval`、T043)。
+T041で生成した、パターン評価(v1、22パターン、インスタンスごとに独立した
+重み=重み共有なし)の学習済み重みファイルが`pattern_v1.bin`。T044で
+対称変換による重み共有を導入したものが`pattern_v2.bin`(現行の学習出力、
+`train/src/bin/train_patterns.rs`が生成するのはこちら)。`pattern_v1.bin`は
+比較用にそのまま残しており、削除・上書きはしていない。
+
+バイナリの入出力ロジック自体はT043で`engine::pattern_eval::PatternWeights::to_bytes`
+/ `from_bytes`に一本化した(`train::regression::Model::to_bytes`/`from_bytes`は
+これへの薄い委譲)。`from_bytes`はマジックバイトで`"PWV1"`(v1)/`"PWV2"`(v2)の
+両方を読み込める(後方互換)。エンジン本体(`engine/src/search.rs`)からも
+どちらの重みファイルでも読み込んで中盤探索の静的評価に使える
+(`search::search_with_eval`/`search_all_moves_with_eval`、T043。
+`eval_cli`の`--pattern-weights PATH`はv1/v2どちらのファイルパスでも動作する)。
+
+## T044: 対称変換による重み共有(v2)とパターンのクラス分類
+
+T043の自己対戦検証で、v1(22インスタンス独立の重みテーブル)は静的評価が
+Edaxに近づいた一方、自己対戦では旧3項ヒューリスティック評価に負け越す
+(9勝-15敗)という結果が出た。学習データに現れなかった局面パターンで重みが
+ゼロのまま残る(汎化性能不足)ことが原因と分析し、T044でオセロ盤の対称性
+(二面体群D4、8要素: 恒等・90/180/270度回転・上下反転・左右反転・転置・
+反転転置)を使った重み共有を導入した。
+
+22パターンインスタンスは、対称変換で互いに移り合うもの同士でグループ化すると
+以下の6クラスになる(`engine::patterns::compute_pattern_classes`が、手作業の
+決め打ちではなく8対称変換の総当たりから機械的に導出する):
+
+| クラス | 属するインスタンス(`generate_patterns()`のインデックス) | 内容 |
+|---|---|---|
+| A | 0, 7, 8, 15 | 行0・行7・列0・列7(盤端からの距離0) |
+| B | 1, 6, 9, 14 | 行1・行6・列1・列6(距離1) |
+| C | 2, 5, 10, 13 | 行2・行5・列2・列5(距離2) |
+| D | 3, 4, 11, 12 | 行3・行4・列3・列4(距離3、中央寄り) |
+| E | 16, 17 | 主対角線・反対角線 |
+| F | 18, 19, 20, 21 | 隅3x3ブロック4個 |
+
+各クラスは代表インスタンス(グループ内で最小のインデックス)を1つ持ち、
+重みテーブルは代表インスタンスのセル順序で符号化される。他のインスタンスは、
+代表インスタンスの自然順セル列にそのインスタンス用の対称変換を適用した
+セル列(`PatternClassInfo::aligned_cells`)で状態インデックスを計算することで、
+同じ重みテーブルを正しく参照する(この対称変換・並べ替えの正しさは、
+「インスタンス固有抽出+パーミュテーション」と「盤面全体変換+代表インスタンス
+抽出」という2通りの独立した計算方法が一致することをクロスチェックする
+ユニットテストで検証している。`engine/src/patterns.rs`の
+`cross_check_instance_extraction_matches_whole_board_transform_method`参照)。
 
 ## 前提: パターン定義
 
@@ -39,6 +77,8 @@ T043で`engine::pattern_eval::PatternWeights::to_bytes` / `from_bytes`に
 
 ## バイナリレイアウト(すべてリトルエンディアン)
 
+### v1(`pattern_v1.bin`、重み共有なし)
+
 | フィールド | 型 | 内容 |
 |---|---|---|
 | magic | 4バイト | ASCII `"PWV1"` |
@@ -54,12 +94,38 @@ T043で`engine::pattern_eval::PatternWeights::to_bytes` / `from_bytes`に
 | cell_count | u32 | このパターンのセル数(8または9) |
 | weights | f32 × (`num_stages` × 3^cell_count) | ステージ0の状態0..N, ステージ1の状態0..N, ... の順 |
 
+### v2(`pattern_v2.bin`、T044、対称重み共有)
+
+| フィールド | 型 | 内容 |
+|---|---|---|
+| magic | 4バイト | ASCII `"PWV2"` |
+| version | u32 | 2 |
+| num_patterns | u32 | 22(整合性検証用。実際のパターン形状は保存しない) |
+| num_classes | u32 | 6(上記のクラスA〜F) |
+| num_stages | u32 | 13 |
+
+続けて、`num_classes`個分のクラスブロックを**`representative_of_class`の順序
+(クラスA〜Fの順、各クラスの代表インスタンスは`generate_patterns()`内での
+最小インデックス)で**並べる。各クラスブロックは:
+
+| フィールド | 型 | 内容 |
+|---|---|---|
+| cell_count | u32 | このクラスの代表インスタンスのセル数(8または9) |
+| weights | f32 × (`num_stages` × 3^cell_count) | ステージ0の状態0..N, ステージ1の状態0..N, ... の順(v1と同じ並び) |
+
+読み込み側は`engine::patterns::compute_pattern_classes`でクラス分類を
+再計算し、`num_classes`・各クラスの`cell_count`が一致することを検証する
+(v1同様、クラス分類自体はファイルに保存せず読み込み時に再導出する)。
+
 ## 予測値の計算
 
 局面(`board`, `mover`)に対する予測値(mover視点の最終石差の予測)は、
-22パターンそれぞれについて `stage = stage_for_empty_count(board.empty_count())`、
-`state = pattern_state_index(pattern.cells, board, mover)` を求め、
-対応する重み`weights[pattern_id][stage][state]`の総和(バイアス項なし)。
+22パターンインスタンスそれぞれについて `stage = stage_for_empty_count(board.empty_count())`、
+`state = pattern_state_index(aligned_cells[instance], board, mover)`
+(v1では`aligned_cells[instance]`はそのインスタンス自身の自然順セル列と同じ。
+v2では代表インスタンスのセル順序に揃えた実セル列)を求め、対応する重み
+(v1は`weights[instance_id][stage][state]`、v2は
+`weights[class_of[instance]][stage][state]`)の総和(バイアス項なし)。
 
 ## 学習方法の概要(再現・後続作業の参考用)
 
@@ -72,6 +138,9 @@ T043で`engine::pattern_eval::PatternWeights::to_bytes` / `from_bytes`に
   同一対局のサンプルが学習・検証の両方に混ざらないようにしている)。
 - 生成コマンド: `cargo run -p train --release --bin train_patterns`
   (引数省略時は`train/data/`配下の`*.wtb`を自動的にすべて対象にする)。
+  T044(v2)時点でも学習データ・ハイパーパラメータはv1と同一のまま
+  (対称重み共有によるデータ効率の改善効果だけを見るため)。
 
 学習誤差・ホールドアウト誤差・ベースライン誤差の実測値は
-`tasks/T041-pattern-feature-training.md`の作業ログを参照。
+`tasks/T041-pattern-feature-training.md`(v1)・`tasks/T044-pattern-symmetry-weight-sharing.md`
+(v2、ホールドアウトMSE/MAE・Edax比較・自己対戦結果)の作業ログを参照。
