@@ -44,7 +44,7 @@
 #![allow(dead_code)]
 
 use crate::bitboard::{Board, Side};
-use crate::endgame::{final_score, solve_exact, solve_exact_with_nodes};
+use crate::endgame::{final_score, solve_exact, solve_exact_bounded, solve_exact_with_nodes, TimeBudget};
 use crate::eval::evaluate_for;
 use crate::tt::{Bound, TTEntry, TranspositionTable};
 use crate::zobrist::zobrist_hash;
@@ -142,36 +142,62 @@ pub fn search(
     tt.set_last_exact_from_empties(limit.exact_from_empties);
 
     let empties = board.empty_count();
+    let start = Instant::now();
 
     if empties <= limit.exact_from_empties as u32 {
-        let score = solve_exact(board, side_to_move, tt) * 100;
-        let hash = zobrist_hash(board, side_to_move);
-        let best_move = tt.probe(hash).and_then(|entry| entry.best_move);
-        let pv = best_move.map(|mv| vec![mv]).unwrap_or_default();
-
-        return SearchResult {
-            best_move,
-            score,
-            depth: empties as u8,
-            pv,
-            nodes: 1,
+        // T034: `time_ms`が指定されていれば、`search_all_moves`/`negascout`
+        // と同じ理由(完全読み自体が特定局面で時間予算を大幅に超過しうる)
+        // により`solve_exact_bounded`を使う。打ち切られた(`None`)場合は
+        // ここでは`return`せず、下の通常の反復深化ループにフォールバック
+        // する(そちらも同じ`start`を共有しているため、既に予算を
+        // 使い切っていれば`negascout`の葉判定内で即座に打ち切られ、
+        // 関数末尾の静的評価フォールバックに帰着する。ハングはしない)。
+        let exact = match limit.time_ms {
+            Some(time_ms) => solve_exact_bounded(board, side_to_move, tt, TimeBudget { start, time_ms }),
+            None => Some(solve_exact(board, side_to_move, tt)),
         };
+
+        if let Some(raw) = exact {
+            let score = raw * 100;
+            let hash = zobrist_hash(board, side_to_move);
+            let best_move = tt.probe(hash).and_then(|entry| entry.best_move);
+            let pv = best_move.map(|mv| vec![mv]).unwrap_or_default();
+
+            return SearchResult {
+                best_move,
+                score,
+                depth: empties as u8,
+                pv,
+                nodes: 1,
+            };
+        }
     }
 
-    let start = Instant::now();
     let mut total_nodes: u64 = 0;
     let mut last_result: Option<SearchResult> = None;
 
     for depth in 1..=limit.max_depth {
         let mut nodes: u64 = 0;
+        let mut timed_out = false;
         let score = {
             let mut ctx = SearchCtx {
                 limit,
                 tt: &mut *tt,
                 nodes: &mut nodes,
+                start,
+                timed_out: &mut timed_out,
             };
             negascout(board, side_to_move, depth, -INF, INF, &mut ctx)
         };
+
+        if timed_out {
+            // このイテレーション(depth)は再帰の途中で時間切れになり
+            // 未完走(T034)。結果は不正確なため使わず、直前に完了した
+            // イテレーションの結果(`last_result`、無ければ関数末尾の
+            // フォールバック)をそのまま返す。
+            break;
+        }
+
         total_nodes += nodes;
 
         let hash = zobrist_hash(board, side_to_move);
@@ -279,8 +305,28 @@ pub fn search_all_moves(
         let next_empties = next_board.empty_count();
 
         let (score, is_exact) = if next_empties <= limit.exact_from_empties as u32 {
-            let (raw_diff, _nodes) = solve_exact_with_nodes(&next_board, opponent, tt);
-            (-(raw_diff * 100), true)
+            // T034: `search()`/`negascout`と同じ理由により、`time_ms`が
+            // 指定されていれば`solve_exact_bounded`を使う。特定の局面
+            // (安定石カット等の高度な枝刈りを持たない完全読みソルバーが
+            // 苦手とする「重い」局面)では、この直接呼び出し1回だけでも
+            // 時間予算を大幅に超過しうることが実測で確認されている。
+            // 打ち切られた場合は、この手についてだけ静的評価に
+            // フォールバックし`is_exact=false`として報告する(本当は
+            // 完全読みしたかったが時間予算を優先して打ち切った、という
+            // 実態を反映する)。
+            match limit.time_ms {
+                Some(time_ms) => {
+                    let budget = TimeBudget { start, time_ms };
+                    match solve_exact_bounded(&next_board, opponent, tt, budget) {
+                        Some(raw_diff) => (-(raw_diff * 100), true),
+                        None => (-evaluate_for(&next_board, opponent), false),
+                    }
+                }
+                None => {
+                    let (raw_diff, _nodes) = solve_exact_with_nodes(&next_board, opponent, tt);
+                    (-(raw_diff * 100), true)
+                }
+            }
         } else {
             // 反復深化: search()のルート呼び出しと同じ深さの意味を保つため、
             // ここで消費した1手分(mvの着手)を差し引いた `depth - 1` を
@@ -291,12 +337,26 @@ pub fn search_all_moves(
             let mut best_for_move = -evaluate_for(&next_board, opponent);
             for depth in 1..=limit.max_depth {
                 let mut nodes: u64 = 0;
-                let mut ctx = SearchCtx {
-                    limit,
-                    tt: &mut *tt,
-                    nodes: &mut nodes,
+                let mut timed_out = false;
+                let candidate = {
+                    let mut ctx = SearchCtx {
+                        limit,
+                        tt: &mut *tt,
+                        nodes: &mut nodes,
+                        start,
+                        timed_out: &mut timed_out,
+                    };
+                    -negascout(&next_board, opponent, depth - 1, -INF, INF, &mut ctx)
                 };
-                best_for_move = -negascout(&next_board, opponent, depth - 1, -INF, INF, &mut ctx);
+
+                if timed_out {
+                    // このイテレーション(depth)は再帰の途中で時間切れになり
+                    // 未完走(T034)。`candidate`は不正確なため使わず、
+                    // 直前に完了した深さの評価値(`best_for_move`)を採用して
+                    // この手の反復深化を打ち切る。
+                    break;
+                }
+                best_for_move = candidate;
 
                 if let Some(time_ms) = limit.time_ms {
                     if start.elapsed().as_millis() as u64 >= time_ms {
@@ -320,7 +380,39 @@ struct SearchCtx<'a> {
     limit: &'a SearchLimit,
     tt: &'a mut TranspositionTable,
     nodes: &'a mut u64,
+    /// この反復深化の1イテレーション(1つの`depth`の探索、または
+    /// `search_all_moves`の1つの合法手についての1イテレーション)の
+    /// 経過時間計測の起点。`negascout`の再帰の**途中**で`limit.time_ms`の
+    /// 超過をチェックするために使う(T034で追加)。
+    ///
+    /// 背景: 従来は反復深化の「1つの深さの探索が完了するごと」にしか
+    /// 経過時間を確認していなかった(このファイル冒頭の
+    /// `search`/`search_all_moves`のループ参照)。ほとんどの局面では
+    /// 深さが1増えるごとの所要時間の増加はおおむね緩やかなためこれで
+    /// 十分だったが、局面によっては特定の深さで(ムーブオーダリングが
+    /// 効かない分岐に当たる等の理由で)組合せ的に所要時間が跳ね上がる
+    /// ことがあり、そのようなケースでは「1回のイテレーションの完了を
+    /// 待つ」だけで時間予算を数百倍超過してしまうことが実測で確認された
+    /// (T034調査ログ参照)。再帰の途中でも定期的にチェックすることで、
+    /// この種の突発的な超過を打ち切れるようにする。
+    start: Instant,
+    /// 探索が時間切れで打ち切られたことを示すフラグ。一度立てると、
+    /// それ以降の全ての再帰呼び出しは(探索を進めず)即座に展開し、
+    /// 呼び出し元まで巻き戻る。このフラグが立った状態で計算される
+    /// `best_score`/`best_move`は不完全な探索に基づく不正確な値なので、
+    /// 置換表には格納しない(`negascout`本体・呼び出し元の両方で保証する)。
+    /// `search`/`search_all_moves`はこのフラグを見て、そのイテレーション
+    /// の結果を丸ごと破棄し、直前に完了したイテレーションの結果を使う。
+    timed_out: &'a mut bool,
 }
+
+/// `negascout`の再帰中に時間予算をチェックする頻度(ノード数に1回)。
+/// 毎ノードチェックすると、特にWASM上では`web_time::Instant::now()`が
+/// `Performance.now()`へのJS境界越え呼び出しになりオーバーヘッドが
+/// 無視できないため、探索自体を遅くしてしまう。1024ノードに1回の
+/// チェックであれば、オーバーヘッドを無視できる水準に抑えつつ、
+/// 時間予算の超過を数msのオーダーで検出できる(T034)。
+const TIME_CHECK_NODE_INTERVAL: u64 = 1024;
 
 /// NegaScout(PVS) + 置換表による中盤探索本体。
 ///
@@ -328,6 +420,14 @@ struct SearchCtx<'a> {
 /// 空きマス数が `ctx.limit.exact_from_empties` 以下になった時点で
 /// 終盤完全読みに切り替える(この判定はルート呼び出しだけでなく、
 /// 探索木の途中の任意の局面でも行う)。
+///
+/// `ctx.limit.time_ms`が指定されている場合、`ctx.timed_out`がまだ
+/// 立っていなければ`TIME_CHECK_NODE_INTERVAL`ノードごとに経過時間を
+/// チェックする(T034)。超過していれば`ctx.timed_out`を立てて即座に
+/// `0`を返す(呼び出し元は戻り値を使わず`ctx.timed_out`を見て
+/// イテレーション全体を破棄するため、`0`という値自体に意味はない)。
+/// 一度`ctx.timed_out`が立った後の全呼び出しも同様に即座に`0`を返し、
+/// 置換表への格納も行わない(不完全な探索結果でTTを汚染しないため)。
 fn negascout(
     board: &Board,
     side: Side,
@@ -338,12 +438,42 @@ fn negascout(
 ) -> i32 {
     *ctx.nodes += 1;
 
+    if *ctx.timed_out {
+        return 0;
+    }
+    if let Some(time_ms) = ctx.limit.time_ms {
+        if *ctx.nodes % TIME_CHECK_NODE_INTERVAL == 0 && ctx.start.elapsed().as_millis() as u64 >= time_ms {
+            *ctx.timed_out = true;
+            return 0;
+        }
+    }
+
     let mut alpha = alpha;
     let mut beta = beta;
 
     let empties = board.empty_count();
     if empties <= ctx.limit.exact_from_empties as u32 {
-        return solve_exact(board, side, ctx.tt) * 100;
+        // T034: 空きマス数がしきい値以下になった時点で終盤完全読みに
+        // 切り替えるが、この完全読み自体(`endgame::negamax`)は素朴な
+        // alpha-beta+TTであり、特定の「重い」局面では1回の呼び出しだけで
+        // 時間予算を大幅に超過しうることが実測で確認されている
+        // (T034調査ログ参照)。`time_ms`が指定されている場合は
+        // `solve_exact_bounded`(同じ`ctx.start`を共有する時間予算付き
+        // バージョン)を使い、打ち切られた場合は`ctx.timed_out`を立てて
+        // 呼び出し元にイテレーション全体を破棄させる。
+        return match ctx.limit.time_ms {
+            Some(time_ms) => {
+                let budget = TimeBudget { start: ctx.start, time_ms };
+                match solve_exact_bounded(board, side, ctx.tt, budget) {
+                    Some(score) => score * 100,
+                    None => {
+                        *ctx.timed_out = true;
+                        0
+                    }
+                }
+            }
+            None => solve_exact(board, side, ctx.tt) * 100,
+        };
     }
 
     let legal = board.legal_moves(side);
@@ -407,6 +537,13 @@ fn negascout(
                 scout_score
             }
         };
+
+        if *ctx.timed_out {
+            // 子の探索(のどこか)が時間切れで打ち切られた: このノードの
+            // `score`は不完全な探索に基づく不正確な値なので使わず、
+            // 置換表への格納も行わずに即座に展開する(T034)。
+            return 0;
+        }
 
         if score > best_score {
             best_score = score;

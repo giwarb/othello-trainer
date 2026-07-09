@@ -43,6 +43,9 @@
 use crate::bitboard::{Board, Side};
 use crate::tt::{Bound, TTEntry, TranspositionTable};
 use crate::zobrist::zobrist_hash;
+// search.rsと同じ理由(wasm32-unknown-unknownでの`std::time::Instant`の
+// 実行時panicを避けるため)で`web_time`のドロップイン実装を使う(T034)。
+use web_time::Instant;
 
 /// 4隅 (a1, h1, a8, h8) に対応するビットマスク。
 /// ビットとマスの対応は `bitboard.rs` 冒頭のドキュメントを参照
@@ -79,9 +82,15 @@ pub(crate) fn final_score(board: &Board, side: Side) -> i32 {
 ///
 /// 返り値は centi-disc スケールではなく素の石差 (1石=1) であることに注意
 /// (モジュール冒頭のドキュメント参照)。
+///
+/// 時間予算を一切持たない(無条件に終局まで読み切る)。FFOベンチ(T009)・
+/// 詰めオセロ/対局/定石練習モードなど、「完全な正解値が必要で、かつ
+/// 呼び出し元がそもそも`time_ms`を指定しない」用途で使う。時間予算を
+/// 課したい場合は[`solve_exact_bounded`](T034)を使うこと。
 pub fn solve_exact(board: &Board, side_to_move: Side, tt: &mut TranspositionTable) -> i32 {
     let mut nodes: u64 = 0;
-    negamax(board, side_to_move, -64, 64, tt, &mut nodes)
+    let mut timed_out = false;
+    negamax(board, side_to_move, -64, 64, tt, &mut nodes, None, &mut timed_out)
 }
 
 /// [`solve_exact`] と同じ完全読みを行い、結果に加えて探索した(`negamax`
@@ -96,16 +105,92 @@ pub fn solve_exact_with_nodes(
     tt: &mut TranspositionTable,
 ) -> (i32, u64) {
     let mut nodes: u64 = 0;
-    let score = negamax(board, side_to_move, -64, 64, tt, &mut nodes);
+    let mut timed_out = false;
+    let score = negamax(board, side_to_move, -64, 64, tt, &mut nodes, None, &mut timed_out);
     (score, nodes)
 }
+
+/// [`solve_exact`]に時間予算を持たせたバージョン(T034)。
+///
+/// # 背景(T034)
+/// 本ソルバーはT006のスコープの都合上、安定石による静的カット等の
+/// 高度な枝刈りを持たない素朴なalpha-beta+TTである(モジュール冒頭の
+/// ドキュメント参照)。空き22前後の局面では通常は高速に完了するが、
+/// 特定の「重い」局面(FFO#49のような既知の難問と同種)では、この
+/// 素朴な実装だと1回の呼び出しだけで数十秒〜数分かかることが実測で
+/// 確認されている。`search.rs`の中盤探索(`negascout`/`search_all_moves`)
+/// が`limit.time_ms`(反復深化の時間予算)付きでこの関数を(探索木の
+/// 途中で空きマス数がしきい値以下になるたびに)呼び出すケースでは、
+/// この1回の呼び出しが時間予算を大幅に超過してしまう(T034調査ログ
+/// 参照)。この関数は`start`からの経過時間が`time_ms`を超えたら
+/// 探索を打ち切り`None`を返す(結果が不完全なため`Some`の場合と違い
+/// 使ってはならない)。打ち切った場合、置換表には格納しない
+/// (不完全な探索結果でTTを汚染しないため)。
+///
+/// `TIME_CHECK_NODE_INTERVAL`ノードごとに`Instant::now()`
+/// (WASM上は`Performance.now()`)を呼ぶため、毎ノードチェックするより
+/// 十分に軽い。
+pub fn solve_exact_bounded(
+    board: &Board,
+    side_to_move: Side,
+    tt: &mut TranspositionTable,
+    budget: TimeBudget,
+) -> Option<i32> {
+    let mut nodes: u64 = 0;
+    let mut timed_out = false;
+    let score = negamax(
+        board,
+        side_to_move,
+        -64,
+        64,
+        tt,
+        &mut nodes,
+        Some(budget),
+        &mut timed_out,
+    );
+    if timed_out {
+        None
+    } else {
+        Some(score)
+    }
+}
+
+/// [`solve_exact_bounded`]に渡す時間予算(T034)。`search.rs`の
+/// `SearchLimit::time_ms`と同じ意味論(反復深化開始からの累計経過時間)を
+/// 完全読みソルバーにも適用できるようにするための小さな値型。
+#[derive(Debug, Clone, Copy)]
+pub struct TimeBudget {
+    pub start: Instant,
+    pub time_ms: u64,
+}
+
+impl TimeBudget {
+    fn expired(&self) -> bool {
+        self.start.elapsed().as_millis() as u64 >= self.time_ms
+    }
+}
+
+/// `negamax`の再帰中に時間予算をチェックする頻度(ノード数に1回)。
+/// `search.rs`の`TIME_CHECK_NODE_INTERVAL`と同じ考え方
+/// (WASM上での`Instant::now()`のJS境界越えコストを無視できる水準に
+/// 抑えつつ、数msのオーダーで超過を検出する)。
+const TIME_CHECK_NODE_INTERVAL: u64 = 1024;
 
 /// negamax + fail-soft alpha-beta + TT による完全読み本体。
 ///
 /// `alpha` / `beta` は `side` から見た石差の窓。
 /// `nodes` はこの関数が呼び出された回数(訪問局面数)を数える
-/// カウンタで、呼び出し元(`solve_exact` / `solve_exact_with_nodes`)が
-/// 用意したものをそのまま渡す。
+/// カウンタで、呼び出し元(`solve_exact` / `solve_exact_with_nodes` /
+/// `solve_exact_bounded`)が用意したものをそのまま渡す。
+///
+/// `budget`が`Some`の場合、`timed_out`がまだ立っていなければ
+/// `TIME_CHECK_NODE_INTERVAL`ノードごとに`budget.expired()`をチェックする
+/// (T034)。超過していれば`timed_out`を立てて即座に`0`を返す(戻り値
+/// 自体に意味はない。呼び出し元は`timed_out`を見て結果を丸ごと破棄する)。
+/// 一度`timed_out`が立った後の全呼び出しも同様に即座に`0`を返し、
+/// 置換表への格納も行わない。`budget`が`None`なら従来どおり無条件に
+/// 終局まで読み切る(既存の`solve_exact`/`solve_exact_with_nodes`の
+/// 挙動・性能は変えない)。
 fn negamax(
     board: &Board,
     side: Side,
@@ -113,8 +198,20 @@ fn negamax(
     beta: i32,
     tt: &mut TranspositionTable,
     nodes: &mut u64,
+    budget: Option<TimeBudget>,
+    timed_out: &mut bool,
 ) -> i32 {
     *nodes += 1;
+
+    if *timed_out {
+        return 0;
+    }
+    if let Some(budget) = budget {
+        if *nodes % TIME_CHECK_NODE_INTERVAL == 0 && budget.expired() {
+            *timed_out = true;
+            return 0;
+        }
+    }
 
     let empties = board.empty_count();
     if empties == 0 {
@@ -150,7 +247,7 @@ fn negamax(
             // 相手にも合法手がない: 終局。
             return final_score(board, side);
         }
-        return -negamax(board, side.opposite(), -beta, -alpha, tt, nodes);
+        return -negamax(board, side.opposite(), -beta, -alpha, tt, nodes, budget, timed_out);
     }
 
     // 合法手を列挙し、隅優先 → 相手の着手後合法手数が少ない順に並べ替える。
@@ -174,7 +271,13 @@ fn negamax(
 
     for mv in moves {
         let next_board = board.apply_move(side, mv);
-        let score = -negamax(&next_board, side.opposite(), -beta, -alpha, tt, nodes);
+        let score = -negamax(&next_board, side.opposite(), -beta, -alpha, tt, nodes, budget, timed_out);
+
+        if *timed_out {
+            // 子の探索が時間切れで打ち切られた: このノードの計算は不完全
+            // なため、置換表に格納せず即座に展開する(T034)。
+            return 0;
+        }
 
         if score > best_score {
             best_score = score;
@@ -480,5 +583,81 @@ mod tests {
         );
 
         assert!(score.abs() <= 64);
+    }
+
+    // ------------------------------------------------------------------
+    // T034: `solve_exact_bounded` の時間予算遵守の回帰テスト。
+    // ------------------------------------------------------------------
+    //
+    // 背景: 本ソルバー(`negamax`)は安定石カット等の高度な枝刈りを持たない
+    // 素朴なalpha-beta+TTであり、空き20前後でもノード数が数千万〜数億に
+    // 達することがある(`engine/tests/ffo_bench.rs`のドキュメント参照。
+    // 例: 空き22のFFO#41で約1.9億ノード・75.8秒)。`search.rs`の中盤探索
+    // (`negascout`/`search_all_moves`)がこの関数を`limit.time_ms`付きで
+    // 呼び出すケースでは、時間予算(例: 1500ms)を数十〜数百倍超過する
+    // ハングが実際に本番環境で発生した(棋譜解析モードで最初の1手の解析が
+    // 6分以上応答しない、というT033検証での報告)。この回帰テストは、
+    // 「時間予算を1msという極端に短い値にしても、探索木がそれなりの
+    // 規模を持つ局面(空き18)に対して`solve_exact_bounded`が数秒以内に
+    // 確実に打ち切られる(`None`を返す)」ことを検証する。修正前の実装
+    // (`solve_exact`を無条件に呼ぶだけ)であれば、この局面の完全読みは
+    // 数秒〜数十秒かかるため、本テストは(タイムアウトはしないにせよ)
+    // 「時間予算を無視して長時間かかる」という不具合を検出できる。
+    #[test]
+    fn solve_exact_bounded_returns_none_promptly_when_time_budget_is_tiny_even_for_a_nontrivial_position() {
+        let (board, side) = play_until_empties(18, first_move_strategy);
+        assert_eq!(board.empty_count(), 18, "test setup should reach exactly 18 empties");
+
+        let mut tt = TranspositionTable::new(64);
+        let wall_start = std::time::Instant::now();
+        let budget = TimeBudget {
+            start: Instant::now(),
+            time_ms: 1,
+        };
+        let result = solve_exact_bounded(&board, side, &mut tt, budget);
+        let elapsed = wall_start.elapsed();
+
+        println!("solve_exact_bounded(time_ms=1) on 18-empties position finished in {elapsed:?}");
+
+        assert!(
+            result.is_none(),
+            "a 1ms budget should not be enough to fully solve an 18-empties position, \
+             so solve_exact_bounded should report a timeout (None) rather than a (partial/invalid) score"
+        );
+        assert!(
+            elapsed < std::time::Duration::from_secs(5),
+            "solve_exact_bounded should honor the time budget and return within a few seconds \
+             (periodic in-recursion check), not block until the full exact solve completes; took {elapsed:?}"
+        );
+    }
+
+    #[test]
+    fn solve_exact_bounded_does_not_poison_the_tt_when_it_times_out() {
+        // T034: 時間切れで打ち切られた探索は置換表に格納してはならない
+        // (不完全な探索結果が後続の探索・完全読みを汚染しないことの確認)。
+        // 同じ`tt`を使い回し、`solve_exact_bounded`がタイムアウトした後、
+        // 通常の(無制限の)`solve_exact`で同じ局面を解いても、TTを新規に
+        // 使った場合と同じ正しい答えが得られることを確認する。
+        let (board, side) = play_until_empties(14, first_move_strategy);
+
+        let mut tt_after_timeout = TranspositionTable::new(64);
+        let budget = TimeBudget {
+            start: Instant::now(),
+            time_ms: 1,
+        };
+        let timed_out_result = solve_exact_bounded(&board, side, &mut tt_after_timeout, budget);
+        assert!(timed_out_result.is_none(), "1ms budget should trigger a timeout on this position");
+
+        let score_after_timeout = solve_exact(&board, side, &mut tt_after_timeout);
+
+        let mut tt_fresh = TranspositionTable::new(64);
+        let score_fresh = solve_exact(&board, side, &mut tt_fresh);
+
+        assert_eq!(
+            score_after_timeout, score_fresh,
+            "solve_exact should return the same correct score whether or not the tt was previously \
+             used by a solve_exact_bounded call that timed out (i.e. the timed-out call must not have \
+             stored any incomplete/incorrect entries into the tt)"
+        );
     }
 }

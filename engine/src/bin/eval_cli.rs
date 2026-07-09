@@ -379,6 +379,9 @@ fn cmd_apply(args: &[String]) {
 fn cmd_moves(args: &[String]) {
     let depth = get_arg_u32(args, "--depth", Some(10)) as u8;
     let exact_from_empties = get_arg_u32(args, "--exact-from-empties", Some(0)) as u8;
+    // T034診断用: `timeMs` を任意で指定できるようにする(本番 `ANALYZE_LIMIT`
+    // と同じ条件を再現するため)。省略時は従来どおり時間無制限。
+    let time_ms = get_arg(args, "--time-ms").map(|v| v.parse::<u64>().expect("invalid --time-ms"));
 
     let mut input = String::new();
     io::stdin()
@@ -400,16 +403,24 @@ fn cmd_moves(args: &[String]) {
     let b = obf_to_board(&board_str);
     let side = parse_side(&side_str);
 
+    let mut limit = json!({ "depth": depth, "exactFromEmpties": exact_from_empties });
+    if let Some(t) = time_ms {
+        limit["timeMs"] = json!(t);
+    }
+
     let req = json!({
         "id": 0,
         "cmd": "analyze",
         "board": { "black": format!("{:x}", b.black), "white": format!("{:x}", b.white), "turn": side_name(side) },
-        "limit": { "depth": depth, "exactFromEmpties": exact_from_empties },
+        "limit": limit,
         "allMoves": true
     });
 
     let mut engine = Engine::new();
+    let start = std::time::Instant::now();
     let resp: Value = serde_json::from_str(&engine.analyze(&req.to_string())).unwrap_or(Value::Null);
+    let elapsed = start.elapsed();
+    eprintln!("[eval_cli moves] elapsed={elapsed:?} depth={depth} exact_from_empties={exact_from_empties} time_ms={time_ms:?}");
 
     println!(
         "{}",
