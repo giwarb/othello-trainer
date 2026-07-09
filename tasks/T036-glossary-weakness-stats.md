@@ -102,4 +102,11 @@ attempts: 0
   - 検証に使ったPlaywrightスクリプト・生成した一時棋譜/局面データは検証専用の一時ファイルであり、コミット対象には含めていない(リポジトリには残していない)。
 
 ### 本番デプロイ確認
-- コミット・`main`へのpush・GitHub Actionsデプロイ完了確認・本番Pages URLでのPlaywright確認は、このセクションの下に追記する(コミット後に実施)。
+- コミット`012fa4a`を`git push origin main`でpush。GitHub Actions「Deploy to GitHub Pages」(run 29001833111)を`gh run watch`で待機し、`build`・`deploy`両ジョブとも成功したことを確認(所要時間: build 34秒、deploy 10秒)。
+- 本番URL(`https://giwarb.github.io/othello-trainer/`)に対しPlaywrightで実機確認を実施(デプロイ完了直後、`last-modified`ヘッダがデプロイ時刻と一致することを確認した上で実施)。ローカル`vite preview`検証と同じ手順(IndexedDBへのプール局面・`verbalizeAttempts`シード込み)を再実施し、以下を確認:
+  - (a) 用語集項目数18件、「壁作り」詳細ページへの遷移。
+  - (b) 22手の棋譜を棋譜解析モードで解析し、`BlunderPanel`の「壁作り(悪い手)」バッジをクリック→`GlossaryPopover`が「壁作り」の詳細を表示。
+  - (c) 「壁作り」の概念レッスンを開始し、実際に二択の問題(選択肢2つ)が表示された(`QUESTION_SHOWN options=2`)。
+  - (d) シードした`verbalizeAttempts`から「最も弱い概念は『中割り』です(理由正答率33%、3回中)」のサマリー文言とタグ別バーが正しく表示された。
+  - (e) 375px幅で用語集一覧・用語集詳細・弱点統計ダッシュボードいずれも横スクロールが発生しない(`scrollWidth <= clientWidth`)ことを確認。
+- 以上により、本番Pages環境でT036の全機能(要件9の(a)〜(e))が正常動作することを確認した。
