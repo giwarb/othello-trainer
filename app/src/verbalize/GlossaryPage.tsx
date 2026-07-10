@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from 'preact/hooks'
-import { EngineClient } from '../engine/client.ts'
+import { useState } from 'preact/hooks'
+import type { EngineClient } from '../engine/client.ts'
+import { getSharedEngineClient } from '../engine/sharedClient.ts'
 import { ConceptLesson } from './ConceptLesson.tsx'
 import { GLOSSARY_CATEGORY_LABEL, GLOSSARY_ENTRIES, findGlossaryEntry, type GlossaryCategory } from './glossary.ts'
 import { GlossaryEntryDetail } from './GlossaryEntryDetail.tsx'
@@ -18,19 +19,10 @@ export function GlossaryPage() {
   const [view, setView] = useState<View>('list')
   const [selectedKey, setSelectedKey] = useState<string | null>(null)
 
-  const engineRef = useRef<EngineClient | null>(null)
+  // エンジンWorkerはアプリ全体で1つのインスタンスを共有する(T054)。
   function getEngine(): EngineClient {
-    if (!engineRef.current) {
-      engineRef.current = new EngineClient()
-    }
-    return engineRef.current
+    return getSharedEngineClient()
   }
-  useEffect(() => {
-    return () => {
-      engineRef.current?.terminate()
-      engineRef.current = null
-    }
-  }, [])
 
   const selectedEntry = selectedKey ? findGlossaryEntry(selectedKey) : null
 

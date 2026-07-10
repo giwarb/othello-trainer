@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState } from 'preact/hooks'
+import { useEffect, useState } from 'preact/hooks'
 import { loadClassifyThresholds } from '../analysis/thresholdSettings.ts'
 import type { ClassifyThresholds } from '../analysis/types.ts'
 import { Board } from '../components/Board.tsx'
 import { MoveEvalOverlay } from '../components/MoveEvalOverlay.tsx'
-import { EngineClient } from '../engine/client.ts'
+import type { EngineClient } from '../engine/client.ts'
+import { getSharedEngineClient } from '../engine/sharedClient.ts'
 import type { AnalyzeLimit, MoveEvalJson } from '../engine/types.ts'
 import {
   applyMove,
@@ -133,13 +134,9 @@ export function PracticeMode() {
   )
   const [classifyThresholds] = useState<ClassifyThresholds>(() => loadClassifyThresholds(localStorage))
   const [overlayMoves, setOverlayMoves] = useState<MoveEvalJson[] | null>(null)
-  const engineRef = useRef<EngineClient | null>(null)
-
+  // エンジンWorkerはアプリ全体で1つのインスタンスを共有する(T054)。
   function getEngine(): EngineClient {
-    if (!engineRef.current) {
-      engineRef.current = new EngineClient()
-    }
-    return engineRef.current
+    return getSharedEngineClient()
   }
 
   // 定石DB(public/joseki.json)を読み込む。`loadJosekiDb` はモジュール内でキャッシュ
@@ -156,14 +153,6 @@ export function PracticeMode() {
       })
     return () => {
       cancelled = true
-    }
-  }, [])
-
-  // Workerはコンポーネントのライフタイム中1つだけ生成し、アンマウント時に終了する。
-  useEffect(() => {
-    return () => {
-      engineRef.current?.terminate()
-      engineRef.current = null
     }
   }, [])
 

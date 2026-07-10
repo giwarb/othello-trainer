@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'preact/hooks'
+import { useEffect, useState } from 'preact/hooks'
 import './app.css'
 import { AnalysisMode } from './analysis/AnalysisMode.tsx'
 import { loadClassifyThresholds } from './analysis/thresholdSettings.ts'
@@ -9,7 +9,8 @@ import { DEFAULT_BLUNDER_CONFIG, type BlunderConfig, type EvalSource } from './b
 import { EvalBadge, formatDiscDiff } from './components/EvalBadge.tsx'
 import { Board } from './components/Board.tsx'
 import { MoveEvalOverlay } from './components/MoveEvalOverlay.tsx'
-import { EngineClient } from './engine/client.ts'
+import type { EngineClient } from './engine/client.ts'
+import { getSharedEngineClient } from './engine/sharedClient.ts'
 import type { AnalyzeLimit, MoveEvalJson } from './engine/types.ts'
 import { createGame, playMove, requestCpuMove, type GameState } from './game/gameLoop.ts'
 import { countDiscs, squareToNotation, type Board as BoardState, type Side } from './game/othello.ts'
@@ -116,22 +117,12 @@ function PlayMode() {
   )
   const [classifyThresholds] = useState<ClassifyThresholds>(() => loadClassifyThresholds(localStorage))
   const [overlayMoves, setOverlayMoves] = useState<MoveEvalJson[] | null>(null)
-  const engineRef = useRef<EngineClient | null>(null)
-
+  // エンジンWorkerはアプリ全体で1つのインスタンスを共有する(T054)。
+  // モードコンポーネントをまたいで使い回すことで、モード切替のたびに
+  // WASM再初期化・pattern_v2.binの再fetchが発生するコールドスタートを避ける。
   function getEngine(): EngineClient {
-    if (!engineRef.current) {
-      engineRef.current = new EngineClient()
-    }
-    return engineRef.current
+    return getSharedEngineClient()
   }
-
-  // Workerはコンポーネントのライフタイム中1つだけ生成し、アンマウント時に終了する。
-  useEffect(() => {
-    return () => {
-      engineRef.current?.terminate()
-      engineRef.current = null
-    }
-  }, [])
 
   // 定石DB(public/joseki.json)はコンポーネントのライフタイム中1回だけ読み込む
   // (loadJosekiDb自体もモジュール内でキャッシュしているため、複数コンポーネントから

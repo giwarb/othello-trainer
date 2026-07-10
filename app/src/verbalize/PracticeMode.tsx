@@ -1,10 +1,11 @@
-import { useEffect, useRef, useState } from 'preact/hooks'
+import { useEffect, useState } from 'preact/hooks'
 import { AttributionWaterfall } from '../analysis/AttributionWaterfall.tsx'
 import { buildAttribution } from '../analysis/attribution.ts'
 import { detectMotifs, type MotifDefinition } from '../analysis/motifs.ts'
 import type { AttributionBreakdown } from '../analysis/types.ts'
 import { Board } from '../components/Board.tsx'
-import { EngineClient } from '../engine/client.ts'
+import type { EngineClient } from '../engine/client.ts'
+import { getSharedEngineClient } from '../engine/sharedClient.ts'
 import type { AnalyzeLimit } from '../engine/types.ts'
 import { applyMove, notationToSquare, opposite, squareToNotation } from '../game/othello.ts'
 import { judgeMidgameMove } from '../midgame/judgeMidgameMove.ts'
@@ -87,21 +88,10 @@ export function PracticeMode() {
   const [judgeError, setJudgeError] = useState<string | null>(null)
   const [resultData, setResultData] = useState<ResultData | null>(null)
 
-  const engineRef = useRef<EngineClient | null>(null)
-
+  // エンジンWorkerはアプリ全体で1つのインスタンスを共有する(T054)。
   function getEngine(): EngineClient {
-    if (!engineRef.current) {
-      engineRef.current = new EngineClient()
-    }
-    return engineRef.current
+    return getSharedEngineClient()
   }
-
-  useEffect(() => {
-    return () => {
-      engineRef.current?.terminate()
-      engineRef.current = null
-    }
-  }, [])
 
   useEffect(() => {
     let cancelled = false

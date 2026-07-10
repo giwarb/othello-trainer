@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState } from 'preact/hooks'
+import { useEffect, useState } from 'preact/hooks'
 import { buildAttribution } from '../analysis/attribution.ts'
 import { detectMotifs, type MotifDefinition } from '../analysis/motifs.ts'
 import type { AttributionBreakdown } from '../analysis/types.ts'
 import { Board } from '../components/Board.tsx'
-import { EngineClient } from '../engine/client.ts'
+import type { EngineClient } from '../engine/client.ts'
+import { getSharedEngineClient } from '../engine/sharedClient.ts'
 import type { AnalyzeLimit } from '../engine/types.ts'
 import { applyMove, notationToSquare, opposite } from '../game/othello.ts'
 import { getAllPoolEntries } from '../midgame/pool.ts'
@@ -238,21 +239,10 @@ export function TwoChoiceDrill() {
   /** T036要件2: 理由タグ選択UI(`TagPicker`)から用語集への1タップ導線用。 */
   const [glossaryPopoverTagId, setGlossaryPopoverTagId] = useState<string | null>(null)
 
-  const engineRef = useRef<EngineClient | null>(null)
-
+  // エンジンWorkerはアプリ全体で1つのインスタンスを共有する(T054)。
   function getEngine(): EngineClient {
-    if (!engineRef.current) {
-      engineRef.current = new EngineClient()
-    }
-    return engineRef.current
+    return getSharedEngineClient()
   }
-
-  useEffect(() => {
-    return () => {
-      engineRef.current?.terminate()
-      engineRef.current = null
-    }
-  }, [])
 
   useEffect(() => {
     let cancelled = false

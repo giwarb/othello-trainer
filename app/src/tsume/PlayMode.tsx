@@ -1,11 +1,12 @@
-import { useEffect, useRef, useState } from 'preact/hooks'
+import { useEffect, useState } from 'preact/hooks'
 import { loadClassifyThresholds } from '../analysis/thresholdSettings.ts'
 import type { ClassifyThresholds } from '../analysis/types.ts'
 import { Board } from '../components/Board.tsx'
 import { formatDiscDiff } from '../components/EvalBadge.tsx'
 import { MoveEvalOverlay } from '../components/MoveEvalOverlay.tsx'
-import { EngineClient } from '../engine/client.ts'
+import type { EngineClient } from '../engine/client.ts'
 import { hexToBigint } from '../engine/hex.ts'
+import { getSharedEngineClient } from '../engine/sharedClient.ts'
 import type { AnalyzeLimit, MoveEvalJson } from '../engine/types.ts'
 import {
   applyMove,
@@ -155,22 +156,10 @@ export function PlayMode() {
   const [classifyThresholds] = useState<ClassifyThresholds>(() => loadClassifyThresholds(localStorage))
   const [overlayMoves, setOverlayMoves] = useState<MoveEvalJson[] | null>(null)
 
-  const engineRef = useRef<EngineClient | null>(null)
-
+  // エンジンWorkerはアプリ全体で1つのインスタンスを共有する(T054)。
   function getEngine(): EngineClient {
-    if (!engineRef.current) {
-      engineRef.current = new EngineClient()
-    }
-    return engineRef.current
+    return getSharedEngineClient()
   }
-
-  // Workerはコンポーネントのライフタイム中1つだけ生成し、アンマウント時に終了する。
-  useEffect(() => {
-    return () => {
-      engineRef.current?.terminate()
-      engineRef.current = null
-    }
-  }, [])
 
   // 問題プール(public/puzzles.json)はコンポーネントのライフタイム中1回だけ読み込む
   // (loadPuzzles自体もモジュール内でキャッシュしているため、実際のfetchは1回)。

@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from 'preact/hooks'
+import { useEffect, useState } from 'preact/hooks'
 import { Board } from '../components/Board.tsx'
 import { EvalBadge, formatDiscDiff } from '../components/EvalBadge.tsx'
-import { EngineClient } from '../engine/client.ts'
+import type { EngineClient } from '../engine/client.ts'
+import { getSharedEngineClient } from '../engine/sharedClient.ts'
 import {
   applyMove,
   countDiscs,
@@ -152,26 +153,15 @@ export function AnalysisMode() {
   /** T030: 悪手分析パネルを開いている対象の`ply`(未オープンなら`null`)。 */
   const [openBlunderPly, setOpenBlunderPly] = useState<number | null>(null)
 
-  const engineRef = useRef<EngineClient | null>(null)
-
   // T038: 定石DBを読み込んでおき、`analyzeGame`に渡す(定石内の手の悪手誤判定除外)。
   // ロードに失敗しても`josekiDb`は`null`のままとなり、`analyzeGame`側が
   // フォールバック(定石照会スキップ、従来通りの評価)する(要件3)。
   const [josekiDb, setJosekiDb] = useState<JosekiDb | null>(null)
 
+  // エンジンWorkerはアプリ全体で1つのインスタンスを共有する(T054)。
   function getEngine(): EngineClient {
-    if (!engineRef.current) {
-      engineRef.current = new EngineClient()
-    }
-    return engineRef.current
+    return getSharedEngineClient()
   }
-
-  useEffect(() => {
-    return () => {
-      engineRef.current?.terminate()
-      engineRef.current = null
-    }
-  }, [])
 
   useEffect(() => {
     let cancelled = false
