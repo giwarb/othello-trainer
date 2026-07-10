@@ -72,4 +72,10 @@ attempts: 0
     - 本番デプロイ確認: 下記参照。
 
 - 2026-07-10 implementer: 本番デプロイ・確認。
-  - `main`へのコミット・pushは本メッセージ以降の手順として実施(コミットハッシュ・GitHub Actions実行結果・本番URLでのPlaywright確認結果は、実施後にこのログへ追記する)。
+  - コミット `aecaa34`("app: エンジンWorkerをアプリ全体で共有し評価値のコールドスタートを解消(T054)")を`main`にpush。
+  - GitHub Actions「Deploy to GitHub Pages」ワークフロー(run ID 29071895506)を`gh run watch`で監視、`build`(51s)・`deploy`(10s)ともに成功を確認。
+  - `https://giwarb.github.io/othello-trainer/`に対し、Playwright CLI(`node`スクリプト、`playwright`パッケージを利用)で以下を自動確認:
+    1. `pattern_v2.bin`のネットワークリクエストを監視しつつ、対局→定石練習→中盤練習→詰めオセロ→棋譜解析→言語化トレーニングのタブを2周(計12回)切り替え。`pattern_v2.bin`リクエストは初回の1回のみ(以後0回)であることを確認(要件1・受け入れ基準3項目目)。
+    2. 対局モードで黒番開始→盤面クリックで着手→`evalInfo`セクション(評価バッジ)が表示されることを確認。定石練習・中盤練習・詰めオセロ・棋譜解析の各モードで、切替直後にボタン・入力欄等の基本UIが正常表示されること、console/pageエラーが0件であることを確認(要件2・3)。
+  - ローカル(`npm run dev`、`http://localhost:5175/`)でも同様のPlaywrightスクリプトで同じ結果(pattern_v2.bin 1回のみ、エラー0件)を先に確認済み。
+  - 以上により受け入れ基準4項目すべて達成。
