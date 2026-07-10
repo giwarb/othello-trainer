@@ -47,7 +47,13 @@ export interface MoveAnalysis {
   readonly side: Side
   /** 着手前の局面。 */
   readonly board: Board
-  /** 着手前局面の解析(最善手の評価)が完全読みだったか(空き22以下)。 */
+  /**
+   * 着手前局面の解析が完全読みだったか(空き22以下)。**最善手(`bestMove`)と
+   * 実際に打った手(`move`)の両方**が完全読み(`type === 'exact'`)の場合のみ
+   * `true`(T059)。どちらか一方でもエンジン側の時間予算切れでヒューリスティック
+   * 評価にフォールバックしていれば`false`になる(片方だけを見て「確定」と
+   * 誤表示しないため)。
+   */
   readonly isExact: boolean
   /**
    * 評価ソード(T038、`othello-trainer-design-verbalization.md`)。

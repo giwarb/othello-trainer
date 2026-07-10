@@ -148,6 +148,100 @@ describe('analysis/analyzeGame: analyzeGame', () => {
     expect(results).toEqual([])
     expect(engine.calls).toBe(0)
   })
+
+  it(
+    '実際に打った手(played)がタイムアウト等でヒューリスティックフォールバックした場合' +
+      '(type:"midgame")、最善手(best)が完全読み(type:"exact")でもevalSourceは' +
+      '"midgame"になり、isExactもfalseになる(T059: 以前はbest.typeだけを見て' +
+      '誤って"exact"(終盤確定)と表示していた不具合の回帰テスト)',
+    async () => {
+      const engine: AnalyzeEngine = {
+        async requestAnalyzeAll(): Promise<MoveEvalJson[]> {
+          return [
+            { move: 'd3', score: 300, discDiff: 3.0, type: 'exact' },
+            { move: 'f5', score: -50, discDiff: -0.5, type: 'midgame' },
+          ]
+        },
+      }
+      const dbFactory = new IDBFactory()
+
+      const results = await analyzeGame(engine, ['f5'], { dbFactory })
+
+      const m = results[0]!
+      expect(m.bestMove).toBe('d3')
+      expect(m.move).toBe('f5')
+      expect(m.isExact).toBe(false)
+      expect(m.evalSource).toBe('midgame')
+    },
+  )
+
+  it(
+    '逆に、実際に打った手(played)自身が完全読みでも、best側がタイムアウトで' +
+      'フォールバックしていればevalSourceは"midgame"になる(T059、対照テスト)',
+    async () => {
+      const engine: AnalyzeEngine = {
+        async requestAnalyzeAll(): Promise<MoveEvalJson[]> {
+          return [
+            { move: 'd3', score: 300, discDiff: 3.0, type: 'midgame' },
+            { move: 'f5', score: -50, discDiff: -0.5, type: 'exact' },
+          ]
+        },
+      }
+      const dbFactory = new IDBFactory()
+
+      const results = await analyzeGame(engine, ['f5'], { dbFactory })
+
+      const m = results[0]!
+      expect(m.isExact).toBe(false)
+      expect(m.evalSource).toBe('midgame')
+    },
+  )
+
+  it(
+    'best・played両方が完全読み(type:"exact")の場合のみevalSourceが"exact"になる' +
+      '(T059、対照テスト)',
+    async () => {
+      const engine: AnalyzeEngine = {
+        async requestAnalyzeAll(): Promise<MoveEvalJson[]> {
+          return [
+            { move: 'd3', score: 300, discDiff: 3.0, type: 'exact' },
+            { move: 'f5', score: -50, discDiff: -0.5, type: 'exact' },
+          ]
+        },
+      }
+      const dbFactory = new IDBFactory()
+
+      const results = await analyzeGame(engine, ['f5'], { dbFactory })
+
+      const m = results[0]!
+      expect(m.isExact).toBe(true)
+      expect(m.evalSource).toBe('exact')
+    },
+  )
+
+  it(
+    'lossDiscsは理論上限(64石)でクランプされる(T059、表示層の最終防御の回帰テスト)',
+    async () => {
+      // エンジン側のクランプ(engine/src/search.rs)で本来は起こり得ないが、
+      // 表示層でも二重に防御していることを確認する(理論上限を超えるbest/played
+      // の差分を意図的に与える)。
+      const engine: AnalyzeEngine = {
+        async requestAnalyzeAll(): Promise<MoveEvalJson[]> {
+          return [
+            { move: 'd3', score: 6400, discDiff: 64, type: 'midgame' },
+            { move: 'f5', score: -6400, discDiff: -64, type: 'midgame' },
+          ]
+        },
+      }
+      const dbFactory = new IDBFactory()
+
+      const results = await analyzeGame(engine, ['f5'], { dbFactory })
+
+      const m = results[0]!
+      // 生の差分は64 - (-64) = 128だが、理論上限64にクランプされる。
+      expect(m.lossDiscs).toBe(64)
+    },
+  )
 })
 
 describe('analysis/analyzeGame: 定石DB連携(T038)', () => {

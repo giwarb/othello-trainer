@@ -50,8 +50,15 @@ function defaultIndexedDb(): IDBFactory {
  * 評価結果に影響しうる変更(探索アルゴリズム・評価関数・パターン重みファイル
  * 等)をデプロイするたびに、このファイルの本定数を1つ上げること。上げると
  * 以前のキャッシュキーと一致しなくなり、古い解析結果は再解析される。
+ *
+ * T059: `engine/src/search.rs`の`static_eval`に石差の理論上限(±64、
+ * centi-disc換算で±6400)へのクランプを追加した(パターン評価
+ * `PatternWeights::score`の出力が学習データの薄い局面で理論上限を大きく
+ * 超える異常値になっていた不具合の修正)。エンジンの評価値そのものが変わる
+ * 変更のため、ユーザーのブラウザに残っている異常値入りの古いキャッシュを
+ * 無効化する必要があり、バージョンを1つ上げる(1 -> 2)。
  */
-export const ANALYSIS_ENGINE_VERSION = 1
+export const ANALYSIS_ENGINE_VERSION = 2
 
 /**
  * キャッシュキーを作る。`limitTag`は探索条件(depth/exactFromEmptiesなど)を表す

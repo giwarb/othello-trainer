@@ -83,12 +83,45 @@ const CORNER_MASK: u64 = (1u64 << 0) | (1u64 << 7) | (1u64 << 56) | (1u64 << 63)
 /// パターン評価は本関数経由でのみ中盤ヒューリスティック探索(`negascout`の
 /// 葉ノード評価・反復深化が一度も完了しなかった場合のフォールバック)に
 /// 使われる。
+///
+/// # クランプ(T059)
+/// [`PatternWeights::score`]は学習済みパターン重みの線形和であり、出力範囲に
+/// 上限・下限の制約が無い。学習データが薄い局面(WTHOR実戦棋譜にあまり
+/// 出現しない終盤寄りの局面等)では、線形和が石差の理論上限(オセロは
+/// 64マスなので、どちらの手番視点でも最終石差は必ず`[-64, 64]`)を大きく
+/// 超える値(centi-disc換算で±6400を大きく超える値、実例として±10500程度)を
+/// 返しうることが実戦棋譜解析で確認された(ユーザー報告、`analyzeGame.ts`で
+/// 石差105等の物理的にあり得ない値が表示される不具合)。
+///
+/// 参考実装のEdax(`src/const.h`の`SCORE_MIN=-64`/`SCORE_MAX=64`、
+/// `src/midgame.c`の`search_eval_0`)も、パターン重み和で計算した葉の
+/// ヒューリスティック評価を必ずこの理論上限の範囲にクランプしてから返して
+/// おり(Edaxはさらに探索木内で「証明済みの±64」と区別するため`(-64, 64)`の
+/// 開区間に丸めているが、本実装は`is_exact`フラグで確定/近似を別途区別して
+/// いるためその区別は不要であり、単純に閉区間`[-64, 64]`でクランプする)、
+/// 本関数もそれに倣う。`static_eval`は中盤ヒューリスティック探索の葉評価・
+/// 終盤完全読み(`solve_exact_bounded`)がタイムアウトした際のフォールバックの
+/// 両方から呼ばれる唯一の経路であり(呼び出し元は本モジュール内のみ)、
+/// ここでクランプすることで両方の経路に自動的に適用される。NegaScout自体は
+/// 子ノードの評価値の min/max(の符号反転)を積み上げるだけなので、葉が
+/// `[-6400, 6400]`に収まっていれば親ノードの評価値もこの範囲を超えない
+/// (探索が範囲を広げることはない)。
+///
+/// 一方、終盤完全読み(`endgame::solve_exact`/`solve_exact_bounded`が実際に
+/// 完走した場合の戻り値)は本関数を経由しないため、このクランプの影響を
+/// 一切受けない(全数探索の結果は理論上ここでの上限に収まっているはずだが、
+/// 念のためクランプ対象を静的評価のみに限定する設計とした)。
 fn static_eval(board: &Board, side: Side, weights: Option<&PatternWeights>) -> i32 {
-    match weights {
+    let raw = match weights {
         Some(w) => (w.score(board, side) * 100.0).round() as i32,
         None => evaluate_for(board, side),
-    }
+    };
+    raw.clamp(-DISC_DIFF_BOUND_CENTIDISC, DISC_DIFF_BOUND_CENTIDISC)
 }
+
+/// 石差の理論上限(絶対値64石、centi-disc単位=×100)。[`static_eval`]の
+/// クランプに使う(T059)。
+const DISC_DIFF_BOUND_CENTIDISC: i32 = 64 * 100;
 
 /// 探索の制御パラメータ。
 ///
@@ -1719,5 +1752,94 @@ mod tests {
             "ETC should reduce the total node count at deeper depths too \
              (with_etc={total_nodes_with_etc}, without_etc={total_nodes_without_etc})"
         );
+    }
+
+    // --- T059: static_eval のクランプ回帰テスト ---
+    // (ユーザー報告: 棋譜解析で評価値が石差の理論上限±64を大きく超える異常値
+    // (例: 105)になる不具合。根本原因はPatternWeights::scoreの出力に上限が
+    // 無かったこと。static_evalの唯一の出口でクランプすることで、中盤探索の
+    // 葉評価・終盤タイムアウト時フォールバックの両方に自動的に適用される。)
+
+    /// 全状態の重みを異常に大きい値に設定した`PatternWeights`を作る
+    /// (学習データが薄い局面で線形和が発散するケースを模擬する)。
+    fn make_pattern_weights_with_extreme_values(value: f32) -> PatternWeights {
+        let patterns = crate::patterns::generate_patterns();
+        let mut weights = PatternWeights::zeroed(patterns);
+        for class_table in &mut weights.class_tables {
+            for stage_table in &mut class_table.stage_tables {
+                for w in stage_table.iter_mut() {
+                    *w = value;
+                }
+            }
+        }
+        weights
+    }
+
+    #[test]
+    fn static_eval_clamps_pattern_weight_output_to_the_theoretical_disc_diff_bound() {
+        // 各パターンインスタンスが+1000.0(石差換算で桁違いに大きい)を返すよう
+        // 重みを設定すると、クランプが無ければ合計(22インスタンス分)が
+        // 22000相当のcenti-discになり、理論上限(±6400)を大きく超える。
+        let weights = make_pattern_weights_with_extreme_values(1000.0);
+        let board = Board::initial();
+
+        let score = static_eval(&board, Side::Black, Some(&weights));
+
+        assert!(
+            score <= DISC_DIFF_BOUND_CENTIDISC && score >= -DISC_DIFF_BOUND_CENTIDISC,
+            "static_eval should clamp to the theoretical disc-diff bound \
+             [-{DISC_DIFF_BOUND_CENTIDISC}, {DISC_DIFF_BOUND_CENTIDISC}], got {score}"
+        );
+        assert_eq!(
+            score, DISC_DIFF_BOUND_CENTIDISC,
+            "with all-positive extreme weights the clamped score should hit the upper bound exactly"
+        );
+    }
+
+    #[test]
+    fn static_eval_clamps_extreme_negative_pattern_weight_output_too() {
+        let weights = make_pattern_weights_with_extreme_values(-1000.0);
+        let board = Board::initial();
+
+        let score = static_eval(&board, Side::Black, Some(&weights));
+
+        assert_eq!(
+            score, -DISC_DIFF_BOUND_CENTIDISC,
+            "with all-negative extreme weights the clamped score should hit the lower bound exactly"
+        );
+    }
+
+    #[test]
+    fn static_eval_does_not_alter_normal_range_scores() {
+        // クランプが通常範囲の値(理論上限を超えない値)に影響を与えないことを
+        // 確認する回帰テスト。ゼロ重みモデルは常に0を返すはず。
+        let patterns = crate::patterns::generate_patterns();
+        let weights = PatternWeights::zeroed(patterns);
+        let board = Board::initial();
+
+        assert_eq!(static_eval(&board, Side::Black, Some(&weights)), 0);
+    }
+
+    #[test]
+    fn search_all_moves_with_eval_move_scores_stay_within_the_theoretical_disc_diff_bound() {
+        // 統合的な回帰テスト: 異常な重みを持つモデルで
+        // `search_all_moves_with_eval`(棋譜解析が使う経路)を呼んでも、
+        // 返る各手の評価値(centi-disc)が理論上限を超えないことを確認する。
+        let weights = make_pattern_weights_with_extreme_values(1000.0);
+        let board = Board::initial();
+        let limit = default_limit(2, 24);
+        let mut tt = TranspositionTable::new(4);
+
+        let evals = search_all_moves_with_eval(&board, Side::Black, &limit, &mut tt, Some(&weights));
+
+        assert!(!evals.is_empty());
+        for eval in &evals {
+            assert!(
+                eval.score.abs() <= DISC_DIFF_BOUND_CENTIDISC,
+                "move {} score {} exceeds the theoretical disc-diff bound of {DISC_DIFF_BOUND_CENTIDISC}",
+                eval.mv,
+                eval.score
+            );
+        }
     }
 }

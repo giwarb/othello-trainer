@@ -34,6 +34,14 @@
  * (上記3)もその区間は変化せず、T046の「定石区間は評価値0固定」と自然に整合する。
  * `josekiDb`が`null`または省略された場合(ロード失敗時のフォールバック含む)は、
  * この上書きを一切行わず従来通り`exact`/`midgame`のみで評価する。
+ *
+ * `evalSource`/`isExact`の判定(T059): 定石内でなければ、最善手(`best`)と
+ * 実際に打った手(`played`)の**両方**が完全読み(`type === 'exact'`)の場合のみ
+ * `'exact'`とする。以前は`best.type`のみを見ており、`played`がエンジン側の
+ * 時間予算切れ(棋譜解析は`ANALYZE_LIMIT.timeMs`共有予算)でヒューリスティック
+ * 評価にフォールバックしていても(`played.type === 'midgame'`)、`best`さえ
+ * 完全読みできていれば「終盤(完全読み確定)」と誤表示していた(ユーザー報告の
+ * 評価値異常のバグ調査で判明した根本原因の1つ)。
  */
 
 import type { AnalyzeLimit, MoveEvalJson } from '../engine/types.ts'
@@ -71,6 +79,14 @@ export const ANALYZE_LIMIT: AnalyzeLimit = { depth: 18, timeMs: 1500, exactFromE
 
 /** キャッシュキーに含める探索条件タグ。`ANALYZE_LIMIT`を変更した場合は別キーになる。 */
 const LIMIT_TAG = `d${ANALYZE_LIMIT.depth}-e${ANALYZE_LIMIT.exactFromEmpties}`
+
+/**
+ * 石差の理論上限(絶対値、単位は石)。オセロは64マスなので、どちらの手番視点でも
+ * 最終石差はこれを超えない(T059)。`lossDiscs`計算の最終防御クランプに使う
+ * (根本原因はエンジン側`engine/src/search.rs`の`static_eval`のクランプ欠如
+ * だったが、表示層でも二重に防御する)。
+ */
+const DISC_DIFF_THEORETICAL_MAX = 64
 
 /**
  * `analyzeGame`が解析エンジンに要求する最小限のインターフェース。
@@ -192,7 +208,23 @@ export async function analyzeGame(
     const best = pickBest(allMoves)
     const playedNotation = moves[i]!
     const played = allMoves.find((m) => m.move === playedNotation) ?? best
-    const lossDiscs = Math.max(0, best.discDiff - played.discDiff)
+    // T059: `best`・`played`の両方が完全読み(`type === 'exact'`)である場合のみ
+    // 「終盤(完全読み確定)」とみなす。以前は`best.type`だけを見ており、実際に
+    // 打たれた手(`played`)がエンジン側の時間予算切れでヒューリスティック評価に
+    // フォールバックしていても(`played.type === 'midgame'`)、`best`が完全読み
+    // できていれば「確定」と誤表示していた(下記の`DISC_DIFF_THEORETICAL_MAX`
+    // クランプと同じ根本原因調査(T059)で判明)。
+    const bestIsExact = best.type === 'exact'
+    const playedIsExact = played.type === 'exact'
+    const isExact = bestIsExact && playedIsExact
+    // T059: `best.discDiff - played.discDiff`にエンジン側のクランプ
+    // (`engine/src/search.rs`の`static_eval`、石差の理論上限±64でクランプ)を
+    // 適用してもなお、算出過程(2値の差分)で理論上限を超えるロスが理論上
+    // 生じうるため、表示層でも二重に防御する(最終防御、要件1)。
+    const lossDiscs = Math.min(
+      DISC_DIFF_THEORETICAL_MAX,
+      Math.max(0, best.discDiff - played.discDiff),
+    )
 
     // 定石DB連携(T038): この局面が定石DBに登録されており、実際に打った手が
     // 定石ラインの候補手に含まれていれば「定石内」とみなし、悪手判定を
@@ -211,8 +243,8 @@ export async function analyzeGame(
       move: playedNotation,
       side: mover,
       board: pos.board,
-      isExact: best.type === 'exact',
-      evalSource: inBook ? 'joseki' : best.type === 'exact' ? 'exact' : 'midgame',
+      isExact,
+      evalSource: inBook ? 'joseki' : isExact ? 'exact' : 'midgame',
       josekiNames: inBook ? josekiLookup!.names : undefined,
       bestMove: best.move,
       bestDiscDiff: best.discDiff,
