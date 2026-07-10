@@ -53,7 +53,7 @@ import {
   type Board,
   type Side,
 } from '../game/othello.ts'
-import type { EdgeShapeJson } from '../engine/types.ts'
+import type { EdgeShapeJson, LineJson } from '../engine/types.ts'
 import { analyzeWhyBad } from './whyBad.ts'
 import type { FeatureSet } from './types.ts'
 
@@ -94,6 +94,18 @@ const EDGES: Record<EdgeName, readonly number[]> = {
   bottom: [56, 57, 58, 59, 60, 61, 62, 63],
   left: [0, 8, 16, 24, 32, 40, 48, 56],
   right: [7, 15, 23, 31, 39, 47, 55, 63],
+}
+
+/**
+ * 主対角線(a1-h8)/反対角線(a8-h1)の8マス。`FeatureSet.lines`(`LineJson.name`)
+ * には各ラインの石数のみが含まれマス番号が無いため、T058(盤面連動ハイライト)の
+ * `motifHighlightSquares`が「通し」のハイライト対象マスを求めるために持つ
+ * (盤の座標そのものから決まる固定値であり、検出条件`detectTooshi`自体には
+ * 変更を加えていない)。
+ */
+const DIAGONALS: Record<LineJson['name'], readonly number[]> = {
+  main_diagonal: [0, 9, 18, 27, 36, 45, 54, 63],
+  anti_diagonal: [7, 14, 21, 28, 35, 42, 49, 56],
 }
 
 /** 各辺の両端(隅)のマス番号。`edge_shapes`の`corner0`/`corner7`相当の判定に使う。 */
@@ -479,6 +491,93 @@ export const MOTIF_CATALOG: readonly MotifDefinition[] = MOTIF_ENTRIES.map(({ ke
   label,
   kind,
 }))
+
+// ---------------------------------------------------------------------
+// 盤面ハイライト(モチーフタグ選択時、T058要件1)
+// ---------------------------------------------------------------------
+
+/**
+ * モチーフタグ(`MotifDefinition.key`)をホバー/選択したときに、着手前局面上で
+ * ハイライトすべきマス集合を返す(T058「盤面と説明が連動する分かりやすい
+ * レイアウト」要件1)。各`detect*`関数が実際に判定条件として使っている
+ * マス情報(`FeatureSet`の各フィールド、または対応する`detect*`関数内の
+ * ローカル計算をそのまま再利用したもの)をそのまま流用するだけで、新たな
+ * 判定ロジックは追加しない(検出条件自体は各`detect*`関数のJSDoc参照)。
+ *
+ * 設計書・各`detect*`関数のJSDocに「対応する具体的なマス集合」の定義までは
+ * 無いため、各ケースの対応付けは実装者判断(モチーフ検出ロジック自体は
+ * 変更しない前提での、表示用の近似)。該当する具体的なマスが特に無い
+ * モチーフでは、着手先マス自体をフォールバックとして返す。
+ */
+export function motifHighlightSquares(key: string, ctx: MotifContext): number[] {
+  const opp = opposite(ctx.side)
+  const after = applyMove(ctx.beforeBoard, ctx.side, ctx.square)
+
+  switch (key) {
+    case 'nakawari':
+    case 'zengaeshi':
+      // 開放度(この手により相手に新しく開放されたマス数)そのものに対応する
+      // マス集合として、`FeatureSet.newOpponentMoves`(着手後に相手が新たに
+      // 打てるようになったマス)をそのまま使う。
+      return ctx.features.newOpponentMoves.map((n) => notationToSquare(n))
+    case 'block':
+    case 'tezon':
+      // `mobilityDiff = moverMobilityBefore - opponentMobilityAfter`の対象
+      // マスをそのまま示す(`whyBad.ts`の`computeMobility`と同じ2つの合法手集合)。
+      return [...legalMoves(ctx.beforeBoard, ctx.side), ...legalMoves(after, opp)]
+    case 'jimetsu':
+      return ctx.features.lostOwnMoves.map((n) => notationToSquare(n))
+    case 'tanezukuriCreate':
+      return [...computeVulnerableSeeds(after, opp, ctx.side)]
+    case 'tanezukuriSupply':
+      return ctx.features.seedStones.map((n) => notationToSquare(n))
+    case 'henNoSencyaku': {
+      const edgeName = (Object.keys(EDGES) as EdgeName[]).find((name) => EDGES[name].includes(ctx.square))
+      return edgeName ? [...EDGES[edgeName]] : [ctx.square]
+    }
+    case 'hipparu': {
+      const beforeOppMoves = legalMoves(ctx.beforeBoard, opp)
+      const afterOppMoves = new Set(legalMoves(after, opp))
+      const removed = beforeOppMoves.filter((sq) => !afterOppMoves.has(sq))
+      return removed.filter((sq) => {
+        const corner = X_SQUARE_TO_CORNER.get(sq) ?? C_SQUARE_TO_CORNER.get(sq)
+        return corner !== undefined && cellAt(ctx.beforeBoard, corner) === null
+      })
+    }
+    case 'tooshi': {
+      const line = ctx.features.lines.find((l) => l.opponent === 0 && l.mover >= TOOSHI_MOVER_THRESHOLD)
+      return line ? [...DIAGONALS[line.name]] : [ctx.square]
+    }
+    case 'kabezukuri': {
+      const beforeFrontier = new Set(frontierSquares(ctx.beforeBoard, ctx.side))
+      return frontierSquares(after, ctx.side).filter((sq) => !beforeFrontier.has(sq))
+    }
+    case 'xUchi':
+    case 'cUchi': {
+      const corner = X_SQUARE_TO_CORNER.get(ctx.square) ?? C_SQUARE_TO_CORNER.get(ctx.square)
+      return corner !== undefined ? [ctx.square, corner] : [ctx.square]
+    }
+    case 'gusuuHouki': {
+      const regions = computeParityRegionsLocal(ctx.beforeBoard)
+      const region = regions.find((r) => r.squares.includes(ctx.square))
+      return region ? [...region.squares] : [ctx.square]
+    }
+    case 'stoner': {
+      for (const edgeShape of ctx.features.edgeShapes) {
+        if (edgeShape.shape !== 'wing') continue
+        const [c0, c7] = EDGE_CORNERS[edgeShape.edge]
+        const openCorner = cellAt(after, c0) === null ? c0 : cellAt(after, c7) === null ? c7 : null
+        if (openCorner === null) continue
+        const xSquare = CORNER_TO_X_SQUARE.get(openCorner)
+        if (xSquare === undefined) continue
+        if (ctx.features.seedStones.includes(squareToNotation(xSquare))) return [openCorner, xSquare]
+      }
+      return [ctx.square]
+    }
+    default:
+      return [ctx.square]
+  }
+}
 
 // ---------------------------------------------------------------------
 // 盤面オーバーレイ用: 特徴量由来のマス集合(要件3)

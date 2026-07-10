@@ -13,7 +13,13 @@ describe('analysis/whyBad: countStableDiscs', () => {
     expect(countStableDiscs(board, 'black')).toBe(0)
   })
 
-  it('盤面が完全に埋まっていれば、その色の全ての石が確定石になる(全ラインが常に「埋まっている」ため)', () => {
+  it('4辺(端から端)いずれにも属さないマスは、周囲が埋まっていても確定石とみなさない(T058: engine/src/eval.rsのedge_stable_maskと同じ簡易ロジックに統一したため)', () => {
+    // 市松模様(偶数マスが黒、奇数マスが白)で盤面が完全に埋まっている局面。
+    // 左辺(a1..a8、マス番号0,8,16,...,56)は全マスが偶数番号=黒なので、
+    // edge_stable_maskはこの8マス全てを黒の確定石と判定する。同様に右辺
+    // (h1..h8、マス番号7,15,...,63)は全マスが奇数番号=白なので、この8マスを
+    // 白の確定石と判定する。上辺・下辺はa1/a8・h1/h8以外は交互に色が変わる
+    // ため、それぞれ左辺・右辺で既に数えた隅1マスしか追加しない。
     const blackSquares: number[] = []
     const whiteSquares: number[] = []
     for (let sq = 0; sq < 64; sq++) {
@@ -21,8 +27,8 @@ describe('analysis/whyBad: countStableDiscs', () => {
       else whiteSquares.push(sq)
     }
     const board = createBoard(blackSquares, whiteSquares)
-    expect(countStableDiscs(board, 'black')).toBe(blackSquares.length)
-    expect(countStableDiscs(board, 'white')).toBe(whiteSquares.length)
+    expect(countStableDiscs(board, 'black')).toBe(8)
+    expect(countStableDiscs(board, 'white')).toBe(8)
   })
 
   it('石が1つも無ければ確定石は0個', () => {
@@ -91,12 +97,12 @@ describe('analysis/whyBad: analyzeWhyBad', () => {
     expect(result.cornerRisk).toBeNull()
   })
 
-  it('reasonsに人が読める理由テキストが含まれる', () => {
+  it('reasonsに人が読める理由テキスト+盤面ハイライト用カテゴリが含まれる(T058)', () => {
     const before = initialBoard()
     const square = notationToSquare('f5')
     const result = analyzeWhyBad(before, 'black', square)
     expect(result.reasons.length).toBeGreaterThan(0)
-    expect(result.reasons.some((r) => r.includes('着手可能数'))).toBe(true)
-    expect(result.reasons.some((r) => r.includes('確定石数'))).toBe(true)
+    expect(result.reasons.some((r) => r.text.includes('着手可能数') && r.category === 'mobility')).toBe(true)
+    expect(result.reasons.some((r) => r.text.includes('確定石数') && r.category === 'stable')).toBe(true)
   })
 })

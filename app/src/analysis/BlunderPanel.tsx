@@ -35,14 +35,28 @@ import {
   type BranchTree,
 } from './branchTree.ts'
 import { buildComparePv, type ComparePvResult } from './comparePv.ts'
-import { computeBoardHighlights, detectMotifs, type BoardHighlights, type MotifDefinition } from './motifs.ts'
+import {
+  computeBoardHighlights,
+  detectMotifs,
+  motifHighlightSquares,
+  type BoardHighlights,
+  type MotifDefinition,
+} from './motifs.ts'
 import { buildRefutationResult, type RefutationResult } from './refutation.ts'
 import { RefutationView } from './RefutationView.tsx'
 import { buildInstantTsumePuzzle, sendToMidgamePractice } from './sendToPractice.ts'
 import { loadClassifyThresholds } from './thresholdSettings.ts'
-import type { AttributionBreakdown, ClassifyThresholds, EvalTerms, FeatureSet, MoveAnalysis } from './types.ts'
-import { analyzeWhyBad, computeStableSquares } from './whyBad.ts'
+import type {
+  AttributionBreakdown,
+  AttributionTerm,
+  ClassifyThresholds,
+  EvalTerms,
+  FeatureSet,
+  MoveAnalysis,
+} from './types.ts'
+import { analyzeWhyBad, computeStableSquares, type WhyBadReason } from './whyBad.ts'
 import { GlossaryPopover } from '../verbalize/GlossaryPopover.tsx'
+import { ATTRIBUTION_TAG_ID } from '../verbalize/reasonTags.ts'
 import './BlunderPanel.css'
 
 const MOTIF_KIND_LABEL: Record<MotifDefinition['kind'], string> = {
@@ -57,6 +71,60 @@ const OVERLAY_TOGGLES: readonly { key: keyof OverlayVisibility; label: string }[
   { key: 'seed', label: '種石' },
   { key: 'dangerousCorners', label: '危険なX/C打ちマス' },
 ]
+
+/** 4隅のマス番号。「隅」項目のホバーハイライト(T058要件1)に使う。 */
+const CORNER_SQUARES: readonly number[] = [0, 7, 56, 63]
+
+/**
+ * 評価内訳(モビリティ/隅/確定石)の項目に対応する、着手前局面上のマス集合を
+ * 返す(T058要件1)。評価内訳自体は比較PVの末端局面同士の差分だが、盤面
+ * ハイライトは既に画面上部に表示済みの「着手前局面」を使い、その局面上で
+ * 各項目に関連する特徴(モビリティ=双方の合法手、隅=4隅、確定石=着手前局面の
+ * 確定石)を示す近似とする(実装者判断。比較PVの末端局面2つを新たに描画する
+ * よりも、既存の1枚の盤面との連動で示す方が実装・表示ともに単純なため)。
+ */
+function attributionTermHighlightSquares(
+  key: AttributionTerm['key'],
+  beforeBoard: BoardState,
+  side: Side,
+  boardHighlights: BoardHighlights | null,
+): number[] {
+  switch (key) {
+    case 'stable':
+      return boardHighlights ? [...boardHighlights.stable] : []
+    case 'corner':
+      return [...CORNER_SQUARES]
+    case 'mobility':
+      return [...legalMoves(beforeBoard, side), ...legalMoves(beforeBoard, opposite(side))]
+  }
+}
+
+/**
+ * 「なぜ悪いか」の理由(`WhyBadReason.category`)に対応する、着手前局面上の
+ * マス集合を返す(T058要件1)。`attributionTermHighlightSquares`と同じ考え方
+ * (モビリティ=双方の合法手、確定石=着手前局面の確定石)を使うが、隅の危険
+ * (X打ち/C打ち)は「なぜ悪いか」では実際に検出された1件の着手先と対応する
+ * 隅のみを指すため、`boardHighlights.dangerousCorners`(盤面全体の候補一覧)
+ * ではなく`cornerRisk`から直接2マスを算出する。
+ */
+function whyBadReasonHighlightSquares(
+  category: WhyBadReason['category'],
+  beforeBoard: BoardState,
+  side: Side,
+  cornerRiskSquare: number | null,
+  moveSquare: number,
+): number[] {
+  switch (category) {
+    case 'stable':
+      return [...computeStableSquares(beforeBoard, side)]
+    case 'mobility':
+      return [...legalMoves(beforeBoard, side), ...legalMoves(beforeBoard, opposite(side))]
+    case 'corner':
+      return cornerRiskSquare === null ? [moveSquare] : [moveSquare, cornerRiskSquare]
+    case null:
+      return []
+  }
+}
 
 /** 相手(エンジン)の着手までの見せかけの「考慮時間」(ミリ秒、他モードと同じ演出)。 */
 const OPPONENT_MOVE_DELAY_MS = 300
@@ -153,6 +221,17 @@ export function BlunderPanel({ moveAnalysis, gameMoves, engine, onClose }: Blund
   })
   /** T036要件2: モチーフバッジから用語集詳細への1タップ導線。 */
   const [glossaryPopoverTagId, setGlossaryPopoverTagId] = useState<string | null>(null)
+
+  /**
+   * ホバー/選択中の項目に対応する盤面ハイライト(T058要件1)。評価内訳・
+   * モチーフ・「なぜ悪いか」のいずれかの項目にマウスオーバー(またはフォーカス)
+   * すると、対応するマス集合がここに設定され、「着手前局面」の盤面
+   * (`BoardOverlay`の`emphasizedSquares`)に反映される。
+   */
+  const [highlightSquares, setHighlightSquares] = useState<readonly number[] | null>(null)
+  function clearHighlight(): void {
+    setHighlightSquares(null)
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -514,9 +593,14 @@ export function BlunderPanel({ moveAnalysis, gameMoves, engine, onClose }: Blund
 
         <section class="blunder-panel__section">
           <h3>着手前の局面</h3>
+          <p class="notice blunder-panel__highlight-hint">
+            評価内訳・モチーフ・「なぜ悪いか」の項目にマウスを乗せる(またはタップする)と、対応するマスがこの盤面上でハイライトされます。
+          </p>
           <div class="board-container blunder-panel__board board-with-overlay">
             <Board board={moveAnalysis.board} sideToMove={moveAnalysis.side} />
-            {boardHighlights && <BoardOverlay highlights={boardHighlights} visible={overlayVisible} />}
+            {boardHighlights && (
+              <BoardOverlay highlights={boardHighlights} visible={overlayVisible} emphasizedSquares={highlightSquares ?? undefined} />
+            )}
           </div>
           <p class="status">
             実際の手: {moveAnalysis.move}{' '}
@@ -539,6 +623,10 @@ export function BlunderPanel({ moveAnalysis, gameMoves, engine, onClose }: Blund
                     type="button"
                     class={`motif-badge motif-badge--${motif.kind} motif-badge--button`}
                     onClick={() => setGlossaryPopoverTagId(motif.key)}
+                    onMouseEnter={() => motifContext && setHighlightSquares(motifHighlightSquares(motif.key, motifContext))}
+                    onMouseLeave={clearHighlight}
+                    onFocus={() => motifContext && setHighlightSquares(motifHighlightSquares(motif.key, motifContext))}
+                    onBlur={clearHighlight}
                   >
                     {motif.label}
                     <span class="motif-badge__kind">({MOTIF_KIND_LABEL[motif.kind]})</span>
@@ -610,6 +698,14 @@ export function BlunderPanel({ moveAnalysis, gameMoves, engine, onClose }: Blund
             <AttributionWaterfall
               breakdown={attribution}
               title={`${sideLabel(moveAnalysis.side)}番から見た評価差の内訳(石差)`}
+              onHoverTerm={(key) =>
+                setHighlightSquares(
+                  key === null
+                    ? null
+                    : attributionTermHighlightSquares(key, moveAnalysis.board, moveAnalysis.side, boardHighlights),
+                )
+              }
+              onSelectTerm={(key) => setGlossaryPopoverTagId(ATTRIBUTION_TAG_ID[key])}
             />
           )}
         </section>
@@ -618,14 +714,46 @@ export function BlunderPanel({ moveAnalysis, gameMoves, engine, onClose }: Blund
           <h3>反証層: 回収点(寄与が急変した手)</h3>
           {!refutation && !refutationError && <p class="notice">回収点を検出中...</p>}
           {refutationError && <p class="notice notice--error">{refutationError}</p>}
-          {refutation && <RefutationView refutation={refutation} />}
+          {refutation && (
+            <RefutationView refutation={refutation} onSelectTerm={(key) => setGlossaryPopoverTagId(ATTRIBUTION_TAG_ID[key])} />
+          )}
         </section>
 
         <section class="blunder-panel__section">
           <h3>なぜ悪いか</h3>
           <ul class="blunder-panel__why-bad">
             {whyBad.reasons.map((reason, i) => (
-              <li key={i}>{reason}</li>
+              <li
+                key={i}
+                tabIndex={reason.category ? 0 : undefined}
+                class={reason.category ? 'blunder-panel__why-bad-item--hoverable' : undefined}
+                onMouseEnter={() =>
+                  setHighlightSquares(
+                    whyBadReasonHighlightSquares(
+                      reason.category,
+                      moveAnalysis.board,
+                      moveAnalysis.side,
+                      whyBad.cornerRisk ? notationToSquare(whyBad.cornerRisk.corner) : null,
+                      notationToSquare(moveAnalysis.move),
+                    ),
+                  )
+                }
+                onMouseLeave={clearHighlight}
+                onFocus={() =>
+                  setHighlightSquares(
+                    whyBadReasonHighlightSquares(
+                      reason.category,
+                      moveAnalysis.board,
+                      moveAnalysis.side,
+                      whyBad.cornerRisk ? notationToSquare(whyBad.cornerRisk.corner) : null,
+                      notationToSquare(moveAnalysis.move),
+                    ),
+                  )
+                }
+                onBlur={clearHighlight}
+              >
+                {reason.text}
+              </li>
             ))}
           </ul>
         </section>

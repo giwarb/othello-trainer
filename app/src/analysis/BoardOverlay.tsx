@@ -12,6 +12,13 @@ export interface OverlayVisibility {
 export interface BoardOverlayProps {
   readonly highlights: BoardHighlights
   readonly visible: OverlayVisibility
+  /**
+   * ホバー/選択中の項目(評価内訳・モチーフ・「なぜ悪いか」)に対応するマス
+   * (T058要件1)。`visible`のON/OFFとは独立に、常に最優先で表示される
+   * (項目との連動を主にするための仕組み。既存のチェックボックスは残しつつ、
+   * これとは別レイヤーとして重ねる)。
+   */
+  readonly emphasizedSquares?: readonly number[]
 }
 
 type Category = keyof OverlayVisibility
@@ -43,12 +50,16 @@ const SQUARES = Array.from({ length: 64 }, (_, sq) => sq)
  * `position:relative`のラッパーで重ねて配置する(`BoardOverlay.css`の
  * `.board-overlay`が`position:absolute; inset:0`)。
  */
-export function BoardOverlay({ highlights, visible }: BoardOverlayProps) {
+export function BoardOverlay({ highlights, visible, emphasizedSquares }: BoardOverlayProps) {
+  const emphasized = new Set(emphasizedSquares ?? [])
   return (
     <div class="board-overlay" aria-hidden="true">
       {SQUARES.map((sq) => {
         const category = categoryFor(sq, highlights, visible)
-        return <div key={sq} class={`board-overlay__cell${category ? ` board-overlay__cell--${category}` : ''}`} />
+        const classes = ['board-overlay__cell']
+        if (category) classes.push(`board-overlay__cell--${category}`)
+        if (emphasized.has(sq)) classes.push('board-overlay__cell--emphasized')
+        return <div key={sq} class={classes.join(' ')} />
       })}
     </div>
   )

@@ -41,123 +41,69 @@ function computeMobility(beforeBoard: Board, side: Side, afterBoard: Board): Why
   }
 }
 
-// --- 確定石数(簡易判定) -------------------------------------------------
+// --- 確定石数 -------------------------------------------------------------
 
-const CORNERS: readonly number[] = [0, 7, 56, 63]
-
-/** 軸ごとの正方向ベクトル。負方向は単純にこの逆(`-dFile, -dRank`)。 */
-const AXES: readonly (readonly [number, number])[] = [
-  [1, 0], // 水平(行)
-  [0, 1], // 垂直(列)
-  [1, 1], // 斜め(\)
-  [1, -1], // 斜め(/)
+/** 4辺それぞれの8マス(端から端への順)。`engine/src/eval.rs`のTOP_EDGE等と同じ定義・順序。 */
+const EDGES: readonly (readonly number[])[] = [
+  [0, 1, 2, 3, 4, 5, 6, 7], // 水平: a1..h1
+  [56, 57, 58, 59, 60, 61, 62, 63], // 水平: a8..h8
+  [0, 8, 16, 24, 32, 40, 48, 56], // 垂直: a1..a8
+  [7, 15, 23, 31, 39, 47, 55, 63], // 垂直: h1..h8
 ]
 
-function fileRankOf(square: number): readonly [number, number] {
-  return [square % 8, Math.floor(square / 8)]
-}
+/**
+ * 1つの辺(端から端までの8マス)について、両端から連続する同色石のマス集合を返す。
+ * `engine/src/eval.rs`の`edge_stable_mask`と全く同じロジック(前端から同色が
+ * 途切れるまで・後端から同色が途切れるまでをそれぞれ数え、和集合を取る)。
+ */
+function edgeStableSquares(board: Board, side: Side, edge: readonly number[]): number[] {
+  const result: number[] = []
 
-function squareAtFileRank(file: number, rank: number): number | null {
-  if (file < 0 || file > 7 || rank < 0 || rank > 7) return null
-  return rank * 8 + file
-}
-
-function neighborInDirection(square: number, dFile: number, dRank: number): number | null {
-  const [file, rank] = fileRankOf(square)
-  return squareAtFileRank(file + dFile, rank + dRank)
-}
-
-/** `square`を含む、盤の端から端までの1軸ぶんの全マス(自分自身を含む)。 */
-function fullLineThrough(square: number, dFile: number, dRank: number): number[] {
-  const line: number[] = [square]
-  let cur = square
-  while (true) {
-    const next = neighborInDirection(cur, -dFile, -dRank)
-    if (next === null) break
-    line.unshift(next)
-    cur = next
+  for (const sq of edge) {
+    if (cellAt(board, sq) === side) result.push(sq)
+    else break
   }
-  cur = square
-  while (true) {
-    const next = neighborInDirection(cur, dFile, dRank)
-    if (next === null) break
-    line.push(next)
-    cur = next
-  }
-  return line
-}
 
-function isLineFull(board: Board, line: readonly number[]): boolean {
-  return line.every((sq) => cellAt(board, sq) !== null)
+  for (let i = edge.length - 1; i >= 0; i--) {
+    const sq = edge[i]!
+    if (cellAt(board, sq) === side) result.push(sq)
+    else break
+  }
+
+  return result
 }
 
 /**
- * `side`の確定石(絶対にひっくり返らない石)の数を簡易判定で数える。
+ * `side`の確定石(絶対にひっくり返らない石)のマス集合を簡易判定で求める。
  *
- * アルゴリズム: 隅から固定点反復で安定集合を広げる方式(オセロプログラミングで
- * 一般的な近似手法)。ある石が1つの軸(水平・垂直・斜め2方向)について
- * 「安定」とみなされるのは、(a) その軸のライン上に空きマスが1つも無い(将来
- * 挟まれようがない)、または (b) その軸の両方向それぞれについて、盤端に
- * 到達するか、既に安定と確定した同色の石に隣接している場合。4軸すべてで
- * 安定と判定された石だけを確定石とする。
+ * 【T058で統一】以前はTS側独自の4軸固定点反復アルゴリズム(隅から安定集合を
+ * 広げる、より多くの確定石を検出しうる方式)を使っており、`engine/src/eval.rs`
+ * の`stable_mask`(隅を起点として辺方向へ連続する同色石のみを確定石とみなす、
+ * より保守的な簡易ロジック)とは別実装だった。この2つは同じ局面に対して
+ * 異なる個数を返しうるため、悪手分析パネルの「なぜ悪いか」(本関数由来)と
+ * 「評価内訳分解」(`attribution.ts`、`eval::stable_count`由来)とで確定石数の
+ * 表示値が食い違う可能性があった(T031やり直し1回目でこの問題を認識したが、
+ * `eval::evaluate`が実際に使っている値との厳密一致を優先し、当時は統一を
+ * 見送っていた)。
  *
- * この判定は「確実に安定である」ことの十分条件を反復的に広げていくだけなので
- * 確定石を見逃すことはあっても(過小評価)、安定でない石を確定石と誤判定する
- * ことはない(過大評価はしない)。「簡易判定」として位置づける理由。
- *
- * 【T031やり直し1回目「should」対応】確定石数の算出は本関数(4軸固定点反復、
- * TS側)と`engine/src/eval.rs`の`stable_mask`(隅から辺方向へ連続する同色石のみ、
- * Rust側)の2種類が併存している。前者の方がより多くの確定石を検出できる
- * (例: 辺以外での挟み込み不能な形も検出しうる)ため、同じ局面でも
- * `BlunderPanel`内の「なぜ悪いか」(本関数)と「評価内訳分解」
- * (`attribution.ts`、`eval::stable_count`経由)とで確定石数の表示値が
- * 異なりうる。評価内訳分解は現行の`eval::evaluate`が実際に使っている値と
- * 厳密に一致させる必要がある(でなければwaterfallの合計が実評価差と
- * 食い違う)ため、意図的に別実装のまま残している。将来的に両者を統一する
- * 場合は、`eval.rs`側の評価関数自体の較正(重みの再計算)も必要になる点に
- * 注意すること。
- *
- * 【T032追記】盤面オーバーレイ(`motifs.ts`の`computeBoardHighlights`)で
- * 「確定石」をマス単位でハイライト表示する必要が生じたため、内部の`Set<number>`
- * (安定と判定されたマス集合)を`computeStableSquares`として切り出しエクスポートした。
- * `countStableDiscs`自体の計算ロジック・戻り値(個数)は変更していない
- * (`.size`を返すだけの薄いラッパーになった)。
+ * T058(盤面連動レイアウト再設計)で、評価内訳と「なぜ悪いか」を同じ盤面上で
+ * 同時に見せる設計にしたため、この食い違いがユーザーに露呈しやすくなる。
+ * そこで本関数を`eval::eval.rs`の`stable_mask`/`edge_stable_mask`と全く同じ
+ * アルゴリズム(4辺それぞれについて、両端から連続する同色石を数えて和集合を
+ * 取るだけ。斜め方向・「ラインが空きマス無しで埋まっている」場合の特例は
+ * 持たない)に置き換えた。これにより、TS側(本関数、盤面オーバーレイ・
+ * 「なぜ悪いか」表示に使用)とRust側(`eval::stable_count`、評価内訳分解に
+ * 使用)は同一のロジックを実装することになり、同じ局面に対する確定石数は
+ * 常に一致する(2つの独立した実装ではあるが、アルゴリズムそのものを完全に
+ * 揃えたことで数値の食い違いは起こりえない)。この変更に伴い、盤面が
+ * 完全に埋まった局面での確定石数(旧アルゴリズムでは全石が確定石扱いだった)
+ * 等、一部の局面で戻り値が変わる(`whyBad.test.ts`参照)。
  */
 export function computeStableSquares(board: Board, side: Side): Set<number> {
-  const ownSquares: number[] = []
-  for (let sq = 0; sq < 64; sq++) {
-    if (cellAt(board, sq) === side) ownSquares.push(sq)
-  }
-
   const stable = new Set<number>()
-  for (const c of CORNERS) {
-    if (cellAt(board, c) === side) stable.add(c)
+  for (const edge of EDGES) {
+    for (const sq of edgeStableSquares(board, side, edge)) stable.add(sq)
   }
-
-  let changed = true
-  while (changed) {
-    changed = false
-    for (const sq of ownSquares) {
-      if (stable.has(sq)) continue
-
-      const stableOnAllAxes = AXES.every(([dFile, dRank]) => {
-        const line = fullLineThrough(sq, dFile, dRank)
-        if (isLineFull(board, line)) return true
-
-        const posNeighbor = neighborInDirection(sq, dFile, dRank)
-        const negNeighbor = neighborInDirection(sq, -dFile, -dRank)
-        const posOk = posNeighbor === null || stable.has(posNeighbor)
-        const negOk = negNeighbor === null || stable.has(negNeighbor)
-        return posOk && negOk
-      })
-
-      if (stableOnAllAxes) {
-        stable.add(sq)
-        changed = true
-      }
-    }
-  }
-
   return stable
 }
 
@@ -224,12 +170,24 @@ function detectCornerRisk(beforeBoard: Board, square: number): WhyBadCornerRisk 
 
 // --- まとめ ---------------------------------------------------------------
 
+/**
+ * 表示用に整形済みの理由テキスト1件ぶん。`category`はT058(盤面連動レイアウト
+ * 再設計)で追加した、この理由に対応する盤面ハイライトの種別
+ * (`BlunderPanel.tsx`が`category`に応じてホバー時のハイライトマスを決める。
+ * `motifs.ts`の`BoardHighlights`のキーとは独立の、この3種のみの簡易分類)。
+ * 対応する具体的なマスが無い理由(該当なし)では`null`。
+ */
+export interface WhyBadReason {
+  readonly text: string
+  readonly category: 'mobility' | 'stable' | 'corner' | null
+}
+
 export interface WhyBadResult {
   readonly mobility: WhyBadMobility
   readonly stability: WhyBadStability
   readonly cornerRisk: WhyBadCornerRisk | null
-  /** 表示用に整形済みの理由テキスト(1行1項目)。 */
-  readonly reasons: readonly string[]
+  /** 表示用に整形済みの理由(1件1項目)。 */
+  readonly reasons: readonly WhyBadReason[]
 }
 
 /**
@@ -242,23 +200,29 @@ export function analyzeWhyBad(beforeBoard: Board, side: Side, square: number): W
   const stability = computeStability(beforeBoard, side, afterBoard)
   const cornerRisk = detectCornerRisk(beforeBoard, square)
 
-  const reasons: string[] = []
-  reasons.push(
-    `着手可能数: この手の前はあなたが${mobility.moverMobilityBefore}箇所に打てましたが、` +
+  const reasons: WhyBadReason[] = []
+  reasons.push({
+    text:
+      `着手可能数: この手の前はあなたが${mobility.moverMobilityBefore}箇所に打てましたが、` +
       `この手の後は相手が${mobility.opponentMobilityAfter}箇所に打てるようになりました。`,
-  )
+    category: 'mobility',
+  })
   if (mobility.opponentGainedMobility) {
-    reasons.push('この手により相手の選択肢が広がりました(着手可能数の悪化)。')
+    reasons.push({ text: 'この手により相手の選択肢が広がりました(着手可能数の悪化)。', category: 'mobility' })
   }
-  reasons.push(
-    `確定石数(簡易判定): ${stability.moverStableBefore}個 → ${stability.moverStableAfter}個` +
+  reasons.push({
+    text:
+      `確定石数: ${stability.moverStableBefore}個 → ${stability.moverStableAfter}個` +
       `(${stability.delta >= 0 ? '+' : ''}${stability.delta})`,
-  )
+    category: 'stable',
+  })
   if (cornerRisk) {
-    reasons.push(
-      `${cornerRisk.kind === 'x' ? 'X打ち' : 'C打ち'}: 隅${cornerRisk.corner}がまだ空いている状態で、` +
+    reasons.push({
+      text:
+        `${cornerRisk.kind === 'x' ? 'X打ち' : 'C打ち'}: 隅${cornerRisk.corner}がまだ空いている状態で、` +
         `その隅に隣接するマスへ着手しています。`,
-    )
+      category: 'corner',
+    })
   }
 
   return { mobility, stability, cornerRisk, reasons }
