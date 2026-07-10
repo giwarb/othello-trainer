@@ -33,10 +33,34 @@
 //! 局面 (盤面+手番) の [`crate::zobrist::zobrist_hash`] をキーにして
 //! 探索結果をキャッシュする(NWSではなく通常のalpha-beta窓で実装しているが、
 //! TTによる枝刈り自体はNWS的な再探索にも十分効く)。
-//! 着手順序は「隅優先 → 着手後の相手の合法手数が少ない順」という単純な
-//! ヒューリスティックで並べ替える(空きマス数によらず全体に適用する)。
+//! 着手順序は「隅優先 → 着手後の相手の合法手数が少ない順 → 空き領域パリティ
+//! (奇数優先、同着時のタイブレークのみ)」というヒューリスティックで並べ替える
+//! (空きマス数によらず全体に適用する)。パリティ部分はT052で追加した
+//! ([`empty_region_sizes`]参照)。
 //! 安定石による静的カットや、空き4/3/2/1のハードコード専用関数は
 //! 本実装では行わない(T006のスコープ外、あれば高速化に寄与するのみ)。
+//!
+//! # パリティベース着手順序付け (T052)
+//!
+//! オセロの終盤完全読みでは、空きマスを「隣接する空きマス同士を同じ領域と
+//! みなすフラッドフィル(上下左右4方向連結)」で連結領域に分割し、各領域の
+//! 空きマス数の奇偶(パリティ)を着手順序のヒントに使うと、アルファベータの
+//! 枝刈り効率が上がることが経験的に知られている(Edaxの`src/endgame.c`の
+//! `QUADRANT_ID`関連ロジックが同種のアイデアを固定象限で近似する版)。
+//! 本実装は固定象限ではなく実際のフラッドフィル領域を使う、より素朴な版。
+//! [`empty_region_sizes`]が現局面の空きマスをこの方法で連結領域分割し、
+//! 各空きマスについて「そのマスが属する領域の空きマス数」を返す。
+//!
+//! **パリティを着手順序のどの優先度に置くかは実測で決めた(T052作業ログ参照)**:
+//! 隅優先の次に(=相手の着手後合法手数より高い優先度で)パリティを適用すると、
+//! 既存のモビリティ順(相手の合法手数が少ない順)という強い情報を上書きして
+//! しまい、FFO #40でノード数が約13%増加するという明確な悪化が実測で確認された。
+//! そのため最終的には、モビリティ順を維持したまま、**同じモビリティ値を持つ
+//! 候補手同士の同着時のタイブレークとしてのみ**パリティ(奇数優先)を使う
+//! 構成を採用している([`negamax`]のソートキーの3番目の要素)。
+//! **着手順序を変えるだけで、探索結果(最終的な評価値)には一切影響しない**
+//! (通常のアルファベータ探索において、より良い手を先に読むほど枝刈りが
+//! 効くという性質を利用した高速化)。
 
 #![allow(dead_code)]
 
@@ -51,6 +75,76 @@ use web_time::Instant;
 /// ビットとマスの対応は `bitboard.rs` 冒頭のドキュメントを参照
 /// (index = rank0*8 + file なので a1=0, h1=7, a8=56, h8=63)。
 const CORNER_MASK: u64 = (1u64 << 0) | (1u64 << 7) | (1u64 << 56) | (1u64 << 63);
+
+// パリティベース着手順序付け(T052)で使う、空きマスの連結領域分割
+// (flood fill)のための上下左右4方向シフト。`bitboard.rs`の
+// `shift_n`/`shift_s`/`shift_e`/`shift_w`(斜め方向含む8方向版)と同じ
+// 考え方だが、あちらは非公開かつ8方向版なので、ここでは4方向のみの
+// 版を`endgame.rs`内に独立して用意する(モジュール分割を増やさないため。
+// タスクの変更対象は`endgame.rs`のみ)。
+const FILE_A: u64 = 0x0101_0101_0101_0101;
+const FILE_H: u64 = 0x8080_8080_8080_8080;
+
+fn shift_n(x: u64) -> u64 {
+    x >> 8
+}
+
+fn shift_s(x: u64) -> u64 {
+    x << 8
+}
+
+fn shift_e(x: u64) -> u64 {
+    (x << 1) & !FILE_A
+}
+
+fn shift_w(x: u64) -> u64 {
+    (x >> 1) & !FILE_H
+}
+
+/// マスク`mask`の各ビットについて、上下左右4方向の隣接マスを合わせた
+/// ビットマスクを返す(`mask`自身のビットは含まないことがある)。
+/// `bitboard.rs`の`dilate8`(8方向版)の4方向限定版。
+fn orthogonal_neighbors(mask: u64) -> u64 {
+    shift_n(mask) | shift_s(mask) | shift_e(mask) | shift_w(mask)
+}
+
+/// 現局面の空きマス(`empties`ビットマスク)を、上下左右4方向連結の
+/// フラッドフィルで連結領域に分割し、各マスについて「そのマスが属する
+/// 領域に含まれる空きマス数」を64要素の配列(index=マス位置0..63)で返す。
+/// 空きマスでない位置の値は`0`(未使用)。
+///
+/// 反復的な膨張(dilate)を、それ以上領域が広がらなくなるまで繰り返す
+/// 方式で実装している(再帰・スタックを使わない単純なビット演算のみの版)。
+fn empty_region_sizes(empties: u64) -> [u32; 64] {
+    let mut sizes = [0u32; 64];
+    let mut remaining = empties;
+
+    while remaining != 0 {
+        // 未処理の空きマスから1つ選び、そこから連結する領域全体を求める。
+        let seed = remaining & remaining.wrapping_neg();
+        let mut region = seed;
+        loop {
+            let expanded = (region | orthogonal_neighbors(region)) & empties;
+            if expanded == region {
+                break;
+            }
+            region = expanded;
+        }
+
+        let size = region.count_ones();
+        let mut bits = region;
+        while bits != 0 {
+            let lsb = bits & bits.wrapping_neg();
+            let idx = lsb.trailing_zeros() as usize;
+            sizes[idx] = size;
+            bits &= bits - 1;
+        }
+
+        remaining &= !region;
+    }
+
+    sizes
+}
 
 /// 終局時の最終石差 (`side` から見た値) を計算する。
 ///
@@ -250,7 +344,11 @@ fn negamax(
         return -negamax(board, side.opposite(), -beta, -alpha, tt, nodes, budget, timed_out);
     }
 
-    // 合法手を列挙し、隅優先 → 相手の着手後合法手数が少ない順に並べ替える。
+    // 合法手を列挙し、隅優先 → 相手の着手後合法手数が少ない順 → 空き領域
+    // パリティ(奇数優先、同着時のタイブレークのみ、T052)に並べ替える。
+    // パリティをモビリティより高い優先度に置くと明確に悪化することが実測で
+    // 確認されたため、あえてこの優先順位(モビリティが先)にしている
+    // (モジュール冒頭ドキュメント・T052作業ログ参照)。
     let mut moves: Vec<u64> = Vec::with_capacity(legal.count_ones() as usize);
     let mut remaining = legal;
     while remaining != 0 {
@@ -259,11 +357,22 @@ fn negamax(
         remaining &= remaining - 1;
     }
 
+    // T052: 着手先マスが属する空き領域の空きマス数(パリティ判定用)を、
+    // 現局面の空きマス集合から一度だけ計算しておく(手ごとに計算し直さない)。
+    let empty_squares = !(board.black | board.white);
+    let region_sizes = empty_region_sizes(empty_squares);
+
     moves.sort_by_key(|&mv| {
         let is_corner = mv & CORNER_MASK != 0;
+        let region_size = region_sizes[mv.trailing_zeros() as usize];
+        let is_even_parity = region_size % 2 == 0;
         let next_board = board.apply_move(side, mv);
         let opp_mobility = next_board.legal_moves(side.opposite()).count_ones();
-        (if is_corner { 0u32 } else { 1u32 }, opp_mobility)
+        (
+            if is_corner { 0u32 } else { 1u32 },
+            opp_mobility,
+            if is_even_parity { 1u32 } else { 0u32 },
+        )
     });
 
     let mut best_score = i32::MIN;
@@ -313,6 +422,89 @@ fn negamax(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // =====================================================================
+    // T052: パリティベース着手順序付けで使う `empty_region_sizes`
+    // (空きマスの連結領域分割、上下左右4方向flood fill)のユニットテスト。
+    // =====================================================================
+
+    #[test]
+    fn empty_region_sizes_of_fully_empty_board_is_one_connected_region_of_64() {
+        // 空きマスが1つも埋まっていない盤面(全64マスが空き)は、
+        // 上下左右4方向で全マスが連結するので、単一の領域(サイズ64)になる。
+        let empties = u64::MAX;
+        let sizes = empty_region_sizes(empties);
+        for idx in 0..64usize {
+            assert_eq!(sizes[idx], 64, "square index {idx} should belong to a size-64 region");
+        }
+    }
+
+    #[test]
+    fn empty_region_sizes_of_single_isolated_empty_square_is_one() {
+        // 盤面のほぼ全体を黒で埋め、1マス(d4)だけ空けておく。
+        // 唯一の空きマスは周囲を全て非空きマスに囲まれているので、
+        // それだけで独立した領域(サイズ1、奇数パリティ)になる。
+        let hole = 1u64 << 27; // d4 = index 27
+        let empties = hole;
+        let sizes = empty_region_sizes(empties);
+
+        assert_eq!(sizes[27], 1);
+        // 空きマスでない位置は0のまま(未使用値)であることも確認する。
+        assert_eq!(sizes[0], 0);
+        assert_eq!(sizes[63], 0);
+    }
+
+    #[test]
+    fn empty_region_sizes_splits_board_into_disconnected_regions_when_a_row_is_fully_occupied() {
+        // rank0=3 (盤面の「4行目」)を全マス黒で埋め、盤面を上下2つの領域に
+        // 分断する。上側(rank0=0..2, 3行×8列=24マス)と下側
+        // (rank0=4..7, 4行×8列=32マス)は、この行を挟んで上下左右には
+        // 連結しない(黒石で塞がれているため)。
+        let row4_mask: u64 = 0xFFu64 << (3 * 8);
+        let board = Board {
+            black: row4_mask,
+            white: 0,
+        };
+        let empties = !(board.black | board.white);
+        assert_eq!(empties.count_ones(), 56);
+
+        let sizes = empty_region_sizes(empties);
+
+        // 上側(rank0=0..2)は互いに同じ領域(サイズ24、偶数パリティ)。
+        for rank in 0..3u32 {
+            for file in 0..8u32 {
+                let idx = (rank * 8 + file) as usize;
+                assert_eq!(sizes[idx], 24, "index {idx} (rank={rank}, file={file}) expected size 24");
+            }
+        }
+        // 下側(rank0=4..7)は互いに同じ領域(サイズ32、偶数パリティ)。
+        for rank in 4..8u32 {
+            for file in 0..8u32 {
+                let idx = (rank * 8 + file) as usize;
+                assert_eq!(sizes[idx], 32, "index {idx} (rank={rank}, file={file}) expected size 32");
+            }
+        }
+        // 埋まっている行(rank0=3)は空きマスではないので0のまま。
+        for file in 0..8u32 {
+            let idx = (3 * 8 + file) as usize;
+            assert_eq!(sizes[idx], 0, "index {idx} should be unused (not an empty square)");
+        }
+    }
+
+    #[test]
+    fn empty_region_sizes_treats_diagonal_adjacency_as_disconnected() {
+        // 4方向連結(上下左右)のみを連結とみなし、斜め隣接は連結と
+        // みなさないことを確認する。a1(index 0)とb2(index 9)は
+        // 斜めに隣接するのみで、上下左右には隣接しないため、
+        // 他がすべて埋まっていれば別々の領域(いずれもサイズ1)になる。
+        let a1 = 1u64 << 0;
+        let b2 = 1u64 << 9;
+        let empties = a1 | b2;
+        let sizes = empty_region_sizes(empties);
+
+        assert_eq!(sizes[0], 1, "a1 should be its own size-1 region (not connected to b2 diagonally)");
+        assert_eq!(sizes[9], 1, "b2 should be its own size-1 region (not connected to a1 diagonally)");
+    }
 
     // =====================================================================
     // 独立した参照実装 (naive reference implementation)
