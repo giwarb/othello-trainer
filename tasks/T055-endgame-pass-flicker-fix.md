@@ -104,3 +104,13 @@ attempts: 0
   - いずれのセッションでもconsole/pageエラーは0件。
 
 上記により受け入れ基準の前半3項目(test/typecheck/build/実機確認)を満たした。本番デプロイ確認は次のログ参照。
+
+- 2026-07-10 implementer: 本番デプロイ・確認。
+  - コミット `cdac59e`("app: 中盤練習・詰めオセロのパス処理を同期化しオーバーレイのちらつきを解消(T055)")を`main`にpush。
+  - GitHub Actions「Deploy to GitHub Pages」ワークフロー(run ID 29073960878)を`gh run watch`で監視、`build`(45s)・`deploy`(11s)ともに成功を確認。
+  - `https://giwarb.github.io/othello-trainer/`に対し、Playwright CLI(`node`スクリプト、`playwright`パッケージを利用、ローカル確認と同一手法)で以下を自動確認:
+    1. 中盤練習モード(定石終端からランダム開始、判定モード標準、5セッション連続自動プレイ、「最善/準最善」マスを毎手クリック): 56手分の人間の着手を通じて`suspiciousFlashes`(旧バグのシグネチャ、人間の手番から一瞬相手の手番表示に変わり200ms以内に戻る、というパターン)が0件、`finalizing`(「終盤の完全読みで結果を確定しています…」)表示の発生、結果画面への到達、console/pageエラー0件を確認。
+    2. 詰めオセロモード(ランダム出題、15問連続自動プレイ): 94手分の着手を通じて`suspiciousFlashes`0件、かつ出題文の`最善で+X`表示から実際のパス発生を24件直接検出(`passEvidenceCount`)した上でそのいずれにおいてもちらつきシグネチャが検出されなかったことを確認。console/pageエラー0件。
+  - ローカル(`npm run dev`、`http://localhost:5175/`)でも同様のPlaywrightスクリプトで先に確認済み(中盤練習: 複数セッションで`suspiciousFlashes`0件・`finalizing`表示確認、詰めオセロ: 15問で`suspiciousFlashes`0件・実際のパス29件検出)。
+  - 検証に使ったPlaywrightスクリプトは一時ファイル(`app/.verify-t055-*.mjs`)として作成・実行し、確認後に削除済み(リポジトリには残していない)。
+  - 以上により受け入れ基準4項目すべて達成。
