@@ -31,9 +31,13 @@ export type MoveClassification = 'best' | 'inaccuracy' | 'dubious' | 'blunder'
 /**
  * 1手ごとの解析結果。`ply`は0始まりの手数(0 = 最初の着手)。
  *
- * 評価値(`bestDiscDiff`/`playedDiscDiff`)は着手前局面の手番(`side`)視点。
- * `blackAdvantageBefore`/`blackAdvantageAfter`は黒視点に統一した値で、
- * グラフ描画(§6.3、黒優勢を上に)と逆転判定の両方に使う。
+ * 評価値(`bestDiscDiff`/`playedDiscDiff`)は着手前局面の手番(`side`)視点の
+ * 生の探索値(同一局面内の最善手と実際の手の比較にのみ使う、`lossDiscs`の元)。
+ * `blackAdvantageBefore`/`blackAdvantageAfter`はそれとは別に、局面ごとに独立した
+ * 探索値ではなく`analyzeGame`が`lossDiscs`を先頭(`E[0] = 0`)から積み上げて
+ * 計算する**累積評価値**(黒視点、T056)。最善手(ロス0)が続く限り値は変化せず、
+ * 悪手を打った時だけロス分だけ悪化する。グラフ描画(§6.3、黒優勢を上に)・
+ * ムーブリストの評価表示・逆転判定のいずれもこの累積値を使う。
  */
 export interface MoveAnalysis {
   readonly ply: number
@@ -66,11 +70,16 @@ export interface MoveAnalysis {
   readonly lossDiscs: number
   /** ロス量に基づく分類。 */
   readonly classification: MoveClassification
-  /** この手によって黒視点の優勢/劣勢(符号)が入れ替わったか(逆転悪手)。 */
+  /**
+   * この手によって累積評価値(黒視点)の符号が入れ替わったか(逆転悪手、T056)。
+   * `blackAdvantageBefore`と`blackAdvantageAfter`の符号(`Math.sign`)を比較して
+   * 判定する。最善手(ロス0)では`blackAdvantageBefore === blackAdvantageAfter`
+   * のため常に`false`。
+   */
   readonly reversal: boolean
-  /** 着手前局面の評価値(黒視点)。 */
+  /** 着手前局面の累積評価値(黒視点、T056)。直前の手の`blackAdvantageAfter`と一致する。 */
   readonly blackAdvantageBefore: number
-  /** 着手後局面の評価値(黒視点。次の手の`blackAdvantageBefore`、または最終局面なら確定石差)。 */
+  /** 着手後局面の累積評価値(黒視点、T056。次の手の`blackAdvantageBefore`と一致する)。 */
   readonly blackAdvantageAfter: number
 }
 

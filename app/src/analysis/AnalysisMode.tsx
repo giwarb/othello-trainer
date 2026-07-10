@@ -50,13 +50,28 @@ function sideLabel(side: Side): string {
 }
 
 /**
+ * ムーブリストの「評価」列に表示する値(T056)。`analyzeGame`が計算した
+ * 累積評価値(`blackAdvantageAfter`、黒視点)を、その手を打った側(`side`)
+ * から見た石差に変換する(`EvalBadge`の`discDiff`は手番視点の規約のため)。
+ * 局面ごとに独立した探索の生値(`playedDiscDiff`)ではなく累積値を使うことで、
+ * 最善手を打った手では表示が変化しないようにする。
+ */
+function movelistEvalDiscDiff(m: MoveAnalysis): number {
+  return m.side === 'black' ? m.blackAdvantageAfter : -m.blackAdvantageAfter
+}
+
+/**
  * `MoveAnalysis[]`(要件3〜5)から評価グラフ用の点列を作る(要件6)。
  *
- * T046: 定石内の手(`evalSource === 'joseki'`)の評価値は毎回浅い探索による
- * ノイズの大きい値であり、そのまま折れ線に使うと「定石なのに評価が
- * 無意味に上下する」矛盾した見え方になる。そのため定石区間の`value`は
- * 0(互角)に固定し、定石を外れた時点から実際のヒューリスティック評価値の
- * 変動が始まるようにする。
+ * T056: `blackAdvantageBefore`/`blackAdvantageAfter`は`analyzeGame`が
+ * 先頭から`lossDiscs`を積み上げて計算する累積評価値(黒視点)であり、
+ * 局面ごとに独立した探索の生値ではない。最善手が続く区間はそのまま平ら
+ * (値が変化しない)になる。
+ *
+ * T046: 定石内の手(`evalSource === 'joseki'`)は上記累積評価値としては
+ * 常に変化しない(定石内はロス0のため)が、念のため`value`を明示的に
+ * 0(互角)へ固定しておく(定石区間に入る前に既に非0の累積値へ動いていた
+ * 場合でも、定石区間の帯は常にフラット表示にするための防御)。
  */
 function buildGraphPoints(results: readonly MoveAnalysis[]): EvalGraphPoint[] {
   if (results.length === 0) return []
@@ -453,7 +468,7 @@ export function AnalysisMode() {
                     <td>{sideLabel(m.side)}</td>
                     <td>{m.move}</td>
                     <td>
-                      <EvalBadge discDiff={m.playedDiscDiff} source={m.evalSource} />
+                      <EvalBadge discDiff={movelistEvalDiscDiff(m)} source={m.evalSource} />
                     </td>
                     <td>{m.lossDiscs > 0 ? formatDiscDiff(-m.lossDiscs) : '±0'}</td>
                     <td>

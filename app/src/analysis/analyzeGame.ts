@@ -7,11 +7,19 @@
  * 2. **終局側から**(`moves`の末尾から先頭へ向けて)1手ずつ解析する。
  *    各局面の解析は`AnalyzeEngine.requestAnalyzeAll`(≒`EngineClient`)を呼び、
  *    `ANALYZE_LIMIT`(空き22以下は完全読み、それより前はdepth18)を使う。
- *    キャッシュ(`cache.ts`)により同一局面の再解析を避ける。
- * 3. 各手のロス・分類(`classifyMove`)・逆転悪手判定を求める。逆転判定には
- *    「この手の直後の局面の黒視点評価」が要るが、終局側から処理しているため
- *    常に1つ後(=次に解析するより手数が多い側)の局面の値をすでに持っている
- *    (設計書の「終局側から解析する」意図と実装上も自然に合致する)。
+ *    キャッシュ(`cache.ts`)により同一局面の再解析を避ける。この段階では
+ *    各手のロス(`lossDiscs`)・分類(`classifyMove`)のみを求める。
+ * 3. **累積評価値(T056、`applyCumulativeEvaluation`)**: 表示用の評価値
+ *    (`blackAdvantageBefore`/`blackAdvantageAfter`)は、局面ごとに独立した
+ *    ヒューリスティック探索の生値ではなく、初期局面`E[0] = 0`(互角)から
+ *    各手の`lossDiscs`を先頭から積み上げて計算する累積値にする
+ *    (`E[i] = E[i-1] - loss[i]`(その手を打ったのが黒番)、
+ *    `E[i] = E[i-1] + loss[i]`(白番))。最善手(ロス0)が続く限り評価値は
+ *    変化せず、悪手を打った瞬間だけそのロス分だけ悪化する。これにより、
+ *    「最善手を打っただけなのに評価値が探索ノイズで跳ねて見える」問題を防ぐ。
+ *    「逆転」判定もこの累積値の符号変化を基準に行う(生の探索値の符号変化を
+ *    見ていた旧実装では、最善手が続いていても逆転と誤判定することがあった)。
+ *    詳細は`applyCumulativeEvaluation`のコメント参照。
  *
  * 空きマス数が大きい局面で完全読みに入って長時間ハングする事故(過去のFFO重い
  * 問題での経験)を避けるため、`ANALYZE_LIMIT.exactFromEmpties`は22に固定して
@@ -21,16 +29,16 @@
  * 定石DB連携(T038): `options.josekiDb`にロード済みの`JosekiDb`が渡された場合、
  * 各局面で`lookupJosekiNode`を呼び、実際に打った手が定石DBの候補手集合に含まれて
  * いれば「定石内」とみなす。定石内の手は評価ソース(`evalSource`)を`'joseki'`、
- * 分類を`'best'`、`lossDiscs`を`0`、逆転判定を`false`に上書きする(序盤の
- * ヒューリスティック評価のノイズによる悪手誤判定を避けるため)。`josekiDb`が
- * `null`または省略された場合(ロード失敗時のフォールバック含む)は、この上書きを
- * 一切行わず従来通り`exact`/`midgame`のみで評価する。
+ * 分類を`'best'`、`lossDiscs`を`0`に上書きする(序盤のヒューリスティック評価の
+ * ノイズによる悪手誤判定を避けるため)。`lossDiscs`が`0`になることで、累積評価値
+ * (上記3)もその区間は変化せず、T046の「定石区間は評価値0固定」と自然に整合する。
+ * `josekiDb`が`null`または省略された場合(ロード失敗時のフォールバック含む)は、
+ * この上書きを一切行わず従来通り`exact`/`midgame`のみで評価する。
  */
 
 import type { AnalyzeLimit, MoveEvalJson } from '../engine/types.ts'
 import {
   applyMove,
-  countDiscs,
   initialBoard,
   legalMoves,
   notationToSquare,
@@ -172,19 +180,6 @@ export async function analyzeGame(
 
   const results: MoveAnalysis[] = new Array(total)
 
-  // 最終局面の黒視点評価値を先に求める。真の終局(両者とも合法手なし)であれば
-  // 確定石差、そうでなければ(棋譜が対局途中で終わっている場合)最終局面自体を
-  // 解析して得られる最善手の評価値を使う。
-  const finalPos = positions[total]!
-  let nextBlackAdvantage: number
-  if (finalPos.mover === null) {
-    nextBlackAdvantage = countDiscs(finalPos.board, 'black') - countDiscs(finalPos.board, 'white')
-  } else {
-    const finalMoves = await analyzePosition(engine, finalPos.board, finalPos.mover, options.dbFactory)
-    const best = pickBest(finalMoves)
-    nextBlackAdvantage = finalPos.mover === 'black' ? best.discDiff : -best.discDiff
-  }
-
   for (let i = total - 1; i >= 0; i--) {
     const pos = positions[i]!
     const mover = pos.mover
@@ -198,16 +193,19 @@ export async function analyzeGame(
     const playedNotation = moves[i]!
     const played = allMoves.find((m) => m.move === playedNotation) ?? best
     const lossDiscs = Math.max(0, best.discDiff - played.discDiff)
-    const blackAdvantageBefore = mover === 'black' ? best.discDiff : -best.discDiff
 
     // 定石DB連携(T038): この局面が定石DBに登録されており、実際に打った手が
-    // 定石ラインの候補手に含まれていれば「定石内」とみなし、悪手判定・逆転判定を
-    // `'best'`/`false`で上書きする(要件1・2)。`josekiDb`が`null`(ロード失敗
-    // またはオプション未指定)なら常にスキップし、従来通りの評価に戻る(要件3)。
+    // 定石ラインの候補手に含まれていれば「定石内」とみなし、悪手判定を
+    // `'best'`/`lossDiscs: 0`で上書きする(要件1・2)。`josekiDb`が`null`
+    // (ロード失敗またはオプション未指定)なら常にスキップし、従来通りの評価に
+    // 戻る(要件3)。
     const josekiLookup = josekiDb ? lookupJosekiNode(josekiDb, pos.board, mover, firstMoveSquare) : null
     const playedSquare = notationToSquare(playedNotation)
     const inBook = josekiLookup !== null && josekiLookup.bookMoves.some((bm) => bm.move === playedSquare)
 
+    // `blackAdvantageBefore`/`blackAdvantageAfter`/`reversal`はこの時点では
+    // プレースホルダー(下記`applyCumulativeEvaluation`が先頭から順に積み上げて
+    // 上書きする、T056)。
     results[i] = {
       ply: i,
       move: playedNotation,
@@ -221,14 +219,50 @@ export async function analyzeGame(
       playedDiscDiff: played.discDiff,
       lossDiscs: inBook ? 0 : lossDiscs,
       classification: inBook ? 'best' : classifyMove(lossDiscs, thresholds),
-      reversal: inBook ? false : Math.sign(blackAdvantageBefore) !== Math.sign(nextBlackAdvantage),
-      blackAdvantageBefore,
-      blackAdvantageAfter: nextBlackAdvantage,
+      reversal: false,
+      blackAdvantageBefore: 0,
+      blackAdvantageAfter: 0,
     }
 
-    nextBlackAdvantage = blackAdvantageBefore
     options.onProgress?.({ done: total - i, total, justAnalyzedPly: i })
   }
 
+  applyCumulativeEvaluation(results)
+
   return results
+}
+
+/**
+ * 累積評価値(黒視点、T056)を先頭から積み上げて計算し、`results`の
+ * `blackAdvantageBefore`/`blackAdvantageAfter`/`reversal`を上書きする。
+ *
+ * 漸化式: `E[0] = 0`(初期局面、慣例上の互角)を起点に、`i`手目(手番`side`)を
+ * 打った後の評価値を次で求める(`loss[i]`は`results[i].lossDiscs`、0以上。
+ * 定石内の手は`analyzeGame`側で既に`0`に上書き済み):
+ * - `side`が黒なら `E[i] = E[i-1] - loss[i]`
+ * - `side`が白なら `E[i] = E[i-1] + loss[i]`
+ *
+ * 最善手(ロス0)が続く限り`E[i] = E[i-1]`で評価値は変化しない。終盤の完全読み
+ * 区間まで含めて全手にこの漸化式を適用すると、`loss`の積み上げが
+ * telescoping(望遠鏡式に打ち消し合う)し、最終的な累積評価値は実際の
+ * 最終石差に一致する(終盤完全読みのロス計算が正確であるため)。
+ *
+ * 「逆転」は`E[i-1]`と`E[i]`の符号(`Math.sign`)が異なる場合に立てる
+ * (最善手が続く間は`E[i-1] === E[i]`のため符号は変わらず、逆転は発生しない)。
+ */
+function applyCumulativeEvaluation(results: MoveAnalysis[]): void {
+  let cumulative = 0
+  for (let i = 0; i < results.length; i++) {
+    const m = results[i]!
+    const before = cumulative
+    const signedLoss = m.side === 'black' ? -m.lossDiscs : m.lossDiscs
+    const after = before + signedLoss
+    results[i] = {
+      ...m,
+      blackAdvantageBefore: before,
+      blackAdvantageAfter: after,
+      reversal: Math.sign(before) !== Math.sign(after),
+    }
+    cumulative = after
+  }
 }

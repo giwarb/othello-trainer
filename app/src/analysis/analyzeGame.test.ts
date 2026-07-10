@@ -1,7 +1,17 @@
 import { IDBFactory } from 'fake-indexeddb'
 import { describe, expect, it } from 'vitest'
 import type { AnalyzeLimit, MoveEvalJson } from '../engine/types.ts'
-import { applyMove, initialBoard, notationToSquare, type Board, type Side } from '../game/othello.ts'
+import {
+  applyMove,
+  countDiscs,
+  initialBoard,
+  legalMoves,
+  notationToSquare,
+  opposite,
+  squareToNotation,
+  type Board,
+  type Side,
+} from '../game/othello.ts'
 import { buildJosekiDb } from '../joseki/buildDb.ts'
 import { hashBoard } from '../joseki/normalize.ts'
 import type { RawJosekiLine } from '../joseki/types.ts'
@@ -99,10 +109,10 @@ describe('analysis/analyzeGame: analyzeGame', () => {
     expect(m.lossDiscs).toBeCloseTo(3.5)
     expect(m.classification).toBe('dubious')
     expect(m.isExact).toBe(false)
-    expect(m.blackAdvantageBefore).toBeCloseTo(3.0)
-    // 白の最善応手(discDiff 2.0、白視点)を黒視点に変換すると-2.0。
-    expect(m.blackAdvantageAfter).toBeCloseTo(-2.0)
-    // 黒視点の符号が+から-に反転しているため逆転悪手。
+    // 累積評価値(T056): E[0]=0(互角)を起点に、黒番のロス3.5を差し引く。
+    expect(m.blackAdvantageBefore).toBeCloseTo(0)
+    expect(m.blackAdvantageAfter).toBeCloseTo(-3.5)
+    // 累積評価値の符号が0(互角扱い)から-(白有利)に変わったため逆転悪手。
     expect(m.reversal).toBe(true)
 
     expect(progressCalls).toEqual([{ done: 1, total: 1, justAnalyzedPly: 0 }])
@@ -207,5 +217,127 @@ describe('analysis/analyzeGame: 定石DB連携(T038)', () => {
     expect(m.classification).toBe('dubious')
     expect(m.reversal).toBe(true)
     expect(m.josekiNames).toBeUndefined()
+  })
+})
+
+describe('analysis/analyzeGame: 累積評価値(T056)', () => {
+  it('最善手が連続する場合、評価値(累積)が変化しない', async () => {
+    // f5(黒)・d6(白)とも「最善かつ実際に打った手」(ロス0)にする。
+    const bestF5: MoveEvalJson[] = [
+      { move: 'f5', score: 100, discDiff: 1.0, type: 'midgame' },
+      { move: 'd3', score: 50, discDiff: 0.5, type: 'midgame' },
+    ]
+    const bestD6: MoveEvalJson[] = [
+      { move: 'd6', score: 100, discDiff: 1.0, type: 'midgame' },
+      { move: 'f4', score: 50, discDiff: 0.5, type: 'midgame' },
+    ]
+    const byHash = new Map<string, MoveEvalJson[]>([
+      [hashBoard(BOARD0, 'black'), bestF5],
+      [hashBoard(BOARD1, 'white'), bestD6],
+    ])
+    const engine: AnalyzeEngine = {
+      async requestAnalyzeAll(board, turn) {
+        const found = byHash.get(hashBoard(board, turn))
+        if (!found) throw new Error('unexpected position queried')
+        return found
+      },
+    }
+    const dbFactory = new IDBFactory()
+
+    const results = await analyzeGame(engine, ['f5', 'd6'], { dbFactory })
+
+    expect(results[0]!.lossDiscs).toBeCloseTo(0)
+    expect(results[0]!.blackAdvantageBefore).toBeCloseTo(0)
+    expect(results[0]!.blackAdvantageAfter).toBeCloseTo(0)
+    expect(results[0]!.reversal).toBe(false)
+
+    expect(results[1]!.lossDiscs).toBeCloseTo(0)
+    expect(results[1]!.blackAdvantageBefore).toBeCloseTo(0)
+    expect(results[1]!.blackAdvantageAfter).toBeCloseTo(0)
+    expect(results[1]!.reversal).toBe(false)
+  })
+
+  it('悪手を打った場合、評価値がちょうどロス分だけ悪化する(黒番・白番双方で符号が正しい)', async () => {
+    const engine = makeFakeEngine()
+    const dbFactory = new IDBFactory()
+
+    // f5(黒、MOVES_BOARD0の最善はd3のdiscDiff3.0、実際はf5のdiscDiff-0.5でロス3.5)
+    // → d6(白、MOVES_BOARD1の最善はf4のdiscDiff2.0、実際はd6のdiscDiff1.0でロス1.0)。
+    const results = await analyzeGame(engine, ['f5', 'd6'], { dbFactory })
+
+    // 黒番のロス3.5: E[0]=0 → E[1] = 0 - 3.5 = -3.5(黒が損した分だけ黒視点で悪化)。
+    expect(results[0]!.side).toBe('black')
+    expect(results[0]!.lossDiscs).toBeCloseTo(3.5)
+    expect(results[0]!.blackAdvantageBefore).toBeCloseTo(0)
+    expect(results[0]!.blackAdvantageAfter).toBeCloseTo(-3.5)
+
+    // 白番のロス1.0: E[1] = -3.5 → E[2] = -3.5 + 1.0 = -2.5(白が損した分だけ黒視点で改善)。
+    expect(results[1]!.side).toBe('white')
+    expect(results[1]!.lossDiscs).toBeCloseTo(1.0)
+    expect(results[1]!.blackAdvantageBefore).toBeCloseTo(-3.5)
+    expect(results[1]!.blackAdvantageAfter).toBeCloseTo(-2.5)
+  })
+
+  it('逆転判定は累積評価値の符号が実際に変わった場合にのみ発生する', async () => {
+    const engine = makeFakeEngine()
+    const dbFactory = new IDBFactory()
+
+    const results = await analyzeGame(engine, ['f5', 'd6'], { dbFactory })
+
+    // 0(互角扱い)→-3.5(白有利)へ符号が変わるため逆転。
+    expect(results[0]!.reversal).toBe(true)
+    // -3.5(白有利)→-2.5(白有利のまま)は符号が変わらないため逆転ではない
+    // (評価値自体は変化しているが、逆転ではないことを確認する)。
+    expect(results[1]!.reversal).toBe(false)
+  })
+
+  it('終盤まで含めた累積評価値の最終値が実際の最終石差と一致する(telescoping性質)', async () => {
+    // 決定的な方策(各局面の合法手を記法の辞書順に並べ、先頭の手を選ぶ)で、
+    // 実際のオセロ規則(`legalMoves`/`applyMove`)に従い4手進めた棋譜を作る。
+    const moves: string[] = []
+    let board = initialBoard()
+    let side: Side = 'black'
+    for (let step = 0; step < 4; step++) {
+      const chosen = legalMoves(board, side).map(squareToNotation).sort()[0]!
+      moves.push(chosen)
+      board = applyMove(board, side, notationToSquare(chosen))
+      side = opposite(side)
+    }
+    const realFinalDiff = countDiscs(board, 'black') - countDiscs(board, 'white')
+
+    // 4手全てを「最善かつ実際の手」(ロス0)にすると累積評価値は0のまま変化
+    // しないため、`realFinalDiff`と一致させるには1手だけ意図的にロスを持たせる
+    // 必要がある。黒番のロスはE(黒視点)を減らし、白番のロスはEを増やすため、
+    // `realFinalDiff`の符号に応じてロスを持たせる手番(ply0=黒 or ply1=白)を選ぶ。
+    const blunderPly = realFinalDiff <= 0 ? 0 : 1
+    const lossMagnitude = Math.abs(realFinalDiff)
+
+    const positions = replayGame(moves)
+    const byHash = new Map<string, MoveEvalJson[]>()
+    for (let i = 0; i < moves.length; i++) {
+      const pos = positions[i]!
+      const played = moves[i]!
+      const entries: MoveEvalJson[] =
+        i === blunderPly
+          ? [
+              { move: played, score: 0, discDiff: 0, type: 'midgame' },
+              { move: '__best__', score: 0, discDiff: lossMagnitude, type: 'midgame' },
+            ]
+          : [{ move: played, score: 0, discDiff: 0, type: 'midgame' }]
+      byHash.set(hashBoard(pos.board, pos.mover!), entries)
+    }
+    const engine: AnalyzeEngine = {
+      async requestAnalyzeAll(b, turn) {
+        const found = byHash.get(hashBoard(b, turn))
+        if (!found) throw new Error('unexpected position queried')
+        return found
+      },
+    }
+    const dbFactory = new IDBFactory()
+
+    const results = await analyzeGame(engine, moves, { dbFactory })
+    const last = results[results.length - 1]!
+
+    expect(last.blackAdvantageAfter).toBeCloseTo(realFinalDiff)
   })
 })
