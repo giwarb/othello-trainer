@@ -106,4 +106,9 @@ explorer調査により、現状の構造と問題点が判明している:
       ハイライト・クリック→用語集ポップオーバー表示。評価内訳ラベルクリック→用語集ポップオーバー表示。
       反証層は「実際の進行」「最善進行」の2列が常時同時表示(タブ切替なし、要件3確認済み)。375px幅でも
       横スクロールなし(`panelScrollWidth <= panelClientWidth`かつ`bodyScrollWidth === 375`)。
-    - 本番デプロイ・Playwright確認: 下記に追記予定(main pushとGitHub Actionsデプロイ完了後に実施)。
+    - **本番デプロイ・Playwright確認**: `git push origin main`(コミット`7890613`)後、
+      `gh run watch`でGitHub Actionsのデプロイ完了(成功)を確認。本番URL
+      (`https://giwarb.github.io/othello-trainer/`)に対してPlaywrightで同様のシナリオを実行し、
+      「確定石」ホバー→盤面1マスハイライト(同一局面の「なぜ悪いか」の「確定石数: 1個→1個」と一致)、
+      評価内訳ラベルクリック→用語集ポップオーバー表示、モチーフタグホバー→盤面ハイライト、
+      反証層の「実際の進行」「最善進行」が常時2列同時表示、をいずれも確認した。
