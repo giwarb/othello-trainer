@@ -118,3 +118,11 @@ attempts: 0
 **変更ファイル**: `bookgen/joseki-research.json`(90→112ライン、revisionNote3_T050追加、闘牛Cのaliases/sources更新)、`app/public/joseki.json`(再生成、90→112 lines/507→615 nodes)、`app/src/joseki/buildDb.test.ts`・`app/src/joseki/lookup.test.ts`(ライン数依存アサーションを90→112に更新)。
 
 **注記**: 作業ディレクトリには他エージェントによるengine/(MPC実装)関連の未コミット変更が並行して存在していたが、本タスクでは`bookgen/`・`app/src/joseki/`・`app/public/joseki.json`のみを変更し、`git add`でも該当ファイルのみを明示的に指定してコミットした(engine/やbench/配下には一切触れていない)。
+
+**本番デプロイ・Playwright確認(受け入れ基準最終項目)**:
+1. `git commit`(コミット`0efe23b`、対象: `bookgen/joseki-research.json`・`app/public/joseki.json`・`app/src/joseki/buildDb.test.ts`・`app/src/joseki/lookup.test.ts`・本タスクファイルのみ)後、`git push origin main`実行。
+2. `gh run watch 29058738155 --exit-status`でGitHub Actionsのデプロイ成功を確認(build 57s + deploy 10s、全ステップ✓)。
+3. `curl https://giwarb.github.io/othello-trainer/joseki.json`を取得しPythonでJSONパースした結果、本番配信データが112 lines(615ノードのDAG)であること、および新規追加した「ネズミ定石：基本」「鶴定石」「白大量取り」「マムシ定石・基本形」「Kung」「Shaman11-g6型」「闘牛C」(ロケット定石のalias統合先)が全て`present`であることを確認。
+4. Playwrightで本番URL(`https://giwarb.github.io/othello-trainer/`)にアクセスし、定石練習モードを開いて黒番でセッションを開始・盤面クリックでf5着手→白の自動応手→黒番の合法手ヒント表示までを確認(スクリーンショットで目視確認、ローカル`npm run dev`実行結果と同一の見た目)。コンソールエラー・ページエラー・リクエスト失敗はいずれも0件。スクラッチスクリプト・スクリーンショットは確認完了後に削除済み(コミット対象外)。
+
+以上により、受け入れ基準の全項目(監査サマリの記録・出典実地照合の記録・DAG再構築後の検証・`npm test`全件パス・実機確認・本番デプロイ確認)を満たした。
