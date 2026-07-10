@@ -55,4 +55,6 @@ T056(累積ロス方式の評価値モデル)で、「逆転」判定を`Math.si
   - `npm test`(`app/`配下): 54ファイル・456件全件パス。
   - `npm run build`(`app/`配下): 成功(`tsc -b && vite build`まで完走)。
 - 実機確認(`npm run dev`、localhost:5173): Playwrightスクリプト(scratchpad、コミット対象外)で「棋譜解析」モードに、辞書順先頭の合法手を選び続ける決定的方策で生成した実在合法な20手棋譜(`c4c3c2b2a2a1d3a3b3b4a4a5b1c1e6b5a6a7b6`)を投入し解析。EvalGraphの各ポイントtitle(`N手目時点: ±X石`)から累積評価値の推移を取得し、ムーブリスト行の`--reversal`クラス付与が全19手にわたり`(before>0 && after<0) || (before<0 && after>0)`の期待値と完全一致することを確認(`ply=3: before=0 after=-25 reversal=false`など、0からの遷移は逆転扱いされないことを含め全件OK)。console errorなし。
-- 変更をmainにコミット・push予定。push後、GitHub Actionsのデプロイ成功を確認し、同じPlaywrightスクリプトを本番URL(`https://giwarb.github.io/othello-trainer/`)に対して実行し実機確認する(以降のログに追記)。
+- 変更をmainにコミット(`d5543a1`)・push。GitHub Actions「Deploy to GitHub Pages」(run 29128118433)がbuild/deployとも成功(約46秒)したことを`gh run watch`で確認。
+- 本番確認: 同じPlaywrightスクリプトを本番URL(`https://giwarb.github.io/othello-trainer/`)に対して実行。ローカルと同じ20手棋譜で解析し、全19手の`reversal`表示が`(before>0 && after<0) || (before<0 && after>0)`の期待値と完全一致(`ply=3: before=0 after=-25 reversal=false`、`ply=4: before=-25 after=26 reversal=true`等)することを確認。console errorなし。「T057 verification PASSED」で終了。
+- 受け入れ基準4項目(npm test/npm run build/実機dev確認/mainへのpush・Actionsデプロイ成功・本番Playwright確認)すべて満たした。
