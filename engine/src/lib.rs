@@ -18,6 +18,15 @@ pub mod eval;
 // `protocol`と同様、モジュール自体は非公開でよい(`Engine`のメソッド越しに
 // WASM APIとして公開する)。
 mod explain;
+// T048: MPC(Multi-ProbCut)のσテーブル・定数。`search.rs`の`negascout`から
+// 使われるほか、`engine/src/bin/calibrate_mpc.rs`(σの実測・MPC有無の
+// ノード数/深さ比較用の開発補助バイナリ)からも`REDUCTION`/`MIN_DEPTH`を
+// 参照し、σ実測の削減量が本番探索の定数とずれない(ハードコードの重複に
+// よるドリフト)ようにするため`pub`にしている(T024で`eval`を`pub`にした
+// のと同じ理由。WASM公開APIには影響しない、`#[wasm_bindgen]`は個々の項目に
+// 付与されるものでありモジュールの可視性変更自体はJS側のエクスポートを
+// 増やさない)。
+pub mod mpc;
 // T043: パターン特徴量の定義(`train`クレートと共有、複製を避けるため`engine`
 // 側に一本化)と、WTHOR学習済み重み(`train/weights/pattern_v1.bin`)の
 // 読み込み専用構造体・スコアリング関数。`train`クレートおよび

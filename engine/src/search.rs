@@ -54,6 +54,7 @@
 use crate::bitboard::{Board, Side};
 use crate::endgame::{final_score, solve_exact, solve_exact_bounded, solve_exact_with_nodes, TimeBudget};
 use crate::eval::evaluate_for;
+use crate::mpc;
 use crate::pattern_eval::PatternWeights;
 use crate::tt::{Bound, TTEntry, TranspositionTable};
 use crate::zobrist::zobrist_hash;
@@ -259,6 +260,7 @@ pub fn search_with_eval(
                 start,
                 timed_out: &mut timed_out,
                 weights,
+                suppress_mpc: false,
             };
             negascout(board, side_to_move, depth, -INF, INF, &mut ctx)
         };
@@ -442,6 +444,7 @@ pub fn search_all_moves_with_eval(
                         start,
                         timed_out: &mut timed_out,
                         weights,
+                        suppress_mpc: false,
                     };
                     -negascout(&next_board, opponent, depth - 1, -INF, INF, &mut ctx)
                 };
@@ -505,6 +508,21 @@ struct SearchCtx<'a> {
     /// `Some`ならパターン評価、`None`なら従来の3項ヒューリスティック評価
     /// (`static_eval`参照)。
     weights: Option<&'a PatternWeights>,
+    /// T048: `true`の間、`negascout`はMPC(`mpc_try_cutoff`)を一切試みない。
+    ///
+    /// `mpc_try_cutoff`自身が呼ぶ浅い探索(プローブ)の**サブツリー全体**で
+    /// このフラグを立てる(プローブ呼び出し前に`true`にし、戻ってきたら
+    /// `false`に戻す)。プローブの中でさらにMPCを再帰適用する(=何重にも
+    /// 浅い探索で近似する)と、近似誤差が積み重なり、自己対戦検証で
+    /// 無視できない棋力低下を引き起こすことが実測で確認された
+    /// (T048作業ログ参照: 深さ8以上でMPCの再帰適用を許可すると、60局面中
+    /// 20局面以上でトップの手が変わってしまい、tを1.5→4.0に上げても
+    /// ほとんど改善しなかった。深さ6以下(再帰が起きない条件)では
+    /// 24局の自己対戦で全く差が出なかったことから、原因は「プローブの中の
+    /// 再帰的MPC」による誤差の積み重ねだと特定した)。このフラグにより
+    /// MPCを「1段だけ」に制限する(プローブ自体は通常のNegaScoutと同じ
+    /// 精度で探索する)。
+    suppress_mpc: bool,
 }
 
 /// `negascout`の再帰中に時間予算をチェックする頻度(ノード数に1回)。
@@ -609,6 +627,18 @@ fn negascout(
         }
     }
 
+    // T048: MPC(Multi-ProbCut)。TT探索で確定しなかった場合のみ試す
+    // (置換表で既に済んでいるノードに追加の浅い探索を行うのは無駄なため)。
+    // `depth >= mpc::MIN_DEPTH` かつ実測済みのσがある深さでのみ発動する。
+    // `ctx.suppress_mpc`が立っている(=現在プローブ探索のサブツリー内に
+    // いる)間は、MPCの再帰適用による誤差の積み重ねを避けるため試みない
+    // (`mpc_try_cutoff`のドキュメント・`SearchCtx::suppress_mpc`参照)。
+    if !ctx.suppress_mpc {
+        if let Some(cut) = mpc_try_cutoff(board, side, depth, alpha, beta, ctx) {
+            return cut;
+        }
+    }
+
     let moves = ordered_moves(board, side, tt_move);
 
     let mut best_score = i32::MIN;
@@ -676,6 +706,140 @@ fn negascout(
     });
 
     best_score
+}
+
+/// MPC(Multi-ProbCut、T048)によるカットオフ判定。
+///
+/// `depth`(現在のノードでの残り探索深さ)が `mpc::MIN_DEPTH` 以上で、かつ
+/// `mpc::sigma_for(depth)` が実測済みの値を返す場合のみ試みる。それ以外
+/// (深さが浅すぎる、または実測範囲外の深さ)は常に `None` を返し、
+/// 呼び出し元(`negascout`)は通常どおり合法手ループへ進む。
+///
+/// 判定方法: 現在の局面(`board`, `side`)自体を `mpc::REDUCTION` だけ浅い
+/// 深さでnull-window探索し、その結果が
+/// `beta - margin`(ベータ側)または `alpha + margin`(アルファ側)を
+/// 超えていれば、本来の深さでの探索を省略して `beta`/`alpha` をそのまま
+/// 返す(`margin = round(mpc::T * sigma)`、centi-disc単位)。
+///
+/// 浅い探索自体は通常の `negascout` をそのまま再帰呼び出しするため、
+/// ノード数カウント・置換表・T034の時間予算チェック
+/// (`TIME_CHECK_NODE_INTERVAL`ノードごと)はすべて通常の探索と全く同じ
+/// 経路を通る(このMPC専用の分岐が独自の時間チェックを持つことはない)。
+/// 浅い探索の途中で時間切れ(`ctx.timed_out`)になった場合は、その結果を
+/// カットオフ判定に使わず `None` を返す(呼び出し元の `negascout` は
+/// そのまま自身の `if *ctx.timed_out` チェックに落ちて即座に展開される
+/// ため、ハングや不正な結果を返す余地はない)。
+///
+/// この関数がカットオフを返した場合、置換表への格納は行わない(浅い探索
+/// に基づく近似的な結果であり、通常探索で得られる「深さ`depth`まで
+/// 読み切った」という保証付きのスコアではないため、TTを汚染しないよう
+/// 意図的に格納しない)。
+///
+/// # 再帰的MPCを禁止する理由(T048作業ログ参照)
+/// `probe_depth`(=`depth - mpc::REDUCTION`)自体が`mpc::MIN_DEPTH`以上に
+/// なりうる(例: `depth=8`なら`probe_depth=6`)ため、何もしなければこの
+/// 関数が呼ぶ浅い探索(プローブ)の**内部**でもさらにMPCが再帰的に
+/// 適用され、近似誤差が何重にも積み重なる。実測の自己対戦検証で、この
+/// 再帰的MPCを許可すると(`depth>=7`が絡む条件、すなわち`probe_depth>=5`
+/// になる条件)、tを1.5→4.0まで引き上げても60局面中20局面以上でトップの
+/// 手が変わってしまうほど深刻な棋力低下が確認された一方、再帰が起きない
+/// `depth<=6`の条件では24局の自己対戦で全く差が出なかった。そのため
+/// `ctx.suppress_mpc`を使い、プローブのサブツリー全体でMPCを無効化する
+/// (=MPCは常に「1段だけ」に制限し、プローブ自体は通常のNegaScoutと
+/// 同じ精度で探索する)。
+fn mpc_try_cutoff(
+    board: &Board,
+    side: Side,
+    depth: u8,
+    alpha: i32,
+    beta: i32,
+    ctx: &mut SearchCtx,
+) -> Option<i32> {
+    // T048フィードバック(自己対戦検証で発覚した重大な不具合の修正):
+    // `alpha`/`beta`のどちらかがまだ番兵値(`-INF`/`INF`)のままの場合、
+    // このノードは「ルートからの最左(=最初の候補手)の連鎖」上にある
+    // PV探索中のノードである(NegaScoutの設計上、あるノードの最初の子は
+    // 親の窓をそのまま反転して受け継ぐため、経路のどこかで実際の値が
+    // 1つも返ってきていない限り、`alpha`(または`beta`)は番兵値のまま
+    // 伝播し続ける)。このようなノードでは、まだこの局面についてどの
+    // 手も一切探索しておらず、フォールバックとなる「実際に確認できた
+    // 値」が存在しないため、浅い探索による見込み予測だけで打ち切ると
+    // 誤判定時の被害を吸収する手段が無い。
+    //
+    // 実際に自己対戦検証(depth=8)でこの状態を検出したところ、同じ
+    // (`alpha == -INF`, 有限のbeta)の条件で10手連続してベータカットが
+    // 連鎖し、実際にはどの手も1つも探索しないまま遠い祖先のbeta値を
+    // そのまま返す、という壊滅的な不具合を引き起こしていた
+    // (作業ログ参照。`t`をEdaxの目安である1.5から4.0まで引き上げても
+    // 全く改善しなかったのは、この不具合が「誤判定率」の問題ではなく
+    // 「そもそも適用すべきでないノードに適用していた」という構造的な
+    // 問題だったため)。
+    //
+    // 標準的なアルファベータ探索の設計(null-move pruning等の前方刈り込み
+    // 技術全般に共通する定石)にならい、`alpha`/`beta`の両方が既に
+    // 実際の値に基づいて確定している(番兵値でない)ノードでのみMPCを
+    // 試みるようにする。
+    if alpha <= -INF || beta >= INF {
+        return None;
+    }
+
+    let probe_depth = depth.checked_sub(mpc::REDUCTION)?;
+    let margin = mpc::margin_centidisc(depth)?;
+
+    // この関数は`ctx.suppress_mpc == false`のときのみ呼ばれる
+    // (呼び出し元`negascout`のガード参照)ため、ここで`true`にして
+    // プローブ探索(と、それが再帰的に呼ぶ子孫の`negascout`呼び出し
+    // すべて)でMPCを無効化し、抜ける前に必ず`false`に戻す。
+    ctx.suppress_mpc = true;
+    let cut = mpc_try_cutoff_inner(board, side, probe_depth, margin, alpha, beta, ctx);
+    ctx.suppress_mpc = false;
+    cut
+}
+
+/// [`mpc_try_cutoff`] の本体(`ctx.suppress_mpc`の設定・復元と分離するため
+/// 分けている)。
+fn mpc_try_cutoff_inner(
+    board: &Board,
+    side: Side,
+    probe_depth: u8,
+    margin: i32,
+    alpha: i32,
+    beta: i32,
+    ctx: &mut SearchCtx,
+) -> Option<i32> {
+    // ベータ側: 浅い探索でも `beta - margin` 以上ならこのノードは
+    // fail-high(相手はこの局面を避ける)とみなし、深い探索を省略して
+    // `beta` を返す。
+    if beta < INF {
+        let bound = beta.saturating_sub(margin);
+        if bound > alpha {
+            let probe = negascout(board, side, probe_depth, bound - 1, bound, ctx);
+            if *ctx.timed_out {
+                return None;
+            }
+            if probe >= bound {
+                return Some(beta);
+            }
+        }
+    }
+
+    // アルファ側: 浅い探索でも `alpha + margin` 以下ならこのノードは
+    // fail-low(このノードではalphaを更新できない)とみなし、深い探索を
+    // 省略して `alpha` を返す。
+    if alpha > -INF {
+        let bound = alpha.saturating_add(margin);
+        if bound < beta {
+            let probe = negascout(board, side, probe_depth, bound, bound + 1, ctx);
+            if *ctx.timed_out {
+                return None;
+            }
+            if probe <= bound {
+                return Some(alpha);
+            }
+        }
+    }
+
+    None
 }
 
 /// 終局時の最終石差(`side`から見たcenti-disc値)を計算する。
