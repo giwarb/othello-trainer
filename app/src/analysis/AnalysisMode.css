@@ -93,6 +93,25 @@
   width: 5rem;
 }
 
+.analysis-cache-clear {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.3rem;
+}
+
+.analysis-cache-clear__hint {
+  font-size: 0.8rem;
+  color: #52525b;
+  margin: 0;
+}
+
+.analysis-cache-clear__success {
+  color: #15803d;
+  font-weight: bold;
+  margin: 0;
+}
+
 .analysis-progress {
   display: flex;
   flex-direction: column;

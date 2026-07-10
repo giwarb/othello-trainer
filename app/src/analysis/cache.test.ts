@@ -1,7 +1,7 @@
 import { IDBFactory } from 'fake-indexeddb'
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { MoveEvalJson } from '../engine/types.ts'
-import { cacheKey, getCachedAnalysis, putCachedAnalysis } from './cache.ts'
+import { ANALYSIS_ENGINE_VERSION, cacheKey, clearAnalysisCache, getCachedAnalysis, putCachedAnalysis } from './cache.ts'
 
 // vitestの実行環境は`node`のため、実ブラウザのIndexedDBは存在しない。`midgame/pool.test.ts`
 // と同じ手法で`fake-indexeddb`のスタンドアロン`IDBFactory`をテストごとに新規生成する。
@@ -23,8 +23,8 @@ describe('analysis/cache (IndexedDB解析結果キャッシュ)', () => {
     factory = freshFactory()
   })
 
-  it('cacheKeyは局面ハッシュと探索条件タグを連結した文字列を作る', () => {
-    expect(cacheKey('abc_def_black', 'd18-e22')).toBe('abc_def_black|d18-e22')
+  it('cacheKeyは局面ハッシュと探索条件タグとエンジンバージョンを連結した文字列を作る(T060)', () => {
+    expect(cacheKey('abc_def_black', 'd18-e22')).toBe(`abc_def_black|d18-e22|v${ANALYSIS_ENGINE_VERSION}`)
   })
 
   it('未キャッシュの局面はundefinedを返す', async () => {
@@ -60,5 +60,31 @@ describe('analysis/cache (IndexedDB解析結果キャッシュ)', () => {
     const otherFactory = freshFactory()
     const result = await getCachedAnalysis('key-1', otherFactory)
     expect(result).toBeUndefined()
+  })
+
+  it('異なるエンジンバージョンで作ったキーは異なる文字列になり、旧バージョンのキャッシュがヒットしなくなる(T060要件1)', () => {
+    const oldKey = 'abc_def_black|d18-e22'
+    const newKey = cacheKey('abc_def_black', 'd18-e22')
+    expect(newKey).not.toBe(oldKey)
+  })
+
+  it('clearAnalysisCacheでキャッシュを全件削除できる(T060要件2・3)', async () => {
+    await putCachedAnalysis('key-1', makeMoves(), factory)
+    await putCachedAnalysis('key-2', makeMoves(), factory)
+
+    await clearAnalysisCache(factory)
+
+    expect(await getCachedAnalysis('key-1', factory)).toBeUndefined()
+    expect(await getCachedAnalysis('key-2', factory)).toBeUndefined()
+  })
+
+  it('clearAnalysisCache後もputCachedAnalysis/getCachedAnalysisが正常に動作する(T060要件3)', async () => {
+    await putCachedAnalysis('key-1', makeMoves(), factory)
+    await clearAnalysisCache(factory)
+
+    const moves = makeMoves()
+    await putCachedAnalysis('key-1', moves, factory)
+    const result = await getCachedAnalysis('key-1', factory)
+    expect(result).toEqual(moves)
   })
 })

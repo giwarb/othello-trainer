@@ -16,6 +16,7 @@ import { loadJosekiDb } from '../joseki/lookup.ts'
 import type { JosekiDb } from '../joseki/types.ts'
 import { analyzeGame, replayGame, TranscriptReplayError } from './analyzeGame.ts'
 import { BlunderPanel } from './BlunderPanel.tsx'
+import { clearAnalysisCache } from './cache.ts'
 import { EvalGraph, type EvalGraphMarker, type EvalGraphPoint } from './EvalGraph.tsx'
 import { parseTranscript, TranscriptParseError } from './parseTranscript.ts'
 import { loadClassifyThresholds, saveClassifyThresholds } from './thresholdSettings.ts'
@@ -172,6 +173,23 @@ export function AnalysisMode() {
   // ロードに失敗しても`josekiDb`は`null`のままとなり、`analyzeGame`側が
   // フォールバック(定石照会スキップ、従来通りの評価)する(要件3)。
   const [josekiDb, setJosekiDb] = useState<JosekiDb | null>(null)
+
+  // T060: 解析結果キャッシュ(IndexedDB)の手動クリアボタンの状態。
+  // 「デプロイしても古いキャッシュが返ってくる」というユーザー報告への対応として、
+  // `cache.ts`側でエンジンバージョンによる自動無効化(要件1)も実装済みだが、
+  // ユーザーがいつでも確実にクリアできる手段も用意する(要件2)。
+  const [cacheClearStatus, setCacheClearStatus] = useState<'idle' | 'clearing' | 'done' | 'error'>('idle')
+
+  async function handleClearCache(): Promise<void> {
+    setCacheClearStatus('clearing')
+    try {
+      await clearAnalysisCache()
+      setCacheClearStatus('done')
+    } catch (error) {
+      console.error('解析キャッシュのクリアに失敗しました', error)
+      setCacheClearStatus('error')
+    }
+  }
 
   // エンジンWorkerはアプリ全体で1つのインスタンスを共有する(T054)。
   function getEngine(): EngineClient {
@@ -387,6 +405,25 @@ export function AnalysisMode() {
               />
             </label>
           </fieldset>
+
+          <div class="analysis-cache-clear">
+            <button
+              type="button"
+              onClick={() => void handleClearCache()}
+              disabled={cacheClearStatus === 'clearing'}
+            >
+              解析キャッシュをクリア
+            </button>
+            <p class="analysis-cache-clear__hint">
+              エンジンの更新後も評価結果が変わらない場合など、キャッシュされた解析結果をすべて削除して次回から再解析させます。
+            </p>
+            {cacheClearStatus === 'done' && (
+              <p class="analysis-cache-clear__success">解析キャッシュをクリアしました。</p>
+            )}
+            {cacheClearStatus === 'error' && (
+              <p class="notice notice--error">解析キャッシュのクリアに失敗しました。もう一度お試しください。</p>
+            )}
+          </div>
         </section>
       )}
 
