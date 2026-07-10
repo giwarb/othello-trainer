@@ -197,6 +197,23 @@ pub fn search_with_eval(
     tt: &mut TranspositionTable,
     weights: Option<&PatternWeights>,
 ) -> SearchResult {
+    search_with_eval_inner(board, side_to_move, limit, tt, weights, true)
+}
+
+/// [`search_with_eval`]の実体。`enable_etc`でETC(T051、[`etc_try_cutoff`]
+/// 参照)の有効/無効を切り替えられるが、これは「ETC有効時と無効時とで
+/// 探索結果(最善手・評価値)が完全に一致すること」を検証するテスト専用の
+/// 引数であり、公開API(`search`/`search_with_eval`)は常に`true`を渡す
+/// (ETCは正しく実装されていれば探索結果を一切変えない安全な枝刈りであり、
+/// MPCと異なり本番で無効化する理由がない)。
+fn search_with_eval_inner(
+    board: &Board,
+    side_to_move: Side,
+    limit: &SearchLimit,
+    tt: &mut TranspositionTable,
+    weights: Option<&PatternWeights>,
+    enable_etc: bool,
+) -> SearchResult {
     // TTスケール混同防止(T007): 同じ `tt` に対して過去に異なる
     // `exact_from_empties` で探索していた場合、その古いエントリは
     // 今回とはスケール/depthの意味が食い違っている可能性があるため、
@@ -261,6 +278,7 @@ pub fn search_with_eval(
                 timed_out: &mut timed_out,
                 weights,
                 suppress_mpc: false,
+                enable_etc,
             };
             negascout(board, side_to_move, depth, -INF, INF, &mut ctx)
         };
@@ -445,6 +463,7 @@ pub fn search_all_moves_with_eval(
                         timed_out: &mut timed_out,
                         weights,
                         suppress_mpc: false,
+                        enable_etc: true,
                     };
                     -negascout(&next_board, opponent, depth - 1, -INF, INF, &mut ctx)
                 };
@@ -523,6 +542,19 @@ struct SearchCtx<'a> {
     /// MPCを「1段だけ」に制限する(プローブ自体は通常のNegaScoutと同じ
     /// 精度で探索する)。
     suppress_mpc: bool,
+    /// T051: `true`の間、`negascout`は候補手を1つずつ実際に再帰探索する
+    /// 前に、ETC(Enhanced Transposition Cutoff、[`etc_try_cutoff`]参照)を
+    /// 試みる。
+    ///
+    /// MPCの`suppress_mpc`と異なり、これは「探索の途中で動的に立てたり
+    /// 戻したりするフラグ」ではなく、1回の`search_with_eval`/
+    /// `search_all_moves_with_eval`呼び出しを通じて固定の値を使う。
+    /// ETCは(正しく実装されていれば)置換表に既に記録されている厳密な
+    /// 情報だけを使う安全な枝刈りであり、MPCのような統計的近似ではないため
+    /// 本番コードは常に`true`を渡す。`false`は「ETC有効/無効で探索結果が
+    /// 完全に一致する」ことを検証するテスト専用の切り替え口として存在する
+    /// (`search_with_eval_inner`のテスト経由でのみ`false`が渡される)。
+    enable_etc: bool,
 }
 
 /// `negascout`の再帰中に時間予算をチェックする頻度(ノード数に1回)。
@@ -649,10 +681,10 @@ fn negascout(
         let next_board = board.apply_move(side, 1u64 << mv);
 
         let score = if first {
-            -negascout(&next_board, side.opposite(), depth - 1, -beta, -alpha, ctx)
+            -negascout_or_etc(&next_board, side.opposite(), depth - 1, -beta, -alpha, ctx)
         } else {
             // Null Window Search: まず [alpha, alpha+1) の狭い窓で探索する。
-            let scout_score = -negascout(
+            let scout_score = -negascout_or_etc(
                 &next_board,
                 side.opposite(),
                 depth - 1,
@@ -663,7 +695,7 @@ fn negascout(
             if scout_score > alpha && scout_score < beta {
                 // 窓を外れた(=このスコアが実は最善手かもしれない)ので
                 // フルウィンドウで再探索する。
-                -negascout(&next_board, side.opposite(), depth - 1, -beta, -alpha, ctx)
+                -negascout_or_etc(&next_board, side.opposite(), depth - 1, -beta, -alpha, ctx)
             } else {
                 scout_score
             }
@@ -706,6 +738,106 @@ fn negascout(
     });
 
     best_score
+}
+
+/// ETC(Enhanced Transposition Cutoff、T051)を試みたうえで、必要なら
+/// `negascout`を再帰呼び出しする薄いラッパー。
+///
+/// `negascout`の候補手ループの3箇所(初手のフルウィンドウ探索、NWSの
+/// 狭い窓での探索、窓を外れた場合のフルウィンドウ再探索)は、いずれも
+/// 「これから`next_board`(手番`child_side`)を深さ`child_depth`・窓
+/// `[alpha, beta)`で探索する」という同じ形をしているため、この関数1つに
+/// まとめている。`ctx.enable_etc`が`false`(ETC有効/無効の比較テスト専用)
+/// の場合は常に`negascout`をそのまま呼ぶ(MPCと違い、本番コードが
+/// `false`を渡すことはない)。
+fn negascout_or_etc(
+    next_board: &Board,
+    child_side: Side,
+    child_depth: u8,
+    alpha: i32,
+    beta: i32,
+    ctx: &mut SearchCtx,
+) -> i32 {
+    if ctx.enable_etc {
+        if let Some(score) = etc_try_cutoff(ctx, next_board, child_side, child_depth, alpha, beta) {
+            return score;
+        }
+    }
+    negascout(next_board, child_side, child_depth, alpha, beta, ctx)
+}
+
+/// ETC(Enhanced Transposition Cutoff、T051)本体。
+///
+/// `negascout`が候補手`mv`を実際に再帰探索する**前**に、着手後の局面
+/// (`child_board`, `child_side`)のZobristハッシュで置換表(TT)を覗く。
+/// もしそこに、これから行われるはずの再帰呼び出し
+/// (`negascout(child_board, child_side, child_depth, alpha, beta, ctx)`)の
+/// **冒頭のTT参照ロジック**(このファイル内、`negascout`本体の
+/// `if let Some(entry) = ctx.tt.probe(hash) { ... }`ブロック)が即座に
+/// リターンすると確定できるだけの情報が既にあれば、実際にその再帰呼び出し
+/// を行わずに同じ値を返す。
+///
+/// # なぜ「探索結果を一切変えない」と言えるか
+/// この関数は、`negascout`本体のTT参照ブロックと**全く同じ判定条件**
+/// (`entry.depth as u32 >= depth as u32`という深さの十分性チェック、
+/// Exact/Lower/Upperの扱い、`alpha >= beta`でのカットオフ確定)を、
+/// 再帰呼び出しに入る前に前倒しでシミュレートしているだけである。
+/// つまりこの関数が`Some`を返す場合、それは「実際に`negascout`を
+/// 再帰呼び出ししたら(その関数の最初のステップとして)必ず同じ値が
+/// 即座に返ってくる」ことが保証されているケースに限られるため、
+/// 探索結果(最終的な最善手・評価値)は一切変わらない。TTの中身は
+/// 過去の探索で確定した厳密な情報であり、MPC(T048)のような統計的な
+/// 見込み予測ではないため、この前倒し評価は近似ではなく完全な再現になる。
+///
+/// # 2つの必須ガード(これを外すと結果が変わってしまう)
+/// - `child_depth == 0`: `negascout`本体は、手番側の合法手が0件で
+///   パスが必要な場合を除き、`depth == 0`のノードでは**TTを一切参照せず**
+///   直接`static_eval`を返す(`negascout`本体で`if depth == 0 { return
+///   static_eval(...); }`がハッシュ計算・TT参照より前に位置している)。
+///   反復深化で同じ`tt`を使い回すため、過去のより深い探索の結果が
+///   このノードのハッシュにたまたま(衝突ではなく本当に同じ局面として)
+///   格納されていることは普通に起こりうるが、`depth == 0`の文脈では
+///   TTの中身は無関係であり、使ってしまうと実際の再帰呼び出し
+///   (`static_eval`を返す)と異なる値を返しうる。そのため`child_depth == 0`
+///   では常に`None`を返す。
+/// - `child_board`の空きマス数が`ctx.limit.exact_from_empties`以下:
+///   `negascout`本体は、TT参照ブロックに到達する**手前**で空きマス数を
+///   チェックし、しきい値以下なら終盤完全読み(`solve_exact`/
+///   `solve_exact_bounded`)に処理を委譲して`return`する(この分岐は
+///   ハッシュ計算・パス判定・depth==0判定のいずれよりも先に実行される)。
+///   つまりこの条件を満たす子局面は、実際の再帰呼び出しでは中盤探索用の
+///   TT参照ロジックに一度も到達しない。そのため、この条件を満たす場合も
+///   常に`None`を返し、呼び出し元(`negascout_or_etc`)に実際の再帰呼び出し
+///   (=正しく終盤ソルバーへ委譲される経路)を行わせる。
+fn etc_try_cutoff(
+    ctx: &SearchCtx,
+    child_board: &Board,
+    child_side: Side,
+    child_depth: u8,
+    alpha: i32,
+    beta: i32,
+) -> Option<i32> {
+    if child_depth == 0 {
+        return None;
+    }
+    if child_board.empty_count() <= ctx.limit.exact_from_empties as u32 {
+        return None;
+    }
+
+    let entry = ctx.tt.probe(zobrist_hash(child_board, child_side))?;
+    if entry.depth as u32 >= child_depth as u32 {
+        let mut alpha = alpha;
+        let mut beta = beta;
+        match entry.bound {
+            Bound::Exact => return Some(entry.score),
+            Bound::Lower => alpha = alpha.max(entry.score),
+            Bound::Upper => beta = beta.min(entry.score),
+        }
+        if alpha >= beta {
+            return Some(entry.score);
+        }
+    }
+    None
 }
 
 /// MPC(Multi-ProbCut、T048)によるカットオフ判定。
@@ -1344,5 +1476,248 @@ mod tests {
         let evals = search_all_moves(&board, Side::White, &limit, &mut tt);
 
         assert!(evals.is_empty());
+    }
+
+    // ------------------------------------------------------------------
+    // T051: ETC(Enhanced Transposition Cutoff)
+    // ------------------------------------------------------------------
+
+    /// 依存クレートを増やさないための、テスト専用の最小限xorshift64*実装
+    /// (`engine/src/bin/eval_cli.rs`の同種の実装と同じ発想。この
+    /// テストファイルからは`eval_cli`の非公開実装を再利用できないため、
+    /// 同じアルゴリズムをここに複製している)。ランダムに手を進めた
+    /// 多様な局面を、`seed`から再現可能に生成するためだけに使う
+    /// (暗号論的な強度は不要)。
+    struct EtcTestRng(u64);
+
+    impl EtcTestRng {
+        fn new(seed: u64) -> Self {
+            // SplitMix64の既知の終段混合関数でシードを初期化することで、
+            // 隣接する`seed`同士でも初期状態を十分に分散させる
+            // (`eval_cli.rs::Rng::new`と同じ理由)。
+            let mut z = seed.wrapping_add(0x9E37_79B9_7F4A_7C15);
+            z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
+            z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
+            z ^= z >> 31;
+            EtcTestRng(z.max(1))
+        }
+
+        fn next_u64(&mut self) -> u64 {
+            let mut x = self.0;
+            x ^= x << 13;
+            x ^= x >> 7;
+            x ^= x << 17;
+            self.0 = x;
+            x.wrapping_mul(2_685_821_657_736_338_717)
+        }
+    }
+
+    /// 初期局面から`seed`に基づき再現可能にランダムな手を選びながら進め、
+    /// 空きマス数が`target_empties`以下になるか終局したらその局面を返す。
+    fn random_position(seed: u64, target_empties: u32) -> (Board, Side) {
+        let mut rng = EtcTestRng::new(seed);
+        let mut board = Board::initial();
+        let mut side = Side::Black;
+
+        loop {
+            if board.empty_count() <= target_empties || board.is_terminal() {
+                return (board, side);
+            }
+
+            let legal = board.legal_moves(side);
+            if legal == 0 {
+                side = side.opposite();
+                continue;
+            }
+
+            let mut moves: Vec<u64> = Vec::new();
+            let mut remaining = legal;
+            while remaining != 0 {
+                let lsb = remaining & remaining.wrapping_neg();
+                moves.push(lsb);
+                remaining &= remaining - 1;
+            }
+
+            let idx = (rng.next_u64() % moves.len() as u64) as usize;
+            board = board.apply_move(side, moves[idx]);
+            side = side.opposite();
+        }
+    }
+
+    #[test]
+    fn etc_enabled_and_disabled_produce_identical_search_results() {
+        // T051(要件1、最重要): ETCは「置換表に既に確定している厳密な
+        // 情報だけを使う安全な枝刈り」であり、正しく実装されていれば
+        // 探索結果(最善手・評価値・到達深さ)を一切変えないはずである。
+        // MPC(T048)と異なり、ここでの一致は「多少のズレは許容範囲」では
+        // なく**完全一致が必須**(タスク仕様参照)。
+        //
+        // 初期局面 + 序盤・中盤・終盤寄りのランダム局面(複数seed)の
+        // 組み合わせで、`search_with_eval_inner`をETC有効/無効の両方で
+        // 実行し、返り値が全て一致することを確認する。あわせてノード数の
+        // 合計を集計し、ETC有効時に(要件2どおり)削減されていることも
+        // 確認する。
+        let mut positions: Vec<(Board, Side)> = vec![(Board::initial(), Side::Black)];
+        for seed in 0..6u64 {
+            for target_empties in [32u32, 18] {
+                positions.push(random_position(seed, target_empties));
+            }
+        }
+
+        let mut mismatches: Vec<String> = Vec::new();
+        let mut total_nodes_with_etc: u64 = 0;
+        let mut total_nodes_without_etc: u64 = 0;
+        let mut combos_checked = 0usize;
+
+        for (i, (board, side)) in positions.iter().enumerate() {
+            for max_depth in [3u8, 5] {
+                let limit = default_limit(max_depth, 10);
+
+                let mut tt_on = TranspositionTable::new(4);
+                let result_on = search_with_eval_inner(board, *side, &limit, &mut tt_on, None, true);
+
+                let mut tt_off = TranspositionTable::new(4);
+                let result_off =
+                    search_with_eval_inner(board, *side, &limit, &mut tt_off, None, false);
+
+                total_nodes_with_etc += result_on.nodes;
+                total_nodes_without_etc += result_off.nodes;
+                combos_checked += 1;
+
+                if result_on.best_move != result_off.best_move
+                    || result_on.score != result_off.score
+                    || result_on.depth != result_off.depth
+                {
+                    mismatches.push(format!(
+                        "position #{i} (empties={}) max_depth={max_depth}: \
+                         etc-on=(best_move={:?}, score={}, depth={}) \
+                         etc-off=(best_move={:?}, score={}, depth={})",
+                        board.empty_count(),
+                        result_on.best_move,
+                        result_on.score,
+                        result_on.depth,
+                        result_off.best_move,
+                        result_off.score,
+                        result_off.depth,
+                    ));
+                }
+            }
+        }
+
+        assert!(
+            mismatches.is_empty(),
+            "ETC changed search results for {} of {combos_checked} position/depth \
+             combination(s), which means the ETC implementation has a correctness bug \
+             (it must never change search results): {:#?}",
+            mismatches.len(),
+            mismatches
+        );
+
+        let reduction_pct = if total_nodes_without_etc > 0 {
+            100.0 * (1.0 - total_nodes_with_etc as f64 / total_nodes_without_etc as f64)
+        } else {
+            0.0
+        };
+        println!(
+            "T051 ETC node-count comparison across {combos_checked} position/depth \
+             combinations: with_etc={total_nodes_with_etc} nodes, \
+             without_etc={total_nodes_without_etc} nodes, reduction={reduction_pct:.2}%"
+        );
+
+        // T051(要件2): 正しく実装されていれば必ず何らかのノード数削減が
+        // 見られるはず(MPCと違い「削減が実証できなければ既定オフ」という
+        // 妥協ラインはない)。削減が見られない場合は実装を見直すこと。
+        assert!(
+            total_nodes_with_etc < total_nodes_without_etc,
+            "ETC should reduce the total node count across these combinations \
+             (with_etc={total_nodes_with_etc}, without_etc={total_nodes_without_etc}); \
+             if it does not, the ETC implementation likely never actually triggers a cutoff"
+        );
+    }
+
+    #[test]
+    #[ignore = "T051: heavier node-count comparison at deeper search depths than the fast \
+                default test above (etc_enabled_and_disabled_produce_identical_search_results). \
+                Only a handful of positions but depth up to 9, which takes noticeably longer in \
+                a debug build; kept out of the default `cargo test` run for the same reason the \
+                FFO 'heavy' tests are ignored by default (see ffo_bench.rs). Run explicitly with \
+                `cargo test -p engine --lib search::tests::etc_node_reduction_at_deeper_depths \
+                --release -- --ignored --nocapture` to get a more representative node-count \
+                reduction percentage for the work log."]
+    fn etc_node_reduction_at_deeper_depths() {
+        // T051(要件2): デフォルトの高速テストは`cargo test`が毎回妥当な時間で
+        // 終わるよう浅め・少なめの局面/深さに絞っているため、より現実的な
+        // (実際の対局で使われる程度の)深さでの削減率を別途計測する。
+        let mut positions: Vec<(Board, Side)> = vec![(Board::initial(), Side::Black)];
+        for seed in 0..4u64 {
+            for target_empties in [40u32, 26] {
+                positions.push(random_position(seed, target_empties));
+            }
+        }
+
+        let mut mismatches: Vec<String> = Vec::new();
+        let mut total_nodes_with_etc: u64 = 0;
+        let mut total_nodes_without_etc: u64 = 0;
+        let mut combos_checked = 0usize;
+
+        for (i, (board, side)) in positions.iter().enumerate() {
+            for max_depth in [8u8, 9] {
+                let limit = default_limit(max_depth, 10);
+
+                let mut tt_on = TranspositionTable::new(16);
+                let result_on = search_with_eval_inner(board, *side, &limit, &mut tt_on, None, true);
+
+                let mut tt_off = TranspositionTable::new(16);
+                let result_off =
+                    search_with_eval_inner(board, *side, &limit, &mut tt_off, None, false);
+
+                total_nodes_with_etc += result_on.nodes;
+                total_nodes_without_etc += result_off.nodes;
+                combos_checked += 1;
+
+                if result_on.best_move != result_off.best_move
+                    || result_on.score != result_off.score
+                    || result_on.depth != result_off.depth
+                {
+                    mismatches.push(format!(
+                        "position #{i} (empties={}) max_depth={max_depth}: \
+                         etc-on=(best_move={:?}, score={}, depth={}) \
+                         etc-off=(best_move={:?}, score={}, depth={})",
+                        board.empty_count(),
+                        result_on.best_move,
+                        result_on.score,
+                        result_on.depth,
+                        result_off.best_move,
+                        result_off.score,
+                        result_off.depth,
+                    ));
+                }
+            }
+        }
+
+        assert!(
+            mismatches.is_empty(),
+            "ETC changed search results for {} of {combos_checked} position/depth \
+             combination(s) at deeper depths: {:#?}",
+            mismatches.len(),
+            mismatches
+        );
+
+        let reduction_pct = if total_nodes_without_etc > 0 {
+            100.0 * (1.0 - total_nodes_with_etc as f64 / total_nodes_without_etc as f64)
+        } else {
+            0.0
+        };
+        println!(
+            "T051 ETC node-count comparison (deeper depths) across {combos_checked} \
+             position/depth combinations: with_etc={total_nodes_with_etc} nodes, \
+             without_etc={total_nodes_without_etc} nodes, reduction={reduction_pct:.2}%"
+        );
+
+        assert!(
+            total_nodes_with_etc < total_nodes_without_etc,
+            "ETC should reduce the total node count at deeper depths too \
+             (with_etc={total_nodes_with_etc}, without_etc={total_nodes_without_etc})"
+        );
     }
 }
