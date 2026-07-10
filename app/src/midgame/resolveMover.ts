@@ -28,3 +28,23 @@ export function resolveMover(board: Board, sideToMove: Side): Side | null {
   if (hasLegalMove(board, opposite(sideToMove))) return opposite(sideToMove)
   return null
 }
+
+/**
+ * `resolveMover`を使い、着手適用直後に実際の手番を持つ側を解決する
+ * (T055、着手適用と同期してパスを解決するためのヘルパー)。
+ *
+ * `PracticeMode.tsx`の`checkEnd`/`resetSessionTo`/`handlePlayerMove`/相手の
+ * 着手処理は、いずれも着手(または開始局面設定)を適用した直後にこの関数で
+ * 次の手番側を解決してから`setSession`する。以前は着手適用と手番解決(パス処理)
+ * が別々のuseEffectに分かれていたため、パスが発生した直後の1レンダーだけ
+ * `session.sideToMove`が誤った値(単純な`opposite(sideAfterMove)`)のまま
+ * 描画され、それを見ている盤面評価オーバーレイ取得用のuseEffectが一瞬だけ
+ * 誤判定して`overlayMoves`を`null`にしてしまう(ちらつき)原因になっていた。
+ *
+ * 両者とも合法手が無い(真の終局)の場合は`sideAfterMove`をそのまま返す。
+ * この関数は終局判定そのものは行わないため、呼び出し側は別途`resolveMover`の
+ * 結果(`null`かどうか)で終局を判定すること(`checkEnd`参照)。
+ */
+export function resolveNextSideOrFallback(board: Board, sideAfterMove: Side): Side {
+  return resolveMover(board, sideAfterMove) ?? sideAfterMove
+}

@@ -13,7 +13,6 @@ import {
   countDiscs,
   countEmpty,
   hasLegalMove,
-  isTerminal,
   legalMoves,
   notationToSquare,
   opposite,
@@ -29,7 +28,7 @@ import { generateSelfPlayPosition, pickJosekiEndPosition, type StartPosition } f
 import { judgeMidgameMove, type EvalSign, type JudgeMidgameMoveResult, type JudgeMidgameReasonKind } from './judgeMidgameMove.ts'
 import { pickOpponentMove } from './pickOpponentMove.ts'
 import { addPoolEntry } from './pool.ts'
-import { resolveMover } from './resolveMover.ts'
+import { resolveMover, resolveNextSideOrFallback } from './resolveMover.ts'
 import type { JudgeMode, OpponentStrength, StartPositionSource } from './types.ts'
 import './PracticeMode.css'
 
@@ -156,6 +155,14 @@ export function PracticeMode() {
 
   const [opponentThinking, setOpponentThinking] = useState(false)
   const [analyzing, setAnalyzing] = useState(false)
+  /**
+   * 空き24以下になり完全読みで終局判定を確定させている間`true`(T055)。
+   * `checkEnd`のエンジン問い合わせは非同期のため、これが無いと「まだ打てそうな
+   * 盤面が見えているのに、次の瞬間いきなり結果画面に切り替わる」という唐突な
+   * 体感になる(T021で明記済みの「+2石以上を瞬間的な閾値到達で判定する」簡略化
+   * 自体は意図的な設計のため変更しないが、遷移前にひと呼吸置く表示を挟む)。
+   */
+  const [finalizing, setFinalizing] = useState(false)
 
   const [moveEvalOverlayEnabled, setMoveEvalOverlayEnabled] = useState<boolean>(() =>
     loadMoveEvalOverlayEnabled(localStorage),
@@ -206,6 +213,9 @@ export function PracticeMode() {
     }
     if (countEmpty(board) > 24) return false
 
+    // ここから先は完全読みでクリア/失敗を確定させる(体感上は「唐突」になりやすい
+    // 区間なので、確定作業中であることをUIに表示する。要件2参照)。
+    setFinalizing(true)
     try {
       const allMoves = await getEngine().requestAnalyzeAll(board, mover, MIDGAME_ANALYZE_LIMIT)
       if (allMoves.length === 0) {
@@ -238,6 +248,11 @@ export function PracticeMode() {
     } catch (error) {
       console.error('終盤判定のための解析に失敗しました', error)
       return false
+    } finally {
+      // クリア/失敗いずれの場合も`phase`は既に`'result'`へ遷移済みなのでこの
+      // フラグは表示に影響しないが、解析エラーで対局が続行するケース(catch節)
+      // のために確実にリセットしておく。
+      setFinalizing(false)
     }
   }
 
@@ -278,22 +293,6 @@ export function PracticeMode() {
     }
   }
 
-  // 終局・パスの自動処理: 手番側に合法手が無ければ手番を交代するだけ、
-  // 両者とも合法手が無ければ終了判定を行う。人間・相手どちらの手番でも共通に扱う。
-  useEffect(() => {
-    if (phase !== 'playing' || !session) return
-    const s = session
-
-    if (isTerminal(s.board)) {
-      void checkEnd(s.board, s.sideToMove, s.humanSide)
-      return
-    }
-    if (!hasLegalMove(s.board, s.sideToMove)) {
-      setSession({ ...s, sideToMove: opposite(s.sideToMove) })
-    }
-    // eslint-disable-next-line
-  }, [phase, session])
-
   // 相手(エンジン)の手番になったら、`pickOpponentMove`で着手を選んで適用する。
   useEffect(() => {
     if (phase !== 'playing' || !session) return
@@ -314,7 +313,7 @@ export function PracticeMode() {
 
         const square = notationToSquare(moveNotation)
         const board = applyMove(s.board, s.sideToMove, square)
-        const nextSide = opposite(s.sideToMove)
+        const nextSide = resolveNextSideOrFallback(board, opposite(s.sideToMove))
         setSession({ ...s, board, sideToMove: nextSide, lastMove: square })
         await checkEnd(board, nextSide, s.humanSide)
       } catch (error) {
@@ -450,7 +449,7 @@ export function PracticeMode() {
       }
 
       const board = applyMove(s.board, s.sideToMove, square)
-      const nextSide = opposite(s.sideToMove)
+      const nextSide = resolveNextSideOrFallback(board, opposite(s.sideToMove))
       setSession({
         board,
         sideToMove: nextSide,
@@ -466,11 +465,19 @@ export function PracticeMode() {
     }
   }
 
+  /**
+   * 開始局面をセットする。開始局面自体が(通常は起こらないはずだが)既に手番側に
+   * 合法手が無い局面である可能性に備え、他の遷移箇所と同様に`resolveNextSideOrFallback`
+   * で実際の手番側を解決してから`session`に反映し、`checkEnd`で終局判定まで行う
+   * (T055、対局・詰めオセロ各モードと同じく「着手/開始適用と終局判定を同期させる」
+   * 方針を開始時にも適用する)。
+   */
   function resetSessionTo(start: StartPosition): void {
     setStartInfo(start)
+    const sideToMove = resolveNextSideOrFallback(start.board, start.sideToMove)
     setSession({
       board: start.board,
-      sideToMove: start.sideToMove,
+      sideToMove,
       humanSide: start.sideToMove,
       lastMove: null,
       previousSign: 0,
@@ -480,7 +487,9 @@ export function PracticeMode() {
     setEvalBarValue(null)
     setOpponentThinking(false)
     setAnalyzing(false)
+    setFinalizing(false)
     setPhase('playing')
+    void checkEnd(start.board, sideToMove, start.sideToMove)
   }
 
   /** 設定画面で「開始」を押したときの処理(要件1・2)。 */
@@ -517,6 +526,7 @@ export function PracticeMode() {
     setEvalBarValue(null)
     setOpponentThinking(false)
     setAnalyzing(false)
+    setFinalizing(false)
   }
 
   return (
@@ -596,6 +606,10 @@ export function PracticeMode() {
             {opponentThinking ? '(相手考慮中...)' : ''}
             {analyzing ? '(判定中...)' : ''}
           </p>
+
+          {finalizing && (
+            <p class="notice midgame-finalizing">終盤の完全読みで結果を確定しています…</p>
+          )}
 
           {showEvalBar && evalBarValue !== null && <EvalBar discDiff={evalBarValue} />}
 

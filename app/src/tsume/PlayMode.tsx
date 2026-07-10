@@ -11,7 +11,6 @@ import type { AnalyzeLimit, MoveEvalJson } from '../engine/types.ts'
 import {
   applyMove,
   hasLegalMove,
-  isTerminal,
   legalMoves,
   notationToSquare,
   opposite,
@@ -19,6 +18,7 @@ import {
   type Board as BoardState,
   type Side,
 } from '../game/othello.ts'
+import { resolveMover } from '../midgame/resolveMover.ts'
 import { loadMoveEvalOverlayEnabled, saveMoveEvalOverlayEnabled } from '../settings/moveEvalOverlaySettings.ts'
 import { todaysPuzzle } from './dailyPuzzle.ts'
 import { judgePuzzleMove } from './judgePuzzleMove.ts'
@@ -198,10 +198,15 @@ export function PlayMode() {
       black: hexToBigint(puzzle.board.black),
       white: hexToBigint(puzzle.board.white),
     }
+    // 出題データが正しければ`puzzle.sideToMove`に合法手が無いことは無いはずだが、
+    // 他の遷移箇所(`handlePlayerMove`・相手の着手)と同じ`resolveMover`ベースの
+    // 解決を通しておく(T055、`resolveMover`が`null`=終局を返すことは無い前提の
+    // データなのでフォールバックは`puzzle.sideToMove`のままでよい)。
+    const sideToMove = resolveMover(board, puzzle.sideToMove) ?? puzzle.sideToMove
     setSession({
       puzzle,
       board,
-      sideToMove: puzzle.sideToMove,
+      sideToMove,
       humanSide: puzzle.sideToMove,
       lastMove: null,
       presentedAt: Date.now(),
@@ -259,21 +264,23 @@ export function PlayMode() {
     await saveAttempt(s, false)
   }
 
-  // 終局・パスの自動処理: 手番に依らず、盤面が終局していればクリア確定、
-  // 手番側に合法手が無ければ手番を交代するだけ(`midgame/PracticeMode.tsx`と同じ方針)。
-  useEffect(() => {
-    if (phase !== 'playing' || !session) return
-    const s = session
-
-    if (isTerminal(s.board)) {
-      void finishClear(s)
-      return
-    }
-    if (!hasLegalMove(s.board, s.sideToMove)) {
-      setSession({ ...s, sideToMove: opposite(s.sideToMove) })
-    }
-    // eslint-disable-next-line
-  }, [phase, session])
+  /**
+   * 着手適用直後に、実際に手番を持つ側を同期的に解決する(T055、
+   * `game/gameLoop.ts`の`afterMove`・`midgame/PracticeMode.tsx`と同じパターン)。
+   *
+   * 以前は着手適用(`setSession`)とパス解決・終局判定が別々のuseEffectに
+   * 分かれていたため、パスが発生した直後の1レンダーだけ`session.sideToMove`が
+   * 「本来ならパスして手番が変わらないはずの側」のまま描画されてしまい、
+   * それを見ている盤面評価オーバーレイ取得用のuseEffect(`session.sideToMove
+   * !== session.humanSide`を見て判定する)が一瞬だけ誤った判定をして
+   * `setOverlayMoves(null)`を呼ぶ→直後に正しい手番へ訂正されて再取得、という
+   * ちらつきが発生していた。着手適用と同じ関数呼び出しの中でパス・終局まで
+   * 解決することで、この中間状態を無くす。両者とも合法手が無ければ`null`
+   * (真の終局)を返すので、呼び出し側は`null`の場合`finishClear`を呼ぶこと。
+   */
+  function resolveNextSideToMove(board: BoardState, sideAfterMove: Side): Side | null {
+    return resolveMover(board, sideAfterMove)
+  }
 
   // 相手(エンジン)の手番になったら、「最も粘る手」(相手にとっての最善手)を
   // 完全読みで選んで自動着手する(要件3)。
@@ -298,7 +305,13 @@ export function PlayMode() {
 
         const square = notationToSquare(mostResistant.move)
         const board = applyMove(s.board, s.sideToMove, square)
-        setSession({ ...s, board, sideToMove: opposite(s.sideToMove), lastMove: square })
+        const nextSession = { ...s, board, lastMove: square }
+        const nextSide = resolveNextSideToMove(board, opposite(s.sideToMove))
+        if (nextSide === null) {
+          await finishClear(nextSession)
+          return
+        }
+        setSession({ ...nextSession, sideToMove: nextSide })
       } catch (error) {
         console.error('相手の着手取得に失敗しました', error)
       } finally {
@@ -379,7 +392,13 @@ export function PlayMode() {
 
       setLastMoveCorrect(true)
       const board = applyMove(s.board, s.sideToMove, square)
-      setSession({ ...s, board, sideToMove: opposite(s.sideToMove), lastMove: square })
+      const nextSession = { ...s, board, lastMove: square }
+      const nextSide = resolveNextSideToMove(board, opposite(s.sideToMove))
+      if (nextSide === null) {
+        await finishClear(nextSession)
+        return
+      }
+      setSession({ ...nextSession, sideToMove: nextSide })
     } catch (error) {
       console.error('着手判定のための解析に失敗しました', error)
     } finally {
