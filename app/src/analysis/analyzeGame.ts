@@ -247,8 +247,10 @@ export async function analyzeGame(
  * telescoping(望遠鏡式に打ち消し合う)し、最終的な累積評価値は実際の
  * 最終石差に一致する(終盤完全読みのロス計算が正確であるため)。
  *
- * 「逆転」は`E[i-1]`と`E[i]`の符号(`Math.sign`)が異なる場合に立てる
- * (最善手が続く間は`E[i-1] === E[i]`のため符号は変わらず、逆転は発生しない)。
+ * 「逆転」は`E[i-1]`と`E[i]`が厳密に符号反転した場合(正から負、または負から正)
+ * にのみ立てる(`0`は特別扱いしない)。`E[0] = 0`からの最初の非0への遷移は
+ * 「逆転」とはしない(T057。`0`と非0を異符号とみなす単純な`Math.sign`比較では、
+ * 定石を外れた直後の最初の手が必ず「逆転」表示になってしまうため)。
  */
 function applyCumulativeEvaluation(results: MoveAnalysis[]): void {
   let cumulative = 0
@@ -261,7 +263,7 @@ function applyCumulativeEvaluation(results: MoveAnalysis[]): void {
       ...m,
       blackAdvantageBefore: before,
       blackAdvantageAfter: after,
-      reversal: Math.sign(before) !== Math.sign(after),
+      reversal: (before > 0 && after < 0) || (before < 0 && after > 0),
     }
     cumulative = after
   }

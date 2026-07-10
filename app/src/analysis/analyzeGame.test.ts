@@ -112,8 +112,9 @@ describe('analysis/analyzeGame: analyzeGame', () => {
     // 累積評価値(T056): E[0]=0(互角)を起点に、黒番のロス3.5を差し引く。
     expect(m.blackAdvantageBefore).toBeCloseTo(0)
     expect(m.blackAdvantageAfter).toBeCloseTo(-3.5)
-    // 累積評価値の符号が0(互角扱い)から-(白有利)に変わったため逆転悪手。
-    expect(m.reversal).toBe(true)
+    // 0(互角扱い)から非0への最初の遷移は、符号が厳密に反転(+→-または-→+)した
+    // わけではないため逆転悪手ではない(T057)。
+    expect(m.reversal).toBe(false)
 
     expect(progressCalls).toEqual([{ done: 1, total: 1, justAnalyzedPly: 0 }])
   })
@@ -215,7 +216,8 @@ describe('analysis/analyzeGame: 定石DB連携(T038)', () => {
     const m = results[0]!
     expect(m.evalSource).toBe('midgame')
     expect(m.classification).toBe('dubious')
-    expect(m.reversal).toBe(true)
+    // 0(互角扱い)から非0への最初の遷移は厳密な符号反転ではないため逆転ではない(T057)。
+    expect(m.reversal).toBe(false)
     expect(m.josekiNames).toBeUndefined()
   })
 })
@@ -278,17 +280,70 @@ describe('analysis/analyzeGame: 累積評価値(T056)', () => {
     expect(results[1]!.blackAdvantageAfter).toBeCloseTo(-2.5)
   })
 
-  it('逆転判定は累積評価値の符号が実際に変わった場合にのみ発生する', async () => {
-    const engine = makeFakeEngine()
+  it('逆転判定は累積評価値の符号が厳密に反転した場合にのみ発生する(T057)', async () => {
+    // 決定的な方策(dictionary順の先頭)で4手分の実際に合法な着手列を作り、
+    // 各局面の評価値(discDiff)だけをテスト用に上書きする
+    // (telescoping性質のテストと同じ手法)。
+    const moves: string[] = []
+    let board = initialBoard()
+    let side: Side = 'black'
+    for (let step = 0; step < 4; step++) {
+      const chosen = legalMoves(board, side).map(squareToNotation).sort()[0]!
+      moves.push(chosen)
+      board = applyMove(board, side, notationToSquare(chosen))
+      side = opposite(side)
+    }
+    const positions = replayGame(moves)
+
+    // ply0(黒): ロス0 → E: 0→0。
+    // ply1(白): ロス5 → E: 0→+5(0からの遷移のため逆転ではない)。
+    // ply2(黒): ロス8 → E: +5→-3(符号が厳密に反転するため逆転)。
+    // ply3(白): ロス2 → E: -3→-1(符号は負のまま変わらないため逆転ではない)。
+    const entriesByPly: MoveEvalJson[][] = [
+      [{ move: moves[0]!, score: 0, discDiff: 0, type: 'midgame' }],
+      [
+        { move: moves[1]!, score: 0, discDiff: 0, type: 'midgame' },
+        { move: '__alt1__', score: 0, discDiff: 5, type: 'midgame' },
+      ],
+      [
+        { move: moves[2]!, score: 0, discDiff: -8, type: 'midgame' },
+        { move: '__alt2__', score: 0, discDiff: 0, type: 'midgame' },
+      ],
+      [
+        { move: moves[3]!, score: 0, discDiff: 0, type: 'midgame' },
+        { move: '__alt3__', score: 0, discDiff: 2, type: 'midgame' },
+      ],
+    ]
+    const byHash = new Map<string, MoveEvalJson[]>()
+    for (let i = 0; i < moves.length; i++) {
+      byHash.set(hashBoard(positions[i]!.board, positions[i]!.mover!), entriesByPly[i]!)
+    }
+    const engine: AnalyzeEngine = {
+      async requestAnalyzeAll(b, turn) {
+        const found = byHash.get(hashBoard(b, turn))
+        if (!found) throw new Error('unexpected position queried')
+        return found
+      },
+    }
     const dbFactory = new IDBFactory()
 
-    const results = await analyzeGame(engine, ['f5', 'd6'], { dbFactory })
+    const results = await analyzeGame(engine, moves, { dbFactory })
 
-    // 0(互角扱い)→-3.5(白有利)へ符号が変わるため逆転。
-    expect(results[0]!.reversal).toBe(true)
-    // -3.5(白有利)→-2.5(白有利のまま)は符号が変わらないため逆転ではない
-    // (評価値自体は変化しているが、逆転ではないことを確認する)。
+    expect(results[0]!.blackAdvantageBefore).toBeCloseTo(0)
+    expect(results[0]!.blackAdvantageAfter).toBeCloseTo(0)
+    expect(results[0]!.reversal).toBe(false)
+
+    expect(results[1]!.blackAdvantageBefore).toBeCloseTo(0)
+    expect(results[1]!.blackAdvantageAfter).toBeCloseTo(5)
     expect(results[1]!.reversal).toBe(false)
+
+    expect(results[2]!.blackAdvantageBefore).toBeCloseTo(5)
+    expect(results[2]!.blackAdvantageAfter).toBeCloseTo(-3)
+    expect(results[2]!.reversal).toBe(true)
+
+    expect(results[3]!.blackAdvantageBefore).toBeCloseTo(-3)
+    expect(results[3]!.blackAdvantageAfter).toBeCloseTo(-1)
+    expect(results[3]!.reversal).toBe(false)
   })
 
   it('終盤まで含めた累積評価値の最終値が実際の最終石差と一致する(telescoping性質)', async () => {
