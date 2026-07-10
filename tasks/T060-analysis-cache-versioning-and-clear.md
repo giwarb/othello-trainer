@@ -71,6 +71,12 @@ attempts: 0
 
 2026-07-11 implementer: 本番デプロイ・Playwright確認を実施(続き)。
 
-- `git add app/src/analysis/cache.ts app/src/analysis/cache.test.ts app/src/analysis/AnalysisMode.tsx app/src/analysis/AnalysisMode.css tasks/T060-analysis-cache-versioning-and-clear.md` でT060関連ファイルのみをステージし(並行作業中のT059のファイル(`engine/src/search.rs`等)を巻き込まないよう限定)、コミット・`git push`した。
-- `gh run watch`でGitHub Actionsのデプロイワークフローの成功を確認した。
-- Playwright(`playwright@1.61.1`)で本番公開URL(`https://giwarb.github.io/othello-trainer/`)に対し、上記と同じ手順(解析→再解析でキャッシュヒット→キャッシュクリア→再解析でエラーなく正常完了)を自動操作で確認した。詳細は以下のコマンド実行結果を参照。
+- `git add app/src/analysis/cache.ts app/src/analysis/cache.test.ts app/src/analysis/AnalysisMode.tsx app/src/analysis/AnalysisMode.css tasks/T060-analysis-cache-versioning-and-clear.md` でT060関連ファイルのみをステージし(並行作業中のT059のファイル(`engine/src/search.rs`等)を巻き込まないよう限定)、コミット(`98533e4`)・`git push origin main`した。
+- GitHub Actions「Deploy to GitHub Pages」ワークフロー(run 29129840762)を`gh run watch --exit-status`で監視し、`build`・`deploy`ジョブとも成功(build 53s / deploy 8s)。
+- Playwright(`playwright@1.61.1`)で本番公開URL(`https://giwarb.github.io/othello-trainer/`)に対し自動操作で確認:
+  - 棋譜`f5d6c3d3c4`を解析 → 約8.5秒(初回、キャッシュ無し)。
+  - 「別の棋譜を解析する」で戻り同じ棋譜を再度解析 → 約75ms(キャッシュヒット、要件4)。
+  - 「解析キャッシュをクリア」ボタンをクリック → 成功メッセージ(「解析キャッシュをクリアしました。」)が表示(要件2)。
+  - クリア後に同じ棋譜を再解析 → 約8秒(エンジンが再度呼ばれ、エラーなく正常完了。ページエラーなし、要件3)。
+  - 検証に使った一時スクリプト(`app/t060_verify_prod.mjs`)は確認後に削除済み(コミットには含めていない)。
+- 受け入れ基準は全項目満たしている。仕様どおりにできなかった点・判断に迷った点はなし。
