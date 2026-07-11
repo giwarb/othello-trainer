@@ -19,6 +19,7 @@ import { PracticeMode } from './joseki/PracticeMode.tsx'
 import type { JosekiDb } from './joseki/types.ts'
 import { PracticeMode as MidgamePracticeMode } from './midgame/PracticeMode.tsx'
 import { loadMoveEvalOverlayEnabled, saveMoveEvalOverlayEnabled } from './settings/moveEvalOverlaySettings.ts'
+import { TitleScreen } from './TitleScreen.tsx'
 import { PlayMode as TsumePlayMode } from './tsume/PlayMode.tsx'
 import { VerbalizeMode } from './verbalize/VerbalizeMode.tsx'
 
@@ -37,23 +38,58 @@ const MODE_LABEL: Record<AppMode, string> = {
   verbalize: '言語化トレーニング',
 }
 
+/** タイトル画面のモードカードに表示する一言説明(T065)。 */
+const MODE_DESCRIPTION: Record<AppMode, string> = {
+  play: 'CPU相手に対局し、着手ごとの評価値を見ながら実戦感覚を養う',
+  joseki: '定石DBに沿った出題で、序盤の定石を反復練習する',
+  midgame: '中盤の局面から最善手を探し、評価値の読み方を鍛える',
+  tsume: '終盤の詰み問題を解き、正確な読み切り力を鍛える',
+  analysis: '自分の棋譜を解析し、悪手とその理由を振り返る',
+  verbalize: '用語集・概念レッスンで、手の良し悪しを言葉で説明する力を鍛える',
+}
+
+const MODE_CARDS = (Object.keys(MODE_LABEL) as AppMode[]).map((key) => ({
+  key,
+  label: MODE_LABEL[key],
+  description: MODE_DESCRIPTION[key],
+}))
+
 /**
- * アプリのルートコンポーネント。「対局」「定石練習」「中盤練習」「詰めオセロ」(T028)
- * 「棋譜解析」(T029)「言語化トレーニング」(T035)モードを切り替えるだけのシンプルな
- * ナビゲーション(タブ)を持つ(要件7・9、T035要件8)。ルーティングライブラリは使わず、
- * ローカルstateで表示するモードを切り替える。
+ * アプリのルートコンポーネント。起動直後は`TitleScreen`(T065)を表示し、
+ * モードカードを選ぶと「対局」「定石練習」「中盤練習」「詰めオセロ」(T028)
+ * 「棋譜解析」(T029)「言語化トレーニング」(T035)モードへ遷移する。モード表示中は
+ * `mode-nav`タブでモード間を切り替えでき、タブ内のホームボタンでタイトル画面に
+ * 戻れる(要件7・9、T035要件8、T065要件3・4)。ルーティングライブラリは使わず、
+ * ローカルstate(`mode === null`がタイトル画面)で表示を切り替える。
  *
  * レスポンシブ対応: タブは `flex-wrap` するため375px幅でも崩れない
- * (`app.css` の `.mode-nav` 参照)。
+ * (`app.css` の `.mode-nav` 参照)。タイトル画面のモードカードも
+ * 375px幅では1列に積み上がる(`TitleScreen.css` 参照)。
  */
 export function App() {
-  const [mode, setMode] = useState<AppMode>('play')
+  const [mode, setMode] = useState<AppMode | null>(null)
+
+  if (mode === null) {
+    return (
+      <main class="home-main">
+        <TitleScreen cards={MODE_CARDS} onSelect={(key) => setMode(key as AppMode)} />
+      </main>
+    )
+  }
 
   return (
     <main>
       <h1>オセロトレーナー</h1>
 
       <nav class="mode-nav" aria-label="モード切り替え">
+        <button
+          type="button"
+          class="mode-nav__home"
+          aria-label="タイトル画面に戻る"
+          onClick={() => setMode(null)}
+        >
+          ホーム
+        </button>
         {(Object.keys(MODE_LABEL) as AppMode[]).map((key) => (
           <button
             type="button"
