@@ -1,9 +1,9 @@
 ---
 id: T068
 title: ダークモードでの可読性修正(OS設定連動)
-status: review
+status: redo
 assignee: implementer
-attempts: 0
+attempts: 1
 ---
 
 # T068: ダークモードでの可読性修正(OS設定連動)
@@ -60,7 +60,34 @@ explorerによる事前調査の結果:
 
 ## フィードバック(やり直し時にオーケストレーターが記入)
 
-(なし)
+**不合格(2026-07-11、reviewer指摘。verifierは合格判定だったが、reviewerの指摘がユーザー報告の症状に直結する実害のため差し戻し)**:
+
+`app/src/app.css`の`.notice--error`(59〜62行目付近)と`.notice`(84〜86行目付近)がダークモード対応から漏れている:
+
+```css
+.notice--error {
+  color: #b91c1c;
+  font-weight: bold;
+}
+...
+.notice {
+  color: #b45309;
+}
+```
+
+両クラスとも背景を持たず(本タスクで`body`に`background: var(--color-bg)`を設定したため)ダーク時は`--color-bg`(`#18181b`)の上に直接乗る。コントラスト比を計算すると:
+- `#b91c1c` on `#18181b` → 約2.7:1(WCAG AA基準4.5:1未達、「暗い背景に暗い赤文字」でほぼ判読困難)
+- `#b45309` on `#18181b` → 約3.5:1(同基準未達)
+
+このクラスは`analysis/AnalysisMode.tsx`, `analysis/BlunderPanel.tsx`, `analysis/RefutationView.tsx`, `midgame/PracticeMode.tsx`, `tsume/PlayMode.tsx`, `joseki/PracticeMode.tsx`, `verbalize/PracticeMode.tsx`, `verbalize/TwoChoiceDrill.tsx`, `verbalize/ConceptLesson.tsx`, `verbalize/GlossaryEntryDetail.tsx`, `verbalize/StatsDashboard.tsx`など、ほぼ全モードでエラー・状態メッセージ(`<p class="notice notice--error">{error}</p>`等)として**40箇所以上**使われている。ユーザーの元々の報告「ダークモードでまともに読めなかったりする」の症状(何か失敗した際に出るメッセージが読めない)に直接該当するため、修正必須と判断する。
+
+**修正方針**: `.notice`/`.notice--error`の文字色を、`--color-text`や新設の「エラー/警告用のダーク対応トークン」(例: `--color-danger-text`/`--color-warning-text`、`:root`でライト値・`@media (prefers-color-scheme: dark)`で明るめの赤/オレンジに上書き)経由に変更すること。
+
+**should(今回のやり直しでの対応は任意、余裕があれば)**:
+- `analysis/AnalysisMode.css`の`.analysis-cache-clear__success`と`tsume/PlayMode.css`の`.tsume-practice__feedback`(いずれも`color: #15803d`固定)も同様に固定背景を持たないコンテナ上の固定色で、ダーク背景に対しコントラスト比約3.5:1(AA未達、ただし`.notice--error`ほど深刻ではない)。同様にトークン化するとよい。
+- `verbalize/PracticeMode.css`の`.verbalize-result__history-date`(`color: #52525b`固定)が、本タスクで追加した`--color-text-secondary`と同一hexにもかかわらず直書きのまま。一貫性のため`var(--color-text-secondary)`に揃えてもよい(親要素が固定の明るいパステル背景を保つバッジパターンのため実害は無い)。
+
+修正後は、`.notice`/`.notice--error`が実際に画面に表示される状態(例: 棋譜解析モードで不正な棋譜テキストを入力してエラーメッセージを表示させる等)をダークモードで再現し、`getComputedStyle`でのコントラスト比計算により基準を満たすことを確認すること。
 
 ## 作業ログ(担当エージェントが追記)
 
@@ -171,3 +198,127 @@ explorerによる事前調査の結果:
   到達できなかったため、上記の通り合成DOM要素によるCSSトークン解決の直接確認を
   補助的に併用した。実際のユーザー操作フロー(悪手検出・二択ドリルのプール蓄積等)
   経由での到達確認まではしていない。
+
+### 2026-07-11 verifier
+
+**受け入れ基準の検証結果(合格)**
+
+1. `npm test`(`app/`): 実行し全件パス。`Test Files 57 passed (57)` / `Tests 477 passed (477)`。
+2. `npm run build`(`app/`): 成功(`wasm:build`→`tsc -b`→`vite build`→`inject-sw-version.mjs` すべて正常終了)。
+3. ソースレビュー: `git show 9648616` の全21ファイル差分を確認。
+   - `index.css`: `--color-bg`/`-bg-secondary`/`-bg-tertiary`/`-text`/`-text-secondary`/`-border`/`-accent-text` を`:root`に追加し、`@media (prefers-color-scheme: dark)`で暗色側に上書きしていることを確認。
+   - 背景記載の代表例(`.mode-nav__tab`〔`app.css`〕、`.blunder-panel`〔`BlunderPanel.css`〕、`.glossary-page__item`〔`GlossaryPage.css`〕、`GlossaryPopover.css`、`.concept-lesson__summary`〔`ConceptLesson.css`〕、`.home-main`/`.title-screen__card`〔`app.css`/`TitleScreen.css`〕)がすべて新トークン参照(`var(--color-bg-secondary)`/`var(--color-text)`等)に置き換わっていることを個別に確認。
+   - 横断grep(`background:\s*#f[0-9a-f]{2,5}|background:\s*#fff|color:\s*inherit`)で残存箇所を洗い出し、ヒットした全箇所(`midgame/PracticeMode.css`, `joseki/PracticeMode.css`, `AnalysisMode.css`, `GlossaryEntryDetail.css`, `AttributionWaterfall.css`, `ResultCelebration.css`, `BlunderPanel.css`, `tsume/PlayMode.css`, `EvalBadge.css`, `verbalize/PracticeMode.css`, `StatsDashboard.css`)の文脈を確認したところ、すべて背景色・文字色を固定でペア指定した既存のバッジパターン(タスク仕様で明示的にスコープ外とされたもの)であり、新規の可読性バグではないことを確認した。`color: inherit`の残り1件(`AttributionWaterfall.css`の`.attribution-waterfall__label--button`)も`background: none`のボタンで問題なし。
+   - `git show 9648616 --stat -- app/src/components/Board.tsx` は差分なし(出力ゼロ行)を確認。Canvas描画色(`#0a6e31`/`#111111`/`#f5f5f5`等)は変更されていない。
+4. Board.tsx: 上記の通り変更なしを確認。
+5. 実機確認(ローカル`npm run dev`、Playwright、Chromium、`newContext({ colorScheme })`で`dark`/`light`を切り替え、`getComputedStyle`+簡易相対輝度によるWCAGコントラスト比計算スクリプトを自作して実行):
+   - タイトル画面・対局・定石練習・中盤練習・詰めオセロ・棋譜解析・言語化トレーニングの各`main`/`h1`、`.mode-nav__tab`/`.mode-nav__home`、`.title-screen__card`系を確認。ダーク: `main`文字`rgb(244,244,245)`/背景`rgb(24,24,27)`比16.12、`.title-screen__card`比13.55。ライト: `main`比17.72、`.title-screen__card`比17.72。いずれもWCAG AA(4.5)を大きく超過し、読めない組み合わせは無し。
+   - **`.blunder-panel`は合成DOM挿入ではなく実際のUI操作(棋譜解析モードで「盤面で並べる」から実際に24手打鍵し、解析実行後、悪手ボタンをクリックしてパネルを開く)で到達し検証。** ダーク: 文字`rgb(244,244,245)`/背景`rgb(39,39,42)`比13.55。ライト: 文字`rgb(24,24,27)`/背景`rgb(255,255,255)`比17.72。
+   - **`.glossary-popover`も同じくBlunderPanel内のモチーフバッジ(`.motif-badge--button`)を実クリックして開き検証。** ダーク: 比13.55。ライト: 比17.72。
+   - `.glossary-page__item`(用語集一覧、実クリックで到達): ダーク: 文字`rgb(244,244,245)`/背景`rgb(63,63,70)`比9.50。ライト: 比16.12。
+   - `.glossary-entry-detail__lesson-button`(固定色ペアバッジ、変更対象外): ダーク/ライトとも比5.99で問題なし。
+   - **`.concept-lesson__summary`は実UI操作での到達を試みたが、`ConceptLesson`が内部で使う中盤出題プール(IndexedDB)が空の新規ブラウザコンテキストでは`notFound`フェーズになり、10問完走できる状態にならなかった(implementerの作業ログの記載と同じ制約に遭遇)。** 実際の10問完走(既存データがある環境)での到達確認はできなかったが、ソースコード上は`.glossary-page__item`/`.mode-nav__tab`と全く同じトークンペア(`var(--color-bg-tertiary)`+`var(--color-text)`)を使用しており、これらは実機で確認済みのため、同じトークン解決規則により同様の結果になると判断する(implementerの報告にある限界と同一であり、新規の懸念ではない)。
+   - 375px幅(`viewport: {width:375, height:700}`): ダーク・ライトとも`scrollWidth === clientWidth`(横スクロール発生なし)、`pageerror`イベント0件。タイトル画面・対局画面のスクリーンショットを目視確認し、レイアウト崩れ・文字潰れなし。
+6. 本番デプロイ確認:
+   - `gh run list`で対象コミット`9648616`のPagesデプロイ(run id `29140558695`)が`completed`/`success`であることを確認。
+   - 本番URL(`https://giwarb.github.io/othello-trainer/`)に対して上記5と同一のPlaywrightスクリプトを実行し、ローカルと同一の結果(全コントラスト値が一致)を確認。`.blunder-panel`・`.glossary-popover`も本番URL上で実際にUI操作(24手打鍵→解析→悪手ボタン→モチーフバッジ)して到達し、ダークモードでの表示・コントラストがローカルと同一(比13.55)であることを確認。375px幅チェックも本番URLで実施し、横スクロール無し・エラー無しを確認。
+
+**追加確認**
+
+- `npm test`/`npm run build`は上記の通り実施済み(全体テスト・ビルドを兼ねる)。
+
+**不合格の原因分析**: なし(すべての受け入れ基準を満たす)。
+
+**判定: 合格**
+
+### 2026-07-11 implementer(差し戻し対応)
+
+**実施内容**
+
+フィードバック(reviewer指摘)の`.notice`/`.notice--error`未対応を修正した。
+
+- `app/src/index.css`の`:root`に新規トークンを追加(既存の`--color-bg`等と同じ
+  パターンで、`@media (prefers-color-scheme: dark)`で暗色側に上書き):
+  - `--color-danger-text`(既定`#b91c1c` → ダーク`#fca5a5`)
+  - `--color-warning-text`(既定`#b45309` → ダーク`#fcd34d`)
+  - `--color-success-text`(既定`#15803d` → ダーク`#86efac`、should対応で使用)
+- `app/src/app.css`の`.notice--error`(`color: #b91c1c`固定)と`.notice`
+  (`color: #b45309`固定)を、それぞれ`var(--color-danger-text)`/
+  `var(--color-warning-text)`に置き換えた。
+- **実装中に追加で発見した既存バグ**: `.notice--error`と`.notice`は同じ詳細度
+  (クラス単体、0,1,0)を持ち、ファイル内でのソース順は`.notice--error`が先・
+  `.notice`が後のため、両クラスを併せ持つ要素(実際の使用箇所は
+  `class="notice notice--error"`で**全40箇所以上が例外なくこの組み合わせ**)では
+  `color`プロパティが常に`.notice`側の値で上書きされ、`.notice--error`が
+  意図する赤色が一度も画面に反映されていなかった(ダークモード対応とは独立した、
+  本タスク着手前から存在した表示バグ)。放置すると新設した`--color-danger-text`が
+  死んだトークンになり、フィードバックの意図(エラーメッセージを赤で明示する)が
+  達成できないため、`.notice--error`のセレクタを`.notice.notice--error`
+  (詳細度0,2,0、実際の使用パターンと一致)に変更し、`.notice`より確実に優先される
+  ようにした。この修正はタスク仕様の直接の指示にはないが、フィードバックで
+  指摘された同一CSSルールの実効性を担保するために必要と判断し実施した。
+- should項目3件も対応:
+  - `analysis/AnalysisMode.css`の`.analysis-cache-clear__success`
+    (`#15803d`固定)→ `var(--color-success-text)`
+  - `tsume/PlayMode.css`の`.tsume-practice__feedback`(`#15803d`固定)→
+    `var(--color-success-text)`
+  - `verbalize/PracticeMode.css`の`.verbalize-result__history-date`
+    (`#52525b`固定)→ `var(--color-text-secondary)`(既存トークンと同値のため
+    置き換えのみ、新規トークンは追加していない)
+
+**受け入れ基準の実行結果**
+
+- `npm test`(`app/`): 57ファイル・477件全件パス
+  (`Test Files 57 passed (57)` / `Tests 477 passed (477)`)。
+- `npm run build`(`app/`): 成功。
+- 実機確認(`npm run dev`、Playwrightスクリプトを自作し
+  `newContext({ colorScheme })`でダーク/ライトを切り替え、
+  `getComputedStyle`+WCAG相対輝度によるコントラスト比計算を実施):
+  - **`.notice--error`を実際に画面表示させて確認**: 棋譜解析モードで
+    不正な棋譜テキスト(`これは不正な棋譜テキストです`)を入力し送信、
+    `TranscriptParseError`によるエラーメッセージ(`不正な着手記法です: ...`)を
+    実際に発生させ、要素に対し`getComputedStyle`で検証。
+    - 修正前(セレクタ変更前)の暫定確認では、上記の詳細度バグにより
+      `.notice`側の警告色(オレンジ)が表示され、意図した赤(`--color-danger-text`)
+      が反映されていないことを発見。
+    - `.notice.notice--error`への変更後: ダーク `color=rgb(252,165,165)`
+      (`--color-danger-text`のダーク値)/`bg=rgb(24,24,27)` 比9.33。
+      ライト `color=rgb(185,28,28)`/`bg=rgb(255,255,255)` 比6.47。
+      いずれもWCAG AA基準(4.5)を満たす。
+  - `.notice--error`(キャッシュクリア失敗時の文言、実UI操作での再現が困難な
+    ため合成DOM要素で補助確認): ダーク比9.33、ライト比6.47(実表示と同一)。
+  - `.notice`(警告、非エラー): 二択比較ドリル(言語化トレーニング内)で
+    出題プールが空の状態のメッセージ「出題プールが空です。...」を実際に表示させ
+    確認。ダーク `color=rgb(252,211,77)`/比12.29。ライト
+    `color=rgb(180,83,9)`/比5.02。
+  - should対応3件も合成DOM要素で確認: `.analysis-cache-clear__success`/
+    `.tsume-practice__feedback`はダーク比12.62・ライト比5.02。
+    `.verbalize-result__history-date`(補助テキストのためAA必須ではないが
+    参考値としてダーク比6.91・ライト比7.73、いずれも良好)。
+  - すべてWCAG AA基準(4.5)を満たすことを確認(未達0件)。
+- 変更をmainにpush済み(コミット`653017a`)。GitHub Actions「Deploy to
+  GitHub Pages」(run id `29141328403`)は`build`→`deploy`とも成功
+  (`gh run watch 29141328403 --exit-status`で確認、終了コード0)。
+- 本番URL(`https://giwarb.github.io/othello-trainer/`)に対して同一の
+  Playwright検証スクリプトを実行し、上記ローカル結果と完全に一致する
+  コントラスト値(`.notice--error`実表示: ダーク9.33/ライト6.47、
+  `.notice`警告: ダーク12.29/ライト5.02、should項目もローカルと同一)を確認した。
+
+**既存の合格項目への影響**
+
+- `git diff`は`app/src/app.css`・`app/src/index.css`・
+  `app/src/analysis/AnalysisMode.css`・`app/src/tsume/PlayMode.css`・
+  `app/src/verbalize/PracticeMode.css`の5ファイルのみで、前回合格した
+  代表例の修正(`.mode-nav__tab`、`.blunder-panel`、`GlossaryPopover`等)や
+  `Board.tsx`(Canvas描画色)には触れていない。
+- `npm test`全477件パス・`npm run build`成功を再確認しており、既存機能への
+  回帰は無い。
+
+**判断に迷った点**
+
+- `.notice.notice--error`への詳細度バグ修正はフィードバックの直接の指示には
+  含まれていなかったが、同一CSSルールの実効性(エラー色が実際に赤として
+  表示されるか)に関わる問題であり、放置すると新設トークンが無意味になる
+  ため実施した。スコープ超過の懸念があればオーケストレーターの判断を仰ぎたい。
+- `status`/`attempts`はオーケストレーターの指示に従い変更していない
+  (frontmatterは`status: redo`/`attempts: 1`のまま)。
