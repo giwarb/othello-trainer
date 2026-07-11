@@ -64,7 +64,7 @@
 .stats-dashboard__bar-fill {
   display: block;
   height: 100%;
-  background: #1e3a8a;
+  background: var(--color-accent);
   border-radius: 999px;
 }
 

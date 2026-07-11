@@ -1,7 +1,7 @@
 .board-with-overlay {
   position: relative;
   width: 100%;
-  max-width: 280px;
+  max-width: var(--board-size-sm);
   margin: 0 auto;
 }
 

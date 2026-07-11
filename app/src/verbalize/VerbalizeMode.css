@@ -25,8 +25,8 @@
 }
 
 .verbalize-mode__sub-tab--active {
-  background: #334155;
-  border-color: #334155;
+  background: var(--color-accent);
+  border-color: var(--color-accent);
   color: #ffffff;
   font-weight: bold;
 }

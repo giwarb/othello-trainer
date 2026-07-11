@@ -10,10 +10,10 @@
   padding: 0.6rem 1.2rem;
   font-size: 1.1rem;
   font-weight: bold;
-  border: 2px solid #1e3a8a;
-  border-radius: 0.5rem;
-  background: #eff6ff;
-  color: #1e3a8a;
+  border: 2px solid var(--color-accent);
+  border-radius: var(--radius-md);
+  background: var(--color-accent-bg);
+  color: var(--color-accent-dark);
   cursor: pointer;
 }
 
@@ -23,7 +23,7 @@
 }
 
 .two-choice-drill__option-button--chosen {
-  background: #1e3a8a;
+  background: var(--color-accent);
   color: #ffffff;
 }
 

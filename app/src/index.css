@@ -1,6 +1,34 @@
 :root {
   color-scheme: light dark;
   font-family: system-ui, 'Segoe UI', Roboto, sans-serif;
+
+  /* デザイントークン: 盤面サイズ(用途別3段階、T061)。
+     lg = 対局・練習中に実際に操作するメイン盤面。
+     md = 結果画面等に表示する参考盤面。
+     sm = パネル・一覧内に添える小さな参考盤面。 */
+  --board-size-lg: 640px;
+  --board-size-md: 320px;
+  --board-size-sm: 260px;
+
+  /* デザイントークン: アクセントカラー(T061)。
+     PWAマニフェスト(manifest.json/index.html)のtheme_color #863bffと
+     揃えたブランドカラー。盤面自体の緑色はオセロの伝統色として対象外。 */
+  --color-accent: #863bff;
+  --color-accent-dark: #6d2fd1;
+  --color-accent-bg: #f1e9ff;
+
+  /* デザイントークン: 角丸(T061) */
+  --radius-sm: 0.4rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.6rem;
+  --radius-full: 999px;
+
+  /* デザイントークン: 余白(T061) */
+  --space-xs: 0.4rem;
+  --space-sm: 0.5rem;
+  --space-md: 0.75rem;
+  --space-lg: 1rem;
+  --space-xl: 1.5rem;
 }
 
 body {

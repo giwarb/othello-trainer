@@ -1,6 +1,6 @@
 .othello-board {
   width: 100%;
-  max-width: 640px;
+  max-width: var(--board-size-lg);
   margin: 0 auto;
 }
 

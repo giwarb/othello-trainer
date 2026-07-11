@@ -55,7 +55,7 @@
 
 .blunder-panel__board {
   width: 100%;
-  max-width: 280px;
+  max-width: var(--board-size-sm);
   margin: 0 auto;
 }
 
@@ -249,7 +249,7 @@
   .blunder-panel__branch-area .blunder-panel__board {
     flex: none;
     width: 100%;
-    max-width: 260px;
+    max-width: var(--board-size-sm);
   }
 
   .blunder-panel__branch-tree-wrap {

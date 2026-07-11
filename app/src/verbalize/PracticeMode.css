@@ -74,7 +74,7 @@
 .verbalize-tags__reselect {
   background: none;
   border: none;
-  color: #1e3a8a;
+  color: var(--color-accent-dark);
   text-decoration: underline;
   cursor: pointer;
   padding: 0;

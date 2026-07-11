@@ -57,10 +57,10 @@
 .glossary-entry-detail__lesson-button {
   align-self: flex-start;
   padding: 0.4rem 0.9rem;
-  border: 1px solid #1e3a8a;
-  border-radius: 0.4rem;
-  background: #eff6ff;
-  color: #1e3a8a;
+  border: 1px solid var(--color-accent);
+  border-radius: var(--radius-sm);
+  background: var(--color-accent-bg);
+  color: var(--color-accent-dark);
   cursor: pointer;
   font-weight: bold;
 }
@@ -95,7 +95,7 @@
 
 .glossary-entry-detail__board {
   width: 100%;
-  max-width: 220px;
+  max-width: var(--board-size-sm);
   margin: 0 auto;
 }
 

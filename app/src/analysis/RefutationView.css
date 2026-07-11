@@ -60,7 +60,7 @@
 
 .refutation-view__board {
   width: 100%;
-  max-width: 220px;
+  max-width: var(--board-size-sm);
   margin: 0 auto;
 }
 
