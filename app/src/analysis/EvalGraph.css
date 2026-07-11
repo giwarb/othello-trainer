@@ -6,6 +6,10 @@
   gap: 0.35rem;
 }
 
+.eval-graph__canvas {
+  position: relative;
+}
+
 .eval-graph__svg {
   width: 100%;
   height: auto;
@@ -13,6 +17,8 @@
   background: #f4f4f5;
   border: 1px solid #d4d4d8;
   border-radius: 0.5rem;
+  /* 横方向のドラッグ中もページの縦スクロールは妨げない(T063、タッチ操作対応)。 */
+  touch-action: pan-y;
 }
 
 .eval-graph__band {
@@ -31,10 +37,33 @@
   fill: rgba(113, 113, 122, 0.14);
 }
 
-.eval-graph__zero-line {
-  stroke: #a1a1aa;
+.eval-graph__grid-line {
+  stroke: #e4e4e7;
   stroke-width: 1;
+}
+
+.eval-graph__grid-line--zero {
+  stroke: #a1a1aa;
   stroke-dasharray: 3 3;
+}
+
+.eval-graph__grid-label {
+  font-size: 9px;
+  fill: #71717a;
+}
+
+.eval-graph__hover-line {
+  stroke: #2563eb;
+  stroke-width: 1;
+  stroke-dasharray: 2 2;
+  pointer-events: none;
+}
+
+.eval-graph__hover-point {
+  fill: #2563eb;
+  stroke: #ffffff;
+  stroke-width: 1.5;
+  pointer-events: none;
 }
 
 .eval-graph__line {
@@ -109,5 +138,55 @@
   .eval-graph__legend {
     font-size: 0.72rem;
     gap: 0.5rem;
+  }
+}
+
+/*
+ * カーソル追従ツールチップ(T063)。SVGの外に置くHTMLオーバーレイで、
+ * `left`(%)はJS側で計算した値をインラインstyleで与え、水平方向の
+ * 位置揃え(start/center/end)だけこのCSSの`transform`で切り替える
+ * (グラフ端付近でホバーしてもツールチップが画面外にはみ出しにくくするため)。
+ */
+.eval-graph__tooltip {
+  position: absolute;
+  top: 0.4rem;
+  max-width: calc(100% - 0.5rem);
+  padding: 0.35rem 0.55rem;
+  background: rgba(24, 24, 27, 0.92);
+  color: #fafafa;
+  border-radius: 0.375rem;
+  font-size: 0.72rem;
+  line-height: 1.4;
+  white-space: nowrap;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+  pointer-events: none;
+  z-index: 2;
+}
+
+.eval-graph__tooltip p {
+  margin: 0;
+}
+
+.eval-graph__tooltip p.eval-graph__tooltip-title {
+  font-weight: 700;
+  margin-bottom: 0.15rem;
+}
+
+.eval-graph__tooltip--start {
+  transform: translateX(0);
+}
+
+.eval-graph__tooltip--center {
+  transform: translateX(-50%);
+}
+
+.eval-graph__tooltip--end {
+  transform: translateX(-100%);
+}
+
+@media (max-width: 400px) {
+  .eval-graph__tooltip {
+    font-size: 0.68rem;
+    white-space: normal;
   }
 }

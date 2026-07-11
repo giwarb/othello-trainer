@@ -17,7 +17,7 @@ import type { JosekiDb } from '../joseki/types.ts'
 import { analyzeGame, replayGame, TranscriptReplayError } from './analyzeGame.ts'
 import { BlunderPanel } from './BlunderPanel.tsx'
 import { clearAnalysisCache } from './cache.ts'
-import { EvalGraph, type EvalGraphMarker, type EvalGraphPoint } from './EvalGraph.tsx'
+import { EvalGraph, type EvalGraphMarker, type EvalGraphPoint, type EvalGraphPointMove } from './EvalGraph.tsx'
 import { parseTranscript, TranscriptParseError } from './parseTranscript.ts'
 import { loadClassifyThresholds, saveClassifyThresholds } from './thresholdSettings.ts'
 import type { AnalyzeGameProgress, ClassifyThresholds, MoveAnalysis, MoveClassification } from './types.ts'
@@ -61,6 +61,17 @@ function movelistEvalDiscDiff(m: MoveAnalysis): number {
   return m.side === 'black' ? m.blackAdvantageAfter : -m.blackAdvantageAfter
 }
 
+/** `EvalGraphPoint.move`(T063、ツールチップ用)を1手ぶんの解析結果から作る。 */
+function graphPointMove(m: MoveAnalysis): EvalGraphPointMove {
+  return {
+    side: m.side,
+    notation: m.move,
+    lossDiscs: m.lossDiscs,
+    classification: m.classification,
+    reversal: m.reversal,
+  }
+}
+
 /**
  * `MoveAnalysis[]`(要件3〜5)から評価グラフ用の点列を作る(要件6)。
  *
@@ -73,6 +84,10 @@ function movelistEvalDiscDiff(m: MoveAnalysis): number {
  * 常に変化しない(定石内はロス0のため)が、念のため`value`を明示的に
  * 0(互角)へ固定しておく(定石区間に入る前に既に非0の累積値へ動いていた
  * 場合でも、定石区間の帯は常にフラット表示にするための防御)。
+ *
+ * T063: `ply`(>0)の点には、その局面に至る直前の着手(`results[ply - 1]`)の
+ * 情報を`move`として付与する(グラフのカーソル追従ツールチップ用)。
+ * `ply === 0`(初期局面)には対応する着手が無いため`move`は付与しない。
  */
 function buildGraphPoints(results: readonly MoveAnalysis[]): EvalGraphPoint[] {
   if (results.length === 0) return []
@@ -91,6 +106,7 @@ function buildGraphPoints(results: readonly MoveAnalysis[]): EvalGraphPoint[] {
       value: valueFor(results[i]!, results[i]!.blackAdvantageBefore),
       isExact: results[i]!.isExact,
       evalSource: results[i]!.evalSource,
+      move: graphPointMove(results[i - 1]!),
     })
   }
   const last = results[results.length - 1]!
@@ -99,6 +115,7 @@ function buildGraphPoints(results: readonly MoveAnalysis[]): EvalGraphPoint[] {
     value: valueFor(last, last.blackAdvantageAfter),
     isExact: last.isExact,
     evalSource: last.evalSource,
+    move: graphPointMove(last),
   })
   return points
 }
