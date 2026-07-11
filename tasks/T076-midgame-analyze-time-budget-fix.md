@@ -116,4 +116,15 @@ explorerによる詳細調査の結果:
 - 調査に使った一時ファイル(`eval_cli gen`の生成結果、フィルタスクリプト、Edax比較スクリプト、Playwright確認スクリプト等)はいずれもスクラッチパッド(`$SCRATCH`)内に作成しており、リポジトリには含めていない。
 - `engine/src/bin/eval_cli.rs`自体の変更は行っていない(既存の`--time-ms`オプション(T034で追加済み)をそのまま利用した)。
 
-（デプロイ・本番確認は追記予定 — 以下に追記）
+**コミット・push・デプロイ・本番確認**
+
+- コミット `c2685d0`(タスク対象ファイル`engine/src/search.rs`・`app/src/midgame/PracticeMode.tsx`・`app/src/verbalize/PracticeMode.tsx`・`app/src/verbalize/TwoChoiceDrill.tsx`・`app/src/verbalize/glossaryExamples.ts`・本タスクファイルのみを明示的に`git add`。`CLAUDE.md`・`STATUS.md`・他タスクファイル等、他セッションで並行変更中だった対象外ファイルは含めていない)。
+- `git push origin main` → GitHub Actions「Deploy to GitHub Pages」(run `29169508466`)を`gh run watch`で確認、`build`(47秒)・`deploy`(9秒)とも成功。
+- 本番URL(`https://giwarb.github.io/othello-trainer/`)に対し、Playwright(使い捨てスクリプト、`$SCRATCH/t076_prod_check.mjs`)で以下を確認:
+  - 5タブ(対局/定石練習/中盤練習/詰めオセロ/棋譜解析)すべてをクリックし、コンソール/ページエラー0件(既存モードへの回帰なし)。
+  - 中盤練習モードで実際にセッションを開始し、着手クリック後「判定中...」の表示を経て(タイムアウト無く)結果が確定することを確認(スクリーンショットで「手番: 黒(判定中...)」表示を確認)。コンソール/ページエラー0件。
+
+**まとめ**
+
+- 根本原因は`search_all_moves_with_eval`が合計の時間予算(`time_ms`)を合法手間で「早い者勝ち」に共有していたことで、たまたま先頭(マス番号が若い)に来た1手が予算のほぼ全部を消費し、残り全ての合法手がdepth=1(ノイズに近い浅い評価)しか探索されず、実際に良い手が悪手より低く評価される実害あるバグだった。これはT034が修正した「探索木内部でsolve_exactが無条件・無制限に呼ばれてtime_msを無視する」バグとは別種の問題であり、T034の修正(1024ノードごとのチェック・`solve_exact_bounded`)自体は変更していない。
+- 修正により、各合法手が「その時点で残っている予算 ÷ まだ評価していない合法手の数」という公平な持ち分を受け取るようにし(`fair_share_time_ms`)、あわせて`MIDGAME_ANALYZE_LIMIT`等4箇所の`timeMs`を300→1000msに引き上げることで、報告された局面でのb2/b4誤判定を解消した。合計の時間予算の上限自体は変更していないため、T034が防いだハングのリスクは増えていない(26手棋譜の解析が引き続き約40秒で完走することを確認済み)。
