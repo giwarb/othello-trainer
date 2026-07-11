@@ -77,4 +77,15 @@ attempts: 0
     5. 更新通知バナーの確認: さらに`vC-marker`付きに書き換えてビルドし直し(version C)、配信し直した状態で、ページは**リロードせず**(既存タブを開いたままの想定)、`window.__t062_no_reload_marker__`という目印を仕込んだ上で`registration.update()`を明示的に呼び(本番の30分間隔チェック/visibilitychangeを前倒しして即時実行)、「新しいバージョンがあります。」バナーが表示されることを確認。この時点で目印(`window.__t062_no_reload_marker__`)がまだ`'still-here'`のまま残っていることを確認 → **自動リロードが一切発生していないことを実証**(要件3)。
     6. バナーの「今すぐ更新」ボタンをクリック → 実際にページがリロードされ(目印が`undefined`になり新しいページ実行に切り替わったことを確認)、`<h1>`が`vC-marker`表示になることを確認(手動更新の実効性を確認)。
   - 上記6ステップすべて期待通りの結果(コンソールエラー・ページエラーも無し)。検証に使ったスクリプトは確認後に削除済み(コミットしていない)。
-  - 本番デプロイ確認: 下記追記。
+
+2026-07-11 implementer: 本番デプロイ・Playwright確認を実施(続き)。
+
+- `git add app/public/sw.js app/src/registerServiceWorker.ts app/src/swUpdateLogic.ts app/src/swUpdateLogic.test.ts tasks/T062-sw-update-propagation-fix.md`でT062関連ファイルのみをステージ(並行作業中の他タスクの変更を巻き込まないよう限定)し、コミット(`fa9f43c`)・`git push origin main`した。
+- GitHub Actions「Deploy to GitHub Pages」ワークフロー(run 29133000965)を`gh run watch --exit-status`で監視し、`build`(46s)・`deploy`(10s)とも成功。
+- **本番URL(`https://giwarb.github.io/othello-trainer/`)に対し、Playwrightで「キャッシュを事前クリアしない」シナリオを確認**(`app/`配下に一時検証スクリプト`t062_verify_prod.mjs`を作成、確認後に削除・コミットしていない)。本番ドメインでは今回のテスト実行時点で既にT062修正後のsw.jsがデプロイ済みのため「本当に修正前の古いバージョンがキャッシュされている状態」を再現することはできない(ローカルでのversion A/B/C比較は上記で実施済み)。そこで本番環境特有の条件(実際のCORS/Varyヘッダ、GitHub Pages配信、実際の`base`パス)下で同じ効果を検証するため、Cache Storageへ直接「stale」なダミーレスポンスを注入する方式で確認した。
+  1. 初回アクセスでSW登録・アプリシェルのキャッシュを確認(`navigator.serviceWorker.controller !== null`)。
+  2. `page.evaluate`で現在のCache Storage(`othello-trainer-v<hash>-<timestamp>`、`<hash>`が今回コミット`fa9f43c`のショートハッシュと一致することを確認)に対し、現在のページURL(ナビゲーションリクエストのキー)に`STALE_MARKER_FOR_T062_TEST`という内容のダミーレスポンスを`cache.put()`で直接上書き注入。
+  3. **オンラインのままreload** → 表示された内容は`STALE_MARKER_FOR_T062_TEST`ではなく実際のアプリ本体(`<h1>オセロトレーナー</h1>`ほか通常のUI)だった。Cache Storageに何が入っていてもオンライン時はネットワークが優先され、staleな内容が使われないことを実証(要件1、対応するローカル検証のステップ3と同じ結論)。
+  4. **オフラインでreload**(`context.setOffline(true)`) → 手順3のネットワーク成功時に上書き保存された実内容が正しく表示され、エラーにもならなかった(要件2、オフライン動作の維持)。
+  5. オンラインに戻して最終reload → モードナビゲーション(対局/定石練習/中盤練習/詰めオセロ/棋譜解析/言語化トレーニング)が正常に表示されることを確認。全ステップでコンソールエラー・ページエラーは無し。
+- 受け入れ基準は全項目満たしている。仕様どおりにできなかった点・判断に迷った点: 「自動リロード」ではなく「通知バナー+手動更新」を選んだ判断について(上記参照)。これは要件3(対局中の意図しないリロード防止・無限ループ防止)を安全側に倒すための意図的な選択であり、タスクファイルの「具体的な実現方法は実装時に判断してよい」という指示の範囲内と判断した。
