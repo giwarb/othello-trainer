@@ -58,6 +58,11 @@ main {
 }
 
 .board-container {
+  /* T061フィードバック対応: 定石練習/中盤練習/詰めオセロ等の`align-items: center`な
+     flexラッパー内では、`width`未指定だとshrink-to-fitでcanvas既定の300pxに
+     フォールバックしてしまう。`width: 100%`を明示することで、親のflex配置
+     (center/stretchいずれでも)に関わらず`max-width`まで確実に伸長させる。 */
+  width: 100%;
   max-width: var(--board-size-lg);
   margin: 0 auto;
 }

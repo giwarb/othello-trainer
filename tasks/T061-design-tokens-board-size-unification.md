@@ -1,9 +1,9 @@
 ---
 id: T061
 title: UI磨き込み(1): 盤面サイズの統一+デザイントークン基盤の導入
-status: todo
+status: redo
 assignee: implementer
-attempts: 0
+attempts: 1
 ---
 
 # T061: UI磨き込み(1): 盤面サイズの統一+デザイントークン基盤の導入
@@ -62,7 +62,15 @@ attempts: 0
 
 ## フィードバック(やり直し時にオーケストレーターが記入)
 
-(なし)
+**不合格(2026-07-11、verifier検証)**: CSS変数(`--board-size-*`)の導入・参照自体は全ファイルで形式的に正しく行われているが、要件1(「全モードのメイン盤面が同じサイズトークンを参照し、視覚的に一貫したサイズになること」)が実際には満たされていない。
+
+verifierが`canvas.clientWidth`を実測した結果:
+- 対局モード: 640px(正しい)
+- 定石練習・中盤練習・詰めオセロ: **いずれも300px固定**(canvas要素の既定の内在サイズにフォールバックしている)
+
+原因: 定石練習・中盤練習・詰めオセロの各モードの盤面を囲む親要素(`.joseki-practice`, `.midgame-practice`, `.tsume-practice`等のラッパー、`joseki/PracticeMode.css`・`midgame/PracticeMode.css`・`tsume/PlayMode.css`の1-8行目付近)が`display: flex; flex-direction: column; align-items: center;`になっている。`align-items: center`はデフォルトの`stretch`を上書きするため、子要素の`.board-container`(`max-width: var(--board-size-lg)`のみで明示的な`width`指定なし)が伸長されずshrink-to-fitで幅が決まり、内側の`.othello-board`の`width: 100%`が親の不定幅に対して解決できず、`<canvas>`要素の既定の内在幅(300px)にフォールバックしている。対局モードの盤面は`main`直下のブロック要素(`display:block`)に配置されているためこの問題が起きていない。
+
+**修正指示**: 練習系3モードのflexラッパーが`.board-container`(または`.othello-board`)を正しく`var(--board-size-lg)`まで伸長するよう、`align-items: stretch`に変更するか、`.board-container`自体に明示的な`width: 100%`(`max-width`と併用)を追加するなど、レイアウトの根本原因を修正すること。修正後は、**対局モードとの比較を含めて**(練習モード同士の一致だけでなく)、`canvas.clientWidth`を実際に計測し、全モードで同じ値になることを確認すること。
 
 ## 作業ログ(担当エージェントが追記)
 
@@ -100,3 +108,17 @@ attempts: 0
     - `npm run build`(`app/`): 成功(`tsc -b && vite build`、Rust/WASMの再ビルド含む)。
     - `npm run dev` + Playwright(ローカルの`playwright`パッケージをNode script経由で使用)でデスクトップ(1280x1000)・モバイル(375x812)双方の全6モード(対局・定石練習・中盤練習・詰めオセロ・棋譜解析・言語化トレーニング)のタブ切り替え画面と、定石練習/中盤練習/詰めオセロのメイン盤面(いずれも同一サイズで表示されることを確認)、中盤練習の結果画面(md=320px、メイン盤面より明確に小さく表示されることを確認)をスクリーンショットで目視確認。アクティブタブ・サブタブ・棋譜解析の入力タブがいずれも紫系アクセントカラーで統一されていることを確認。375px幅でも折り返し・崩れなし。
   - 本番デプロイ確認は次項に追記。
+
+- 2026-07-11 implementer(やり直し1回目、verifierフィードバック対応): 不合格の原因を修正。
+  - **根本原因**: `app/src/app.css`の`.board-container`が`max-width`のみで明示的な`width`を持たず、`display:block`のflexアイテムとして扱われていた。`.joseki-practice`/`.midgame-practice`/`.tsume-practice`(いずれも`display:flex; flex-direction:column; align-items:center;`)配下では、`align-items:center`によりshrink-to-fitで幅が決まり、内部の`.othello-board`(`width:100%`)が親の不定幅に対して解決できず、`<canvas>`の既定の内在幅(300px)にフォールバックしていた。対局モードは`main`直下のブロック要素配下にあるため影響を受けていなかった。
+  - 追加調査: 同じ原因(`align-items:center`な親 + `.board-container`に`width`未指定)は`.midgame-result`/`.tsume-result`/`.analysis-result__board-area`/`.glossary-entry-detail__example`(いずれも`align-items:center`)にも存在しており、結果画面・用語集の参考盤面も同様に300pxへフォールバックしていた可能性が高い(前回の目視確認時は300pxと320/260pxの差が僅かで気づけなかった)。
+  - **修正**: `app/src/app.css`の`.board-container`に`width: 100%;`を追加(`max-width: var(--board-size-lg)`と併用)。全モードで共通の`.board-container`クラス1箇所を直すことで、モード別の`max-width`上書き(`--board-size-md`/`--board-size-sm`)はそのまま維持しつつ、親のflex配置(`center`/`stretch`いずれでも)に依存せず確実に`max-width`まで伸長するようにした。個別モードの`align-items`を`stretch`に変更する案は、同じ親内の他要素(ボタン・テキスト)の中央寄せが崩れる副作用があるため採用しなかった。
+  - **再検証(`canvas.clientWidth`実測、対局モードとの比較込み)**: Playwright(`app/`にローカルインストール済みの`playwright`パッケージをNode script経由、確認後削除)で実際にDOMの`clientWidth`を測定。
+    - lg(メイン盤面): 対局=640px / 定石練習=640px / 中盤練習=640px / 詰めオセロ=640px → **全一致**。
+    - md(結果盤面): 中盤練習の結果画面=320px / 棋譜解析の結果画面=320px → **一致**(修正前はこれらも300pxにフォールバックしていたはずだが、修正後は正しく320pxを計測)。
+    - sm(参考盤面): 悪手パネル・反証層・用語集の例局面は、実データ(自分の悪手記録・出題プール)が新規ブラウザプロファイルに存在せず実フローでの到達が困難だったため、実際にロードされたCSS(`app.css`/`BlunderPanel.css`/`RefutationView.css`/`GlossaryEntryDetail.css`)に対し、各要素と全く同一のクラス構成のDOMを直接構築してレイアウト計算を検証(JS側のデータ取得ロジックはテスト対象外、CSSレイアウトの検証が目的)。結果: `.blunder-panel__board`=260px / `.refutation-view__board`=260px / `.glossary-entry-detail__board`=260px → **全て`--board-size-sm`どおり一致**。
+  - `npm test`(app/): 55ファイル467件全件パス(他タスクの並行作業により対局モード外のテストファイルが1件増えているが無関係)。
+  - `npm run build`(app/): 成功。
+  - デスクトップ(1280x1000)・モバイル(375x812)双方で定石練習/中盤練習/詰めオセロのスクリーンショットを再取得し、対局モードと同一の640px幅で表示されていることをピクセル単位でも目視確認(前回の目視確認は精度が粗く、300pxと640pxの差を見落としていたため、今回は座標を突き合わせて確認)。
+  - 一時検証スクリプト(`app/measure*.mjs`、`app/shotsfix.mjs`)は確認後に削除済み(コミット対象外)。
+  - 本番デプロイ・本番環境での`canvas.clientWidth`再測定は次項に追記。
