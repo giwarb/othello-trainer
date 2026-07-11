@@ -1,0 +1,99 @@
+.board-editor {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-md);
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.board-editor__palette,
+.board-editor__side-to-move {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm) var(--space-lg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-sm) var(--space-lg);
+  margin: 0;
+}
+
+.board-editor__option {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  white-space: nowrap;
+}
+
+.board-editor__grid-container {
+  width: 100%;
+  max-width: var(--board-size-lg);
+  margin: 0 auto;
+}
+
+.board-editor__grid {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  grid-template-rows: repeat(8, 1fr);
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  background: #0a6e31;
+  gap: 1px;
+  border: 1px solid rgba(0, 0, 0, 0.35);
+  box-sizing: border-box;
+}
+
+.board-editor__cell {
+  appearance: none;
+  background: #0a6e31;
+  border: none;
+  border-radius: 0;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  aspect-ratio: 1 / 1;
+}
+
+.board-editor__disc {
+  display: block;
+  width: 78%;
+  height: 78%;
+  border-radius: 50%;
+  background: transparent;
+  pointer-events: none;
+}
+
+.board-editor__cell--black .board-editor__disc {
+  background: #111111;
+}
+
+.board-editor__cell--white .board-editor__disc {
+  background: #f5f5f5;
+}
+
+.board-editor__tools {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-sm);
+}
+
+/* 狭い画面幅(375px程度)でもパレット・手番選択・ツールボタンが操作できるよう、
+   folding(flex-wrap)に加えて文字サイズを少し落とす(要件6)。 */
+@media (max-width: 400px) {
+  .board-editor__palette,
+  .board-editor__side-to-move {
+    font-size: 0.9rem;
+    padding: var(--space-xs) var(--space-sm);
+    gap: 0.3rem 0.8rem;
+  }
+
+  .board-editor__tools button {
+    font-size: 0.9rem;
+  }
+}

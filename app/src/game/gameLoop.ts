@@ -32,8 +32,20 @@ export interface GameState {
   readonly board: Board
   /** 現在の手番。終局後(`phase === 'over'`)は最後に着手した側のまま据え置く。 */
   readonly sideToMove: Side
-  /** 人間が担当する色。CPUは `opposite(humanSide)`。 */
+  /**
+   * 人間が担当する色。CPUは `opposite(humanSide)`。
+   * `vsHuman: true` の対局(T077の2人対戦モード)では、どちらの色も人間が担当する
+   * ため実質的に使われない(`phaseFor`は`vsHuman`が真なら`humanSide`を参照せず
+   * 常に`'human'`を返す)が、`ResultCelebration`の演出種別判定等、既存の
+   * `Side`型を要求するAPIとの互換性のために値自体は保持しておく
+   * (`createGame`/`createGameFromPosition`呼び出し側が指定した値がそのまま入る)。
+   */
   readonly humanSide: Side
+  /**
+   * 2人対戦モード(T077)かどうか。`true`の場合、`phaseFor`は常に`'human'`を返し、
+   * CPU応手(`requestCpuMove`)は一切発生しない。
+   */
+  readonly vsHuman: boolean
   /** 直前の着手マス(初手前は `null`)。 */
   readonly lastMove: number | null
   readonly phase: GamePhase
@@ -41,6 +53,12 @@ export interface GameState {
   readonly passMessage: string | null
   /** 終局している場合の勝敗(終局していなければ `null`)。 */
   readonly result: GameResult | null
+}
+
+/** `createGame`/`createGameFromPosition` 共通のオプション(T077)。 */
+export interface CreateGameOptions {
+  /** `true` を指定すると2人対戦モード(CPU応手なし)で開始する。省略時は `false`。 */
+  vsHuman?: boolean
 }
 
 /**
@@ -52,7 +70,8 @@ export interface EngineQuery {
   requestAnalyze(board: Board, turn: Side, limit: AnalyzeLimit): Promise<{ pv: readonly string[] }>
 }
 
-function phaseFor(side: Side, humanSide: Side): GamePhase {
+function phaseFor(side: Side, humanSide: Side, vsHuman: boolean): GamePhase {
+  if (vsHuman) return 'human'
   return side === humanSide ? 'human' : 'cpu'
 }
 
@@ -68,17 +87,82 @@ function sideLabel(side: Side): string {
   return side === 'black' ? '黒' : '白'
 }
 
-/** 新規対局を開始する。オセロは常に黒番から始まる。`humanSide` は人間が担当する色。 */
-export function createGame(humanSide: Side): GameState {
-  return {
-    board: initialBoard(),
-    sideToMove: 'black',
-    humanSide,
-    lastMove: null,
-    phase: phaseFor('black', humanSide),
-    passMessage: null,
-    result: null,
+/**
+ * 任意の開始局面(`board`/`sideToMove`)から `GameState` を組み立てる共通ヘルパー。
+ *
+ * 標準の初期局面(黒番、両者に合法手あり)であれば単に`phaseFor`の結果を
+ * そのまま使えばよいが、T077で追加した盤面自由配置からの開始では、
+ * 手番側に合法手が無い(異常な配置)開始局面もありうる。`afterMove`と同じ
+ * パス/終局判定規則をこの初期局面にも適用することで、`playMove`が前提とする
+ * 「`phase !== 'over'` なら `sideToMove` に必ず合法手がある」という不変条件を
+ * 開始時点から保証する(やらないこと: 配置自体の合法性・到達可能性は検証しない)。
+ */
+function resolveInitialState(
+  board: Board,
+  sideToMove: Side,
+  humanSide: Side,
+  vsHuman: boolean,
+): GameState {
+  if (hasLegalMove(board, sideToMove)) {
+    return {
+      board,
+      sideToMove,
+      humanSide,
+      vsHuman,
+      lastMove: null,
+      phase: phaseFor(sideToMove, humanSide, vsHuman),
+      passMessage: null,
+      result: null,
+    }
   }
+
+  const opponent = opposite(sideToMove)
+  if (hasLegalMove(board, opponent)) {
+    return {
+      board,
+      sideToMove: opponent,
+      humanSide,
+      vsHuman,
+      lastMove: null,
+      phase: phaseFor(opponent, humanSide, vsHuman),
+      passMessage: `${sideLabel(sideToMove)}はパスしました`,
+      result: null,
+    }
+  }
+
+  return {
+    board,
+    sideToMove,
+    humanSide,
+    vsHuman,
+    lastMove: null,
+    phase: 'over',
+    passMessage: null,
+    result: decideResult(board),
+  }
+}
+
+/**
+ * 新規対局を開始する。オセロは常に黒番から始まる。`humanSide` は人間が担当する色。
+ * `options.vsHuman`(T077)に`true`を指定すると2人対戦モードで開始する。
+ */
+export function createGame(humanSide: Side, options: CreateGameOptions = {}): GameState {
+  return resolveInitialState(initialBoard(), 'black', humanSide, options.vsHuman ?? false)
+}
+
+/**
+ * 任意の局面(盤面自由配置、T077)から対局を開始する。`board`/`sideToMove`は
+ * 呼び出し側(`BoardEditor`)が組み立てた任意の配置・手番をそのまま受け取る
+ * (配置の合法性・到達可能性は検証しない)。`humanSide`/`options.vsHuman`の
+ * 意味は`createGame`と同じ。
+ */
+export function createGameFromPosition(
+  board: Board,
+  sideToMove: Side,
+  humanSide: Side,
+  options: CreateGameOptions = {},
+): GameState {
+  return resolveInitialState(board, sideToMove, humanSide, options.vsHuman ?? false)
 }
 
 /**
@@ -90,7 +174,13 @@ export function createGame(humanSide: Side): GameState {
  *   相手はパスしたものとして着手した側が続けて手番を持つ(`passMessage` を設定)。
  * - どちらにも合法手がなければ終局とする。
  */
-function afterMove(board: Board, movedSide: Side, lastMove: number, humanSide: Side): GameState {
+function afterMove(
+  board: Board,
+  movedSide: Side,
+  lastMove: number,
+  humanSide: Side,
+  vsHuman: boolean,
+): GameState {
   const opponent = opposite(movedSide)
 
   if (hasLegalMove(board, opponent)) {
@@ -98,8 +188,9 @@ function afterMove(board: Board, movedSide: Side, lastMove: number, humanSide: S
       board,
       sideToMove: opponent,
       humanSide,
+      vsHuman,
       lastMove,
-      phase: phaseFor(opponent, humanSide),
+      phase: phaseFor(opponent, humanSide, vsHuman),
       passMessage: null,
       result: null,
     }
@@ -110,8 +201,9 @@ function afterMove(board: Board, movedSide: Side, lastMove: number, humanSide: S
       board,
       sideToMove: movedSide,
       humanSide,
+      vsHuman,
       lastMove,
-      phase: phaseFor(movedSide, humanSide),
+      phase: phaseFor(movedSide, humanSide, vsHuman),
       passMessage: `${sideLabel(opponent)}はパスしました`,
       result: null,
     }
@@ -121,6 +213,7 @@ function afterMove(board: Board, movedSide: Side, lastMove: number, humanSide: S
     board,
     sideToMove: movedSide,
     humanSide,
+    vsHuman,
     lastMove,
     phase: 'over',
     passMessage: null,
@@ -142,7 +235,7 @@ export function playMove(state: GameState, square: number): GameState {
   if (!legalMoves(state.board, side).includes(square)) return state
 
   const board = applyMove(state.board, side, square)
-  return afterMove(board, side, square, state.humanSide)
+  return afterMove(board, side, square, state.humanSide, state.vsHuman)
 }
 
 /**

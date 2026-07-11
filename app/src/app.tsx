@@ -6,20 +6,23 @@ import type { ClassifyThresholds } from './analysis/types.ts'
 import { BlunderSettings } from './blunder/BlunderSettings.tsx'
 import { isBlunder } from './blunder/isBlunder.ts'
 import { DEFAULT_BLUNDER_CONFIG, type BlunderConfig, type EvalSource } from './blunder/types.ts'
+import { BoardEditor, type BoardEditorResult } from './components/BoardEditor.tsx'
 import { EvalBadge, formatDiscDiff } from './components/EvalBadge.tsx'
 import { Board, FLIP_ANIMATION_MS } from './components/Board.tsx'
 import { MoveEvalOverlay } from './components/MoveEvalOverlay.tsx'
 import { ResultCelebration } from './components/ResultCelebration.tsx'
-import { celebrationKindFor } from './components/resultCelebrationLogic.ts'
+import { celebrationKindFor, type CelebrationKind } from './components/resultCelebrationLogic.ts'
 import type { EngineClient } from './engine/client.ts'
 import { getSharedEngineClient } from './engine/sharedClient.ts'
 import type { AnalyzeLimit, MoveEvalJson } from './engine/types.ts'
-import { createGame, playMove, requestCpuMove, type GameState } from './game/gameLoop.ts'
-import { countDiscs, squareToNotation, type Board as BoardState, type Side } from './game/othello.ts'
+import { createGame, createGameFromPosition, playMove, requestCpuMove, type GameState } from './game/gameLoop.ts'
+import { countDiscs, initialBoard, squareToNotation, type Board as BoardState, type Side } from './game/othello.ts'
 import { loadJosekiDb, lookupJosekiNode } from './joseki/lookup.ts'
 import { PracticeMode } from './joseki/PracticeMode.tsx'
 import type { JosekiDb } from './joseki/types.ts'
+import { EvalBar } from './midgame/EvalBar.tsx'
 import { PracticeMode as MidgamePracticeMode } from './midgame/PracticeMode.tsx'
+import { loadEvalBarEnabled, saveEvalBarEnabled } from './settings/evalBarSettings.ts'
 import { loadMoveEvalOverlayEnabled, saveMoveEvalOverlayEnabled } from './settings/moveEvalOverlaySettings.ts'
 import { TitleScreen } from './TitleScreen.tsx'
 import { PlayMode as TsumePlayMode } from './tsume/PlayMode.tsx'
@@ -137,6 +140,32 @@ function pickRandomSide(): Side {
   return Math.random() < 0.5 ? 'black' : 'white'
 }
 
+/**
+ * `lookupJosekiNode`を安全に呼び出す(T077)。
+ *
+ * `lookupJosekiNode`が内部で使う`opForFirstMove`は「標準初期局面から黒が
+ * d3/c4/f5/e6のいずれかを打った」という前提が崩れると`RangeError`を投げる
+ * (`joseki/normalize.ts`参照)。T077で追加した2人対戦モード(白から始まる等)・
+ * 盤面自由配置からの対局はこの前提を満たさないことがあるため、そのまま
+ * `lookupJosekiNode`を呼ぶと`evaluateHumanMove`全体が例外で中断し、
+ * 悪手判定・評価値表示(要件5)まで巻き込んで欠落してしまう。この関数は
+ * その例外を「定石の対象外(定石ヒットなし)」として握りつぶし、
+ * `evaluateHumanMove`の残りの処理(悪手判定・評価値表示)を継続させる。
+ */
+function safeLookupJosekiNode(
+  db: JosekiDb | null,
+  board: BoardState,
+  sideToMove: Side,
+  firstMoveSquare: number,
+): ReturnType<typeof lookupJosekiNode> {
+  if (!db) return null
+  try {
+    return lookupJosekiNode(db, board, sideToMove, firstMoveSquare)
+  } catch {
+    return null
+  }
+}
+
 /** 直近の人間の着手についての評価表示情報(T019)。CPUの着手には表示しない。 */
 interface EvalInfo {
   discDiff: number
@@ -146,7 +175,15 @@ interface EvalInfo {
   reason: string | null
 }
 
-/** 対局モード本体(T013/T019)。名称のみ `PlayMode` にリネームし、ロジックは変更していない。 */
+/**
+ * 対局モード本体(T013/T019)。
+ *
+ * T077で以下を追加した:
+ * - 2人対戦モード(`GameState.vsHuman`)。CPU応手が発生せず、双方の手番で
+ *   人間のクリックによる着手を受け付ける(要件1)。
+ * - 現在の評価値バー(`midgame/EvalBar.tsx`を転用)の表示切替(要件2・3)。
+ * - 盤面自由配置エディタ(`BoardEditor`)からの対局開始(要件4・5)。
+ */
 function PlayMode() {
   const [level, setLevel] = useState<LevelKey>('normal')
   const [game, setGame] = useState<GameState>(() => createGame('black'))
@@ -164,6 +201,17 @@ function PlayMode() {
   // ではなく`FLIP_ANIMATION_MS`後にtrueにすることで、Board.tsx側の最後の
   // 一手の反転アニメーションが終わってから演出を表示する(要件3)。
   const [celebrationVisible, setCelebrationVisible] = useState(false)
+
+  // 現在の評価値バー(T077要件2・3)。`localStorage`にON/OFFを永続化し、
+  // ONの間は着手のたびに現局面(直前の着手後)をエンジンに問い合わせる。
+  const [evalBarEnabled, setEvalBarEnabled] = useState<boolean>(() => loadEvalBarEnabled(localStorage))
+  const [evalBarValue, setEvalBarValue] = useState<number | null>(null)
+
+  // 盤面自由配置(T077要件4)。エディタ表示中は通常の対局盤を隠し、
+  // 編集中の盤面・手番をこの2つのstateに保持する(`BoardEditor`は制御コンポーネント)。
+  const [editorOpen, setEditorOpen] = useState(false)
+  const [editorBoard, setEditorBoard] = useState<BoardState>(() => initialBoard())
+  const [editorSideToMove, setEditorSideToMove] = useState<Side>('black')
   // エンジンWorkerはアプリ全体で1つのインスタンスを共有する(T054)。
   // モードコンポーネントをまたいで使い回すことで、モード切替のたびに
   // WASM再初期化・pattern_v2.binの再fetchが発生するコールドスタートを避ける。
@@ -256,6 +304,47 @@ function PlayMode() {
     // eslint disabled equivalent: CPU思考エフェクトと同様、levelは取得開始時点の値でよい。
   }, [game, moveEvalOverlayEnabled, level])
 
+  // 現在の評価値バー(T077要件2・3)。表示ONの間、`game`が変わるたび
+  // (人間・CPU・2人対戦いずれの着手後も、また新規対局開始時も)直前の着手後の
+  // 局面をエンジンに問い合わせて更新する。表示の基準色(`perspectiveSide`)は
+  // 2人対戦モードでは黒固定、CPU対戦では人間の担当色とする(`humanSide`基準の
+  // 「+なら自分が有利」という既存の`evalInfo`/中盤練習モードの表示規約に合わせる)。
+  // 終局後(`phase === 'over'`)はエンジンに合法手が無い局面を問い合わせて
+  // エラーになるのを避けるため、石差をそのまま使う。
+  useEffect(() => {
+    if (!evalBarEnabled) {
+      setEvalBarValue(null)
+      return
+    }
+
+    const perspectiveSide: Side = game.vsHuman ? 'black' : game.humanSide
+
+    if (game.phase === 'over') {
+      const black = countDiscs(game.board, 'black')
+      const white = countDiscs(game.board, 'white')
+      setEvalBarValue(perspectiveSide === 'black' ? black - white : white - black)
+      return
+    }
+
+    let cancelled = false
+    getEngine()
+      .requestAnalyze(game.board, game.sideToMove, LEVELS[level].limit)
+      .then((response) => {
+        if (cancelled) return
+        const value =
+          game.sideToMove === perspectiveSide ? response.score.discDiff : -response.score.discDiff
+        setEvalBarValue(value)
+      })
+      .catch((error: unknown) => {
+        console.error('現在の評価値の取得に失敗しました', error)
+      })
+
+    return () => {
+      cancelled = true
+    }
+    // eslint disabled equivalent: 他のエフェクトと同様、levelは取得開始時点の値でよい。
+  }, [game, evalBarEnabled, level])
+
   // 対局が終了したら、Board.tsxの最後の一手の反転アニメーション
   // (FLIP_ANIMATION_MS)が終わるタイミングで勝敗演出を表示する(T067要件3)。
   // `game.phase`のみを依存配列にしているのは、evalInfo/overlayMoves等の
@@ -275,6 +364,12 @@ function PlayMode() {
   function handleToggleMoveEvalOverlay(enabled: boolean) {
     setMoveEvalOverlayEnabled(enabled)
     saveMoveEvalOverlayEnabled(localStorage, enabled)
+  }
+
+  /** 評価値バー表示ON/OFFを切り替え、`localStorage`へ永続化する(T077要件2)。 */
+  function handleToggleEvalBar(enabled: boolean) {
+    setEvalBarEnabled(enabled)
+    saveEvalBarEnabled(localStorage, enabled)
   }
 
   /**
@@ -297,7 +392,7 @@ function PlayMode() {
       const judgement = isBlunder(moves, playedNotation, blunderConfig)
       const bestEval = moves.find((m) => m.move === judgement.bestMove)
 
-      const josekiHit = josekiDb ? lookupJosekiNode(josekiDb, preBoard, preSide, firstMove) : null
+      const josekiHit = safeLookupJosekiNode(josekiDb, preBoard, preSide, firstMove)
       const source: EvalSource = josekiHit && !josekiHit.isLeaf ? 'joseki' : playedEval.type
 
       const reason =
@@ -328,12 +423,68 @@ function PlayMode() {
     void evaluateHumanMove(preBoard, preSide, square, firstMove)
   }
 
-  function startNewGame(choice: Side | 'random') {
-    const humanSide = choice === 'random' ? pickRandomSide() : choice
+  /** 新しい対局に切り替える直前の共通リセット処理(表示中の直前対局の情報をクリアする)。 */
+  function prepareNewGame() {
     setThinking(false)
     setFirstMoveSquare(null)
     setEvalInfo(null)
+    setEditorOpen(false)
+  }
+
+  function startNewGame(choice: Side | 'random') {
+    const humanSide = choice === 'random' ? pickRandomSide() : choice
+    prepareNewGame()
     setGame(createGame(humanSide))
+  }
+
+  /** 2人対戦モード(T077要件1)で、標準の初期局面から開始する。 */
+  function startVsHumanGame() {
+    prepareNewGame()
+    setGame(createGame('black', { vsHuman: true }))
+  }
+
+  /** 「盤面を自由に配置して開始」導線(T077要件4)。編集用の盤面を標準初期局面にリセットして開く。 */
+  function openEditor() {
+    setEditorBoard(initialBoard())
+    setEditorSideToMove('black')
+    setEditorOpen(true)
+  }
+
+  function closeEditor() {
+    setEditorOpen(false)
+  }
+
+  function handleEditorChange(next: BoardEditorResult) {
+    setEditorBoard(next.board)
+    setEditorSideToMove(next.sideToMove)
+  }
+
+  /**
+   * 盤面自由配置エディタで組み立てた局面(`editorBoard`/`editorSideToMove`)から
+   * 対局を開始する(T077要件4・5)。CPU対戦(色・強さ選択)・2人対戦のいずれでも
+   * 開始できるよう、`choice`に`'vsHuman'`も受け付ける。
+   */
+  function startFromEditor(choice: Side | 'random' | 'vsHuman') {
+    prepareNewGame()
+    if (choice === 'vsHuman') {
+      setGame(createGameFromPosition(editorBoard, editorSideToMove, 'black', { vsHuman: true }))
+      return
+    }
+    const humanSide = choice === 'random' ? pickRandomSide() : choice
+    setGame(createGameFromPosition(editorBoard, editorSideToMove, humanSide))
+  }
+
+  /**
+   * 終局時の勝敗演出の種別(T077)。CPU対戦は既存の`celebrationKindFor`
+   * (`humanSide`視点の勝ち/負け/引き分け)をそのまま使うが、2人対戦モードには
+   * 「あなた」という単一の視点が無く勝ち負けの主観が無いため、常に落ち着いた
+   * トーン(`'draw'`と同じ演出)を使う(引き分け以外でも紙吹雪等の片方だけが
+   * 勝つ演出にしない)。
+   */
+  function celebrationKindForGame(state: GameState): CelebrationKind {
+    if (!state.result) return 'draw'
+    if (state.vsHuman) return 'draw'
+    return celebrationKindFor(state.result, state.humanSide)
   }
 
   const blackCount = countDiscs(game.board, 'black')
@@ -352,6 +503,12 @@ function PlayMode() {
           </button>
           <button type="button" onClick={() => startNewGame('random')}>
             ランダムで開始
+          </button>
+          <button type="button" onClick={startVsHumanGame}>
+            2人対戦で開始
+          </button>
+          <button type="button" onClick={openEditor}>
+            盤面を自由に配置して開始
           </button>
         </div>
 
@@ -380,44 +537,90 @@ function PlayMode() {
             />
             候補手評価を表示
           </label>
+          <label class="eval-bar-toggle">
+            <input
+              type="checkbox"
+              checked={evalBarEnabled}
+              onChange={(event) => handleToggleEvalBar((event.target as HTMLInputElement).checked)}
+            />
+            現在の評価値を表示
+          </label>
         </div>
       </section>
 
-      <p class="status">
-        あなたは{sideLabel(game.humanSide)}番です。
-        {game.phase === 'over'
-          ? ' 対局終了。'
-          : ` 手番: ${sideLabel(game.sideToMove)}${thinking ? '(思考中...)' : ''}`}
-      </p>
-
-      {game.passMessage && <p class="notice">{game.passMessage}</p>}
-
-      <div class="board-container board-with-move-eval-overlay">
-        <Board board={game.board} sideToMove={game.sideToMove} lastMove={game.lastMove} onMove={handleMove} />
-        <MoveEvalOverlay
-          allMoves={overlayMoves}
-          mover={game.sideToMove}
-          thresholds={classifyThresholds}
-          visible={moveEvalOverlayEnabled}
-        />
-      </div>
-
-      {evalInfo && (
-        <section class="eval-info">
-          <EvalBadge discDiff={evalInfo.discDiff} source={evalInfo.source} blunder={evalInfo.blunder} />
-          {evalInfo.reason && <p class="eval-info__reason">{evalInfo.reason}</p>}
+      {editorOpen && (
+        <section class="board-editor-panel">
+          <p class="notice">盤面を自由に配置し、次の手番を選んでから開始方法を選んでください。</p>
+          <BoardEditor board={editorBoard} sideToMove={editorSideToMove} onChange={handleEditorChange} />
+          <div class="controls__row board-editor-panel__actions">
+            <span>この局面から開始:</span>
+            <button type="button" onClick={() => startFromEditor('black')}>
+              黒番で開始
+            </button>
+            <button type="button" onClick={() => startFromEditor('white')}>
+              白番で開始
+            </button>
+            <button type="button" onClick={() => startFromEditor('random')}>
+              ランダムで開始
+            </button>
+            <button type="button" onClick={() => startFromEditor('vsHuman')}>
+              2人対戦で開始
+            </button>
+            <button type="button" onClick={closeEditor}>
+              キャンセル
+            </button>
+          </div>
         </section>
       )}
 
-      <p class="score">
-        黒: {blackCount} / 白: {whiteCount}
-      </p>
+      {!editorOpen && (
+        <>
+          <p class="status">
+            {game.vsHuman ? '2人対戦モードです。' : `あなたは${sideLabel(game.humanSide)}番です。`}
+            {game.phase === 'over'
+              ? ' 対局終了。'
+              : ` 手番: ${sideLabel(game.sideToMove)}${thinking ? '(思考中...)' : ''}`}
+          </p>
 
-      {game.phase === 'over' && celebrationVisible && game.result && (
-        <ResultCelebration
-          kind={celebrationKindFor(game.result, game.humanSide)}
-          message={game.result === 'draw' ? '引き分けです。' : `${sideLabel(game.result)}の勝ちです。`}
-        />
+          {game.passMessage && <p class="notice">{game.passMessage}</p>}
+
+          {evalBarEnabled && evalBarValue !== null && (
+            <div class="play-eval-bar">
+              <p class="play-eval-bar__caption">
+                現在の評価値({sideLabel(game.vsHuman ? 'black' : game.humanSide)}視点、+なら有利)
+              </p>
+              <EvalBar discDiff={evalBarValue} />
+            </div>
+          )}
+
+          <div class="board-container board-with-move-eval-overlay">
+            <Board board={game.board} sideToMove={game.sideToMove} lastMove={game.lastMove} onMove={handleMove} />
+            <MoveEvalOverlay
+              allMoves={overlayMoves}
+              mover={game.sideToMove}
+              thresholds={classifyThresholds}
+              visible={moveEvalOverlayEnabled}
+            />
+          </div>
+
+          {evalInfo && (
+            <section class="eval-info">
+              <EvalBadge discDiff={evalInfo.discDiff} source={evalInfo.source} blunder={evalInfo.blunder} />
+              {evalInfo.reason && <p class="eval-info__reason">{evalInfo.reason}</p>}
+            </section>
+          )}
+
+          <p class="score">
+            黒: {blackCount} / 白: {whiteCount}
+          </p>
+
+          {game.phase === 'over' && celebrationVisible && game.result && (
+            <ResultCelebration
+              kind={celebrationKindForGame(game)}
+              message={game.result === 'draw' ? '引き分けです。' : `${sideLabel(game.result)}の勝ちです。`}
+            />
+          )}
+        </>
       )}
 
       <section class="settings">

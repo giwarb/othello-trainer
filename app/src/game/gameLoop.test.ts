@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { createGame, playMove, requestCpuMove, type EngineQuery } from './gameLoop.ts'
+import { createGame, createGameFromPosition, playMove, requestCpuMove, type EngineQuery } from './gameLoop.ts'
 import { createBoard, hasLegalMove, legalMoves, notationToSquare, squareToNotation } from './othello.ts'
 
 const limit = { depth: 4, exactFromEmpties: 8 }
@@ -71,6 +71,88 @@ describe('requestCpuMove', () => {
     expect(next.lastMove).toBe(whiteReply)
     expect(next.sideToMove).toBe('black')
     expect(next.phase).toBe('human')
+  })
+})
+
+describe('createGame with vsHuman (T077)', () => {
+  it('defaults to vsHuman: false and behaves exactly like before', () => {
+    const game = createGame('black')
+    expect(game.vsHuman).toBe(false)
+    expect(game.phase).toBe('human')
+  })
+
+  it('starts both sides in phase "human" and never "cpu" when vsHuman: true', () => {
+    const game = createGame('black', { vsHuman: true })
+    expect(game.vsHuman).toBe(true)
+    expect(game.phase).toBe('human')
+
+    const afterBlackMove = playMove(game, notationToSquare('d3'))
+    expect(afterBlackMove.sideToMove).toBe('white')
+    // vsHuman: trueのままなら、白番になっても'cpu'にならず'human'のまま。
+    expect(afterBlackMove.phase).toBe('human')
+    expect(afterBlackMove.vsHuman).toBe(true)
+  })
+
+  it('never calls the engine via requestCpuMove while vsHuman: true', async () => {
+    const game = createGame('black', { vsHuman: true })
+    const afterBlackMove = playMove(game, notationToSquare('d3'))
+    const engine: EngineQuery = { requestAnalyze: vi.fn() }
+
+    const next = await requestCpuMove(afterBlackMove, engine, { depth: 4, exactFromEmpties: 8 })
+
+    expect(next).toBe(afterBlackMove)
+    expect(engine.requestAnalyze).not.toHaveBeenCalled()
+  })
+})
+
+describe('createGameFromPosition (T077: 盤面自由配置からの開始)', () => {
+  it('starts from the given board/sideToMove when the mover has a legal move', () => {
+    const board = createGame('black').board // 標準初期局面を流用
+    const game = createGameFromPosition(board, 'black', 'black')
+
+    expect(game.board).toBe(board)
+    expect(game.sideToMove).toBe('black')
+    expect(game.phase).toBe('human')
+    expect(game.lastMove).toBeNull()
+    expect(game.passMessage).toBeNull()
+    expect(game.result).toBeNull()
+  })
+
+  it('auto-passes to the other side when the given sideToMove has no legal move but the opponent does', () => {
+    // 黒だけが合法手を持ち、白は合法手を持たない局面(gameLoop.test.tsのpass handlingと同じ構成)。
+    const board = createBoard(
+      [notationToSquare('a1'), notationToSquare('h8')],
+      [notationToSquare('b1'), notationToSquare('c1'), notationToSquare('d1'), notationToSquare('g8')],
+    )
+    expect(hasLegalMove(board, 'black')).toBe(true)
+    expect(hasLegalMove(board, 'white')).toBe(false)
+
+    const game = createGameFromPosition(board, 'white', 'black')
+
+    expect(game.sideToMove).toBe('black')
+    expect(game.phase).toBe('human')
+    expect(game.passMessage).toBe('白はパスしました')
+    expect(game.result).toBeNull()
+  })
+
+  it('immediately ends the game (phase: "over") when neither side has a legal move', () => {
+    // 全マスが黒石で埋まった盤面: どちらの色にも合法手が無い。
+    const allSquares = Array.from({ length: 64 }, (_, i) => i)
+    const board = createBoard(allSquares, [])
+
+    const game = createGameFromPosition(board, 'black', 'black')
+
+    expect(game.phase).toBe('over')
+    expect(game.result).toBe('black')
+    expect(game.passMessage).toBeNull()
+  })
+
+  it('supports vsHuman: true from a custom position', () => {
+    const board = createGame('black').board
+    const game = createGameFromPosition(board, 'white', 'black', { vsHuman: true })
+
+    expect(game.vsHuman).toBe(true)
+    expect(game.phase).toBe('human')
   })
 })
 

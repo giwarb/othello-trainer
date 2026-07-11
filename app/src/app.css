@@ -133,6 +133,38 @@ main {
   box-sizing: border-box;
 }
 
+/* T077: 対局モードの「現在の評価値」バー(`midgame/EvalBar.tsx`を転用)。 */
+.play-eval-bar {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+  margin: 0 auto 1rem;
+  max-width: var(--board-size-lg);
+  padding: 0 0.5rem;
+  box-sizing: border-box;
+}
+
+.play-eval-bar__caption {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--color-text-secondary);
+}
+
+/* T077: 盤面自由配置エディタのパネル。開いている間は通常の対局盤を隠す
+   (`app.tsx`のPlayMode参照)ため、独立したセクションとしてスタイルを当てる。 */
+.board-editor-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-lg);
+  margin-bottom: 1.5rem;
+}
+
+.board-editor-panel__actions {
+  margin-top: 0;
+}
+
 /* 狭い画面幅(スマートフォン想定、375px程度)ではmainの左右余白を詰める。 */
 @media (max-width: 400px) {
   main {
