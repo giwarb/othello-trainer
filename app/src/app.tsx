@@ -7,8 +7,10 @@ import { BlunderSettings } from './blunder/BlunderSettings.tsx'
 import { isBlunder } from './blunder/isBlunder.ts'
 import { DEFAULT_BLUNDER_CONFIG, type BlunderConfig, type EvalSource } from './blunder/types.ts'
 import { EvalBadge, formatDiscDiff } from './components/EvalBadge.tsx'
-import { Board } from './components/Board.tsx'
+import { Board, FLIP_ANIMATION_MS } from './components/Board.tsx'
 import { MoveEvalOverlay } from './components/MoveEvalOverlay.tsx'
+import { ResultCelebration } from './components/ResultCelebration.tsx'
+import { celebrationKindFor } from './components/resultCelebrationLogic.ts'
 import type { EngineClient } from './engine/client.ts'
 import { getSharedEngineClient } from './engine/sharedClient.ts'
 import type { AnalyzeLimit, MoveEvalJson } from './engine/types.ts'
@@ -153,6 +155,10 @@ function PlayMode() {
   )
   const [classifyThresholds] = useState<ClassifyThresholds>(() => loadClassifyThresholds(localStorage))
   const [overlayMoves, setOverlayMoves] = useState<MoveEvalJson[] | null>(null)
+  // 終局時の勝敗演出(T067)の表示可否。`game.phase === 'over'`になった瞬間
+  // ではなく`FLIP_ANIMATION_MS`後にtrueにすることで、Board.tsx側の最後の
+  // 一手の反転アニメーションが終わってから演出を表示する(要件3)。
+  const [celebrationVisible, setCelebrationVisible] = useState(false)
   // エンジンWorkerはアプリ全体で1つのインスタンスを共有する(T054)。
   // モードコンポーネントをまたいで使い回すことで、モード切替のたびに
   // WASM再初期化・pattern_v2.binの再fetchが発生するコールドスタートを避ける。
@@ -244,6 +250,21 @@ function PlayMode() {
     }
     // eslint disabled equivalent: CPU思考エフェクトと同様、levelは取得開始時点の値でよい。
   }, [game, moveEvalOverlayEnabled, level])
+
+  // 対局が終了したら、Board.tsxの最後の一手の反転アニメーション
+  // (FLIP_ANIMATION_MS)が終わるタイミングで勝敗演出を表示する(T067要件3)。
+  // `game.phase`のみを依存配列にしているのは、evalInfo/overlayMoves等の
+  // 更新のたびに再スケジュールされないようにするため(それらは`game.phase`と
+  // 無関係に変化しうる)。
+  useEffect(() => {
+    if (game.phase !== 'over') {
+      setCelebrationVisible(false)
+      return
+    }
+    setCelebrationVisible(false)
+    const timer = window.setTimeout(() => setCelebrationVisible(true), FLIP_ANIMATION_MS)
+    return () => window.clearTimeout(timer)
+  }, [game.phase])
 
   /** オーバーレイ表示ON/OFFを切り替え、`localStorage`へ永続化する(T039、要件4)。 */
   function handleToggleMoveEvalOverlay(enabled: boolean) {
@@ -387,10 +408,11 @@ function PlayMode() {
         黒: {blackCount} / 白: {whiteCount}
       </p>
 
-      {game.phase === 'over' && (
-        <p class="result">
-          {game.result === 'draw' ? '引き分けです。' : `${sideLabel(game.result as Side)}の勝ちです。`}
-        </p>
+      {game.phase === 'over' && celebrationVisible && game.result && (
+        <ResultCelebration
+          kind={celebrationKindFor(game.result, game.humanSide)}
+          message={game.result === 'draw' ? '引き分けです。' : `${sideLabel(game.result)}の勝ちです。`}
+        />
       )}
 
       <section class="settings">

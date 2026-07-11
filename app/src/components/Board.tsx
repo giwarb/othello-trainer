@@ -9,8 +9,13 @@ const GRID = 8
 const BLACK_COLOR = '#111111'
 const WHITE_COLOR = '#f5f5f5'
 
-/** 石の反転/出現アニメーションの総所要時間(ms)。既存の自動進行の遅延(300ms程度)を超えない範囲に収める。 */
-const FLIP_ANIMATION_MS = 220
+/**
+ * 石の反転/出現アニメーションの総所要時間(ms)。既存の自動進行の遅延(300ms程度)を超えない範囲に収める。
+ * `export`しているのは、T067で終局時の勝敗演出をこのアニメーション完了後に
+ * 表示するため(`app.tsx`の`PlayMode`参照)。演出のタイミングを同じ定数で
+ * 揃えることで、値がずれた場合に一方だけ変更し忘れる事故を防ぐ。
+ */
+export const FLIP_ANIMATION_MS = 220
 
 const NO_DIFF: BoardDiff = { isSingleMove: false, placed: [], flipped: [] }
 

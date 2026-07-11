@@ -96,11 +96,6 @@ main {
   font-size: 1.1rem;
 }
 
-.result {
-  font-size: 1.2rem;
-  font-weight: bold;
-}
-
 .eval-info {
   display: flex;
   flex-direction: column;

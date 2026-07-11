@@ -1,0 +1,133 @@
+/* 対局モード終局時の勝敗演出(T067)。トークンは app/src/index.css 参照。 */
+
+.result-celebration {
+  position: relative;
+  overflow: hidden;
+  box-sizing: border-box;
+  margin: 1rem auto;
+  max-width: var(--board-size-lg);
+  padding: var(--space-lg) var(--space-md);
+  border-radius: var(--radius-lg);
+  text-align: center;
+}
+
+.result-celebration__message {
+  position: relative;
+  /* 紙吹雪(.result-celebration__confetti)より手前に表示する。 */
+  z-index: 1;
+  margin: 0;
+  font-size: 1.3rem;
+  font-weight: bold;
+  overflow-wrap: break-word;
+}
+
+.result-celebration--win {
+  background: #dcfce7;
+  color: #14532d;
+  animation: result-celebration-bounce-in 0.5s ease-out;
+}
+
+.result-celebration--lose {
+  /* 勝ちほど華美にせず、落ち着いたグレー基調のフェードインのみ。 */
+  background: #f4f4f5;
+  color: #3f3f46;
+  animation: result-celebration-fade-in 0.7s ease-out;
+}
+
+.result-celebration--draw {
+  /* 引き分けは勝敗どちらにも寄らない中立色として、デザイントークンの
+     accent系(T061)を使う。 */
+  background: var(--color-accent-bg);
+  color: var(--color-accent-dark);
+  animation: result-celebration-fade-in 0.7s ease-out;
+}
+
+.result-celebration__confetti {
+  position: absolute;
+  inset: 0;
+  /* クリック等の操作を一切妨げない(要件5)。 */
+  pointer-events: none;
+}
+
+.result-celebration__confetti-piece {
+  position: absolute;
+  top: -14px;
+  width: 8px;
+  height: 14px;
+  border-radius: 2px;
+  opacity: 0.9;
+  animation: result-celebration-confetti-fall 1.6s ease-in forwards;
+}
+
+.result-celebration__confetti-piece--hue0 {
+  background: #f87171;
+}
+
+.result-celebration__confetti-piece--hue1 {
+  background: #60a5fa;
+}
+
+.result-celebration__confetti-piece--hue2 {
+  background: #facc15;
+}
+
+.result-celebration__confetti-piece--hue3 {
+  background: #4ade80;
+}
+
+@keyframes result-celebration-confetti-fall {
+  0% {
+    transform: translateY(0) rotate(0deg);
+    opacity: 0.9;
+  }
+  100% {
+    transform: translateY(180px) rotate(360deg);
+    opacity: 0;
+  }
+}
+
+@keyframes result-celebration-bounce-in {
+  0% {
+    transform: scale(0.85);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.05);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes result-celebration-fade-in {
+  0% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+/* 要件4: 動きを伴う演出を抑制し、色による静的な強調のみにする。 */
+@media (prefers-reduced-motion: reduce) {
+  .result-celebration {
+    animation: none;
+  }
+
+  .result-celebration__confetti {
+    display: none;
+  }
+}
+
+/* 要件6: 375px幅等の狭い画面でも崩れないよう余白・文字サイズを詰める。 */
+@media (max-width: 480px) {
+  .result-celebration {
+    padding: var(--space-md) var(--space-sm);
+  }
+
+  .result-celebration__message {
+    font-size: 1.1rem;
+  }
+}
