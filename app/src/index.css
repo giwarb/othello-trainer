@@ -12,10 +12,16 @@
 
   /* デザイントークン: アクセントカラー(T061)。
      PWAマニフェスト(manifest.json/index.html)のtheme_color #863bffと
-     揃えたブランドカラー。盤面自体の緑色はオセロの伝統色として対象外。 */
+     揃えたブランドカラー。盤面自体の緑色はオセロの伝統色として対象外。
+     --color-accent-bg(薄紫)は常に固定の明るい色で、バッジ等の「背景も文字色も
+     固定でセットにする」既存パターン(T036〜T067)向け。--color-accent-dark も
+     その固定ペアの文字色として使う(バッジ用途はダークモードでも変更しない)。
+     ページ・カードなど可変背景の上にアクセント色の文字を置く場合は、
+     ダークモードで自動的に明るい紫に切り替わる --color-accent-text を使う(T068)。 */
   --color-accent: #863bff;
   --color-accent-dark: #6d2fd1;
   --color-accent-bg: #f1e9ff;
+  --color-accent-text: var(--color-accent-dark);
 
   /* デザイントークン: 角丸(T061) */
   --radius-sm: 0.4rem;
@@ -29,8 +35,39 @@
   --space-md: 0.75rem;
   --space-lg: 1rem;
   --space-xl: 1.5rem;
+
+  /* デザイントークン: 背景色・文字色(T068、ダークモード対応)。
+     OS/ブラウザが prefers-color-scheme: dark のとき、下の @media ブロックで
+     暗色側の値に切り替わる。個別コンポーネントで色を直書きせず、これらの
+     トークン経由で背景・文字色を指定することで、両モード対応を保つ。
+     --color-bg: ページ全体の背景。
+     --color-bg-secondary: カード・モーダル・ボタン等の主要な面。
+     --color-bg-tertiary: タブ・行ホバー等、控えめな面。
+     --color-text: 本文の主要な文字色。
+     --color-text-secondary: 補足・キャプション等の控えめな文字色。
+     --color-border: 枠線。 */
+  --color-bg: #ffffff;
+  --color-bg-secondary: #ffffff;
+  --color-bg-tertiary: #f4f4f5;
+  --color-text: #18181b;
+  --color-text-secondary: #52525b;
+  --color-border: #d4d4d8;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-accent-text: #c4b5fd;
+    --color-bg: #18181b;
+    --color-bg-secondary: #27272a;
+    --color-bg-tertiary: #3f3f46;
+    --color-text: #f4f4f5;
+    --color-text-secondary: #a1a1aa;
+    --color-border: #52525b;
+  }
 }
 
 body {
   margin: 0;
+  background: var(--color-bg);
+  color: var(--color-text);
 }

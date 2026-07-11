@@ -12,7 +12,8 @@
 }
 
 .blunder-panel {
-  background: #fff;
+  background: var(--color-bg-secondary);
+  color: var(--color-text);
   border-radius: 0.6rem;
   width: 100%;
   max-width: 720px;
@@ -41,7 +42,7 @@
 }
 
 .blunder-panel__section {
-  border-top: 1px solid #e4e4e7;
+  border-top: 1px solid var(--color-border);
   padding-top: 0.75rem;
   display: flex;
   flex-direction: column;
@@ -164,7 +165,9 @@
 
 .blunder-panel__why-bad-item--hoverable:hover,
 .blunder-panel__why-bad-item--hoverable:focus-visible {
+  /* 固定の明るい黄色背景のため、文字色も固定の濃色にペアで指定する(T068)。 */
   background: #fef9c3;
+  color: #713f12;
   outline: none;
 }
 
@@ -184,7 +187,7 @@
   flex: 1 1 200px;
   max-height: 280px;
   overflow: auto;
-  border: 1px solid #e4e4e7;
+  border: 1px solid var(--color-border);
   border-radius: 0.4rem;
   padding: 0.4rem;
 }
@@ -206,15 +209,17 @@
   gap: 0.3rem;
   margin: 0.15rem 0;
   padding: 0.15rem 0.4rem;
-  border: 1px solid #d4d4d8;
+  border: 1px solid var(--color-border);
   border-radius: 0.3rem;
-  background: #fff;
+  background: var(--color-bg-secondary);
   cursor: pointer;
   font-size: 0.8rem;
 }
 
 .blunder-panel__branch-node--current {
+  /* 固定の明るい紫背景のため、文字色も固定の濃色にペアで指定する(T068)。 */
   background: #e0e7ff;
+  color: #312e81;
   border-color: #6366f1;
   font-weight: bold;
 }

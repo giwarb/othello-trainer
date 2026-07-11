@@ -26,15 +26,17 @@
 .analysis-input__tab {
   flex: 1;
   padding: 0.4rem 0.6rem;
-  border: 1px solid #d4d4d8;
+  border: 1px solid var(--color-border);
   border-radius: 0.4rem;
-  background: #fff;
+  background: var(--color-bg-secondary);
   cursor: pointer;
 }
 
 .analysis-input__tab--active {
+  /* 固定の明るい紫背景のため、文字色も固定の濃色にペアで指定する(T068)。 */
   background: var(--color-accent-bg);
   border-color: var(--color-accent);
+  color: var(--color-accent-dark);
   font-weight: bold;
 }
 
@@ -49,7 +51,7 @@
   box-sizing: border-box;
   font-family: monospace;
   padding: 0.5rem;
-  border: 1px solid #d4d4d8;
+  border: 1px solid var(--color-border);
   border-radius: 0.4rem;
   resize: vertical;
 }
@@ -72,7 +74,7 @@
   display: flex;
   flex-direction: column;
   gap: 0.4rem;
-  border: 1px solid #d4d4d8;
+  border: 1px solid var(--color-border);
   border-radius: 0.5rem;
   padding: 0.5rem 0.75rem;
 }
@@ -102,7 +104,7 @@
 
 .analysis-cache-clear__hint {
   font-size: 0.8rem;
-  color: #52525b;
+  color: var(--color-text-secondary);
   margin: 0;
 }
 
@@ -127,7 +129,7 @@
 
 .analysis-progress__detail {
   font-size: 0.85rem;
-  color: #52525b;
+  color: var(--color-text-secondary);
 }
 
 .analysis-result {
@@ -175,13 +177,13 @@
 .analysis-result__movelist caption {
   text-align: left;
   font-size: 0.8rem;
-  color: #52525b;
+  color: var(--color-text-secondary);
   padding-bottom: 0.3rem;
 }
 
 .analysis-result__movelist th,
 .analysis-result__movelist td {
-  border-bottom: 1px solid #e4e4e7;
+  border-bottom: 1px solid var(--color-border);
   padding: 0.3rem 0.5rem;
   text-align: center;
   white-space: nowrap;
@@ -192,11 +194,13 @@
 }
 
 .analysis-result__movelist-row:hover {
-  background: #f4f4f5;
+  background: var(--color-bg-tertiary);
 }
 
 .analysis-result__movelist-row--current {
+  /* 固定の明るい紫背景のため、文字色も固定の濃色にペアで指定する(T068)。 */
   background: #e0e7ff;
+  color: #312e81;
 }
 
 .analysis-result__movelist-row--reversal {

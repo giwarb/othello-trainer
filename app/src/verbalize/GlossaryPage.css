@@ -12,7 +12,7 @@
 .glossary-page__back {
   align-self: flex-start;
   background: none;
-  border: 1px solid #d4d4d8;
+  border: 1px solid var(--color-border);
   border-radius: 0.4rem;
   padding: 0.3rem 0.8rem;
   cursor: pointer;
@@ -39,15 +39,16 @@
 
 .glossary-page__item {
   padding: 0.35rem 0.8rem;
-  border: 1px solid #cbd5e1;
+  border: 1px solid var(--color-border);
   border-radius: 999px;
-  background: #f8fafc;
+  background: var(--color-bg-tertiary);
+  color: var(--color-text);
   cursor: pointer;
   font-size: 0.9rem;
 }
 
 .glossary-page__item:hover {
-  background: #e2e8f0;
+  background: var(--color-border);
 }
 
 @media (max-width: 400px) {

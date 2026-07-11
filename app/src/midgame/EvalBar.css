@@ -13,7 +13,7 @@
   flex: 1;
   height: 0.9rem;
   border-radius: 999px;
-  background: #e4e4e7;
+  background: var(--color-bg-tertiary);
   overflow: hidden;
 }
 

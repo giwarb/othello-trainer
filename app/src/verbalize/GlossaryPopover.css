@@ -12,7 +12,8 @@
 }
 
 .glossary-popover {
-  background: #fff;
+  background: var(--color-bg-secondary);
+  color: var(--color-text);
   border-radius: 0.6rem;
   width: 100%;
   max-width: 600px;
@@ -26,9 +27,9 @@
 
 .glossary-popover__close {
   padding: 0.3rem 0.8rem;
-  border: 1px solid #d4d4d8;
+  border: 1px solid var(--color-border);
   border-radius: 0.4rem;
-  background: #fff;
+  background: var(--color-bg-secondary);
   cursor: pointer;
 }
 

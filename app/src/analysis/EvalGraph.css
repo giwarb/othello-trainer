@@ -14,8 +14,8 @@
   width: 100%;
   height: auto;
   display: block;
-  background: #f4f4f5;
-  border: 1px solid #d4d4d8;
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
   border-radius: 0.5rem;
   /* 横方向のドラッグ中もページの縦スクロールは妨げない(T063、タッチ操作対応)。 */
   touch-action: pan-y;
@@ -38,7 +38,7 @@
 }
 
 .eval-graph__grid-line {
-  stroke: #e4e4e7;
+  stroke: var(--color-border);
   stroke-width: 1;
 }
 
@@ -68,12 +68,12 @@
 
 .eval-graph__line {
   fill: none;
-  stroke: #18181b;
+  stroke: var(--color-text);
   stroke-width: 1.5;
 }
 
 .eval-graph__point {
-  fill: #18181b;
+  fill: var(--color-text);
   cursor: pointer;
 }
 
@@ -106,7 +106,7 @@
   gap: 0.75rem;
   margin: 0;
   font-size: 0.8rem;
-  color: #52525b;
+  color: var(--color-text-secondary);
 }
 
 .eval-graph__legend-item {

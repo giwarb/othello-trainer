@@ -22,7 +22,7 @@
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
-  border: 1px solid #d4d4d8;
+  border: 1px solid var(--color-border);
   border-radius: 0.5rem;
   padding: 0.5rem 0.75rem;
 }
@@ -51,7 +51,7 @@
 
 .verbalize-problem__quit {
   background: none;
-  border: 1px solid #d4d4d8;
+  border: 1px solid var(--color-border);
   border-radius: 0.4rem;
   padding: 0.4rem 0.9rem;
   cursor: pointer;
@@ -66,7 +66,7 @@
   max-width: 560px;
   box-sizing: border-box;
   padding: 0.75rem;
-  border: 1px solid #d4d4d8;
+  border: 1px solid var(--color-border);
   border-radius: 0.6rem;
   text-align: left;
 }
@@ -74,7 +74,7 @@
 .verbalize-tags__reselect {
   background: none;
   border: none;
-  color: var(--color-accent-dark);
+  color: var(--color-accent-text);
   text-decoration: underline;
   cursor: pointer;
   padding: 0;
@@ -113,9 +113,9 @@
   width: 1.1em;
   height: 1.1em;
   border-radius: 50%;
-  border: 1px solid #94a3b8;
-  background: #f8fafc;
-  color: #334155;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-tertiary);
+  color: var(--color-text);
   font-size: 0.75em;
   line-height: 1;
   cursor: pointer;
@@ -132,7 +132,7 @@
 .verbalize-tags__freetext textarea {
   font: inherit;
   padding: 0.4rem;
-  border: 1px solid #d4d4d8;
+  border: 1px solid var(--color-border);
   border-radius: 0.4rem;
   resize: vertical;
   box-sizing: border-box;

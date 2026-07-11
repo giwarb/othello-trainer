@@ -6,7 +6,7 @@ main {
 /* T065: タイトル画面(`mode === null`)表示中はアクセントカラーを背景にうっすら効かせ、
    単調な白背景にならないようにする。 */
 .home-main {
-  background: radial-gradient(ellipse at top, var(--color-accent-bg) 0%, #ffffff 70%);
+  background: radial-gradient(ellipse at top, var(--color-accent-bg) 0%, var(--color-bg) 70%);
   min-height: 100vh;
   box-sizing: border-box;
 }
@@ -21,10 +21,10 @@ main {
 
 .mode-nav__tab {
   padding: var(--space-sm) 1.2rem;
-  border: 1px solid #d4d4d8;
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-full);
-  background: #f4f4f5;
-  color: inherit;
+  background: var(--color-bg-tertiary);
+  color: var(--color-text);
   cursor: pointer;
   font-size: 1rem;
 }
@@ -42,15 +42,18 @@ main {
   padding: var(--space-sm) 1.2rem;
   border: 1px solid var(--color-accent);
   border-radius: var(--radius-full);
-  background: #ffffff;
-  color: var(--color-accent-dark);
+  background: var(--color-bg-secondary);
+  color: var(--color-accent-text);
   cursor: pointer;
   font-size: 1rem;
   font-weight: bold;
 }
 
 .mode-nav__home:hover {
+  /* ホバー時は --color-accent-bg(固定の明るい紫)を敷くため、文字色も
+     それとペアの固定色 --color-accent-dark にする(T068)。 */
   background: var(--color-accent-bg);
+  color: var(--color-accent-dark);
 }
 
 .notice--error {

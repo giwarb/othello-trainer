@@ -20,7 +20,7 @@
 
 .tsume-stats-summary {
   font-size: 0.9rem;
-  color: #3f3f46;
+  color: var(--color-text-secondary);
 }
 
 .tsume-stats-summary p {
@@ -41,7 +41,7 @@
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
-  border: 1px solid #d4d4d8;
+  border: 1px solid var(--color-border);
   border-radius: 0.5rem;
   padding: 0.5rem 0.75rem;
 }
@@ -69,7 +69,7 @@
 
 .tsume-practice__meta {
   font-size: 0.85rem;
-  color: #52525b;
+  color: var(--color-text-secondary);
   margin: 0;
 }
 
@@ -82,7 +82,7 @@
 
 .tsume-practice__quit {
   background: none;
-  border: 1px solid #d4d4d8;
+  border: 1px solid var(--color-border);
   border-radius: 0.4rem;
   padding: 0.4rem 0.9rem;
   cursor: pointer;
@@ -132,7 +132,7 @@
   border-collapse: collapse;
   font-size: 0.9rem;
   font-variant-numeric: tabular-nums;
-  color: #27272a;
+  color: var(--color-text);
 }
 
 .tsume-result__moves caption {
@@ -142,17 +142,20 @@
 
 .tsume-result__moves th,
 .tsume-result__moves td {
-  border: 1px solid #d4d4d8;
+  border: 1px solid var(--color-border);
   padding: 0.2rem 0.5rem;
 }
 
+/* 固定の明るい背景色のため、文字色も固定の濃色にペアで指定する(T068)。 */
 .tsume-result__moves-row--played {
   background: #fecaca;
+  color: #7f1d1d;
   font-weight: bold;
 }
 
 .tsume-result__moves-row--best {
   background: #bbf7d0;
+  color: #14532d;
 }
 
 .tsume-result__buttons {

@@ -102,7 +102,7 @@
 .glossary-entry-detail__example-caption {
   margin: 0;
   font-size: 0.8rem;
-  color: #52525b;
+  color: var(--color-text-secondary);
 }
 
 @media (max-width: 400px) {
