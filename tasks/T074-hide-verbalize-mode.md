@@ -69,6 +69,14 @@ explorerによる事前調査の結果、言語化トレーニングモード(`v
     `mode-nav__tab`は`["対局","定石練習","中盤練習","詰めオセロ","棋譜解析"]`の5件のみで、
     5モードそれぞれのタブが1件ずつ存在し正常にクリック可能であることを確認(コンソール
     エラーなし)。確認後プレビューサーバーは停止済み。
-  - 変更を`main`にコミット・push、GitHub Actionsのデプロイ成功確認、本番URL
-    (`https://giwarb.github.io/othello-trainer/`)でのPlaywright実機確認は、このメッセージの
-    後続でコミット・push・デプロイ待機・本番確認を実施し、結果を追記する(下記追記参照)。
+  - 変更を`main`にコミット(`f307f5e`)・push、GitHub Actionsのデプロイ
+    (`Deploy to GitHub Pages`、run 29167982723)成功を`gh run watch 29167982723 --exit-status`で
+    確認(build/deployとも成功)。続けてPlaywright(chromium)で本番URL
+    (`https://giwarb.github.io/othello-trainer/`)を検証: タイトル画面カードは
+    `["対局","定石練習","中盤練習","詰めオセロ","棋譜解析"]`の5件のみ(「言語化トレーニング」なし)、
+    「対局」カードからモード画面に遷移後の`mode-nav__tab`も同じ5件のみで各1件ずつ正常に存在、
+    コンソール/ページエラーなしを確認。
+- コミット済みファイルは`app/src/app.tsx`と本タスクファイル(`tasks/T074-hide-verbalize-mode.md`)
+  のみ(検証・デバッグ用の一時Playwrightスクリプトはリポジトリ外のスクラッチパッドに置き、
+  コミット対象に含めていない)。`app/src/verbalize/`配下・IndexedDBスキーマ・他モードは
+  一切変更していない(`git diff`で確認済み)。
