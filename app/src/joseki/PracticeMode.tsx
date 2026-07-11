@@ -72,6 +72,13 @@ interface GameOverResultInfo {
   readonly playedDiscDiff: number | null
   readonly correctMoves: readonly JosekiBookMoveView[]
   readonly moveHistory: readonly number[]
+  /**
+   * 定石外の一手を打つ**直前の局面**での`lookupJosekiNode(...).names`
+   * (=そこまで合流していた、まだ一致しうる可能性があった定石ライン名一覧)。
+   * クリア画面(T026)と異なり「唯一の到達ライン」という概念が無いため、
+   * フラットな一覧としてそのまま表示する(T075)。
+   */
+  readonly matchedLineNames: readonly string[]
 }
 
 type ResultInfo = ClearResultInfo | GameOverResultInfo
@@ -99,6 +106,16 @@ function formatBookMoves(moves: readonly JosekiBookMoveView[]): string {
  */
 function formatFinalNodeNames(names: readonly string[]): string {
   return names.join(' あるいは ')
+}
+
+/**
+ * ゲームオーバー画面で、定石外の一手を打つ直前まで一致していた定石ライン名の
+ * 一覧を「フラットな一覧」として整形する(T075)。
+ * クリア画面(`formatFinalNodeNames`)と違い「唯一の到達ライン」という概念が無いため、
+ * 主役/補足の区別を付けず、単純に列挙する。
+ */
+function formatMatchedLineNames(names: readonly string[]): string {
+  return names.join('・')
 }
 
 /**
@@ -301,6 +318,7 @@ export function PracticeMode() {
           playedDiscDiff: judgement.playedDiscDiff,
           correctMoves: judgement.correctMoves,
           moveHistory: state.moveHistory,
+          matchedLineNames: lookupResult?.names ?? [],
         })
         if (targetLineId) void recordSrsResults([targetLineId], 'fail')
       }
@@ -455,6 +473,33 @@ export function PracticeMode() {
             {squareToNotation(resultInfo.playedSquare)} は
             {resultInfo.reasonKind === 'offBookClose' ? '定石外(惜しい)でした。' : '悪手でした。'}
           </p>
+          {/*
+            あなたの実際の進行(定石外だった最後の一手を含む、要件1)。定石外の一手が
+            分かるよう強調表示する。
+          */}
+          <p class="joseki-result__moves">
+            手順:{' '}
+            {resultInfo.moveHistory.length > 0 && `${formatSquares(resultInfo.moveHistory)} `}
+            <strong class="joseki-result__off-book-move">
+              {squareToNotation(resultInfo.playedSquare)}
+            </strong>
+          </p>
+          {/*
+            そこまで(定石外の一手を打つ直前まで)一致していた定石ライン名の一覧
+            (要件2)。クリア画面と違い「唯一の到達ライン」という概念が無いため、
+            主役/補足の区別を付けずフラットに列挙する(T075)。1件も無ければ
+            その旨を表示する(要件3)。
+          */}
+          <div class="joseki-result__matched-lines">
+            {resultInfo.matchedLineNames.length > 0 ? (
+              <p>
+                {formatSquares(resultInfo.moveHistory) || '(初手)'} まで一致していた定石(
+                {resultInfo.matchedLineNames.length}件): {formatMatchedLineNames(resultInfo.matchedLineNames)}
+              </p>
+            ) : (
+              <p>一致していた定石はありませんでした。</p>
+            )}
+          </div>
           {resultInfo.correctMoves.length > 0 && (
             <p>正解手: {formatBookMoves(resultInfo.correctMoves)}</p>
           )}
@@ -464,7 +509,6 @@ export function PracticeMode() {
               ロス{Math.round(resultInfo.lossDiscs)}石でした。
             </p>
           )}
-          <p class="joseki-result__moves">手順: {formatSquares(resultInfo.moveHistory)}</p>
           <button type="button" onClick={backToColorSelect}>
             もう一度
           </button>

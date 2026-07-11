@@ -85,6 +85,19 @@
   font-size: 0.9rem;
 }
 
+.joseki-result__off-book-move {
+  text-decoration: underline;
+  text-decoration-style: wavy;
+}
+
+/* ゲームオーバー時、定石外の一手を打つ直前まで一致していた定石ライン名一覧(T075)。 */
+.joseki-result__matched-lines {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  font-size: 0.85rem;
+}
+
 /* 主役表示: セッションを実際に終わらせた最終ノードの定石名(T026)。目立つように大きめにする。 */
 .joseki-result__final {
   font-size: 1.1rem;
