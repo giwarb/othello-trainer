@@ -47,7 +47,9 @@
 
 .attribution-waterfall__label--button:hover,
 .attribution-waterfall__label--button:focus-visible {
-  color: #2563eb;
+  /* 可変背景上のアクセント文字色のため、ダークモードで自動的に明るい紫へ
+     切り替わる --color-accent-text を使う(T068・T070)。 */
+  color: var(--color-accent-text);
 }
 
 .attribution-waterfall__bar-track {

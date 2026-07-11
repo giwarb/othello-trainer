@@ -227,9 +227,9 @@
 
 .blunder-panel__branch-node--current {
   /* 固定の明るい紫背景のため、文字色も固定の濃色にペアで指定する(T068)。 */
-  background: #e0e7ff;
-  color: #312e81;
-  border-color: #6366f1;
+  background: var(--color-accent-bg);
+  color: var(--color-accent-dark);
+  border-color: var(--color-accent);
   font-weight: bold;
 }
 

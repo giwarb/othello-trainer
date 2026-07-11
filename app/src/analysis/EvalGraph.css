@@ -53,14 +53,16 @@
 }
 
 .eval-graph__hover-line {
-  stroke: #2563eb;
+  /* 可変背景(--color-bg-tertiary)上のアクセント表示のため、ダークモードで
+     自動的に明るい紫へ切り替わる --color-accent-text を使う(T068・T070)。 */
+  stroke: var(--color-accent-text);
   stroke-width: 1;
   stroke-dasharray: 2 2;
   pointer-events: none;
 }
 
 .eval-graph__hover-point {
-  fill: #2563eb;
+  fill: var(--color-accent-text);
   stroke: #ffffff;
   stroke-width: 1.5;
   pointer-events: none;
@@ -78,7 +80,9 @@
 }
 
 .eval-graph__point--current {
-  fill: #2563eb;
+  /* 可変背景(--color-bg-tertiary)上のアクセント表示のため、ダークモードで
+     自動的に明るい紫へ切り替わる --color-accent-text を使う(T068・T070)。 */
+  fill: var(--color-accent-text);
   stroke: #ffffff;
   stroke-width: 1;
 }
