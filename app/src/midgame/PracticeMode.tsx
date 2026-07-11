@@ -196,6 +196,26 @@ export function PracticeMode() {
   const [classifyThresholds] = useState<ClassifyThresholds>(() => loadClassifyThresholds(localStorage))
   const [overlayMoves, setOverlayMoves] = useState<MoveEvalJson[] | null>(null)
 
+  /**
+   * 候補手評価オーバーレイ表示用と着手後の判定用とで、同じ着手前局面に対して
+   * 別々に`requestAnalyzeAll`を呼ぶと、探索が壁時計ベースの時間予算配分
+   * (`engine/src/search.rs`の`fair_share_time_ms`)であるため、僅差の候補手の
+   * 順位が実行タイミングの揺らぎで変動しうる(T076の作業ログで実測済みの
+   * 既知のnon-determinism)。これにより「オーバーレイが示した最善手を打った
+   * のに判定は失敗」という矛盾した体験が発生した(T078のユーザー報告)。
+   * この`ref`は着手前局面(`board`の参照同一性で識別。`session`更新のたびに
+   * `applyMove`等で新しいオブジェクトが生成されるため、同一局面である間は
+   * 参照が変わらない)に対する`requestAnalyzeAll`の結果(Promise)を1つだけ
+   * 保持し、オーバーレイ表示用のeffectと`handlePlayerMove`の判定の両方が
+   * この同一のPromiseを共有することで、表示と判定が原理的に同じデータ
+   * ソースになることを保証する(要件1・2)。
+   */
+  const analyzedMovesRef = useRef<{
+    readonly board: BoardState
+    readonly side: Side
+    readonly promise: Promise<MoveEvalJson[]>
+  } | null>(null)
+
   // --- 失敗時の説明UI(T072、`analysis/BlunderPanel.tsx`と同等のロジックを再利用) ---
   // 特徴量層(モチーフ検出用)・評価内訳waterfall・反証層(回収点)は、判定モードに
   // よる失敗(`handleModeFailure`、`resultInfo.preMoveBoard`等が揃っているケース)
@@ -236,6 +256,24 @@ export function PracticeMode() {
   // エンジンWorkerはアプリ全体で1つのインスタンスを共有する(T054)。
   function getEngine(): EngineClient {
     return getSharedEngineClient()
+  }
+
+  /**
+   * 着手前局面(`board`・`side`)に対する全合法手評価を取得する(T078)。
+   * `analyzedMovesRef`に同一局面(参照同一性)・同一手番のキャッシュがあれば
+   * エンジンには再度問い合わせず、そのPromiseをそのまま返す。オーバーレイ
+   * 表示用のeffectと`handlePlayerMove`の判定処理の両方がこの関数を通して
+   * 同じ結果を参照するため、「表示された最善手を打ったのに判定は別の結果」
+   * という不整合が原理的に起こらなくなる。
+   */
+  function getAnalyzedMoves(board: BoardState, side: Side): Promise<MoveEvalJson[]> {
+    const cached = analyzedMovesRef.current
+    if (cached && cached.board === board && cached.side === side) {
+      return cached.promise
+    }
+    const promise = getEngine().requestAnalyzeAll(board, side, MIDGAME_ANALYZE_LIMIT)
+    analyzedMovesRef.current = { board, side, promise }
+    return promise
   }
 
   // 定石DB(public/joseki.json)を読み込む。`loadJosekiDb`はモジュール内でキャッシュ
@@ -394,37 +432,35 @@ export function PracticeMode() {
     // eslint-disable-next-line
   }, [phase, session, opponentStrength])
 
-  // 盤面セル評価オーバーレイ(T039をT042で展開)。人間の手番になった時点で、表示ONの
-  // 場合のみ現局面(着手前)の全合法手の評価をまとめて取得する。判定中(`analyzing`、
-  // `handlePlayerMove`が別途`requestAnalyzeAll`を呼んでいる最中)は重複リクエストを
-  // 避けるため取得しない(要件5、388行目付近の二重クリック防止ガードと同じ配慮)。
+  // 盤面セル評価オーバーレイ(T039をT042で展開)。人間の手番になった時点で、表示の
+  // ON/OFFに関わらず現局面(着手前)の全合法手の評価をまとめて取得する(T078)。
+  // オーバーレイ表示のON/OFFで取得自体を切り替えていた以前の実装では、着手後の
+  // 判定(`handlePlayerMove`)が別途もう一度`requestAnalyzeAll`を呼んでおり、
+  // 探索の壁時計ベースの時間予算配分による僅差のノイズで両者の結果が食い違う
+  // ことがあった。ここでは常に`getAnalyzedMoves`(内部で`analyzedMovesRef`に
+  // キャッシュ)を通して取得し、判定側もこの結果をそのまま再利用することで、
+  // 表示と判定のデータソースを1本化する(要件1〜3)。表示するかどうかは
+  // `MoveEvalOverlay`の`visible`propで制御する(取得自体は常に行う)。
   useEffect(() => {
-    if (
-      phase !== 'playing' ||
-      !session ||
-      session.sideToMove !== session.humanSide ||
-      !moveEvalOverlayEnabled ||
-      analyzing
-    ) {
+    if (phase !== 'playing' || !session || session.sideToMove !== session.humanSide) {
       setOverlayMoves(null)
       return
     }
 
     let cancelled = false
-    getEngine()
-      .requestAnalyzeAll(session.board, session.sideToMove, MIDGAME_ANALYZE_LIMIT)
+    getAnalyzedMoves(session.board, session.sideToMove)
       .then((moves) => {
         if (!cancelled) setOverlayMoves(moves)
       })
       .catch((error: unknown) => {
-        console.error('候補手評価オーバーレイの取得に失敗しました', error)
+        console.error('候補手評価の取得に失敗しました', error)
       })
 
     return () => {
       cancelled = true
     }
     // eslint-disable-next-line
-  }, [phase, session, moveEvalOverlayEnabled, analyzing])
+  }, [phase, session])
 
   /** オーバーレイ表示ON/OFFを切り替え、`localStorage`へ永続化する(T039・T042、他モードと共有)。 */
   function handleToggleMoveEvalOverlay(enabled: boolean): void {
@@ -569,6 +605,13 @@ export function PracticeMode() {
    * ダブルクリックによって`requestAnalyzeAll`が同じ着手前局面に対して複数回
    * 同時発行され、それぞれが古い`session`を元に`setSession`/`checkEnd`を
    * 呼んでしまう(状態の競合・多重更新)のを防ぐための再入防止ガード。
+   *
+   * 判定用の全合法手評価は`getAnalyzedMoves`経由で取得する(T078)。人間の
+   * 手番になった時点でオーバーレイ用に既にリクエスト済み(・多くの場合は
+   * 着手までの間に解決済み)のPromiseがあればそれをそのまま再利用し、判定の
+   * ためだけに同じ局面をもう一度エンジンに問い合わせることはしない。これに
+   * より、オーバーレイ表示と判定の評価データが常に同一のエンジン呼び出し
+   * 結果に基づくことが保証され、両者が矛盾することがなくなる。
    */
   async function handlePlayerMove(square: number): Promise<void> {
     if (phase !== 'playing' || !session || analyzing) return
@@ -578,7 +621,7 @@ export function PracticeMode() {
 
     setAnalyzing(true)
     try {
-      const allMoves = await getEngine().requestAnalyzeAll(s.board, s.sideToMove, MIDGAME_ANALYZE_LIMIT)
+      const allMoves = await getAnalyzedMoves(s.board, s.sideToMove)
       const playedNotation = squareToNotation(square)
       const judgement = judgeMidgameMove({
         mode: judgeMode,
