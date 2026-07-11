@@ -8,13 +8,20 @@
 //   ビルドで生成されるJS/CSS/WASMのファイル名はハッシュ付きで毎回変わるため、
 //   ビルド成果物を静的に列挙する代わりに、install時に実際の `index.html` を
 //   fetchして中の `<script src>` / `<link href>` を読み取り、動的に発見する。
-// - fetch時はcache-first戦略(キャッシュにあればキャッシュを返し、無ければ
-//   ネットワークから取得してキャッシュに追加してから返す)。これにより
-//   WASMファイル(`engine_bg-*.wasm`)やWorkerのJS(`worker-*.js`)も、
-//   初回アクセス時にネットワークから取得された時点でキャッシュされる。
+// - fetch時の戦略はリクエストの種類で分ける(T062: sw-update-propagation-fix)。
+//   - ページ本体(index.html、ナビゲーションリクエスト)はネットワーク優先
+//     (オフライン時のみキャッシュへフォールバック)。新しいデプロイの内容が
+//     速やかに反映されるようにするため。
+//   - それ以外(ハッシュ付きJS/CSS/WASM等の静的アセット)はcache-first
+//     (キャッシュにあればキャッシュを返し、無ければネットワークから取得して
+//     キャッシュに追加してから返す)。ビルドごとにファイル名が変わるため、
+//     内容が変わらない限りキャッシュのままで問題ない。これにより
+//     WASMファイル(`engine_bg-*.wasm`)やWorkerのJS(`worker-*.js`)も、
+//     初回アクセス時にネットワークから取得された時点でキャッシュされる。
 // - キャッシュ名にバージョン文字列を含め、新しいService Workerが
 //   activateされたら、現在のバージョン以外のキャッシュを削除する。
-//   (バージョン更新通知UIは本タスクのスコープ外。activate時の自動削除のみ。)
+//   (ユーザー向けの更新通知バナーは`app/src/registerServiceWorker.ts`側で
+//   処理する。参照: tasks/T062-sw-update-propagation-fix.md)
 
 // `__BUILD_VERSION__` はビルド成果物(`dist/sw.js`)に対して、ビルド後処理
 // スクリプト `scripts/inject-sw-version.mjs`(`npm run build` の一部として自動実行)
@@ -83,7 +90,8 @@ async function precacheAppShell() {
 
 self.addEventListener('install', (event) => {
   // 新しいService Workerを即座にwaiting状態から抜けさせる。
-  // (更新通知UIは持たないため、新バージョンを速やかに有効化する方針。)
+  // (`registerServiceWorker.ts`が更新検知・通知バナー表示を行うため、
+  // SW自体は速やかに有効化・クライアントの制御を奪う方針のまま。)
   self.skipWaiting();
   event.waitUntil(precacheAppShell());
 });
@@ -114,41 +122,73 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  event.respondWith(
-    (async () => {
-      // `{ ignoreVary: true }` が重要: `<script crossorigin>` /
-      // `<link crossorigin>` で読み込むJS/CSSはCORSモード(Originヘッダ付き)
-      // でリクエストされる。配信サーバー(`vite preview`のsirv、GitHub Pages
-      // 等)がレスポンスに `Vary: Origin` を付与すると、install時(SW自身の
-      // 素のfetchでOriginヘッダ無し)にキャッシュしたレスポンスと、
-      // 実際のページ読み込み時(Originヘッダ有り)のリクエストとで
-      // Varyの値が一致せず、`ignoreVary` 無しでは常にキャッシュミスして
-      // オフライン時に読み込めなくなる(検証中に実際に発生した不具合)。
-      const cached = await caches.match(request, { ignoreVary: true });
-      if (cached) {
-        return cached;
-      }
-      try {
-        const networkResponse = await fetch(request);
-        if (networkResponse && networkResponse.ok) {
-          const cache = await caches.open(CACHE_NAME);
-          // レスポンスボディはstream一度しか読めないため、キャッシュ用に
-          // clone()してから保存する。
-          void cache.put(request, networkResponse.clone());
-        }
-        return networkResponse;
-      } catch (error) {
-        // オフラインでキャッシュにも無い場合。ページ遷移(ナビゲーション)
-        // リクエストならアプリシェル(start_url)を代わりに返し、
-        // それ以外(個別アセット等)はエラーをそのまま伝播させる。
-        if (request.mode === 'navigate') {
-          const shell = await caches.match('./', { ignoreVary: true });
-          if (shell) {
-            return shell;
-          }
-        }
-        throw error;
-      }
-    })(),
-  );
+  // ページ本体(index.html、ナビゲーションリクエスト)はネットワーク優先で
+  // 処理する(T062: sw-update-propagation-fix)。以前はここもcache-firstで
+  // 扱っていたため、一度アプリシェルがキャッシュされると、新しいデプロイが
+  // あってもユーザーが手動でキャッシュをクリアしない限り古いindex.htmlが
+  // 返り続けていた。ハッシュ付きの静的アセット(JS/CSS/WASM)はビルドごとに
+  // ファイル名が変わり内容が変わらない限りキャッシュのままで問題ないため、
+  // 引き続きcache-first(下の`handleCacheFirst`)で扱う。
+  if (request.mode === 'navigate') {
+    event.respondWith(handleNavigate(request));
+    return;
+  }
+
+  event.respondWith(handleCacheFirst(request));
 });
+
+/**
+ * ページ本体(ナビゲーションリクエスト)用: ネットワーク優先戦略。
+ * ネットワーク取得に成功したらレスポンスをキャッシュにも保存し(次回オフライン
+ * 時のフォールバック用)、そのまま返す。取得に失敗した場合(オフライン等)のみ、
+ * このリクエスト自体のキャッシュ、それも無ければアプリシェル(`./`)の
+ * キャッシュにフォールバックする(オフライン動作の維持)。
+ */
+async function handleNavigate(request) {
+  try {
+    const networkResponse = await fetch(request);
+    if (networkResponse && networkResponse.ok) {
+      const cache = await caches.open(CACHE_NAME);
+      // レスポンスボディはstream一度しか読めないため、キャッシュ用に
+      // clone()してから保存する。
+      void cache.put(request, networkResponse.clone());
+    }
+    return networkResponse;
+  } catch (error) {
+    const cached = await caches.match(request, { ignoreVary: true });
+    if (cached) {
+      return cached;
+    }
+    const shell = await caches.match('./', { ignoreVary: true });
+    if (shell) {
+      return shell;
+    }
+    throw error;
+  }
+}
+
+/**
+ * ハッシュ付き静的アセット(JS/CSS/WASM)等、ページ本体以外のリクエスト用:
+ * これまで通りのcache-first戦略(キャッシュにあればキャッシュを返し、無ければ
+ * ネットワークから取得してキャッシュに追加してから返す)。
+ */
+async function handleCacheFirst(request) {
+  // `{ ignoreVary: true }` が重要: `<script crossorigin>` /
+  // `<link crossorigin>` で読み込むJS/CSSはCORSモード(Originヘッダ付き)
+  // でリクエストされる。配信サーバー(`vite preview`のsirv、GitHub Pages
+  // 等)がレスポンスに `Vary: Origin` を付与すると、install時(SW自身の
+  // 素のfetchでOriginヘッダ無し)にキャッシュしたレスポンスと、
+  // 実際のページ読み込み時(Originヘッダ有り)のリクエストとで
+  // Varyの値が一致せず、`ignoreVary` 無しでは常にキャッシュミスして
+  // オフライン時に読み込めなくなる(検証中に実際に発生した不具合)。
+  const cached = await caches.match(request, { ignoreVary: true });
+  if (cached) {
+    return cached;
+  }
+  const networkResponse = await fetch(request);
+  if (networkResponse && networkResponse.ok) {
+    const cache = await caches.open(CACHE_NAME);
+    void cache.put(request, networkResponse.clone());
+  }
+  return networkResponse;
+}
