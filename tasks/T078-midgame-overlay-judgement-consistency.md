@@ -89,6 +89,10 @@ explorerによる調査の結果:
       - 検証スクリプトは`getAnalyzedMoves`の効果を直接確認するため、`Worker.prototype.postMessage`を
         `page.addInitScript`で傍受し`cmd:'analyze', allMoves:true`のメッセージ発行回数を記録する方式を
         採用(戦略の詳細はコミットに含めていない一時スクリプトのみで実施、リポジトリには追加していない)。
-    - 本番デプロイ確認: 下記に追記(push・Actions確認・本番Playwright確認は本コミット後に実施)。
+    - 本番デプロイ確認: `git push origin main`(24adcac)後、GitHub Actions「Deploy to GitHub Pages」
+      (run 29170995428)が`build`・`deploy`とも成功(約1分)。その後、本番URL
+      (`https://giwarb.github.io/othello-trainer/`)に対して上記と同じPlaywrightスクリプトを実行し、
+      ローカルと同じ結果(オーバーレイON6試行とも判定不一致0件・追加requestAnalyzeAll呼び出し0件、
+      オーバーレイOFFでも判定が正常動作、console/pageエラーなし)を確認。`RESULT: PASS`。
   - **判断に迷った点**: なし。要件どおり「オーバーレイ用にキャッシュ済みの結果を判定にも再利用する」
     設計とし、探索アルゴリズム自体・判定モードの閾値・丸め表示はいずれも変更していない(スコープ外)。
