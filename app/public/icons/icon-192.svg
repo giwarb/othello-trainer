@@ -1,6 +1,30 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="192" height="192" viewBox="0 0 192 192">
-  <rect width="192" height="192" rx="32" fill="#863bff" />
-  <circle cx="96" cy="96" r="60" fill="#111111" />
-  <circle cx="96" cy="96" r="60" fill="none" stroke="#ffffff" stroke-width="6" stroke-dasharray="12 10" opacity="0.9" />
-  <circle cx="96" cy="96" r="26" fill="#ffffff" />
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="192" y2="192" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#9c5cff" />
+      <stop offset="1" stop-color="#6d2fd1" />
+    </linearGradient>
+    <radialGradient id="discWhite" cx="0.35" cy="0.3" r="0.8">
+      <stop offset="0" stop-color="#ffffff" />
+      <stop offset="1" stop-color="#d6d3dd" />
+    </radialGradient>
+    <radialGradient id="discBlack" cx="0.35" cy="0.3" r="0.8">
+      <stop offset="0" stop-color="#3c3a42" />
+      <stop offset="1" stop-color="#08080a" />
+    </radialGradient>
+  </defs>
+  <rect width="192" height="192" rx="40" fill="url(#bg)" />
+  <rect x="28" y="28" width="136" height="136" rx="20" fill="#141018" />
+  <g stroke="#ffffff" stroke-opacity="0.14" stroke-width="2">
+    <line x1="62" y1="28" x2="62" y2="164" />
+    <line x1="96" y1="28" x2="96" y2="164" />
+    <line x1="130" y1="28" x2="130" y2="164" />
+    <line x1="28" y1="62" x2="164" y2="62" />
+    <line x1="28" y1="96" x2="164" y2="96" />
+    <line x1="28" y1="130" x2="164" y2="130" />
+  </g>
+  <circle cx="79" cy="79" r="14" fill="url(#discWhite)" />
+  <circle cx="113" cy="79" r="14" fill="url(#discBlack)" />
+  <circle cx="79" cy="113" r="14" fill="url(#discBlack)" />
+  <circle cx="113" cy="113" r="14" fill="url(#discWhite)" />
 </svg>

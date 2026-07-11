@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="512" y2="512" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#9c5cff" />
+      <stop offset="1" stop-color="#6d2fd1" />
+    </linearGradient>
+    <radialGradient id="discWhite" cx="0.35" cy="0.3" r="0.8">
+      <stop offset="0" stop-color="#ffffff" />
+      <stop offset="1" stop-color="#d6d3dd" />
+    </radialGradient>
+    <radialGradient id="discBlack" cx="0.35" cy="0.3" r="0.8">
+      <stop offset="0" stop-color="#3c3a42" />
+      <stop offset="1" stop-color="#08080a" />
+    </radialGradient>
+  </defs>
+  <!-- maskable: 背景は角丸なしで全面を塗り、主要な図柄は中心80%の
+       セーフゾーン(半径 = 一辺の40%)に収める -->
+  <rect width="512" height="512" fill="url(#bg)" />
+  <rect x="128" y="128" width="256" height="256" rx="37" fill="#141018" />
+  <g stroke="#ffffff" stroke-opacity="0.14" stroke-width="4">
+    <line x1="192" y1="128" x2="192" y2="384" />
+    <line x1="256" y1="128" x2="256" y2="384" />
+    <line x1="320" y1="128" x2="320" y2="384" />
+    <line x1="128" y1="192" x2="384" y2="192" />
+    <line x1="128" y1="256" x2="384" y2="256" />
+    <line x1="128" y1="320" x2="384" y2="320" />
+  </g>
+  <circle cx="224" cy="224" r="24" fill="url(#discWhite)" />
+  <circle cx="288" cy="224" r="24" fill="url(#discBlack)" />
+  <circle cx="224" cy="288" r="24" fill="url(#discBlack)" />
+  <circle cx="288" cy="288" r="24" fill="url(#discWhite)" />
+</svg>
