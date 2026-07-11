@@ -168,7 +168,16 @@
   /* 固定の明るい黄色背景のため、文字色も固定の濃色にペアで指定する(T068)。 */
   background: #fef9c3;
   color: #713f12;
-  outline: none;
+}
+
+/* T069フィードバック対応: 以前は上の:hover/:focus-visible共通ルールで
+   `outline: none`にしており、この要素は`<li tabIndex={0}>`(BlunderPanel.tsx)
+   でTabキーによるキーボードフォーカスを実際に受けるため、フォーカス位置が
+   全く視認できない問題があった。他の要素と統一した視認可能なフォーカス
+   リングに置き換える。 */
+.blunder-panel__why-bad-item--hoverable:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
 }
 
 .blunder-panel__branch-area {

@@ -84,3 +84,45 @@ body {
   background: var(--color-bg);
   color: var(--color-text);
 }
+
+/* T069: 全ボタン共通のホバー/クリック/フォーカスフィードバック。
+   要素セレクタ(詳細度が低い)なので、`.title-screen__card:hover`等の
+   コンポーネント固有のクラスセレクタによる背景色・枠線変更は上書きしない
+   (詳細度で個別スタイルが優先される)。ここでは以下を全ボタンの底上げとして
+   一括提供する:
+   - クラス無しの素のボタン(`app.tsx`の「黒番で開始」等)にも効くホバー変化
+   - リポジトリ全体で0件だった:active(押下中)の視覚フィードバック
+   - :focus-visible(キーボード操作時)の一貫したフォーカスリング
+   `filter: brightness()`を使うのは、背景色を問わず(透明背景のバッジ型
+   ボタンや枠線のみのボタンでも)常に見た目の変化を与えられるため。
+   `transform: scale()`によるクリック時の縮小は、prefers-reduced-motion:
+   reduce環境では無効化する(`ResultCelebration.css`と同じパターン)。
+   `outline-color`は`transition`に含めない: 初期値(未指定時の特殊キーワード)から
+   var()で指定した色への遷移がブラウザによっては離散的にしか補間されず、
+   フォーカス直後の一瞬だけ古い色(文字色ベースのフォールバック)のまま
+   停滞して見えることがあるため、フォーカスリングは遷移無しで即座に切り替える。 */
+button {
+  transition:
+    filter 0.15s ease,
+    transform 0.1s ease;
+}
+
+button:hover {
+  filter: brightness(0.96);
+}
+
+button:active {
+  filter: brightness(0.9);
+  transform: scale(0.97);
+}
+
+button:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  button:active {
+    transform: none;
+  }
+}
