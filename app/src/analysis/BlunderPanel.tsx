@@ -39,31 +39,26 @@ import {
   computeBoardHighlights,
   detectMotifs,
   motifHighlightSquares,
+  MOTIF_KIND_LABEL,
   type BoardHighlights,
   type MotifDefinition,
 } from './motifs.ts'
 import { buildRefutationResult, type RefutationResult } from './refutation.ts'
 import { RefutationView } from './RefutationView.tsx'
 import { buildInstantTsumePuzzle, sendToMidgamePractice } from './sendToPractice.ts'
+import { attributionTermHighlightSquares, whyBadReasonHighlightSquares } from './highlightSquares.ts'
 import { loadClassifyThresholds } from './thresholdSettings.ts'
 import type {
   AttributionBreakdown,
-  AttributionTerm,
   ClassifyThresholds,
   EvalTerms,
   FeatureSet,
   MoveAnalysis,
 } from './types.ts'
-import { analyzeWhyBad, computeStableSquares, type WhyBadReason } from './whyBad.ts'
+import { analyzeWhyBad, computeStableSquares } from './whyBad.ts'
 import { GlossaryPopover } from '../verbalize/GlossaryPopover.tsx'
 import { ATTRIBUTION_TAG_ID } from '../verbalize/reasonTags.ts'
 import './BlunderPanel.css'
-
-const MOTIF_KIND_LABEL: Record<MotifDefinition['kind'], string> = {
-  good: '良い手',
-  bad: '悪い手',
-  trap: '罠',
-}
 
 const OVERLAY_TOGGLES: readonly { key: keyof OverlayVisibility; label: string }[] = [
   { key: 'frontier', label: 'フロンティア石' },
@@ -71,60 +66,6 @@ const OVERLAY_TOGGLES: readonly { key: keyof OverlayVisibility; label: string }[
   { key: 'seed', label: '種石' },
   { key: 'dangerousCorners', label: '危険なX/C打ちマス' },
 ]
-
-/** 4隅のマス番号。「隅」項目のホバーハイライト(T058要件1)に使う。 */
-const CORNER_SQUARES: readonly number[] = [0, 7, 56, 63]
-
-/**
- * 評価内訳(モビリティ/隅/確定石)の項目に対応する、着手前局面上のマス集合を
- * 返す(T058要件1)。評価内訳自体は比較PVの末端局面同士の差分だが、盤面
- * ハイライトは既に画面上部に表示済みの「着手前局面」を使い、その局面上で
- * 各項目に関連する特徴(モビリティ=双方の合法手、隅=4隅、確定石=着手前局面の
- * 確定石)を示す近似とする(実装者判断。比較PVの末端局面2つを新たに描画する
- * よりも、既存の1枚の盤面との連動で示す方が実装・表示ともに単純なため)。
- */
-function attributionTermHighlightSquares(
-  key: AttributionTerm['key'],
-  beforeBoard: BoardState,
-  side: Side,
-  boardHighlights: BoardHighlights | null,
-): number[] {
-  switch (key) {
-    case 'stable':
-      return boardHighlights ? [...boardHighlights.stable] : []
-    case 'corner':
-      return [...CORNER_SQUARES]
-    case 'mobility':
-      return [...legalMoves(beforeBoard, side), ...legalMoves(beforeBoard, opposite(side))]
-  }
-}
-
-/**
- * 「なぜ悪いか」の理由(`WhyBadReason.category`)に対応する、着手前局面上の
- * マス集合を返す(T058要件1)。`attributionTermHighlightSquares`と同じ考え方
- * (モビリティ=双方の合法手、確定石=着手前局面の確定石)を使うが、隅の危険
- * (X打ち/C打ち)は「なぜ悪いか」では実際に検出された1件の着手先と対応する
- * 隅のみを指すため、`boardHighlights.dangerousCorners`(盤面全体の候補一覧)
- * ではなく`cornerRisk`から直接2マスを算出する。
- */
-function whyBadReasonHighlightSquares(
-  category: WhyBadReason['category'],
-  beforeBoard: BoardState,
-  side: Side,
-  cornerRiskSquare: number | null,
-  moveSquare: number,
-): number[] {
-  switch (category) {
-    case 'stable':
-      return [...computeStableSquares(beforeBoard, side)]
-    case 'mobility':
-      return [...legalMoves(beforeBoard, side), ...legalMoves(beforeBoard, opposite(side))]
-    case 'corner':
-      return cornerRiskSquare === null ? [moveSquare] : [moveSquare, cornerRiskSquare]
-    case null:
-      return []
-  }
-}
 
 /** 相手(エンジン)の着手までの見せかけの「考慮時間」(ミリ秒、他モードと同じ演出)。 */
 const OPPONENT_MOVE_DELAY_MS = 300

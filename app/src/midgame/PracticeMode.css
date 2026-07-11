@@ -108,6 +108,26 @@
   font-variant-numeric: tabular-nums;
 }
 
+/**
+ * 失敗時の説明UI(T072、`analysis/BlunderPanel.css`の`.blunder-panel__section`等を
+ * 再利用)。親の`.midgame-result--fail`が`text-align: center`のため、ここだけ
+ * 左寄せに戻す(評価内訳・モチーフタグ・「なぜ悪いか」はいずれも左寄せの方が
+ * 読みやすいテキスト・リスト中心のレイアウトのため)。`align-self: stretch`で
+ * 親(`align-items: center`)による横幅の縮小を防ぎ、幅いっぱいに広げる。
+ */
+.midgame-result__explanation {
+  width: 100%;
+  align-self: stretch;
+  text-align: left;
+  box-sizing: border-box;
+}
+
+/* クリックで選択中のモチーフタグ(要件4)を視覚的に区別する。 */
+.motif-badge--active {
+  outline: 2px solid currentColor;
+  outline-offset: 1px;
+}
+
 .midgame-result__buttons {
   display: flex;
   flex-wrap: wrap;

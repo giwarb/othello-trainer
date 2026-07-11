@@ -70,6 +70,19 @@ export interface MotifDefinition {
 }
 
 /**
+ * `MotifKind`の日本語表示ラベル。T032では`BlunderPanel.tsx`内にのみ定義されて
+ * いたが、T072で中盤練習モード(`midgame/PracticeMode.tsx`)からも同じラベルを
+ * 表示する必要が生じたため、`MotifDefinition`と同じくこのモジュールへ切り出した
+ * (単なる表示文字列だが、`MotifKind`という型と対になるデータのため、型の定義元
+ * にまとめて置くのが自然と判断した)。
+ */
+export const MOTIF_KIND_LABEL: Record<MotifKind, string> = {
+  good: '良い手',
+  bad: '悪い手',
+  trap: '罠',
+}
+
+/**
  * モチーフ検出関数群への統一入力。`beforeBoard`は着手前局面、`square`は
  * `legalMoves(beforeBoard, side)`に含まれる合法手であることを前提とする
  * (`whyBad.ts`の`analyzeWhyBad`と同じ前提)。`features`はT031の
