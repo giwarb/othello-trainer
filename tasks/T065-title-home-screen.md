@@ -1,9 +1,9 @@
 ---
 id: T065
 title: UI磨き込み(3): タイトル/ホーム画面の新規追加
-status: todo
+status: done
 assignee: implementer
-attempts: 0
+attempts: 1
 ---
 
 # T065: UI磨き込み(3): タイトル/ホーム画面の新規追加
@@ -47,10 +47,10 @@ attempts: 0
 
 ## 受け入れ基準(検証コマンド)
 
-- [ ] `npm test`(`app/`配下)が全件パスする。
-- [ ] `npm run build`(`app/`配下)が成功する。
-- [ ] 実機確認: `npm run dev`で、アプリを開くとタイトル画面が表示されること、6モードそれぞれの入り口から実際に各モードに遷移できること、モード画面からホーム導線でタイトル画面に戻れること、タイトル画面経由後も`mode-nav`タブでのモード間切り替えが引き続き機能すること、375px幅でもモードカードが崩れず操作できることを確認する。
-- [ ] 変更をmainにpushし、GitHub Actionsのデプロイ成功を確認し、`playwright`で本番公開URL(`https://giwarb.github.io/othello-trainer/`)上で上記を実機確認する。
+- [x] `npm test`(`app/`配下)が全件パスする。
+- [x] `npm run build`(`app/`配下)が成功する。
+- [x] 実機確認: `npm run dev`で、アプリを開くとタイトル画面が表示されること、6モードそれぞれの入り口から実際に各モードに遷移できること、モード画面からホーム導線でタイトル画面に戻れること、タイトル画面経由後も`mode-nav`タブでのモード間切り替えが引き続き機能すること、375px幅でもモードカードが崩れず操作できることを確認する。
+- [x] 変更をmainにpushし、GitHub Actionsのデプロイ成功を確認し、`playwright`で本番公開URL(`https://giwarb.github.io/othello-trainer/`)上で上記を実機確認する。
 
 ## フィードバック(やり直し時にオーケストレーターが記入)
 
@@ -78,4 +78,12 @@ attempts: 0
       - 遷移後、`mode-nav`タブ(「詰めオセロ」)クリックでモードが切り替わる。
       - `mode-nav__home`クリックでタイトル画面に戻る。
       - 375px幅で横スクロールが発生せず、カードが画面幅内・縦積みで表示され、その状態からも「言語化トレーニング」カードクリックで遷移できる。
-    - 変更差分をmainにコミット・push予定(次項目で実施、結果は追記)。
+  - コミット・デプロイ: T065スコープの`app/src/TitleScreen.tsx`・`app/src/TitleScreen.css`・`app/src/app.tsx`・`app/src/app.css`・本タスクファイルのみをステージし(他タスクの未コミット差分は含めず)、コミット`4a37ed2`としてmainにpush。GitHub Actions「Deploy to GitHub Pages」(run 29136848907)を`gh run watch`で追跡し、build/deploy両ジョブとも成功を確認。
+  - 本番確認: 同じPlaywrightスクリプトを本番URL(`https://giwarb.github.io/othello-trainer/`)に対して実行し、ローカルと同一の10項目すべてOK(`ALL CHECKS PASSED`)を確認。
+  - 受け入れ基準は全項目満たしたため、`status: done`に更新して差し戻す。
+
+**受け入れ基準チェックリスト結果:**
+- [x] `npm test`(`app/`配下)が全件パスする → 55ファイル/468件パス。
+- [x] `npm run build`(`app/`配下)が成功する → 成功。
+- [x] 実機確認(ローカル`npm run dev`) → Playwrightで10項目確認、全OK。
+- [x] mainにpush・GitHub Actionsデプロイ成功・本番URLでのPlaywright実機確認 → コミット`4a37ed2`push、run 29136848907成功、本番URLで10項目確認、全OK。
