@@ -45,13 +45,23 @@
      --color-bg-tertiary: タブ・行ホバー等、控えめな面。
      --color-text: 本文の主要な文字色。
      --color-text-secondary: 補足・キャプション等の控えめな文字色。
-     --color-border: 枠線。 */
+     --color-border: 枠線。
+     --color-danger-text: エラーメッセージ(`.notice--error`等)の文字色。固定背景を
+     持たないコンテナ(ページ背景 --color-bg に直接乗る)上でも読めるよう、
+     ダークモードでは明るめの赤に切り替える。
+     --color-warning-text: 警告・注意メッセージ(`.notice`等)の文字色。同様にダーク
+     モードでは明るめのオレンジに切り替える。
+     --color-success-text: 成功・正解メッセージの文字色。同様にダークモードでは
+     明るめの緑に切り替える。 */
   --color-bg: #ffffff;
   --color-bg-secondary: #ffffff;
   --color-bg-tertiary: #f4f4f5;
   --color-text: #18181b;
   --color-text-secondary: #52525b;
   --color-border: #d4d4d8;
+  --color-danger-text: #b91c1c;
+  --color-warning-text: #b45309;
+  --color-success-text: #15803d;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -63,6 +73,9 @@
     --color-text: #f4f4f5;
     --color-text-secondary: #a1a1aa;
     --color-border: #52525b;
+    --color-danger-text: #fca5a5;
+    --color-warning-text: #fcd34d;
+    --color-success-text: #86efac;
   }
 }
 

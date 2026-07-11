@@ -109,7 +109,8 @@
 }
 
 .analysis-cache-clear__success {
-  color: #15803d;
+  /* T068フィードバック対応: 固定背景を持たないため --color-success-text 経由にする。 */
+  color: var(--color-success-text);
   font-weight: bold;
   margin: 0;
 }

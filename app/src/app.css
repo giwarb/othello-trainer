@@ -56,8 +56,16 @@ main {
   color: var(--color-accent-dark);
 }
 
-.notice--error {
-  color: #b91c1c;
+/* T068再検証で判明: 実際の使用箇所は必ず class="notice notice--error" の
+   組み合わせであり、単独クラスの `.notice--error` は `.notice`(同じ詳細度 0,1,0
+   で、ソース順で後にある)の `color` に常に上書きされてしまい、意図した
+   エラー色が一度も反映されていなかった(ダークモード対応とは独立した
+   既存バグ)。詳細度を `.notice` より確実に高くするため、複合セレクタ
+   `.notice.notice--error`(詳細度 0,2,0)に変更する。 */
+.notice.notice--error {
+  /* T068フィードバック対応: 固定背景を持たないため、ページ背景(--color-bg)に
+     直接乗ってもダークモードで読めるよう --color-danger-text 経由にする。 */
+  color: var(--color-danger-text);
   font-weight: bold;
 }
 
@@ -82,7 +90,9 @@ main {
 }
 
 .notice {
-  color: #b45309;
+  /* T068フィードバック対応: .notice--error と同様、固定背景を持たないため
+     --color-warning-text 経由にする。 */
+  color: var(--color-warning-text);
 }
 
 .board-container {

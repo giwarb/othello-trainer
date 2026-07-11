@@ -76,7 +76,8 @@
 .tsume-practice__feedback {
   font-size: 0.95rem;
   font-weight: bold;
-  color: #15803d;
+  /* T068フィードバック対応: 固定背景を持たないため --color-success-text 経由にする。 */
+  color: var(--color-success-text);
   margin: 0;
 }
 

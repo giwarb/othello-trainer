@@ -225,7 +225,7 @@
 
 .verbalize-result__history-date {
   font-variant-numeric: tabular-nums;
-  color: #52525b;
+  color: var(--color-text-secondary);
   margin-right: 0.3rem;
 }
 
