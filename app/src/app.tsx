@@ -50,7 +50,12 @@ const MODE_DESCRIPTION: Record<AppMode, string> = {
   verbalize: '用語集・概念レッスンで、手の良し悪しを言葉で説明する力を鍛える',
 }
 
-const MODE_CARDS = (Object.keys(MODE_LABEL) as AppMode[]).map((key) => ({
+// 言語化トレーニング(verbalize)はユーザー要望(2026-07-12、T074)によりナビゲーションから
+// 一時的に非表示にする。`VerbalizeMode`本体・`app/src/verbalize/`配下・IndexedDBスキーマは
+// 将来の復活に備えて削除せず残す(下の`mode === 'verbalize' && <VerbalizeMode />`分岐も同様)。
+const NAV_VISIBLE_MODES = (Object.keys(MODE_LABEL) as AppMode[]).filter((key) => key !== 'verbalize')
+
+const MODE_CARDS = NAV_VISIBLE_MODES.map((key) => ({
   key,
   label: MODE_LABEL[key],
   description: MODE_DESCRIPTION[key],
@@ -92,7 +97,7 @@ export function App() {
         >
           ホーム
         </button>
-        {(Object.keys(MODE_LABEL) as AppMode[]).map((key) => (
+        {NAV_VISIBLE_MODES.map((key) => (
           <button
             type="button"
             key={key}
