@@ -26,8 +26,11 @@ import type { ProblemSource, VerbalizeAttemptRecord, VerbalizeCaseKind, Verbaliz
 import './PracticeMode.css'
 import './TwoChoiceDrill.css'
 
-/** 候補手の探索条件。`PracticeMode.tsx`の`VERBALIZE_ANALYZE_LIMIT`と同じ値(T034の教訓によりtimeMsを必ず設定)。 */
-const DRILL_ANALYZE_LIMIT: AnalyzeLimit = { depth: 16, timeMs: 300, exactFromEmpties: 24 }
+/**
+ * 候補手の探索条件。`PracticeMode.tsx`の`VERBALIZE_ANALYZE_LIMIT`と同じ値
+ * (T034の教訓によりtimeMsを必ず設定。T076により`300`→`1000`に引き上げ済み)。
+ */
+const DRILL_ANALYZE_LIMIT: AnalyzeLimit = { depth: 16, timeMs: 1000, exactFromEmpties: 24 }
 
 /**
  * 「差が1概念に集約された局面ペア」(設計書§6.2)を探すためにプールから試す

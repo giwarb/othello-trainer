@@ -50,12 +50,21 @@ import type { JudgeMode, OpponentStrength, StartPositionSource } from './types.t
 import './PracticeMode.css'
 
 /**
- * 中盤練習モードのエンジン解析に使う探索条件(要件3: depth目安16、時間予算0.3秒程度)。
+ * 中盤練習モードのエンジン解析に使う探索条件(要件3: depth目安16、時間予算1秒程度)。
  * `exactFromEmpties: 24` により、空きマスが24以下になった局面では自動的に完全読みに
  * 切り替わる(要件6。エンジン側が実際の空きマス数と比較して判断するため、
  * この定数を対局中ずっと使い続けるだけでよい)。
+ *
+ * `timeMs`について(T076): 当初 `300`(0.3秒)だったが、ユーザー報告
+ * (合法手数が多い局面で、実際に打った明らかに良い手が「失敗」、悪手が
+ * 「正解手」と誤判定される)の調査により、`engine/src/search.rs`の
+ * `search_all_moves_with_eval`が候補手ごとに時間予算を公平に分け合うよう
+ * 修正された後も、`300`ms全体では合法手数が多い局面(12箇所等)で1手あたり
+ * 数十msしか確保できず、深さ不足による誤ったランキングが残ることが実測で
+ * 確認された(作業ログ参照)。要件3が許容する「1回の評価が数秒以内」の
+ * 範囲に収まる`1000`(1秒)に引き上げ、実測で誤判定が解消することを確認した。
  */
-const MIDGAME_ANALYZE_LIMIT: AnalyzeLimit = { depth: 16, timeMs: 300, exactFromEmpties: 24 }
+const MIDGAME_ANALYZE_LIMIT: AnalyzeLimit = { depth: 16, timeMs: 1000, exactFromEmpties: 24 }
 
 /** 相手が着手するまでの見せかけの「考慮時間」(ミリ秒、`joseki/PracticeMode.tsx`と同じ演出)。 */
 const OPPONENT_MOVE_DELAY_MS = 350

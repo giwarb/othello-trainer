@@ -23,8 +23,11 @@ import './PracticeMode.css'
  * 最善手の探索条件(要件4)。`midgame/PracticeMode.tsx`の`MIDGAME_ANALYZE_LIMIT`と
  * 同じ値(depth16・空き24以下で自動的に完全読みに切り替わる)を使う。長時間ハング対策
  * のため`timeMs`を必ず設定する(T034で発生したハング事故の教訓)。
+ *
+ * `timeMs`はT076により`MIDGAME_ANALYZE_LIMIT`と同じ理由で`300`→`1000`に
+ * 引き上げた(合法手数が多い局面での深さ不足による誤ったランキングを避けるため)。
  */
-const VERBALIZE_ANALYZE_LIMIT: AnalyzeLimit = { depth: 16, timeMs: 300, exactFromEmpties: 24 }
+const VERBALIZE_ANALYZE_LIMIT: AnalyzeLimit = { depth: 16, timeMs: 1000, exactFromEmpties: 24 }
 
 const SOURCE_OPTIONS: readonly { value: ProblemSource; label: string }[] = [
   { value: 'pool', label: '中盤練習プール(全件)' },

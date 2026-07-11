@@ -388,12 +388,23 @@ fn search_with_eval_inner(
 ///
 /// `limit.time_ms` が指定されている場合、[`search`] と同様、反復深化の
 /// 各深さが完了するごとに経過時間をチェックし、超過していればその時点で
-/// 打ち切る。この経過時間計測は**全合法手を通じた累計**であり
-/// (合法手ごとに予算を新たに割り当て直すのではない)、予算を使い切った
-/// 後に評価される残りの合法手は、それぞれ1回だけ静的評価
-/// (`eval::evaluate_for`)相当の浅い値になる。全合法手の評価を打ち切りなく
-/// 完走した場合と比べて精度は落ちるが、「0.5〜2秒程度で返る」という
-/// 性能目標(タスク背景参照)を守ることを優先する。
+/// 打ち切る。合計の時間予算(`limit.time_ms`)自体は全合法手を通じた
+/// 累計として消費されるが、**各合法手にはその時点で残っている予算を
+/// 「まだ評価していない合法手の数」で均等に割った、公平な持ち分**が
+/// 割り当てられる(T076)。以前は合計予算をどの合法手が消費してもよい
+/// 早い者勝ち方式だったため、たまたま先頭(マス番号が若い)に来ただけの
+/// 1手が予算のほぼ全部を使い切ってしまい、残り全ての合法手が
+/// depth=1(ほぼ静的評価1回分のノイズが乗った浅い値)にしかならず、
+/// 実際には悪い手が浅い評価のノイズにより最善手と誤判定される、という
+/// 実害のあるバグが実測で確認された(ユーザー報告、作業ログ参照)。
+/// ある合法手が自分の持ち分より早く完走すれば、その分は自動的に
+/// 後続の合法手の取り分に回る。全合法手の持ち分の合計は常に元の
+/// `limit.time_ms` 以下に収まるため、T034が防いだ「全体のハング」の
+/// リスクは変わらない。それでも予算を使い切った合法手は、それぞれ
+/// 1回だけ静的評価(`eval::evaluate_for`)相当の浅い値になりうる。
+/// 全合法手の評価を打ち切りなく完走した場合と比べて精度は落ちるが、
+/// 「0.5〜2秒程度で返る」という性能目標(タスク背景参照)を守ることを
+/// 優先する。
 ///
 /// 合法手が0件(パスすべき局面・終局局面)の場合は空の `Vec` を返す
 /// (エラーにしない)。返す順序はスコア降順。
@@ -407,6 +418,27 @@ pub fn search_all_moves(
     tt: &mut TranspositionTable,
 ) -> Vec<MoveEval> {
     search_all_moves_with_eval(board, side_to_move, limit, tt, None)
+}
+
+/// [`search_all_moves_with_eval`] が、まだ評価していない1つの合法手に
+/// 割り当てる「公平な持ち分」(ミリ秒)を計算する(T076)。
+///
+/// `total_time_ms`: `SearchLimit::time_ms` で指定された全体の時間予算。
+/// `elapsed_ms`: 全合法手を通じた共有の起点(`start`)からこれまでに
+/// 経過した時間。`moves_left`: これから評価する合法手の数
+/// (現在評価しようとしている手自身を含む。0は渡さないことを想定するが、
+/// 万一0でも`max(1)`で1として扱いパニックしない)。
+///
+/// 戻り値は「残っている時間予算」を「残っている合法手の数」で均等に
+/// 割った値。ある合法手が自分の持ち分を使い切らずに完走すれば、
+/// 次の呼び出し時点の `elapsed_ms` が小さくなる分、後続の合法手の
+/// 持ち分は自動的に増える(=先に完走した手の余りが後続に回る)。
+/// 全合法手の持ち分の合計は、常に `total_time_ms` 以下に収まる
+/// (各ステップで「残り予算 / 残り手数」以下しか割り当てないため)。
+fn fair_share_time_ms(total_time_ms: u64, elapsed_ms: u64, moves_left: usize) -> u64 {
+    let remaining_ms = total_time_ms.saturating_sub(elapsed_ms);
+    let moves_left = moves_left.max(1) as u64;
+    remaining_ms / moves_left
 }
 
 /// [`search_all_moves`]と同じだが、`weights`が`Some`ならT043のパターン評価を
@@ -436,22 +468,57 @@ pub fn search_all_moves_with_eval(
     }
 
     let opponent = side_to_move.opposite();
-    let mut evals: Vec<MoveEval> = Vec::with_capacity(moves.len());
+    let total_moves = moves.len();
+    let mut evals: Vec<MoveEval> = Vec::with_capacity(total_moves);
 
-    // 全合法手を通じた累計の経過時間を計測する(`limit.time_ms` があれば
-    // 参照する)。`search()` の反復深化ループと同じ「1反復完了ごとに
-    // チェック」というポリシーだが、ここでは合法手をまたいで単一の
-    // `start` を共有する(合法手ごとに予算を新たに割り当て直さない、
-    // 実装者判断でシンプルな「全体の経過時間で判定する」方式を採る)。
-    // 予算を使い切った後に評価される合法手は、それぞれの反復深化ループが
-    // depth=1(子局面としては depth=0、静的評価1回分)で即座に打ち切られる
-    // ため、全合法手が必ず `evals` に含まれることは変わらない
-    // (深さが浅くなるだけで、手が欠落することはない)。
+    // 全合法手を通じた経過時間の起点(`limit.time_ms` があれば参照する)。
+    // T076: 以前はこの `start` を全合法手が単純に共有し、「まだ経過時間が
+    // 予算内に収まっている限り、今評価中の1手がどれだけ時間を使っても
+    // 構わない」という早い者勝ちの配分になっていた。この設計では、
+    // 反復深化(未満の深さで探索が重くなる)手がたまたま先頭(マス番号が
+    // 若い)にあるだけで、その1手だけが予算のほぼ全部を消費してしまい、
+    // 残り全ての合法手が depth=1(実質ノイズに近い浅い評価)しか得られない
+    // ことが実測で確認された(ユーザー報告の誤判定バグ、作業ログ参照)。
+    // これは「候補手が多いと1手あたりの実効深さが浅くなる」という
+    // 想定内のトレードオフを大きく超え、「最初の1手だけ深く読み、残りは
+    // ほぼ読まない」という実用上の誤判定を招く設計不良だった。
+    //
+    // 修正: 各合法手を評価する直前に、その時点で残っている時間予算
+    // (`time_ms` から起点`start`以降の経過時間を差し引いたもの)を
+    // 「まだ評価していない合法手の数」で均等に割り、その手専用の
+    // 予算(`per_move_limit`)として与える。ある手が自分の持ち分より
+    // 早く完走すれば、その分は後続の手に自動的に回る(`remaining_ms`を
+    // 評価のたびに再計算するため)。逆にある手が予算を使い切っても、
+    // 自分の持ち分を超えては進めない(=後続の手の取り分を奪わない)。
+    // 合計の時間予算(`time_ms`)自体は変更していないため、
+    // T034が防いだ「全体のハング」のリスクは増えない
+    // (全合法手の持ち分の合計は常に元の `time_ms` 以下に収まる)。
     let start = Instant::now();
 
-    for mv in moves {
+    for (i, mv) in moves.into_iter().enumerate() {
         let next_board = board.apply_move(side_to_move, 1u64 << mv);
         let next_empties = next_board.empty_count();
+
+        // この手の「公平な持ち分」を反映した `SearchLimit` を用意する。
+        // `time_ms` が指定されていなければ(時間無制限)従来どおり `limit`
+        // をそのまま使う(このコピーは安価: `SearchLimit` は3つのプリミ
+        // ティブフィールドのみ)。
+        let per_move_limit: SearchLimit = match limit.time_ms {
+            Some(total_time_ms) => {
+                let elapsed_ms = start.elapsed().as_millis() as u64;
+                let moves_left = total_moves - i;
+                SearchLimit {
+                    max_depth: limit.max_depth,
+                    time_ms: Some(fair_share_time_ms(total_time_ms, elapsed_ms, moves_left)),
+                    exact_from_empties: limit.exact_from_empties,
+                }
+            }
+            None => limit.clone(),
+        };
+        // この手専用の経過時間の起点。`per_move_limit.time_ms`
+        // (この手の持ち分)はこの起点からの経過時間として消費される
+        // (全合法手共有の `start` とは別物)。
+        let move_start = Instant::now();
 
         let (score, is_exact) = if next_empties <= limit.exact_from_empties as u32 {
             // T034: `search()`/`negascout`と同じ理由により、`time_ms`が
@@ -463,9 +530,9 @@ pub fn search_all_moves_with_eval(
             // フォールバックし`is_exact=false`として報告する(本当は
             // 完全読みしたかったが時間予算を優先して打ち切った、という
             // 実態を反映する)。
-            match limit.time_ms {
+            match per_move_limit.time_ms {
                 Some(time_ms) => {
-                    let budget = TimeBudget { start, time_ms };
+                    let budget = TimeBudget { start: move_start, time_ms };
                     match solve_exact_bounded(&next_board, opponent, tt, budget) {
                         Some(raw_diff) => (-(raw_diff * 100), true),
                         None => (-static_eval(&next_board, opponent, weights), false),
@@ -484,15 +551,15 @@ pub fn search_all_moves_with_eval(
             // 評価値と、`search_all_moves()` が返す評価値の最大値が
             // 一致する(整合性は本モジュールのテストで検証する)。
             let mut best_for_move = -static_eval(&next_board, opponent, weights);
-            for depth in 1..=limit.max_depth {
+            for depth in 1..=per_move_limit.max_depth {
                 let mut nodes: u64 = 0;
                 let mut timed_out = false;
                 let candidate = {
                     let mut ctx = SearchCtx {
-                        limit,
+                        limit: &per_move_limit,
                         tt: &mut *tt,
                         nodes: &mut nodes,
-                        start,
+                        start: move_start,
                         timed_out: &mut timed_out,
                         weights,
                         suppress_mpc: false,
@@ -510,8 +577,8 @@ pub fn search_all_moves_with_eval(
                 }
                 best_for_move = candidate;
 
-                if let Some(time_ms) = limit.time_ms {
-                    if start.elapsed().as_millis() as u64 >= time_ms {
+                if let Some(time_ms) = per_move_limit.time_ms {
+                    if move_start.elapsed().as_millis() as u64 >= time_ms {
                         break;
                     }
                 }
@@ -1488,6 +1555,137 @@ mod tests {
         assert!(
             elapsed < std::time::Duration::from_millis(2000),
             "search_all_moves should honor time_ms and return well within 2s, took {elapsed:?}"
+        );
+    }
+
+    #[test]
+    fn fair_share_time_ms_divides_the_remaining_budget_evenly_across_the_remaining_moves() {
+        // T076回帰テスト(決定的・ビルド速度に依存しない): `fair_share_time_ms`
+        // が「残り時間予算 / 残り合法手数」を計算していることを直接検証する。
+        // 経過時間(壁時計)には依存しない純粋関数なので、debug/releaseどちらの
+        // ビルドでも、どんなマシン速度でも常に同じ結果になる。
+        assert_eq!(fair_share_time_ms(300, 0, 12), 25, "12手で300msを均等に割ると1手25ms");
+        assert_eq!(
+            fair_share_time_ms(300, 100, 4),
+            50,
+            "経過後の残り200msを、残り4手で均等に割ると1手50ms"
+        );
+        assert_eq!(
+            fair_share_time_ms(300, 25, 11),
+            25,
+            "1手目が持ち分ちょうど(25ms)を使い切った直後、残り11手はまだ25msずつ持てる"
+        );
+    }
+
+    #[test]
+    fn fair_share_time_ms_lets_a_move_that_finishes_early_pass_its_leftover_budget_to_the_rest() {
+        // T076: ある合法手が自分の持ち分より早く完走すれば、その分は
+        // 後続の合法手の持ち分の計算(`elapsed_ms`が小さいまま)に自動的に
+        // 反映される(=先に完走した手の余りが後続に回る)ことを確認する。
+        // 1手目の持ち分は 300/12=25ms だが、実際には 5ms しか経過しなかった
+        // (早く完走した)とすると、残り11手は (300-5)/11 ≒ 26ms 前後に増える。
+        let share_if_move1_used_full_budget = fair_share_time_ms(300, 25, 11);
+        let share_if_move1_finished_early = fair_share_time_ms(300, 5, 11);
+        assert!(
+            share_if_move1_finished_early > share_if_move1_used_full_budget,
+            "1手目が早く完走したときの方が、後続の手の持ち分が大きくなるはず \
+             (early={share_if_move1_finished_early}, full={share_if_move1_used_full_budget})"
+        );
+    }
+
+    #[test]
+    fn fair_share_time_ms_never_exceeds_the_total_budget_even_after_overshoot() {
+        // T034のノード間隔チェック(1024ノードごと)の粒度により、ある手が
+        // 自分の持ち分を(わずかに)超えて経過時間を消費してしまうことは
+        // ありうる。その場合でも `fair_share_time_ms` は負の残り予算を
+        // 0未満にせず(`saturating_sub`)、後続の手には単に 0ms
+        // (=depth=1のみ)を割り当てる、というグレースフルな劣化に
+        // とどまることを確認する(パニックしない・アンダーフローしない)。
+        assert_eq!(
+            fair_share_time_ms(300, 400, 5),
+            0,
+            "経過時間が総予算を超えていても0を返し、アンダーフローでパニックしない"
+        );
+    }
+
+    #[test]
+    fn fair_share_time_ms_treats_zero_moves_left_the_same_as_one_to_avoid_division_by_zero() {
+        assert_eq!(
+            fair_share_time_ms(300, 0, 0),
+            300,
+            "moves_left=0はmax(1)で1として扱われ、ゼロ除算にならない"
+        );
+    }
+
+    #[test]
+    #[ignore] // T076: 実測に基づく回帰テスト(下記詳細参照)。壁時計の経過時間で
+              // 実際の探索深さが決まるため、debugビルド(cargo testの既定)では
+              // 1ノードあたりの評価が大幅に遅く、`time_ms=1000`という現実的な
+              // (=本番のMIDGAME_ANALYZE_LIMIT相当の)予算内では十分な深さに
+              // 到達できず不安定になることを確認済み(作業ログ参照)。
+              // `cargo test -p engine --lib --release -- --ignored --nocapture`
+              // で実行すること(FFOの重いテストと同じ理由でデフォルト実行から
+              // 除外している)。
+    fn search_all_moves_with_eval_gives_a_fair_time_share_to_each_move_instead_of_letting_the_first_move_starve_the_rest() {
+        // T076回帰テスト: ユーザー報告(2026-07-12、中盤練習モードで実際に
+        // 打った手 b4 が「失敗」、悪手であるはずの b2 が「正解手」と誤判定
+        // された)を再現する具体的な局面(合法手12箇所)。
+        //
+        // 局面は本タスクの調査で `eval_cli gen`(自己対戦ランダム局面生成)
+        // から抽出した、黒番・石19個(黒8・白11)・合法手12箇所・b2/b4が
+        // ともに合法手、という報告と一致する条件を満たす局面(作業ログ参照。
+        // 過去の調査ログから元のバグ報告局面の正確なビットボード値は
+        // 得られなかったため、同じ条件・同じ根本原因のバグを独立に
+        // 再現できる局面を新たに特定した)。
+        //
+        // Edax(level10)による検証(作業ログ参照): この局面ではb4(黒視点
+        // +14石)がb2(黒視点-1石)より明確に優る。深さ10/11の時間無制限の
+        // 本エンジン探索でも同じ方向(b4がb2より優る)が確認できる一方、
+        // 修正前の実装(合計時間予算を早い者勝ちで共有)では、`MIDGAME_
+        // ANALYZE_LIMIT`相当の設定(depth16, exactFromEmpties24,
+        // timeMs=300)でb2がb4より大きく優る(=b2が「正解手」)と誤判定
+        // していた(先頭の合法手 g1 が予算のほぼ全部を消費し、b2 を含む
+        // 残り全ての合法手が depth=1 しか探索されなかったため)。
+        //
+        // 本テストは、修正後の実装(公平な時間配分)+ 本タスクで
+        // `MIDGAME_ANALYZE_LIMIT.timeMs` を引き上げた後の値(1000ms)で、
+        // b4 が b2 より優る(=b2 がb4より上位にランクされない)ことを
+        // release ビルドで確認する。
+        let board = Board {
+            black: 0x0000_1010_5000_1038,
+            white: 0x0000_000c_0c7c_6000,
+        };
+        assert_eq!(board.empty_count(), 45, "sanity check: 19 discs on the board");
+
+        let limit = SearchLimit {
+            max_depth: 16,
+            time_ms: Some(1000),
+            exact_from_empties: 24,
+        };
+        let mut tt = TranspositionTable::new(64);
+
+        let start = std::time::Instant::now();
+        let evals = search_all_moves(&board, Side::Black, &limit, &mut tt);
+        let elapsed = start.elapsed();
+        println!("T076 repro finished in {elapsed:?}");
+
+        assert_eq!(evals.len(), 12, "all 12 legal moves should be present");
+        assert!(
+            elapsed < std::time::Duration::from_secs(5),
+            "search_all_moves should still return promptly, took {elapsed:?}"
+        );
+
+        // b2 = square index 9, b4 = square index 25 (rank*8+file, a1..h8 order).
+        let b2 = evals.iter().find(|e| e.mv == 9).expect("b2 should be a legal move");
+        let b4 = evals.iter().find(|e| e.mv == 25).expect("b4 should be a legal move");
+
+        assert!(
+            b4.score >= b2.score,
+            "b4 (score={}) should be evaluated as at least as good as b2 (score={}), and in \
+             practice clearly better; if this fails, the fair time-share fix regressed and the \
+             first-evaluated move is starving the others' search depth again",
+            b4.score,
+            b2.score
         );
     }
 

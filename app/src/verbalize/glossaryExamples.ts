@@ -55,8 +55,11 @@ const MAX_EXAMPLES = 2
 const MAX_ENTRIES_SCAN = 12
 /** 1局面あたりに試す合法手数の上限(モチーフ検索用)。 */
 const MAX_MOVES_PER_ENTRY = 8
-/** 評価内訳の例局面検索に使う探索条件。`TwoChoiceDrill.tsx`の`DRILL_ANALYZE_LIMIT`と同じ値。 */
-const EXAMPLE_ANALYZE_LIMIT: AnalyzeLimit = { depth: 16, timeMs: 300, exactFromEmpties: 24 }
+/**
+ * 評価内訳の例局面検索に使う探索条件。`TwoChoiceDrill.tsx`の`DRILL_ANALYZE_LIMIT`と
+ * 同じ値(T076により`300`→`1000`に引き上げ済み)。
+ */
+const EXAMPLE_ANALYZE_LIMIT: AnalyzeLimit = { depth: 16, timeMs: 1000, exactFromEmpties: 24 }
 
 /** `array`を`random`でシャッフルした新しい配列を返す(Fisher-Yates)。 */
 function shuffled<T>(array: readonly T[], random: () => number): T[] {
