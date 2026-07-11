@@ -38,6 +38,8 @@ function discColor(side: Side): string {
  * オセロ盤をCanvasで描画するコンポーネント。
  *
  * - 8x8のマス目を緑背景・グリッド線で描画する
+ * - 列(a-h)・行(1-8)の座標ラベルを、最下段/最左列のマスの隅に常時描画する
+ *   (T073)。ホバー等の操作なしで最初から表示され、全モード共通で見える。
  * - 黒/白の石を円で描画する
  * - `sideToMove` の合法手を薄い点でハイライトする
  * - `lastMove` のマスに印を付ける
@@ -178,6 +180,16 @@ export function Board({ board, sideToMove, lastMove = null, onMove }: BoardProps
           drawLastMoveMark(ctx, cx, cy, cell)
         }
       }
+
+      // 座標ラベル(列a-h・行1-8、T073)。マス目の隅に描くことで、専用の
+      // 余白(コンテナのサイズ)を追加せずに済み、`MoveEvalOverlay`/
+      // `BoardOverlay`が前提とする「コンテナ = 盤面8x8そのもの」という
+      // ピクセル対応関係を崩さない。ただし隅は石(半径 `cell * 0.42`)の
+      // 描画範囲ぎりぎり外側でしかなく、文字自体には幅・高さがあるため、
+      // 石や合法手ヒントより後に最前面へ重ね描きし、縁取り(アウトライン)
+      // 付きで描画することで、隅にわずかにかかっても盤面のどの色の上でも
+      // 判読できるようにする(石で覆われて読めなくなる問題への対応)。
+      drawCoordinateLabels(ctx, cell)
     }
 
     drawFrameRef.current = drawFrame
@@ -235,6 +247,54 @@ export function Board({ board, sideToMove, lastMove = null, onMove }: BoardProps
       <canvas ref={canvasRef} class="othello-board__canvas" onClick={handleClick} />
     </div>
   )
+}
+
+/**
+ * 列(a-h)・行(1-8)の座標ラベルを描画する(T073)。
+ *
+ * 列ラベルは最下段(内部表現の`rank0 = 7`、"8"の行)の各マスの左下隅に、
+ * 行ラベルは最左列(`file = 0`、"a"の列)の各マスの左上隅に描く。
+ * `notationToSquare`/`squareToNotation`(`game/othello.ts`)の変換規則
+ * (`file = square % 8` が 'a'〜'h'、`rank0 = Math.floor(square / 8)` が
+ * '1'〜'8'、`square = 0` すなわち左上マスが"a1")と対応が一致するようにする。
+ *
+ * 隅は石の描画範囲(半径 `cell * 0.42`)のすぐ外側だが、文字自体には幅・
+ * 高さがあるため、密集した盤面では石のごく一部に文字がかかることがある。
+ * これに対応するため、`drawFrame`内でこの関数を石より後(最前面)に呼び、
+ * かつ濃い縁取り+明るい塗りの2度描き(アウトライン文字)にすることで、
+ * 緑の盤面・黒石・白石のいずれの上でも文字の形が判読できるようにする。
+ */
+function drawCoordinateLabels(ctx: CanvasRenderingContext2D, cell: number) {
+  const fontSize = Math.min(Math.max(cell * 0.22, 8), 20)
+  const padding = Math.max(cell * 0.08, 2)
+  ctx.font = `bold ${fontSize}px sans-serif`
+  ctx.lineWidth = Math.max(fontSize * 0.22, 1.5)
+  ctx.strokeStyle = 'rgba(0, 0, 0, 0.65)'
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.95)'
+  ctx.lineJoin = 'round'
+
+  const drawLabel = (label: string, x: number, y: number) => {
+    ctx.strokeText(label, x, y)
+    ctx.fillText(label, x, y)
+  }
+
+  ctx.textAlign = 'left'
+  ctx.textBaseline = 'bottom'
+  for (let file = 0; file < GRID; file++) {
+    const label = String.fromCharCode('a'.charCodeAt(0) + file)
+    const x = file * cell + padding
+    const y = (GRID - 1) * cell + cell - padding
+    drawLabel(label, x, y)
+  }
+
+  ctx.textAlign = 'left'
+  ctx.textBaseline = 'top'
+  for (let rank0 = 0; rank0 < GRID; rank0++) {
+    const label = `${rank0 + 1}`
+    const x = padding
+    const y = rank0 * cell + padding
+    drawLabel(label, x, y)
+  }
 }
 
 function drawDisc(ctx: CanvasRenderingContext2D, cx: number, cy: number, cell: number, color: string) {
