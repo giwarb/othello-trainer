@@ -52,11 +52,56 @@ export function Board({ board, sideToMove, lastMove = null, onMove }: BoardProps
   // 初回マウント時は比較対象が無いのでnull(アニメーション無しで初期状態を描く)。
   const prevBoardRef = useRef<BoardState | null>(null)
   const animationFrameRef = useRef<number | null>(null)
+  // コンテナの実サイズ変更(ResizeObserver)が起きたとき、進行中のアニメーションを
+  // 打ち切らずに「今表示すべきフレーム」を新しいキャンバスサイズで再描画できる
+  // よう、最新の描画関数と進行度を保持しておく(下のリサイズ用useEffectから参照)。
+  const drawFrameRef = useRef<((progress: number) => void) | null>(null)
+  const progressRef = useRef(1)
 
+  // キャンバスサイズをコンテナの実サイズに追従させる。
+  //
+  // ResizeObserverは`board`/`sideToMove`/`lastMove`が変わっても再生成せず、
+  // マウント時に一度だけ生成する。理由: ResizeObserverは仕様上、`observe()`を
+  // 呼ぶと実際のサイズ変化の有無に関わらず初回通知が非同期に必ず1回発火する。
+  // 以前はこの副作用でboard更新のたびに生成し直したObserverの「保証された
+  // 初回通知」を実際のコンテナサイズ変更と誤認し、進行中の反転/出現
+  // アニメーションを毎回即座に打ち切ってしまうバグがあった(T066フィードバック
+  // 参照)。加えて、`canvas.width`/`canvas.height`が実際に変化していない
+  // 場合は何もしない(サイズ比較によるガード)ことで、万一Observerが余分な
+  // 通知を発火しても安全にしている。
   useEffect(() => {
     const canvas = canvasRef.current
     const container = containerRef.current
     if (!canvas || !container) return
+
+    const applySize = () => {
+      const size = Math.max(Math.floor(container.clientWidth), 1)
+      const dpr = window.devicePixelRatio || 1
+      const nextWidth = size * dpr
+      const nextHeight = size * dpr
+      if (canvas.width === nextWidth && canvas.height === nextHeight) {
+        // 実際のサイズ変化が無い通知(ResizeObserverの保証された初回通知等)。
+        // 進行中のアニメーションに一切触れず、何もしない。
+        return
+      }
+      canvas.width = nextWidth
+      canvas.height = nextHeight
+      canvas.style.width = `${size}px`
+      canvas.style.height = `${size}px`
+      // 実際にサイズが変わった場合のみ、現在表示すべきフレームを新サイズで
+      // 再描画する(アニメーションを最初からやり直したり打ち切ったりはしない)。
+      drawFrameRef.current?.(progressRef.current)
+    }
+
+    applySize()
+    const observer = new ResizeObserver(applySize)
+    observer.observe(container)
+    return () => observer.disconnect()
+  }, [])
+
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
 
     const prevBoard = prevBoardRef.current
     const diff = prevBoard ? diffBoards(prevBoard, board) : NO_DIFF
@@ -130,67 +175,38 @@ export function Board({ board, sideToMove, lastMove = null, onMove }: BoardProps
       }
     }
 
+    drawFrameRef.current = drawFrame
+
     const cancelAnimation = () => {
       if (animationFrameRef.current !== null) {
         cancelAnimationFrame(animationFrameRef.current)
         animationFrameRef.current = null
       }
     }
+    cancelAnimation()
 
-    // 初回の描画(このboard更新に対する描画)でだけアニメーションを再生する。
-    // これより後にResizeObserverが実際のコンテナサイズ変更で`resize`を
-    // 呼んでも、演出を最初からやり直したりはしない(サイズ変更だけ反映する)。
-    let hasDrawnOnce = false
-
-    const draw = () => {
-      cancelAnimation()
-
-      if (hasDrawnOnce) {
-        // 実際のコンテナサイズ変更に伴う再描画。アニメーション中なら
-        // 次のrAFフレームが新サイズで自然に描画されるのでここでは何もせず、
-        // アニメーションが既に終わっていれば最終状態を描き直す。
-        drawFrame(1)
-        return
-      }
-      hasDrawnOnce = true
-
-      if (!shouldAnimate) {
-        drawFrame(1)
-        return
-      }
-
-      let start: number | null = null
-      const step = (timestamp: number) => {
-        if (start === null) start = timestamp
-        const progress = Math.min((timestamp - start) / FLIP_ANIMATION_MS, 1)
-        drawFrame(progress)
-        if (progress < 1) {
-          animationFrameRef.current = requestAnimationFrame(step)
-        } else {
-          animationFrameRef.current = null
-        }
-      }
-      animationFrameRef.current = requestAnimationFrame(step)
+    if (!shouldAnimate) {
+      progressRef.current = 1
+      drawFrame(1)
+      return cancelAnimation
     }
 
-    const resize = () => {
-      const size = Math.max(Math.floor(container.clientWidth), 1)
-      const dpr = window.devicePixelRatio || 1
-      canvas.width = size * dpr
-      canvas.height = size * dpr
-      canvas.style.width = `${size}px`
-      canvas.style.height = `${size}px`
-      draw()
+    progressRef.current = 0
+    let start: number | null = null
+    const step = (timestamp: number) => {
+      if (start === null) start = timestamp
+      const progress = Math.min((timestamp - start) / FLIP_ANIMATION_MS, 1)
+      progressRef.current = progress
+      drawFrame(progress)
+      if (progress < 1) {
+        animationFrameRef.current = requestAnimationFrame(step)
+      } else {
+        animationFrameRef.current = null
+      }
     }
+    animationFrameRef.current = requestAnimationFrame(step)
 
-    resize()
-
-    const observer = new ResizeObserver(resize)
-    observer.observe(container)
-    return () => {
-      observer.disconnect()
-      cancelAnimation()
-    }
+    return cancelAnimation
   }, [board, sideToMove, lastMove])
 
   const handleClick = (event: MouseEvent) => {
