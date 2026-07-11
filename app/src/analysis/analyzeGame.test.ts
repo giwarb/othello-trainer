@@ -15,7 +15,14 @@ import {
 import { buildJosekiDb } from '../joseki/buildDb.ts'
 import { hashBoard } from '../joseki/normalize.ts'
 import type { RawJosekiLine } from '../joseki/types.ts'
-import { analyzeGame, type AnalyzeEngine, replayGame, TranscriptReplayError } from './analyzeGame.ts'
+import { resolveMover } from '../midgame/resolveMover.ts'
+import {
+  analyzeGame,
+  type AnalyzeEngine,
+  DISC_DIFF_THEORETICAL_MAX,
+  replayGame,
+  TranscriptReplayError,
+} from './analyzeGame.ts'
 
 const BOARD0 = initialBoard()
 const BOARD1 = applyMove(BOARD0, 'black', notationToSquare('f5'))
@@ -489,4 +496,66 @@ describe('analysis/analyzeGame: 累積評価値(T056)', () => {
 
     expect(last.blackAdvantageAfter).toBeCloseTo(realFinalDiff)
   })
+
+  it(
+    '悪手が連続する対局(20手以上)でも累積評価値は理論上限±64を超えない(T064、' +
+      'T063のverifierが発見した-290等への発散バグの回帰テスト)',
+    async () => {
+      // 決定的な方策(各局面の合法手を記法の辞書順に並べ、先頭の手を選ぶ、パスは
+      // `resolveMover`で自動処理)で24手分の実際に合法な着手列を作る(既存の
+      // telescopingテストと同じ手法をより長い手数に拡張)。
+      const moves: string[] = []
+      let board = initialBoard()
+      let mover: Side | null = resolveMover(board, 'black')
+      const moveSides: Side[] = []
+      for (let step = 0; step < 24 && mover !== null; step++) {
+        const chosen = legalMoves(board, mover).map(squareToNotation).sort()[0]!
+        moves.push(chosen)
+        moveSides.push(mover)
+        board = applyMove(board, mover, notationToSquare(chosen))
+        mover = resolveMover(board, opposite(mover))
+      }
+      expect(moves.length).toBeGreaterThanOrEqual(20)
+
+      // 黒番の手は常に「最善から30石ロス」する大悪手、白番の手は常に最善手
+      // (ロス0)にする(黒番の連続悪手により、累積評価値がクランプ無しでは
+      // 大きく発散するシナリオを再現する)。
+      const positions = replayGame(moves)
+      const byHash = new Map<string, MoveEvalJson[]>()
+      for (let i = 0; i < moves.length; i++) {
+        const pos = positions[i]!
+        const played = moves[i]!
+        const entries: MoveEvalJson[] =
+          moveSides[i] === 'black'
+            ? [
+                { move: played, score: 0, discDiff: 0, type: 'midgame' },
+                { move: '__best__', score: 0, discDiff: 30, type: 'midgame' },
+              ]
+            : [{ move: played, score: 0, discDiff: 0, type: 'midgame' }]
+        byHash.set(hashBoard(pos.board, pos.mover!), entries)
+      }
+      const engine: AnalyzeEngine = {
+        async requestAnalyzeAll(b, turn) {
+          const found = byHash.get(hashBoard(b, turn))
+          if (!found) throw new Error('unexpected position queried')
+          return found
+        },
+      }
+      const dbFactory = new IDBFactory()
+
+      const results = await analyzeGame(engine, moves, { dbFactory })
+
+      // クランプ無しなら黒番の悪手が積み重なり続けて-64を大きく下回る(例:
+      // 12手の黒番悪手だけで-360)はずだが、クランプにより-64で頭打ちになる。
+      for (const m of results) {
+        expect(Math.abs(m.blackAdvantageBefore)).toBeLessThanOrEqual(DISC_DIFF_THEORETICAL_MAX)
+        expect(Math.abs(m.blackAdvantageAfter)).toBeLessThanOrEqual(DISC_DIFF_THEORETICAL_MAX)
+      }
+      // 十分な手数の黒番悪手が積み重なった後は、実際に-64で頭打ちになっている
+      // ことを確認する(クランプが発火せずただ範囲内に収まっただけ、ではないこと
+      // の確認)。
+      const last = results[results.length - 1]!
+      expect(last.blackAdvantageAfter).toBe(-DISC_DIFF_THEORETICAL_MAX)
+    },
+  )
 })

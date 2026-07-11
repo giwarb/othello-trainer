@@ -86,7 +86,7 @@ const LIMIT_TAG = `d${ANALYZE_LIMIT.depth}-e${ANALYZE_LIMIT.exactFromEmpties}`
  * (根本原因はエンジン側`engine/src/search.rs`の`static_eval`のクランプ欠如
  * だったが、表示層でも二重に防御する)。
  */
-const DISC_DIFF_THEORETICAL_MAX = 64
+export const DISC_DIFF_THEORETICAL_MAX = 64
 
 /**
  * `analyzeGame`が解析エンジンに要求する最小限のインターフェース。
@@ -283,6 +283,24 @@ export async function analyzeGame(
  * にのみ立てる(`0`は特別扱いしない)。`E[0] = 0`からの最初の非0への遷移は
  * 「逆転」とはしない(T057。`0`と非0を異符号とみなす単純な`Math.sign`比較では、
  * 定石を外れた直後の最初の手が必ず「逆転」表示になってしまうため)。
+ *
+ * **理論上限クランプ(T064)**: `loss[i]`はT059で個別に`DISC_DIFF_THEORETICAL_MAX`
+ * (64)にクランプ済みだが、累積値`E[i]`自体にはクランプが無かったため、悪手が
+ * 連続する対局(初心者の対局解析という本アプリの主要ユースケース)では、各手の
+ * ロスが独立したヒューリスティック探索由来の近似値であることから、真の形勢
+ * 以上に評価値が積み上がり続け、理論上あり得ない範囲(石数差の理論上限±64を
+ * 大きく超える値、例: -290)まで発散することがあった(T063のverifierが発見)。
+ * どの局面の評価値も定義上「双方最善を尽くした場合の最終石差の予測値」であり
+ * 石差は物理的に±64を超えないため、`after`を求めるたびに`±64`にクランプする。
+ * `cumulative`(次の`before`)にはクランプ後の値を使うため、`before`は常に
+ * `[-64, 64]`の範囲に収まっている(クランプは`after`だけで十分)。
+ *
+ * 通常の対局(悪手が極端に連続しないケース)では、telescoping性質により
+ * 累積値はそもそも±64を超えないため、このクランプは実質的に無害(発火しない)
+ * である。悪手が連続してクランプが実際に発動するケースでは、最終的な累積値が
+ * 実際の最終石差と一致しなくなる可能性があるが、それはクランプ前から既に
+ * 累積値が理論上あり得ない範囲に発散していた(=元々信頼できない状態だった)
+ * ことの帰結であり、表示上の理論上限違反を防ぐことを優先する。
  */
 function applyCumulativeEvaluation(results: MoveAnalysis[]): void {
   let cumulative = 0
@@ -290,7 +308,10 @@ function applyCumulativeEvaluation(results: MoveAnalysis[]): void {
     const m = results[i]!
     const before = cumulative
     const signedLoss = m.side === 'black' ? -m.lossDiscs : m.lossDiscs
-    const after = before + signedLoss
+    const after = Math.max(
+      -DISC_DIFF_THEORETICAL_MAX,
+      Math.min(DISC_DIFF_THEORETICAL_MAX, before + signedLoss),
+    )
     results[i] = {
       ...m,
       blackAdvantageBefore: before,
