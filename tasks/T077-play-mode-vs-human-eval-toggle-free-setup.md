@@ -1,7 +1,7 @@
 ---
 id: T077
 title: 対局モードに人間vs人間モード・評価値表示切替・盤面自由配置からの開始を追加
-status: todo
+status: review
 assignee: implementer
 attempts: 0
 ---
@@ -124,7 +124,10 @@ explorerによる事前調査の結果:
   - 自由配置から開始した対局でも、着手後に`.eval-info`(EvalBadge、悪手判定バッジ)が正しく表示されることを確認(上記「実装中に発見した既存バグ」の修正確認)。
   - 375px幅で全操作(パレット選択・盤面クリック・手番選択・開始ボタン群)が問題なく行えることをスクリーンショットで確認。
   - Playwrightスクリプト実行中、ブラウザコンソールに`console.error`が一切出力されないことを確認(`ALL CHECKS PASSED (no console errors)`)。
-- 本番デプロイ確認: 次のステップでmainにpush・GitHub Actionsのデプロイ確認・本番URLでのPlaywright実機確認を行う(このログに追記予定)。
+- 本番デプロイ確認:
+  - `git push origin main`(コミット`be48db2`)。
+  - `gh run watch 29170703702 --exit-status` でGitHub Actions「Deploy to GitHub Pages」の完了を確認: `build`・`deploy`ジョブともに成功(`success`/`completed`)。
+  - 本番URL(`https://giwarb.github.io/othello-trainer/`)に対して、ローカル確認と同じPlaywrightスクリプト(viewport 375x800)を実行し、(a)2人対戦モード、(b)評価値バー表示・トグルのリロード後永続化、(c)盤面自由配置エディタでの配置/消去・「初期配置に戻す」+手番選択からの対局開始・合法手判定/パス処理、異常配置(両者合法手なし)での即終局、着手後の`.eval-info`(悪手判定バッジ)表示、のすべてを再確認。ローカルと同じ結果(`ALL CHECKS PASSED (no console errors)`)。
 
 **判断に迷った点:**
 
