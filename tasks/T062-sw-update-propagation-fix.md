@@ -1,9 +1,9 @@
 ---
 id: T062
 title: Service Workerの更新伝播を修正(デプロイ後も古いアプリ本体が表示され続ける不具合)
-status: todo
+status: redo
 assignee: implementer
-attempts: 0
+attempts: 1
 ---
 
 # T062: Service Workerの更新伝播を修正(デプロイ後も古いアプリ本体が表示され続ける不具合)
@@ -46,7 +46,17 @@ attempts: 0
 
 ## フィードバック(やり直し時にオーケストレーターが記入)
 
-(なし)
+**要修正(2026-07-11、reviewer検証)**: `app/public/sw.js`の`handleNavigate`(147-156行目付近)で、`fetch(request)`にキャッシュモードの明示指定が無いため、**ブラウザのHTTPキャッシュ層(Service WorkerのCache Storageとは別物)によって「ネットワーク優先」が実質的に骨抜きになる可能性がある**。
+
+reviewerが実際に本番URLのレスポンスヘッダを確認したところ、GitHub Pages(Fastly)は`index.html`に`cache-control: max-age=600`を付与している(`curl -sI https://giwarb.github.io/othello-trainer/`で確認)。通常の再訪問(タブを閉じて再度開く、アドレスバーから再入力等、`cache`モードが`'default'`になるナビゲーション)では、このヘッダにより最大10分間はブラウザが実際にネットワークへ問い合わせず、SWの`fetch(request)`呼び出し自体がブラウザのHTTPキャッシュから解決されてしまう。つまり「デプロイ直後に再訪問しても最大10分古いままになりうる」という、要件1を完全には満たさない残存ケースがある。
+
+同ファイル内の`discoverHashedAssetUrls`(50行目付近)は`fetch('./', { cache: 'no-store' })`とHTTPキャッシュを明示的にバイパスしているのに対し、`handleNavigate`の実際のナビゲーション用fetchにはこの対策が入っておらず、同じドキュメントに対する扱いが不整合になっている。
+
+**修正指示**: `handleNavigate`内の`fetch(request)`を`fetch(request, { cache: 'no-store' })`(または`'reload'`)に変更すること。修正後は、実際のGitHub Pages配信(`Cache-Control: max-age=600`)環境下で、デプロイ直後10分以内の再訪問でも新バージョンが反映されることを本番URLで確認すること(ローカルの`vite preview`は配信サーバーが異なりこのヘッダを再現しないため、本番環境での確認が必須)。
+
+**should(次点、余裕があれば対応)**:
+- ネットワーク取得はできたが`networkResponse.ok`が`false`(4xx/5xx)の場合、キャッシュへのフォールバックをしていない(オフライン時のみフォールバックする現行ロジック)。CDN側の一時的な5xxブリップ時に新規のリグレッションになりうるため、エラーレスポンス時もキャッシュへのフォールバックを検討する余地がある。
+- 作業ログの「swUpdateLogic.test.ts の5件」という記述は実際には4件(記録の正確性の軽微な誤り)。
 
 ## 作業ログ(担当エージェントが追記)
 
@@ -64,7 +74,7 @@ attempts: 0
     - `schedulePeriodicUpdateChecks(registration)`: 開いたままのタブでも新デプロイに気づけるよう、30分間隔の`setInterval`と`visibilitychange`(タブが可視化された時)の両方で`registration.update()`を呼ぶ(ブラウザ標準の更新チェックがナビゲーション時にしか走らないことがあるため補完)。
     - `showUpdateBanner()`: `document.body`直下に素のDOM APIで固定バナー(「新しいバージョンがあります。」+「今すぐ更新」+「後で」ボタン)を挿入する。**「今すぐ更新」を押した時のみ`window.location.reload()`する**設計にし、SWのイベントを起点に自動でreloadを呼ぶコードパスは一切作らなかった(要件3、無限リロードループ・対局中の突然のリロード防止の両方をこの設計だけで満たす)。バナーの多重表示防止フラグ(`bannerShown`)も持つ。
   - `app/src/swUpdateLogic.ts`(新規): `shouldNotifyUpdate(hadExistingController, workerState)`という純粋関数として、更新通知の判定ロジックだけを切り出した。`registerServiceWorker.ts`本体は実ブラウザAPI(`navigator.serviceWorker`)に依存しvitestの'node'環境では動作確認しづらいため、`components/moveEvalOverlayLogic.ts`と同じ切り出し方針(ファイル冒頭コメント参照)を踏襲した。
-  - `app/src/swUpdateLogic.test.ts`(新規): `shouldNotifyUpdate`の単体テスト(5件)。既存コントローラー無し(初回インストール)では通知しない、既存コントローラー有り+`installed`でのみ通知する、等を確認。
+  - `app/src/swUpdateLogic.test.ts`(新規): `shouldNotifyUpdate`の単体テスト(4件、reviewer指摘により訂正: 初出の作業ログで誤って「5件」と記載していた)。既存コントローラー無し(初回インストール)では通知しない、既存コントローラー有り+`installed`でのみ通知する、等を確認。
 - 実装方式の判断: 「自動的にページをリロードする」か「通知して手動更新を促す」かの二択のうち、**通知+手動更新**を選んだ。理由: 対局・練習の途中で突然リロードされて進行状況を失うことが無いようにする(要件3)には、アプリ側の状態(対局中かどうか)を`registerServiceWorker.ts`(Preactコンポーネントツリーの外側、状態を一切持たない薄いモジュール)から把握する必要が生じるが、それには`App`コンポーネント側の大きな改修(グローバルな「対局中フラグ」の新設など)が必要になり、本タスクの変更対象(`sw.js`・`registerServiceWorker.ts`)を超える。手動更新方式なら、ユーザー自身が「今切りが良いタイミングか」を判断できるため、アプリ側の状態を一切知らなくても要件3を安全側に倒せる。またこの設計により「無限リロードループ」はそもそも自動リロードのコードパスが存在しないため構造的に発生し得ない(要件のガードを満たす)。
 - 受け入れ基準の実行結果:
   - `npm test`(`app/`配下): 55 test files / 467 tests 全件パス(新規`swUpdateLogic.test.ts`の5件を含む)。

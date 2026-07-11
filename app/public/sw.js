@@ -140,18 +140,37 @@ self.addEventListener('fetch', (event) => {
 /**
  * ページ本体(ナビゲーションリクエスト)用: ネットワーク優先戦略。
  * ネットワーク取得に成功したらレスポンスをキャッシュにも保存し(次回オフライン
- * 時のフォールバック用)、そのまま返す。取得に失敗した場合(オフライン等)のみ、
- * このリクエスト自体のキャッシュ、それも無ければアプリシェル(`./`)の
- * キャッシュにフォールバックする(オフライン動作の維持)。
+ * 時のフォールバック用)、そのまま返す。取得に失敗した場合(オフライン等)や
+ * 取得はできたがエラーレスポンス(4xx/5xx、CDN側の一時的な不具合等)だった
+ * 場合は、このリクエスト自体のキャッシュ、それも無ければアプリシェル(`./`)の
+ * キャッシュにフォールバックする(オフライン動作の維持、およびCDNの一時的な
+ * 不調による新規リグレッションの回避)。
+ *
+ * `{ cache: 'no-store' }` が重要: これが無いと、配信サーバーが`index.html`に
+ * `Cache-Control: max-age=...`(GitHub Pages/Fastlyは実際に`max-age=600`を
+ * 付与している)を付けている場合、Service WorkerのCache Storageは正しく
+ * バイパスできていても、ブラウザ自身のHTTPキャッシュ層(Cache Storageとは別物)
+ * によって`fetch(request)`が実際のネットワークへ問い合わせず古いレスポンスを
+ * 返してしまい、「ネットワーク優先」が実質的に骨抜きになる(最大10分古い
+ * ままになりうる、reviewer検証で発見)。`discoverHashedAssetUrls`の
+ * `fetch('./', { cache: 'no-store' })`と同じ対策をここでも行う。
  */
 async function handleNavigate(request) {
   try {
-    const networkResponse = await fetch(request);
+    const networkResponse = await fetch(request, { cache: 'no-store' });
     if (networkResponse && networkResponse.ok) {
       const cache = await caches.open(CACHE_NAME);
       // レスポンスボディはstream一度しか読めないため、キャッシュ用に
       // clone()してから保存する。
       void cache.put(request, networkResponse.clone());
+      return networkResponse;
+    }
+    // ネットワークには到達できたがエラーレスポンス(4xx/5xx)だった場合。
+    // CDN側の一時的な不調でユーザー体験を壊さないよう、使えるキャッシュが
+    // あればそちらにフォールバックする(無ければエラーレスポンスをそのまま返す)。
+    const cachedOnError = await caches.match(request, { ignoreVary: true });
+    if (cachedOnError) {
+      return cachedOnError;
     }
     return networkResponse;
   } catch (error) {
