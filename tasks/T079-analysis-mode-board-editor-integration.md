@@ -106,8 +106,16 @@ explorerによる事前調査の結果:
     クリック(d3)→着手1手積み上がることも確認。
   - コンソールエラー・ページエラーともに0件。
   - スクリプト全体が`ALL CHECKS PASSED`で正常終了。
-- 本番デプロイ確認: 下記追記予定(コミット・push・GitHub Actions・本番Playwright確認を
-  続けて実施する)。
+- 本番デプロイ確認:
+  - コミット`c2cf90f`(`app/src/analysis/AnalysisMode.css`・`AnalysisMode.tsx`・
+    `analyzeGame.test.ts`・`analyzeGame.ts`・`tasks/T079-*.md`のみをステージ、他の
+    未コミット変更は含めず)を作成し`git push origin main`。
+  - GitHub Actions「Deploy to GitHub Pages」(run 29173119683)を`gh run watch`で監視、
+    `build`(1m2s)・`deploy`(8s)とも成功(`✓`)を確認。
+  - 本番URL(`https://giwarb.github.io/othello-trainer/`)に対し、上記と同じPlaywright
+    スクリプト(`t079_e2e.mjs`)を実行し、`ALL CHECKS PASSED`(カスタム開始局面からの解析・
+    定石DB非参照・悪手分析パネル・テキスト入力/盤面で並べるタブの回帰無し・375px幅での
+    横スクロール無し・着手積み上げ・コンソール/ページエラー0件)を確認。
 
 ### 判断に迷った点
 
