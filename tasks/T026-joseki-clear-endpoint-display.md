@@ -1,7 +1,7 @@
 ---
 id: T026
 title: 定石練習クリア画面で「到達した具体的な終端」を明確に表示する
-status: review
+status: done
 assignee: implementer
 attempts: 0
 ---
@@ -80,3 +80,32 @@ attempts: 0
 
 ### スコープ順守の確認
 - 変更したファイルは`app/src/joseki/practiceSession.ts`・`app/src/joseki/practiceSession.test.ts`・`app/src/joseki/PracticeMode.tsx`・`app/src/joseki/PracticeMode.css`の4件のみ(コミット`20cd855`)。`app/public/joseki.json`・`app/src/joseki/db.ts`等、並行するT025/T021/T024/T023の変更には一切触れていない(`git add`は4ファイルを個別指定、`git add -A`は不使用)。
+
+---
+
+2026-07-08 verifier:
+
+### 実行結果
+- `cd app && npm run typecheck` → エラー0、exit code 0(`~/.cargo/bin`をPATHに追加してwasm-packが動く状態で実行)。
+- `cd app && npm test` → 21 test files / 163 tests 全件パス(現在のHEAD `4e6c0a5`時点。T026分の`practiceSession.test.ts`の6ケースを含め全件パス。ファイル数・テスト数が実装者報告時の20/159と異なるのは、並行する他タスク(T023等)がその後mainに追加されたため)。
+- `cd app && npm run build` → 成功(`dist/`一式生成、`inject-sw-version`まで完走)。
+
+### コード確認
+- `app/src/joseki/practiceSession.ts`の`advanceClearState`: `finalNodeNames = ended && lookup ? lookup.names : []`(69行目)。`ended`は`lookup?.bookMoves.length ?? 0 === 0`で判定しており、要件1(bookMovesが真に空だった終端ノードのnamesをfinalNodeNamesとする)と一致。テスト(`practiceSession.test.ts`)は「継続中は空配列」「複数isLeaf通過後の真の終端では最後のノードのnamesのみ」「複数合流時に全件」を個別ケースで検証しており、実装と整合している。
+- `app/src/joseki/PracticeMode.tsx`: クリア画面(371〜404行目)で`resultInfo.finalNodeNames`(空ならnamesにフォールバック)を`<p class="joseki-result__final"><strong>...</strong></p>`で主役表示し、「到達した定石: {name} をクリアしました!」の文言。`finalNodeNames`を除いた`names`の差集合を`<details class="joseki-result__passed">`(summary「この過程で経由した定石(N件)」)で折りたたみ表示しており、要件2・3・4と一致。`PracticeMode.css`に`.joseki-result__final`(1.1rem/strongは1.3rem、375px以下では1rem/1.1rem)・`.joseki-result__passed`(0.8rem)のスタイルが追加されていることも確認した。
+
+### 本番環境での実機確認(Playwright、独自に再現)
+実装者のログとは独立に、以下の手順で検証した(検証用スクリプトは`app/src/joseki/*.ts`を`tsx`で直接importして本番`joseki.json`をオフラインでシミュレートし、期待される着手列を算出。ブラウザ側は`Math.random = () => 0`をモックして相手の着手選択(`pickBookMove`)を決定的にし、Playwrightで実際にクリックする方式。検証用スクリプトは確認後削除済み)。
+- 本番`joseki.json`をfetchし、`buildDb.ts`/`lookup.ts`/`pickBookMove.ts`/`practiceSession.ts`をそのまま用いてオフラインシミュレーションした結果、黒番で`f5 c3 c4`(人間3手)を打つと`finalNodeNames=['虎']`、`clearedLineNames`は虎を含め22件(虎以外21件)になることを事前算出。
+- 本番URL(https://giwarb.github.io/othello-trainer/ )で実際に「定石練習」→「黒番で開始」→ canvas上の該当マス(f5→c3→c4、350msの相手着手待ちを挟む)をクリック。
+  - デスクトップ幅(1280x900): クリア画面に`到達した定石: 虎 をクリアしました!`が主役表示され、`<details>`の見出しが`この過程で経由した定石(21件)`。展開すると事前算出どおり「虎」を除く21件が表示され、内容も一致することを確認。
+  - 375x700(モバイル幅): 同シナリオで同じ主役/補足表示を確認。スクリーンショットを取得し目視で崩れ・はみ出しがないことを確認、`document.documentElement.scrollWidth > clientWidth`で横スクロール発生の有無をプログラム的にも確認(発生なし)。
+  - `<details>`は展開前は補足内容(`<p>`)が非表示であることも確認(`isVisible()`で検証)。
+- 以上により、実装者の実機確認ログ(短いラインクリアのシナリオ)を第三者として独立に再現・裏付けできた。長いライン(Sローズ・13-g6ローテーション型)シナリオは今回は再現していないが、コードロジック(`advanceClearState`・`PracticeMode.tsx`の表示ロジック)はライン長に依存しない共通処理であり、単体テストで複数isLeaf通過後の真の終端ケースも個別に検証済みのため、短いラインでの実機確認と単体テストの組み合わせで要件7を十分に裏付けられると判断した。
+
+### デプロイ・pushの確認
+- `git log`でコミット`20cd855`(app: 定石練習クリア画面で到達した最終ノードを明確に表示(T026))が存在し、`git log origin/main`にも同一コミットが含まれることを確認(push済み)。
+- `gh run list`で該当コミットに対応するGitHub Actions「Deploy to GitHub Pages」run `28902807062`が`success`であることを確認。現在のHEAD(`4e6c0a5`)に対応する後続run `28903219941`も`success`。
+
+### 判定
+合格。受け入れ基準5項目すべて満たしていることを確認した。既存機能(SRS記録等)への回帰は`npm test`全件パス(163件)で裏付けられる。

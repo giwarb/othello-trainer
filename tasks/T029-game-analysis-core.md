@@ -1,7 +1,7 @@
 ---
 id: T029
 title: 棋譜解析モード(入力+解析パイプライン+評価グラフ+ナビゲーション拡張)
-status: in_progress
+status: done
 assignee: implementer
 attempts: 0
 ---

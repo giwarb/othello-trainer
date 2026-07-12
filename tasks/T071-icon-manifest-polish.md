@@ -1,7 +1,7 @@
 ---
 id: T071
 title: UI磨き込み(8): アイコン/マニフェストの作り込み
-status: todo
+status: done
 assignee: implementer
 attempts: 0
 ---

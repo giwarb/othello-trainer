@@ -1,7 +1,7 @@
 ---
 id: T079
 title: 棋譜解析モードに盤面自由配置エディタを統合し、任意局面から解析できるようにする
-status: todo
+status: done
 assignee: implementer
 attempts: 0
 ---
@@ -125,3 +125,58 @@ explorerによる事前調査の結果:
   ないと判断した(対局モードの`PlayMode`での`editorOpen`のような別画面遷移ではなく、
   同一タブ内で状態を切り替える方式にしたのは、解析結果に戻ってきたときに同じタブ内で
   完結させたかったため)。
+
+---
+
+2026-07-12 09:20 verifier: 受け入れ基準を独立に検証。**合格**。
+
+### 実行内容と結果
+
+1. `npm test`(`app/`): 全件パス。`Test Files 60 passed (60)` / `Tests 506 passed (506)`。
+   `analyzeGame.test.ts`単体実行でも`Tests 22 passed (22)`(うちT079新規4件を目視確認、
+   全てカスタム開始局面の`describe`ブロック内に存在)。
+2. `npm run build`(`app/`): 成功(`wasm:build` → `tsc -b && vite build` → sw version注入
+   まで正常終了)。
+3. コードリードによる確認:
+   - `replayGame(moves, start?)`・`analyzeGame(engine, moves, options)`の`options.start?`は
+     ともに任意引数で、省略時は`initialBoard()`+黒番にフォールバックしており後方互換
+     (`analyzeGame.ts` 134〜137行目、158〜183行目)。
+   - `analyzeGame`内で`const josekiDb = options.start ? null : (options.josekiDb ?? null)`
+     (224行目)により、`start`指定時は`options.josekiDb`の値に関わらず定石DB照会
+     (`lookupJosekiNode`)が完全にスキップされることをコードで確認。
+4. 実機確認(独自にPlaywrightスクリプトを作成し、implementerの申告を鵜呑みにせず再検証。
+   `npm run dev`のローカルサーバー(port 5177)に対して実行):
+   - 「盤面を自由配置」タブが存在し、`BoardEditor`で次の手番を「白」に切り替え(標準
+     初期局面のまま、白番の合法手c5/d6/e3/f4は定石DBが前提とする黒の初手4通り
+     d3/c4/f5/e6のいずれとも異なる、真にカスタムなシナリオ)→「この局面から開始」→
+     盤面クリックでc5に着手(1手)→「解析開始」で解析結果画面に到達することを確認。
+   - ムーブリストのテキストに「定石」の文字列が含まれないことを確認(定石DB照会が
+     無効化されている証跡)。悪手分析パネル(この着手は「疑問手」判定になった)を
+     開いてもエラーが出ないことを確認。評価グラフ(`svg`/`canvas`)要素の表示も確認。
+   - 回帰確認: 「テキストで入力」(`f5d6c3d3c4`)・「盤面で並べる」(標準初期局面前提)の
+     いずれも問題なく解析結果画面に到達することを確認。
+   - 375px幅: `document.documentElement.scrollWidth`が`clientWidth`と一致(横スクロール
+     無し)。スクリーンショットでもタブが折り返され、エディタ・盤面・ボタン群が縦積みで
+     崩れずに表示されることを目視確認。開始局面確定→合法手クリックで着手が1手積み
+     上がることも確認。
+   - コンソールエラー・ページエラーともに0件。
+   - なお検証中、最初にPlaywrightスクリプトで「白」というテキストにマッチする要素を
+     誤って`BoardEditor`の「白を置く」(石を置くツール選択、`placement`用ラジオ)にヒット
+     させてしまい、実際には「次の手番」を白に切り替えられていなかった(結果的に標準の
+     黒番のままd3に着手する回だった)ミスがあった。セレクタを
+     `.board-editor__side-to-move input[type=radio]`に修正して切り分け、正しく白番の
+     開始局面から検証し直した(implementer側の実装自体の問題ではなく、こちらの検証
+     スクリプトの初期ミスであり、修正後は正常に動作することを確認済み)。
+5. 本番デプロイ確認:
+   - `git log`でコミット`c2cf90f`(T079実装)がmainにpush済みであることを確認。
+   - `gh run list --branch main`で、`c2cf90f`に対応する「Deploy to GitHub Pages」
+     (run 29173119683)が`completed / success`であることを確認。
+   - 本番URL(`https://giwarb.github.io/othello-trainer/`)に対し、ローカル検証と同一の
+     Playwrightスクリプトを実行し、上記4の全項目(カスタム開始局面からの解析・定石DB
+     非参照・悪手分析パネル・テキスト入力/盤面で並べるタブの回帰無し・375px幅での
+     横スクロール無し・着手積み上げ・コンソール/ページエラー0件)が`ALL CHECKS PASSED`
+     で全てパスすることを確認。
+
+### 判定
+
+合格。受け入れ基準4項目すべてを独立に再現・確認できた。

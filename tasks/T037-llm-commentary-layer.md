@@ -1,7 +1,7 @@
 ---
 id: T037
 title: 言語化支援 任意LLM解説層(BYOK、構造化データのみを入力とする文章化)
-status: in_progress
+status: done
 assignee: implementer
 attempts: 0
 ---

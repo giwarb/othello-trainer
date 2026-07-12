@@ -1,7 +1,7 @@
 ---
 id: T073
 title: 盤面に列(a-h)・行(1-8)の座標ラベルを常時表示(全モード共通)
-status: review
+status: done
 assignee: implementer
 attempts: 0
 ---

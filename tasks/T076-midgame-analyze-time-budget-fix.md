@@ -1,7 +1,7 @@
 ---
 id: T076
 title: 中盤練習の複数候補手評価で時間予算共有により最善手判定が不正確になる問題の修正
-status: todo
+status: done
 assignee: implementer
 attempts: 0
 ---

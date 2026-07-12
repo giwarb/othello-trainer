@@ -1,7 +1,7 @@
 ---
 id: T027
 title: 詰めオセロ問題データ生成パイプライン(唯一解性フィルタ+難易度スコアリング)
-status: in_progress
+status: done
 assignee: implementer
 attempts: 0
 ---
@@ -191,3 +191,56 @@ attempts: 0
 1000問規模の生成は行っていない(182問)。CI(GitHub Actions)への生成パイプライン
 組み込みは行っていない(ローカル生成→コミットの運用、joseki.jsonと同じ)。
 詰めオセロのプレイモードUI自体はT028のスコープであり本タスクでは実装していない。
+
+### 2026-07-09 verifier: 受け入れ基準の検証結果
+
+- `cd app && npx vitest run` → 27ファイル・207テスト全件パス(実測)。
+- `cargo test --release --bin puzzlegen`(`cargo`は`~/.cargo/bin`を都度PATHに
+  追加して実行) → 4テスト全件パス、0.01秒(実測、報告通り)。
+- `cargo test --release -p engine --lib` → 56テスト全件パス(実測、報告通り。
+  ワークスペース全体`cargo test --release`は指示通り実行せず)。
+- `cd app && npm run typecheck` → `pretypecheck`(wasm-pack build)含め正常完了、
+  tscエラー0件(実測)。
+- `app/public/puzzles.json`をNodeスクリプトで実読み込みし検証:
+  - 総数182問、難易度分布`{1:41,2:32,3:41,4:32,5:36}`(報告と完全一致)。
+  - 全182問について`correctMoves.length`が1〜2(唯一解性)を満たすことを確認
+    (`correctMoves`長分布: 1手=152問、2手=30問、範囲外0件)。
+  - 全182問について`clarityMargin >= 4`(明確さフィルタ)を満たすことを確認
+    (最小値ちょうど4、境界含め全件クリア)。
+  - サンプル1件(`tsume-4`, 空き11, 白番, 正解b6, bestDiscDiff+44,
+    clarityMargin12, difficulty4)の内容が構造上妥当であることを目視確認。
+- タイムアウトガード: `engine/src/bin/puzzlegen.rs`の`cmd_evaluate`を実読みし、
+  候補ごとに`thread::spawn`+`mpsc::channel`で別スレッド実行し、
+  `rx.recv_timeout(remaining)`(`remaining`はチャンク開始時刻からの絶対期限
+  `per_candidate_budget`ベース)でタイムアウトした場合は`timed_out`カウントを
+  増やしログを出して次候補へ進む実装であることを確認した。さらに全体予算
+  `overall_budget`の経過チェックもチャンク単位で入っている。タイムアウトした
+  スレッド自体は明示的にkillされず検知を諦めるだけの設計(Rustの制約上妥当な
+  実装パターン)だが、後続処理をブロックしない点は設計上担保されている。
+  実装者が報告する「小規模テスト(空き18〜20、9件)で2件タイムアウトを確認」
+  という主張について、再現実行はしていないが、上記のコードロジック(独立
+  スレッド+`recv_timeout`+タイムアウト時ログ出力)から見て、その主張は
+  コードの実装と整合しており妥当と判断した。
+- デイリー選択の決定性: `app/src/tsume/daily.ts`・`daily.test.ts`を実読み。
+  `dailyPuzzleIndex`/`dailyPuzzle`は同一日付文字列に対し常に同じ
+  FNV-1aハッシュ→同じインデックスを返す純粋関数であり、テストでも
+  「同じ日付を5回呼んでも同じ結果」を明示的に検証していることを確認。
+- `git log`でcommit `0b696e1`の実在を確認、`git status`で
+  `Your branch is up to date with 'origin/main'`を確認(push済み)。
+  `git show --name-only 0b696e1`で変更ファイル一覧を確認したところ、
+  Edaxバイナリや`puzzlegen-run.log`等の一時ファイルは含まれていない
+  (コミットに含まれるのは`app/package.json`・`app/public/puzzles.json`・
+  `app/src/tsume/*`・`engine/src/bin/puzzlegen.rs`・`engine/src/eval.rs`・
+  `puzzlegen/generate.ts`・タスクファイルのみ)。なお`bench/edax-compare/`配下の
+  exeファイルは未追跡(untracked)のまま存在するが、T027のコミットとは無関係
+  (T022由来と推測、T027の受け入れ基準の対象外)。
+- GitHub Actionsデプロイ: `gh run list`でcommit `0b696e1`に対応する
+  `Deploy to GitHub Pages`ワークフローが`completed / success`であることを確認
+  (run 28982344851, 43s)。本番URL
+  `https://giwarb.github.io/othello-trainer/puzzles.json`をcurlで取得し
+  (HTTP 200)、`generatedAt: 2026-07-08T23:09:10.127Z`・182問であることを確認
+  (デプロイされている内容がローカルの`app/public/puzzles.json`と一致)。
+
+**判定: 合格**。受け入れ基準6項目すべてを満たすことを実測・実読みで確認した。
+実装者が自己申告した「タイムアウトガードの予備テストの主張」は再現実行はして
+いないが、コードロジックとの整合性から妥当と判断した。

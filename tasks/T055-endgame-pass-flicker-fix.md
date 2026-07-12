@@ -114,3 +114,20 @@ attempts: 0
   - ローカル(`npm run dev`、`http://localhost:5175/`)でも同様のPlaywrightスクリプトで先に確認済み(中盤練習: 複数セッションで`suspiciousFlashes`0件・`finalizing`表示確認、詰めオセロ: 15問で`suspiciousFlashes`0件・実際のパス29件検出)。
   - 検証に使ったPlaywrightスクリプトは一時ファイル(`app/.verify-t055-*.mjs`)として作成・実行し、確認後に削除済み(リポジトリには残していない)。
   - 以上により受け入れ基準4項目すべて達成。
+
+- 2026-07-10 verifier: 受け入れ検証(合格)。
+  - `npm test`(app/): 54ファイル/452テスト全件パス(報告と一致)。
+  - `npm run typecheck`: エラーなし。`npm run build`: 成功(wasm再ビルド含む)。
+  - コード確認: `app/src/midgame/resolveMover.ts`の`resolveMover`/`resolveNextSideOrFallback`が`game/gameLoop.ts`の`afterMove`と同一のパス解決規則(手番側に合法手が無く相手にあれば相手側継続、両者無ければ`null`=真の終局)であることを確認。`resolveNextSideOrFallback`は終局判定自体を行わず、呼び出し側(`checkEnd`/`resolveMover`の`null`判定)に終局判定を委ねる設計になっており、パス処理と終局判定の混同は無い。`tsume/PlayMode.tsx`は`resolveMover`の戻り値が`null`のとき`finishClear`を直接呼ぶ形になっており、`finishClear`/`saveAttempt`は`sideToMove`に依存しないため、パス発生直後の`sideToMove`未更新は実害が無いことも確認した。
+  - `app/src/midgame/PracticeMode.tsx`・`app/src/tsume/PlayMode.tsx`のdiffを確認し、旧・別useEffectでの非同期パス処理(`isTerminal`+`hasLegalMove`による手番反転)が削除され、着手適用(`handlePlayerMove`成功分岐・相手の着手`run()`・`resetSessionTo`/`startSession`)の各箇所で`applyMove`直後に同期的に手番解決する形に統一されていることを確認(報告どおり)。
+  - T021の作業ログ(`tasks/T021-midgame-practice-mode.md`107-108行目・251行目)を実際に確認し、「`finishByFinalScore`の瞬間的な閾値到達判定は意図的な簡略化であり、reviewerも`should`(余力があれば対応)として扱いmustにしていない」との記載を直接確認した。implementerの根拠付けは正確。
+  - `analysis/branchTree.ts`(9-14行目・64-66行目)が既に`midgame/resolveMover.ts`の`resolveMover`を共有利用していることを確認し、対局モード(`gameLoop.ts`の`afterMove`)・棋譜解析(`branchTree.ts`)・中盤練習・詰めオセロの4モードすべてが同一のパス解決ロジック(または完全に同一関数)を使う形に統一されたことを確認した(要件3、一貫性が実際に高まっている)。
+  - 新規テスト(`resolveMover.test.ts`の`resolveNextSideOrFallback`ブロック、`tsume/passHandling.test.ts`)を読み、`game/gameLoop.test.ts`の`pass handling`ブロックと同じ`buildIsolatedPocketsBoard`局面構成を用いて、(a)通常の手番交代、(b)パス発生時に単純な`opposite()`と異なる実際の継続側を返すこと、(c)真の終局時のフォールバック、を決定的に検証していることを確認。`passHandling.test.ts`は`PlayMode.tsx`が実際に呼ぶのと同一の呼び出し形(`resolveMover(board, opposite(movedSide))`)を直接検証しており、コンポーネントテスト基盤が無い制約下で妥当な代替検証になっている。
+  - 実機確認(`npm run dev`、Playwright(`playwright` v1.61.1)で自前のスクリプトを作成し検証、確認後削除。手法は実装者の報告と同様の「MutationObserverで手番表示・オーバーレイセル数を記録し、`人間の手番→一瞬相手の手番→200ms以内に人間の手番へ戻る`という旧バグシグネチャ(suspiciousFlashes)を検出」):
+    - 中盤練習モード(候補手評価オーバーレイをONにして複数セッション自動プレイ、最善手セルを毎手クリック): 3セッション中1セッションで13手・116イベントの安定したサンプルを取得でき、`suspiciousFlashes`=0、`overlayGapFlashes`(オーバーレイが人間手番中に一瞬空になる直接検出)=0、`finalizing`表示(「終盤の完全読みで結果を確定しています…」)の出現も確認。他2セッションは開始局面の関係で1手のみで終局し短いサンプルだったが、いずれも`suspiciousFlashes`=0。
+    - 詰めオセロモード(ランダム出題、14問連続自動プレイ): 77手・611イベント(dedup後113手番変化)で`suspiciousFlashes`=0。
+    - いずれもconsole/pageエラー0件。
+  - 本番デプロイ確認: `gh run list`/`gh run view 29073960878`で、コミット`cdac59e`のpushに対する「Deploy to GitHub Pages」ワークフローが`build`(45s)・`deploy`(11s)ともに成功していることを確認(実装者報告と一致)。後続の作業ログ追記コミット`a10807a`のデプロイ(run 29074201280)も成功。
+  - 本番URL(`https://giwarb.github.io/othello-trainer/`)に対しPlaywrightで実機確認: 中盤練習モード(1セッション、開始局面の都合で1手のみだったが`suspiciousFlashes`=0)、詰めオセロモード(4問・15手・124イベントで`suspiciousFlashes`=0)、いずれもconsole/pageエラー0件を確認。
+  - 検証用に作成したPlaywrightスクリプトは`app/.verify-t055-*.mjs`として一時作成し、検証後すべて削除済み(`git status`で確認、リポジトリに残っていない)。
+  - 総合判定: 受け入れ基準4項目すべて満たしていることを確認した。合格。

@@ -1,7 +1,7 @@
 ---
 id: T022
 title: 評価関数の妥当性検証(Edaxとの比較基盤構築+初回比較)
-status: in_progress
+status: done
 assignee: implementer
 attempts: 0
 ---
@@ -111,3 +111,15 @@ attempts: 0
 **変更ファイル**
 - 新規: `engine/src/bin/eval_cli.rs`, `bench/edax-compare/download-edax.ps1`, `bench/edax-compare/run-comparison.py`, `bench/edax-compare/positions.json`, `bench/edax-compare/raw_results.json`, `bench/edax-compare/report.md`
 - 変更: `.gitignore`(Edax配布物の除外を追加)
+
+### 2026-07-08 verifier: 受け入れ基準の検証結果
+
+- `run-comparison.py` の中身を先に確認し、`FFO_FAST_MAX_EMPTIES=23`(T009の`FAST_MAX_EMPTIES`と同一値)によるFFO#45-49スキップと、`FFO_ENGINE_EVAL_TIMEOUT_SEC=900`のタイムアウトガードが実装されていることをコード上で確認した上で、`python bench/edax-compare/run-comparison.py`(cargo/PATHは`~/.cargo/bin`を追加)を実際に再実行した。生成→本エンジン評価(opening/midgame depth10 + FFO#40-44完全読み)→Edax評価→悪手検出チェック→出力まで、ハングやタイムアウトなく約11分(07:00:10開始〜07:11:43終了、`tail --pid=<pid> -f /dev/null`で完了待機)で完走。ログにも `5 'fast' (...) , 5 'heavy' (engine exact-solve skipped: ffo-45..49)` が出力され、設計通りFFO#45-49の本エンジン側完全読みがスキップされていることを確認した。
+- 再生成された `positions.json`/`raw_results.json`/`report.md` を、再実行前にバックアップしておいたコミット済み版と `diff` で突き合わせたところ、**3ファイルとも完全に一致(バイト単位で同一)**だった。乱数シード固定により再現性があることも確認できた。
+- `report.md` の符号一致率の表(opening 3/8=37.5%、midgame 16/20=80.0%、ffo 5/5=100%、全体24/33=72.7%、ほぼ互角局面除外後全体20/22=90.9%)を `raw_results.json` の `comparison` 配列から独立にPythonで再集計し、完全一致することを確認した。悪手検出セクションの5件(opening-8/b2, midgame-2/g2, midgame-3/b2, midgame-3/b7, midgame-6/b2、いずれも`edax_agrees_xsquare_is_worse: true`)も `raw_results.json` の `badmove_checks` と1件ずつ突き合わせて一致を確認した。
+- `engine/src/bin/eval_cli.rs` の差分(`git show d8fd83c --stat -- engine/`)を確認し、新規バイナリファイルの追加のみで、`eval`/`search`/`protocol`等の既存公開モジュールへの変更が無いこと、`Engine`/`bitboard::{Board, Side}`という既存公開APIのみを使用していることをソース上で確認した。また `eval.rs` の `CORNER_WEIGHT=2500`/`STABLE_WEIGHT=1500`(centi-disc、discDiff=score/100は`protocol.rs`のコメントで確認)という report.md 中の技術的記述も実コードと一致していた。
+- `git status --ignored -- bench/edax-compare/` で `edax-4.6-MS-windows-x86.zip` と `edax-extract/` が `!!`(ignored)扱いであることを確認。`.gitignore`の該当エントリも確認済み。
+- `git log -1 d8fd83c` でコミットの実在を確認し、`git merge-base --is-ancestor d8fd83c origin/main` が成功(YES)することを確認、origin/mainへのpush済みを確認した。
+- `cargo test -p engine --lib` を実行し、56 passed; 0 failed(既存コードへの影響なし)を確認した。
+- 検証作業中に自分(verifier)が加えたファイル変更は無い(`git status --short -- bench/edax-compare/ engine/src/bin/ .gitignore` は空)。tasks/配下の他ファイル(T021, STATUS.md等)や新規task(T023/T024)の差分は本タスクの検証作業とは無関係(オーケストレーター側の並行作業によるもの)。
+- 判定: **合格**。受け入れ基準4項目すべて満たしている。重大な問題(符号系統的逆転・桁違いスケール異常・悪手の誤判定)は見つからず、report.md記載のエスカレーション事項(discDiffの絶対値スケールがEdaxと大きく異なる点、UI表示への懸念)は作業ログ・レポート両方に明記済みであることも確認した。

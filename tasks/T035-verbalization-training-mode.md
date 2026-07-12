@@ -1,7 +1,7 @@
 ---
 id: T035
 title: 言語化支援 言語化トレーニングモード(予測→理由宣言→検証+二択比較ドリル)
-status: in_progress
+status: done
 assignee: implementer
 attempts: 0
 ---

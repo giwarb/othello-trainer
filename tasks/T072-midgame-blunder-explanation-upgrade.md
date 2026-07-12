@@ -1,7 +1,7 @@
 ---
 id: T072
 title: 中盤練習の判定デフォルトを厳格化+失敗時の説明UIを盤面連動・モチーフクリック対応に拡張
-status: todo
+status: done
 assignee: implementer
 attempts: 0
 ---

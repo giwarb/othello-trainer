@@ -1,7 +1,7 @@
 ---
 id: T036
 title: 言語化支援 用語集 + 概念レッスン + 概念別弱点統計ダッシュボード
-status: in_progress
+status: done
 assignee: implementer
 attempts: 0
 ---

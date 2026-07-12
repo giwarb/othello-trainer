@@ -1,7 +1,7 @@
 ---
 id: T077
 title: 対局モードに人間vs人間モード・評価値表示切替・盤面自由配置からの開始を追加
-status: review
+status: done
 assignee: implementer
 attempts: 0
 ---

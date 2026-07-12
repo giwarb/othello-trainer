@@ -1,7 +1,7 @@
 ---
 id: T023
 title: Service Workerキャッシュのバージョン自動更新(手動同期忘れによる本番キャッシュ固着バグの修正)
-status: redo
+status: done
 assignee: implementer
 attempts: 1
 ---

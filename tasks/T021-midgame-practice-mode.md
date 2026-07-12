@@ -1,7 +1,7 @@
 ---
 id: T021
 title: 中盤練習モード本体(局面生成+判定モード+相手強さ+UI+ナビゲーション拡張)
-status: redo
+status: done
 assignee: implementer
 attempts: 1
 ---
@@ -249,3 +249,39 @@ verifierは受け入れ基準のコマンド・本番デプロイ確認につい
 **残課題(継続)**:
 - 「クリア」画面への実機到達は、本やり直しでも自動化では再現できなかった(理由は上記実機確認セクション参照)。must1の修正自体は単体テストで確定的に証明済みだが、「クリア」画面表示そのものの目視確認は引き続きユーザーによる手動プレイを推奨する。
 - `should`項目(finishByFinalScore/クリア判定が「瞬間的な閾値到達」で「+2以上維持」を複数手にわたり厳密に追跡していない点)は今回のやり直しでは対応していない(reviewerフィードバックで「余力があれば」とされている任意項目のため)。
+
+### 2026-07-08 verifier: やり直し1回目の受け入れ検証結果(合格)
+
+**受け入れ基準コマンドの再実行**(`$HOME/.cargo/bin`にPATHを通し`wasm-pack`/`cargo`を利用可能にしたうえで、`npm run`経由でpre*フック込みで実行。実装者が`npx`直接実行で代替した内容と同一結果になることを確認):
+- `cd app && npm run typecheck` → `pretypecheck`(`wasm:build`)成功 → `tsc --noEmit -p tsconfig.app.json` エラー0。パス。
+- `cd app && npm test` → `vitest run` で **21ファイル・163テスト全件パス**(実装者報告と一致)。パス。
+- `cd app && npm run build` → `prebuild`(`wasm:build`)成功 → `tsc -b && vite build`成功、`dist/assets/engine_bg-*.wasm 186.80 kB`等生成確認。パス。
+
+**must 1(`checkEnd`のパス誤判定)の確認**:
+- `app/src/midgame/resolveMover.ts`を読み、`hasLegalMove(board, sideToMove)`→そのまま返す、無ければ`hasLegalMove(board, opposite(sideToMove))`を見て相手側を返す、両方無ければ`null`、という規則が`app/src/game/gameLoop.ts`の`afterMove`(対局モードの既存正実装)と同一規則であることを確認した。
+- `app/src/midgame/PracticeMode.tsx`の`checkEnd`が、修正前は`isTerminal(board)`通過後に生の`sideToMove`で`requestAnalyzeAll`を呼び、`sideToMove`側にだけ合法手が無い(が相手にはある)場合に`allMoves.length === 0`を「終局」と誤判定していたこと(`git show dbd6dcf -- app/src/midgame/PracticeMode.tsx`の差分で確認)、修正後は`resolveMover(board, sideToMove)`で実際の手番側(`mover`)を解決してから`requestAnalyzeAll(board, mover, ...)`を呼ぶよう変わっており、reviewer指摘のバグが構造的に解消されていることをコードレビューで確認した。
+- `resolveMover.test.ts`(4件)を読み、`game/gameLoop.test.ts`と同じ手法(`createBoard`で「黒だけがe1に合法手を持ち、白は合法手を持たない」局面を作る)でreviewer指摘のバグシナリオ(片側だけ合法手が無い→パスして相手側続行)を直接・決定的に再現・検証していることを確認した。`npx vitest run resolveMover` で該当4件のパスを個別に確認済み(上記`npm test`の全件パスに含まれる)。
+
+**must 2(IndexedDBバージョン不整合)の確認**:
+- `app/src/db/appDb.ts`を読み、DB名(`othello-trainer`)・`APP_DB_VERSION = 2`・両ストア(`josekiSRS`/`midgamePool`)の作成ロジックが一元化されていることを確認した。
+- `app/src/joseki/db.ts`・`app/src/midgame/pool.ts`双方を読み、いずれも独自のバージョン定数・`openDb`実装を持たず、`db/appDb.ts`の`openAppDb`/`requestToPromise`を使う形に書き換わっていることを確認した(公開APIのシグネチャは変更なし、後方互換の再エクスポートも確認)。
+- `app/src/db/appDb.test.ts`(4件)を読み、reviewerが再現した回帰シナリオ(「中盤練習(pool.ts)を先に使う→定石練習(joseki/db.ts)のSRS読み書き」および逆順、両ストアのデータ独立性)を`fake-indexeddb`で直接検証していることを確認した。`npx vitest run appDb` で該当4件のパスを個別に確認済み。
+
+**独自のPlaywright検証(本番URL、実装者の一時スクリプトとは別にverifierが新規作成・実行、確認後削除)**:
+新規ブラウザプロファイル(IndexedDB空の状態)で`https://giwarb.github.io/othello-trainer/`に対し以下を実施・確認した。
+1. アクセス直後、`indexedDB.databases()`で`othello-trainer`DBがまだ存在しないことを確認(フレッシュな状態からの検証であることの担保)。
+2. 「中盤練習」タブで判定モード「厳格」を選択して開始し、盤面を機械的に(全64マスを順に試す方式で)クリックして着手させ、厳格モードの性質上ほぼ確実に「失敗」画面に到達することを確認(実際に到達、比較PV表示も確認)。
+3. 失敗後、`indexedDB.databases()`で`othello-trainer`DBのバージョンが**2**になっていること、明示的に`open()`して`objectStoreNames`が`["josekiSRS", "midgamePool"]`の両方を含むこと、`midgamePool`ストアのレコード数が1件になっていること(出題プール登録の実証)を直接確認した。
+4. 続けて「定石練習」タブに切り替え、色選択画面(`黒番で開始`ボタン)が正常に表示されること(=`joseki/db.ts`側のDBオープンが`VersionError`にならず色選択画面まで到達していること)を確認した。「黒番で開始」を押して実際に対局を進行させ(盤面クリックで着手)、定石外の手を打って「ゲームオーバー」画面(SRS記録が実行される`recordSrsResults`呼び出しを伴う経路)に到達することを確認した。
+5. `page.on('console'/'pageerror')`でエラーを収集し、上記一連の操作(中盤練習で失敗→定石練習で色選択→対局→ゲームオーバー)を通じて**`VersionError`を含むconsoleエラー・pageerrorが1件も発生しなかった**ことを確認した(収集エラー配列は空)。
+6. 別セッションで、375px幅の追加確認は前回verifierレポート(2026-07-08合格判定時点)で既に実施・記録済みであり、本yり直しはUI変更を伴わないため再確認は省略した(must1/must2はロジック・DB層の修正のみでレイアウトに影響しない)。
+
+以上により、reviewerが指摘したmust1・must2は再現手順に基づく独立検証(単体テスト読解+本番Playwright実測)で共に解消されていることを確認した。
+
+**git/デプロイの確認**:
+- `git log`で`dbd6dcf`(バグ修正コミット)・`6547164`(作業ログ追記コミット)がいずれも実在し、`git fetch origin main`後の`origin/main`が`6547164`と一致(=push済み)であることを確認した。
+- `gh run list`で該当コミットのGitHub Actionsデプロイ(run `28904219203`、`28904431007`)が両方とも`completed / success`であることを確認した。
+
+**「クリア」到達について**: 本検証でも自動化(ランダム/準ランダムなクリック)では「クリア」画面への到達は再現しなかった(想定どおり、実装者・前回verifierと同様の制約)。ただし本タスクのフィードバックで指定されたやり直し要件は「must1・must2の修正」であり、`checkEnd`のクリア分岐(`humanEval >= CLEAR_MARGIN`)と失敗分岐は同一比較の表裏であること、失敗分岐は本検証で実機確認済みであること、`resolveMover`の単体テストでmust1の核心が決定的に証明されていることから、コードレビューによる妥当性判断は前回同様引き続き成立すると判断する。「クリア」画面の目視確認は残課題としてユーザーへの引き継ぎを維持する。
+
+**判定: 合格**。must1・must2ともに、コードレビュー・該当単体テストの内容確認・本番環境での独立再現(新規ブラウザプロファイルでのIndexedDBバージョン/ストア直接確認を含む)により解消を確認した。受け入れ基準の全コマンド(typecheck/test/build)もパスし、git push・デプロイ成功も確認した。「クリア」画面への実機到達のみ引き続き未達成(前回から変わらぬ既知の残課題、ユーザーの手動確認を推奨)。

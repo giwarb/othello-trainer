@@ -1,7 +1,7 @@
 ---
 id: T020
 title: 定石練習モード本体(ゲームロジック+SRS+UI+ナビゲーション)
-status: redo
+status: done
 assignee: implementer
 attempts: 1
 ---

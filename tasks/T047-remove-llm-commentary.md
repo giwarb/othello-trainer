@@ -70,4 +70,12 @@ attempts: 0
     - ムーブリストの悪手マーカーボタンから悪手分析パネル(`.blunder-panel`)を開き、「比較PV」「なぜ悪いか」等の既存セクションが表示されること、「AI講評」が表示されないことを確認。
     - コンソールエラー・ページエラーは0件。
     - 確認後、devサーバープロセスは`taskkill`で終了済み。一時スクリプト(`app/check_llm_removed.mjs`・`app/gen_transcript.mjs`)も削除済み。
-  - コミット・push: 変更対象ファイル(`app/src/analysis/{AnalysisMode.tsx,AnalysisMode.css,BlunderPanel.tsx}`・`app/src/llm/`削除・本タスクファイル)のみをステージしてコミット(他タスクの未コミット変更やCLAUDE.mdは対象外としてステージ除外)。コミットハッシュ・push結果・GitHub Actions Run URL・本番確認結果は次の追記で更新する。
+  - コミット・push: 変更対象ファイル(`app/src/analysis/{AnalysisMode.tsx,AnalysisMode.css,BlunderPanel.tsx}`・`app/src/llm/`削除・本タスクファイル)のみをステージしてコミット(他タスクの未コミット変更やCLAUDE.mdは対象外としてステージ除外)。
+    - コミットハッシュ: `d20793e`(「app: LLMによるAI講評/AI感想戦機能(T037)を削除」)。`git push origin main` → `80f190d..d20793e main -> main` で成功。
+  - GitHub Actionsデプロイ: `gh run watch 29054916634 --exit-status`でRun `https://github.com/giwarb/othello-trainer/actions/runs/29054916634` の完了を待機。`build`ジョブ44s・`deploy`ジョブ9sいずれも成功(`✓ main Deploy to GitHub Pages · 29054916634`)。
+  - 実機確認(本番、Playwright): `https://giwarb.github.io/othello-trainer/`に対し、ローカル確認と同一の一時スクリプト(`app/check_prod.mjs`、確認後削除)で同じ棋譜を用いて確認。結果はローカルと同一:
+    - ページ全体・入力フェーズ・結果フェーズいずれにも「AI講評」「AI感想戦」の文字列が存在しない(全てfalse)。
+    - 結果フェーズでムーブリスト・評価グラフ(svg/canvas 2件)が正常表示。
+    - 悪手分析パネルを開き「比較PV」「なぜ悪いか」が表示され、「AI講評」は表示されない。
+    - コンソール/ページエラー0件。
+  - 受け入れ基準5項目すべて満たしたことを確認(`npm test`全件パス、`npm run build`成功、`grep`で参照残存なし、ローカル実機確認OK、本番デプロイ+Playwright確認OK)。判断に迷った点は無し。

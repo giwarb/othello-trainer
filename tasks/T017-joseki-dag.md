@@ -1,7 +1,7 @@
 ---
 id: T017
 title: 定石DB構造化(8対称正規化 + DAGビルド)
-status: todo
+status: done
 assignee: implementer
 attempts: 0
 ---

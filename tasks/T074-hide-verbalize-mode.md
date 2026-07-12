@@ -1,7 +1,7 @@
 ---
 id: T074
 title: 言語化トレーニングモードをナビゲーションから非表示にする
-status: todo
+status: done
 assignee: implementer
 attempts: 0
 ---
@@ -80,3 +80,28 @@ explorerによる事前調査の結果、言語化トレーニングモード(`v
   のみ(検証・デバッグ用の一時Playwrightスクリプトはリポジトリ外のスクラッチパッドに置き、
   コミット対象に含めていない)。`app/src/verbalize/`配下・IndexedDBスキーマ・他モードは
   一切変更していない(`git diff`で確認済み)。
+
+- 2026-07-12 06:05 verifier: 独立検証を実施。判定は合格。
+  - `git show f307f5e -- app/src/app.tsx`で差分を確認: `NAV_VISIBLE_MODES`(`verbalize`除外)を
+    新設し、`MODE_CARDS`生成とタブ生成の両方をこれに置き換え。`import { VerbalizeMode }`、
+    `mode === 'verbalize' && <VerbalizeMode />`分岐は変更なく残存。`app/src/verbalize/`配下は
+    `ls`で27ファイル(`VerbalizeMode.tsx`含む)全て健在を確認。対象ファイルは`app/src/app.tsx`のみ
+    (コミットの他の差分は`tasks/T074-hide-verbalize-mode.md`自身の追記のみ)。
+  - `npm test`(app/配下): 58 test files / 483 tests 全件パス(実行時間2.74s)。申告と一致。
+  - `npm run build`(app/配下): wasmビルド・`tsc -b`・`vite build`・sw version注入まで成功、
+    `dist/`生成を確認。
+  - 実機確認(ローカル): `npm run preview -- --port 4181`起動、Playwright(chromium)で
+    `http://localhost:4181/othello-trainer/`を検証。タイトル画面の全ボタンは
+    `["対局","定石練習","中盤練習","詰めオセロ","棋譜解析"]`の5件のみで「言語化トレーニング」なし。
+    「対局」クリック後の`mode-nav`タブは`["ホーム","対局","定石練習","中盤練習","詰めオセロ",
+    "棋譜解析"]`の6件(ホーム含む)で言語化トレーニングタブなし。5モードのタブを順にクリックし
+    全て正常に切り替え可能、コンソール/ページエラーなしを確認。確認後プレビューサーバーは停止済み。
+  - デプロイ確認: `gh run list`で本コミット(f307f5e)に対応する`Deploy to GitHub Pages`
+    (run 29167982723)が`completed success`であることを確認。Playwright(chromium)で本番URL
+    (`https://giwarb.github.io/othello-trainer/`)を検証し、ローカルと同一の結果(タイトル画面5件、
+    mode-navタブ6件、言語化トレーニングへの導線なし、5モード全てクリック可能、コンソール/ページ
+    エラーなし)を確認。
+  - 追加確認: `git status`で作業ツリーを確認したところ、本タスクと無関係な他タスクの未コミット
+    変更(`app/src/joseki/PracticeMode.tsx`等、他エージェントの作業中と思われる)が存在するが、
+    `app/src/app.tsx`自体には未コミットの変更はなく、コミットf307f5eの内容がそのまま反映されて
+    いることを確認した(本タスクの検証には影響なし)。

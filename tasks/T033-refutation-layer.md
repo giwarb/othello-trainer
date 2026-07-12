@@ -1,7 +1,7 @@
 ---
 id: T033
 title: 言語化支援 反証層(回収点検出: 寄与が急変した手の特定)
-status: review
+status: done
 assignee: implementer
 attempts: 0
 ---

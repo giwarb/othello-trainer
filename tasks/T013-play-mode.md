@@ -1,7 +1,7 @@
 ---
 id: T013
 title: 対局モード統合(盤面UI + エンジンWorkerの結合)
-status: todo
+status: done
 assignee: implementer
 attempts: 0
 ---

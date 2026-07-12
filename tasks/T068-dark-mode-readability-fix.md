@@ -1,7 +1,7 @@
 ---
 id: T068
 title: ダークモードでの可読性修正(OS設定連動)
-status: redo
+status: done
 assignee: implementer
 attempts: 1
 ---
@@ -322,3 +322,104 @@ explorerによる事前調査の結果:
   ため実施した。スコープ超過の懸念があればオーケストレーターの判断を仰ぎたい。
 - `status`/`attempts`はオーケストレーターの指示に従い変更していない
   (frontmatterは`status: redo`/`attempts: 1`のまま)。
+
+### 2026-07-11 verifier(2回目、差し戻し対応の再検証)
+
+**実行したコマンドと結果**
+
+1. `cd app && npm test` → 全件パス(`Test Files 57 passed (57)` / `Tests 477 passed (477)`)。
+2. `cd app && npm run build` → 成功(`wasm:build` → `tsc -b` → `vite build` →
+   `inject-sw-version.mjs` すべて正常終了)。
+3. `git show 653017a` でコミット全文を確認。差分は
+   `app/src/analysis/AnalysisMode.css`・`app/src/app.css`・`app/src/index.css`・
+   `app/src/tsume/PlayMode.css`・`app/src/verbalize/PracticeMode.css` の5ファイルのみ。
+   - `index.css`: `--color-danger-text`(`#b91c1c`→暗`#fca5a5`)・
+     `--color-warning-text`(`#b45309`→暗`#fcd34d`)・`--color-success-text`
+     (`#15803d`→暗`#86efac`)を`:root`と`@media (prefers-color-scheme: dark)`に
+     追加していることを確認。
+   - `app.css`: `.notice--error`(単独セレクタ、`color:#b91c1c`固定)を
+     `.notice.notice--error{ color: var(--color-danger-text); }`に変更、`.notice`
+     を`color: var(--color-warning-text)`に変更していることを確認。
+   - `grep`で`app/src`配下の全CSSファイルを検索し、`.notice--error`を対象とする
+     ルールが`app.css`の該当1箇所のみであること(他ファイルに競合する
+     `.notice--error`/`.notice`ルールが存在しないこと)を確認。
+4. **既存使用箇所との整合性確認**: `app/src`配下を`class="notice`でgrep(全55件)
+   したところ、`notice--error`が付与されている全箇所(`AnalysisMode.tsx`・
+   `BlunderPanel.tsx`・`joseki/PracticeMode.tsx`・`midgame/PracticeMode.tsx`・
+   `tsume/PlayMode.tsx`・`verbalize/*.tsx`など、実測20箇所超)は例外なく
+   `class="notice notice--error"`の組み合わせで使われており、`.notice--error`
+   単独クラスでの使用は0件であることを確認した。よって`.notice.notice--error`
+   への複合セレクタ変更は実際の使用パターンと完全に一致し、意図しない副作用は
+   ない(単独`.notice--error`が存在しないため、複合セレクタ化で「スタイルが
+   当たらなくなる」既存箇所は無い)。
+   - **既存バグの実在性を独立に確認**: `git show 9648616:app/src/app.css`で
+     修正前のCSS(`.notice--error`が59行目・`.notice`が84行目、共に詳細度
+     0,1,0)を確認。CSS変更を一切行わずローカルの一時HTMLファイル
+     (`class="notice notice--error"`要素に対し、修正前と同一の2ルールを
+     そのまま適用)をPlaywrightのChromiumで実描画・`getComputedStyle`検証した
+     ところ、`color`は`rgb(180, 83, 9)`(`.notice`側の`#b45309`)となり、
+     `.notice--error`の`#b91c1c`(赤)は一切反映されないことを実証した。
+     これはimplementerの主張(修正前は詳細度が同じでソース順により`.notice`が
+     常に勝ち、エラー色が一度も反映されていなかった)が事実であることの
+     独立した裏付けである。
+5. **実機確認(ローカル、`npm run dev`→Playwright、Chromium、
+   `newContext({ colorScheme })`でdark/lightを切替、`getComputedStyle`+
+   自作のWCAG相対輝度コントラスト比計算スクリプトで検証)**:
+   - タイトル画面の「棋譜解析」カードをクリックしてモードに実際に遷移し、
+     「テキストで入力」タブに不正な棋譜文字列
+     (`これは不正な棋譜テキストです`)を入力して「解析開始」ボタンを実クリックし、
+     `TranscriptParseError`由来のエラーメッセージ
+     (`不正な着手記法です: "これ"(1手目)`)を`.notice.notice--error`として
+     実際に画面表示させて検証。
+     - ダーク: `color=rgb(252,165,165)`(`--color-danger-text`のダーク値
+       `#fca5a5`と一致)/実効背景`rgb(24,24,27)`(`--color-bg`のダーク値と一致)、
+       コントラスト比 **9.33**。
+     - ライト: `color=rgb(185,28,28)`(`#b91c1c`と一致)/背景
+       `rgb(255,255,255)`、コントラスト比 **6.47**。
+     - いずれもimplementerの作業ログの報告値と完全一致。WCAG AA基準(4.5)を
+       余裕を持って満たす。
+   - `.notice`(非エラーの警告)を、言語化トレーニング→二択比較ドリルの
+     「出題プールが空です。中盤練習・棋譜解析モードで局面を蓄積してください。」
+     を実際に画面表示させて検証。
+     - ダーク: `color=rgb(252,211,77)`(`--color-warning-text`のダーク値
+       `#fcd34d`と一致)、コントラスト比 **12.29**。
+     - ライト: `color=rgb(180,83,9)`(`#b45309`と一致)、コントラスト比
+       **5.02**。いずれもimplementerの報告値と完全一致し、WCAG AA基準を満たす。
+   - **回帰確認**: 前回合格の代表例のうち`.mode-nav__tab`(ダーク比9.50、
+     ライト比16.12)・`main`(ダーク比16.12、ライト比17.72)を実UIから再取得し、
+     前回verifierの報告値と一致することを確認(回帰なし)。`.blunder-panel`は
+     合成DOM要素によるトークン解決の補助確認(ダーク比13.55、ライト比17.72)を
+     行い、前回verifierの実測値と一致することを確認(補助確認である旨は
+     implementer/前回verifierと同じ制約による)。
+   - `git diff 9648616..653017a --stat`で、今回の差分が
+     上記5ファイル(+タスクファイル)のみであり、`Board.tsx`・前回合格の代表例
+     修正箇所(`app.css`の`.mode-nav__tab`/`.home-main`、`BlunderPanel.css`、
+     `GlossaryPopover.css`等)には一切触れていないことを確認。
+6. **本番デプロイ確認**: `gh run list --workflow "Deploy to GitHub Pages"`で
+   コミット`653017a`のデプロイ(run id `29141328403`)が`completed`/`success`
+   であることを確認。本番URL(`https://giwarb.github.io/othello-trainer/`)に
+   対して上記5と全く同一のPlaywrightスクリプトを実行し、ローカルと完全に
+   一致する結果(`.notice.notice--error`実表示: ダーク9.33/ライト6.47、
+   `.notice`警告: ダーク12.29/ライト5.02、`.mode-nav__tab`/`main`も同一値)を
+   確認した。
+
+**should項目の確認**: `analysis-cache-clear__success`・
+`tsume-practice__feedback`が`var(--color-success-text)`に、
+`verbalize-result__history-date`が`var(--color-text-secondary)`に置き換わって
+いることをソース確認済み(既存トークンと同値のため見た目の変化なし)。
+
+**判定: 合格**
+
+すべての受け入れ基準(`npm test`全件パス、`npm run build`成功、実機での
+ダーク/ライト両モード確認、本番デプロイ・本番URL実機確認)を満たす。
+前回reviewer指摘の`.notice`/`.notice--error`は、新設トークン
+(`--color-danger-text`/`--color-warning-text`)経由に変更され、実際の画面表示で
+WCAG AA基準を満たすコントラスト比(ダーク9.33/12.29、ライト6.47/5.02)を確認した。
+副次的に修正された`.notice.notice--error`複合セレクタ化についても、実際の
+呼び出し箇所(全箇所`class="notice notice--error"`の組み合わせ)と完全に整合し、
+単独`.notice--error`使用箇所が存在しないため意図しない副作用は無いことを確認した。
+また、修正前CSSをそのまま再現した独立検証により、「`.notice`が`.notice--error`を
+常に上書きしていた」という既存バグの実在も裏付けられた。既存の合格項目
+(代表例の修正、横断的なトークン化、`Board.tsx`無変更)への回帰も無い。
+
+**不合格の原因分析**: なし。

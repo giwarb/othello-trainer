@@ -1,7 +1,7 @@
 ---
 id: T034
 title: 【緊急】棋譜解析でWASM環境のtime_ms予算が機能せず数分間ハングする不具合の調査・修正
-status: review
+status: done
 assignee: implementer
 attempts: 1
 ---

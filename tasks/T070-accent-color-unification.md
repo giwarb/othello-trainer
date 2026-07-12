@@ -1,7 +1,7 @@
 ---
 id: T070
 title: UI磨き込み(7): アクセントカラーの統一(「現在選択中」表示の紫統一)
-status: todo
+status: done
 assignee: implementer
 attempts: 0
 ---
@@ -83,3 +83,17 @@ explorerによる事前調査の結果:
     - **コミット・push・デプロイ確認**: `app/src/analysis/AnalysisMode.css`・`AttributionWaterfall.css`・`BlunderPanel.css`・`EvalGraph.css`と本タスクファイルのみをステージしてコミット(`1dcdfb4`)、`git push origin main`(`978408b..1dcdfb4`)。`gh run watch 29144602923 --exit-status`でGitHub Actions「Deploy to GitHub Pages」のbuild/deploy両ジョブが成功(✓)することを確認。
     - **本番URL実機確認**: 同一のPlaywrightスクリプトを`T070_BASE_URL=https://giwarb.github.io/othello-trainer/`で実行し(base pathが`/othello-trainer/`であることに対応)、ローカルと同一の結果(ライト・ダーク両モードで一致、`RESULTS_JSON`: light `{"rowBgHex":"#f1e9ff","rowColorHex":"#6d2fd1","branchBgHex":"#f1e9ff","branchColorHex":"#6d2fd1","branchBorderHex":"#863bff","pointFillHex":"#6d2fd1","hoverLineStrokeHex":"#6d2fd1","hoverPointFillHex":"#6d2fd1","attribHoverColorHex":"#6d2fd1"}` / dark はEvalGraph・AttributionWaterfallのみ`#c4b5fd`に切り替わり他は同一、コンソールエラー0件)を確認。
   - **判断に迷った点**: (1) `.blunder-panel__branch-node--current`のborder-colorをどのaccentトークンにするか(`--color-accent-dark`か`--color-accent`)は明記が無かったため、既存の`.analysis-input__tab--active`(`border-color: var(--color-accent)`)のパターンに揃えて`--color-accent`を採用した。(2) EvalGraph/AttributionWaterfallの置き換え先を固定ペア(`--color-accent-bg`+`--color-accent-dark`)にするか可変対応(`--color-accent-text`)にするかは、対象がSVG/リンクの前景色のみ(固定背景を新設するわけではない)で、かつ背景(`--color-bg-tertiary`・カード面)がダークモードで変化する可変背景であるため、`index.css`のコメントで定義された用途(「ページ・カードなど可変背景の上にアクセント色の文字を置く場合は…`--color-accent-text`を使う」)に厳密に従い`--color-accent-text`を採用した。ダークモードでの実機確認で`#c4b5fd`に切り替わり視認性が保たれることを確認済みのため、判断は妥当だったと判断している。
+
+- 2026-07-11 verifier: 受け入れ基準を独立に検証。結果は**合格**。
+  - `npm test`(`app/`): 57 test files / 477 tests 全件パス(実行結果一致)。
+  - `npm run build`(`app/`): `tsc -b && vite build && inject-sw-version`成功、エラー・警告無し。追加で`npm run typecheck`(`tsc --noEmit -p tsconfig.app.json`)もエラー無しで完走することを確認。
+  - コード確認: `git diff 978408b..1dcdfb4`で変更が4ファイル(`AnalysisMode.css`/`BlunderPanel.css`/`EvalGraph.css`/`AttributionWaterfall.css`)の対象セレクタのみに限定され、他ファイル(`EvalBadge.css`/`BoardOverlay.css`/`ResultCelebration.css`/`joseki/PracticeMode.css`/`tsume/PlayMode.css`/`midgame/PracticeMode.css`/`midgame/EvalBar.css`)に一切差分が無いことを確認。`app/src`全体を`#e0e7ff|#312e81|#6366f1|#2563eb`でgrepし0件(残存無し)。
+  - 実機確認(独自に作成したPlaywrightスクリプト、実装者のスクリプトは事前に流用せず新規作成し、`npm run dev`で起動したローカル環境に対して実行): 棋譜解析モードで`f5d6c7f6e6d7g6f4c3g4f3b8e7f7h4d3c2h6`を解析し、`getComputedStyle`で以下を取得(ライトモード)。
+    - ムーブリスト現在行: `background: #f1e9ff`, `color: #6d2fd1`。選択していない他行は`background: rgba(0,0,0,0)`(透明のまま、無関係な行に色が付いていないことも確認)。
+    - 分岐ツリー現在地ノード: `background: #f1e9ff`, `color: #6d2fd1`, `border-color: #863bff`。
+    - 評価グラフ現在手ポイント/ホバー線/ホバー点: いずれも`#6d2fd1`。
+    - 評価内訳ラベルのホバー色: `#6d2fd1`。
+    - ダークモード(`colorScheme: 'dark'`): 固定バッジ(ムーブリスト行・分岐ノード)は`#f1e9ff`/`#6d2fd1`/`#863bff`のまま変化せず、可変背景上の評価グラフ・評価内訳ホバー色は`#c4b5fd`(`--color-accent-text`のダーク値)に切り替わり、視覚的にも(スクリーンショット確認)背景とのコントラストが保たれていることを確認。コンソールエラー・ページエラーはライト/ダーク共に0件。
+    - **除外対象の非変更確認**: 逆転行の文字色は`#dc2626`(赤)のまま。`.eval-badge--joseki`は`background: #dbeafe`/`color: #1e3a8a`(青系)、`.eval-badge--midgame`は`background: #fef9c3`/`color: #713f18`(黄系)のまま変化無し。`motif-badge--bad`は`background: #fee2e2`/`color: #991b1b`(赤)のまま。評価グラフの評価ソース帯(joseki帯)は`rgba(202,138,4,0.18)`(アンバー系)のままで紫化していない。いずれもライト/ダーク両モードで一致。
+  - 本番確認: `gh run list`で該当2コミット(`1dcdfb4`本体・その後のログ追記コミット`8ded561`)の「Deploy to GitHub Pages」ワークフローがいずれも`completed success`であることを確認。上記と同一のPlaywrightスクリプトを`https://giwarb.github.io/othello-trainer/`に対して実行し、ライト/ダーク双方でローカルと完全に一致する値(現在行・分岐ノード・評価グラフ・評価内訳ホバーが紫系トークンへ統一、除外対象のeval-badge/motif-badge/逆転行/joseki帯は無変更)を取得。コンソールエラー・ページエラー0件。
+  - 総括: タスク仕様の「変更対象」4箇所すべてが`--color-accent`系トークンへ統一されており、旧青系色(`#e0e7ff`/`#312e81`/`#6366f1`/`#2563eb`)はコードベース中に残存していない。「除外対象(意味を持つ色)」は差分ゼロで完全に保持されている。テスト・ビルド・型チェックいずれも成功。本番デプロイ・実機動作も確認済み。作業ログの自己申告内容と実測値が完全に一致しており、過大申告は見られない。

@@ -107,6 +107,23 @@ T044で完成したパターン評価v2(`train/weights/pattern_v2.bin`)は、Eda
   - `context.setOffline(true)`でオフラインにしてリロードしても、`pattern_v2.bin`は引き続きstatus 200(Service Worker経由のキャッシュ)で取得でき、盤面(canvas)が表示され着手も引き続き機能し、コンソールエラーは0件だった。
 - 以上により、受け入れ基準の全項目(ビルド成功・`npm test`全件パス・`npm run build`成功・NPS比較記録・実機確認・本番デプロイ確認)を満たしたと判断する。
 
+### 2026-07-10 verifier: 受け入れ基準の検証
+
+判定: **合格**。実装レポートの内容をすべて独立に再現・確認した。
+
+- `cargo build --workspace`: 成功。
+- `cargo test -p engine --lib`: 115件全件パス。
+- `cargo test -p engine --test pattern_eval_nps_bench --release -- --nocapture`: 成功。実測 heuristic NPS=2,365,043 / pattern_v2 NPS=1,740,317、比率0.736(実装ログの値2,290,357/1,624,296/0.709と近い傾向、再現性あり)。`engine/src/search.rs`の`TIME_CHECK_NODE_INTERVAL=1024`・`negascout`内のチェック位置(540〜550行目)を確認し、静的評価コストの増加(約1.4倍)がチェック間隔の実効性を損なわない設計(ノード数ベースのチェックであり評価コストとは独立)であることをコード上でも確認した。
+- `npm test`(app/): 54ファイル455件全件パス。
+- `npm run build`(app/): 成功。`dist/pattern_v2.bin`(2,729,420バイト)を確認、`app/public/pattern_v2.bin`と一致。
+- `eval_cli moves --pattern-weights train/weights/pattern_v2.bin`を初期局面に対して独立実行し、`f5`/`e6`=-2.99、`d3`/`c4`=-3.16を再現(実装ログと完全一致、ロス差分0.17≈0.2)。重みなし実行では4手とも0.0で対称性通り。
+- 本番URL(`https://giwarb.github.io/othello-trainer/`)にPlaywright(chromium)で実アクセスし独立確認: `pattern_v2.bin`が200で取得されること、「候補手評価を表示」オンで得たオーバーレイのロス値が`["黒番 ロス0.2石","黒番 ロス0.2石","黒番 ロス0.0石","黒番 ロス0.0石"]`(eval_cliのパターン評価v2出力と一致)、`f5`着手後の評価バッジが`-3.0`/`定石`(eval_cliの`-2.99`と一致、丸めのみ差)。オフライン化(`context.setOffline(true)`)後も`pattern_v2.bin`が200(SWキャッシュ経由)で取得でき、オーバーレイも同じ値で表示され、コンソールエラーは0件だった。GitHub Actions実行ID`29053981983`・`29054124800`をいずれも`gh run list`で`success`と確認。
+- フォールバック(要件2)を独立検証: `vite preview`のローカルビルド(`dist/`、`npm run build`で生成した実ビルド成果物)に対し、Playwrightの`route.abort()`で`pattern_v2.bin`のfetchを意図的に失敗させたところ、コンソールに`[worker] failed to load pattern weights, falling back to heuristic eval: TypeError: Failed to fetch`が出力されるのみでアプリはクラッシュせず継続動作し、初期局面の4候補手すべてロス0.0(旧3項評価の対称性どおり)、着手後の評価バッジも`+0.0`/`定石`で正常表示された。グレースフルフォールバックを実機で確認。
+- 終盤完全読み不変(要件4)を独立確認: `engine/src/endgame.rs`の`solve_exact`/`solve_exact_with_nodes`/`solve_exact_bounded`/`negamax`いずれも`weights`パラメータを持たない(grep確認)。構造的に完全読み区間はパターン評価の影響を受けない設計であることを確認した。
+- コード修正は行っていない(検証コマンド実行・Playwrightスクリプトはスクラッチパッドに作成、リポジトリへの書き込みは本タスクファイルの作業ログ追記のみ)。
+
+**検証中に気づいた無関係の観察事項(T045の合否には影響しないが、オーケストレーターへの参考情報)**: 検証セッション中(`npm run build`実行後、本番Playwright確認より後のタイミング)に、作業ツリー上で`app/src/llm/`配下の全ファイル削除・`app/src/analysis/BlunderPanel.tsx`/`AnalysisMode.tsx`/`AnalysisMode.css`の変更が未コミット状態で発生するのを観測した(T037のLLM解説層を取り除く別タスクが同じ作業ツリーで並行進行中と推測される)。これは自分(verifier)が行った操作ではなく、T045の変更対象ファイル(`engine/src/lib.rs`・`protocol.rs`・`app/src/engine/worker.ts`・`app/public/pattern_v2.bin`等)とは無関係。T045の各検証はこの変更が発生する前後のタイミングで実施しており、結論には影響していないが、複数エージェントが同一作業ツリーを同時編集している状況が見えたため記録しておく。
+
 **判断に迷った点(なければ「なし」)**
 
 - `pattern_v2.bin`をService Workerの明示的なプリキャッシュ対象(`FIXED_SHELL_URLS`)に加えるかどうかを検討したが、既存の`joseki.json`/`puzzles.json`も同様に明示的プリキャッシュ対象ではなく、汎用のcache-first fetchハンドラのみでオフライン対応している設計だったため、同じ方針(`sw.js`は変更しない)を踏襲した。ローカル・本番いずれのPlaywright確認でも、一度オンラインで対局操作(パターン評価の利用)を行った後であればオフラインでも`pattern_v2.bin`が問題なく取得できることを確認済み。もしオーケストレーター側で「初回訪問時にオフラインになる可能性も考慮し明示的にプリキャッシュすべき」という判断であれば、`FIXED_SHELL_URLS`に`./pattern_v2.bin`を追加する小さな追加変更で対応可能(既存方針からの逸脱が必要と判断されれば追加タスクとして実施する)。

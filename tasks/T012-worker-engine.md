@@ -1,7 +1,7 @@
 ---
 id: T012
 title: Web Worker + WASMエンジン統合
-status: todo
+status: done
 assignee: implementer
 attempts: 0
 ---

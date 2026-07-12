@@ -1,7 +1,7 @@
 ---
 id: T075
 title: 定石練習のゲームオーバー画面に自分の進行と一致していた定石名を表示
-status: todo
+status: done
 assignee: implementer
 attempts: 0
 ---

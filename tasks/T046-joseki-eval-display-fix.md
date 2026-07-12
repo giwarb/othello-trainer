@@ -69,3 +69,16 @@ attempts: 1
   - 実機確認(`npm run dev`、Playwright/Chromiumで自動操作): 酉定石の13手(`f5d6c3d3c4f4c5b3c2e3d2c6b4`)+定石を外れる3手(`c1d1f3`)、計16手のトランスクリプトを解析。結果: 1〜13手目は評価バッジが数値なしで「定石」ラベルのみ(`eval-badge__value`要素が存在しないことを確認)、評価グラフの該当区間は折れ線が完全にフラット(全点のcy座標が同一値96)かつ背景が琥珀色の全高帯(`eval-graph__band--joseki`、12本)で表示された。14手目(c1)で定石を外れると同時に数値表示(-10.3等)・「中盤(探索)」ラベル・悪手判定(??悪手・逆転)が復活し、グラフの折れ線も通常通り変動(cy: 126.85→16→52.35→29.35)することを確認。スクリーンショットで凡例に「序盤(定石)」「終盤(完全読み確定)」「中盤(ヒューリスティック探索)」の3項目が表示されることも確認。
   - 本番デプロイ・Playwright確認: `git push origin main`(コミット`ee6020e`)後、`gh run watch 29055670865`でGitHub Actions「Deploy to GitHub Pages」の成功(build・deployとも成功)を確認。その後、本番公開URL(`https://giwarb.github.io/othello-trainer/`)に対して上記と同じPlaywrightスクリプト(Chromium、`playwright` npmパッケージ)で同一トランスクリプトを解析し、ローカルと同一の結果(1〜13手目は「定石」ラベルのみ・数値非表示、評価グラフがフラット+琥珀色の全高帯、14手目以降は数値・「中盤(探索)」・悪手判定が復活しグラフも変動)を確認。スクリーンショットも取得し目視で色分け(序盤=琥珀色、終盤=青、中盤=グレー)を確認した。
 - 全受け入れ基準を満たしたためstatusを`done`に更新。
+
+- 2026-07-10 verifier: 受け入れ基準を再現・再検証した(コード修正なし、`tasks/`配下のみ追記)。
+  - `npm test`(app/): 51ファイル・439件全件パス(実行結果を確認)。
+  - `npm run build`(app/): `wasm-pack build`→`tsc -b`→`vite build`→`inject-sw-version`まで成功。
+  - コードレビュー: `EvalBadge.tsx`(`source !== 'joseki'`のときのみ`eval-badge__value`を描画)、`EvalGraph.tsx`(`bandClass()`で`evalSource==='joseki'`最優先判定、定石区間のみ全高`<rect>`帯として描画、凡例3項目)、`AnalysisMode.tsx`の`buildGraphPoints`(`evalSource==='joseki'`のとき`value`を0固定)を確認し、実装報告と一致することを確認。`EvalGraph.css`で3色(定石=amber rgba(202,138,4,.18)/終盤=blue rgba(37,99,235,.22)/中盤=gray rgba(113,113,122,.14))が明確に区別されていることを確認。
+  - 重点確認1(全モード共通性): コード上、`EvalBadge`に`source==='joseki'`を渡しているのは`App.tsx`(対局モード、`evaluateHumanMove`内で定石DBヒット時に`source:'joseki'`)と`AnalysisMode.tsx`(棋譜解析)のみ。`joseki/PracticeMode.tsx`(定石練習)・`midgame/PracticeMode.tsx`(中盤練習)・`tsume/PlayMode.tsx`は元々`EvalBadge`を`joseki`ソースで使っていない(定石練習は数値評価バッジ自体を表示せず、中盤練習の`source`は常に`'blunder-review'`)。共通コンポーネントである以上ロジックはどのモードでも同一に働くため要件は満たされているが、「対局・定石練習・中盤練習・棋譜解析すべてで定石バッジから数値が消えることを確認した」という実装報告の記述は、定石練習・中盤練習に関しては「そもそも定石ソースのバッジが存在しない」という意味で不正確(バグではないが記述の正確性の指摘)。
+    - 実機再現(ローカル`npm run dev`、Playwright/Chromiumで自動操作): 対局モードで「黒番で開始」→盤面クリックでf5(定石内の初手)を着手→`section.eval-info`内のバッジが`class="eval-badge eval-badge--joseki"`、`.eval-badge__value`要素数0、表示は「定石」ラベルのみであることを確認。
+  - 重点確認2・3(グラフのフラット化・帯色分け): 酉定石の実装報告と同一のトランスクリプト(`f5d6c3d3c4f4c5b3c2e3d2c6b4c1d1f3`、16手)を棋譜解析モードで解析し、Playwrightで以下を確認。
+    - ムーブリスト: 1〜13手目は全て`eval-badge--joseki`(`.eval-badge__value`なし、「定石」ラベルのみ、ロス±0.0・分類◎)、14手目以降は`eval-badge--midgame`(数値あり、「中盤(探索)」ラベル、悪手判定??/?!が復活)。
+    - グラフ: `rect.eval-graph__band--joseki`が12本(1〜13手目区間、全て`y=16 height=160`=プロット全高)、`circle.eval-graph__point`のcy座標は0〜12手目(13点)まで全て`96`(ゼロ線でフラット)、13手目(定石を外れた直後)から`126.85 / 16 / 52.35(本番)or69.5(ローカル) / 29.35`と変動再開。凡例は「序盤(定石)」「終盤(完全読み確定)」「中盤(ヒューリスティック探索)」の3項目。
+    - 補足: ローカル`npm run dev`実行時、リポジトリに未コミットのエンジン変更(`engine/src/search.rs`等、T046と無関係な別タスクの作業途中差分)が作業ツリーに存在していたため、ローカル再現時の評価値がわずかに実装報告・本番環境と異なった(例: 3点目のcyがローカル69.5、本番/実装報告は52.35)。表示ロジック(定石区間フラット化・帯色分け・数値非表示)自体は完全に一致しており、この数値差はT046の変更とは無関係(既存のエンジン評価値そのものの差)と判断。
+  - 本番デプロイ確認: `gh run list`で対象コミット(`ee6020e`→run 29055670865、`155be66`→run 29055804528)のGitHub Actions「Deploy to GitHub Pages」がいずれも`success`であることを確認。本番URL(`https://giwarb.github.io/othello-trainer/`)に対し同一トランスクリプトでPlaywright自動操作を実施し、ローカルと同一の表示(定石区間13手は数値非表示・フラット・琥珀色帯、14手目以降は数値・中盤ラベル・悪手判定・変動グラフ、評価値も実装報告と完全一致: -10.3/+7.4/-10.6)を確認。
+  - 判定: 合格。受け入れ基準4件すべてパス。

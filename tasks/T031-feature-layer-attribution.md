@@ -1,10 +1,11 @@
 ---
 id: T031
 title: 言語化支援 特徴量層(12特徴量)+ 評価内訳分解層(現行3項評価のwaterfall分解)
-status: review
+status: done
 assignee: implementer
 attempts: 1
 ---
+
 
 
 # T031: 言語化支援 特徴量層(12特徴量)+ 評価内訳分解層(現行3項評価のwaterfall分解)
@@ -303,3 +304,66 @@ Rust側(WASM)の実際の評価値とは一切比較していなかった。revi
   Playwright CLIで本番Pages URL(`https://giwarb.github.io/othello-trainer/`)に対して同一シナリオを
   実行し、ローカルと完全に同じ結果(合計`+17.7`含む)を確認した。検証に使った一時スクリプトは
   確認後にすべて削除済み。
+
+---
+
+## 2026-07-09 verifier: やり直し1回目(must1/must2対応)の再検証
+
+### 判定: 合格
+
+### 受け入れ基準の結果
+- `cargo test -p engine --lib`: **83 passed; 0 failed**(申告どおり)。
+- `cd app && npm run typecheck`(wasm-pack再ビルド込み): エラー0件。
+- `cd app && npx vitest run`: **319 passed(41ファイル)**、回帰なし(申告どおり)。
+- `cd app && npm run build`: 成功(`dist/`生成、`sw.js`の`CACHE_VERSION`が`e827206-...`に更新済み)。
+- 作業ログにスコープ縮小理由・12特徴量の実装方針・実機確認結果が記載されていることを確認。
+
+### must1(余裕手)の再確認
+`app/src/analysis/marginMoves.ts`が実在し、`countMarginMoves`が`requestAnalyzeAll`相当の
+`{discDiff}[]`から最善手比ロス<0.5の手数を正しく計算している(閾値境界0.5は除外、空配列は0、
+単独合法手は必ず1、同点全員カウント、負値混在時も相対ロスで判定)。`marginMoves.test.ts`7件で
+これらのケースを個別に検証しており、全件パスを確認済み。
+
+### must2(重み定数二重管理)の再確認(最重要、コード実読による確認)
+- `engine/src/explain.rs`の`EvalTermsResponse`に`mobilityTerm`/`cornerTerm`/`stableTerm`
+  (加重後、centi-disc単位)フィールドが追加されており、`handle_eval_terms`が
+  `features.mobility_diff * eval::MOBILITY_WEIGHT`等、`eval.rs`の重み定数(`pub(crate)`化済み、
+  唯一の定義元)をそのまま使って計算していることをコードで確認した。
+- 新規テスト`eval_terms_weighted_sum_matches_actual_evaluate_output`
+  (非対称局面、`handle_explain`のJSON応答から取得した加重後3項の合計と、独立に呼び出した
+  `eval::evaluate(&board)`の値を突き合わせ)、および
+  `eval_terms_weighted_sum_difference_matches_actual_evaluate_difference_between_two_boards`
+  (2局面間の差分版)を実読し、前回のような「TS側定数 vs TS側定数」の循環参照ではなく、
+  Rustのソースオブトゥルースである`eval::evaluate`と実際に突き合わせていることを確認した。
+- `grep -rn "MOBILITY_WEIGHT|CORNER_WEIGHT|STABLE_WEIGHT" app/src`で、TS側に残っているのは
+  コメント内の言及(経緯説明)のみであり、数値の複製(253/1088/93等)は`attribution.ts`は元より
+  `app/src`のどこにも存在しないことを確認した。`attribution.ts`の`buildAttribution`は
+  `termsA.mobilityTerm - termsB.mobilityTerm`等、加重後の値を単純に差し引くだけの実装になっている。
+- `attribution.test.ts`も実読し、以前の循環参照テストが「Rust側が返す想定の加重後の値を直接渡し、
+  `buildAttribution`が重みを一切知らずに正しく差し引くこと」を検証する回帰テストに置き換わっている
+  ことを確認した(重み適用の正しさの検証責務はRust側テストに委譲する設計として妥当)。
+
+### should項目の再確認
+- 特徴量2(潜在手数差)の個別テスト`potential_mobility_diff_matches_hand_computed_value_after_d3`が
+  追加され、手計算した期待値`-8`との一致を検証していることを確認した。
+- 特徴量4のテストが`frontier_diff_matches_hand_computed_value_after_d3`に改名され、
+  `abs()<=8`の緩いチェックから手計算した厳密値`3`との一致検証に変更されていることを確認した。
+
+### git履歴・pushの確認
+`git log`・`git fetch origin main`により、commit `8d216dc`(実装)・`e827206`(作業ログ追記)が
+ローカル/origin/mainの両方に存在することを確認した。
+
+### 本番環境での再確認(Playwright、Bashツールのnode inline scriptで実施、ファイル新規作成なし)
+本番Pages URL(`https://giwarb.github.io/othello-trainer/`)に対し、`localStorage`で
+悪手判定閾値を`lossThreshold=0`に設定した上で棋譜`f5d6c3d3c4b3b2`を解析し、以下を確認した:
+- 悪手マーカー: **7件**(申告と一致)
+- 悪手マーカークリック→`.attribution-waterfall`表示、項目3件(着手可能数`+17.7`/隅`+0.0`/確定石
+  `+0.0`)、合計`+17.7`(申告と完全一致)
+- 375px幅(`viewport: {width:375}`)で`document.documentElement.scrollWidth === clientWidth`
+  (横スクロールなし)を確認
+- 上記いずれのシナリオでもコンソールエラー・ページエラーは0件
+
+### 結論
+must1・must2ともに、コード実読・テスト実行・本番Playwright確認のいずれのレベルでも修正が
+事実として確認できた。前回指摘された「未実装」「循環参照テスト」は解消されている。
+should項目も両方対応済み。全受け入れ基準を満たすため、本タスクは**合格**と判定する。

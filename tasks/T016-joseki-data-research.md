@@ -1,7 +1,7 @@
 ---
 id: T016
 title: 定石データの調査・収集(公開情報から独自データベース化)
-status: redo
+status: done
 assignee: implementer
 attempts: 2
 ---

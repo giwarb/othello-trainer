@@ -116,3 +116,29 @@ attempts: 1
       `"0手目時点: +0石"`のように整数表示。ローカル確認結果と一致し、キャッシュの
       不整合等も見られなかった。
   - 受け入れ基準4項目すべて満たしたためstatusを`done`とする。
+
+- 2026-07-10 verifier: 受け入れ基準を再実行し、独自にPlaywrightで本番環境も確認した。合格。
+  - `npm test`(`app/`): 52ファイル・442件全件パス(再現)。
+  - `npm run build`(`app/`): `wasm:build`→`tsc -b`→`vite build`→`inject-sw-version`まで成功(再現)。
+  - `git show 5711c98`の全差分を確認: `EvalBadge.tsx`/`moveEvalOverlayLogic.ts`/`EvalGraph.tsx`(タスク明示の3ファイル)に加え、
+    `AnalysisMode.tsx`/`BlunderPanel.tsx`/`refutation.ts`/`app.tsx`/`MoveEvalOverlay.tsx`/`joseki/PracticeMode.tsx`/
+    `midgame/EvalBar.tsx`/`midgame/PracticeMode.tsx`のスコープ拡張分すべてがJSXのレンダリング文字列
+    (`<td>`、`<p>`、`title`属性、テンプレートリテラル)内の変更のみであり、`lossDiscs > 0`等の条件分岐・
+    悪手判定ロジック・`classifyMove.ts`/`thresholdSettings.ts`(差分なし)には一切触れていないことを確認した。
+    `describeRefutationStep`の戻り値も表示専用テキストとしてのみ使用されている(`RefutationView.tsx`)ことを確認。
+    スコープ拡張は要件1(すべて整数で統一)の趣旨に合致しており、予期しない副作用は見当たらない。
+  - `-0`丸め挙動: `node`で`Math.round(-0.4)`が`-0`になり`-0 >= 0`が`true`であること、
+    テンプレートリテラル内で`-0`が`"0"`に文字列化されること(`` `${-0}` === '0' ``)を実測で確認。
+    実装者の説明どおりで、`formatDiscDiff`は`+0`、`formatLoss`/`Math.round`直書き箇所は`0`(符号なし)を返し、
+    負の"-0"表示になるバグは存在しない。UI上の違和感(微小な負の実質値が"+0"や"0"と表示され、
+    見た目には引き分け寄りの表示になる)はあるが、四捨五入した整数表示という要件の範囲内の仕様であり、
+    Edax等の実装でも同様の丸め表現は一般的なため許容範囲と判断した。
+  - 実機確認(Playwright、本番URL `https://giwarb.github.io/othello-trainer/`、
+    GitHub Actions run 29058461725/29058579690がsuccessであることを`gh run list`で確認済み):
+    - 対局モード: 「候補手評価を表示」ONで、盤面オーバーレイのロス表示が`±0`(開始局面)、
+      その後の局面で`-3`/`-10`/`-7`/`-10`と整数表示のみであることを確認(小数点は一切出現せず)。
+    - 棋譜解析モード(盤面で並べるモードで14手の自作局面を投入して解析): ムーブリストの
+      「ロス」列が`-10`/`-6`/`-4`/`-23`/`-3`/`-13`/`-18`/`-3`/`-2`/`-4`/`-4`とすべて整数、
+      評価グラフの`<title>`ツールチップも`"0手目時点: +0石"`〜`"14手目時点: -14石"`まで
+      すべて整数表示であることを確認。
+  - 判定: 合格。すべての受け入れ基準を満たしていることを独自に再現確認した。

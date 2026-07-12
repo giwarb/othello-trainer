@@ -1,7 +1,7 @@
 ---
 id: T028
 title: 詰めオセロプレイモード本体(出題UI+完全読み判定+成績記録+デイリー)
-status: in_progress
+status: done
 assignee: implementer
 attempts: 0
 ---
@@ -87,3 +87,33 @@ attempts: 0
   - 1本目(要件10(a)(c)(d)(e)(f)+既存モード回帰、10項目): 出題(白番、最善で+22.0)、不正解画面遷移+全合法手結果一覧(9行)、成績サマリ反映、デイリー問題出題、375px幅での設定画面・プレイ画面双方の非崩壊、既存「対局」「中盤練習」タブの動作、コンソールエラー0件、を全てOKで確認(`TOTAL: 10, OK: 10, NG: 0`)。
   - 2本目(要件10(b)専用): 本番の`puzzles.json`+日付シードから独自算出した本日のデイリー問題(`tsume-306`、`correctMoves=["b1"]`)の正解手を実際にクリックし、`✓ 正解(最善を維持しています)`のフィードバックが表示され不正解画面に遷移しないことを確認(`OK`)。
 - 以上によりtypecheck・test・build・単体テスト・実機確認(ローカル+本番Pages)の受け入れ基準を全て満たしたことを確認した。
+
+---
+
+## 検証ログ(2026-07-09 verifier)
+
+**判定: 合格**
+
+実行したコマンドと結果:
+1. `cd app && npm run typecheck`(事前に`export PATH="$HOME/.cargo/bin:$PATH"`でwasm-pack解決): エラー0で通過。
+2. `cd app && npm test -- --run`: 31ファイル・234件全件パス(実装者報告と一致)。
+3. `cd app && npm run build`: 成功。`dist/puzzles.json`が実際に出力されていることを確認。
+4. `git log` / `gh run list`: コミット`feb9a79`(実装)・`52c9463`(作業ログ追記)がともに`origin/main`にpush済みであることを確認。両コミットに対応する「Deploy to GitHub Pages」ワークフロー(run 28983255529・28983353504)がいずれも`completed success`であることを`gh run list`で確認。
+
+**重点確認: `APP_DB_VERSION` 2→3マイグレーションの安全性**
+- `app/src/db/appDb.ts`を読み、`upgrade()`が`objectStoreNames.contains()`チェック付きの追加専用ロジック(既存ストアの削除・再作成を一切行わない)であることを確認。
+- `fake-indexeddb`を使い、「v2の状態(josekiSRSに1件、midgamePoolに1件のデータを書き込み済み)のDBを、`appDb.ts`のupgrade()ロジックを忠実に再現したコード(APP_DB_VERSION=3)で開く」という実際のマイグレーションシナリオを検証スクリプト(`/tmp`上、リポジトリ非改変・検証後削除)で再現した。結果: v2で書き込んだ`josekiSRS`・`midgamePool`のレコードが1件も欠落・変化せず読み出せ、かつ新設の`tsumeAttempts`ストアが追加されて書き込み可能であることを確認(`RESULT: josekiSRS preserved = true, midgamePool preserved = true, tsumeAttempts store created = true, tsumeAttempts writable = true` / `PASS`)。
+- `npx vitest run src/joseki/db.test.ts src/midgame/pool.test.ts src/db/appDb.test.ts`: 3ファイル19件全件パス。`joseki/db.ts`・`midgame/pool.ts`が`APP_DB_VERSION`変更後も正常動作することを裏付けた。
+
+**`judgePuzzleMove.ts`のdiscDiff符号規約確認**
+- `app/src/tsume/judgePuzzleMove.ts`と`app/src/midgame/judgeMidgameMove.ts`を比較読解。両者とも「`MoveEvalJson.discDiff`は手番側視点・以後最適進行込みの最終石差」という同一規約に基づき、`best = allMoves`中の最大値、`lossDiscs = best.discDiff - played.discDiff`(0未満はクランプ)、`correct = lossDiscs <= EPSILON`という一貫したロジックであることを確認。符号の反転や取り違えは見当たらない。`judgePuzzleMove.test.ts`(5件)のテストケース(最善手/非最善手/同点複数最善/空配列/手不整合)も規約通りの期待値になっている。
+
+**Playwrightによる本番Pages実機確認(verifier自身が独立に再現)**
+本番URL `https://giwarb.github.io/othello-trainer/` に対し、`app/node_modules/playwright`を用いて以下を確認(実装者の主張を鵜呑みにせず、verifier自身のスクリプトで再実行):
+- 4タブ(対局/定石練習/中盤練習/詰めオセロ)がナビゲーションに表示され、詰めオセロタブへの遷移・出題(例:「白番、最善で+40.0(この局面、勝てるか?)」)が正常動作。
+- **不正解パスの再現**: ランダム出題→適当なマスをクリックしたところ不正解となり、全合法手の結果一覧テーブル(6行、`b6 +46.0` / `h7 +34.0` / ... / `f1 +32.0`(実際に打った手))が正しく表示されることを確認。
+- **正解パスの再現**: 本番の`puzzles.json`(`https://giwarb.github.io/othello-trainer/puzzles.json`、182問)と`daily.ts`のFNV-1aハッシュロジックを独立に再実装して本日(2026-07-09)のデイリー問題を算出したところ`tsume-306`(`correctMoves: ["b1"]`, `bestDiscDiff: 2`)となり、これは実装者が作業ログに記載した値と一致した。「今日の1問(デイリー)」ボタンで実際にこの問題を呼び出し、`b1`に対応する盤面座標(`notationToSquare`の規約: file=1,rank=0)をクリックしたところ、`✓ 正解(最善を維持しています)`のフィードバックが表示され不正解画面には遷移しないことを確認。
+- 既存3モード(対局/定石練習/中盤練習)のタブがいずれも正常表示され、コンソールエラーは0件。
+- 375px幅ビューポートで設定画面・プレイ画面いずれも`document.documentElement.scrollWidth`が375pxに収まり、横スクロール(はみ出し)が発生しないことを確認。
+
+検証に使用した一時スクリプトはすべて`/tmp`上で作成・実行後に削除しており、リポジトリ内のファイル(`tasks/`配下・本作業ログを除く)は一切変更していない。

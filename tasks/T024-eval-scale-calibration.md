@@ -1,7 +1,7 @@
 ---
 id: T024
 title: 評価関数の出力スケールをEdax(実石差)に近づける較正
-status: in_progress
+status: done
 assignee: implementer
 attempts: 0
 ---

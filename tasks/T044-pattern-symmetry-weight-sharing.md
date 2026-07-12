@@ -164,3 +164,91 @@ T043の検証で、パターン評価v1(`train/weights/pattern_v1.bin`)は静的
   - 上記の通り、既存のSGD単体テスト2件のサンプル局面を`Board::initial()`から
     非対称なランダム局面に変更した(重み共有の導入に伴う必然的な副作用の
     修正であり、テストの検証意図自体は変えていない)。
+
+- 2026-07-10 verifier: 受け入れ基準を実行し、合格と判定した。
+
+  **受け入れ基準の実行結果**
+  1. `cargo build --workspace` → 成功。
+  2. `cargo test --workspace` → 全件パス(engine 115件・puzzlegen 4件・train
+     23件・real_data 1件、対称変換/クロスチェックの新規テスト含む)。
+  3. FFO終盤テスト(`cargo test -p engine --test ffo_bench --release --
+     --nocapture`, #40-#44) → 全問一致(#40=38, #41=0, #42=6, #43=-12,
+     #44=-14)。heavy(#45-#49)は既存の`#[ignore]`のままで、実装レポート通り
+     T009で確認済みとして今回は再実行していない(この扱いは妥当と判断)。
+  4. `cargo run -p train --release --bin train_patterns` を再実行 →
+     `train/weights/pattern_v2.bin`(2,729,420バイト)を再生成。ホールドアウト
+     誤差 MSE=442.4796 / MAE=16.0774、訓練誤差 MSE=386.3554 / MAE=14.7937
+     で作業ログの数値と完全一致(seed固定のためbit単位で再現、`git status`で
+     差分なしを確認)。v1(MSE471.22/MAE16.66)からの改善を確認。
+  5. `python bench/edax-compare/compare_pattern_eval.py` を再実行 →
+     `pattern_eval_report.md`/`pattern_eval_raw_results.json`が既存コミット内容と
+     完全一致(差分なし)。旧評価5.96石→v1 5.91石→v2 5.06石(MAE)、符号一致率
+     67.9%→75.0%→75.0%を確認。
+  6. `python bench/edax-compare/selfplay_pattern_eval.py`(既定パラメータ、
+     開始局面12種×2=24局)を再実行 → pattern(v2) 15勝-8敗-1分、平均石差
+     +13.29で既存コミット内容と完全一致(差分なし)。作業ログの「v1
+     9勝-15敗→v2 15勝-8敗-1分」の記載を確認。
+
+  **重点確認事項の結果**
+  1. 対称変換の群としての正しさ: `engine/src/patterns.rs`の
+     `symmetry_coords`(8要素、二面体群D4: 恒等/90/180/270度回転/上下反転/
+     左右反転/転置/反転転置)を確認。ユニットテスト
+     `every_symmetry_is_a_bijection_over_64_cells`(全単射)・
+     `symmetries_are_closed_under_composition_forming_a_group`(合成が
+     必ず8要素のどれかと一致)・
+     `applying_any_symmetry_eight_times_returns_to_identity`(8回合成で恒等)・
+     `inverse_symmetry_undoes_the_original_transform`(逆変換が両方向で
+     恒等に戻る)がいずれも実装されておりパス。コードとテストの両面で
+     群の性質(全単射・閉性・単位元への復帰・逆元の存在)を確認できた。
+  2. クロスチェックテスト(`cross_check_instance_extraction_matches_
+     whole_board_transform_method`)の中身を精読した。方式(a)は
+     `aligned_cells`(インスタンス固有の並べ替え済みセル列)で元の盤面から
+     直接状態を抽出する経路、方式(b)は`transform_board`(盤面全体を
+     ビット単位で対称変換する、テスト専用の完全に別実装)で盤面を変換した後、
+     代表インスタンスの自然順セルで抽出する経路であり、コード上は明確に
+     別の実装パス(前者はセルインデックスのリスト操作、後者は64セル全体の
+     ビット再配置)になっている。代数的に整理すると、
+     `aligned_cells[i] = apply_symmetry(sym_i, rep_cells)`という構成的事実と
+     `transform_board`の定義から、両方式の状態値が理論上等しくなることは
+     導出できる(その意味で完全に独立な"外部オラクル"ではない)。ただし
+     これは「片方がもう片方をそのままコピーしているだけの自己参照的な
+     テスト」ではなく、(i)`inverse_symmetry`の向き(sym vs inv)を取り違える
+     バグ、(ii)`transform_board`のビット操作のオフバイエラー、
+     (iii)`compute_pattern_classes`が`aligned_cells`を構成する際の実装ミス、
+     を検出できる非自明なテストになっている。加えて、この代数的等価性が
+     前提とする「`aligned_cells`が実際にそのインスタンス自身の物理セル集合と
+     一致していること」自体は、別テスト`aligned_cells_are_a_reordering_of_
+     the_instances_own_cell_set`(集合としての一致を検証)と
+     `compute_pattern_classes_groups_22_instances_into_6_orbit_classes`
+     (タスク仕様記載の6クラス構成とインスタンス番号レベルで完全一致することを
+     検証)で別途担保されている。3テストを合わせて読むことで、パーミュテー
+     ションの正しさが多角的に検証されていると判断した(「コピーしただけの
+     自己参照」には当たらないが、クロスチェック単体では「アルゴリズム的に
+     独立」というより「実装パスとして別」という位置づけである点は付記する)。
+  3. `train/weights/pattern_v1.bin`(10,235,264バイト)と`pattern_v2.bin`
+     (2,729,420バイト)がともに存在し、コミット差分(`git show --stat
+     1de2415`)にv1ファイルの変更は含まれていないことを確認した。後方互換性は
+     `engine/src/pattern_eval.rs`の`from_bytes_v1`(`"PWV1"`マジックバイト
+     判定、22インスタンスをそれぞれ単独クラスとして読み込む)で実装されており、
+     ユニットテスト`from_bytes_v1_loads_legacy_format_without_weight_sharing`が
+     手組みのv1バイト列で読み込み・スコアリングを確認していることを確認した。
+  4. Edax比較・自己対戦を実際に再実行し、上記の通りコミット済みの結果
+     ファイルとビット単位で完全一致することを確認した(再現性あり)。
+  5. `train/src/regression.rs`のSGD単体テスト2件の修正内容を精読した。
+     `Board::initial()`はD4対称に近い局面であり、v2の重み共有下では22
+     インスタンス中の複数が同一の(クラス,状態)に collide し、1回のSGD
+     ステップで同じ重みセルに複数回勾配が加算される(実質的な学習率が
+     インスタンス数倍になる)ため、テスト固有の大きめの学習率(0.03/0.05)
+     では発散し得る、という説明は理論的に整合している。修正後は
+     `asymmetric_test_board()`(xorshift64による非対称なランダム局面)を
+     使っており、テストの検証意図(「誤差が減る」「収束する」)は変えずに
+     維持されている。本番の学習率(`TrainConfig::default()`の0.005)は
+     20エポック・約100万サンプルのデータセットに対する値であり、この
+     衝突があっても`train_patterns`の実行結果(訓練誤差・ホールドアウト誤差)
+     が改善していることは4.で再現確認済みであるため、テストを都合よく
+     弱めた形跡はないと判断した。
+
+  **追加確認**
+  `cargo build --release -p engine --bin eval_cli`成功、Edax比較・自己対戦
+  スクリプトの再実行(実質的な追加ビルド・テスト)も含め、既存を壊していない
+  ことを確認した。

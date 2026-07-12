@@ -82,6 +82,24 @@ attempts: 1
   - 本番確認: 同じPlaywrightスクリプトを本番URL(`https://giwarb.github.io/othello-trainer/`)に対して実行し、ローカルと同一の10項目すべてOK(`ALL CHECKS PASSED`)を確認。
   - 受け入れ基準は全項目満たしたため、`status: done`に更新して差し戻す。
 
+- 2026-07-11 verifier: 独立検証を実施(実装者の自己申告を鵜呑みにせず、実際にコマンド・ブラウザ操作で再確認)。
+  - `git log`/`git show --stat 4a37ed2`でコミット内容を確認: `app/src/TitleScreen.tsx`(新規)・`app/src/TitleScreen.css`(新規)・`app/src/app.css`(変更)・`app/src/app.tsx`(変更)・`tasks/T065-title-home-screen.md`のみが対象で、スコープ外ファイルへの混入なし。
+  - `cd app && npm test`: 55ファイル/468件、全件パス(再実行で確認)。
+  - `cd app && npm run build`: `tsc -b && vite build && inject-sw-version`成功、`dist/`生成確認(再実行で確認)。
+  - コードレビュー: `app.tsx`で`useState<AppMode | null>(null)`により初期値`null`、`mode === null`時に`<TitleScreen>`を`<main class="home-main">`内に表示することを確認(69-78行)。`mode-nav`内に`.mode-nav__home`ボタン(`setMode(null)`)を確認(84-92行)。`TitleScreen.tsx`は`MODE_CARDS`(全6モードから生成)をpropsで受け取りカードをレンダリングすることを確認。`TitleScreen.css`は`--color-accent`系・`--radius-lg`・`--space-*`トークンを使用し、`@media (max-width: 400px)`で1列化することを確認。
+  - 実機確認(ローカル): `npm run dev`(`http://localhost:5174/`)を起動し、リポジトリの`node_modules`に`playwright`が無かったためnpxキャッシュ済みパッケージ(`%LOCALAPPDATA%\npm-cache\_npx\86170c4cd1c5da32\node_modules\playwright`)を直接requireするNode/Playwrightスクリプトを作成して以下17項目を自動確認、**全項目OK**:
+    - タイトル画面見出し・6モードカード表示。
+    - 「対局」カードクリックで対局モード(`.controls`)に遷移。
+    - ホームボタンでタイトル画面に戻る。
+    - 6モード(対局・定石練習・中盤練習・詰めオセロ・棋譜解析・言語化トレーニング)全てのカードから、クリックで対応する`mode-nav__tab--active`に遷移することを個別に確認(implementerの報告は「対局」のみの確認だったが、本検証では全6モードを網羅)。
+    - 対局モードに入った後、`mode-nav`タブ(詰めオセロ→棋譜解析)クリックでの切替が機能。
+    - タブ切替後もホームボタンでタイトル画面に戻れる。
+    - 375px幅で横スクロールなし(`scrollWidth`=`clientWidth`=375)、カードが画面幅内に収まり縦積み表示、その状態から「言語化トレーニング」カードクリックで遷移可能、遷移後のモード画面でも横スクロールなし。
+  - 回帰確認: 対局モードで「黒番で開始」→盤面クリックで着手 → スコア(黒2/白2 → 黒3/白3)が変化し、CPU応手後に手番が黒に戻ることを確認。着手・CPU応手フローに回帰なし。
+  - デプロイ確認: `gh run list`でコミット`4a37ed2`(「app: タイトル/ホーム画面を新規追加(T065)」)に紐づく「Deploy to GitHub Pages」run 29136848907が`success`であることを確認。後続のtasksコミットのrun 29136925577も`success`。
+  - 本番確認: 同じPlaywrightスクリプトを本番URL(`https://giwarb.github.io/othello-trainer/`)に対して実行し、ローカルと同一の17項目すべてOK(`ALL CHECKS PASSED`、17/17)を確認。
+  - **総合判定: 合格。** 受け入れ基準4項目すべて実際のコマンド実行・ブラウザ操作で再現確認できた。status変更等はオーケストレーターの判断に委ねる。
+
 **受け入れ基準チェックリスト結果:**
 - [x] `npm test`(`app/`配下)が全件パスする → 55ファイル/468件パス。
 - [x] `npm run build`(`app/`配下)が成功する → 成功。

@@ -1,7 +1,7 @@
 ---
 id: T078
 title: 中盤練習の候補手オーバーレイ表示と悪手判定が別々の探索呼び出しで不整合を起こす問題の修正
-status: todo
+status: done
 assignee: implementer
 attempts: 0
 ---

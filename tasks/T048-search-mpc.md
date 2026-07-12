@@ -200,6 +200,86 @@ MPCは無効のままとした(既定ビルド・WASMビルドはMPC無効のま
 それとも別のアプローチ(評価関数側の改善を先に行う、ETC等の別技術を
 先に試す等)に差し替えるべきかは、優先度・工数対効果の判断次第だと思われる。
 
+### 2026-07-10 verifier
+
+コード変更は行わず、受け入れ基準の検証コマンドをすべて実際に実行し、
+実装内容(バグ修正箇所含む)をコードリードで確認した。結論: **合格**。
+
+- `cargo build --workspace`: 成功。
+- `cargo test --workspace`(デフォルト): `119 passed; 0 failed`
+  (implementerの報告と一致)。
+- `cargo test --workspace --features engine/mpc_enabled`: engineクレート
+  `120 passed; 0 failed`(他クレート込みで全件成功、報告と一致)。
+- FFO終盤テスト高速版
+  (`cargo test -p engine --test ffo_bench --release -- --nocapture`):
+  #40-44全問正解(score列がexpected列と完全一致)、
+  `FAST TOTAL: 5 positions solved correctly, nodes=1392453845`
+  →作業ログ記載の`nodes=1,392,453,845`と**桁まで完全一致**。終盤完全読み
+  ソルバーがMPC実装により一切影響を受けていないことを実測で確認。
+- バグ修正箇所のコードリード(`engine/src/search.rs`
+  `mpc_try_cutoff`冒頭、および呼び出し元`negascout`):
+  `if alpha <= -INF || beta >= INF { return None; }`
+  というガードが実際に入っており、`alpha`/`beta`のどちらかが番兵値
+  (`INF = 1_000_000`定数、`-INF`/`INF`)のままの局面ではMPCを一切試みない
+  実装になっていることを確認した。作業ログに記載された不具合の説明
+  (PVノードでの誤カットオフ連鎖)と修正内容が一致している。
+- σ実測・NPS比較・自己対戦の再現性検証(いずれも既存の値と再実測値が
+  一致・整合することを確認):
+  - `calibrate_mpc bench --depth 9`を、作業ログと全く同じ局面生成コマンド
+    (`eval_cli gen --category calib --min-empties 22 --max-empties 50
+    --count 150 --seed 4048`の先頭40件)・同じ重み
+    (`train/weights/pattern_v2.bin`)で再実行したところ、
+    MPC無効`total_nodes=11371103`・MPC有効`total_nodes=11781657`となり、
+    作業ログの数値(無効11,371,103/有効11,781,657)と**完全一致**
+    (探索が決定的であることの証拠でもある)。所要時間は有効の方が
+    約4.1%遅い結果となり(作業ログの約4.7%と近い傾向)、「明確な速度
+    向上は無い」という結論と整合する。
+  - `selfplay_mpc.py --starts 12 --depth 8 --seed 48480`
+    (作業ログの「バッチ1」と同一条件、`eval_cli_mpc_on.exe`/
+    `eval_cli_mpc_off.exe`を`--features mpc_enabled`有無で再ビルドして
+    実行)を再実行したところ、24局中mpc12勝・no_mpc10勝・引分2、
+    平均石差-2.88となり、作業ログの数値と**完全一致**(各局の勝敗・石差
+    まで一致)。明確な棋力低下が無いという判断も再現された。
+  - 追加のσ実測(depth=8/9、独立した局面セット10件、seed=5555)でも
+    大きな傾向の矛盾は無かった(小サンプルのため個々のノード数は
+    作業ログの値と一致しないが、有効/無効の差は誤差範囲内で、
+    「明確な向上ではない」という結論と矛盾しない)。
+- 既定ビルド・WASMビルドへの影響確認:
+  - `engine/Cargo.toml`で`mpc_enabled`フィーチャが`[]`(既定無効)で
+    定義されていることを確認。`engine/src/mpc.rs::margin_centidisc`は
+    `if !cfg!(feature = "mpc_enabled") { return None; }`で既定時は常に
+    `None`を返すことをコードで確認(かつ`margin_centidisc_is_always_none_
+    when_mpc_feature_is_not_enabled`テストでも保証)。
+  - `node app/src/engine/build-wasm.mjs`(`wasm-pack build --target web`、
+    フィーチャ指定なし=既定)を実行し、WASMビルドが成功することを確認。
+    T034の教訓(探索・時間管理まわりの変更がWASMハングを誘発した実績)
+    を踏まえた重点確認事項だが、問題は見られなかった。
+  - `TIME_CHECK_NODE_INTERVAL = 1024`が変更されておらず、`mpc_try_cutoff`
+    が呼ぶプローブ探索も通常の`negascout`再帰をそのまま使うため、時間
+    予算チェックの経路自体に変更が無いことをコードで確認。
+- 追加確認: `git status`で、検証作業により`bench/edax-compare/
+  eval_cli_mpc_on.exe`/`eval_cli_mpc_off.exe`(既存の未追跡バイナリ)を
+  再ビルド・上書きしたが、追跡対象ファイルへの変更は無いことを確認。
+  `app/src/engine/pkg/`は`.gitignore`対象のビルド成果物であり追跡外。
+
+#### 追加確認(既存を壊していないか)
+
+- FFO終盤テスト重量版(#45-49)は今回も未実行(implementer・
+  オーケストレーターの合意済み省略方針を踏襲。高速版での完全一致が
+  終盤ソルバー非影響の十分な証拠と判断)。
+- `app`側のビルド・テストは、本タスクの変更対象が`engine`クレートのみ
+  (`app/src/*`は無変更)であることを`git log`で確認済みのため、
+  デフォルトWASMビルド成功確認(上記)のみを追加確認とし、`app`の
+  フルテストスイートは実行しなかった(タスクスコープ外)。
+
+#### 判定: 合格
+
+要件1(NPS/到達深さの明確な向上)は実測でも未達成のままだが、これは
+オーケストレーターが事前に承認済みの正当な負の結果であり不合格理由には
+していない。それ以外の受け入れ基準(ビルド・テスト全件パス、FFO高速版
+完全正解・ノード数完全一致、バグ修正の実装確認、σ・NPS・自己対戦の
+再現性、既定オフ・WASM既定ビルド無影響)はすべて実測で確認できた。
+
 #### 検証コマンドと結果
 
 - `cargo build --workspace`: 成功。

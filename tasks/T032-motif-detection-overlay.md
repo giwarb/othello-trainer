@@ -1,7 +1,7 @@
 ---
 id: T032
 title: 言語化支援 モチーフ検出タグ + 盤面可視化オーバーレイ
-status: review
+status: done
 assignee: implementer
 attempts: 0
 ---

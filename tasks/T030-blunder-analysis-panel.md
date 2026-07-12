@@ -1,7 +1,7 @@
 ---
 id: T030
 title: 棋譜解析の悪手分析パネル(比較PV+フリー分岐探索+理由表示+練習送り)
-status: in_progress
+status: done
 assignee: implementer
 attempts: 0
 ---

@@ -1,7 +1,7 @@
 ---
 id: T025
 title: 定石データの大幅拡充(既存35ラインでは網羅性不足、虎系のローズビル・酉等を含め収集)
-status: review
+status: done
 assignee: implementer
 attempts: 0
 ---
