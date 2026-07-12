@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'preact/hooks'
 import { Board } from '../components/Board.tsx'
+import { BoardEditor, type BoardEditorResult } from '../components/BoardEditor.tsx'
 import { EvalBadge, formatDiscDiff } from '../components/EvalBadge.tsx'
 import type { EngineClient } from '../engine/client.ts'
 import { getSharedEngineClient } from '../engine/sharedClient.ts'
 import {
   applyMove,
   countDiscs,
+  initialBoard,
   notationToSquare,
   opposite,
   squareToNotation,
@@ -14,7 +16,7 @@ import {
 } from '../game/othello.ts'
 import { loadJosekiDb } from '../joseki/lookup.ts'
 import type { JosekiDb } from '../joseki/types.ts'
-import { analyzeGame, replayGame, TranscriptReplayError } from './analyzeGame.ts'
+import { analyzeGame, replayGame, TranscriptReplayError, type StartPosition } from './analyzeGame.ts'
 import { BlunderPanel } from './BlunderPanel.tsx'
 import { clearAnalysisCache } from './cache.ts'
 import { EvalGraph, type EvalGraphMarker, type EvalGraphPoint, type EvalGraphPointMove } from './EvalGraph.tsx'
@@ -24,7 +26,7 @@ import type { AnalyzeGameProgress, ClassifyThresholds, MoveAnalysis, MoveClassif
 import './AnalysisMode.css'
 
 type Phase = 'input' | 'analyzing' | 'result'
-type InputTab = 'transcript' | 'manual'
+type InputTab = 'transcript' | 'manual' | 'custom'
 
 interface BoardTrackEntry {
   readonly board: BoardState
@@ -157,8 +159,9 @@ function buildBoardTrack(results: readonly MoveAnalysis[]): BoardTrackEntry[] {
  * 設計書 `othello-trainer-design.md` §6のうち§6.1「入力」・§6.2「解析パイプライン」・
  * §6.3「評価グラフUI」の実装。悪手分析パネル(比較PV等)はT030のスコープ。
  *
- * 1. 標準トランスクリプトのテキスト入力、または盤面クリックによる手動並べで
- *    棋譜を入力する(要件1・2)。
+ * 1. 標準トランスクリプトのテキスト入力、盤面クリックによる手動並べ、または
+ *    盤面自由配置エディタ(`BoardEditor`、T079)で任意の開始局面を作ってからの
+ *    手動並べで棋譜を入力する(要件1・2)。
  * 2. `analyzeGame`(終局側から解析、要件3)で全手を解析し、進捗を表示する。
  * 3. 評価グラフ(`EvalGraph`)・ムーブリストを表示し、クリックで該当局面へ
  *    ジャンプできる(要件6)。
@@ -173,6 +176,15 @@ export function AnalysisMode() {
   const [inputError, setInputError] = useState<string | null>(null)
 
   const [manualMoves, setManualMoves] = useState<string[]>([])
+
+  // T079: 「盤面を自由配置」タブ。`BoardEditor`(T077で新設)で任意の開始局面
+  // (石の配置・手番)を組み立て(`customEditorBoard`/`customEditorSideToMove`)、
+  // 「この局面から開始」で確定させると`customStart`が確定し、以後は「盤面で並べる」
+  // タブと同じ要領で合法手クリックにより着手を積み上げる(`customMoves`)。
+  const [customEditorBoard, setCustomEditorBoard] = useState<BoardState>(() => initialBoard())
+  const [customEditorSideToMove, setCustomEditorSideToMove] = useState<Side>('black')
+  const [customStart, setCustomStart] = useState<StartPosition | null>(null)
+  const [customMoves, setCustomMoves] = useState<string[]>([])
 
   const [thresholds, setThresholds] = useState<ClassifyThresholds>(() =>
     loadClassifyThresholds(window.localStorage),
@@ -241,7 +253,18 @@ export function AnalysisMode() {
     }
   })()
 
-  async function startAnalysis(moves: readonly string[]): Promise<void> {
+  // T079: 「盤面を自由配置」タブ。開始局面が未確定(`customStart === null`)の間は
+  // 再生不要のため`null`のまま(エディタ操作中はまだ着手を積み上げられない)。
+  const customReplay = (() => {
+    if (!customStart) return { positions: null, error: null as string | null }
+    try {
+      return { positions: replayGame(customMoves, customStart), error: null as string | null }
+    } catch (error) {
+      return { positions: null, error: error instanceof Error ? error.message : String(error) }
+    }
+  })()
+
+  async function startAnalysis(moves: readonly string[], start?: StartPosition): Promise<void> {
     setInputError(null)
     setPhase('analyzing')
     setProgress({ done: 0, total: moves.length, justAnalyzedPly: moves.length - 1 })
@@ -251,6 +274,7 @@ export function AnalysisMode() {
         thresholds,
         onProgress: setProgress,
         josekiDb,
+        start,
       })
       setElapsedMs(performance.now() - startedAt)
       setResults(analyzed)
@@ -291,6 +315,39 @@ export function AnalysisMode() {
     setManualMoves([])
   }
 
+  /** T079: 「盤面を自由配置」タブのエディタ操作(マスクリック・手番選択・リセット)。 */
+  function handleCustomEditorChange(next: BoardEditorResult): void {
+    setCustomEditorBoard(next.board)
+    setCustomEditorSideToMove(next.sideToMove)
+  }
+
+  /** T079: エディタで組み立てた局面を開始局面として確定し、着手の積み上げに移る。 */
+  function confirmCustomStart(): void {
+    setCustomStart({ board: customEditorBoard, sideToMove: customEditorSideToMove })
+    setCustomMoves([])
+  }
+
+  /** T079: 開始局面の編集に戻る(積み上げた着手は破棄する)。 */
+  function editCustomStart(): void {
+    setCustomStart(null)
+    setCustomMoves([])
+  }
+
+  function handleCustomMove(square: number): void {
+    if (!customReplay.positions) return
+    const cur = customReplay.positions[customReplay.positions.length - 1]!
+    if (cur.mover === null) return
+    setCustomMoves((prev) => [...prev, squareToNotation(square)])
+  }
+
+  function undoCustomMove(): void {
+    setCustomMoves((prev) => prev.slice(0, -1))
+  }
+
+  function resetCustomMoves(): void {
+    setCustomMoves([])
+  }
+
   function backToInput(): void {
     setPhase('input')
     setResults(null)
@@ -305,6 +362,7 @@ export function AnalysisMode() {
   const currentBoard = boardTrack[selectedPly] ?? null
 
   const manualBoard = manualReplay.positions?.[manualReplay.positions.length - 1] ?? null
+  const customBoard = customReplay.positions?.[customReplay.positions.length - 1] ?? null
 
   return (
     <div class="analysis-mode">
@@ -326,6 +384,13 @@ export function AnalysisMode() {
               onClick={() => setInputTab('manual')}
             >
               盤面で並べる
+            </button>
+            <button
+              type="button"
+              class={`analysis-input__tab${inputTab === 'custom' ? ' analysis-input__tab--active' : ''}`}
+              onClick={() => setInputTab('custom')}
+            >
+              盤面を自由配置
             </button>
           </nav>
 
@@ -375,6 +440,62 @@ export function AnalysisMode() {
                   解析開始
                 </button>
               </div>
+            </div>
+          )}
+
+          {inputTab === 'custom' && (
+            <div class="analysis-input__custom">
+              {!customStart ? (
+                <>
+                  <p class="status">開始局面を自由に配置し、次の手番を選んでから「この局面から開始」を押してください。</p>
+                  <BoardEditor
+                    board={customEditorBoard}
+                    sideToMove={customEditorSideToMove}
+                    onChange={handleCustomEditorChange}
+                  />
+                  <div class="analysis-input__custom-buttons">
+                    <button type="button" onClick={confirmCustomStart}>
+                      この局面から開始
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  {customBoard && (
+                    <>
+                      <p class="status">
+                        手番: {customBoard.mover ? sideLabel(customBoard.mover) : '終局'}({customMoves.length}手)
+                      </p>
+                      <div class="board-container">
+                        <Board
+                          board={customBoard.board}
+                          sideToMove={customBoard.mover ?? 'black'}
+                          onMove={handleCustomMove}
+                        />
+                      </div>
+                    </>
+                  )}
+                  <div class="analysis-input__custom-buttons">
+                    <button type="button" onClick={undoCustomMove} disabled={customMoves.length === 0}>
+                      1手戻す
+                    </button>
+                    <button type="button" onClick={resetCustomMoves} disabled={customMoves.length === 0}>
+                      リセット
+                    </button>
+                    <button type="button" onClick={editCustomStart}>
+                      開始局面を編集し直す
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void startAnalysis(customMoves, customStart)}
+                      disabled={customMoves.length === 0}
+                    >
+                      解析開始
+                    </button>
+                  </div>
+                </>
+              )}
+              {customReplay.error && <p class="notice notice--error">{customReplay.error}</p>}
             </div>
           )}
 

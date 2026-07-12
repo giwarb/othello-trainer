@@ -4,6 +4,7 @@ import type { AnalyzeLimit, MoveEvalJson } from '../engine/types.ts'
 import {
   applyMove,
   countDiscs,
+  createBoard,
   initialBoard,
   legalMoves,
   notationToSquare,
@@ -21,6 +22,7 @@ import {
   type AnalyzeEngine,
   DISC_DIFF_THEORETICAL_MAX,
   replayGame,
+  type StartPosition,
   TranscriptReplayError,
 } from './analyzeGame.ts'
 
@@ -558,4 +560,72 @@ describe('analysis/analyzeGame: 累積評価値(T056)', () => {
       expect(last.blackAdvantageAfter).toBe(-DISC_DIFF_THEORETICAL_MAX)
     },
   )
+})
+
+describe('analysis/analyzeGame: カスタム開始局面(T079、盤面自由配置エディタからの解析)', () => {
+  // 黒がd4、白がd5にのみ石を置いた局面(標準初期局面ではない)。黒番でd6に打つと、
+  // d4とd6で挟んでd5の白石を1枚裏返す1手だけの合法手であり、"d6"は定石DBの
+  // 対称正規化(`joseki/normalize.ts`のopForFirstMove)が前提とする標準初期局面の
+  // 黒の合法手4通り(d3/c4/f5/e6)のいずれとも異なる(このテストの要点)。
+  const CUSTOM_START: StartPosition = {
+    board: createBoard([notationToSquare('d4')], [notationToSquare('d5')]),
+    sideToMove: 'black',
+  }
+
+  it('replayGameにstartを渡すと、その局面・手番から再生する', () => {
+    const positions = replayGame(['d6'], CUSTOM_START)
+    expect(positions).toHaveLength(2)
+    expect(positions[0]!.board).toEqual(CUSTOM_START.board)
+    expect(positions[0]!.mover).toBe('black')
+  })
+
+  it('replayGameにstartを渡さない場合は、従来通り標準初期局面(黒番)から再生する(後方互換)', () => {
+    const positions = replayGame(['f5'])
+    expect(positions[0]!.board).toEqual(initialBoard())
+    expect(positions[0]!.mover).toBe('black')
+  })
+
+  it(
+    'analyzeGameにカスタム開始局面(start)を渡すと、その局面を起点に解析でき、' +
+      '定石DB(josekiDb)が渡されていても定石照会は行われない' +
+      '(evalSourceが"joseki"にならない。標準初期局面前提の対称正規化によるRangeErrorも起きない)',
+    async () => {
+      const engine: AnalyzeEngine = {
+        async requestAnalyzeAll(board: Board, turn: Side): Promise<MoveEvalJson[]> {
+          expect(hashBoard(board, turn)).toBe(hashBoard(CUSTOM_START.board, 'black'))
+          return [
+            { move: 'd6', score: 100, discDiff: 1.0, type: 'midgame' },
+            { move: '__alt__', score: 300, discDiff: 3.0, type: 'midgame' },
+          ]
+        },
+      }
+      const dbFactory = new IDBFactory()
+      // 標準初期局面の黒の合法手4通り前提のDB。カスタム開始局面の初手"d6"はこの
+      // いずれとも異なるため、定石照会が無効化されていなければ
+      // `opForFirstMove`がRangeErrorを投げるはずの状況。
+      const josekiDb = makeTestJosekiDb()
+
+      const results = await analyzeGame(engine, ['d6'], { dbFactory, josekiDb, start: CUSTOM_START })
+
+      expect(results).toHaveLength(1)
+      const m = results[0]!
+      expect(m.move).toBe('d6')
+      expect(m.side).toBe('black')
+      expect(m.evalSource).not.toBe('joseki')
+      expect(m.josekiNames).toBeUndefined()
+      expect(m.bestMove).toBe('__alt__')
+      expect(m.lossDiscs).toBeCloseTo(2.0)
+    },
+  )
+
+  it('analyzeGameにstartを渡さない場合は、従来通り標準初期局面前提のまま解析できる(後方互換)', async () => {
+    const engine = makeFakeEngine()
+    const dbFactory = new IDBFactory()
+
+    const results = await analyzeGame(engine, ['f5'], { dbFactory })
+
+    expect(results).toHaveLength(1)
+    expect(results[0]!.move).toBe('f5')
+    expect(results[0]!.side).toBe('black')
+  })
 })

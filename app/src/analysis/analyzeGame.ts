@@ -113,13 +113,28 @@ export interface ReplayedPosition {
 }
 
 /**
- * 着手列を先頭から再生し、初期局面を含む`moves.length + 1`個の局面を返す
+ * 解析の開始局面(T079、盤面自由配置エディタからの解析用)。`board`/`sideToMove`を
+ * 省略した場合(`replayGame`/`analyzeGame`に渡さない場合)は、従来通り標準初期局面
+ * (黒番)から解析する(既存呼び出し元との後方互換)。
+ */
+export interface StartPosition {
+  readonly board: Board
+  readonly sideToMove: Side
+}
+
+/**
+ * 着手列を先頭から再生し、開始局面を含む`moves.length + 1`個の局面を返す
  * (`positions[i]`は`moves[i]`を打つ**前**の局面、`positions[moves.length]`は最終局面)。
  * パス(手番側に合法手が無い)は`resolveMover`で自動的に処理する。
+ *
+ * `start`(T079)を省略した場合は標準初期局面(黒番)から再生する(既存の呼び出し元
+ * との後方互換)。`start`を指定した場合はその局面・手番から再生する(盤面自由配置
+ * エディタで組み立てた任意局面。配置の合法性・到達可能性は検証しない)。
  */
-export function replayGame(moves: readonly string[]): ReplayedPosition[] {
-  const start = initialBoard()
-  const positions: ReplayedPosition[] = [{ board: start, mover: resolveMover(start, 'black') }]
+export function replayGame(moves: readonly string[], start?: StartPosition): ReplayedPosition[] {
+  const startBoard = start?.board ?? initialBoard()
+  const startSide = start?.sideToMove ?? 'black'
+  const positions: ReplayedPosition[] = [{ board: startBoard, mover: resolveMover(startBoard, startSide) }]
 
   for (let i = 0; i < moves.length; i++) {
     const cur = positions[i]!
@@ -148,9 +163,23 @@ export interface AnalyzeGameOptions {
   /**
    * 定石DB(T038)。呼び出し元が`loadJosekiDb()`でロード済みのものを渡す。
    * `null`または省略時は定石照会をスキップし、従来通り全手を`exact`/`midgame`
-   * 評価のまま扱う(定石DBロード失敗時のフォールバックにも使う)。
+   * 評価のまま扱う(定石DBロード失敗時のフォールバックにも使う)。`start`が
+   * 指定されている場合はこの値に関わらず定石照会は行われない(下記`start`参照)。
    */
   readonly josekiDb?: JosekiDb | null
+  /**
+   * カスタム開始局面(T079、盤面自由配置エディタからの解析用)。省略時は標準
+   * 初期局面(黒番)から解析する(既存呼び出し元との後方互換)。
+   *
+   * 指定した場合、定石DB照会は`options.josekiDb`の値に関わらず一切行わない
+   * (`evalSource`が`'joseki'`になることは無い)。オセロクエスト式の定石DBは
+   * そもそも標準初期局面からの黒の合法手4通り(d3/c4/f5/e6)を前提にした
+   * 対称正規化(`joseki/normalize.ts`の`opForFirstMove`)に依存しており、
+   * カスタム開始局面の対局にそのまま適用すると、初手がこの4マス以外の場合に
+   * `RangeError`を投げて解析全体が失敗する。カスタム開始局面での定石DBの
+   * 参照は本来意味を持たないため、根本的に照会自体を無効化する。
+   */
+  readonly start?: StartPosition
 }
 
 function pickBest(moves: readonly MoveEvalJson[]): MoveEvalJson {
@@ -185,13 +214,19 @@ export async function analyzeGame(
   options: AnalyzeGameOptions = {},
 ): Promise<MoveAnalysis[]> {
   const thresholds = options.thresholds ?? DEFAULT_CLASSIFY_THRESHOLDS
-  const positions = replayGame(moves)
+  const positions = replayGame(moves, options.start)
   const total = moves.length
   if (total === 0) return []
 
-  const josekiDb = options.josekiDb ?? null
+  // T079: カスタム開始局面(`options.start`)が指定された場合は、`options.josekiDb`
+  // の値に関わらず定石DB照会を無効化する(標準初期局面前提の対称正規化が
+  // `RangeError`を投げるのを防ぐ。詳細は`AnalyzeGameOptions.start`のコメント参照)。
+  const josekiDb = options.start ? null : (options.josekiDb ?? null)
   // 定石DAGの対称正規化(`joseki/normalize.ts`)の基準となる、この対局の実際の初手。
   // `firstMoveSquare`が確定すれば対局全体を通して使い回せる(`joseki/PracticeMode.tsx`と同じ設計)。
+  // `josekiDb`が`null`(カスタム開始局面を含む)の場合は`josekiLookup`が常に`null`に
+  // なるため、`firstMoveSquare`自体が標準初期局面の合法手4通り以外の値になっても
+  // 実際には使用されず問題は起きない。
   const firstMoveSquare = notationToSquare(moves[0]!)
 
   const results: MoveAnalysis[] = new Array(total)
