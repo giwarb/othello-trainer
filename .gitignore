@@ -30,3 +30,13 @@ bench/edax-compare/*.zip
 # から都度ダウンロードして学習にローカルで使うのみ。再配布可否が明記されていない
 # グレーゾーンのデータのためコミットしない)
 train/data/
+
+# T080: Codex CLI (scripts/codex-task.*) の実行ログ出力先
+logs/
+
+# T080: eval_cli等のデバッグ実行で作業ディレクトリ直下に生成されるログ・出力
+err_*.log
+out_*.json
+
+# T080: bench/edax-compare でローカルビルドするeval_cli系バイナリ
+bench/edax-compare/*.exe
