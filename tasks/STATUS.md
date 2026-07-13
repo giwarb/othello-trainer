@@ -349,9 +349,10 @@ T059(engine側クランプ+analyzeGame.ts)とT060(cache.ts+UI)は別ファイル
 | ID | タスク | 担当 | 状態 | 試行 |
 |---|---|---|---|---|
 | T080 | リポジトリ整理(README全面書き換え・.gitignore整理・デバッグ残骸削除) | implementer | done | 0 |
-| T081 | Codex(gpt-5.6-sol)を設計・最終レビュー担当として使うラッパースクリプト | implementer | in_progress | 1 |
+| T081 | Codex(gpt-5.6-sol)を設計・最終レビュー担当として使うラッパースクリプト | implementer | done | 1 |
 
 - T081 redo #1(2026-07-13): verifier 合格後、オーケストレーターのドッグフーディング(T081自身への codex-review 適用)で実バグ検出 — プロンプトを引数渡ししているため、`"` を含むタスクファイル(作業ログにgitコマンド例がある実運用のファイルほぼ全部)で PS5.1 の引数分割が発生し codex が exit 2。stdin 渡し+UTF-8 エンコード明示への修正を再委譲。verifier が検出できなかったのは受け入れ基準の Range 指定例(T080)がたまたま `"` を含まなかったため。教訓: ラッパー系のタスクは「実運用と同じ入力(汚れたデータ)」での確認を受け入れ基準に含める。
+- **T081完了(2026-07-13、redo 1回)**。修正コミット `fe788a9`(stdin渡し+UTF-8化)で回帰ケース(T081自身への codex-review)が exit 0・文字化けなしを確認、Actions成功。**申し送り(codexレビューの中レベル指摘、次に scripts/ を触るタスクで対応)**: (1) `scripts/*.sh` が git 上で実行ビット無し(`100644`)のため Unix で直接実行不可(`git update-index --chmod=+x` で付与する。既存 codex-task.sh も同様か要確認)。(2) `-Range` に `--help` 等 `-` 始まりの値を渡した場合の入力検証が不十分。軽微: codex 実行中のコンソールエコーに「?」の表示乱れがあるが `-o` のレポート本体は無事(表示のみの問題)。なお `tasks/review/T081-*-codex-review.md` の「不合格」判定は修正前コミット `99dcf7a` 時点のレビューであり、指摘のブロッカーは直後の `fe788a9` で解消済み(レポート自体は経緯の記録として残す)。
 
 - 2026-07-13 ユーザー依頼: リポジトリが散らかっているのでREADME更新・.gitignore整理・タスク状態のコミット等の整理を実施。タスク管理ファイル一式(T001〜T079の未コミット分・STATUS.md・CLAUDE.md・言語化支援設計書)はオーケストレーターが直接コミット済み(c6a9845)。README書き換え・.gitignore追記・残骸削除(err_*.log, out_*.json, single_unlabeled.txt, bench/edax-compare/*.exe)はT080としてimplementerに委譲。
 
