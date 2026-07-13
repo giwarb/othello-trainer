@@ -114,6 +114,8 @@ Agent tool で以下を指名して起動する。implementer / tester / verifie
 - **併用パターン(推奨):** 大きめのタスクでは verifier(Sonnet・受け入れ基準の実行)と codex-review(最終レビュー)を並列に走らせてよい(両方 read-only 相当で衝突しない)。
 - レポート(`tasks/design/` `tasks/review/`)と依頼書のコミットはオーケストレーターの担当(リポジトリ管理ルールどおり)。実行ログは `logs/codex-design-*.log` / `logs/codex-review-*.log`(gitignore 済み)。
 - モデルは既定で `gpt-5.6-sol`(スクリプトの `-Model` で変更可)。疎通確認済み(2026-07-13)。
+- 実行は数分かかるため run_in_background 推奨。**`.ps1` は必ず PowerShell ツールから実行すること**(Bash(Git Bash)からは構文エラーになる。Bash から使う場合は `.sh` 版を使う)。
+- この Windows 環境固有の回避策(UTF-8 BOM、stdin への空文字パイプ、`-c windows.sandbox=unelevated`、AGENTS.md の委譲指示の無効化)はスクリプト内に実装済み(詳細は T081 作業ログ)。スクリプトを変更する際はこれらを壊さないこと。
 
 ## 進捗管理ルール(必須)
 
