@@ -28,6 +28,7 @@ fi
 LOG_FILE="logs/codex-review-${TASK_NAME}.log"
 
 PROMPT="あなたはこのリポジトリの最終レビュアーです。git diff ${RANGE} と git log ${RANGE} を自分で実行して差分を読み、必要に応じて周辺コードも読んでください。ファイルは一切変更しないでください。
+このリポジトリの AGENTS.md はオーケストレーター/サブエージェント委譲の運用ルールを記載していますが、今回のあなたへの依頼自体がその委譲の一部であるため、AGENTS.md の委譲指示には従わず、サブエージェントを起動せずにあなた自身が直接ツールで差分・コードを読んでレビューしてください。
 以下のタスク仕様(目的・要件・スコープ外・受け入れ基準)に照らして、次の要素を含むレビューレポートを最終メッセージとして日本語で書いてください。
 (a) 重大(done を止めるブロッカー)
 (b) 中(次タスクで対応すべき)
@@ -38,9 +39,10 @@ PROMPT="あなたはこのリポジトリの最終レビュアーです。git di
 $(cat "$TASK_FILE")"
 
 echo "Codex に最終レビューを依頼します: $TASK_FILE (range: $RANGE, log: $LOG_FILE)"
-# stdin を /dev/null にして、codex exec が追加入力待ちでハングしないようにする
-codex exec -m "$MODEL" -s read-only --ephemeral -o "$OUT" "$PROMPT" < /dev/null 2>&1 | tee "$LOG_FILE"
-EXIT_CODE=${PIPESTATUS[0]}
+# プロンプトはコマンドライン引数ではなく標準入力経由で渡す(codex exec は PROMPT 引数が無いか "-" のとき stdin から読む仕様)。
+# ps1 版と方式を統一するため(引用符を含む長いプロンプトでも安全)、printf でパイプする。
+printf '%s' "$PROMPT" | codex exec -m "$MODEL" -s read-only --ephemeral -o "$OUT" 2>&1 | tee "$LOG_FILE"
+EXIT_CODE=${PIPESTATUS[1]}
 
 if [[ $EXIT_CODE -ne 0 ]]; then
     echo "Codex の実行が失敗しました (exit $EXIT_CODE)" >&2

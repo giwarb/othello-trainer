@@ -28,6 +28,7 @@ fi
 LOG_FILE="logs/codex-design-${BASE_NAME}.log"
 
 PROMPT="あなたはこのリポジトリの設計コンサルタントです。リポジトリを自由に読んで調査してよいですが、ファイルは一切変更しないでください。
+このリポジトリの AGENTS.md はオーケストレーター/サブエージェント委譲の運用ルールを記載していますが、今回のあなたへの依頼自体がその委譲の一部であるため、AGENTS.md の委譲指示には従わず、サブエージェントを起動せずにあなた自身が直接ツールでファイルを読んで調査してください。
 以下の設計依頼に対し、次の要素を含む設計レポートを最終メッセージとして日本語で書いてください。
 (a) 推奨する設計とその理由
 (b) 検討した代替案と却下理由
@@ -37,9 +38,10 @@ PROMPT="あなたはこのリポジトリの設計コンサルタントです。
 $(cat "$REQUEST_FILE")"
 
 echo "Codex に設計コンサルを依頼します: $REQUEST_FILE (log: $LOG_FILE)"
-# stdin を /dev/null にして、codex exec が追加入力待ちでハングしないようにする
-codex exec -m "$MODEL" -s read-only --ephemeral -o "$OUT" "$PROMPT" < /dev/null 2>&1 | tee "$LOG_FILE"
-EXIT_CODE=${PIPESTATUS[0]}
+# プロンプトはコマンドライン引数ではなく標準入力経由で渡す(codex exec は PROMPT 引数が無いか "-" のとき stdin から読む仕様)。
+# ps1 版と方式を統一するため(引用符を含む長いプロンプトでも安全)、printf でパイプする。
+printf '%s' "$PROMPT" | codex exec -m "$MODEL" -s read-only --ephemeral -o "$OUT" 2>&1 | tee "$LOG_FILE"
+EXIT_CODE=${PIPESTATUS[1]}
 
 if [[ $EXIT_CODE -ne 0 ]]; then
     echo "Codex の実行が失敗しました (exit $EXIT_CODE)" >&2

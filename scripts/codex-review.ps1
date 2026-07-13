@@ -43,12 +43,23 @@ $(Get-Content $TaskFile -Raw -Encoding UTF8)
 
 # windows.sandbox の既定値 "elevated" だとこの環境では CreateProcessWithLogonW が失敗しコマンド実行できないため、
 # ~/.codex/config.toml は変更せず、実行時オーバーライドで "unelevated" を指定する。
-$codexArgs = @("exec", "-m", $Model, "-s", "read-only", "--ephemeral", "-c", "windows.sandbox=unelevated", "-o", $Out, $prompt)
+$codexArgs = @("exec", "-m", $Model, "-s", "read-only", "--ephemeral", "-c", "windows.sandbox=unelevated", "-o", $Out)
 
 Write-Host "Codex に最終レビューを依頼します: $TaskFile (range: $Range, log: $logFile)"
-# 空文字列を標準入力に渡し、codex exec が stdin からの追加入力待ちでハングしないようにする
-"" | & codex @codexArgs | Tee-Object -FilePath $logFile
-$exitCode = $LASTEXITCODE
+# プロンプトはコマンドライン引数ではなく標準入力経由で渡す(codex exec は PROMPT 引数が無いか "-" のとき stdin から読む仕様)。
+# PowerShell 5.1 の native exe への引数渡しは文字列中の二重引用符を正しくエスケープできず、`"` を含む長いプロンプト
+# (タスクファイルの作業ログに `git commit -m "..."` 等が含まれる)が複数引数に分割されて失敗するため。
+# stdin パイプは既定で $OutputEncoding (Windows PowerShell 5.1 では ASCII) が使われ日本語が化けるため、
+# UTF-8 (BOM無し) に明示的に切り替える。パイプ経由で渡すことで、従来の「空文字列パイプで EOF を与える」ハックも不要になる。
+$priorOutputEncoding = $OutputEncoding
+$OutputEncoding = New-Object System.Text.UTF8Encoding $false
+try {
+    $prompt | & codex @codexArgs | Tee-Object -FilePath $logFile
+    $exitCode = $LASTEXITCODE
+}
+finally {
+    $OutputEncoding = $priorOutputEncoding
+}
 
 if ($exitCode -ne 0) {
     Write-Error "Codex の実行が失敗しました (exit $exitCode)"
