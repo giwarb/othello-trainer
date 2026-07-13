@@ -123,3 +123,16 @@ attempts: 0
 - **修正**: `vs_edax.py`の`edax_solve()`を、共通の`run()`ヘルパー(終了コード非ゼロで例外)経由ではなく`subprocess.run`を直接呼ぶ形に変更し、Edaxの終了コードに関わらずstdoutをパースするようにした(パース自体が失敗した場合のみエラーにする、という元々の`last_score is None`/`not last_move_tokens`チェックはそのまま活かす)。実際にクラッシュを再現した局面(OBF: `OOOOOOOOOXXXXXOOOXXXXOOOOXXXXOOOOXOXXXOOOXXXX-OOOOOOOOOOOOOOOOO-`, white番)を使い、修正後の`edax_solve()`が例外を出さず`{'depth': 2, 'discDiff': 40.0, 'move': 'f6'}`を正しく返すことを個別に確認した。
 - **耐障害性の追加(2回連続のやり直しを踏まえて強化)**: レベル1つ(20局)完走するたびに`vs_edax_results.json`へチェックポイント書き込みを行うようにした(従来は全レベル完走後の1回のみだったため、2回目の実行のようにレベル10の途中でクラッシュすると60局分すべてやり直しになっていた)。
 - 修正後、`python -m py_compile`で構文確認、`python bench/edax-compare/vs_edax.py`をバックグラウンドで3回目実行開始(PV抽出チェックPASS・レベル10開始まで確認済み)。完走まで監視を継続する。
+
+### 2026-07-14 verifier検証(合格)
+
+- 担当: verifierワーカー。コード修正は行わず、受け入れ基準の実行・照合のみ実施。
+- `python bench/edax-compare/vs_edax.py --smoke` を実行 → `PV extraction sanity check: PASSED` + `smoke game finished: 60 plies, black=17 white=47, winner=edax` + `SMOKE TEST: PASSED`。実行前後で`git status --short`に差分なし(結果ファイルへの書き込みも一時ファイルの残置も無し)。
+- `vs_edax_report.md`: (a)実行条件〜(e)考察のすべてのセクションが存在することを目視確認。
+- `vs_edax_results.json`: `games`配列に60局分の棋譜(開始局面・手順・黒白・最終石差)を確認(要件の「少なくとも20局」を満たす)。
+- 独立集計との照合: JSONの`games`をPythonで独自集計した結果、レベル10=0勝20敗/平均石差-37.20、レベル5=0勝20敗/-29.10、レベル1=16勝4敗/+15.35となり、レポート(b)表と完全一致。
+- 弱点分析(loss_analysis)照合: `entries`(345件、14局分)をフェーズ別に独自集計した結果、序盤140手/+0.31石・累計+43.00、中盤140手/+2.22石・累計+311.00、終盤65手/+0.00石・累計+0.00となり、レポート(c)表と完全一致。トップ10ロス局面もentriesから独自算出した結果、レポート(d)表(順位・レベル・game_id・手目・局面OBF・両者の手・ロス値すべて)と完全一致。
+- ロスの符号規約の妥当性確認(トップ2件、Edaxを直接叩いて追試): 順位1(level10 game2 ply32, board `--X-----O-XX-X-O-OXXXXXX-OOXOOXOOOOXXXO--OOXXOXX--OOOX-X---XXXX-`, white番)を`wEdax-x86-64.exe -l 16 -vv`で直接評価し、best_move=e2/discDiff=-2.0(JSON一致)を確認。`eval_cli apply --move b2`で着手後局面を得て同様にEdax level16で評価するとdiscDiff=+30.0(黒番視点)→手番反転により白視点で-30.0(JSONの`engine_move_value`と一致)。loss = -2.0 - (-30.0) = 28.0(JSON一致)。順位2(level1 game13 ply34, g7 vs f8)も同様に追試し、best=+8.0/after=+18.0(白視点)→黒視点-18.0/loss=8.0-(-18.0)=26.0とすべてJSONと一致。符号調整(手番が変わったときのみ反転)は理論的にも妥当(Edaxのbest評価=最適継続時に達成可能な値、value_after=実際に打った手の後で最適継続した場合の値を着手前の手番視点に揃えたもの)。
+- GitHub Actions確認: `gh run list`で該当コミット14f9f97(実装コミット)に対する「Deploy to GitHub Pages」runが`conclusion: success`であることを確認。`git fetch origin main`後、`git rev-parse HEAD origin/main`が一致(ローカルmainはpush済み)。なお14f9f97の後にオーケストレーターによる`tasks/`関連のみのコミット(5a24970)があるが、これはコード変更を含まずT082の合否に影響しない。
+- `git status --short`: 検証作業(smoke実行・Edax直接呼び出し用の一時OBFファイル作成)を含め、最終的に差分・未追跡ファイルなし(一時ファイルは自分で削除、`edax-extract/`はgitignore対象)。
+- 判定: 受け入れ基準6項目すべてパス。合格。
