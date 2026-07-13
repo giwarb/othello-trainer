@@ -349,6 +349,7 @@ T059(engine側クランプ+analyzeGame.ts)とT060(cache.ts+UI)は別ファイル
 | ID | タスク | 担当 | 状態 | 試行 |
 |---|---|---|---|---|
 | T080 | リポジトリ整理(README全面書き換え・.gitignore整理・デバッグ残骸削除) | implementer | done | 0 |
+| T081 | Codex(gpt-5.6-sol)を設計・最終レビュー担当として使うラッパースクリプト | implementer | in_progress | 0 |
 
 - 2026-07-13 ユーザー依頼: リポジトリが散らかっているのでREADME更新・.gitignore整理・タスク状態のコミット等の整理を実施。タスク管理ファイル一式(T001〜T079の未コミット分・STATUS.md・CLAUDE.md・言語化支援設計書)はオーケストレーターが直接コミット済み(c6a9845)。README書き換え・.gitignore追記・残骸削除(err_*.log, out_*.json, single_unlabeled.txt, bench/edax-compare/*.exe)はT080としてimplementerに委譲。
 
