@@ -1,8 +1,8 @@
 ---
 id: T084
 title: ベンチ補正: single-rootベストムーブ探索の導入 + テレメトリ + オラクルロス修正 + 固定openingマニフェスト
-status: redo        # todo | in_progress | review | redo | done | blocked
-assignee: implementer
+status: in_progress # todo | in_progress | review | redo | done | blocked
+assignee: codex(gpt-5.6-sol)
 attempts: 1
 ---
 
@@ -84,6 +84,10 @@ attempts: 1
 **対応不要(誤検知の切り分け済み)**: codex-review指摘の「openings.jsonが不正JSON」はverifierがPython `json.loads(strict=True)`とNode `JSON.parse`の双方で妥当と確認済み(誤検知)。再生成は不要。
 
 **合格済みの部分(壊さないこと)**: cargo test 139件・FFO #40-44不変・`eval_cli best`テレメトリ・fixed-depth決定性(2回一致)・ロス全件>=0・チェックポイント/resume(対局側)・Actions成功。
+
+**追加要件(redo #1で一緒に実施、2026-07-14 ユーザー承認)**:
+6. **ノード数予算オプション**: `eval_cli best` に `--max-nodes N`(探索の総ノード数が N に達したら打ち切り、それまでの最良の合法手を返す)を追加せよ。時間予算(`--time-ms`)と同じ打ち切り機構に沿わせる(既存の1024ノードごとのチェック箇所でノードカウンタも見る等、最小限の変更)。壁時計と異なり**決定論的**であること: 同一局面・同一重み・同一 `--max-nodes` で2回実行して着手・スコア・ノード数・到達深さが完全一致することを、openingマニフェストのsmoke10局面で機械検証しレポートに記載せよ(fixed-depth決定性チェックと同様の形式)。ノード予算でも上記フィードバック1のフォールバック(合法手が存在する限り必ず合法手を返す)が成立すること。ハーネス(`vs_edax.py`)にも `--engine-max-nodes` 相当のオプションを通せるようにする(**ノード予算での対局60局の実施は不要** — それは後続タスク(exact切替・時間管理)でのA/B比較で行う。本タスクはオプション実装と決定性検証まで)。
+- 背景: ユーザー方針(2026-07-14、STATUS.md記録済み)「探索制限は壁時計ではなくノード数予算ベース(決定論的)を主とする。深さベース単独は不採用。壁時計は普段発動しない保険のみ」。本タスクでオプションと検証を先に整備し、後続タスクで対局経路の既定を切り替える。
 
 ## 作業ログ(担当エージェントが追記)
 
