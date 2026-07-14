@@ -8,6 +8,7 @@
 
 **エンジン強化(Edax level 10 攻略)ロードマップを実行中**。設計書: `tasks/design/T083-engine-strengthening-report.md`(全体)、`tasks/design/T085-beat-level10-report.md`(T085系の規範)。
 
+- **T087検証中間結果(2026-07-14)**: codex-review は**不合格**だが「v3不採用の結論自体は妥当」と明記。ブロッカーは新規ベンチスクリプト2本(compare/smoke_pattern_v3.py)のチェックポイント/resume欠如(長時間実行規律違反)。中所見: 学習resumeの実験条件未照合(**小規模確認runによる本番結果汚染の可能性** → verifierに成果物のサイズ/時刻/内容の追加検証を依頼済み)、results.tsv一括書き出し、PWV3ローダの容量上限なし、比較結果のprovenance欠如。verifierの汚染検証の結果を待って done/redo を判定する: 汚染なしなら結論有効として、インフラ修正はT088の前提修正へ畳み込み(ベンチ再実行抑制方針)。汚染ありなら学習・比較の再実行を含むredo。
 - **T087実装完了(2026-07-14、Codex・約30分と高速完走、代行コミット 4a036de)、verifier+codex-review並列検証中**。**結果: v3不採用**(正常完了の否定的結論)— frozen MAEが3seedとも悪化(v2 16.23〜16.48 vs v3 16.34〜16.85)、oracle regret 0.89→2.22石で採用ゲート(c)(d)不通過。サイズ5.96MB・NPS 91.6%・20局smokeは通過。pattern_v3.binは未作成・既定評価は不変。**T088(学習法改善)への示唆**: 特徴を増やしても現行の学習法(SGD+L2・20epoch固定)では活かせない可能性 — T088で学習法を改善した後にv3特徴の再試行を検討する価値あり(実験基盤はコミット済みで再利用可能)。
 - **T085シリーズ(a/b/c)完結(2026-07-14)**: ノード予算探索(160k/wall1500ms保険)が本番アプリの強CPUまで貫通。redo各1回(a: quota比較未実施、c: Worker常駐TTの決定性違反→maxNodes経路の開始前TTクリアで解消)。
 - 残ロードマップ: T086(TT置換規則の深度保護)→ T087(Pattern v3)/T088(学習改善)→ T089a(history+aspiration)/T089b(hot-path)→ T090a-c(Edax教師蒸留・最終棋力判定)。
