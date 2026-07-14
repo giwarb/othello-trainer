@@ -8,7 +8,7 @@
 
 **エンジン強化(Edax level 10 攻略)ロードマップを実行中**。設計書: `tasks/design/T083-engine-strengthening-report.md`(全体)、`tasks/design/T085-beat-level10-report.md`(T085系の規範)。
 
-- **実行中: T085c**(ノード予算探索のアプリ配線、Codex gpt-5.6-sol)。完了後は verifier+codex-review 並列検証 → done後に T086 起票へ。
+- **実行中: T085c**(ノード予算探索のアプリ配線、Codex gpt-5.6-sol)。codex-review は**不合格(ブロッカー1件)**: 本番Workerは単一Engine+TT再利用のため同一リクエスト2回でスコアが変化(6.12→0.50を実測)、決定性要件違反+T085b校正(毎回新TT)と前提不一致。追加テストは毎回new Engine()でこれを検出できない構造。verifier完了後に統合redoフィードバックを作成予定。
 - 残ロードマップ: T086(TT置換規則の深度保護)→ T087(Pattern v3)/T088(学習改善)→ T089a(history+aspiration)/T089b(hot-path)→ T090a-c(Edax教師蒸留・最終棋力判定)。
 - 現在の対Edax実力(T085b実測, node160k): level10 に 4勝2分54敗(平均-29.1石)。T082時点(0勝20敗・-37.2)から改善中。
 
