@@ -1,9 +1,9 @@
 ---
 id: T084
 title: ベンチ補正: single-rootベストムーブ探索の導入 + テレメトリ + オラクルロス修正 + 固定openingマニフェスト
-status: todo        # todo | in_progress | review | redo | done | blocked
+status: redo        # todo | in_progress | review | redo | done | blocked
 assignee: implementer
-attempts: 0
+attempts: 1
 ---
 
 # T084: ベンチ補正: single-rootベストムーブ探索の導入 + テレメトリ + オラクルロス修正 + 固定openingマニフェスト
@@ -70,7 +70,20 @@ attempts: 0
 
 ## フィードバック(やり直し時にオーケストレーターが記入)
 
-(なし)
+### redo #1(2026-07-14、verifier不合格 + codex-review redo判定の統合)
+
+**致命バグ(必須修正)**: single-root対局が空き18〜19で系統的に途中終了しており(60局中48局、verifierの追加実験では20局中20局=100%)、**レポートの全戦績・比較・フェーズ別ロスの基礎データが無効**。原因は2段構え:
+1. `engine/src/search.rs`(`search_with_eval_inner`): exact試行が時間切れでdepth1の反復すら完走しない場合に `best_move=None` を返す(実再現: 空き18・合法手8つの局面で `eval_cli best --depth 10 --time-ms 1000 --exact-from-empties 18` → `move:null, depth=0, nodes=0`)。**合法手が存在する限り必ず合法手を返すフォールバックを追加せよ**(最低限、静的評価による子選択または合法手先頭。exact境界の本格的な再設計はT085のスコープなのでやらない。fixed-depth挙動・FFO正解値/ノード数の不変は維持し、このフォールバック経路の回帰テストを追加すること。`move:null`は「真に合法手なし」の場合のみに限定)。
+2. `bench/edax-compare/vs_edax.py`(`play_game`の `if mv is None: break`): エンジンが`move:null`を返しても合法手の有無を確認せず終局扱いしている。**合法手が存在するのに`move:null`なら即エラー停止**(黙って続行・終局扱いしない。T082要件2のEdax側と同じ原則)。
+
+**必須修正(その他、codex-review指摘)**:
+3. 弱点分析のresume粒度: 現在はgame IDにloss entryが1件でもあればゲーム全体をスキップし、途中killされた局の残り着手が永久欠落する(`vs_edax.py` L1301付近)。**着手(エントリ)単位のresume**に修正せよ。
+4. provenance: `vs_edax_results.json`の`gitCommit`が実装コミットではなく実行時の未コミット状態の親(`07b819a`)を指していた。**ベンチ実行はコミット済みの状態で行い、dirtyな作業ツリーでの実行は警告またはエラーにせよ**。`runKey`からローカル絶対パスを除去せよ。
+5. 修正後、**コミット済みコードで120局ベンチ+弱点分析を再実行**し、`vs_edax_results.json`/`vs_edax_report.md`を置き換えよ。レポートの考察も更新すること(特に「level 1でallmoves > single-root」の逆転現象は打ち切りバグの交絡の可能性が高いので、クリーンなデータで再評価)。
+
+**対応不要(誤検知の切り分け済み)**: codex-review指摘の「openings.jsonが不正JSON」はverifierがPython `json.loads(strict=True)`とNode `JSON.parse`の双方で妥当と確認済み(誤検知)。再生成は不要。
+
+**合格済みの部分(壊さないこと)**: cargo test 139件・FFO #40-44不変・`eval_cli best`テレメトリ・fixed-depth決定性(2回一致)・ロス全件>=0・チェックポイント/resume(対局側)・Actions成功。
 
 ## 作業ログ(担当エージェントが追記)
 
@@ -124,3 +137,25 @@ attempts: 0
 - 弱点分析(要件6・9c)は設計上**single-rootモードの負け対局のみ**を対象とした(allmovesは要件3のA/B比較専用、design reportの焦点がsingle-rootの真の弱点分析であるため。詳細はvs_edax.pyの`run_loss_analysis`docstring参照)。
 - 対局数は要件9の「各20局」に従いsmoke opening set(10局面)を使用した。primary opening set(30局面=60局)はopenings.jsonに生成・コミット済みだが、本タスクの実行では未使用(design report「対局数の使い分け」に従い、今回は計測基盤の検証が目的で60局規模の一次判定は将来のT085以降の施策採否判断で使う想定)。
 - allmovesモードの着手には`search_all_moves_with_eval`(既存API)がCLI外部にdepth/nodes/elapsedMs/timedOut等の詳細テレメトリを公開していないため、単一手ごとの詳細テレメトリはNone(discDiff/typeのみ記録)。これは要件1「search.rs側に必要な情報が無ければ最小限のフィールドを追加する」の対象がsingle-root(`best`)であり、allmovesの`cmd_moves`のJSON形式変更は本タスクのスコープ外と判断した(レポート(c)節はsingle-rootのみを対象とすることを明記済み)。
+
+### 2026-07-14 verifier検証(不合格 / redo相当)
+
+- コミット`ba1b834`(origin/main反映済み、Actions run 29295789213 = success、`git rev-parse HEAD origin/main`一致)を対象に検証。作業ディレクトリは他エージェント(オーケストレーター/codex-review)と共有のため、検証中に`origin/main`が`8508550`→`e2dc9ad`(既存codex-reviewレポート追加、コード変更なし)まで進んだが、`ba1b834`以降エンジン・ハーネスのコード差分は無い。
+- **`cargo test -p engine`(debug)**: 139 passed, 0 failed, 2 ignored → PASS。
+- **FFO #40-44回帰(`cargo test -p engine --release --test ffo_bench -- --nocapture`)**: score列 #40=38, #41=0, #42=6, #43=-12, #44=-14ですべて`expected_score`と一致(所要732s)。ノード数はexpected値との照合対象ではないため作業ログ記載値との比較はしていないが、正解値一致という意味でのFFO回帰は不変 → PASS。
+- **`eval_cli best`テレメトリ**: 標準初期局面・任意の中盤局面で実行し、`move/score.{discDiff,type}/depth/nodes/elapsedMs/nps/timedOut/exact.{attempted,completed,fallback}`が揃って返ることを直接確認 → PASS。
+- **fixed-depth決定性**: `eval_cli best --depth 9 --exact-from-empties 12`(time-ms無し)を同一局面で2回実行し、move/score/nodes/depthが完全一致することを独立確認。JSON内`fixed_depth_result.allMatched=true`(40局面、mismatches=[])とも整合 → PASS。
+- **オラクルロス**: `loss_analysis.entries`255件を機械検証、全件`loss>=0`(min=0.0, max=34.0)、`engine_mode`はsingle-rootのみに限定 → PASS(要件7充足、実装者の申し送り「single-root負け局のみ対象」も設計上妥当と判断)。
+- **`openings.json`**: `smoke`10局面(`smoke-01`〜`10`)・`primary`30局面(`primary-01`〜`30`)、id重複なし、Python(`json.loads(strict=True)`)・Node(`JSON.parse`)の双方で正常にパース可能 → PASS。**注記**: origin上の既存codex-reviewレポート(`tasks/review/T084-bench-single-root-telemetry-codex-review.md`)は「descriptionフィールドに未エスケープの改行がありJSON不正」と指摘しているが、本検証では同一コミットの同一ファイルを2種類のパーサーで独立検証し再現しなかった。この点はcodex-review側の誤検知の可能性が高いと判断する(いずれにせよ後述の重大バグにより全体判定には影響しない)。
+- **レポート(vs_edax_report.md)と生データの整合**: (b)レベル別勝敗表を`vs_edax_results.json`の`games`から独立に再集計し完全一致(single-root: L10 8-11-1/40.0%/-2.20、L5 8-12-0/40.0%/-7.90、L1 6-13-1/30.0%/-0.25。allmoves: L10 0-20-0/0.0%/-44.15、L5 1-19-0/5.0%/-36.55、L1 13-7-0/65.0%/+7.20)。(c)テレメトリ集計(総手数1047、深さ平均8.08、ノード平均241326、timedOut 64.2%、exact試行10.3%、fallback0%)も独立再計算し一致。(d)フェーズ別ロス(序盤74手+2.27石/中盤150手+1.91石/終盤31手+1.74石)も独立再計算し一致 → 内部整合性はPASSだが、下記の理由で**基礎データ自体が無効**。
+- **チェックポイント/resume(要件8)**: scratchpad出力先(`--results-output`/`--report-output`)を使い、smoke opening・single-root・level1・`--engine-time-ms 300`で対局を開始、7局完了時点で`taskkill /F`により対局プロセスを強制終了。チェックポイントJSONに7局のみ記録されていることを確認後、同一コマンドで再実行したところ`[resume] loaded 7 already-completed game(s)`と表示され8局目から再開、20局完走した。完了済み局は再実行されなかった → PASS。実行はリポジトリ外の一時ファイルのみに出力し、`git status --short`は検証前後で無変化(リポジトリ非汚染)。
+- **重大な問題(既存codex-reviewの指摘を独立再現・確認): single-root対局が終盤(空き18〜19)で系統的に途中終了しており、レポートのsingle-root勝敗表(要件9-(a)(b))の基礎データが無効。**
+  - `vs_edax_results.json`のsingle-root 60局を分析すると、48局(80%)が`final_board`の空きマス数18または19で終了しており、真の終局(空き0、両者パス)は11局のみ。一方allmoves 60局は53局が空き0で自然終了しており、single-rootのみに固有の現象。
+  - 原因を再現: single-root game 1(level10)の途中局面(空き18、着手側に合法手8つ存在)を`eval_cli best --depth 10 --time-ms 1000 --exact-from-empties 18`で実行すると、`exact.attempted=true, exact.completed=false, exact.fallback=true, depth=0, nodes=0`で**`move: null`**を返すことを確認した(`eval_cli moves`で同一局面に8つの合法手が存在することも別途確認済み)。これは「exact読みが時間切れになり、かつ通常の反復深化フォールバックが1回も完了しなかった場合、探索結果に着手が一切含まれない」というエンジン側の未対応ケースであり、`vs_edax.py`の`play_game`(該当箇所: `if mv is None: break  # 自作エンジン側に合法手が無い(=両者パス済みで終局)`)がこれを「終局(パス済み)」と誤認して対局を打ち切っている。
+  - 追加検証: scratchpadで実行したsmoke opening・level1・single-rootのみの20局テスト(上記resume検証の完走後データ)でも、20局中20局全て(100%)が空き18または19で終了しており、この不具合が稀なケースではなく**デフォルト設定(`exact_from_empties=18`)では実質的に毎回発生する**ことを確認した。
+  - 影響範囲: T084の主目的である「single-root vs allmoves比較」「レベル別勝敗」「実手数ベースのフェーズ別ロス」は、いずれも打ち切られた対局の`winner`/`margin`(=打ち切り時点の石差、本来の終局結果ではない)や、打ち切りにより短くなった対局から抽出した弱点分析サンプルに基づいており、レポート内部の集計は生データと整合している(=集計ロジック自体にはバグがない)ものの、**生データそのものが「エンジンのバグにより異常終了した対局」で汚染されている**ため、勝率・平均石差・フェーズ別ロスのいずれも「以後の全施策の採否判定に使える標準ベンチ」としては信頼できない。特にlevel1でallmovesがsingle-rootを上回る逆転現象(STATUS.mdが「要調査」と記録)も、この打ち切りバグによる交絡の可能性が高い。
+  - 要件1「探索アルゴリズム自体の挙動は一切変えない」は`search`関数のコアロジックとしては維持されていると考えられるが(FFO回帰・fixed-depth決定性は不変)、`best`サブコマンドが「合法手が存在するのに着手を一切返せない」フォールバック欠落を新規に露呈させており、これがベンチマークの主要な出力(対局結果)を無効化している点で、要件9(ベンチ再実行)の達成を否定する重大な機能不全と判断する。
+- **provenance不整合(軽微、既存codex-reviewの指摘を確認)**: `vs_edax_results.json`の`meta.gitCommit`は`07b819a...`(実装着手前のコミット)であり、`ba1b834`と一致しない。ベンチ実行時点でコード未コミットだった可能性を示唆し、要件6「build情報(gitハッシュ)…を実行メタデータとして保存」の趣旨(結果と実行コードの対応を追跡可能にする)を満たしていない。
+- **タスク管理不整合(軽微)**: タスクファイル冒頭の`status`は`todo`のまま(`attempts: 0`)。`STATUS.md`上は`review`表記だが、両者の状態遷移がAGENTS.md/CLAUDE.mdの即時更新ルールと整合していない(オーケストレーター側の管理事項として申し送り)。
+
+**総合判定: 不合格(redo相当)**。`cargo test`・FFO回帰・`eval_cli best`テレメトリ・fixed-depth決定性・オラクルロス非負・openings.json・チェックポイント/resume・push/Actions成功、という個々の受け入れ基準は**単体では**満たされているが、要件9(ベンチ再実行によるsingle-root vs allmoves比較・レベル別勝敗)の成果物であるsingle-rootの対局結果が、`best`サブコマンドの未対応フォールバック(exact読みタイムアウト時にmove:nullを返し得る)によって系統的（80〜100%の対局)に途中終了しており、レポート(b)(d)(e)の数値がタスクの目的(「以後の全施策の採否判定に使える標準ベンチの確立」)を満たさない。既存の`tasks/review/T084-bench-single-root-telemetry-codex-review.md`のredo判定・指摘(1)を独立した手法(生データの空きマス分布分析+ピンポイント再現)で追認する。同レポート指摘(2)openings.jsonのJSON不正は本検証では再現せず(誤検知の可能性)、指摘(3)(4)(5)は軽微〜設計判断の範囲と考える。
