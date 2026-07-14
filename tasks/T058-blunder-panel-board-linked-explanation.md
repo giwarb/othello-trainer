@@ -1,7 +1,7 @@
----
+﻿---
 id: T058
 title: 棋譜解析の悪手分析パネルを、盤面と説明が連動する分かりやすいレイアウトに再設計
-status: todo
+status: done
 assignee: implementer
 attempts: 0
 ---

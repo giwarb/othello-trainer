@@ -8,7 +8,7 @@
 
 **エンジン強化(Edax level 10 攻略)ロードマップを実行中**。設計書: `tasks/design/T083-engine-strengthening-report.md`(全体)、`tasks/design/T085-beat-level10-report.md`(T085系の規範)。
 
-- **実行中: T087**(Pattern v3 — edge+2X・対角オフセット特徴の追加と5構成ablation、Codex gpt-5.6-sol)。評価関数の表現力向上=Edaxとの差の本丸。学習(5構成×3seed)を含む長時間タスク。不採用判定も正常完了。採用時のengine/アプリ配線は後続タスク。
+- **T087実装完了(2026-07-14、Codex・約30分と高速完走、代行コミット 4a036de)、verifier+codex-review並列検証中**。**結果: v3不採用**(正常完了の否定的結論)— frozen MAEが3seedとも悪化(v2 16.23〜16.48 vs v3 16.34〜16.85)、oracle regret 0.89→2.22石で採用ゲート(c)(d)不通過。サイズ5.96MB・NPS 91.6%・20局smokeは通過。pattern_v3.binは未作成・既定評価は不変。**T088(学習法改善)への示唆**: 特徴を増やしても現行の学習法(SGD+L2・20epoch固定)では活かせない可能性 — T088で学習法を改善した後にv3特徴の再試行を検討する価値あり(実験基盤はコミット済みで再利用可能)。
 - **T085シリーズ(a/b/c)完結(2026-07-14)**: ノード予算探索(160k/wall1500ms保険)が本番アプリの強CPUまで貫通。redo各1回(a: quota比較未実施、c: Worker常駐TTの決定性違反→maxNodes経路の開始前TTクリアで解消)。
 - 残ロードマップ: T086(TT置換規則の深度保護)→ T087(Pattern v3)/T088(学習改善)→ T089a(history+aspiration)/T089b(hot-path)→ T090a-c(Edax教師蒸留・最終棋力判定)。
 - **ユーザー要望(2026-07-14、ロードマップ完了後にタスク化)**: 自作エンジンにも opening book の on/off 2モードを用意する。Edaxのbook.datコピーはGPL/容量の問題で不採用とし、既存定石DBを骨格に序盤局面をローカルEdaxで深読みさせた自前ブックを生成する方式(承認済みの教師データローカル生成方針と同枠組み)。CPU設定にトグルを追加。ベンチは引き続き両者ブックオフ。
@@ -18,7 +18,7 @@
 
 | ID | タスク | 担当 | 状態 | 試行 |
 |---|---|---|---|---|
-| T087 | Pattern v3(edge+2X・diag567追加、5構成ablation、PWV3形式) | codex(gpt-5.6-sol) | in_progress | 0 |
+| T087 | Pattern v3(edge+2X・diag567追加、5構成ablation、PWV3形式) | codex(gpt-5.6-sol) | review | 0 |
 
 ## 有効な方針・申し送り(今後のタスクに効くもの)
 
