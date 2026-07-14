@@ -1,7 +1,7 @@
 ---
 id: T087
 title: Pattern v3 — edge+2X・対角オフセット特徴の追加とablation比較(PWV3形式)
-status: review # todo | in_progress | review | redo | done | blocked
+status: done # todo | in_progress | review | redo | done | blocked
 assignee: codex(gpt-5.6-sol)
 attempts: 0
 ---
