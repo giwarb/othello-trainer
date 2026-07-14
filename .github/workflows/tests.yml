@@ -1,0 +1,45 @@
+name: Rust Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo registry/target
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-test-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-test-
+
+      # engineクレートのユニットテスト(debugビルド)。ffo_bench/pattern_eval_nps_bench
+      # の重いテストはdebugビルドでは`#[cfg_attr(debug_assertions, ignore)]`により
+      # 自動的にスキップされるため、ここでは高速に終わる(T092)。
+      - name: cargo test -p engine (debug)
+        run: cargo test -p engine
+
+      # FFO #40-#44(空きマス20-23)のfast系のみ。heavy系(#45-#49)は`#[ignore]`の
+      # ままCIでは実行しない(数十分〜数時間かかるため、engine/tests/ffo_bench.rs
+      # 冒頭のドキュメント参照)。
+      - name: cargo test -p engine --release --test ffo_bench (FFO fast)
+        run: cargo test -p engine --release --test ffo_bench -- --nocapture
+
+      # trainクレート。train/tests/real_data.rsはWTHOR実データ(train/data/、
+      # ライセンス上リポジトリ非同梱)が無い環境では失敗せずスキップする実装に
+      # なっているため、CI用の特別な属性変更は不要(T092調査時点で確認済み)。
+      - name: cargo test -p train
+        run: cargo test -p train
