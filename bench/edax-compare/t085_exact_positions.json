@@ -1,7 +1,36 @@
 {
   "schemaVersion": 1,
-  "source": "T084 committed loss_analysis entries; first 18 positions with 19-24 empties",
+  "source": "T084 committed loss_analysis entries for empties 19-24, plus deterministic eval_cli gen boundary/calibration positions for empties 13-18 and 25-30",
+  "generation": {
+    "exact13To18": "For each E=13..18: eval_cli gen --category exact-E --min-empties E --max-empties E --count 4 --seed (85100+E)",
+    "suppressed25To30": "For each E=25..30: eval_cli gen --category exact-E --min-empties E --max-empties E --count 1 --seed (85100+E)",
+    "purpose": "13-14 exact-default boundary; 15-18 estimated_min_nodes p75 calibration band; 19-24 quota-policy/oracle corpus; 25-30 exact suppression boundary"
+  },
   "positions": [
+    {"id":"exact-13-1","category":"exact-default-13-14","board":"---OXXX-O--OXXX--OOXOOOOXXXOXX-XXXXXOOX--XXXOOXX-XXXXXXXXXX-OOOO","side_to_move":"white"},
+    {"id":"exact-13-2","category":"exact-default-13-14","board":"-X-X-----OXX-X--X-OXOOOX-XXXXOOXOOXOOXOXOXXOOOOXXOOOOOOX-XOOOOOO","side_to_move":"white"},
+    {"id":"exact-13-3","category":"exact-default-13-14","board":"-XX--O--OXXOOOO-XXXXXOOXXXOXXXOXXOXOXXOXXOOXXXOX-OOOO-O--X--O-OX","side_to_move":"white"},
+    {"id":"exact-13-4","category":"exact-default-13-14","board":"O-X--XOO-XX-XOOOX-XOOO-OXXXXOO--XXOXXOOOXXOXOXOXXOOOXXX--XO-OOO-","side_to_move":"white"},
+    {"id":"exact-14-1","category":"exact-default-13-14","board":"-O-XXXXXO-X-XOX--OXXOOO-OOOOXOO-OOOOOXOOXOXOX-OOXXOXOXOXXO---O--","side_to_move":"black"},
+    {"id":"exact-14-2","category":"exact-default-13-14","board":"-OOOXXX---OOXX----XXXX-XOOXXOXOXOXXOXOOXOOXOOOO-O-OXOO--OOOOOOO-","side_to_move":"black"},
+    {"id":"exact-14-3","category":"exact-default-13-14","board":"XO-X-O-XX-OX-OX-XO-XOO--XXOXXO-XOOOXXOXOOXOXOX--OXXOXOXX-XXX-XOO","side_to_move":"black"},
+    {"id":"exact-14-4","category":"exact-default-13-14","board":"-XXX-O--XXXOOO--XXXOOXX-XXOOOO-OXXXOXXO-XOXXXXX-XO-OXXX-XO-OXXX-","side_to_move":"black"},
+    {"id":"exact-15-1","category":"p75-calibration-15-18","board":"----OX----OOX--XOOOXOOXXXOXOOOXXXXOOOOXXXXXOOO--XXOXXOO--OOOO-OO","side_to_move":"white"},
+    {"id":"exact-15-2","category":"p75-calibration-15-18","board":"-XXXXO--XOOOO---XOOO-XO-XOOOOOX-XOOXXXXXOX-XOOXXOOXXX-X--O-X-OXO","side_to_move":"white"},
+    {"id":"exact-15-3","category":"p75-calibration-15-18","board":"OX----X-OX-OO-XX-OOOXOOOOOOXXXOOXOXXOOX-XXOXOX-XXXXOOX---OXOO-X-","side_to_move":"white"},
+    {"id":"exact-15-4","category":"p75-calibration-15-18","board":"OOX-X-OXOOOXOOXX-XOOXOXXXXXOXXXXXOXOXOXXXXOOOOOXXOOO------------","side_to_move":"white"},
+    {"id":"exact-16-1","category":"p75-calibration-15-18","board":"O-X----O-OOOOOO-XXOOOO-XXXOOOXO--O-OOXXOOOXOXXXX-OOX-XXO-OOOXX--","side_to_move":"black"},
+    {"id":"exact-16-2","category":"p75-calibration-15-18","board":"-X-XXXXX-OX-XOX---OXXXXXOOOOOOXO---XOXOO-OOOXOOOOOOOOOOOX-X-O---","side_to_move":"black"},
+    {"id":"exact-16-3","category":"p75-calibration-15-18","board":"----X---XXXXXX-XXXXXXOOXXXXOX-OX-XXXOOO-OXX-XOXO--XXOXXO--XXXXXO","side_to_move":"black"},
+    {"id":"exact-16-4","category":"p75-calibration-15-18","board":"X--X---OOOOO--O-XOOO-OX-XOOOOXOOXOXXXOO-XOXXOO--XXXXOOOOX-O-OOO-","side_to_move":"black"},
+    {"id":"exact-17-1","category":"p75-calibration-15-18","board":"--XO-OO-XXXXXXXXXXXXXXXXOXOOXXXX-XXOXXXX-X-X-XXOOOO--XOO-------O","side_to_move":"white"},
+    {"id":"exact-17-2","category":"p75-calibration-15-18","board":"X--O-X--XX-OOXXX-XOOOOX-OOXXOOOX-OOXOO---XOOOOOOXXXXO-X-OXXXO---","side_to_move":"white"},
+    {"id":"exact-17-3","category":"p75-calibration-15-18","board":"--XOOOX--XXXOO-X-X-OOOX---XOOXO--XXOXOX--XOXOXXX-OOXXOOX-OOOOO-O","side_to_move":"white"},
+    {"id":"exact-17-4","category":"p75-calibration-15-18","board":"---XO---O--XOO--OOOXXOO-OOOOXXOO-OXOOOXOO-XXXXXX-XXXOOOOX-XXOO--","side_to_move":"white"},
+    {"id":"exact-18-1","category":"p75-calibration-15-18","board":"O------XO---XOXXOOOXOXXXOOXOXXX--OXXXXXX-OOOOXXO-OO-XXX----XXXXX","side_to_move":"black"},
+    {"id":"exact-18-2","category":"p75-calibration-15-18","board":"---XOOO--O-OOO---XOXOXXXXXXOOX-XXXOOOXOXXXXXOOOX-XXO-OOX-X-O----","side_to_move":"black"},
+    {"id":"exact-18-3","category":"p75-calibration-15-18","board":"-OX------OO-OX---OXOOXXXOOXXOXXX--XXO-XXXXXXXXXOOXXOOOO--XXOOO--","side_to_move":"black"},
+    {"id":"exact-18-4","category":"p75-calibration-15-18","board":"OOOOOO-XOOOOOOX-OOOOXX--OOOOOO--OXOOOOO-XXXXO--O-OXOXO----OX----","side_to_move":"black"},
     {"id":"t084-game-1-ply-27","category":"exact-19-24","board":"------------------OOOOXX-OOOOXOXOOOOXOOOOOXOOXO-XXXXXO-O-XXXX-O-","side_to_move":"black","baselineMove":"e2","oracleMove":"f8","oracleScore":-2.0,"baselineMoveValue":-4.0,"baselineRegret":2.0},
     {"id":"t084-game-1-ply-29","category":"exact-19-24","board":"-----O------O-----OOXOXX-OOOXXOXOOOOXOOOOOXOOXO-XXXXXO-O-XXXX-O-","side_to_move":"black","baselineMove":"a3","oracleMove":"d2","oracleScore":0.0,"baselineMoveValue":-4.0,"baselineRegret":4.0},
     {"id":"t084-game-1-ply-31","category":"exact-19-24","board":"-----O------O---X-OOXOXXOOOOXXOXOOXOXOOOOOXXOXO-XXXXXO-O-XXXX-O-","side_to_move":"black","baselineMove":"b2","oracleMove":"f2","oracleScore":-4.0,"baselineMoveValue":-16.0,"baselineRegret":12.0},
@@ -19,6 +48,12 @@
     {"id":"t084-game-5-ply-29","category":"exact-19-24","board":"--O-XXXO---OOOO---XOOO-X--XOXOOX--XXOXXX--XOXXXX--XOXXX-XXXXXX-O","side_to_move":"black","baselineMove":"d1","oracleMove":"c2","oracleScore":-22.0,"baselineMoveValue":-30.0,"baselineRegret":8.0},
     {"id":"t084-game-21-ply-27","category":"exact-19-24","board":"----X---X--OXX--XXOOOO-X-OXXXOO-OOOOXXOO-XOOXXX-X-OXXX----XOX---","side_to_move":"black","baselineMove":"b2","oracleMove":"c2","oracleScore":-18.0,"baselineMoveValue":-22.0,"baselineRegret":4.0},
     {"id":"t084-game-21-ply-29","category":"exact-19-24","board":"----X---XXOOXX--XXOOOO-X-OOXXOO-OOOOXXOO-XOOXXX-X-OXXX----XOX---","side_to_move":"black","baselineMove":"b1","oracleMove":"c1","oracleScore":-22.0,"baselineMoveValue":-28.0,"baselineRegret":6.0},
-    {"id":"t084-game-21-ply-31","category":"exact-19-24","board":"-X--X---XXXOXX--XXOXOO-X-OOXXOO-OOOOXXOOOOOOXXX-X-OXXX----XOX---","side_to_move":"black","baselineMove":"a4","oracleMove":"a4","oracleScore":-28.0,"baselineMoveValue":-28.0,"baselineRegret":0.0}
+    {"id":"t084-game-21-ply-31","category":"exact-19-24","board":"-X--X---XXXOXX--XXOXOO-X-OOXXOO-OOOOXXOOOOOOXXX-X-OXXX----XOX---","side_to_move":"black","baselineMove":"a4","oracleMove":"a4","oracleScore":-28.0,"baselineMoveValue":-28.0,"baselineRegret":0.0},
+    {"id":"exact-25-1","category":"exact-suppressed-25-30","board":"--X-XO-XOO-XOOOOXXOOXOO---OOXXO---OOOOX----OOXXX----XOO----X--OX","side_to_move":"white"},
+    {"id":"exact-26-1","category":"exact-suppressed-25-30","board":"X--------X-O-O---XOOOOO--O-OOO--OXXOXXXXXXXOXXXXXXOOO---X-O-X---","side_to_move":"black"},
+    {"id":"exact-27-1","category":"exact-suppressed-25-30","board":"-X-O-X--O-X-X----O-X----X-XXXX---XOOOO-X-XXOOOXX-XXXXXXX---XXXX-","side_to_move":"white"},
+    {"id":"exact-28-1","category":"exact-suppressed-25-30","board":"-O--X---OOOOXOO---OOOO---O-OXOX---OXX-OX-OXXXOX-O--XXXXX-------O","side_to_move":"black"},
+    {"id":"exact-29-1","category":"exact-suppressed-25-30","board":"---O-------OO----O-OXOXX-XOOXXO---XXXXOX-OXXOOX--OOX-OXX-O---O--","side_to_move":"white"},
+    {"id":"exact-30-1","category":"exact-suppressed-25-30","board":"----------X-O-XO-XXXXOO---XXXOO--OOOXX-O-OOOXXX--O-XX-X----XX--X","side_to_move":"black"}
   ]
 }

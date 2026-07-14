@@ -228,7 +228,11 @@ pub struct SearchResult {
     pub exact_policy_version: &'static str,
 }
 
-const EXACT_POLICY_VERSION: &str = "t085a-v1";
+const EXACT_POLICY_VERSION: &str = "t085a-v2";
+// 空き19〜24固定18局面で25/40/60/75%を比較し、static-only=0の同率後、
+// oracle regret最小(25/40%=1.667石)かつexact完走数が多い40%を採用。
+// 生データ: bench/edax-compare/t085_exact_quota_comparison.json
+const EXACT_QUOTA_PERCENT: u8 = 40;
 
 #[derive(Default)]
 struct ExactStats {
@@ -332,7 +336,16 @@ pub fn search_with_eval(
     tt: &mut TranspositionTable,
     weights: Option<&PatternWeights>,
 ) -> SearchResult {
-    search_with_eval_inner(board, side_to_move, limit, tt, weights, true, None)
+    search_with_eval_inner(
+        board,
+        side_to_move,
+        limit,
+        tt,
+        weights,
+        true,
+        None,
+        EXACT_QUOTA_PERCENT,
+    )
 }
 
 /// [`search_with_eval`]に探索全体のノード数予算を追加したCLI/ベンチ用入口。
@@ -344,6 +357,31 @@ pub fn search_with_eval_with_node_limit(
     weights: Option<&PatternWeights>,
     max_nodes: u64,
 ) -> SearchResult {
+    search_with_eval_with_node_limit_and_exact_quota(
+        board,
+        side_to_move,
+        limit,
+        tt,
+        weights,
+        max_nodes,
+        EXACT_QUOTA_PERCENT,
+    )
+}
+
+/// T085aのquota候補比較用入口。通常経路は
+/// [`search_with_eval_with_node_limit`] が選定済みの既定値を渡す。
+/// 探索アルゴリズムを候補ごとに書き換えず、同一バイナリ・同一条件で
+/// 25/40/60/75%を再現比較するためにeval_cliからのみ利用する。
+pub fn search_with_eval_with_node_limit_and_exact_quota(
+    board: &Board,
+    side_to_move: Side,
+    limit: &SearchLimit,
+    tt: &mut TranspositionTable,
+    weights: Option<&PatternWeights>,
+    max_nodes: u64,
+    exact_quota_percent: u8,
+) -> SearchResult {
+    assert!(exact_quota_percent <= 100);
     search_with_eval_inner(
         board,
         side_to_move,
@@ -352,6 +390,7 @@ pub fn search_with_eval_with_node_limit(
         weights,
         true,
         Some(max_nodes),
+        exact_quota_percent,
     )
 }
 
@@ -369,6 +408,7 @@ fn search_with_eval_inner(
     weights: Option<&PatternWeights>,
     enable_etc: bool,
     max_nodes: Option<u64>,
+    exact_quota_percent: u8,
 ) -> SearchResult {
     // TTスケール混同防止(T007): 同じ `tt` に対して過去に異なる
     // `exact_from_empties` で探索していた場合、その古いエントリは
@@ -583,7 +623,7 @@ fn search_with_eval_inner(
         if max_nodes.is_some() && depth == 1 {
             baseline_nodes = total_nodes;
             let remaining = max_nodes.unwrap().saturating_sub(total_nodes);
-            exact_quota_remaining = remaining.saturating_mul(60) / 100;
+            exact_quota_remaining = remaining.saturating_mul(exact_quota_percent as u64) / 100;
             if empties <= limit.exact_from_empties as u32
                 && exact_quota_remaining >= estimated_min_exact_nodes(empties)
             {
@@ -686,7 +726,11 @@ fn search_with_eval_inner(
             result.exact_nodes = exact_stats.nodes;
             result.midgame_nodes = total_nodes.saturating_sub(exact_stats.nodes);
             result.wall_limit_hit = time_budget_hit;
-            result.fallback_reason = fallback_reason;
+            // GlobalNodeLimit/WallClockは探索全体を止めた最終理由なので優先する。
+            // それらが無く、木内部exactだけがquota切れから中盤探索へ復帰した
+            // 場合も、実イベントと矛盾しないようExactQuotaを報告する。
+            result.fallback_reason = fallback_reason
+                .or_else(|| (exact_stats.aborted_by_quota > 0).then_some(AbortReason::ExactQuota));
             result
         }
         None => SearchResult {
@@ -1660,6 +1704,21 @@ mod tests {
         moves[0]
     }
 
+    fn board_from_obf(obf: &str) -> Board {
+        assert_eq!(obf.len(), 64);
+        let mut black = 0u64;
+        let mut white = 0u64;
+        for (i, cell) in obf.bytes().enumerate() {
+            match cell {
+                b'X' => black |= 1u64 << i,
+                b'O' => white |= 1u64 << i,
+                b'-' => {}
+                _ => panic!("invalid OBF cell"),
+            }
+        }
+        Board { black, white }
+    }
+
     #[test]
     fn search_from_initial_position_returns_a_legal_move() {
         let board = Board::initial();
@@ -2278,12 +2337,28 @@ mod tests {
                 let limit = default_limit(max_depth, 10);
 
                 let mut tt_on = TranspositionTable::new(4);
-                let result_on =
-                    search_with_eval_inner(board, *side, &limit, &mut tt_on, None, true, None);
+                let result_on = search_with_eval_inner(
+                    board,
+                    *side,
+                    &limit,
+                    &mut tt_on,
+                    None,
+                    true,
+                    None,
+                    EXACT_QUOTA_PERCENT,
+                );
 
                 let mut tt_off = TranspositionTable::new(4);
-                let result_off =
-                    search_with_eval_inner(board, *side, &limit, &mut tt_off, None, false, None);
+                let result_off = search_with_eval_inner(
+                    board,
+                    *side,
+                    &limit,
+                    &mut tt_off,
+                    None,
+                    false,
+                    None,
+                    EXACT_QUOTA_PERCENT,
+                );
 
                 total_nodes_with_etc += result_on.nodes;
                 total_nodes_without_etc += result_off.nodes;
@@ -2370,12 +2445,28 @@ mod tests {
                 let limit = default_limit(max_depth, 10);
 
                 let mut tt_on = TranspositionTable::new(16);
-                let result_on =
-                    search_with_eval_inner(board, *side, &limit, &mut tt_on, None, true, None);
+                let result_on = search_with_eval_inner(
+                    board,
+                    *side,
+                    &limit,
+                    &mut tt_on,
+                    None,
+                    true,
+                    None,
+                    EXACT_QUOTA_PERCENT,
+                );
 
                 let mut tt_off = TranspositionTable::new(16);
-                let result_off =
-                    search_with_eval_inner(board, *side, &limit, &mut tt_off, None, false, None);
+                let result_off = search_with_eval_inner(
+                    board,
+                    *side,
+                    &limit,
+                    &mut tt_off,
+                    None,
+                    false,
+                    None,
+                    EXACT_QUOTA_PERCENT,
+                );
 
                 total_nodes_with_etc += result_on.nodes;
                 total_nodes_without_etc += result_off.nodes;
@@ -2763,5 +2854,76 @@ mod tests {
         assert!(result.last_completed_depth >= 1);
         assert!(!result.static_only);
         assert!(result.best_move.is_some());
+    }
+
+    #[test]
+    fn leaf_exact_quota_abort_continues_midgame_iteration_without_tt_domain_leak() {
+        // 固定コーパス exact-15-2。depth=2では各ルート子が空き14となり、
+        // 木内部exactを1回開始してquota切れにした後、同じ子を中盤探索へ
+        // 戻してdepth=2全体を完走する。
+        let board =
+            board_from_obf("-XXXXO--XOOOO---XOOO-XO-XOOOOOX-XOOXXXXXOX-XOOXXOOXXX-X--O-X-OXO");
+        let side = Side::White;
+        let limit = SearchLimit {
+            max_depth: 2,
+            time_ms: None,
+            exact_from_empties: 18,
+        };
+        let mut tt = TranspositionTable::new(16);
+        let result = search_with_eval_with_node_limit(&board, side, &limit, &mut tt, None, 240_000);
+
+        assert_eq!(result.exact_leaf_attempts, 1);
+        assert_eq!(result.exact_aborted_by_quota, 1);
+        assert_eq!(result.last_completed_depth, 2);
+        assert_eq!(result.fallback_reason, Some(AbortReason::ExactQuota));
+        assert!(!result.node_limit_hit);
+        assert!(!result.static_only);
+
+        let pure_midgame_limit = SearchLimit {
+            exact_from_empties: 0,
+            ..limit
+        };
+        let mut pure_midgame_tt = TranspositionTable::new(16);
+        let pure_midgame = search_with_eval_with_node_limit(
+            &board,
+            side,
+            &pure_midgame_limit,
+            &mut pure_midgame_tt,
+            None,
+            240_000,
+        );
+        assert_eq!(result.best_move, pure_midgame.best_move);
+        assert_eq!(result.score, pure_midgame.score);
+        assert_eq!(
+            result.last_completed_depth,
+            pure_midgame.last_completed_depth
+        );
+
+        let root_hash = zobrist_hash(&board, side);
+        let midgame = tt
+            .probe(root_hash, TTDomain::Midgame)
+            .expect("completed depth=2 result must be stored as Midgame");
+        assert!(midgame.depth >= 2);
+        assert!(tt.probe(root_hash, TTDomain::Exact).is_none());
+
+        // exact試行は1子だけで中断している。不完全な試行ルートはExactへ
+        // 格納されず、その後の通常NegaScoutだけがルート子へMidgame-domain
+        // の値を格納する。純中盤探索との結果一致と合わせて混入を固定する。
+        let mut legal = board.legal_moves(side);
+        let mut midgame_children = 0;
+        while legal != 0 {
+            let bit = legal & legal.wrapping_neg();
+            legal &= legal - 1;
+            let child = board.apply_move(side, bit);
+            let child_hash = zobrist_hash(&child, side.opposite());
+            assert!(
+                tt.probe(child_hash, TTDomain::Exact).is_none(),
+                "an aborted exact root must not be stored"
+            );
+            if tt.probe(child_hash, TTDomain::Midgame).is_some() {
+                midgame_children += 1;
+            }
+        }
+        assert!(midgame_children > 0);
     }
 }

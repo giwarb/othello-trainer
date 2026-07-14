@@ -626,6 +626,11 @@ fn cmd_best(args: &[String]) {
         assert!(parsed > 0, "--max-nodes must be greater than zero");
         parsed
     });
+    let exact_quota_percent = get_arg_u32(args, "--exact-quota-percent", Some(40)) as u8;
+    assert!(
+        matches!(exact_quota_percent, 25 | 40 | 60 | 75),
+        "--exact-quota-percent must be one of 25, 40, 60, 75"
+    );
     let pattern_weights = load_pattern_weights(args);
 
     let mut input = String::new();
@@ -661,13 +666,14 @@ fn cmd_best(args: &[String]) {
     };
     let mut tt = TranspositionTable::new(16);
     let result = match max_nodes {
-        Some(max_nodes) => search::search_with_eval_with_node_limit(
+        Some(max_nodes) => search::search_with_eval_with_node_limit_and_exact_quota(
             &b,
             side,
             &limit,
             &mut tt,
             pattern_weights.as_ref(),
             max_nodes,
+            exact_quota_percent,
         ),
         None => search::search_with_eval(&b, side, &limit, &mut tt, pattern_weights.as_ref()),
     };
@@ -729,6 +735,7 @@ fn cmd_best(args: &[String]) {
             },
             "requestedDepth": depth,
             "requestedExactFromEmpties": exact_from_empties,
+            "exactQuotaPercent": exact_quota_percent,
             "requestedTimeMs": time_ms,
         })
     );
@@ -743,6 +750,11 @@ fn cmd_budget_regression(args: &[String]) {
         .expect("invalid --max-nodes");
     let time_ms = get_arg(args, "--time-ms").map(|v| v.parse::<u64>().expect("invalid --time-ms"));
     let exact_from_empties = get_arg_u32(args, "--exact-from-empties", Some(18)) as u8;
+    let exact_quota_percent = get_arg_u32(args, "--exact-quota-percent", Some(40)) as u8;
+    assert!(
+        matches!(exact_quota_percent, 25 | 40 | 60 | 75),
+        "--exact-quota-percent must be one of 25, 40, 60, 75"
+    );
     let depth = get_arg_u32(args, "--depth", Some(10)) as u8;
     let weights = load_pattern_weights(args);
     let manifest: Value =
@@ -778,13 +790,14 @@ fn cmd_budget_regression(args: &[String]) {
         );
         let run = || {
             let mut tt = TranspositionTable::new(16);
-            search::search_with_eval_with_node_limit(
+            search::search_with_eval_with_node_limit_and_exact_quota(
                 &board,
                 side,
                 &limit,
                 &mut tt,
                 weights.as_ref(),
                 max_nodes,
+                exact_quota_percent,
             )
         };
         let first = run();
@@ -814,12 +827,17 @@ fn cmd_budget_regression(args: &[String]) {
         );
         rows.push(json!({
             "id": id,
+            "empties": board.empty_count(),
             "move": first.best_move.map(square_to_notation),
             "score": first.score,
             "depth": first.depth,
             "nodes": first.nodes,
             "staticOnly": first.static_only,
             "exactNodes": first.exact_nodes,
+            "exactRootAttempts": first.exact_root_attempts,
+            "exactLeafAttempts": first.exact_leaf_attempts,
+            "exactCompleted": first.exact_completed,
+            "exactAbortedByQuota": first.exact_aborted_by_quota,
             "fallbackReason": first.fallback_reason.map(|reason| format!("{reason:?}")),
             "deterministic": same,
         }));
@@ -829,6 +847,7 @@ fn cmd_budget_regression(args: &[String]) {
         "{}",
         json!({
             "positions": rows,
+            "exactQuotaPercent": exact_quota_percent,
             "deterministic": deterministic,
             "nullMoveWithLegal": null_move_with_legal,
             "staticOnly": static_only,
