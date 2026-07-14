@@ -8,7 +8,7 @@
 
 **エンジン強化(Edax level 10 攻略)ロードマップを実行中**。設計書: `tasks/design/T083-engine-strengthening-report.md`(全体)、`tasks/design/T085-beat-level10-report.md`(T085系の規範)。
 
-- **実行中: T085c**(ノード予算探索のアプリ配線、Codex gpt-5.6-sol)。codex-review は**不合格(ブロッカー1件)**: 本番Workerは単一Engine+TT再利用のため同一リクエスト2回でスコアが変化(6.12→0.50を実測)、決定性要件違反+T085b校正(毎回新TT)と前提不一致。追加テストは毎回new Engine()でこれを検出できない構造。verifier完了後に統合redoフィードバックを作成予定。
+- **実行中: T085c redo #1**(Codex gpt-5.6-sol)。verifier合格(配線・適用範囲・本番動作・キャッシュキー)だが codex-review がブロッカー検出: Worker常駐Engine+TT再利用で決定性違反(同一リクエスト2回でスコア6.12→0.50を実測)、T085b校正(毎回新TT)と前提不一致。修正: max_nodes経路のみTT状態を校正条件に一致させる+同一Engineでの連続リクエスト回帰テスト。redoフィードバック記入済み。
 - 残ロードマップ: T086(TT置換規則の深度保護)→ T087(Pattern v3)/T088(学習改善)→ T089a(history+aspiration)/T089b(hot-path)→ T090a-c(Edax教師蒸留・最終棋力判定)。
 - 現在の対Edax実力(T085b実測, node160k): level10 に 4勝2分54敗(平均-29.1石)。T082時点(0勝20敗・-37.2)から改善中。
 
@@ -16,7 +16,7 @@
 
 | ID | タスク | 担当 | 状態 | 試行 |
 |---|---|---|---|---|
-| T085c | ノード予算探索のWorker・アプリ配線(強CPUプリセット160k/1500ms) | codex(gpt-5.6-sol) | review | 0 |
+| T085c | ノード予算探索のWorker・アプリ配線(強CPUプリセット160k/1500ms) | codex(gpt-5.6-sol) | in_progress | 1 |
 
 ## 有効な方針・申し送り(今後のタスクに効くもの)
 
