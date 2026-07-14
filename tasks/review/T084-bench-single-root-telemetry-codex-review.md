@@ -1,71 +1,78 @@
-結論: **T084 は `done` ではなく `redo` が妥当**です。主要機能は実装されていますが、single-root 対戦結果を無効化し得る重大な問題が見つかりました。今回は読み取り・検証のみで、ファイル変更はしていません。
+## 最終レビュー
 
-## Git確認
+**総合判定: 不合格**
 
-- `git log 94a347e..ba1b834` は実装コミット `ba1b834` の1件。
-- `ba1b834` は現在の `origin/main` に含まれています。
-- 現在の HEAD / `origin/main` は後続のタスク記録コミット `8508550`。
-- `git status --short` は空です。
-- GitHub Actions 成功は、ネットワーク制限により独立確認できませんでした。
+redo #1 の致命的不具合は修正され、再生成された120局の成果物も機械的には妥当です。ただし、標準ベンチとして必要な provenance/resume の信頼性にブロッカーが残り、エンジン変更後の必須回帰テストも確認できません。
 
-## (a) 完了している部分
+### 重大（ブロッカー）
 
-- `eval_cli best` と single-root 探索の基本実装。
-- `move / score / depth / nodes / elapsedMs / nps / timedOut / exact.*` のテレメトリ。
-- 固定深さの同一局面2回実行で、move・score・depth・nodes が一致。
-- 既存結果では固定深さ40局面が `allMatched=true`。
-- loss 255件はすべて `>= 0`。
-- opening データは目視上 smoke 10局面、primary 30局面、ID付き。
-- 結果ファイルには120局、single-root/allmoves × level 10/5/1 の集計が存在。
-- レポートには方式比較、レベル別戦績、テレメトリ、phase別loss、固定深さ結果が記載されています。
+1. resume により異なる実装の結果を混在させ、現在のコミットの成果物として記録できる
 
-## (b) 未完・未検証
+[vs_edax.py](/C:/Users/yoshi/work/othello-trainer/bench/edax-compare/vs_edax.py:1175) の `try_resume()` は `runKey`、つまり設定値しか比較していません。engine/harness を変更しても設定が同じなら、以前の対局・弱点分析・決定性検証を読み込んでスキップします。
 
-- CargoテストとFFO #40–44は、今回の読み取り専用環境で Cargo build lock を作れず再実行できませんでした。
-- kill/restart によるcheckpoint/resumeの実地検証は未完。
-- GitHub Actions run `29295789213` の成功は作業ログ上のみで、独立確認できていません。
-- verifier/reviewer の合格記録がなく、タスクは独立検証を完了していません。
-- FFOの「ノード数が変更前と不変」は具体的な前後値が残っていません。
+その後 [vs_edax.py](/C:/Users/yoshi/work/othello-trainer/bench/edax-compare/vs_edax.py:1389) で `meta` を現在のコミット情報に差し替えるため、旧実装の結果が現在の `gitCommit`、`gitTree`、`harnessSha256` で生成されたように見えます。
 
-## (c) 問題点
+さらに [vs_edax.py](/C:/Users/yoshi/work/othello-trainer/bench/edax-compare/vs_edax.py:153) は `eval_cli.exe` が存在すれば再ビルドせず、実行バイナリのハッシュも保存しません。したがって clean worktree でも古いバイナリを実行できます。
 
-1. **single-root が終盤で合法手を返さず、対局を途中終了させる可能性があります。**
+最低限、resume の互換性判定に以下を含める必要があります。
 
-   exact探索が時間切れになり、depth 1も完走できない場合、[search.rs](C:/Users/yoshi/work/othello-trainer/engine/src/search.rs:426) は `best_move=None` を返します。[eval_cli.rs](C:/Users/yoshi/work/othello-trainer/engine/src/bin/eval_cli.rs:682) はこれを `move:null` として出力し、[vs_edax.py](C:/Users/yoshi/work/othello-trainer/bench/edax-compare/vs_edax.py:511) は「合法手なし」と解釈して対局を終了します。
+- engine/harness のソースID
+- 重みハッシュ
+- Edaxバイナリまたはバージョン
+- 実際に実行する `eval_cli.exe` のハッシュ
 
-   既存のsingle-root 60局中48局が空き18または19で終了しており、`exact-from-empties=18` と一致します。したがって、現在のsingle-root戦績と比較レポートは汚染されている疑いが強く、ベースラインとして採用できません。
+不一致なら既存チェックポイントを拒否する必要があります。
 
-2. **[openings.json](C:/Users/yoshi/work/othello-trainer/bench/edax-compare/openings.json:349) が不正なJSONです。**
+2. redo #1 のエンジン変更後に必須テストを実行した証拠がない
 
-   description内に未エスケープの改行があり、JSONパーサーで読み込めません。manifest要件はFAILです。
+`ad88c91` は `engine/src/search.rs` と `engine/src/endgame.rs` の探索処理を変更しています。しかし、その後の作業ログにある検証は `cargo build` とベンチ再実行のみです。記録されている `cargo test`／FFO実行は `ad88c91` より前です。
 
-3. **loss解析のresumeが不完全です。**
+AGENTS.md とT084要件では、`engine/src/` 変更後の以下が必須です。
 
-   [vs_edax.py](C:/Users/yoshi/work/othello-trainer/bench/edax-compare/vs_edax.py:1301) は、あるgame IDのloss entryが1件でもあればゲーム全体を完了済みとしてスキップします。途中killされたゲームの残り着手が永久に欠落します。
+- `cargo test -p engine`
+- FFO #40–44回帰
+- 特にノード数のタスク前基準との比較
 
-4. **成果物のprovenanceが不正確です。**
+今回のread-only環境では再実行を試みましたが、`target/release/.cargo-build-lock` へのアクセス拒否で実行できませんでした。したがって合格根拠にはできません。
 
-   `vs_edax_results.json` の `gitCommit` は `ba1b834` ではなく `07b819a...`。未コミット状態でベンチした可能性があり、実行コードを一意に追跡できません。また `runKey` にローカルの絶対パスが残っています。
+### 中
 
-5. **タスク管理が不整合です。**
+1. 時間切れフォールバックの直接回帰テストがない
 
-   - [T084タスク](C:/Users/yoshi/work/othello-trainer/tasks/T084-bench-single-root-telemetry.md) は `status: todo`
-   - [STATUS.md](C:/Users/yoshi/work/othello-trainer/tasks/STATUS.md) は `review`
-   - STATUSの最終更新日時は7月13日のまま
+追加された [search.rs](/C:/Users/yoshi/work/othello-trainer/engine/src/search.rs:2331) のテストは `max_nodes=1` による打ち切りだけを検証しています。redo #1 の実障害は `--time-ms 1000` でexact読みが時間切れになった経路です。
 
-   AGENTS.mdの状態同期・即時更新ルールを満たしていません。
+最終フォールバック処理は共有されており、再生成した60局のsingle-root対局では改善を確認できますが、元の障害経路を直接固定するテストも追加すべきです。
 
-## (d) 次に必要な作業
+2. チェックポイント書き込みが非アトミック
 
-優先順位は次のとおりです。
+[vs_edax.py](/C:/Users/yoshi/work/othello-trainer/bench/edax-compare/vs_edax.py:1221) の保存は対象JSONへの直接書き込みです。書き込み中にプロセスを停止するとJSONが破損し、次回起動は「parse失敗、最初から実行」になります。
 
-1. exact時間切れでも必ず合法手へフォールバックするよう修正。
-2. ハーネス側でも、合法手が存在するのに `move:null` なら対局終了ではなくエラーにする。
-3. `openings.json` を正しいJSONへ修正。
-4. loss resumeをゲーム単位ではなく着手単位で再開できるよう修正。
-5. コミット済みコードから120局ベンチを再生成し、現在のsingle-root結果を置き換える。
-6. `gitCommit`、tree hash、設定、重みファイルhashを正しく記録し、`runKey`から絶対パスを除去。
-7. Cargo/FFO、kill/resume、Actions、差分レビューを独立検証。
-8. 合格後にT084本体とSTATUSを同期して `done` にする。
+一時ファイルへ書き込み後に置換する方式でないため、長時間処理の「中断からresume」を完全には保証できません。
 
-したがって、現在の推奨状態遷移は **`review → redo`、attemptsを1増加**です。特にsingle-rootの戦績値は修正・再計測まで意思決定に使用しない方が安全です。
+### 軽微
+
+- `ee6bea3..1346f18` にはT084本体以外に、AGENTS.md、CLAUDE.md、運用スクリプト、T085設計などの並行コミットが含まれます。T084の実質的変更は主に `ad88c91` と `1346f18` です。
+- 生成された `vs_edax_results.json` は全面CRLFで、`git diff --check` が大量の trailing whitespace を報告します。JSONとしては有効ですが、差分品質を悪化させています。
+
+## 確認できた合格部分
+
+- redo #1 の合法手フォールバックを実装。
+- 合法手があるのに `move:null` ならハーネスが即時エラー。
+- 保存された対局は120局、組み合わせも各20局×6条件で重複なし。
+- 全120局が両色とも合法手なしの真の終局。
+- `move:null` による途中終了は0局。
+- 弱点分析は362件、`game_id + ply` の重複なし、`loss < 0` は0件。
+- fixed-depth 40局面は2回完全一致。
+- node-budget smoke 10局面も2回完全一致。
+- 保存された `runKey`、設定ハッシュ、harnessハッシュは現在の内容と一致。
+- レポート集計は保存JSONと整合。
+- `git status --short` は空。
+
+## 必須対応
+
+1. resume判定を実装・バイナリidentityまで含めて厳格化する。
+2. チェックポイント保存をアトミック化する。
+3. exact時間切れから合法手へフォールバックする直接回帰テストを追加する。
+4. 修正後に `cargo test -p engine` とFFO #40–44を再実行し、正解値とノード数を記録する。
+
+以上を満たした後、成果物をクリーンに再生成すれば合格判定可能です。
