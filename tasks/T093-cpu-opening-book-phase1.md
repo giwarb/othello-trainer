@@ -1,7 +1,7 @@
 ---
 id: T093
 title: CPU対局の定石ブック on/off(フェーズ1: 既存定石DB流用、TS側のみ・エンジン変更なし)
-status: todo # todo | in_progress | review | redo | done | blocked
+status: review # todo | in_progress | review | redo | done | blocked
 assignee: codex(gpt-5.6-sol)
 attempts: 0
 ---
