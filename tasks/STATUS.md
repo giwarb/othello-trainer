@@ -18,7 +18,7 @@
 
 | ID | タスク | 担当 | 状態 | 試行 |
 |---|---|---|---|---|
-| T086 | TT置換規則の品質保護(深いExact保持・品質順序probe/store) | codex(gpt-5.6-sol) | in_progress | 0 |
+| T086 | TT置換規則の品質保護(深いExact保持・品質順序probe/store) | codex(gpt-5.6-sol) | review | 0 |
 
 ## 有効な方針・申し送り(今後のタスクに効くもの)
 

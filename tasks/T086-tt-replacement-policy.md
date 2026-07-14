@@ -1,7 +1,7 @@
 ---
 id: T086
 title: TT置換規則の品質保護(深いExactの保持・品質順序probe/store)
-status: todo # todo | in_progress | review | redo | done | blocked
+status: review # todo | in_progress | review | redo | done | blocked
 assignee: codex(gpt-5.6-sol)
 attempts: 0
 ---
