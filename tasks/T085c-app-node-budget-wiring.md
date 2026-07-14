@@ -1,7 +1,7 @@
 ---
 id: T085c
 title: ノード予算探索のWorker・アプリ配線(maxNodes追加、強CPUプリセットへ160k/1500ms適用)
-status: review # todo | in_progress | review | redo | done | blocked
+status: done # todo | in_progress | review | redo | done | blocked
 assignee: codex(gpt-5.6-sol)
 attempts: 1
 ---
