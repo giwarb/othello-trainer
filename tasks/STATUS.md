@@ -76,9 +76,10 @@
 | ID | タスク | 担当 | 状態 | 試行 |
 |---|---|---|---|---|
 | T084 | ベンチ補正: single-root探索導入+テレメトリ+オラクルロス修正+固定opening | codex(gpt-5.6-sol) | done | 1 |
-| T085a | exact切替とノード数予算管理の再設計(TTドメイン分離・baseline-first・exact quota) | codex(gpt-5.6-sol) | review | 0 |
-| T091 | Codexラッパーのログ収集修正(stderr進捗の逐次記録、tail可能化) | implementer | todo | 0 |
+| T085a | exact切替とノード数予算管理の再設計(TTドメイン分離・baseline-first・exact quota) | codex(gpt-5.6-sol) | in_progress | 1 |
+| T091 | Codexラッパーのログ収集修正(stderr進捗の逐次記録、tail可能化) | implementer | in_progress | 0 |
 
+- **T085a redo #1(2026-07-14)**: verifier も不合格(codex-review のブロッカー2件をコード直読で独立裏付け)。実行系は全項目パス(cargo test 148件・FFO正解値/ノード数完全一致・budget-regression決定的・テレメトリ15フィールド・フォールバック直接テスト・Actions成功・ツリー清潔)。不合格理由は要件未実装: quota 4候補比較(60%ハードコードのみ)とコーパス空き13〜30未カバー。redoフィードバック6項目をタスクファイルに記入し attempts=1 で Codex に再委譲。性能ゲート「序中盤悪化0.25石以内」は**合算225局面で判定**とオーケストレーター裁定(序盤単独+0.253はボーダーだが合算-0.29改善、内訳記録は継続要求)。verifier特記: FFO初回実行が環境起因とみられる一過性クラッシュ(0xffffffff)→再実行2回とも完走・ノード数一致で問題なしと判断。GitHub ActionsはPagesデプロイのみでcargo testを実行しない構成(CI改善の将来課題)。
 - **T085a検証中間結果(2026-07-14)**: codex-review は**不合格**(`tasks/review/T085a-exact-node-budget-codex-review.md`)。ブロッカー2件: (1)exact quota 25/40/60/75%比較が未実施(60%固定)、(2)コーパスが空き19〜24のみで要求の13〜30を未カバー。中3件: 木内部ExactQuotaがfallbackReason未反映、quota切れ→中盤継続+TT非混入の直接テスト不足、性能数値がコミットに未含有。いずれも固定コーパス上の短時間作業で対応可能(120局ベンチ再実行は不要=ユーザー方針と両立)。主要実装の正解値破壊は無しと確認済み。verifierの結果と統合してredoフィードバックを作成予定。
 - **T091起票(2026-07-14、ユーザー指摘)**: codex-task.ps1 のログが最終メッセージのみ・完了時一括で「tailで進捗確認」が機能していない(進捗はstderrに流れるがTee-Objectはstdoutのみ捕捉)。修正タスクを起票済み。**T085aの検証完了直後に委譲する**(verifierの作業ツリー清潔チェックと並行させない)。
 - **T085a実装完了(2026-07-14、Codex gpt-5.6-sol・約55分、代行コミット 05b5267)、verifier+codex-review並列検証中(範囲 cf57b56..05b5267)**。実装者報告の数値: 空き19〜24固定18局面で平均regret 5.56→2.11石(62%減)・loss>=4石 13→6件(53.8%減)、cargo test 148件パス、FFO #40-44正解値・ノード数(合計1,299,102,329)完全不変、budget-regression 18/18決定的一致・overshoot<=1024。**要注意**: 序盤単独regretが+0.253石(丸め前)で性能ゲート「悪化0.25石以内」のボーダー — 設計書§1.10の規範が序中盤合算(2.20→1.91で改善)か序盤単独かの解釈をverifierに確認させ、判定に反映する。TT分離は16-byte entry維持のためdepth上位bitにdomainを符号化する工夫あり(素直な追加だと容量半減・FFOノード増を実測で確認したとのこと)。
