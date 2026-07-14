@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "source": "T084 committed loss_analysis entries; first 18 positions with 19-24 empties",
+  "positions": [
+    {"id":"t084-game-1-ply-27","category":"exact-19-24","board":"------------------OOOOXX-OOOOXOXOOOOXOOOOOXOOXO-XXXXXO-O-XXXX-O-","side_to_move":"black","baselineMove":"e2","oracleMove":"f8","oracleScore":-2.0,"baselineMoveValue":-4.0,"baselineRegret":2.0},
+    {"id":"t084-game-1-ply-29","category":"exact-19-24","board":"-----O------O-----OOXOXX-OOOXXOXOOOOXOOOOOXOOXO-XXXXXO-O-XXXX-O-","side_to_move":"black","baselineMove":"a3","oracleMove":"d2","oracleScore":0.0,"baselineMoveValue":-4.0,"baselineRegret":4.0},
+    {"id":"t084-game-1-ply-31","category":"exact-19-24","board":"-----O------O---X-OOXOXXOOOOXXOXOOXOXOOOOOXXOXO-XXXXXO-O-XXXX-O-","side_to_move":"black","baselineMove":"b2","oracleMove":"f2","oracleScore":-4.0,"baselineMoveValue":-16.0,"baselineRegret":12.0},
+    {"id":"t084-game-2-ply-28","category":"exact-19-24","board":"-------------X--XXOOX-O-XXXXXXX-XXXXOXX-XOXOOX--XOOXXXO-XOOOOOO-","side_to_move":"white","baselineMove":"h3","oracleMove":"e2","oracleScore":-12.0,"baselineMoveValue":-18.0,"baselineRegret":6.0},
+    {"id":"t084-game-2-ply-30","category":"exact-19-24","board":"-------------X--XXOOX-OOXXXXXXO-XXXXOXX-XOXOOXX-XOOXXXO-XOOOOOO-","side_to_move":"white","baselineMove":"b2","oracleMove":"e2","oracleScore":-18.0,"baselineMoveValue":-22.0,"baselineRegret":4.0},
+    {"id":"t084-game-2-ply-32","category":"exact-19-24","board":"---------O---X--XOOOX-XOXOXXXXXXXOXXOXX-XOXOOXX-XOOXXXO-XOOOOOO-","side_to_move":"white","baselineMove":"g1","oracleMove":"e2","oracleScore":-22.0,"baselineMoveValue":-34.0,"baselineRegret":12.0},
+    {"id":"t084-game-3-ply-27","category":"exact-19-24","board":"-----X-O----OXOX-OOOOOXX-XXXOXOX--OOOXOX-OOOXOXX--XXO-O---X-O--O","side_to_move":"black","baselineMove":"g1","oracleMove":"g1","oracleScore":-26.0,"baselineMoveValue":-26.0,"baselineRegret":0.0},
+    {"id":"t084-game-3-ply-29","category":"exact-19-24","board":"-----XXO----OXXO-OOOOOXO-XXXOXOO--OOOOOO-OOOXOOO--XXO-OO--X-O--O","side_to_move":"black","baselineMove":"f8","oracleMove":"g8","oracleScore":-26.0,"baselineMoveValue":-34.0,"baselineRegret":8.0},
+    {"id":"t084-game-3-ply-31","category":"exact-19-24","board":"-----XXO----OXXO-OOOOOXO-XXXOXOO--XOOOOO-OOXXOOO--XXX-OO--X-OOOO","side_to_move":"black","baselineMove":"b5","oracleMove":"f7","oracleScore":-34.0,"baselineMoveValue":-48.0,"baselineRegret":14.0},
+    {"id":"t084-game-4-ply-28","category":"exact-19-24","board":"-------------XO--OOOXXX--OOXOXXXOOXOXXXX-OOXXXXXXOOOOX---OOOO-X-","side_to_move":"white","baselineMove":"h2","oracleMove":"h3","oracleScore":-36.0,"baselineMoveValue":-40.0,"baselineRegret":4.0},
+    {"id":"t084-game-4-ply-30","category":"exact-19-24","board":"-------------XOO-OOOXXXX-OOXOOXXOOXOOXXX-OOOXXXXXOOOOX---OOOO-X-","side_to_move":"white","baselineMove":"g1","oracleMove":"f8","oracleScore":-40.0,"baselineMoveValue":-48.0,"baselineRegret":8.0},
+    {"id":"t084-game-4-ply-32","category":"exact-19-24","board":"------OX-----OXX-OOOOXXX-OOOOOXXOOOOOXXX-OOOXXXXXOOOOX---OOOO-X-","side_to_move":"white","baselineMove":"g7","oracleMove":"f8","oracleScore":-48.0,"baselineMoveValue":-50.0,"baselineRegret":2.0},
+    {"id":"t084-game-5-ply-25","category":"exact-19-24","board":"--O-XO-----OO-X---XOOX-X--XOXOOO--XXOXO---XOXXXX--XOXXX-XXXXXX-O","side_to_move":"black","baselineMove":"g1","oracleMove":"g1","oracleScore":-16.0,"baselineMoveValue":-16.0,"baselineRegret":0.0},
+    {"id":"t084-game-5-ply-27","category":"exact-19-24","board":"--O-XXX----OOOX---XOOO-X--XOXOOO--XXOXO---XOXXXX--XOXXX-XXXXXX-O","side_to_move":"black","baselineMove":"h5","oracleMove":"g3","oracleScore":-16.0,"baselineMoveValue":-22.0,"baselineRegret":6.0},
+    {"id":"t084-game-5-ply-29","category":"exact-19-24","board":"--O-XXXO---OOOO---XOOO-X--XOXOOX--XXOXXX--XOXXXX--XOXXX-XXXXXX-O","side_to_move":"black","baselineMove":"d1","oracleMove":"c2","oracleScore":-22.0,"baselineMoveValue":-30.0,"baselineRegret":8.0},
+    {"id":"t084-game-21-ply-27","category":"exact-19-24","board":"----X---X--OXX--XXOOOO-X-OXXXOO-OOOOXXOO-XOOXXX-X-OXXX----XOX---","side_to_move":"black","baselineMove":"b2","oracleMove":"c2","oracleScore":-18.0,"baselineMoveValue":-22.0,"baselineRegret":4.0},
+    {"id":"t084-game-21-ply-29","category":"exact-19-24","board":"----X---XXOOXX--XXOOOO-X-OOXXOO-OOOOXXOO-XOOXXX-X-OXXX----XOX---","side_to_move":"black","baselineMove":"b1","oracleMove":"c1","oracleScore":-22.0,"baselineMoveValue":-28.0,"baselineRegret":6.0},
+    {"id":"t084-game-21-ply-31","category":"exact-19-24","board":"-X--X---XXXOXX--XXOXOO-X-OOXXOO-OOOOXXOOOOOOXXX-X-OXXX----XOX---","side_to_move":"black","baselineMove":"a4","oracleMove":"a4","oracleScore":-28.0,"baselineMoveValue":-28.0,"baselineRegret":0.0}
+  ]
+}

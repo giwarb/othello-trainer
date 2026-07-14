@@ -65,7 +65,7 @@
 #![allow(dead_code)]
 
 use crate::bitboard::{Board, Side};
-use crate::tt::{Bound, TTEntry, TranspositionTable};
+use crate::tt::{Bound, TTDomain, TTEntry, TranspositionTable};
 use crate::zobrist::zobrist_hash;
 // search.rsと同じ理由(wasm32-unknown-unknownでの`std::time::Instant`の
 // 実行時panicを避けるため)で`web_time`のドロップイン実装を使う(T034)。
@@ -184,7 +184,17 @@ pub(crate) fn final_score(board: &Board, side: Side) -> i32 {
 pub fn solve_exact(board: &Board, side_to_move: Side, tt: &mut TranspositionTable) -> i32 {
     let mut nodes: u64 = 0;
     let mut timed_out = false;
-    negamax(board, side_to_move, -64, 64, tt, &mut nodes, None, None, &mut timed_out)
+    negamax(
+        board,
+        side_to_move,
+        -64,
+        64,
+        tt,
+        &mut nodes,
+        None,
+        None,
+        &mut timed_out,
+    )
 }
 
 /// [`solve_exact`] と同じ完全読みを行い、結果に加えて探索した(`negamax`
@@ -200,7 +210,17 @@ pub fn solve_exact_with_nodes(
 ) -> (i32, u64) {
     let mut nodes: u64 = 0;
     let mut timed_out = false;
-    let score = negamax(board, side_to_move, -64, 64, tt, &mut nodes, None, None, &mut timed_out);
+    let score = negamax(
+        board,
+        side_to_move,
+        -64,
+        64,
+        tt,
+        &mut nodes,
+        None,
+        None,
+        &mut timed_out,
+    );
     (score, nodes)
 }
 
@@ -297,24 +317,75 @@ pub fn solve_exact_limited_with_nodes(
     time_budget: Option<TimeBudget>,
     node_limit: Option<u64>,
 ) -> (Option<i32>, u64, bool) {
+    let outcome = solve_exact_window_limited_with_nodes(
+        board,
+        side_to_move,
+        -64,
+        64,
+        tt,
+        time_budget,
+        node_limit,
+    );
+    (
+        outcome.score,
+        outcome.nodes,
+        outcome.abort_reason == Some(AbortReason::ExactQuota),
+    )
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AbortReason {
+    ExactQuota,
+    GlobalNodeLimit,
+    WallClock,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ExactSearchOutcome {
+    pub score: Option<i32>,
+    pub nodes: u64,
+    pub abort_reason: Option<AbortReason>,
+}
+
+/// fail-soft窓付き完全読み。ノード制限は局所exact quotaとして扱う。
+pub fn solve_exact_window_limited_with_nodes(
+    board: &Board,
+    side_to_move: Side,
+    alpha: i32,
+    beta: i32,
+    tt: &mut TranspositionTable,
+    time_budget: Option<TimeBudget>,
+    node_limit: Option<u64>,
+) -> ExactSearchOutcome {
     let mut nodes = 0;
     let mut aborted = false;
     let score = negamax(
         board,
         side_to_move,
-        -64,
-        64,
+        alpha.clamp(-64, 64),
+        beta.clamp(-64, 64),
         tt,
         &mut nodes,
         time_budget,
         node_limit,
         &mut aborted,
     );
-    let node_limit_hit = aborted && node_limit.is_some_and(|limit| nodes >= limit);
     if aborted {
-        (None, nodes, node_limit_hit)
+        ExactSearchOutcome {
+            score: None,
+            nodes,
+            abort_reason: Some(if node_limit.is_some_and(|limit| nodes >= limit) {
+                AbortReason::ExactQuota
+            } else {
+                AbortReason::WallClock
+            }),
+        }
     } else {
-        (Some(score), nodes, false)
+        ExactSearchOutcome {
+            score: Some(score),
+            nodes,
+            abort_reason: None,
+        }
     }
 }
 
@@ -390,7 +461,7 @@ fn negamax(
     let mut alpha = alpha;
     let mut beta = beta;
 
-    if let Some(entry) = tt.probe(hash) {
+    if let Some(entry) = tt.probe(hash, TTDomain::Exact) {
         // depth には格納時点の空きマス数を入れている。本ソルバーは常に
         // 終局まで完全に読み切るので、格納時の空きマス数が今回以上であれば
         // (=同じ局面なら通常は等しい) そのまま信頼できる。
@@ -415,7 +486,17 @@ fn negamax(
             // 相手にも合法手がない: 終局。
             return final_score(board, side);
         }
-        return -negamax(board, side.opposite(), -beta, -alpha, tt, nodes, budget, node_limit, timed_out);
+        return -negamax(
+            board,
+            side.opposite(),
+            -beta,
+            -alpha,
+            tt,
+            nodes,
+            budget,
+            node_limit,
+            timed_out,
+        );
     }
 
     // 合法手を列挙し、隅優先 → 相手の着手後合法手数が少ない順 → 空き領域
@@ -494,6 +575,7 @@ fn negamax(
 
     tt.store(TTEntry {
         hash,
+        domain: TTDomain::Exact,
         depth: empties as i8,
         score: best_score,
         bound,
@@ -519,7 +601,10 @@ mod tests {
         let empties = u64::MAX;
         let sizes = empty_region_sizes(empties);
         for idx in 0..64usize {
-            assert_eq!(sizes[idx], 64, "square index {idx} should belong to a size-64 region");
+            assert_eq!(
+                sizes[idx], 64,
+                "square index {idx} should belong to a size-64 region"
+            );
         }
     }
 
@@ -558,20 +643,29 @@ mod tests {
         for rank in 0..3u32 {
             for file in 0..8u32 {
                 let idx = (rank * 8 + file) as usize;
-                assert_eq!(sizes[idx], 24, "index {idx} (rank={rank}, file={file}) expected size 24");
+                assert_eq!(
+                    sizes[idx], 24,
+                    "index {idx} (rank={rank}, file={file}) expected size 24"
+                );
             }
         }
         // 下側(rank0=4..7)は互いに同じ領域(サイズ32、偶数パリティ)。
         for rank in 4..8u32 {
             for file in 0..8u32 {
                 let idx = (rank * 8 + file) as usize;
-                assert_eq!(sizes[idx], 32, "index {idx} (rank={rank}, file={file}) expected size 32");
+                assert_eq!(
+                    sizes[idx], 32,
+                    "index {idx} (rank={rank}, file={file}) expected size 32"
+                );
             }
         }
         // 埋まっている行(rank0=3)は空きマスではないので0のまま。
         for file in 0..8u32 {
             let idx = (3 * 8 + file) as usize;
-            assert_eq!(sizes[idx], 0, "index {idx} should be unused (not an empty square)");
+            assert_eq!(
+                sizes[idx], 0,
+                "index {idx} should be unused (not an empty square)"
+            );
         }
     }
 
@@ -586,8 +680,14 @@ mod tests {
         let empties = a1 | b2;
         let sizes = empty_region_sizes(empties);
 
-        assert_eq!(sizes[0], 1, "a1 should be its own size-1 region (not connected to b2 diagonally)");
-        assert_eq!(sizes[9], 1, "b2 should be its own size-1 region (not connected to a1 diagonally)");
+        assert_eq!(
+            sizes[0], 1,
+            "a1 should be its own size-1 region (not connected to b2 diagonally)"
+        );
+        assert_eq!(
+            sizes[9], 1,
+            "b2 should be its own size-1 region (not connected to a1 diagonally)"
+        );
     }
 
     // =====================================================================
@@ -651,10 +751,7 @@ mod tests {
 
     /// 初期局面から決定的な戦略で手を進め、空きマスの数が `target_empties` 以下に
     /// なった時点の (Board, 手番) を返す。終局してしまった場合はその時点で返す。
-    fn play_until_empties(
-        target_empties: u32,
-        choose: impl Fn(&[u64]) -> u64,
-    ) -> (Board, Side) {
+    fn play_until_empties(target_empties: u32, choose: impl Fn(&[u64]) -> u64) -> (Board, Side) {
         let mut board = Board::initial();
         let mut side = Side::Black;
 
@@ -740,8 +837,11 @@ mod tests {
     /// 等式を検証する。
     #[test]
     fn solve_exact_result_is_zero_sum_when_at_least_one_side_must_pass() {
-        let strategies: Vec<fn(&[u64]) -> u64> =
-            vec![first_move_strategy, last_move_strategy, middle_move_strategy];
+        let strategies: Vec<fn(&[u64]) -> u64> = vec![
+            first_move_strategy,
+            last_move_strategy,
+            middle_move_strategy,
+        ];
 
         let mut checked_cases = 0;
 
@@ -880,9 +980,14 @@ mod tests {
     // 数秒〜数十秒かかるため、本テストは(タイムアウトはしないにせよ)
     // 「時間予算を無視して長時間かかる」という不具合を検出できる。
     #[test]
-    fn solve_exact_bounded_returns_none_promptly_when_time_budget_is_tiny_even_for_a_nontrivial_position() {
+    fn solve_exact_bounded_returns_none_promptly_when_time_budget_is_tiny_even_for_a_nontrivial_position(
+    ) {
         let (board, side) = play_until_empties(18, first_move_strategy);
-        assert_eq!(board.empty_count(), 18, "test setup should reach exactly 18 empties");
+        assert_eq!(
+            board.empty_count(),
+            18,
+            "test setup should reach exactly 18 empties"
+        );
 
         let mut tt = TranspositionTable::new(64);
         let wall_start = std::time::Instant::now();
@@ -922,7 +1027,10 @@ mod tests {
             time_ms: 1,
         };
         let timed_out_result = solve_exact_bounded(&board, side, &mut tt_after_timeout, budget);
-        assert!(timed_out_result.is_none(), "1ms budget should trigger a timeout on this position");
+        assert!(
+            timed_out_result.is_none(),
+            "1ms budget should trigger a timeout on this position"
+        );
 
         let score_after_timeout = solve_exact(&board, side, &mut tt_after_timeout);
 

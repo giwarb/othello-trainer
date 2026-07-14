@@ -28,11 +28,18 @@ pub enum Bound {
     Upper,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TTDomain {
+    Midgame,
+    Exact,
+}
+
 /// 置換表の1エントリ。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct TTEntry {
     /// 局面のZobristハッシュ(衝突検出のため64bit全体を保持する)。
     pub hash: u64,
+    pub domain: TTDomain,
     /// このエントリを格納した際の探索深さ。
     pub depth: i8,
     /// 評価値。
@@ -43,11 +50,62 @@ pub struct TTEntry {
     pub best_move: Option<u8>,
 }
 
+/// TT内部の16-byte表現。探索深さは0..64しか使わないため、`depth_and_domain`
+/// の上位1bitにdomainを格納し、T085以前のバケット容量を維持する。
+#[derive(Debug, Clone, Copy)]
+struct StoredTTEntry {
+    hash: u64,
+    depth_and_domain: u8,
+    score: i32,
+    bound: Bound,
+    best_move: Option<u8>,
+}
+
+impl StoredTTEntry {
+    fn from_entry(entry: TTEntry) -> Self {
+        debug_assert!((0..=64).contains(&entry.depth));
+        let domain_bit = match entry.domain {
+            TTDomain::Midgame => 0,
+            TTDomain::Exact => 0x80,
+        };
+        Self {
+            hash: entry.hash,
+            depth_and_domain: (entry.depth as u8 & 0x7f) | domain_bit,
+            score: entry.score,
+            bound: entry.bound,
+            best_move: entry.best_move,
+        }
+    }
+
+    fn domain(self) -> TTDomain {
+        if self.depth_and_domain & 0x80 == 0 {
+            TTDomain::Midgame
+        } else {
+            TTDomain::Exact
+        }
+    }
+
+    fn depth(self) -> i8 {
+        (self.depth_and_domain & 0x7f) as i8
+    }
+
+    fn into_entry(self) -> TTEntry {
+        TTEntry {
+            hash: self.hash,
+            domain: self.domain(),
+            depth: self.depth(),
+            score: self.score,
+            bound: self.bound,
+            best_move: self.best_move,
+        }
+    }
+}
+
 /// 1つのインデックスに対応するバケット。depth優先スロットとalways-replaceスロットを持つ。
 #[derive(Debug, Clone, Copy)]
 struct Bucket {
-    depth_slot: Option<TTEntry>,
-    always_slot: Option<TTEntry>,
+    depth_slot: Option<StoredTTEntry>,
+    always_slot: Option<StoredTTEntry>,
 }
 
 impl Bucket {
@@ -112,17 +170,17 @@ impl TranspositionTable {
     ///
     /// depth優先スロット・always-replaceスロットの両方を確認し、
     /// ハッシュが完全一致するものだけを返す(衝突誤検出を防ぐ)。
-    pub fn probe(&self, hash: u64) -> Option<TTEntry> {
+    pub fn probe(&self, hash: u64, domain: TTDomain) -> Option<TTEntry> {
         let bucket = &self.buckets[self.index(hash)];
 
         if let Some(entry) = bucket.depth_slot {
-            if entry.hash == hash {
-                return Some(entry);
+            if entry.hash == hash && entry.domain() == domain {
+                return Some(entry.into_entry());
             }
         }
         if let Some(entry) = bucket.always_slot {
-            if entry.hash == hash {
-                return Some(entry);
+            if entry.hash == hash && entry.domain() == domain {
+                return Some(entry.into_entry());
             }
         }
         None
@@ -139,13 +197,22 @@ impl TranspositionTable {
 
         let replace_depth_slot = match bucket.depth_slot {
             None => true,
-            Some(existing) => existing.hash == entry.hash || entry.depth >= existing.depth,
+            Some(existing) => {
+                if existing.hash == entry.hash && existing.domain() != entry.domain {
+                    false
+                } else {
+                    (existing.hash == entry.hash && existing.domain() == entry.domain)
+                        || entry.depth >= existing.depth()
+                }
+            }
         };
 
+        let stored = StoredTTEntry::from_entry(entry);
+
         if replace_depth_slot {
-            bucket.depth_slot = Some(entry);
+            bucket.depth_slot = Some(stored);
         } else {
-            bucket.always_slot = Some(entry);
+            bucket.always_slot = Some(stored);
         }
     }
 
@@ -181,9 +248,22 @@ impl TranspositionTable {
 mod tests {
     use super::*;
 
-    fn sample_entry(hash: u64, depth: i8, score: i32, bound: Bound, best_move: Option<u8>) -> TTEntry {
+    #[test]
+    fn compact_domain_storage_preserves_pre_t085_bucket_size() {
+        assert_eq!(std::mem::size_of::<StoredTTEntry>(), 16);
+        assert_eq!(std::mem::size_of::<Bucket>(), 32);
+    }
+
+    fn sample_entry(
+        hash: u64,
+        depth: i8,
+        score: i32,
+        bound: Bound,
+        best_move: Option<u8>,
+    ) -> TTEntry {
         TTEntry {
             hash,
+            domain: TTDomain::Midgame,
             depth,
             score,
             bound,
@@ -194,8 +274,8 @@ mod tests {
     #[test]
     fn probe_on_empty_table_returns_none() {
         let tt = TranspositionTable::new(1);
-        assert_eq!(tt.probe(0), None);
-        assert_eq!(tt.probe(12345), None);
+        assert_eq!(tt.probe(0, TTDomain::Midgame), None);
+        assert_eq!(tt.probe(12345, TTDomain::Midgame), None);
     }
 
     #[test]
@@ -203,7 +283,7 @@ mod tests {
         let mut tt = TranspositionTable::new(1);
         let entry = sample_entry(42, 5, -123, Bound::Lower, Some(10));
         tt.store(entry);
-        assert_eq!(tt.probe(42), Some(entry));
+        assert_eq!(tt.probe(42, TTDomain::Midgame), Some(entry));
     }
 
     #[test]
@@ -215,9 +295,9 @@ mod tests {
 
         // 同じバケットにマップされるが異なるハッシュ値。
         let colliding_hash = 7 + bucket_count;
-        assert_eq!(tt.probe(colliding_hash), None);
+        assert_eq!(tt.probe(colliding_hash, TTDomain::Midgame), None);
         // 元のハッシュは引き続き取得できる。
-        assert_eq!(tt.probe(7), Some(entry));
+        assert_eq!(tt.probe(7, TTDomain::Midgame), Some(entry));
     }
 
     #[test]
@@ -226,8 +306,8 @@ mod tests {
         tt.store(sample_entry(1, 1, 1, Bound::Exact, None));
         tt.store(sample_entry(2, 1, 1, Bound::Exact, None));
         tt.clear();
-        assert_eq!(tt.probe(1), None);
-        assert_eq!(tt.probe(2), None);
+        assert_eq!(tt.probe(1, TTDomain::Midgame), None);
+        assert_eq!(tt.probe(2, TTDomain::Midgame), None);
     }
 
     #[test]
@@ -252,7 +332,7 @@ mod tests {
 
         // depth優先スロットには最初の深いエントリが残っている。
         assert_eq!(
-            tt.probe(base_hash),
+            tt.probe(base_hash, TTDomain::Midgame),
             Some(deep_entry),
             "depth-preferred slot should keep the deep entry"
         );
@@ -260,11 +340,11 @@ mod tests {
         // always-replaceスロットには最後に格納した浅いエントリだけが残っている
         // (途中の衝突ハッシュはすべて上書きされて取得できなくなる)。
         let (last_hash, last_entry) = last_shallow.expect("at least one shallow entry was stored");
-        assert_eq!(tt.probe(last_hash), Some(last_entry));
+        assert_eq!(tt.probe(last_hash, TTDomain::Midgame), Some(last_entry));
 
         let earlier_colliding_hash = base_hash + bucket_count; // i = 1 の時に格納したもの
         assert_eq!(
-            tt.probe(earlier_colliding_hash),
+            tt.probe(earlier_colliding_hash, TTDomain::Midgame),
             None,
             "earlier collisions in the always-replace slot should have been overwritten"
         );
@@ -284,9 +364,43 @@ mod tests {
         tt.store(deeper);
 
         // より深いエントリがdepth優先スロットを奪う。
-        assert_eq!(tt.probe(deeper_colliding_hash), Some(deeper));
+        assert_eq!(
+            tt.probe(deeper_colliding_hash, TTDomain::Midgame),
+            Some(deeper)
+        );
         // 元の浅いエントリはdepth優先スロットから追い出され取得できなくなる
         // (本実装ではdepth優先スロット上書き時に旧エントリの退避は行わない仕様とする)。
-        assert_eq!(tt.probe(base_hash), None);
+        assert_eq!(tt.probe(base_hash, TTDomain::Midgame), None);
+    }
+
+    #[test]
+    fn same_hash_can_hold_midgame_and_exact_domains() {
+        let mut tt = TranspositionTable::new(1);
+        let midgame = sample_entry(99, 4, 1234, Bound::Exact, Some(10));
+        let mut exact = sample_entry(99, 4, -7, Bound::Exact, Some(11));
+        exact.domain = TTDomain::Exact;
+        tt.store(midgame);
+        tt.store(exact);
+        assert_eq!(tt.probe(99, TTDomain::Midgame), Some(midgame));
+        assert_eq!(tt.probe(99, TTDomain::Exact), Some(exact));
+        assert_eq!(tt.probe(99, TTDomain::Midgame).unwrap().score, 1234);
+        assert_eq!(tt.probe(99, TTDomain::Exact).unwrap().score, -7);
+    }
+
+    #[test]
+    fn exact_disc_score_is_not_visible_to_midgame_probe() {
+        let mut tt = TranspositionTable::new(1);
+        let mut exact = sample_entry(7, 12, -9, Bound::Exact, Some(3));
+        exact.domain = TTDomain::Exact;
+        tt.store(exact);
+        assert_eq!(tt.probe(7, TTDomain::Midgame), None);
+    }
+
+    #[test]
+    fn midgame_centidisc_score_is_not_visible_to_exact_probe() {
+        let mut tt = TranspositionTable::new(1);
+        let midgame = sample_entry(8, 6, 1750, Bound::Exact, Some(4));
+        tt.store(midgame);
+        assert_eq!(tt.probe(8, TTDomain::Exact), None);
     }
 }

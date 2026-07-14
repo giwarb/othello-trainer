@@ -96,6 +96,7 @@ fn main() {
         "moves" => cmd_moves(&args[2..]),
         "apply" => cmd_apply(&args[2..]),
         "best" => cmd_best(&args[2..]),
+        "budget-regression" => cmd_budget_regression(&args[2..]),
         _ => {
             eprintln!(
                 "usage:\n  eval_cli gen --category NAME --min-empties N --max-empties M --count C --seed S\n  eval_cli eval --depth N --exact-from-empties M [--pattern-weights PATH]   (JSON配列を標準入力から読む)\n  eval_cli moves --depth N --exact-from-empties M [--pattern-weights PATH]  (単一局面のJSONオブジェクトを標準入力から読み、全合法手のスコアを返す)\n  eval_cli best --depth N [--time-ms T] [--max-nodes N] --exact-from-empties M [--pattern-weights PATH]  (T084: 単一局面のJSONオブジェクトを標準入力から読み、single-root探索で最善手1つとテレメトリを返す)"
@@ -339,8 +340,9 @@ fn cmd_eval(args: &[String]) {
                         "board": { "black": &black_hex, "white": &white_hex, "turn": side_name(side) },
                         "limit": { "depth": 0, "exactFromEmpties": 0 }
                     });
-                    let static_resp: Value = serde_json::from_str(&engine.analyze(&static_req.to_string()))
-                        .unwrap_or(Value::Null);
+                    let static_resp: Value =
+                        serde_json::from_str(&engine.analyze(&static_req.to_string()))
+                            .unwrap_or(Value::Null);
 
                     let search_req = json!({
                         "id": idx,
@@ -348,8 +350,9 @@ fn cmd_eval(args: &[String]) {
                         "board": { "black": &black_hex, "white": &white_hex, "turn": side_name(side) },
                         "limit": { "depth": depth, "exactFromEmpties": exact_from_empties }
                     });
-                    let search_resp: Value = serde_json::from_str(&engine.analyze(&search_req.to_string()))
-                        .unwrap_or(Value::Null);
+                    let search_resp: Value =
+                        serde_json::from_str(&engine.analyze(&search_req.to_string()))
+                            .unwrap_or(Value::Null);
 
                     (
                         static_resp
@@ -651,8 +654,6 @@ fn cmd_best(args: &[String]) {
     // 完全読みショートカットの対象だったかどうか)。「完走したか」は
     // `SearchResult::is_exact`が正確に報告する(T034の教訓どおり、
     // 事前計算した空きマス数ベースの判定だけでは実態と食い違いうるため)。
-    let exact_attempted = b.empty_count() <= exact_from_empties as u32;
-
     let limit = SearchLimit {
         max_depth: depth,
         time_ms,
@@ -671,7 +672,8 @@ fn cmd_best(args: &[String]) {
         None => search::search_with_eval(&b, side, &limit, &mut tt, pattern_weights.as_ref()),
     };
 
-    let exact_completed = result.is_exact;
+    let exact_attempted = result.exact_root_attempts + result.exact_leaf_attempts > 0;
+    let exact_completed = result.exact_completed;
     // 「試みたが完走できず、通常の反復深化(またはその反復深化すら一度も
     // 完了せず静的評価)にフォールバックした」ケース。
     let exact_fallback = exact_attempted && !exact_completed;
@@ -705,6 +707,21 @@ fn cmd_best(args: &[String]) {
             "nps": nps,
             "timedOut": result.timed_out,
             "nodeLimitHit": result.node_limit_hit,
+            "requestedMaxNodes": result.requested_max_nodes,
+            "consumedNodes": result.consumed_nodes,
+            "baselineDepth": result.baseline_depth,
+            "baselineNodes": result.baseline_nodes,
+            "lastCompletedDepth": result.last_completed_depth,
+            "staticOnly": result.static_only,
+            "exactRootAttempts": result.exact_root_attempts,
+            "exactLeafAttempts": result.exact_leaf_attempts,
+            "exactCompleted": result.exact_completed,
+            "exactAbortedByQuota": result.exact_aborted_by_quota,
+            "exactNodes": result.exact_nodes,
+            "midgameNodes": result.midgame_nodes,
+            "wallLimitHit": result.wall_limit_hit,
+            "fallbackReason": result.fallback_reason.map(|reason| format!("{reason:?}")),
+            "exactPolicyVersion": result.exact_policy_version,
             "exact": {
                 "attempted": exact_attempted,
                 "completed": exact_completed,
@@ -713,7 +730,116 @@ fn cmd_best(args: &[String]) {
             "requestedDepth": depth,
             "requestedExactFromEmpties": exact_from_empties,
             "requestedTimeMs": time_ms,
-            "requestedMaxNodes": max_nodes,
+        })
+    );
+}
+
+/// T085a: 固定局面コーパスに対するノード予算の決定性・安全性回帰。
+fn cmd_budget_regression(args: &[String]) {
+    let manifest_path = get_arg(args, "--manifest").expect("missing required arg --manifest");
+    let max_nodes = get_arg(args, "--max-nodes")
+        .expect("missing required arg --max-nodes")
+        .parse::<u64>()
+        .expect("invalid --max-nodes");
+    let time_ms = get_arg(args, "--time-ms").map(|v| v.parse::<u64>().expect("invalid --time-ms"));
+    let exact_from_empties = get_arg_u32(args, "--exact-from-empties", Some(18)) as u8;
+    let depth = get_arg_u32(args, "--depth", Some(10)) as u8;
+    let weights = load_pattern_weights(args);
+    let manifest: Value =
+        serde_json::from_slice(&std::fs::read(&manifest_path).expect("failed to read manifest"))
+            .expect("invalid manifest JSON");
+    let positions = manifest
+        .get("positions")
+        .and_then(Value::as_array)
+        .expect("manifest.positions must be an array");
+
+    let limit = SearchLimit {
+        max_depth: depth,
+        time_ms,
+        exact_from_empties,
+    };
+    let mut deterministic = true;
+    let mut null_move_with_legal = 0u64;
+    let mut static_only = 0u64;
+    let mut overshoot_max = 0u64;
+    let mut rows = Vec::with_capacity(positions.len());
+
+    for (index, pos) in positions.iter().enumerate() {
+        let id = pos.get("id").and_then(Value::as_str).unwrap_or("unknown");
+        let board = obf_to_board(
+            pos.get("board")
+                .and_then(Value::as_str)
+                .expect("position.board missing"),
+        );
+        let side = parse_side(
+            pos.get("side_to_move")
+                .and_then(Value::as_str)
+                .unwrap_or("black"),
+        );
+        let run = || {
+            let mut tt = TranspositionTable::new(16);
+            search::search_with_eval_with_node_limit(
+                &board,
+                side,
+                &limit,
+                &mut tt,
+                weights.as_ref(),
+                max_nodes,
+            )
+        };
+        let first = run();
+        let second = run();
+        let same = first.best_move == second.best_move
+            && first.score == second.score
+            && first.depth == second.depth
+            && first.nodes == second.nodes
+            && first.node_limit_hit == second.node_limit_hit
+            && first.fallback_reason == second.fallback_reason;
+        deterministic &= same;
+        if board.legal_moves(side) != 0 && first.best_move.is_none() {
+            null_move_with_legal += 1;
+        }
+        if first.static_only {
+            static_only += 1;
+        }
+        overshoot_max = overshoot_max.max(first.nodes.saturating_sub(max_nodes));
+        eprintln!(
+            "[budget-regression] {}/{} {} depth={} nodes={} deterministic={}",
+            index + 1,
+            positions.len(),
+            id,
+            first.depth,
+            first.nodes,
+            same
+        );
+        rows.push(json!({
+            "id": id,
+            "move": first.best_move.map(square_to_notation),
+            "score": first.score,
+            "depth": first.depth,
+            "nodes": first.nodes,
+            "staticOnly": first.static_only,
+            "exactNodes": first.exact_nodes,
+            "fallbackReason": first.fallback_reason.map(|reason| format!("{reason:?}")),
+            "deterministic": same,
+        }));
+    }
+
+    println!(
+        "{}",
+        json!({
+            "positions": rows,
+            "deterministic": deterministic,
+            "nullMoveWithLegal": null_move_with_legal,
+            "staticOnly": static_only,
+            "budgetOvershootMax": overshoot_max,
+            "summary": {
+                "deterministic": deterministic,
+                "nullMoveWithLegal": null_move_with_legal,
+                "staticOnly": static_only,
+                "budgetOvershootMax": overshoot_max,
+                "budgetOvershootLimit": 1024,
+            }
         })
     );
 }
