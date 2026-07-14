@@ -67,6 +67,7 @@ import argparse
 import functools
 import hashlib
 import json
+import os
 import re
 import subprocess
 import sys
@@ -87,6 +88,9 @@ DEFAULT_OPENINGS_PATH = COMPARE_DIR / "openings.json"
 
 DEFAULT_RESULTS_PATH = COMPARE_DIR / "vs_edax_results.json"
 DEFAULT_REPORT_PATH = COMPARE_DIR / "vs_edax_report.md"
+DEFAULT_CALIBRATION_POSITIONS_PATH = COMPARE_DIR / "t085_exact_positions.json"
+DEFAULT_CALIBRATION_RESULTS_PATH = COMPARE_DIR / "t085_node_budget_calibration.json"
+DEFAULT_NODE_BUDGETS = [160_000, 200_000, 240_000, 300_000]
 
 # 自作エンジン設定の既定値(T082から変更なし。アプリ実運用に近く、既存比較
 # (depth10)とも整合)。single-root/allmovesの両モードで同じ値を使うことで
@@ -151,9 +155,8 @@ def _cargo_bin() -> str:
 
 
 def ensure_engine_built() -> None:
-    if EVAL_CLI.exists():
-        return
-    print("eval_cli not found, building (cargo build --release -p engine --bin eval_cli) ...")
+    # Always invoke Cargo so its freshness check cannot leave a stale executable.
+    print("Building eval_cli (cargo build --release -p engine --bin eval_cli) ...")
     run([_cargo_bin(), "build", "--release", "-p", "engine", "--bin", "eval_cli"], cwd=ROOT)
     if not EVAL_CLI.exists():
         raise RuntimeError(f"build finished but {EVAL_CLI} still not found")
@@ -189,6 +192,30 @@ def sha256_of_file(path: Path) -> str:
     h = hashlib.sha256()
     h.update(path.read_bytes())
     return h.hexdigest()
+
+
+def sha256_of_paths(paths: list[Path]) -> str:
+    """Hash path names and contents, including uncommitted engine changes."""
+    h = hashlib.sha256()
+    for path in sorted(paths, key=lambda p: p.as_posix()):
+        rel = rel_to_root(path).encode("utf-8")
+        h.update(len(rel).to_bytes(4, "big"))
+        h.update(rel)
+        data = path.read_bytes()
+        h.update(len(data).to_bytes(8, "big"))
+        h.update(data)
+    return h.hexdigest()
+
+
+def tracked_engine_source_paths() -> list[Path]:
+    out = subprocess.run(
+        ["git", "ls-files", "-z", "--", "engine", "Cargo.toml", "Cargo.lock", "rust-toolchain.toml"],
+        cwd=ROOT,
+        capture_output=True,
+    )
+    if out.returncode != 0:
+        raise RuntimeError(f"git ls-files failed: {out.stderr.decode(errors='replace').strip()}")
+    return [ROOT / raw.decode("utf-8") for raw in out.stdout.split(b"\0") if raw]
 
 
 def rel_to_root(path: Path) -> str:
@@ -229,11 +256,61 @@ def build_run_metadata(weights: Path) -> dict:
     return {
         "gitCommit": git_commit_hash(),
         "gitTree": git_value("rev-parse", "HEAD^{tree}"),
+        "engineSourceSha256": sha256_of_paths(tracked_engine_source_paths()),
         "harnessSha256": sha256_of_file(Path(__file__)),
         "weightsPath": rel_to_root(weights),
         "weightsSha256": sha256_of_file(weights) if weights.exists() else None,
+        "edaxPath": rel_to_root(EDAX_EXE),
+        "edaxSha256": sha256_of_file(EDAX_EXE),
+        "edaxEvalDataSha256": sha256_of_file(EDAX_EVAL_DATA),
+        "evalCliPath": rel_to_root(EVAL_CLI),
+        "evalCliSha256": sha256_of_file(EVAL_CLI),
         "generatedAt": datetime.now(timezone.utc).isoformat(timespec="seconds"),
     }
+
+
+PROVENANCE_IDENTITY_KEYS = (
+    "gitTree",
+    "engineSourceSha256",
+    "harnessSha256",
+    "weightsPath",
+    "weightsSha256",
+    "edaxPath",
+    "edaxSha256",
+    "edaxEvalDataSha256",
+    "evalCliPath",
+    "evalCliSha256",
+)
+
+
+def provenance_identity(meta: dict | None) -> dict:
+    meta = meta or {}
+    return {key: meta.get(key) for key in PROVENANCE_IDENTITY_KEYS}
+
+
+def atomic_write_text(path: Path, text: str) -> None:
+    """Flush and fsync a same-directory temporary file before atomic replacement."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp_path: Path | None = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w",
+            encoding="utf-8",
+            newline="\n",
+            dir=path.parent,
+            prefix=f".{path.name}.",
+            suffix=".tmp",
+            delete=False,
+        ) as tmp:
+            tmp_path = Path(tmp.name)
+            tmp.write(text)
+            tmp.flush()
+            os.fsync(tmp.fileno())
+        os.replace(tmp_path, path)
+        tmp_path = None
+    finally:
+        if tmp_path is not None:
+            tmp_path.unlink(missing_ok=True)
 
 
 # --- openingマニフェスト(T084要件5) ---
@@ -1148,7 +1225,7 @@ def write_report(
     lines.extend(considerations)
     lines.append("")
 
-    report_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    atomic_write_text(report_path, "\n".join(lines) + "\n")
 
 
 # --- チェックポイント/resume(T084要件8) ---
@@ -1172,7 +1249,7 @@ class ResultsCheckpoint:
         self._done_game_keys: set[str] = set()
         self._done_loss_keys: set[str] = set()
 
-    def try_resume(self) -> bool:
+    def try_resume(self, current_meta: dict) -> bool:
         if not self.path.exists():
             return False
         try:
@@ -1184,6 +1261,19 @@ class ResultsCheckpoint:
             print(
                 f"  [resume] existing {self.path.name} was produced by a different configuration "
                 f"(runKey mismatch), starting fresh"
+            )
+            return False
+        saved_identity = provenance_identity(doc.get("meta"))
+        current_identity = provenance_identity(current_meta)
+        if saved_identity != current_identity:
+            mismatches = [
+                key
+                for key in PROVENANCE_IDENTITY_KEYS
+                if saved_identity.get(key) != current_identity.get(key)
+            ]
+            print(
+                f"  [resume] existing {self.path.name} has incompatible provenance "
+                f"({', '.join(mismatches)} mismatch), refusing checkpoint"
             )
             return False
         self.games = doc.get("games", [])
@@ -1233,7 +1323,228 @@ class ResultsCheckpoint:
             if (self.loss_meta or self.loss_entries)
             else None,
         }
-        self.path.write_text(json.dumps(doc, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+        atomic_write_text(self.path, json.dumps(doc, indent=2, ensure_ascii=False) + "\n")
+
+
+class CalibrationCheckpoint:
+    """T085b fixed-position oracle/calibration checkpoint, saved per position."""
+
+    def __init__(self, path: Path, run_key: str, settings: dict, meta: dict):
+        self.path = path
+        self.run_key = run_key
+        self.settings = settings
+        self.meta = meta
+        self.oracle: dict[str, dict] = {}
+        self.rows: list[dict] = []
+
+    def try_resume(self) -> bool:
+        if not self.path.exists():
+            return False
+        try:
+            doc = json.loads(self.path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError) as exc:
+            print(f"  [resume] existing {self.path.name} could not be parsed ({exc}), starting fresh")
+            return False
+        if doc.get("runKey") != self.run_key:
+            print(f"  [resume] {self.path.name} runKey mismatch, refusing checkpoint")
+            return False
+        if provenance_identity(doc.get("meta")) != provenance_identity(self.meta):
+            print(f"  [resume] {self.path.name} provenance mismatch, refusing checkpoint")
+            return False
+        self.oracle = doc.get("oracle", {})
+        self.rows = doc.get("positions", [])
+        print(f"  [resume] loaded {len(self.oracle)} oracle position(s), {len(self.rows)} series result(s)")
+        return True
+
+    def save(self) -> None:
+        doc = {
+            "schemaVersion": 1,
+            "runKey": self.run_key,
+            "meta": self.meta,
+            "settings": self.settings,
+            "oracle": self.oracle,
+            "summary": summarize_calibration(self.rows),
+            "positions": self.rows,
+        }
+        atomic_write_text(self.path, json.dumps(doc, indent=2, ensure_ascii=False) + "\n")
+
+
+def oracle_child_values(board: str, side: str, level: int) -> dict:
+    legal = engine_moves(board, side, depth=1, exact_from_empties=0, weights=None)
+    if not legal:
+        raise RuntimeError(f"calibration position has no legal moves: board={board} side={side}")
+    values: dict[str, float] = {}
+    for item in legal:
+        move = item["move"]
+        after = engine_apply(board, side, move)
+        if engine_has_legal_move(after["board"], after["side_to_move"]):
+            result = edax_solve(after["board"], after["side_to_move"], level)
+            value = result["discDiff"] if after["side_to_move"] == side else -result["discDiff"]
+        else:
+            value = terminal_value(after["board"], side)
+        values[move] = value
+    best_move = max(values, key=values.get)
+    return {"level": level, "bestMove": best_move, "bestValue": values[best_move], "childValues": values}
+
+
+def calibration_identity(result: dict) -> dict:
+    """Wall-dependent elapsed/NPS are excluded; all search-result fields are compared."""
+    return {
+        "move": result.get("move"),
+        "score": result.get("score"),
+        "depth": result.get("depth"),
+        "nodes": result.get("nodes"),
+        "timedOut": result.get("timedOut"),
+        "nodeLimitHit": result.get("nodeLimitHit"),
+        "exact": result.get("exact"),
+        "fallbackReason": result.get("fallbackReason"),
+    }
+
+
+def summarize_calibration(rows: list[dict]) -> list[dict]:
+    summaries = []
+    for series_id in sorted({row["seriesId"] for row in rows}):
+        group = [row for row in rows if row["seriesId"] == series_id]
+        regrets = [row["oracleRegret"] for row in group]
+        determinate = [row for row in group if row["deterministic"] is not None]
+        summaries.append({
+            "seriesId": series_id,
+            "positions": len(group),
+            "meanOracleRegret": sum(regrets) / len(regrets) if regrets else None,
+            "determinismRate": (
+                sum(1 for row in determinate if row["deterministic"]) / len(determinate)
+                if determinate else None
+            ),
+            "wallInsuranceCount": sum(1 for row in group if row["wallInsuranceFired"]),
+            "wallInsuranceRate": (
+                sum(1 for row in group if row["wallInsuranceFired"]) / len(group) if group else None
+            ),
+            "staticOnlyCount": sum(1 for row in group if row["staticOnly"]),
+            "meanDepth": sum(row["run1"]["depth"] for row in group) / len(group) if group else None,
+            "meanNodes": sum(row["run1"]["nodes"] for row in group) / len(group) if group else None,
+        })
+    return summaries
+
+
+def run_node_budget_calibration(args: argparse.Namespace) -> None:
+    positions_doc = json.loads(args.calibration_positions.read_text(encoding="utf-8"))
+    positions = positions_doc["positions"]
+    series = [{"id": "wall1000", "timeMs": 1000, "maxNodes": None}]
+    series.extend(
+        {"id": f"node{budget}", "timeMs": 1500, "maxNodes": budget}
+        for budget in args.node_budgets
+    )
+    settings = {
+        "mode": "t085b-node-budget-calibration",
+        "positionsPath": rel_to_root(args.calibration_positions),
+        "positionsSha256": sha256_of_file(args.calibration_positions),
+        "positionCount": len(positions),
+        "depth": args.engine_depth,
+        "exactFromEmpties": args.engine_exact_from_empties,
+        "oracleLevel": args.high_level,
+        "series": series,
+        "weights": rel_to_root(args.weights),
+    }
+    run_key = json.dumps(settings, sort_keys=True)
+    meta = build_run_metadata(args.weights)
+    meta["settingsSha256"] = hashlib.sha256(run_key.encode("utf-8")).hexdigest()
+    checkpoint = CalibrationCheckpoint(args.calibration_output, run_key, settings, meta)
+    if not args.no_resume:
+        checkpoint.try_resume()
+
+    for index, pos in enumerate(positions, 1):
+        if pos["id"] in checkpoint.oracle:
+            continue
+        checkpoint.oracle[pos["id"]] = oracle_child_values(pos["board"], pos["side_to_move"], args.high_level)
+        checkpoint.save()
+        print(f"  [oracle {index}/{len(positions)}] {pos['id']} saved")
+
+    done = {(row["seriesId"], row["id"]) for row in checkpoint.rows}
+    total = len(series) * len(positions)
+    for series_item in series:
+        for pos in positions:
+            key = (series_item["id"], pos["id"])
+            if key in done:
+                continue
+            run1 = engine_best(
+                pos["board"], pos["side_to_move"], args.engine_depth,
+                args.engine_exact_from_empties, args.weights,
+                time_ms=series_item["timeMs"], max_nodes=series_item["maxNodes"],
+            )
+            run2 = None
+            deterministic = None
+            if series_item["maxNodes"] is not None:
+                run2 = engine_best(
+                    pos["board"], pos["side_to_move"], args.engine_depth,
+                    args.engine_exact_from_empties, args.weights,
+                    time_ms=series_item["timeMs"], max_nodes=series_item["maxNodes"],
+                )
+                deterministic = calibration_identity(run1) == calibration_identity(run2)
+            oracle = checkpoint.oracle[pos["id"]]
+            move = run1.get("move")
+            if move not in oracle["childValues"]:
+                raise RuntimeError(f"engine returned non-legal move {move!r} for {pos['id']}")
+            wall_fired = bool(run1.get("timedOut") and not run1.get("nodeLimitHit"))
+            if run2 is not None:
+                wall_fired = wall_fired or bool(run2.get("timedOut") and not run2.get("nodeLimitHit"))
+            checkpoint.rows.append({
+                "seriesId": series_item["id"],
+                "timeMs": series_item["timeMs"],
+                "maxNodes": series_item["maxNodes"],
+                "id": pos["id"],
+                "category": pos.get("category"),
+                "empties": pos["board"].count("-"),
+                "oracleMove": oracle["bestMove"],
+                "oracleValue": oracle["bestValue"],
+                "selectedMoveValue": oracle["childValues"][move],
+                "oracleRegret": oracle["bestValue"] - oracle["childValues"][move],
+                "deterministic": deterministic,
+                "wallInsuranceFired": wall_fired,
+                "staticOnly": run1["depth"] == 0 or (run2 is not None and run2["depth"] == 0),
+                "run1": calibration_identity(run1),
+                "run2": calibration_identity(run2) if run2 is not None else None,
+            })
+            checkpoint.save()
+            print(f"  [{len(checkpoint.rows)}/{total}] {series_item['id']} {pos['id']} saved")
+    print(f"Wrote {args.calibration_output.name}: {len(checkpoint.rows)}/{total} series-position results")
+
+
+def run_checkpoint_self_test() -> None:
+    """Acceptance test: reject changed provenance and preserve the old JSON on interruption."""
+    with tempfile.TemporaryDirectory() as directory:
+        path = Path(directory) / "checkpoint.json"
+        base = {key: "same" for key in PROVENANCE_IDENTITY_KEYS}
+        checkpoint = ResultsCheckpoint(path, "self-test-run")
+        checkpoint.meta = base
+        checkpoint.settings = {}
+        checkpoint.save()
+        if not ResultsCheckpoint(path, "self-test-run").try_resume(base):
+            raise AssertionError("matching checkpoint was unexpectedly rejected")
+        tested = ("engineSourceSha256", "weightsSha256", "edaxSha256", "evalCliSha256", "harnessSha256")
+        for key in tested:
+            changed = dict(base)
+            changed[key] = "different"
+            if ResultsCheckpoint(path, "self-test-run").try_resume(changed):
+                raise AssertionError(f"checkpoint with changed {key} was accepted")
+
+        original = path.read_bytes()
+        real_replace = os.replace
+        try:
+            def interrupted_replace(source, destination):
+                raise RuntimeError("simulated interruption before replace")
+
+            os.replace = interrupted_replace
+            try:
+                atomic_write_text(path, "not valid JSON")
+            except RuntimeError:
+                pass
+        finally:
+            os.replace = real_replace
+        if path.read_bytes() != original:
+            raise AssertionError("atomic interruption damaged the existing checkpoint")
+        json.loads(path.read_text(encoding="utf-8"))
+    print("checkpoint provenance mismatch rejection: PASSED (engine/harness, weights, Edax, eval_cli)")
+    print("atomic interruption preservation: PASSED")
 
 
 # --- main ---
@@ -1273,6 +1584,20 @@ def run_smoke(args: argparse.Namespace) -> None:
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--smoke", action="store_true", help="軽量モード: PV抽出の検証+初期局面付近から1局のみ対局して完走を確認する")
+    ap.add_argument("--self-test-checkpoint", action="store_true", help="resume provenance拒否とatomic中断耐性の自己テスト")
+    ap.add_argument(
+        "--calibrate-node-budgets",
+        action="store_true",
+        help="T085b: 固定48局面でwall系列と4 node-budget系列のoracle regretを局面単位checkpoint付きで比較する",
+    )
+    ap.add_argument("--calibration-positions", type=Path, default=DEFAULT_CALIBRATION_POSITIONS_PATH)
+    ap.add_argument("--calibration-output", type=Path, default=DEFAULT_CALIBRATION_RESULTS_PATH)
+    ap.add_argument(
+        "--node-budgets",
+        type=str,
+        default=",".join(str(value) for value in DEFAULT_NODE_BUDGETS),
+        help="校正するカンマ区切りnode予算(既定160000,200000,240000,300000)",
+    )
     ap.add_argument("--openings", type=Path, default=DEFAULT_OPENINGS_PATH, help="固定openingマニフェストのパス(T084要件5)")
     ap.add_argument(
         "--opening-set",
@@ -1337,18 +1662,32 @@ def main() -> None:
     args = ap.parse_args()
     args.levels = [int(x) for x in args.levels.split(",") if x.strip()]
     args.engine_modes = [m.strip() for m in args.engine_modes.split(",") if m.strip()]
+    args.node_budgets = [int(x) for x in args.node_budgets.split(",") if x.strip()]
     engine_time_ms: int | None = args.engine_time_ms if args.engine_time_ms and args.engine_time_ms > 0 else None
     args.engine_time_ms = engine_time_ms
     if args.engine_max_nodes is not None and args.engine_max_nodes <= 0:
         ap.error("--engine-max-nodes must be greater than zero")
     if args.node_check_max_nodes <= 0:
         ap.error("--node-check-max-nodes must be greater than zero")
+    if not args.node_budgets or any(value <= 0 for value in args.node_budgets):
+        ap.error("--node-budgets must contain positive integers")
 
-    ensure_clean_worktree(args.allow_dirty, (args.results_output, args.report_output))
+    if args.self_test_checkpoint:
+        run_checkpoint_self_test()
+        return
+
+    ensure_clean_worktree(
+        args.allow_dirty,
+        (args.results_output, args.report_output, args.calibration_output),
+    )
 
     ensure_engine_built()
     ensure_edax_available()
     ensure_pattern_weights_available(args.weights)
+
+    if args.calibrate_node_budgets:
+        run_node_budget_calibration(args)
+        return
 
     if args.smoke:
         run_smoke(args)
@@ -1385,7 +1724,7 @@ def main() -> None:
 
     checkpoint = ResultsCheckpoint(args.results_output, run_key)
     if not args.no_resume:
-        checkpoint.try_resume()
+        checkpoint.try_resume(meta)
     checkpoint.settings = settings
     checkpoint.meta = meta
     checkpoint.save()
