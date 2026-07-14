@@ -49,17 +49,10 @@ Write-Host "Codex に設計コンサルを依頼します: $RequestFile (log: $l
 # プロンプトはコマンドライン引数ではなく標準入力経由で渡す(codex exec は PROMPT 引数が無いか "-" のとき stdin から読む仕様)。
 # PowerShell 5.1 の native exe への引数渡しは文字列中の二重引用符を正しくエスケープできず、`"` を含む長いプロンプト
 # (依頼ファイルにコードブロックや引用符が含まれる場合)が複数引数に分割されて失敗するため。
-# stdin パイプは既定で $OutputEncoding (Windows PowerShell 5.1 では ASCII) が使われ日本語が化けるため、
-# UTF-8 (BOM無し) に明示的に切り替える。パイプ経由で渡すことで、従来の「空文字列パイプで EOF を与える」ハックも不要になる。
-$priorOutputEncoding = $OutputEncoding
-$OutputEncoding = New-Object System.Text.UTF8Encoding $false
-try {
-    $prompt | & codex @codexArgs | Tee-Object -FilePath $logFile
-    $exitCode = $LASTEXITCODE
-}
-finally {
-    $OutputEncoding = $priorOutputEncoding
-}
+# codex exec の進捗は stderr に、最終メッセージは stdout に出るため、両方を逐次 $logFile に UTF-8 で書き込む
+# 共通ヘルパー(T091)を使う。単純な `| Tee-Object` では stderr が捕捉されない欠陥があった。
+. "$PSScriptRoot\_codex-common.ps1"
+$exitCode = Invoke-CodexWithLiveLog -CodexArgs $codexArgs -Prompt $prompt -LogFile $logFile
 
 if ($exitCode -ne 0) {
     Write-Error "Codex の実行が失敗しました (exit $exitCode)"

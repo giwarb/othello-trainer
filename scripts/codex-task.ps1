@@ -40,15 +40,9 @@ if ($Model) { $codexArgs += @("-m", $Model) }
 
 Write-Host "Codex にタスクを委譲します: $TaskFile (model: $(if ($Model) { $Model } else { '(既定)' }), log: $logFile)"
 # プロンプトは引数ではなく標準入力で渡す(PS5.1 の引数渡しは `"` を含む長文で分割される。T081 の教訓)。
-# stdin パイプの既定エンコーディング(ASCII)では日本語が化けるため UTF-8(BOM無し)へ明示切替。
-$priorOutputEncoding = $OutputEncoding
-$OutputEncoding = New-Object System.Text.UTF8Encoding $false
-try {
-    $prompt | & codex @codexArgs | Tee-Object -FilePath $logFile
-    $exitCode = $LASTEXITCODE
-}
-finally {
-    $OutputEncoding = $priorOutputEncoding
-}
+# codex exec の進捗は stderr に、最終メッセージは stdout に出るため、両方を逐次 $logFile に UTF-8 で書き込む
+# 共通ヘルパー(T091)を使う。単純な `| Tee-Object` では stderr が捕捉されない欠陥があった。
+. "$PSScriptRoot\_codex-common.ps1"
+$exitCode = Invoke-CodexWithLiveLog -CodexArgs $codexArgs -Prompt $prompt -LogFile $logFile
 
 exit $exitCode
