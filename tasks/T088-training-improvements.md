@@ -1,7 +1,7 @@
 ---
 id: T088
 title: 学習法改善 — 年代分割・D4正規化・Huber・early stopping・ステージ/X-Cサンプリングの8構成ablation
-status: review # todo | in_progress | review | redo | done | blocked
+status: done # todo | in_progress | review | redo | done | blocked
 assignee: codex(gpt-5.6-sol)
 attempts: 0
 ---
@@ -112,3 +112,23 @@ attempts: 0
 - 永続化境界の最終確認: T087はmetaを先に、weightsを完了マーカーとして後に置く順序へ修正。T088はepoch-XX.stateを先に、epoch-XX.binを完了マーカーとして後に置き、不完全世代を無視する方式へ修正した。修正後もepoch 10で強制中断し、完全なepoch 10世代からresumeすることを確認した。
 - 最終検証: cargo test -p engine は177 passed / 2 ignored、cargo test -p train は28 passed（実WTHOR合法性テスト含む）、cargo test -p engine --release --test ffo_bench はFFO #40〜44のfast test成功（1 passed / heavy 1 ignored、探索コード無変更）、cargo test -p engine --release --test pattern_eval_nps_bench -- --nocapture は成功（pattern/heuristic=0.807）、git diff --check 成功。
 - コミットハッシュ: 未作成（実装ワーカー環境は.git書き込み不可）。
+
+### 2026-07-14 verifier検証(合格)
+
+対象コミット9c0738f(オーケストレーター代行コミット)。既存の`tasks/review/T088-training-improvements-claude-review.md`(Codex利用上限のためClaude代替、合格)とは独立に、受け入れ基準を実地検証した。
+
+- `cargo test -p engine`: 177 passed / 0 failed / 2 ignored。新規PWV3上限テスト2件(`pwv3_rejects_excessive_instance_count_before_allocation`, `pwv3_rejects_counts_inconsistent_with_remaining_bytes`)を含め合格を個別確認(`cargo test -p engine pwv3`)。
+- `cargo test -p train`: 28 passed / 0 failed(D4正規化`later_split_wins_without_leakage`、sampling `sampling_is_deterministic_and_respects_xc_cap`、Huber `huber_clamps_outlier_gradient`等を含む)。
+- `cargo test -p engine --release --test ffo_bench -- --nocapture`: FFO #40-44全問正解、合計nodes=1,298,656,784でT086基準(1,298,656,784)と完全一致。探索無変更を確認。
+- 前提修正1(compare/smoke resume+identity): `compare_pattern_v3.py`を`--stop-after 4`で新規実行し局面単位のcheckpoint保存を確認、再度実行して継続(残り14局面)、最終的にmeanRegret v2=1.8888888888888888/candidate=2.4444444444444446を得た — 作業ログ・`oracle-main-v2-config5-seed3.json`の値と完全一致(独立再現)。異なるcandidateウェイトでの再実行は`resume identity mismatch; refusing stale checkpoint`で拒否されることを確認。`smoke_pattern_v3.py`も`--stop-after 1`で対局単位のcheckpoint保存・resume・異なるcandidateでのidentity mismatch拒否を確認。
+- 前提修正2(学習CLI run identity): `train_patterns experiment --configs 5 --seeds 9 --max-games 500`をscratchpad配下のcheckpoint-dirで実行しepoch 19まで到達後中断、同一パラメータでの再実行はepoch 19からresume、`--l2`変更での再実行は`run identity mismatch for config-5-seed-9; refusing resume`(exit code 1)で拒否されることを確認。
+- 前提修正4(PWV3上限): 上記の新規テスト2件で確認済み。
+- 前提修正5(provenance): `oracle-main-v2-config5-seed3.json`のmetadataに重み/eval_cli/Edax/eval.dat/corpus SHA-256とgitTreeが記録されていることを確認。ただし**work log記載のeval_cli SHA-256(`3a2ea3f...`)は`oracle-config5-seed1.json`(旧main batchでのcandidate=config-5-seed-1、meanRegret=2.7777...)のものであり、実際にゲート(c)の数値(1.888889→2.444444)を生んだ`oracle-main-v2-config5-seed3.json`のevalCliSha256(`d78978e...`)とは異なる**。他5項目(candidate/baseline/Edax/eval.dat/corpus/gitTree)は正しいファイルの値と一致している。eval_cli.exeの再ビルドでバイナリハッシュが変わる(今回の検証時のビルドでも別ハッシュになった)ため再現性の指標として脆いことも確認した — provenance記録の意図(その回の比較に使ったバイナリを特定する)自体は機能しているが、work logの引用に1箇所の転記ミスがある。
+- 集計の正しさ: `train/data/t088/main-v2/results.tsv`から作業ログの8構成×3seed表(validation MAE・frozen中央値・X/C high-loss率中央値)を独立に再集計し、全24行・全数値が完全一致することを確認。候補選択(HP tuning)10ディレクトリ(`tune-delta-4/8/12`, `v2-tune-l2-1e-4/1e-5/1e-6`, `v2-tune-xc-none/2x15/3x25/4x25`)の値も作業ログと完全一致(seed1のみ、test_mae=NaNで2024未使用を確認)。旧main batch(schema=1、config-5-seed-1で早期停止バグによりbest_epoch=15/validation_mae=14.230704)がmain-v2の集計(config-5-seed-1: best_epoch=23/validation_mae=14.204909)に混入していないことを確認(別ディレクトリ・別identity schema)。
+- 評価プロトコルの一貫性: `t088_experiment.rs`のコードで、frozen 2024評価(`common_test`)は構成1〜8すべてで同一のcanonical平均target集合を使用しており、ゲート(b)(d)(c)の構成間比較は公平であることを確認。**一方、validation MAEは構成1〜2(生サンプル個別outcome)と構成3〜8(canonical平均outcome)で target定義が異なり、ゲート(a)の「12%改善」はcanonical平均化によるノイズ低減の影響を相当程度含む(モデル品質改善のみに起因しない)**。この点は既存の`tasks/review/T088-training-improvements-claude-review.md`の指摘(中2)と一致する独立所見。frozen比較(ゲート(b)、2.118%改善)を根拠とする限り最終判定「不採用」は妥当。
+- 明確化4点: (1)構成7はstage samplingなし(`Method::from_number`で`stage: number==6||number==8`)、xc_multiplier=1選択のため構成7の全指標が構成5と数値完全一致・構成8が構成6と完全一致(results.tsvで確認、sampling_orderのアーリーリターン経路で説明可能)。(2)HP候補選択は全て`test_mae=NaN`でseed1のみ・2024未使用。(3)構成1(`baseline_split`)は`games.iter().filter(|g| g.year <= 2023)`で2024を除外。(4)X/C high-loss率は`xc_metrics`で`|predict-outcome|>=8.0`をcommon_test(canonical)のvulnerable_xcサブセットに適用しており定義通り。
+- 採用ゲート: (a)(b)(c)(d)(e)いずれも独立再計算で作業ログの数値・判定と一致(a: 12.707%/11.222%/11.978%、b: 2.118%<5%、c: 29.412%悪化(oracle regret再現含む)、d: 0.665%<20%、e: 比率104.09%は算術上一致するが下記参照)。
+- ゲート(e)のNPS実測未検証: 「固定局面depth8を各7回測定」の元データ(スクリプト・ログ)がリポジトリ・train/data/t088配下に見当たらず、算術上の比率(425934/409179=104.09%)は検算できたが実測値そのものは再現できなかった。参考として別局面(`t085_exact_positions.json`のexact-13-1)でeval_cli best --depth 8を候補/baseline各3回実行したところ双方とも探索は正常終了したが、局面が浅く探索時間が短いためnps値のばらつきが大きく(baseline 101k-120k、candidate 481k-770k)、work logの数値と直接比較可能な検証にはならなかった。この点は既存Claudeレビューでも算術検算のみで実測未再現であり、同様の限界。ゲート(e)は他の3ゲート((b)(c)(d))が既に不合格のため最終判定「不採用」には影響しない。
+- 新重み: `train/weights/pattern_v2.bin`の最終変更コミットは1de2415(9c0738fではない)で不変を確認。`git ls-files`に`pattern_v2t`等の新規重みファイルなし(未コミット、不採用のため妥当)。
+- リポジトリ状態: `git status --short`は空。ローカルmain(6ac4067時点)はorigin/mainと一致(push済み)。`gh run list`で直近5件のDeploy to GitHub Pages Actionsはすべてsuccess。
+- 判定: **合格**。前提修正5件・8構成24run・採用ゲート判定はいずれも実装・データと整合し、「不採用」の結論は妥当。work logのeval_cli SHA-256の転記ミス(前提修正5)とゲート(e)の元データ未保存は軽微な記録上の指摘であり、いずれも最終判定を変更しない。
