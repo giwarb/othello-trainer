@@ -1,7 +1,7 @@
 ---
 id: T085b
 title: ノード予算の校正と採用判定(ベンチ基盤の堅牢化+A/B比較+level10 primary 60局)
-status: in_progress # todo | in_progress | review | redo | done | blocked
+status: review # todo | in_progress | review | redo | done | blocked
 assignee: codex(gpt-5.6-sol)
 attempts: 0
 ---
