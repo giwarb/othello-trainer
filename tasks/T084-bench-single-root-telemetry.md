@@ -163,3 +163,13 @@ attempts: 1
 - **タスク管理不整合(軽微)**: タスクファイル冒頭の`status`は`todo`のまま(`attempts: 0`)。`STATUS.md`上は`review`表記だが、両者の状態遷移がAGENTS.md/CLAUDE.mdの即時更新ルールと整合していない(オーケストレーター側の管理事項として申し送り)。
 
 **総合判定: 不合格(redo相当)**。`cargo test`・FFO回帰・`eval_cli best`テレメトリ・fixed-depth決定性・オラクルロス非負・openings.json・チェックポイント/resume・push/Actions成功、という個々の受け入れ基準は**単体では**満たされているが、要件9(ベンチ再実行によるsingle-root vs allmoves比較・レベル別勝敗)の成果物であるsingle-rootの対局結果が、`best`サブコマンドの未対応フォールバック(exact読みタイムアウト時にmove:nullを返し得る)によって系統的（80〜100%の対局)に途中終了しており、レポート(b)(d)(e)の数値がタスクの目的(「以後の全施策の採否判定に使える標準ベンチの確立」)を満たさない。既存の`tasks/review/T084-bench-single-root-telemetry-codex-review.md`のredo判定・指摘(1)を独立した手法(生データの空きマス分布分析+ピンポイント再現)で追認する。同レポート指摘(2)openings.jsonのJSON不正は本検証では再現せず(誤検知の可能性)、指摘(3)(4)(5)は軽微〜設計判断の範囲と考える。
+
+### 2026-07-14 機械的作業(コードは無変更): 本番フルベンチ再実行 + push
+
+- 前提確認: 実装(redo #1)はコミット`ad88c91`で完了済み。着手時点で`git rev-parse HEAD`は`17848a8`(その後オーケストレーター側の同時進行作業により`e5eb35b`まで進行)で、`ad88c91`以降にengine/bench側の差分は無く(`git log --oneline ad88c91..HEAD`はdocs/scripts系コミットのみ)、コードは一切変更していない。
+- `cargo build --release -p engine --bin eval_cli`: 既にビルド済み(`Finished release profile ... in 0.08s`)。
+- `python bench/edax-compare/vs_edax.py`(デフォルト引数。`engine-modes=single-root,allmoves`・`levels=10,5,1`・`opening-set=smoke`・`fixed-depth-opening-set=both`が既定値のため、追加オプション無しの1回の実行でsingle-root/allmoves両方・レベル別20局・fixed-depth決定性・node-budget決定性・弱点分析まで全て実行される)をバックグラウンドで起動。
+  - 起動時に2回、他セッション(オーケストレーター)が`CLAUDE.md`/`AGENTS.md`/`scripts/codex-task.ps1`を同時にコミットしている最中の一時的なdirty状態を掴んで`ensure_clean_worktree`が「ERROR: benchmark provenance requires a committed worktree」を出して即終了する事象が発生(コード起因ではなく同時編集によるレース)。3回目、`git status --short`が空であることを確認した直後に起動して成功。
+  - 起動成功後の進行: PV抽出健全性チェックPASSED → fixed-depth決定性回帰チェック開始(Monitorで追跡中)。以後、node-budget決定性チェック→対局120局(single-root/allmoves×level10/5/1×smoke10局面×黒白)→弱点分析→レポート生成、の順で進行する見込み(スクリプトの処理順どおり)。進捗はバックグラウンドMonitor(タスクID`bd6tq50ry`→`bsxac9gqm`、ログ`scratchpad/t084_bench_run.log`)で節目ごとに追記予定。
+  - fixed-depth決定性回帰チェック: **PASSED**(40局面、2回実行で全一致)。node-budget決定性回帰チェック(redo #1追加要件6): **PASSED**(smoke10局面、`--max-nodes 4096`で2回実行し全一致)。
+  - 対局進捗[60/120]時点で確認: single-root×level10/5/1×smoke10局面×黒白=60局が全て完了。**redo #1のフォールバック修正が有効に機能しており、空き18〜19での途中終了(旧不具合)は観測されず、全局が黒石+白石=64(またはパスを含む正当な終局)で完走している**(例: `black=23 white=41`, `black=25 white=39`など)。level1では自作エンジンの勝利も複数観測(margin+14, +18)。以後allmovesモード(60局)→弱点分析→レポート生成の順で継続中。
