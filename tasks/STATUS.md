@@ -20,7 +20,8 @@
 
 | ID | タスク | 担当 | 状態 | 試行 |
 |---|---|---|---|---|
-| T089a | 探索改善(history+aspiration、fixed-depth完全一致ゲート) | implementer(Sonnetフォールバック) | in_progress | 0 |
+| T089a | 探索改善(history+aspiration、fixed-depth完全一致ゲート) | implementer(Sonnetフォールバック) | review | 0 |
+| T090a | Edax教師コーパス生成(smoke 1k→primary 50k、全合法手teacher値) | implementer(Sonnetフォールバック) | todo | 0 |
 
 ## 有効な方針・申し送り(今後のタスクに効くもの)
 
