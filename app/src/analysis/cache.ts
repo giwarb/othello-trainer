@@ -33,7 +33,7 @@
  */
 
 import { ANALYSIS_CACHE_STORE, openAppDb, requestToPromise } from '../db/appDb.ts'
-import type { MoveEvalJson } from '../engine/types.ts'
+import type { AnalyzeLimit, MoveEvalJson } from '../engine/types.ts'
 
 /** `analysisCache`ストアの1レコード。キーは`cacheKey()`が作る文字列。 */
 export interface CachedPositionAnalysis {
@@ -59,6 +59,12 @@ function defaultIndexedDb(): IDBFactory {
  * 無効化する必要があり、バージョンを1つ上げる(1 -> 2)。
  */
 export const ANALYSIS_ENGINE_VERSION = 2
+
+/** 探索条件をキャッシュキー用の安定したタグへ変換する。 */
+export function analysisLimitTag(limit: AnalyzeLimit): string {
+  const maxNodes = limit.maxNodes === undefined ? 'none' : String(limit.maxNodes)
+  return `d${limit.depth}-e${limit.exactFromEmpties}-n${maxNodes}`
+}
 
 /**
  * キャッシュキーを作る。`limitTag`は探索条件(depth/exactFromEmptiesなど)を表す

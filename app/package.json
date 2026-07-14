@@ -8,7 +8,7 @@
     "predev": "npm run wasm:build",
     "dev": "vite",
     "prebuild": "npm run wasm:build",
-    "build": "tsc -b && vite build && node scripts/inject-sw-version.mjs",
+    "build": "tsc -b && vite build && node scripts/test-node-budget-wasm.mjs && node scripts/inject-sw-version.mjs",
     "preview": "vite preview",
     "pretypecheck": "npm run wasm:build",
     "typecheck": "tsc --noEmit -p tsconfig.app.json",

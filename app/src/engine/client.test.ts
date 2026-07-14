@@ -78,6 +78,15 @@ describe('EngineClient', () => {
     expect(worker.sent[1]?.id).toBe(2);
   });
 
+  it('passes maxNodes through in a single-root analyze request', () => {
+    const { client, worker } = createClient();
+    const nodeLimited = { ...limit, timeMs: 1500, maxNodes: 160000 };
+
+    void client.requestAnalyze(board, 'black', nodeLimited);
+
+    expect(worker.sent[0]).toMatchObject({ limit: nodeLimited });
+  });
+
   it('resolves multiple concurrent requests to the correct promise, even out of order', async () => {
     const { client, worker } = createClient();
 

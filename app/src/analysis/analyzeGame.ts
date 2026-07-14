@@ -58,7 +58,7 @@ import { lookupJosekiNode } from '../joseki/lookup.ts'
 import { hashBoard } from '../joseki/normalize.ts'
 import type { JosekiDb } from '../joseki/types.ts'
 import { resolveMover } from '../midgame/resolveMover.ts'
-import { cacheKey, getCachedAnalysis, putCachedAnalysis } from './cache.ts'
+import { analysisLimitTag, cacheKey, getCachedAnalysis, putCachedAnalysis } from './cache.ts'
 import { classifyMove, DEFAULT_CLASSIFY_THRESHOLDS } from './classifyMove.ts'
 import type { AnalyzeGameProgress, ClassifyThresholds, MoveAnalysis } from './types.ts'
 
@@ -78,7 +78,7 @@ import type { AnalyzeGameProgress, ClassifyThresholds, MoveAnalysis } from './ty
 export const ANALYZE_LIMIT: AnalyzeLimit = { depth: 18, timeMs: 1500, exactFromEmpties: 22 }
 
 /** キャッシュキーに含める探索条件タグ。`ANALYZE_LIMIT`を変更した場合は別キーになる。 */
-const LIMIT_TAG = `d${ANALYZE_LIMIT.depth}-e${ANALYZE_LIMIT.exactFromEmpties}`
+const LIMIT_TAG = analysisLimitTag(ANALYZE_LIMIT)
 
 /**
  * 石差の理論上限(絶対値、単位は石)。オセロは64マスなので、どちらの手番視点でも

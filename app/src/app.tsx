@@ -126,10 +126,26 @@ export function App() {
 /** CPUの強さプリセット(§2.10の簡易版: 3段階)。 */
 type LevelKey = 'weak' | 'normal' | 'strong'
 
-const LEVELS: Record<LevelKey, { label: string; limit: AnalyzeLimit }> = {
+interface LevelPreset {
+  readonly label: string
+  /** 解析・全合法手比較など、従来経路で使う探索条件。 */
+  readonly limit: AnalyzeLimit
+  /** CPU着手のsingle-root探索だけに使う探索条件。省略時は`limit`と同じ。 */
+  readonly cpuLimit?: AnalyzeLimit
+}
+
+export const LEVELS: Record<LevelKey, LevelPreset> = {
   weak: { label: '弱い (depth4)', limit: { depth: 4, exactFromEmpties: 8 } },
   normal: { label: '普通 (depth8)', limit: { depth: 8, exactFromEmpties: 12 } },
-  strong: { label: '強い (depth12)', limit: { depth: 12, exactFromEmpties: 16 } },
+  strong: {
+    label: '強い (depth12)',
+    limit: { depth: 12, exactFromEmpties: 16 },
+    cpuLimit: { depth: 12, timeMs: 1500, maxNodes: 160000, exactFromEmpties: 16 },
+  },
+}
+
+export function cpuMoveLimitForLevel(level: LevelKey): AnalyzeLimit {
+  return LEVELS[level].cpuLimit ?? LEVELS[level].limit
 }
 
 function sideLabel(side: Side): string {
@@ -254,7 +270,7 @@ function PlayMode() {
     let cancelled = false
     setThinking(true)
 
-    requestCpuMove(game, getEngine(), LEVELS[level].limit)
+    requestCpuMove(game, getEngine(), cpuMoveLimitForLevel(level))
       .then((next) => {
         if (!cancelled) {
           setGame(next)

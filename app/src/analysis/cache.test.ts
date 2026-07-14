@@ -1,7 +1,14 @@
 import { IDBFactory } from 'fake-indexeddb'
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { MoveEvalJson } from '../engine/types.ts'
-import { ANALYSIS_ENGINE_VERSION, cacheKey, clearAnalysisCache, getCachedAnalysis, putCachedAnalysis } from './cache.ts'
+import {
+  ANALYSIS_ENGINE_VERSION,
+  analysisLimitTag,
+  cacheKey,
+  clearAnalysisCache,
+  getCachedAnalysis,
+  putCachedAnalysis,
+} from './cache.ts'
 
 // vitestの実行環境は`node`のため、実ブラウザのIndexedDBは存在しない。`midgame/pool.test.ts`
 // と同じ手法で`fake-indexeddb`のスタンドアロン`IDBFactory`をテストごとに新規生成する。
@@ -25,6 +32,15 @@ describe('analysis/cache (IndexedDB解析結果キャッシュ)', () => {
 
   it('cacheKeyは局面ハッシュと探索条件タグとエンジンバージョンを連結した文字列を作る(T060)', () => {
     expect(cacheKey('abc_def_black', 'd18-e22')).toBe(`abc_def_black|d18-e22|v${ANALYSIS_ENGINE_VERSION}`)
+  })
+
+  it('探索条件タグはmaxNodesを含み、異なるノード予算を別キャッシュにする(T085c)', () => {
+    const base = { depth: 12, timeMs: 1500, exactFromEmpties: 16 }
+    expect(analysisLimitTag(base)).toBe('d12-e16-nnone')
+    expect(analysisLimitTag({ ...base, maxNodes: 160000 })).toBe('d12-e16-n160000')
+    expect(analysisLimitTag({ ...base, maxNodes: 200000 })).not.toBe(
+      analysisLimitTag({ ...base, maxNodes: 160000 }),
+    )
   })
 
   it('未キャッシュの局面はundefinedを返す', async () => {

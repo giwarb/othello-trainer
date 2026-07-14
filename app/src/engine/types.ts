@@ -27,6 +27,8 @@ export interface AnalyzeLimit {
   depth: number;
   /** 省略可能。指定しない場合はエンジン側で `depth` のみを打ち切り条件とする。 */
   timeMs?: number;
+  /** 省略可能。探索全体で消費できる最大ノード数。 */
+  maxNodes?: number;
   exactFromEmpties: number;
 }
 

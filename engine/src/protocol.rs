@@ -13,7 +13,7 @@
 
 use crate::bitboard::{Board, Side};
 use crate::pattern_eval::PatternWeights;
-use crate::search::{search_all_moves_with_eval, search_with_eval, SearchLimit};
+use crate::search::{search_all_moves_with_eval, search_with_eval, search_with_eval_with_node_limit, SearchLimit};
 use crate::tt::TranspositionTable;
 use serde::{Deserialize, Serialize};
 // search.rs 同様、`wasm32-unknown-unknown` で実行時panicする
@@ -34,6 +34,8 @@ pub struct LimitJson {
     pub depth: u8,
     #[serde(default, rename = "timeMs")]
     pub time_ms: Option<u64>,
+    #[serde(default, rename = "maxNodes")]
+    pub max_nodes: Option<u64>,
     #[serde(rename = "exactFromEmpties")]
     pub exact_from_empties: u8,
 }
@@ -209,6 +211,10 @@ pub fn handle_analyze(request_json: &str, tt: &mut TranspositionTable, weights: 
         return error_json(Some(request.id), format!("unsupported command: {cmd}"));
     }
 
+    if request.all_moves && request.limit.max_nodes.is_some() {
+        return error_json(Some(request.id), "maxNodes is not supported with allMoves: true".to_string());
+    }
+
     let (board, side) = match parse_board(&request.board) {
         Ok(v) => v,
         Err(e) => return error_json(Some(request.id), e),
@@ -308,7 +314,10 @@ pub fn handle_analyze(request_json: &str, tt: &mut TranspositionTable, weights: 
     }
 
     let start = Instant::now();
-    let result = search_with_eval(&board, side, &limit, tt, weights);
+    let result = match request.limit.max_nodes {
+        Some(max_nodes) => search_with_eval_with_node_limit(&board, side, &limit, tt, weights, max_nodes),
+        None => search_with_eval(&board, side, &limit, tt, weights),
+    };
     let elapsed_ms = start.elapsed().as_millis() as u64;
 
     // 経過時間が極端に短い(0ms)場合はゼロ除算を避け、nodesをそのままnpsとする
@@ -728,5 +737,49 @@ mod tests {
             elapsed < std::time::Duration::from_millis(2000),
             "analyze() with allMoves:true should honor timeMs and return well within 2s, took {elapsed:?}"
         );
+    }
+
+    #[test]
+    fn limit_json_deserializes_optional_max_nodes_with_camel_case_name() {
+        let request = format!(
+            r#"{{"id":31,"cmd":"analyze","board":{{"black":"{INITIAL_BLACK}","white":"{INITIAL_WHITE}","turn":"black"}},"limit":{{"depth":12,"timeMs":1500,"maxNodes":160000,"exactFromEmpties":16}}}}"#
+        );
+        let with_nodes: AnalyzeRequest = serde_json::from_str(&request).unwrap();
+        assert_eq!(with_nodes.limit.max_nodes, Some(160_000));
+
+        let legacy: AnalyzeRequest = serde_json::from_str(&analyze_request_json(
+            32, INITIAL_BLACK, INITIAL_WHITE, "black", 12, 16,
+        ))
+        .unwrap();
+        assert_eq!(legacy.limit.max_nodes, None);
+    }
+
+    #[test]
+    fn analyze_rejects_all_moves_with_max_nodes_via_standard_error_response() {
+        let request = format!(
+            r#"{{"id":33,"cmd":"analyze","board":{{"black":"{INITIAL_BLACK}","white":"{INITIAL_WHITE}","turn":"black"}},"limit":{{"depth":12,"timeMs":1500,"maxNodes":160000,"exactFromEmpties":16}},"allMoves":true}}"#
+        );
+        let mut engine = Engine::new();
+        let response: serde_json::Value = serde_json::from_str(&engine.analyze(&request)).unwrap();
+
+        assert_eq!(response["id"], 33);
+        assert_eq!(response["error"], "maxNodes is not supported with allMoves: true");
+        assert!(response.get("final").is_none());
+    }
+
+    #[test]
+    fn node_limited_protocol_requests_are_deterministic() {
+        let request = format!(
+            r#"{{"id":34,"cmd":"analyze","board":{{"black":"{INITIAL_BLACK}","white":"{INITIAL_WHITE}","turn":"black"}},"limit":{{"depth":20,"timeMs":1500,"maxNodes":2048,"exactFromEmpties":10}}}}"#
+        );
+        let mut first_engine = Engine::new();
+        let first: serde_json::Value = serde_json::from_str(&first_engine.analyze(&request)).unwrap();
+        let mut second_engine = Engine::new();
+        let second: serde_json::Value = serde_json::from_str(&second_engine.analyze(&request)).unwrap();
+
+        assert!(first.get("error").is_none());
+        assert_eq!(second["pv"], first["pv"]);
+        assert_eq!(second["score"], first["score"]);
+        assert_eq!(second["nodes"], first["nodes"]);
     }
 }
