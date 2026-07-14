@@ -8,6 +8,8 @@
 
 **エンジン強化(Edax level 10 攻略)ロードマップを実行中**。設計書: `tasks/design/T083-engine-strengthening-report.md`(全体)、`tasks/design/T085-beat-level10-report.md`(T085系の規範)。
 
+- **T093検証状況(07-15 朝)**: codex-review合格(コード面ブロッカーなし)。verifierはT093固有項目を全合格(本番でブックon初手117ms/off 2281msの実測差・永続化・フォールバック・CI稼働確認)としたが、`npm run build` が**T090a生成の CPU 100% 飽和による決定性自己チェック(T085c由来スクリプト)の揺れ**で失敗し形式不合格。**裁定: redo不要、生成完了後にbuild 1回再実行で確認できたらdone**。副次的知見: 壁時計保険はCPU飽和環境下で発動し決定性を崩しうる(自己チェックはmaxNodes到達前提。低速端末での挙動として記憶しておく)。
+- **T092**: Rust Testsワークフロー追加済み・初回実行成功(9m28s、engine debug+FFO fast+train全部緑)。implementerの最終報告待ち(Actions監視で停止中の可能性、次回確認)。
 - 監視記録(07-15 04:33): 24,680/50,000。**直近レートが約0.52局面/秒に低下**(完全読み帯が支配的に)。このままだと完走は本日夕方見込み。停滞なし・チェックポイント健全のため再シャーディング等の介入はせず完走まで走らせる裁定(コーパス一貫性優先)。待ち時間でT090b(蒸留学習)を起票済み(委譲はT090a完了・検証後。Codex復帰していれば通常ルーティングに戻す)。
 - **実行中: T090a primary生成(8シャード並列、23:38:25開始、デタッチプロセスでセッション非依存)**。smoke完走(1,000局面、exact率31.5%、エラー0、resume/拒否とも実証)。監視: `train/data/teacher/logs/primary_orchestrator.log` または各シャードの `corpus_primary_shard{I}of8.meta.json` の progress.done。**注意: N=3検証で並列効率約2倍(非線形)のためN=8でも5〜6時間かかる可能性**。完走後の残作業: ワーカー再開(SendMessage)→マージ→verify→コミット→verifier+Claudeレビュー。ワーカーは指示どおり完走待ち停止中。
 - **T088 done(2026-07-14)**: verifier・Claude代替レビューとも合格(24run集計の独立再現・compare再実行の完全再現・前提修正の実地再現)。軽微申し送り: 作業ログのゲート(c) provenance欄のeval_cliハッシュが旧バッチのものに転記ミス(数値自体は正)、ゲート(e)のNPS測定スクリプト/生ログが未保存(算術検算のみ可)。
@@ -23,8 +25,8 @@
 |---|---|---|---|---|
 | T090a | Edax教師コーパス生成(smoke 1k→primary 50k、全合法手teacher値) | implementer(Sonnetフォールバック) | in_progress | 0 |
 | T090b | Edax教師蒸留学習(混合損失、ゲート通過候補は20局スモークまで) | codex(gpt-5.6-sol) | todo | 0 |
-| T092 | CIにエンジンテストジョブ追加(cargo test+FFO fast、GitHubランナー上) | implementer | in_progress | 0 |
-| T093 | CPU対局の定石ブックon/off(フェーズ1、TSのみ・エンジン変更なし) | codex(gpt-5.6-sol) | in_progress | 0 |
+| T092 | CIにエンジンテストジョブ追加(cargo test+FFO fast、GitHubランナー上) | implementer | review | 0 |
+| T093 | CPU対局の定石ブックon/off(フェーズ1、TSのみ・エンジン変更なし) | codex(gpt-5.6-sol) | review | 0 |
 
 ## 有効な方針・申し送り(今後のタスクに効くもの)
 
