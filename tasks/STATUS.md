@@ -8,7 +8,7 @@
 
 **エンジン強化(Edax level 10 攻略)ロードマップを実行中**。設計書: `tasks/design/T083-engine-strengthening-report.md`(全体)、`tasks/design/T085-beat-level10-report.md`(T085系の規範)。
 
-- **実行中: T086**(TT置換規則の品質保護、Codex gpt-5.6-sol)。棋力施策ではなく T089a(history/aspiration)等の基礎修正。完了後は verifier+codex-review 並列検証。
+- **実行中: T087**(Pattern v3 — edge+2X・対角オフセット特徴の追加と5構成ablation、Codex gpt-5.6-sol)。評価関数の表現力向上=Edaxとの差の本丸。学習(5構成×3seed)を含む長時間タスク。不採用判定も正常完了。採用時のengine/アプリ配線は後続タスク。
 - **T085シリーズ(a/b/c)完結(2026-07-14)**: ノード予算探索(160k/wall1500ms保険)が本番アプリの強CPUまで貫通。redo各1回(a: quota比較未実施、c: Worker常駐TTの決定性違反→maxNodes経路の開始前TTクリアで解消)。
 - 残ロードマップ: T086(TT置換規則の深度保護)→ T087(Pattern v3)/T088(学習改善)→ T089a(history+aspiration)/T089b(hot-path)→ T090a-c(Edax教師蒸留・最終棋力判定)。
 - **ユーザー要望(2026-07-14、ロードマップ完了後にタスク化)**: 自作エンジンにも opening book の on/off 2モードを用意する。Edaxのbook.datコピーはGPL/容量の問題で不採用とし、既存定石DBを骨格に序盤局面をローカルEdaxで深読みさせた自前ブックを生成する方式(承認済みの教師データローカル生成方針と同枠組み)。CPU設定にトグルを追加。ベンチは引き続き両者ブックオフ。
@@ -18,7 +18,7 @@
 
 | ID | タスク | 担当 | 状態 | 試行 |
 |---|---|---|---|---|
-| T086 | TT置換規則の品質保護(深いExact保持・品質順序probe/store) | codex(gpt-5.6-sol) | review | 0 |
+| T087 | Pattern v3(edge+2X・diag567追加、5構成ablation、PWV3形式) | codex(gpt-5.6-sol) | in_progress | 0 |
 
 ## 有効な方針・申し送り(今後のタスクに効くもの)
 
@@ -48,6 +48,7 @@
 | T085b | ノード予算校正と採用判定 | 160kノード採用。wall1000(regret4.10、保険発動29/48)より大幅改善。ベンチresume厳格化・アトミック保存 |
 | T091 | Codexラッパーのライブログ修正 | 3ラッパーのstderr進捗をtail可能に(ユーザー指摘起点) |
 | T085c | ノード予算のアプリ配線 | 強CPUが160k/1500msのsingle-root探索で着手。決定性は同一Engine+TT汚染ケースまでテスト固定(redo1回) |
+| T086 | TT置換規則の品質保護 | 深いExactの保持・両slot品質probe。verifier/codex-reviewとも指摘ゼロ。FFOノード-0.03%、budget-regression中央値-0.06% |
 
 ## 完了フェーズ(詳細は STATUS-archive.md と各タスクファイル)
 
