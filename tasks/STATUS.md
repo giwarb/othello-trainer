@@ -78,9 +78,10 @@
 | T084 | ベンチ補正: single-root探索導入+テレメトリ+オラクルロス修正+固定opening | codex(gpt-5.6-sol) | done | 1 |
 | T085a | exact切替とノード数予算管理の再設計(TTドメイン分離・baseline-first・exact quota) | codex(gpt-5.6-sol) | done | 1 |
 | T091 | Codexラッパーのログ収集修正(stderr進捗の逐次記録、tail可能化) | implementer | done | 0 |
-| T085b | ノード予算の校正と採用判定(ベンチ堅牢化+A/B+primary60局) | codex(gpt-5.6-sol) | review | 0 |
-| T085c | ノード予算探索のWorker・アプリ配線(強CPUプリセット160k/1500ms) | codex(gpt-5.6-sol) | todo | 0 |
+| T085b | ノード予算の校正と採用判定(ベンチ堅牢化+A/B+primary60局) | codex(gpt-5.6-sol) | done | 0 |
+| T085c | ノード予算探索のWorker・アプリ配線(強CPUプリセット160k/1500ms) | codex(gpt-5.6-sol) | in_progress | 0 |
 
+- **T085b done(2026-07-14)**: verifier・codex-reviewとも合格。verifierは故障注入5条件の拒否+アトミック中断シミュレーションを実地再現、校正データ再集計一致、primary 60局の終局を独立再判定(60/60)、wall保険0・depth0=0を着手単位で精査。作業ログ記載のreport.md 2ファイル未配送は実装バグではなく(再現実行で正常生成を確認)、採用判定表はdecision.mdに存在するため基準充足と判定。**申し送り2件(次にvs_edax.pyを触るタスクで)**: (1)通常対局run keyへのopenings.json内容ハッシュ追加(codex-review中所見)、(2)docstringの事前ビルド説明が古い。**T085bの成果総括: ノード予算160k採用。固定局面regretはwall1000の4.10石→1.60石。wall1000系列は実はwall保険29/48・depth0=7発生していたことも判明(ノード予算方式の優位性を裏付け)**。
 - **T085b codex-review合格(2026-07-14)**: ブロッカーなし。校正データ・採用判定・primary 60局の集計をレビュー側で独立再現し全一致。**申し送り(中所見1件、次にvs_edax.pyを触るタスクで対応)**: 通常対局のrun keyにopenings.jsonの内容SHA-256が未含有(校正系列のpositionsSha256と同方式を適用すべき)。軽微: docstringの事前ビルド説明が古い。verifier待ち。
 - **T085b実装完了(2026-07-14、Codex・約42分、代行コミット 6dd70a5)、verifier+codex-review並列検証中(範囲 e5f94dd..6dd70a5)**。実装者報告: 前提修正2件(resume厳格化=5種hash完全比較+故障注入5条件で拒否確認、アトミック保存=os.replace+中断シミュレーションPASS)。校正結果: wall1000のregret 4.104石に対し node 160k=1.604/200k=1.396/240k=1.396/300k=1.521、全node系列で決定性100%・wall保険0・depth0ゼロ。**採用: 160,000ノード/wall1500ms**(条件を満たす最小予算)。スモーク20局 -33.65(wall基準-35.80比+2.15石で非劣性クリア)、primary 60局完走(4勝2分54敗・平均-29.07、wall保険0、resume実証)。**注目: node予算はwall1000より固定局面regretで大幅に良い**(4.10→1.60石)。作業ログ記載のreport.md 2ファイルが実在しない点はverifierに調査指示済み。
 - **T085a done(2026-07-14)**: verifier・codex-reviewとも合格。verifierはredoフィードバック6項目を実測確認(quota比較データの再計算一致・コーパス48局面の空き13〜30連続被覆・境界挙動(13-14でroot exact試行/25-30で完全抑制)・fallbackReason規則の実装とテレメトリ整合・専用テスト・cargo test 149件・FFOノード数1,299,102,329完全一致・budget-regression 2回diff一致・Actions成功・ツリー清潔)。作業ログの「git diff --check: pass」記述は改行混在のため実際は警告あり(不正確だが機能無影響、T085bで正規化)。**T085aの成果総括: 空き19〜24帯の探索崩壊(平均到達深さ3.0)を解消し、同帯の平均oracle regretを5.56→1.667石(70%減)、loss>=4石を13→5件に削減。quota 40%採用(4候補比較で選定)。**次: T085bを委譲。
