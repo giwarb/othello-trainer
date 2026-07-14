@@ -82,6 +82,92 @@ pub struct PatternWeights {
     pub class_tables: Vec<PatternWeightTable>,
 }
 
+fn sha256(input: &[u8]) -> [u8; 32] {
+    const K: [u32; 64] = [
+        0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4,
+        0xab1c5ed5, 0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe,
+        0x9bdc06a7, 0xc19bf174, 0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f,
+        0x4a7484aa, 0x5cb0a9dc, 0x76f988da, 0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7,
+        0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967, 0x27b70a85, 0x2e1b2138, 0x4d2c6dfc,
+        0x53380d13, 0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85, 0xa2bfe8a1, 0xa81a664b,
+        0xc24b8b70, 0xc76c51a3, 0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070, 0x19a4c116,
+        0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,
+        0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7,
+        0xc67178f2,
+    ];
+    let mut h = [
+        0x6a09e667u32,
+        0xbb67ae85,
+        0x3c6ef372,
+        0xa54ff53a,
+        0x510e527f,
+        0x9b05688c,
+        0x1f83d9ab,
+        0x5be0cd19,
+    ];
+    let bit_len = (input.len() as u64) * 8;
+    let padded_len = (input.len() + 9 + 63) & !63;
+    let mut padded = vec![0u8; padded_len];
+    padded[..input.len()].copy_from_slice(input);
+    padded[input.len()] = 0x80;
+    padded[padded_len - 8..].copy_from_slice(&bit_len.to_be_bytes());
+    for chunk in padded.chunks_exact(64) {
+        let mut w = [0u32; 64];
+        for (i, word) in chunk.chunks_exact(4).enumerate() {
+            w[i] = u32::from_be_bytes(word.try_into().unwrap());
+        }
+        for i in 16..64 {
+            let s0 = w[i - 15].rotate_right(7) ^ w[i - 15].rotate_right(18) ^ (w[i - 15] >> 3);
+            let s1 = w[i - 2].rotate_right(17) ^ w[i - 2].rotate_right(19) ^ (w[i - 2] >> 10);
+            w[i] = w[i - 16]
+                .wrapping_add(s0)
+                .wrapping_add(w[i - 7])
+                .wrapping_add(s1);
+        }
+        let [mut a, mut b, mut c, mut d, mut e, mut f, mut g, mut hh] = h;
+        for i in 0..64 {
+            let s1 = e.rotate_right(6) ^ e.rotate_right(11) ^ e.rotate_right(25);
+            let ch = (e & f) ^ ((!e) & g);
+            let t1 = hh
+                .wrapping_add(s1)
+                .wrapping_add(ch)
+                .wrapping_add(K[i])
+                .wrapping_add(w[i]);
+            let s0 = a.rotate_right(2) ^ a.rotate_right(13) ^ a.rotate_right(22);
+            let maj = (a & b) ^ (a & c) ^ (b & c);
+            let t2 = s0.wrapping_add(maj);
+            hh = g;
+            g = f;
+            f = e;
+            e = d.wrapping_add(t1);
+            d = c;
+            c = b;
+            b = a;
+            a = t1.wrapping_add(t2);
+        }
+        for (state, value) in h.iter_mut().zip([a, b, c, d, e, f, g, hh]) {
+            *state = state.wrapping_add(value);
+        }
+    }
+    let mut out = [0u8; 32];
+    for (i, word) in h.iter().enumerate() {
+        out[i * 4..i * 4 + 4].copy_from_slice(&word.to_be_bytes());
+    }
+    out
+}
+
+fn schema_hash(patterns: &[PatternCells], class_of: &[usize]) -> [u8; 32] {
+    let mut schema = Vec::new();
+    schema.extend_from_slice(&(NUM_STAGES as u32).to_le_bytes());
+    schema.extend_from_slice(&STAGE_EMPTY_DIVISOR.to_le_bytes());
+    for (cells, &class_id) in patterns.iter().zip(class_of) {
+        schema.extend_from_slice(&(class_id as u16).to_le_bytes());
+        schema.push(cells.len() as u8);
+        schema.extend_from_slice(cells);
+    }
+    sha256(&schema)
+}
+
 impl PatternWeights {
     /// パターン定義から、対称オービットのクラス分類([`patterns::compute_pattern_classes`])
     /// を行い、全クラスの重みを0初期化したモデルを作る
@@ -141,7 +227,9 @@ impl PatternWeights {
         buf.extend_from_slice(b"PWV2");
         buf.extend_from_slice(&2u32.to_le_bytes());
         buf.extend_from_slice(&(self.patterns.len() as u32).to_le_bytes());
-        buf.extend_from_slice(&(self.class_info.representative_of_class.len() as u32).to_le_bytes());
+        buf.extend_from_slice(
+            &(self.class_info.representative_of_class.len() as u32).to_le_bytes(),
+        );
         buf.extend_from_slice(&(NUM_STAGES as u32).to_le_bytes());
 
         for (class_id, &rep_idx) in self.class_info.representative_of_class.iter().enumerate() {
@@ -155,6 +243,41 @@ impl PatternWeights {
             }
         }
 
+        buf
+    }
+
+    /// T087の自己記述形式(PWV3)にシリアライズする。旧trainerがPWV2を
+    /// 出力し続けられるよう、既存の[`to_bytes`](Self::to_bytes)とは分離する。
+    pub fn to_bytes_v3(&self) -> Vec<u8> {
+        let mut buf = Vec::new();
+        buf.extend_from_slice(b"PWV3");
+        buf.extend_from_slice(&3u32.to_le_bytes());
+        buf.extend_from_slice(&0u32.to_le_bytes());
+        buf.extend_from_slice(&(NUM_STAGES as u32).to_le_bytes());
+        buf.extend_from_slice(&STAGE_EMPTY_DIVISOR.to_le_bytes());
+        buf.extend_from_slice(&(self.patterns.len() as u32).to_le_bytes());
+        buf.extend_from_slice(&(self.class_tables.len() as u32).to_le_bytes());
+        buf.extend_from_slice(&schema_hash(
+            &self.class_info.aligned_cells,
+            &self.class_info.class_of,
+        ));
+
+        for (i, cells) in self.class_info.aligned_cells.iter().enumerate() {
+            buf.push(cells.len() as u8);
+            buf.extend_from_slice(&(self.class_info.class_of[i] as u16).to_le_bytes());
+            buf.extend_from_slice(cells);
+        }
+        for (class_id, &rep_idx) in self.class_info.representative_of_class.iter().enumerate() {
+            let cells = &self.class_info.aligned_cells[rep_idx];
+            let table = &self.class_tables[class_id];
+            buf.push(cells.len() as u8);
+            buf.extend_from_slice(&table.num_states.to_le_bytes());
+            for stage_table in &table.stage_tables {
+                for &weight in stage_table {
+                    buf.extend_from_slice(&weight.to_le_bytes());
+                }
+            }
+        }
         buf
     }
 
@@ -174,10 +297,133 @@ impl PatternWeights {
             return Err("重みファイルが短すぎます".to_string());
         }
         match &bytes[0..4] {
+            b"PWV3" => Self::from_bytes_v3(bytes),
             b"PWV2" => Self::from_bytes_v2(bytes),
             b"PWV1" => Self::from_bytes_v1(bytes),
             magic => Err(format!("不正なマジックバイト: {magic:?}")),
         }
+    }
+
+    fn from_bytes_v3(bytes: &[u8]) -> Result<PatternWeights, String> {
+        let mut pos = 0usize;
+        let read_bytes = |pos: &mut usize, n: usize| -> Result<&[u8], String> {
+            let end = pos
+                .checked_add(n)
+                .ok_or_else(|| "重みファイルの長さがオーバーフローしました".to_string())?;
+            if end > bytes.len() {
+                return Err("重みファイルが途中で終わっています".to_string());
+            }
+            let slice = &bytes[*pos..end];
+            *pos = end;
+            Ok(slice)
+        };
+        let read_u32 = |pos: &mut usize| -> Result<u32, String> {
+            Ok(u32::from_le_bytes(read_bytes(pos, 4)?.try_into().unwrap()))
+        };
+
+        let _magic = read_bytes(&mut pos, 4)?;
+        let version = read_u32(&mut pos)?;
+        if version != 3 {
+            return Err(format!("未対応のv3バージョン: {version}"));
+        }
+        let _flags = read_u32(&mut pos)?;
+        let num_stages = read_u32(&mut pos)?;
+        let stage_divisor = read_u32(&mut pos)?;
+        if num_stages as usize != NUM_STAGES || stage_divisor != STAGE_EMPTY_DIVISOR {
+            return Err("PWV3のステージ定義が一致しません".to_string());
+        }
+        let num_instances = read_u32(&mut pos)? as usize;
+        let num_classes = read_u32(&mut pos)? as usize;
+        if num_instances == 0 || num_classes == 0 || num_classes > num_instances {
+            return Err("PWV3のinstance/class数が不正です".to_string());
+        }
+        let stored_hash: [u8; 32] = read_bytes(&mut pos, 32)?.try_into().unwrap();
+
+        let mut pattern_defs = Vec::with_capacity(num_instances);
+        let mut stored_class_of = Vec::with_capacity(num_instances);
+        for _ in 0..num_instances {
+            let cell_count = read_bytes(&mut pos, 1)?[0] as usize;
+            if cell_count == 0 || cell_count > 10 {
+                return Err(format!("PWV3のcell_countが不正です: {cell_count}"));
+            }
+            let class_id =
+                u16::from_le_bytes(read_bytes(&mut pos, 2)?.try_into().unwrap()) as usize;
+            if class_id >= num_classes {
+                return Err(format!("PWV3のclass_idが範囲外です: {class_id}"));
+            }
+            let raw_cells = read_bytes(&mut pos, cell_count)?;
+            let mut seen = [false; 64];
+            let mut cells = PatternCells::new();
+            for &cell in raw_cells {
+                if cell >= 64 {
+                    return Err(format!("PWV3のcellが範囲外です: {cell}"));
+                }
+                if seen[cell as usize] {
+                    return Err(format!("PWV3のinstance内に重複cellがあります: {cell}"));
+                }
+                seen[cell as usize] = true;
+                cells.push(cell);
+            }
+            pattern_defs.push(cells);
+            stored_class_of.push(class_id);
+        }
+
+        if schema_hash(&pattern_defs, &stored_class_of) != stored_hash {
+            return Err("PWV3のschema hashが一致しません".to_string());
+        }
+        let class_info = patterns::compute_pattern_classes(&pattern_defs);
+        if class_info.representative_of_class.len() != num_classes
+            || class_info.class_of != stored_class_of
+        {
+            return Err("PWV3のD4クラス分類とclass_idが一致しません".to_string());
+        }
+
+        let mut class_tables = Vec::with_capacity(num_classes);
+        for class_id in 0..num_classes {
+            let cell_count = read_bytes(&mut pos, 1)?[0] as usize;
+            let expected_len = pattern_defs[class_info.representative_of_class[class_id]].len();
+            if cell_count != expected_len
+                || stored_class_of
+                    .iter()
+                    .enumerate()
+                    .any(|(i, &id)| id == class_id && pattern_defs[i].len() != cell_count)
+            {
+                return Err(format!(
+                    "PWV3の同一class内cell_countが一致しません: class={class_id}"
+                ));
+            }
+            let num_states = read_u32(&mut pos)?;
+            if num_states != patterns::num_states(cell_count) {
+                return Err(format!(
+                    "PWV3のnum_statesが3^cell_countと一致しません: class={class_id}"
+                ));
+            }
+            let mut stage_tables = Vec::with_capacity(NUM_STAGES);
+            for _ in 0..NUM_STAGES {
+                let mut table = Vec::with_capacity(num_states as usize);
+                for _ in 0..num_states {
+                    let weight = f32::from_le_bytes(read_bytes(&mut pos, 4)?.try_into().unwrap());
+                    if !weight.is_finite() {
+                        return Err("PWV3にfiniteでない重みがあります".to_string());
+                    }
+                    table.push(weight);
+                }
+                stage_tables.push(table);
+            }
+            class_tables.push(PatternWeightTable {
+                num_states,
+                stage_tables,
+            });
+        }
+        if pos != bytes.len() {
+            return Err("PWV3に余剰bytesがあります".to_string());
+        }
+
+        Ok(PatternWeights {
+            patterns: pattern_defs,
+            class_info,
+            class_tables,
+        })
     }
 
     fn from_bytes_v2(bytes: &[u8]) -> Result<PatternWeights, String> {
@@ -334,6 +580,110 @@ mod tests {
     use super::*;
 
     #[test]
+    fn sha256_matches_standard_test_vector() {
+        assert_eq!(
+            sha256(b"abc"),
+            [
+                0xba, 0x78, 0x16, 0xbf, 0x8f, 0x01, 0xcf, 0xea, 0x41, 0x41, 0x40, 0xde, 0x5d, 0xae,
+                0x22, 0x23, 0xb0, 0x03, 0x61, 0xa3, 0x96, 0x17, 0x7a, 0x9c, 0xb4, 0x10, 0xff, 0x61,
+                0xf2, 0x00, 0x15, 0xad,
+            ]
+        );
+    }
+
+    fn pwv3_bytes() -> Vec<u8> {
+        PatternWeights::zeroed(patterns::generate_patterns()).to_bytes_v3()
+    }
+
+    fn pwv3_class_block_offset(bytes: &[u8]) -> usize {
+        let instances = u32::from_le_bytes(bytes[20..24].try_into().unwrap()) as usize;
+        let mut pos = 60;
+        for _ in 0..instances {
+            let count = bytes[pos] as usize;
+            pos += 3 + count;
+        }
+        pos
+    }
+
+    #[test]
+    fn pwv3_roundtrip_is_self_describing() {
+        let patterns = patterns::generate_patterns_for(patterns::PatternConfig::V3);
+        let weights = PatternWeights::zeroed(patterns);
+        let bytes = weights.to_bytes_v3();
+        assert_eq!(&bytes[..4], b"PWV3");
+        let restored = PatternWeights::from_bytes(&bytes).unwrap();
+        assert_eq!(restored.patterns, weights.class_info.aligned_cells);
+        assert_eq!(restored.class_tables.len(), 10);
+    }
+
+    #[test]
+    fn pwv3_rejects_out_of_range_cell() {
+        let mut bytes = pwv3_bytes();
+        bytes[63] = 64;
+        assert!(PatternWeights::from_bytes(&bytes).is_err());
+    }
+
+    #[test]
+    fn pwv3_rejects_duplicate_cell_in_instance() {
+        let mut bytes = pwv3_bytes();
+        bytes[64] = bytes[63];
+        assert!(PatternWeights::from_bytes(&bytes).is_err());
+    }
+
+    #[test]
+    fn pwv3_rejects_wrong_num_states() {
+        let mut bytes = pwv3_bytes();
+        let pos = pwv3_class_block_offset(&bytes) + 1;
+        bytes[pos..pos + 4].copy_from_slice(&1u32.to_le_bytes());
+        assert!(PatternWeights::from_bytes(&bytes).is_err());
+    }
+
+    #[test]
+    fn pwv3_rejects_out_of_range_class_id() {
+        let mut bytes = pwv3_bytes();
+        let classes = u32::from_le_bytes(bytes[24..28].try_into().unwrap()) as u16;
+        bytes[61..63].copy_from_slice(&classes.to_le_bytes());
+        assert!(PatternWeights::from_bytes(&bytes).is_err());
+    }
+
+    #[test]
+    fn pwv3_rejects_class_cell_count_mismatch() {
+        let mut bytes = pwv3_bytes();
+        let pos = pwv3_class_block_offset(&bytes);
+        bytes[pos] -= 1;
+        assert!(PatternWeights::from_bytes(&bytes).is_err());
+    }
+
+    #[test]
+    fn pwv3_rejects_saved_class_ids_that_disagree_with_d4() {
+        let mut weights = PatternWeights::zeroed(patterns::generate_patterns());
+        weights.class_info.class_of[0] = 1;
+        assert!(PatternWeights::from_bytes(&weights.to_bytes_v3()).is_err());
+    }
+
+    #[test]
+    fn pwv3_rejects_non_finite_weight() {
+        let mut bytes = pwv3_bytes();
+        let pos = pwv3_class_block_offset(&bytes) + 5;
+        bytes[pos..pos + 4].copy_from_slice(&f32::NAN.to_le_bytes());
+        assert!(PatternWeights::from_bytes(&bytes).is_err());
+    }
+
+    #[test]
+    fn pwv3_rejects_trailing_bytes() {
+        let mut bytes = pwv3_bytes();
+        bytes.push(0);
+        assert!(PatternWeights::from_bytes(&bytes).is_err());
+    }
+
+    #[test]
+    fn pwv3_rejects_schema_hash_mismatch() {
+        let mut bytes = pwv3_bytes();
+        bytes[28] ^= 1;
+        assert!(PatternWeights::from_bytes(&bytes).is_err());
+    }
+
+    #[test]
     fn stage_for_empty_count_buckets_correctly() {
         assert_eq!(stage_for_empty_count(0), 0);
         assert_eq!(stage_for_empty_count(4), 0);
@@ -371,7 +721,10 @@ mod tests {
         let restored = PatternWeights::from_bytes(&bytes).expect("should parse");
 
         assert_eq!(restored.class_tables[0].stage_tables[0][0], 1.5);
-        assert_eq!(restored.class_tables[last_class].stage_tables[12][100], -2.25);
+        assert_eq!(
+            restored.class_tables[last_class].stage_tables[12][100],
+            -2.25
+        );
 
         let board = Board::initial();
         assert_eq!(
@@ -421,7 +774,9 @@ mod tests {
                 for state in 0..num_states {
                     let w = nonzero
                         .iter()
-                        .find(|&&(p, s, st, _)| p == pattern_id && s == stage && st == state as usize)
+                        .find(|&&(p, s, st, _)| {
+                            p == pattern_id && s == stage && st == state as usize
+                        })
                         .map(|&(_, _, _, w)| w)
                         .unwrap_or(0.0);
                     buf.extend_from_slice(&w.to_le_bytes());

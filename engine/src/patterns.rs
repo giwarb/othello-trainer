@@ -43,10 +43,73 @@
 //! よる設計変更)。`train`クレートは`engine::patterns`をそのまま`use`する。
 
 use crate::bitboard::{Board, Side};
+use std::ops::Deref;
 
 /// 1パターンが参照する盤面セルのインデックス列(各要素は0..64、
 /// `index = rank0*8 + file0`)。並び順がそのまま状態インデックスの桁順に対応する。
-pub type PatternCells = Vec<u8>;
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PatternCells {
+    cells: [u8; 10],
+    len: u8,
+}
+
+impl PatternCells {
+    pub fn new() -> Self {
+        Self {
+            cells: [0; 10],
+            len: 0,
+        }
+    }
+    pub fn with_capacity(capacity: usize) -> Self {
+        assert!(capacity <= 10);
+        Self::new()
+    }
+    pub fn push(&mut self, cell: u8) {
+        assert!((self.len as usize) < self.cells.len());
+        self.cells[self.len as usize] = cell;
+        self.len += 1;
+    }
+}
+
+impl Default for PatternCells {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+impl Deref for PatternCells {
+    type Target = [u8];
+    fn deref(&self) -> &Self::Target {
+        &self.cells[..self.len as usize]
+    }
+}
+impl FromIterator<u8> for PatternCells {
+    fn from_iter<T: IntoIterator<Item = u8>>(iter: T) -> Self {
+        let mut result = Self::new();
+        for cell in iter {
+            result.push(cell);
+        }
+        result
+    }
+}
+impl<'a> IntoIterator for &'a PatternCells {
+    type Item = &'a u8;
+    type IntoIter = std::slice::Iter<'a, u8>;
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
+    }
+}
+
+/// T087で比較するパターン集合。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PatternConfig {
+    V2,
+    V2Diag567,
+    V2Edge2x,
+    V3,
+    V2Corner5x2,
+}
+
+const POW3: [u32; 11] = [1, 3, 9, 27, 81, 243, 729, 2187, 6561, 19683, 59049];
 
 /// v1で使う全22パターンのセルインデックスを機械的に生成して返す。
 ///
@@ -86,7 +149,7 @@ pub fn generate_patterns() -> Vec<PatternCells> {
         (5..8, 5..8), // h8側
     ];
     for (rank_range, file_range) in corner_ranges {
-        let mut cells: PatternCells = Vec::with_capacity(9);
+        let mut cells = PatternCells::with_capacity(9);
         for rank0 in rank_range.clone() {
             for file0 in file_range.clone() {
                 cells.push(rank0 * 8 + file0);
@@ -100,7 +163,71 @@ pub fn generate_patterns() -> Vec<PatternCells> {
 
 /// パターン長(セル数)に対応する状態数(3^パターン長)を返す。
 pub fn num_states(pattern_len: usize) -> u32 {
-    3u32.pow(pattern_len as u32)
+    POW3[pattern_len]
+}
+
+fn symmetry_orbit(base: &PatternCells) -> Vec<PatternCells> {
+    use std::collections::HashSet;
+    let mut seen: HashSet<Vec<u8>> = HashSet::new();
+    let mut orbit = Vec::new();
+    for sym in 0..NUM_SYMMETRIES {
+        let mapped: PatternCells = base.iter().map(|&cell| apply_symmetry(sym, cell)).collect();
+        let mut key = mapped.to_vec();
+        key.sort_unstable();
+        if seen.insert(key) {
+            orbit.push(mapped);
+        }
+    }
+    orbit
+}
+
+fn edge2x_patterns() -> Vec<PatternCells> {
+    let mut base: PatternCells = (0u8..8).collect();
+    base.push(1 * 8 + 1);
+    base.push(1 * 8 + 6);
+    let orbit = symmetry_orbit(&base);
+    assert_eq!(orbit.len(), 4);
+    assert!(orbit.iter().all(|cells| cells.len() == 10));
+    orbit
+}
+
+fn diagonal_offset_patterns() -> Vec<PatternCells> {
+    let mut result = Vec::with_capacity(12);
+    for len in [5u8, 6, 7] {
+        let offset = 8 - len;
+        let base: PatternCells = (0..len).map(|i| i * 8 + i + offset).collect();
+        let orbit = symmetry_orbit(&base);
+        assert_eq!(orbit.len(), 4);
+        assert!(orbit.iter().all(|cells| cells.len() == len as usize));
+        result.extend(orbit);
+    }
+    assert_eq!(result.len(), 12);
+    result
+}
+
+fn corner5x2_patterns() -> Vec<PatternCells> {
+    let base: PatternCells = (0u8..2)
+        .flat_map(|rank| (0u8..5).map(move |file| rank * 8 + file))
+        .collect();
+    let orbit = symmetry_orbit(&base);
+    assert_eq!(orbit.len(), 8);
+    assert!(orbit.iter().all(|cells| cells.len() == 10));
+    orbit
+}
+
+/// v2を基礎に、T087のablation構成を機械生成する。
+pub fn generate_patterns_for(config: PatternConfig) -> Vec<PatternCells> {
+    let mut result = generate_patterns();
+    if matches!(config, PatternConfig::V2Edge2x | PatternConfig::V3) {
+        result.extend(edge2x_patterns());
+    }
+    if matches!(config, PatternConfig::V2Diag567 | PatternConfig::V3) {
+        result.extend(diagonal_offset_patterns());
+    }
+    if config == PatternConfig::V2Corner5x2 {
+        result.extend(corner5x2_patterns());
+    }
+    result
 }
 
 /// 盤面の1マス(`index`)の状態を、`mover`から見た3値(0=空, 1=自石, 2=相手石)で返す。
@@ -123,11 +250,9 @@ fn cell_trit(board: &Board, mover: Side, index: u8) -> u32 {
 /// (3進数エンコード、`0 .. num_states(cells.len())`)を計算する。
 pub fn pattern_state_index(cells: &[u8], board: &Board, mover: Side) -> u32 {
     let mut index = 0u32;
-    let mut multiplier = 1u32;
-    for &cell in cells {
+    for (position, &cell) in cells.iter().enumerate() {
         let trit = cell_trit(board, mover, cell);
-        index += trit * multiplier;
-        multiplier *= 3;
+        index += trit * POW3[position];
     }
     index
 }
@@ -171,14 +296,14 @@ fn cell_of(rank: u8, file: u8) -> u8 {
 /// 関する反転)。これらは合成について閉じており(D4は群)、恒等変換を含む。
 fn symmetry_coords(sym: usize, rank: u8, file: u8) -> (u8, u8) {
     match sym {
-        0 => (rank, file),             // 恒等
-        1 => (file, 7 - rank),         // 90度回転
-        2 => (7 - rank, 7 - file),     // 180度回転
-        3 => (7 - file, rank),         // 270度回転
-        4 => (rank, 7 - file),         // 左右反転(列を反転)
-        5 => (7 - rank, file),         // 上下反転(行を反転)
-        6 => (file, rank),             // 転置(主対角線 a1-h8 に関する反転)
-        7 => (7 - file, 7 - rank),     // 反転転置(反対角線 a8-h1 に関する反転)
+        0 => (rank, file),         // 恒等
+        1 => (file, 7 - rank),     // 90度回転
+        2 => (7 - rank, 7 - file), // 180度回転
+        3 => (7 - file, rank),     // 270度回転
+        4 => (rank, 7 - file),     // 左右反転(列を反転)
+        5 => (7 - rank, file),     // 上下反転(行を反転)
+        6 => (file, rank),         // 転置(主対角線 a1-h8 に関する反転)
+        7 => (7 - file, 7 - rank), // 反転転置(反対角線 a8-h1 に関する反転)
         _ => unreachable!("symmetry index out of range: {sym}"),
     }
 }
@@ -263,7 +388,7 @@ pub fn compute_pattern_classes(patterns: &[PatternCells]) -> PatternClassInfo {
     let mut class_of = vec![usize::MAX; n];
     let mut representative_of_class: Vec<usize> = Vec::new();
     let mut symmetry_of = vec![0usize; n];
-    let mut aligned_cells: Vec<PatternCells> = vec![Vec::new(); n];
+    let mut aligned_cells: Vec<PatternCells> = vec![PatternCells::new(); n];
 
     let cell_set = |cells: &PatternCells| -> HashSet<u8> { cells.iter().copied().collect() };
 
@@ -311,6 +436,48 @@ mod tests {
     use super::*;
 
     #[test]
+    fn t087_ablation_pattern_counts_and_classes_are_exact() {
+        let cases = [
+            (PatternConfig::V2, 22, 6),
+            (PatternConfig::V2Diag567, 34, 9),
+            (PatternConfig::V2Edge2x, 26, 7),
+            (PatternConfig::V3, 38, 10),
+            (PatternConfig::V2Corner5x2, 30, 7),
+        ];
+        for (config, instances, classes) in cases {
+            let generated = generate_patterns_for(config);
+            assert_eq!(generated.len(), instances, "{config:?}");
+            assert_eq!(
+                compute_pattern_classes(&generated)
+                    .representative_of_class
+                    .len(),
+                classes,
+                "{config:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn t087_generated_additions_have_required_shapes() {
+        let edge = generate_patterns_for(PatternConfig::V2Edge2x);
+        assert_eq!(edge[22..].len(), 4);
+        assert!(edge[22..].iter().all(|cells| cells.len() == 10));
+
+        let diag = generate_patterns_for(PatternConfig::V2Diag567);
+        assert_eq!(
+            diag[22..]
+                .iter()
+                .map(|cells| cells.len())
+                .collect::<Vec<_>>(),
+            vec![5, 5, 5, 5, 6, 6, 6, 6, 7, 7, 7, 7]
+        );
+
+        let corner = generate_patterns_for(PatternConfig::V2Corner5x2);
+        assert_eq!(corner[22..].len(), 8);
+        assert!(corner[22..].iter().all(|cells| cells.len() == 10));
+    }
+
+    #[test]
     fn generates_exactly_22_patterns() {
         let patterns = generate_patterns();
         assert_eq!(patterns.len(), 22);
@@ -349,7 +516,7 @@ mod tests {
     fn no_pattern_contains_duplicate_cells() {
         let patterns = generate_patterns();
         for (i, cells) in patterns.iter().enumerate() {
-            let mut sorted = cells.clone();
+            let mut sorted = cells.to_vec();
             sorted.sort_unstable();
             sorted.dedup();
             assert_eq!(
@@ -391,14 +558,14 @@ mod tests {
     fn main_diagonal_is_a1_to_h8() {
         let patterns = generate_patterns();
         let main_diag = &patterns[16];
-        assert_eq!(main_diag, &vec![0u8, 9, 18, 27, 36, 45, 54, 63]);
+        assert_eq!(&main_diag[..], &[0u8, 9, 18, 27, 36, 45, 54, 63]);
     }
 
     #[test]
     fn anti_diagonal_is_a8_to_h1() {
         let patterns = generate_patterns();
         let anti_diag = &patterns[17];
-        assert_eq!(anti_diag, &vec![7u8, 14, 21, 28, 35, 42, 49, 56]);
+        assert_eq!(&anti_diag[..], &[7u8, 14, 21, 28, 35, 42, 49, 56]);
     }
 
     #[test]
@@ -419,10 +586,10 @@ mod tests {
         // 3セルパターン: セル0=自石(黒), セル1=相手石(白), セル2=空。
         // mover=Black視点で 1*3^0 + 2*3^1 + 0*3^2 = 1 + 6 + 0 = 7。
         let board = Board {
-            black: 1u64, // セル0
+            black: 1u64,      // セル0
             white: 1u64 << 1, // セル1
         };
-        let cells: PatternCells = vec![0, 1, 2];
+        let cells: PatternCells = [0, 1, 2].into_iter().collect();
         assert_eq!(pattern_state_index(&cells, &board, Side::Black), 7);
         // mover=White視点なら 自石/相手石が入れ替わる:
         // 2*3^0 + 1*3^1 + 0*3^2 = 2 + 3 = 5。
@@ -460,10 +627,11 @@ mod tests {
         // 必ず8要素のどれかと(全セルで)一致するはず。
         for a in 0..NUM_SYMMETRIES {
             for b in 0..NUM_SYMMETRIES {
-                let composed: Vec<u8> = (0u8..64).map(|c| apply_symmetry(a, apply_symmetry(b, c))).collect();
-                let found = (0..NUM_SYMMETRIES).any(|x| {
-                    (0u8..64).all(|c| apply_symmetry(x, c) == composed[c as usize])
-                });
+                let composed: Vec<u8> = (0u8..64)
+                    .map(|c| apply_symmetry(a, apply_symmetry(b, c)))
+                    .collect();
+                let found = (0..NUM_SYMMETRIES)
+                    .any(|x| (0u8..64).all(|c| apply_symmetry(x, c) == composed[c as usize]));
                 assert!(found, "composition of symmetry {a} and {b} is not itself a symmetry (group not closed)");
             }
         }
@@ -479,7 +647,10 @@ mod tests {
                 for _ in 0..8 {
                     x = apply_symmetry(sym, x);
                 }
-                assert_eq!(x, c, "symmetry {sym} applied 8 times should return to identity");
+                assert_eq!(
+                    x, c,
+                    "symmetry {sym} applied 8 times should return to identity"
+                );
             }
         }
     }
@@ -524,11 +695,11 @@ mod tests {
         actual_classes.sort_by_key(|s| *s.iter().min().unwrap());
 
         let expected_classes: Vec<HashSet<usize>> = vec![
-            [0usize, 7, 8, 15].into_iter().collect(),   // 距離0: row0,row7,col0,col7
-            [1usize, 6, 9, 14].into_iter().collect(),   // 距離1: row1,row6,col1,col6
-            [2usize, 5, 10, 13].into_iter().collect(),  // 距離2: row2,row5,col2,col5
-            [3usize, 4, 11, 12].into_iter().collect(),  // 距離3: row3,row4,col3,col4
-            [16usize, 17].into_iter().collect(),        // 対角線: 主対角線・反対角線
+            [0usize, 7, 8, 15].into_iter().collect(), // 距離0: row0,row7,col0,col7
+            [1usize, 6, 9, 14].into_iter().collect(), // 距離1: row1,row6,col1,col6
+            [2usize, 5, 10, 13].into_iter().collect(), // 距離2: row2,row5,col2,col5
+            [3usize, 4, 11, 12].into_iter().collect(), // 距離3: row3,row4,col3,col4
+            [16usize, 17].into_iter().collect(),      // 対角線: 主対角線・反対角線
             [18usize, 19, 20, 21].into_iter().collect(), // 隅3x3ブロック4個
         ];
 
@@ -555,7 +726,10 @@ mod tests {
         for i in 0..patterns.len() {
             let own: HashSet<u8> = patterns[i].iter().copied().collect();
             let aligned: HashSet<u8> = info.aligned_cells[i].iter().copied().collect();
-            assert_eq!(own, aligned, "instance {i}: aligned_cells must cover the same board cells");
+            assert_eq!(
+                own, aligned,
+                "instance {i}: aligned_cells must cover the same board cells"
+            );
         }
     }
 

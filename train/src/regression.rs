@@ -91,19 +91,17 @@ impl Model {
 
         let class_of = &self.weights.class_info.class_of;
         let aligned_cells = &self.weights.class_info.aligned_cells;
-        let entries: Vec<(usize, u32)> = (0..self.weights.patterns.len())
-            .map(|i| {
-                let state = pattern_state_index(&aligned_cells[i], &sample.board, sample.mover);
-                (class_of[i], state)
-            })
-            .collect();
-        let prediction: f32 = entries
-            .iter()
-            .map(|&(class_id, state)| self.weights.class_tables[class_id].stage_tables[stage][state as usize])
-            .sum();
+        let mut prediction = 0.0;
+        for i in 0..self.weights.patterns.len() {
+            let state = pattern_state_index(&aligned_cells[i], &sample.board, sample.mover);
+            prediction +=
+                self.weights.class_tables[class_of[i]].stage_tables[stage][state as usize];
+        }
 
         let error = prediction - sample.outcome as f32;
-        for &(class_id, state) in &entries {
+        for i in 0..self.weights.patterns.len() {
+            let class_id = class_of[i];
+            let state = pattern_state_index(&aligned_cells[i], &sample.board, sample.mover);
             let w = &mut self.weights.class_tables[class_id].stage_tables[stage][state as usize];
             let grad = error + cfg.l2 * *w;
             *w -= cfg.learning_rate * grad;
@@ -113,10 +111,21 @@ impl Model {
     /// 与えられたサンプル集合で`cfg.epochs`エポック分SGD学習を行う。
     /// エポックごとに(再現可能な)シャッフル順序でサンプルを1回ずつ処理する。
     pub fn train(&mut self, samples: &[Sample], cfg: &TrainConfig) {
+        self.train_epochs(samples, cfg, 0, cfg.epochs);
+    }
+
+    /// resume時にも同じシャッフル列を再現できるよう、開始epochを明示して学習する。
+    pub fn train_epochs(
+        &mut self,
+        samples: &[Sample],
+        cfg: &TrainConfig,
+        start_epoch: u32,
+        epochs: u32,
+    ) {
         if samples.is_empty() {
             return;
         }
-        for epoch in 0..cfg.epochs {
+        for epoch in start_epoch..start_epoch + epochs {
             let order = shuffle_indices(samples.len(), cfg.seed ^ (epoch as u64));
             for &i in &order {
                 self.sgd_step(&samples[i], cfg);
@@ -161,6 +170,10 @@ impl Model {
         self.weights.to_bytes()
     }
 
+    pub fn to_bytes_v3(&self) -> Vec<u8> {
+        self.weights.to_bytes_v3()
+    }
+
     /// [`to_bytes`](Self::to_bytes)の逆変換(`PatternWeights::from_bytes`への委譲)。
     pub fn from_bytes(bytes: &[u8]) -> Result<Model, String> {
         Ok(Model {
@@ -177,9 +190,7 @@ struct Xorshift64 {
 
 impl Xorshift64 {
     fn new(seed: u64) -> Self {
-        Xorshift64 {
-            state: seed.max(1),
-        }
+        Xorshift64 { state: seed.max(1) }
     }
 
     fn next_u64(&mut self) -> u64 {
@@ -266,11 +277,11 @@ mod tests {
             seed: 1,
         };
 
-        let error_before = (model.predict(&sample.board, sample.mover) - sample.outcome as f32)
-            .abs();
+        let error_before =
+            (model.predict(&sample.board, sample.mover) - sample.outcome as f32).abs();
         model.train(&[sample], &cfg);
-        let error_after = (model.predict(&sample.board, sample.mover) - sample.outcome as f32)
-            .abs();
+        let error_after =
+            (model.predict(&sample.board, sample.mover) - sample.outcome as f32).abs();
         assert!(
             error_after < error_before,
             "error should shrink after training on a single sample: before={error_before}, after={error_after}"
