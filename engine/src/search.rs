@@ -226,6 +226,14 @@ pub struct SearchResult {
     pub wall_limit_hit: bool,
     pub fallback_reason: Option<AbortReason>,
     pub exact_policy_version: &'static str,
+    /// T089a(要件10): aspiration windowがfail-lowした(反復深化の各
+    /// イテレーションで負けた側の窓を必ず再探索した)回数の累計。
+    /// aspiration自体が無効な経路(`search`/`search_with_eval`等、
+    /// ノード予算探索でない経路)では常に`0`。
+    pub aspiration_fail_low: u32,
+    /// T089a(要件10): aspiration windowがfail-highした回数の累計。
+    /// `aspiration_fail_low`と同じ理由で、aspiration無効経路では常に`0`。
+    pub aspiration_fail_high: u32,
 }
 
 const EXACT_POLICY_VERSION: &str = "t085a-v2";
@@ -336,6 +344,12 @@ pub fn search_with_eval(
     tt: &mut TranspositionTable,
     weights: Option<&PatternWeights>,
 ) -> SearchResult {
+    // T089a: history heuristic/aspiration windowは、ノード予算探索
+    // (`max_nodes.is_some()`)の経路のみで有効にする(`enable_heuristics:
+    // false`)。既存のfixed-depth回帰テストがこの経路(`search`/
+    // `search_with_eval`)のノード数・タイブレーク順を固定しているため、
+    // これらを変えないことを最優先する([`HistoryTable`]・
+    // [`search_with_eval_inner`]のドキュメント参照)。
     search_with_eval_inner(
         board,
         side_to_move,
@@ -345,6 +359,7 @@ pub fn search_with_eval(
         true,
         None,
         EXACT_QUOTA_PERCENT,
+        false,
     )
 }
 
@@ -382,6 +397,8 @@ pub fn search_with_eval_with_node_limit_and_exact_quota(
     exact_quota_percent: u8,
 ) -> SearchResult {
     assert!(exact_quota_percent <= 100);
+    // T089a: ノード予算探索の経路なので history heuristic/aspiration
+    // windowを有効化する(上の`search_with_eval`のコメント参照)。
     search_with_eval_inner(
         board,
         side_to_move,
@@ -391,6 +408,7 @@ pub fn search_with_eval_with_node_limit_and_exact_quota(
         true,
         Some(max_nodes),
         exact_quota_percent,
+        true,
     )
 }
 
@@ -400,6 +418,16 @@ pub fn search_with_eval_with_node_limit_and_exact_quota(
 /// 引数であり、公開API(`search`/`search_with_eval`)は常に`true`を渡す
 /// (ETCは正しく実装されていれば探索結果を一切変えない安全な枝刈りであり、
 /// MPCと異なり本番で無効化する理由がない)。
+///
+/// `enable_heuristics`(T089a)は、history heuristic + aspiration window
+/// (要件7-10)を有効にするかどうかを切り替える。`enable_etc`と異なり
+/// これは「テスト専用の切り替え口」ではなく、**本番コードも呼び出し元に
+/// よって異なる値を渡す**(ノード予算探索の経路のみ`true`、[`search`]/
+/// [`search_with_eval`]等の従来経路は常に`false`)。この使い分けにより、
+/// 既存のfixed-depth回帰テスト([`search`]系のノード数を固定している
+/// テスト)を一切変更せずに両立させている。ablation比較・一致テストは
+/// このテスト用モジュールから直接この関数を呼び、同じ`max_nodes`で
+/// `enable_heuristics`だけを切り替えて結果を比較する。
 fn search_with_eval_inner(
     board: &Board,
     side_to_move: Side,
@@ -409,6 +437,7 @@ fn search_with_eval_inner(
     enable_etc: bool,
     max_nodes: Option<u64>,
     exact_quota_percent: u8,
+    enable_heuristics: bool,
 ) -> SearchResult {
     // TTスケール混同防止(T007): 同じ `tt` に対して過去に異なる
     // `exact_from_empties` で探索していた場合、その古いエントリは
@@ -517,6 +546,10 @@ fn search_with_eval_inner(
                 wall_limit_hit: false,
                 fallback_reason: None,
                 exact_policy_version: EXACT_POLICY_VERSION,
+                // ルート局面が直ちに完全読みで解けた場合、反復深化・
+                // aspiration windowは一切実行されていない。
+                aspiration_fail_low: 0,
+                aspiration_fail_high: 0,
             };
         }
         // T034: `exact`が`None`(タイムアウト)だった場合はここで`return`せず
@@ -535,12 +568,25 @@ fn search_with_eval_inner(
     }
 
     let mut last_result: Option<SearchResult> = None;
+    // T089a: history heuristic表とaspiration windowの中心値(前
+    // イテレーションのscore)。どちらも`enable_heuristics`が`true`の
+    // 呼び出し(ノード予算探索の経路)でのみ実際に使われる
+    // ([`HistoryTable`]・[`search_with_eval_inner`]のドキュメント参照)。
+    let mut history: Option<HistoryTable> = enable_heuristics.then(HistoryTable::new);
+    let mut prev_score: Option<i32> = None;
+    let mut aspiration_fail_low: u32 = 0;
+    let mut aspiration_fail_high: u32 = 0;
 
     for depth in 1..=limit.max_depth {
         if max_nodes.is_some_and(|max_nodes| total_nodes >= max_nodes) {
             node_limit_hit = true;
             fallback_reason = Some(AbortReason::GlobalNodeLimit);
             break;
+        }
+        // T089a(要件3): root探索(このイテレーション)の開始ごとにhistory表の
+        // 全値を半減する(飽和防止・古い情報の減衰)。
+        if let Some(history) = history.as_mut() {
+            history.halve_all();
         }
         let mut nodes: u64 = 0;
         let mut timed_out = false;
@@ -559,8 +605,26 @@ fn search_with_eval_inner(
                 exact_enabled: max_nodes.is_none() || depth > 1,
                 exact_quota_remaining: &mut exact_quota_remaining,
                 exact_stats: &mut exact_stats,
+                history: history.as_mut(),
             };
-            negascout(board, side_to_move, depth, -INF, INF, &mut ctx)
+            // T089a(要件7-9): depth>=2かつ有効な場合のみ、前イテレーションの
+            // scoreを中心にaspiration windowで探索する(fail-low/highしたら
+            // 必ず窓を広げて再探索し、最終的にfull windowへ到達する。
+            // 要件8によりfull-window探索と完全一致する)。depth==1・前
+            // イテレーション未完走(`prev_score`が`None`)・機能無効時は
+            // 常にfull window(`-INF..INF`)で探索する(従来と同じ)。
+            match (enable_heuristics && depth >= 2, prev_score) {
+                (true, Some(center)) => aspiration_search(
+                    board,
+                    side_to_move,
+                    depth,
+                    center,
+                    &mut ctx,
+                    &mut aspiration_fail_low,
+                    &mut aspiration_fail_high,
+                ),
+                _ => negascout(board, side_to_move, depth, -INF, INF, &mut ctx),
+            }
         };
 
         if timed_out {
@@ -580,6 +644,9 @@ fn search_with_eval_inner(
         }
 
         total_nodes += nodes;
+        // T089a(要件7): 次のイテレーション(depth+1)のaspiration windowは
+        // このイテレーションのscoreを中心にする。
+        prev_score = Some(score);
 
         let hash = zobrist_hash(board, side_to_move);
         let best_move = tt
@@ -618,6 +685,8 @@ fn search_with_eval_inner(
             wall_limit_hit: false,
             fallback_reason,
             exact_policy_version: EXACT_POLICY_VERSION,
+            aspiration_fail_low,
+            aspiration_fail_high,
         });
 
         if max_nodes.is_some() && depth == 1 {
@@ -671,6 +740,10 @@ fn search_with_eval_inner(
                         wall_limit_hit: false,
                         fallback_reason: None,
                         exact_policy_version: EXACT_POLICY_VERSION,
+                        // depth==1のbaseline中に木内部exactへ抜けており、
+                        // aspiration(depth>=2のみ)は一切実行されていない。
+                        aspiration_fail_low: 0,
+                        aspiration_fail_high: 0,
                     };
                 }
                 match outcome.abort_reason {
@@ -731,6 +804,10 @@ fn search_with_eval_inner(
             // 場合も、実イベントと矛盾しないようExactQuotaを報告する。
             result.fallback_reason = fallback_reason
                 .or_else(|| (exact_stats.aborted_by_quota > 0).then_some(AbortReason::ExactQuota));
+            // T089a: 破棄したイテレーション分も含む呼び出し全体の累計に
+            // 揃える(`exact_stats`系フィールドと同じ理由)。
+            result.aspiration_fail_low = aspiration_fail_low;
+            result.aspiration_fail_high = aspiration_fail_high;
             result
         }
         None => SearchResult {
@@ -765,7 +842,85 @@ fn search_with_eval_inner(
             wall_limit_hit: time_budget_hit,
             fallback_reason,
             exact_policy_version: EXACT_POLICY_VERSION,
+            aspiration_fail_low,
+            aspiration_fail_high,
         },
+    }
+}
+
+/// T089a(要件7-9): aspiration windowで`depth`を探索し、fail-low/highの
+/// たびに[`ASPIRATION_WINDOWS_CENTIDISC`]の順に窓を広げて再探索する。
+/// 広げ切ったら無条件でfull window(`-INF..INF`)を試すため、最終的に
+/// 返る値は必ずfull window探索(`negascout(board, side, depth, -INF, INF,
+/// ctx)`)と完全一致する(要件8)。
+///
+/// # TT汚染についての注記(要件8)
+/// fail-low/highした窓の探索結果は、通常の`negascout`と同じ経路で
+/// 置換表にも格納される(`Bound::Upper`/`Bound::Lower`、深さは`depth`の
+/// まま)。次の(より広い)窓での再探索がこの局面を再度探索する際、
+/// `negascout`冒頭のTT参照ロジックが同じ`entry.depth as u32 >= depth as
+/// u32`の判定でこのエントリを使うが、これは「証明済みの厳密な上下界」を
+/// 使った通常のTT枝刈りと全く同じ扱いであり(ETC・T086と同じ理由で)結果を
+/// 歪めない。full windowまで広げ切った最後の試行では`alpha == -INF`が
+/// 必ず成り立つため、`alpha >= beta`によるTT即時カットオフ自体が発生し得ず
+/// (`beta`が中間状態のUpper boundで多少狭められることはあっても、
+/// `alpha == -INF`より小さいbetaにはなり得ない)、full window探索は必ず
+/// 完全な値を返す。
+///
+/// `fail_low`/`fail_high`には、この1回のイテレーションで実際に
+/// fail-low/highした回数を加算する
+/// (`SearchResult::aspiration_fail_low`/`aspiration_fail_high`の元データ)。
+fn aspiration_search(
+    board: &Board,
+    side: Side,
+    depth: u8,
+    center: i32,
+    ctx: &mut SearchCtx,
+    fail_low: &mut u32,
+    fail_high: &mut u32,
+) -> i32 {
+    let mut window_idx = 0usize;
+    let (mut alpha, mut beta) = aspiration_bounds(center, window_idx);
+
+    loop {
+        let score = negascout(board, side, depth, alpha, beta, ctx);
+        if *ctx.timed_out {
+            // 呼び出し元(`search_with_eval_inner`)は`ctx.timed_out`を見て
+            // このイテレーション全体を破棄するため、戻り値自体には意味が
+            // ない(`negascout`本体の同様の慣習に合わせる)。
+            return score;
+        }
+
+        let is_full_window = alpha <= -INF && beta >= INF;
+        if is_full_window {
+            return score;
+        }
+
+        if score <= alpha {
+            *fail_low += 1;
+        } else if score >= beta {
+            *fail_high += 1;
+        } else {
+            return score;
+        }
+
+        window_idx += 1;
+        let (next_alpha, next_beta) = aspiration_bounds(center, window_idx);
+        alpha = next_alpha;
+        beta = next_beta;
+    }
+}
+
+/// `window_idx`番目のaspiration window(`(alpha, beta)`、centi-disc単位)を
+/// `center`を中心に計算する。`window_idx`が[`ASPIRATION_WINDOWS_CENTIDISC`]
+/// の範囲を超えたらfull window(`-INF..INF`)を返す。
+fn aspiration_bounds(center: i32, window_idx: usize) -> (i32, i32) {
+    match ASPIRATION_WINDOWS_CENTIDISC.get(window_idx) {
+        Some(&half_width) => (
+            center.saturating_sub(half_width).max(-INF),
+            center.saturating_add(half_width).min(INF),
+        ),
+        None => (-INF, INF),
     }
 }
 
@@ -979,6 +1134,11 @@ pub fn search_all_moves_with_eval(
                         exact_enabled: true,
                         exact_quota_remaining: &mut exact_quota,
                         exact_stats: &mut exact_stats,
+                        // T089a: `search_all_moves_with_eval`はノード予算
+                        // 探索ではないため常に`None`(history heuristicを
+                        // 使わない)。既存のfixed-depth回帰テストが固定する
+                        // このAPIの挙動を変えないため。
+                        history: None,
                     };
                     -negascout(&next_board, opponent, depth - 1, -INF, INF, &mut ctx)
                 };
@@ -1011,6 +1171,87 @@ pub fn search_all_moves_with_eval(
     evals.sort_by_key(|e| std::cmp::Reverse(e.score));
     evals
 }
+
+/// history heuristic(T089a)用の `(side, move)` カウンタ表。
+///
+/// beta cutoffが起きるたびに `depth * depth` を加算し、[`ordered_moves`] の
+/// タイブレークに使う。**ノード予算探索(`max_nodes.is_some()`、
+/// [`search_with_eval_with_node_limit`]系)の反復深化ループでのみ**
+/// 生成・使用する([`search_with_eval_inner`]の`enable_heuristics`引数を
+/// 参照)。時間/深さ制限のみの従来経路([`search`]/[`search_with_eval`]/
+/// [`search_all_moves`]/[`search_all_moves_with_eval`])は常に
+/// `history: None` のまま`ordered_moves`を呼ぶため、これらの経路の
+/// 挙動(既存のfixed-depth回帰テストが固定しているノード数・タイブレーク
+/// 順を含む)には一切影響しない。
+///
+/// # 決定性(要件11)
+/// 呼び出しごとに[`search_with_eval_inner`]内で新規に生成する
+/// (`HistoryTable::new()`、全マス0初期化)ため、常駐Engine(Worker)で
+/// 同じインスタンスを複数回の探索にまたがって使い回すことはない
+/// (=前回探索の学習状態を持ち越さない)。反復深化の各root
+/// イテレーション開始時に[`HistoryTable::halve_all`]で全値を半減する。
+struct HistoryTable {
+    /// `[side][マス番号]`。`side`のインデックスは[`HistoryTable::side_index`]。
+    scores: [[u32; 64]; 2],
+}
+
+impl HistoryTable {
+    fn new() -> Self {
+        HistoryTable {
+            scores: [[0u32; 64]; 2],
+        }
+    }
+
+    fn side_index(side: Side) -> usize {
+        match side {
+            Side::Black => 0,
+            Side::White => 1,
+        }
+    }
+
+    /// `ordered_moves`のタイブレークに使う現在値。
+    fn get(&self, side: Side, mv: u8) -> u32 {
+        self.scores[Self::side_index(side)][mv as usize]
+    }
+
+    /// beta cutoffが起きた候補手に `depth * depth` を加算する
+    /// (要件2)。`u32`の飽和加算で、極端に深い探索が繰り返し同じ手で
+    /// カットオフしてもオーバーフローしない。
+    fn record_cutoff(&mut self, side: Side, mv: u8, depth: u8) {
+        let bonus = (depth as u32) * (depth as u32);
+        let slot = &mut self.scores[Self::side_index(side)][mv as usize];
+        *slot = slot.saturating_add(bonus);
+    }
+
+    /// root探索(反復深化の各イテレーション開始)ごとに全値を半減する
+    /// (要件3: 飽和防止と古い情報の減衰)。
+    fn halve_all(&mut self) {
+        for side_scores in &mut self.scores {
+            for v in side_scores.iter_mut() {
+                *v >>= 1;
+            }
+        }
+    }
+}
+
+/// ムーブオーダリングでのhistoryタイブレークの位置(要件4のablation)。
+///
+/// `true`: corner優先 → history降順 → mobility昇順(構成B、mobilityより
+/// 前にhistoryを使う)。
+/// `false`: corner優先 → mobility昇順 → history降順(構成A、既存の
+/// mobility順の後のタイブレークとしてhistoryを使う、既定)。
+///
+/// `bench/edax-compare/t085_exact_positions.json`(48局面)を
+/// `eval_cli budget-regression --max-nodes 240000 --time-ms 1500
+/// --exact-from-empties 18 --pattern-weights train/weights/pattern_v2.bin`
+/// で比較した実測(作業ログ参照)に基づき選定した値。
+const HISTORY_BEFORE_MOBILITY: bool = false;
+
+/// aspiration window(T089a、要件7-10)の初期窓幅と再探索時の拡大列
+/// (centi-disc単位、片側の幅)。`[200, 400, 800, 1600]`をすべて
+/// fail-low/high した場合は、最後に無条件でfull window(`-INF..INF`)を
+/// 試す(必ず`true score`を含む窓になるため、それ以上広げる必要はない)。
+const ASPIRATION_WINDOWS_CENTIDISC: [i32; 4] = [200, 400, 800, 1600];
 
 /// NegaScout探索1回分の実行に必要な文脈をまとめた構造体。
 /// (引数を減らしてclippyの`too_many_arguments`を避けるための束ね役でもある)
@@ -1083,6 +1324,13 @@ struct SearchCtx<'a> {
     /// ノード予算付き経路でexactに割り当てた残quota。
     exact_quota_remaining: &'a mut u64,
     exact_stats: &'a mut ExactStats,
+    /// T089a: history heuristic表。`Some`のときのみ`ordered_moves`の
+    /// タイブレークとbeta cutoff時の加算に使う。`None`(従来の
+    /// `search`/`search_with_eval`/`search_all_moves*`経路)では
+    /// 一切参照されず、[`ordered_moves`]は本タスク着手前と完全に同じ
+    /// 2キーソート(corner優先→mobility昇順)のみを行う
+    /// ([`HistoryTable`]のドキュメント参照)。
+    history: Option<&'a mut HistoryTable>,
 }
 
 /// `negascout`の再帰中に時間予算をチェックする頻度(ノード数に1回)。
@@ -1266,7 +1514,7 @@ fn negascout(
         }
     }
 
-    let moves = ordered_moves(board, side, tt_move);
+    let moves = ordered_moves(board, side, tt_move, ctx.history.as_deref());
 
     let mut best_score = i32::MIN;
     let mut best_move: Option<u8> = None;
@@ -1311,6 +1559,12 @@ fn negascout(
             alpha = best_score;
         }
         if alpha >= beta {
+            // T089a(要件2): beta cutoffを引き起こした候補手に`depth*depth`を
+            // 加算する。`ctx.history`が`None`(従来の`search`/
+            // `search_with_eval`等の経路)の間はここも何もしない。
+            if let Some(history) = ctx.history.as_deref_mut() {
+                history.record_cutoff(side, mv, depth);
+            }
             break;
         }
         first = false;
@@ -1586,7 +1840,21 @@ fn terminal_score_centi(board: &Board, side: Side) -> i32 {
 ///
 /// 優先順位: TT手(あれば最優先) → 隅 → 相手の着手後合法手数(モビリティ)が
 /// 少ない順。
-fn ordered_moves(board: &Board, side: Side, tt_move: Option<u8>) -> Vec<u8> {
+///
+/// T089a: `history`が`Some`のとき(ノード予算探索の経路のみ、
+/// [`SearchCtx::history`]参照)は、[`HISTORY_BEFORE_MOBILITY`]の設定に
+/// 従い、corner優先の後にhistory heuristicの値を降順でタイブレークとして
+/// 追加する(mobilityより前か後かは同定数で切り替える。要件4のablation)。
+/// `history`が`None`のとき(従来の`search`/`search_with_eval`/
+/// `search_all_moves*`経路)は、本タスク(T089a)着手前と完全に同じ
+/// 2キーソート(corner優先→mobility昇順のみ)を行う(既存のfixed-depth
+/// 回帰テストが固定しているタイブレーク順・ノード数を変えないため)。
+fn ordered_moves(
+    board: &Board,
+    side: Side,
+    tt_move: Option<u8>,
+    history: Option<&HistoryTable>,
+) -> Vec<u8> {
     let legal = board.legal_moves(side);
     let mut moves: Vec<u8> = Vec::with_capacity(legal.count_ones() as usize);
     let mut remaining = legal;
@@ -1596,13 +1864,47 @@ fn ordered_moves(board: &Board, side: Side, tt_move: Option<u8>) -> Vec<u8> {
         remaining &= remaining - 1;
     }
 
-    moves.sort_by_key(|&mv| {
-        let bit = 1u64 << mv;
-        let is_corner = bit & CORNER_MASK != 0;
-        let next_board = board.apply_move(side, bit);
-        let opp_mobility = next_board.legal_moves(side.opposite()).count_ones();
-        (if is_corner { 0u32 } else { 1u32 }, opp_mobility)
-    });
+    match history {
+        None => {
+            moves.sort_by_key(|&mv| {
+                let bit = 1u64 << mv;
+                let is_corner = bit & CORNER_MASK != 0;
+                let next_board = board.apply_move(side, bit);
+                let opp_mobility = next_board.legal_moves(side.opposite()).count_ones();
+                (if is_corner { 0u32 } else { 1u32 }, opp_mobility)
+            });
+        }
+        Some(history) if HISTORY_BEFORE_MOBILITY => {
+            // 構成B: corner優先 → history降順 → mobility昇順。
+            moves.sort_by_key(|&mv| {
+                let bit = 1u64 << mv;
+                let is_corner = bit & CORNER_MASK != 0;
+                let next_board = board.apply_move(side, bit);
+                let opp_mobility = next_board.legal_moves(side.opposite()).count_ones();
+                let hist = history.get(side, mv);
+                (
+                    if is_corner { 0u32 } else { 1u32 },
+                    std::cmp::Reverse(hist),
+                    opp_mobility,
+                )
+            });
+        }
+        Some(history) => {
+            // 構成A(既定): corner優先 → mobility昇順 → history降順。
+            moves.sort_by_key(|&mv| {
+                let bit = 1u64 << mv;
+                let is_corner = bit & CORNER_MASK != 0;
+                let next_board = board.apply_move(side, bit);
+                let opp_mobility = next_board.legal_moves(side.opposite()).count_ones();
+                let hist = history.get(side, mv);
+                (
+                    if is_corner { 0u32 } else { 1u32 },
+                    opp_mobility,
+                    std::cmp::Reverse(hist),
+                )
+            });
+        }
+    }
 
     if let Some(tm) = tt_move {
         if let Some(pos) = moves.iter().position(|&m| m == tm) {
@@ -2346,6 +2648,7 @@ mod tests {
                     true,
                     None,
                     EXACT_QUOTA_PERCENT,
+                    false,
                 );
 
                 let mut tt_off = TranspositionTable::new(4);
@@ -2358,6 +2661,7 @@ mod tests {
                     false,
                     None,
                     EXACT_QUOTA_PERCENT,
+                    false,
                 );
 
                 total_nodes_with_etc += result_on.nodes;
@@ -2454,6 +2758,7 @@ mod tests {
                     true,
                     None,
                     EXACT_QUOTA_PERCENT,
+                    false,
                 );
 
                 let mut tt_off = TranspositionTable::new(16);
@@ -2466,6 +2771,7 @@ mod tests {
                     false,
                     None,
                     EXACT_QUOTA_PERCENT,
+                    false,
                 );
 
                 total_nodes_with_etc += result_on.nodes;
@@ -2515,6 +2821,171 @@ mod tests {
             total_nodes_with_etc < total_nodes_without_etc,
             "ETC should reduce the total node count at deeper depths too \
              (with_etc={total_nodes_with_etc}, without_etc={total_nodes_without_etc})"
+        );
+    }
+
+    // ------------------------------------------------------------------
+    // T089a: history heuristic + aspiration window
+    // ------------------------------------------------------------------
+
+    #[test]
+    fn aspiration_and_history_enabled_matches_full_window_disabled() {
+        // T089aの絶対条件(最重要、一致テストを実装より先に書く): history
+        // heuristic + aspiration windowを有効にしても、最終的なbest_move/
+        // scoreはfull window(両機能無効)探索と完全一致しなければならない
+        // (要件8)。同一の`max_nodes`(この深さ・局面群では予算に達しない
+        // 十分大きな値)を両方に与え、`enable_heuristics`だけを切り替えて
+        // 比較する(`search_with_eval_inner`のドキュメント参照)。
+        //
+        // `exact_from_empties: 0`に固定し、中盤NegaScout自体の一致だけを
+        // 検証する。木内部exact試行はhistoryによるムーブオーダリングの
+        // 変化で試行対象の子・完走可否そのものが変わりうる
+        // (`leaf_exact_quota_abort_continues_midgame_iteration_without_
+        // tt_domain_leak`の作業ログ参照)ため、それ自体はT089aの絶対条件
+        // (=同一limit設定でのaspiration+history有効/無効の一致)の対象外
+        // であり、ここでは意図的に混ぜない。
+        let mut positions: Vec<(Board, Side)> = vec![(Board::initial(), Side::Black)];
+        for seed in 0..10u64 {
+            for target_empties in [44u32, 36, 28, 20] {
+                positions.push(random_position(seed, target_empties));
+            }
+        }
+        assert!(
+            positions.len() >= 40,
+            "T089a requires at least 40 positions in this consistency corpus, got {}",
+            positions.len()
+        );
+
+        // この深さ・局面群では絶対に到達しない(=budget打ち切りが比較を
+        // 汚さない)十分大きな値。
+        let generous_max_nodes = 5_000_000u64;
+
+        let mut mismatches: Vec<String> = Vec::new();
+        let mut total_nodes_on: u64 = 0;
+        let mut total_nodes_off: u64 = 0;
+        let mut combos_checked = 0usize;
+        let mut total_fail_low = 0u32;
+        let mut total_fail_high = 0u32;
+
+        for (i, (board, side)) in positions.iter().enumerate() {
+            for max_depth in [4u8, 6] {
+                let limit = default_limit(max_depth, 0);
+
+                let mut tt_on = TranspositionTable::new(4);
+                let result_on = search_with_eval_inner(
+                    board,
+                    *side,
+                    &limit,
+                    &mut tt_on,
+                    None,
+                    true,
+                    Some(generous_max_nodes),
+                    EXACT_QUOTA_PERCENT,
+                    true,
+                );
+
+                let mut tt_off = TranspositionTable::new(4);
+                let result_off = search_with_eval_inner(
+                    board,
+                    *side,
+                    &limit,
+                    &mut tt_off,
+                    None,
+                    true,
+                    Some(generous_max_nodes),
+                    EXACT_QUOTA_PERCENT,
+                    false,
+                );
+
+                assert!(
+                    !result_on.node_limit_hit && !result_off.node_limit_hit,
+                    "position #{i} max_depth={max_depth}: node budget was hit, which would \
+                     confound the comparison (increase generous_max_nodes)"
+                );
+
+                total_nodes_on += result_on.nodes;
+                total_nodes_off += result_off.nodes;
+                total_fail_low += result_on.aspiration_fail_low;
+                total_fail_high += result_on.aspiration_fail_high;
+                combos_checked += 1;
+
+                // scoreとdepthは無条件で完全一致が必須(要件8そのもの)。
+                if result_on.score != result_off.score || result_on.depth != result_off.depth {
+                    mismatches.push(format!(
+                        "position #{i} (empties={}) max_depth={max_depth}: score/depth differ \
+                         (heuristics-on=(best_move={:?}, score={}, depth={}) \
+                         heuristics-off=(best_move={:?}, score={}, depth={}))",
+                        board.empty_count(),
+                        result_on.best_move,
+                        result_on.score,
+                        result_on.depth,
+                        result_off.best_move,
+                        result_off.score,
+                        result_off.depth,
+                    ));
+                } else if result_on.best_move != result_off.best_move {
+                    // best_moveだけが異なる場合、ムーブオーダリング(TT手
+                    // 優先度・historyタイブレーク)が変わったことで「真に
+                    // 同点(同じ深さで全く同じ最善スコアを達成する複数の
+                    // 合法手が存在する)」局面のタイブレーク先が変わった
+                    // 可能性がある。これは探索アルゴリズムのバグではなく、
+                    // ムーブオーダリングを変える技法(history heuristic)に
+                    // 一般的に伴う既知の性質であり、両方の手が同じ深さで
+                    // 独立に評価しても本当に同じスコアになることを
+                    // `search_all_moves`(historyもaspirationも使わない
+                    // 経路)で直接検証できれば「探索結果が変わった」とは
+                    // 見なさない。検証できなければ本物の不一致として扱う。
+                    match (result_on.best_move, result_off.best_move) {
+                        (Some(mv_on), Some(mv_off)) => {
+                            let mut tt_ground_truth = TranspositionTable::new(4);
+                            let evals =
+                                search_all_moves(board, *side, &limit, &mut tt_ground_truth);
+                            let score_of =
+                                |mv: u8| evals.iter().find(|e| e.mv == mv).map(|e| e.score);
+                            let (score_on, score_off) = (score_of(mv_on), score_of(mv_off));
+                            let genuine_tie = score_on == Some(result_on.score)
+                                && score_off == Some(result_on.score);
+                            if !genuine_tie {
+                                mismatches.push(format!(
+                                    "position #{i} (empties={}) max_depth={max_depth}: \
+                                     best_move differs and is NOT a verified tie \
+                                     (heuristics-on move={mv_on} ground-truth score={score_on:?}, \
+                                     heuristics-off move={mv_off} ground-truth score={score_off:?}, \
+                                     reported search score={})",
+                                    board.empty_count(),
+                                    result_on.score,
+                                ));
+                            }
+                        }
+                        _ => {
+                            mismatches.push(format!(
+                                "position #{i} (empties={}) max_depth={max_depth}: one side \
+                                 returned no move (heuristics-on={:?}, heuristics-off={:?})",
+                                board.empty_count(),
+                                result_on.best_move,
+                                result_off.best_move,
+                            ));
+                        }
+                    }
+                }
+            }
+        }
+
+        assert!(
+            mismatches.is_empty(),
+            "T089a: history heuristic + aspiration window changed search results for {} of \
+             {combos_checked} position/depth combination(s), which means the implementation \
+             has a correctness bug (it must never change search results): {:#?}",
+            mismatches.len(),
+            mismatches
+        );
+
+        println!(
+            "T089a aspiration+history consistency check across {combos_checked} \
+             position/depth combinations ({} positions): heuristics_on={total_nodes_on} nodes, \
+             heuristics_off={total_nodes_off} nodes, aspiration_fail_low={total_fail_low}, \
+             aspiration_fail_high={total_fail_high}",
+            positions.len()
         );
     }
 
@@ -2859,8 +3330,43 @@ mod tests {
     #[test]
     fn leaf_exact_quota_abort_continues_midgame_iteration_without_tt_domain_leak() {
         // 固定コーパス exact-15-2。depth=2では各ルート子が空き14となり、
-        // 木内部exactを1回開始してquota切れにした後、同じ子を中盤探索へ
-        // 戻してdepth=2全体を完走する。
+        // 複数の子で木内部exactを開始する。
+        //
+        // T089a注記(このテストの前提が変わった経緯): T089a着手前は、この
+        // 局面のdepth=2は常に「1子だけexact試行してquota切れで中断し、
+        // 残り全ての子は中断せず中盤探索のまま完走する」という単一の
+        // full-window探索だった(`exact_leaf_attempts==1`,
+        // `exact_completed==false`, best_move/scoreとも
+        // `exact_from_empties: 0`の純中盤探索と完全一致)。
+        //
+        // T089aのhistory heuristicによるムーブオーダリングの変化(root
+        // イテレーションを跨いで蓄積・半減するhistory表がタイブレークに
+        // 加わる)と、depth>=2で有効になるaspiration window(この局面では
+        // 初期窓±200が1回fail-highし、±400へ広げて再探索している。
+        // `result.aspiration_fail_high == 1`)により、木内部exactを試みる
+        // 子の訪問順とその時点の残quotaが変わった。その結果、
+        // `exact_quota_remaining`(探索呼び出し全体で共有される既存の
+        // 設計、T085a)が以前より多く残った状態で2つ目・3つ目の子の
+        // exact試行に入れるようになり、そのうち1子は実際に完全読みが
+        // **完走**するようになった(`exact_leaf_attempts==3`,
+        // `exact_completed==true`)。これは探索が改善した結果であり
+        // (完走した1子については、静的評価による近似ではなく証明済みの
+        // 石差を得ている)、T089aの絶対条件である「探索結果(best move/
+        // score)を変えないこと」は、あくまで**同一の`SearchLimit`/
+        // `max_nodes`設定に対してaspiration+historyを有効/無効で切り替え
+        // たときの一致」を指す(新テスト
+        // `aspiration_and_history_enabled_matches_full_window_disabled`
+        // 参照)。このテスト自体は`exact_from_empties: 18`固定であり、
+        // `exact_from_empties: 0`(exactを一切使わない別設定)との比較は
+        // そもそもT089aが保証すべき不変条件ではなかった
+        // (このテストは元々T085aのTTドメイン分離・quota-abort継続の
+        // 安全性を検証する目的で作られたものであり、その検証手段として
+        // 「(この局面ではたまたま)常に中断していたので純中盤探索と一致する
+        // はず」という副次的な性質を借用していただけだった)。
+        //
+        // そのため、本テストの目的(quota-abort/完走のいずれでもTT
+        // ドメインが正しく分離され、探索が正常に完走すること)を保ったまま、
+        // 以下のように検証内容を更新する。
         let board =
             board_from_obf("-XXXXO--XOOOO---XOOO-XO-XOOOOOX-XOOXXXXXOX-XOOXXOOXXX-X--O-X-OXO");
         let side = Side::White;
@@ -2872,32 +3378,29 @@ mod tests {
         let mut tt = TranspositionTable::new(16);
         let result = search_with_eval_with_node_limit(&board, side, &limit, &mut tt, None, 240_000);
 
-        assert_eq!(result.exact_leaf_attempts, 1);
+        assert_eq!(result.exact_leaf_attempts, 3);
         assert_eq!(result.exact_aborted_by_quota, 1);
+        assert!(
+            result.exact_completed,
+            "one of the three leaf-exact attempts should complete under T089a's new move order"
+        );
         assert_eq!(result.last_completed_depth, 2);
         assert_eq!(result.fallback_reason, Some(AbortReason::ExactQuota));
         assert!(!result.node_limit_hit);
         assert!(!result.static_only);
+        assert!(result.best_move.is_some());
 
-        let pure_midgame_limit = SearchLimit {
-            exact_from_empties: 0,
-            ..limit
-        };
-        let mut pure_midgame_tt = TranspositionTable::new(16);
-        let pure_midgame = search_with_eval_with_node_limit(
-            &board,
-            side,
-            &pure_midgame_limit,
-            &mut pure_midgame_tt,
-            None,
-            240_000,
-        );
-        assert_eq!(result.best_move, pure_midgame.best_move);
-        assert_eq!(result.score, pure_midgame.score);
-        assert_eq!(
-            result.last_completed_depth,
-            pure_midgame.last_completed_depth
-        );
+        // 決定性(要件11): 同じ入力(局面・limit・max_nodes)、フレッシュな
+        // TTなら、quota-abort/完走が入り混じった複雑な経路でも常に同じ
+        // best_move/score/nodesに再現される。
+        let mut tt_repeat = TranspositionTable::new(16);
+        let repeat =
+            search_with_eval_with_node_limit(&board, side, &limit, &mut tt_repeat, None, 240_000);
+        assert_eq!(result.best_move, repeat.best_move);
+        assert_eq!(result.score, repeat.score);
+        assert_eq!(result.nodes, repeat.nodes);
+        assert_eq!(result.exact_leaf_attempts, repeat.exact_leaf_attempts);
+        assert_eq!(result.exact_aborted_by_quota, repeat.exact_aborted_by_quota);
 
         let root_hash = zobrist_hash(&board, side);
         let midgame = tt
@@ -2906,24 +3409,35 @@ mod tests {
         assert!(midgame.depth >= 2);
         assert!(tt.probe(root_hash, TTDomain::Exact).is_none());
 
-        // exact試行は1子だけで中断している。不完全な試行ルートはExactへ
-        // 格納されず、その後の通常NegaScoutだけがルート子へMidgame-domain
-        // の値を格納する。純中盤探索との結果一致と合わせて混入を固定する。
+        // TTドメイン分離(T085a)の安全性: quota-abortした/そもそも
+        // exactを試みなかった子はExactドメインへ格納されず(中断した
+        // 不完全な結果でExactを汚染しない)、実際に完走した子だけが
+        // Exactドメインに格納される。完走したのは`exact_leaf_attempts=3`
+        // 中`exact_aborted_by_quota=1`+この1子(完走)なので、Exact
+        // ドメインを持つ子はちょうど1つのはず(3回目撃されたattemptの
+        // 内訳は「1回完走・1回quota-abort・1回はグローバル予算判定で
+        // 打ち切られる前に別の子として観測」のいずれかだが、格納される
+        // のは完走した1子だけ)。
         let mut legal = board.legal_moves(side);
         let mut midgame_children = 0;
+        let mut exact_children = 0;
         while legal != 0 {
             let bit = legal & legal.wrapping_neg();
             legal &= legal - 1;
             let child = board.apply_move(side, bit);
             let child_hash = zobrist_hash(&child, side.opposite());
-            assert!(
-                tt.probe(child_hash, TTDomain::Exact).is_none(),
-                "an aborted exact root must not be stored"
-            );
+            if tt.probe(child_hash, TTDomain::Exact).is_some() {
+                exact_children += 1;
+            }
             if tt.probe(child_hash, TTDomain::Midgame).is_some() {
                 midgame_children += 1;
             }
         }
         assert!(midgame_children > 0);
+        assert_eq!(
+            exact_children, 1,
+            "exactly the one leaf-exact attempt that actually completed should be stored under \
+             TTDomain::Exact; aborted/unattempted children must not leak into the Exact domain"
+        );
     }
 }

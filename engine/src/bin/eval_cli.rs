@@ -728,6 +728,8 @@ fn cmd_best(args: &[String]) {
             "wallLimitHit": result.wall_limit_hit,
             "fallbackReason": result.fallback_reason.map(|reason| format!("{reason:?}")),
             "exactPolicyVersion": result.exact_policy_version,
+            "aspirationFailLow": result.aspiration_fail_low,
+            "aspirationFailHigh": result.aspiration_fail_high,
             "exact": {
                 "attempted": exact_attempted,
                 "completed": exact_completed,
