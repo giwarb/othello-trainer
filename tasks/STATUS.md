@@ -76,9 +76,11 @@
 | ID | タスク | 担当 | 状態 | 試行 |
 |---|---|---|---|---|
 | T084 | ベンチ補正: single-root探索導入+テレメトリ+オラクルロス修正+固定opening | codex(gpt-5.6-sol) | done | 1 |
-| T085a | exact切替とノード数予算管理の再設計(TTドメイン分離・baseline-first・exact quota) | codex(gpt-5.6-sol) | in_progress | 1 |
-| T091 | Codexラッパーのログ収集修正(stderr進捗の逐次記録、tail可能化) | implementer | review | 0 |
+| T085a | exact切替とノード数予算管理の再設計(TTドメイン分離・baseline-first・exact quota) | codex(gpt-5.6-sol) | review | 1 |
+| T091 | Codexラッパーのログ収集修正(stderr進捗の逐次記録、tail可能化) | implementer | done | 0 |
 
+- **T085a redo#1実装完了(2026-07-14、Codex・約42分、代行コミット cc6e48d)、verifier+codex-review並列検証中(範囲 651bcef..cc6e48d)**。フィードバック6項目全対応の報告: quota 4候補比較で**40%採用**(regret 1.667石で60%の2.111石を上回り、25%とはregret同率でexact完走9/18 vs 3/18の差)、コーパス48局面(空き13〜30連続被覆)、fallbackReason規則明文化、quota中断→中盤継続→TT非混入の直接テスト、cargo test 149件・FFOノード数完全一致、budget-regression 48/48決定的一致。**性能改善: 空き19〜24 regret 5.56→1.667石(70%減)・loss>=4石 13→5件(61.5%減)、序中盤合算225局面 2.20→1.947石(改善、ゲート合格)**。
+- **T091 done(2026-07-14)**: 実運用(T085a redo#1のcodex-review起動)でライブログ成長を実測(25秒で26KB→53KB、可読)し確定。verifierによる形式検証は実装者の機械検証証跡+オーケストレーター実地観測で代替(検証用codex追加消費の回避)。
 - **T091実装完了(2026-07-14、implementer・約18分、コミット 2d3446c)**: 3ラッパー全てが同一のTee-Object欠陥を持っていたことを確認し、共通ヘルパー `scripts/_codex-common.ps1`(`Invoke-CodexWithLiveLog`、Process直接制御+行単位イベント購読+AutoFlush UTF-8)で統一修正。実行中のログ逐次成長(タイムスタンプ付き証跡)・stderr/stdout両捕捉・日本語可読・exit code伝播(正常0/異常1)を実機検証済み。PS5.1の落とし穴2件(WaitForExit()がイベントディスパッチをブロック→ポーリングループで解消、dot-sourceスクリプトはBOM必須)を作業ログに記録。**done判定は次回の実運用(T085a redo検証のcodex-review実行)でライブログ成長を観測して確定する**(検証用codexの追加消費を避けるための運用判定)。なお現在実行中のT085a redoは旧スクリプトで起動済みのためログは従来方式(harness捕捉で監視継続)。
 - **T085a redo #1(2026-07-14)**: verifier も不合格(codex-review のブロッカー2件をコード直読で独立裏付け)。実行系は全項目パス(cargo test 148件・FFO正解値/ノード数完全一致・budget-regression決定的・テレメトリ15フィールド・フォールバック直接テスト・Actions成功・ツリー清潔)。不合格理由は要件未実装: quota 4候補比較(60%ハードコードのみ)とコーパス空き13〜30未カバー。redoフィードバック6項目をタスクファイルに記入し attempts=1 で Codex に再委譲。性能ゲート「序中盤悪化0.25石以内」は**合算225局面で判定**とオーケストレーター裁定(序盤単独+0.253はボーダーだが合算-0.29改善、内訳記録は継続要求)。verifier特記: FFO初回実行が環境起因とみられる一過性クラッシュ(0xffffffff)→再実行2回とも完走・ノード数一致で問題なしと判断。GitHub ActionsはPagesデプロイのみでcargo testを実行しない構成(CI改善の将来課題)。
 - **T085a検証中間結果(2026-07-14)**: codex-review は**不合格**(`tasks/review/T085a-exact-node-budget-codex-review.md`)。ブロッカー2件: (1)exact quota 25/40/60/75%比較が未実施(60%固定)、(2)コーパスが空き19〜24のみで要求の13〜30を未カバー。中3件: 木内部ExactQuotaがfallbackReason未反映、quota切れ→中盤継続+TT非混入の直接テスト不足、性能数値がコミットに未含有。いずれも固定コーパス上の短時間作業で対応可能(120局ベンチ再実行は不要=ユーザー方針と両立)。主要実装の正解値破壊は無しと確認済み。verifierの結果と統合してredoフィードバックを作成予定。

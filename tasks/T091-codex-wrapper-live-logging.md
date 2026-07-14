@@ -1,7 +1,7 @@
 ---
 id: T091
 title: Codexラッパーのログ収集修正(stderr進捗の逐次記録、tail可能化)
-status: review # todo | in_progress | review | redo | done | blocked
+status: done # todo | in_progress | review | redo | done | blocked
 assignee: implementer
 attempts: 0
 ---
