@@ -53,3 +53,13 @@ attempts: 0
 (なし)
 
 ## 作業ログ(担当エージェントが追記)
+
+### 2026-07-15 06:22 JST — Codex実装
+
+- 実施内容: 既存の8対称正規化ルックアップと重み付き抽選をCPU対局へ接続。ブック手がある場合はエンジン探索を呼ばず着手し、DB外・後続手なし・ロード失敗・ブックoffでは従来探索へフォールバックするよう実装。CPU強さ設定の隣に既定onの定石ブックトグルを追加し、localStorageへ永続化。正規化ヒット・重み付き選択・フォールバック・永続化の単体テストを追加。
+- `npx vitest run --configLoader native --pool=threads --maxWorkers=1`: 63 files / 518 tests passed。通常の`npm test`はサンドボックスがVite/Vitestの子プロセス生成を拒否するため`spawn EPERM`で起動不可。同一全テストを単一thread poolで確認。
+- `npx tsc --noEmit -p tsconfig.app.json`: 成功。
+- `npm run build`: wasm-packの通常モードがサンドボックス外キャッシュへの書き込みを試み、アクセス拒否で失敗。`wasm-pack ... --mode no-install`と`npx tsc -b`は成功。Vite buildはworker解決時の子プロセス生成が`spawn EPERM`となり、この環境では完走不可。
+- `git diff --check`: 成功。
+- 未実施: `npm run dev`によるブラウザ手動確認、push、Actionsデプロイ、本番URLのPlaywright確認。いずれも現在のサンドボックス制約またはコミット・push権限外のため、オーケストレーター側で要確認。
+- コミットハッシュ: 未コミット（Codex環境は.git書き込み禁止）。
