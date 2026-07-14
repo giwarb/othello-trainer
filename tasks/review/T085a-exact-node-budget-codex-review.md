@@ -1,99 +1,45 @@
-# T085a 最終レビュー
+# T085a 最終レビューレポート
 
-**総合判定: 不合格**
+## (a) 重大（doneを止めるブロッカー）
 
-探索の主要実装に明白な正解値破壊は見つかりませんでした。しかし、規範仕様で必須とされた比較・コーパス範囲が満たされておらず、テレメトリにも不整合があります。現時点では `done` にできません。
+なし。
 
-## (a) 完了を確認できた部分
+redo #1で要求された以下の事項は実装されています。
 
-- `TTDomain::{Midgame, Exact}` が導入され、hashとdomainの両方でprobeしている。
-- TTの16-byte entry / 32-byte bucketを維持している。
-- ノード予算経路はdepth 1をexact無効で実行し、完成結果を保持する。
-- 無制限exact経路は従来の即時完全読みを維持している。
-- exact quota切れ時、木内部で中盤NegaScoutへ戻る処理がある。
-- centi-disc窓の`floor_div_100` / `ceil_div_100`は負数を含め正しい。
-- `best`に要求されたテレメトリ項目が出力される。
-- 壁時計exact失敗後も合法手を返す直接テストが追加されている。
-- 差分は指定された5ファイルだけで、`git diff --check`も成功。
-- 既存debugテストバイナリの直接実行では、148 passed / 0 failed / 2 ignoredを確認した。
+- exact quota 25/40/60/75%の比較結果と生データが追加され、目的関数に従って40%が選定されている。
+- 比較JSONの集計を行データから再計算し、作業ログ記載値と一致した。
+- 固定コーパスは48局面となり、各盤面は64文字で、空き13〜30を連続して正しくカバーしている。
+- 木内部のExactQuotaが`fallbackReason`へ反映され、GlobalNodeLimit/WallClockを優先する規則も明文化されている。
+- exact quota中断後の中盤探索継続、純中盤探索との結果一致、TTドメイン混入防止を確認する直接テストが追加されている。
+- 既存releaseバイナリで48局面の`budget-regression`を再実行し、次を確認した。
+  - `deterministic=true`
+  - `nullMoveWithLegal=0`
+  - `staticOnly=0`
+  - `budgetOvershootMax=1`
+  - `exactQuotaPercent=40`
+  - WallClock発動 0/48
+- 境界テレメトリも、空き13〜14でroot exact試行、15〜24で動的ゲートとleaf exact、25〜30でexact抑制を示している。
 
-## (b) 指摘事項
+## (b) 中（次タスクで対応すべき）
 
-### 重大（ブロッカー）
+なし。
 
-1. 必須のexact quota比較が実施・記録されていない
+正しさ、回帰リスク、設計妥当性、redo指摘への対応について、次タスクへ持ち越す必要がある問題は確認できませんでした。
 
-仕様では25% / 40% / 60% / 75%を目的関数に沿って比較して選定する必要がありますが、実装は残予算の60%を固定採用しています。[search.rs](/C:/Users/yoshi/work/othello-trainer/engine/src/search.rs:586)
+## (c) 軽微（記録のみ）
 
-作業ログにも4候補の比較結果、対象局面、各候補のregret・exact完走率・完成深さがありません。60%で性能ゲートを満たしたことだけでは、この明示要件を代替できません。
+1. [t085_exact_quota_comparison.json](C:/Users/yoshi/work/othello-trainer/bench/edax-compare/t085_exact_quota_comparison.json:1) の改行がmixedになっています。ほぼ全行がCRLFで、`selectionReason`付近だけLFのため、実際の`git diff --check 651bcef..cc6e48d`は大量の`trailing whitespace`を報告します。作業ログの「`git diff --check`: pass」と一致しません。JSONの読み込みや探索結果には影響しませんが、次回編集時にLFへ正規化するのが望ましいです。
 
-2. 固定局面コーパスが要求された空き13〜30を覆っていない
+2. [eval_cli.rs](C:/Users/yoshi/work/othello-trainer/engine/src/bin/eval_cli.rs:102) のusage表示に、`budget-regression`および比較用`--exact-quota-percent`が記載されていません。設計書とタスクログには実行形式があり、機能自体も正常なので、今回は記録のみとします。
 
-タスクは空き13〜30の固定コーパスを要求していますが、manifestは空き19〜24の18局面だけです。[t085_exact_positions.json](/C:/Users/yoshi/work/othello-trainer/bench/edax-compare/t085_exact_positions.json:3)
+3. `git status --short`には`tasks/T085a-exact-node-budget.md`と`tasks/T091-codex-wrapper-live-logging.md`の変更があります。前者はAGENTS.mdでコミット対象外とされた作業ログ、後者は本差分外であり、今回の実装対象4ファイルに未コミット変更はありません。
 
-これでは以下を回帰CLIで固定できません。
+## (d) 総合判定
 
-- 原則exact試行対象となる空き13〜14
-- p75表を作った空き15〜18
-- exactを抑制する空き25〜30
-- 各境界での動的ゲート挙動
+**合格**
 
-要求範囲を追加するか、規範側を19〜24へ変更する明示判断が必要です。
+前回の不合格原因だった4候補比較、空き13〜30コーパス、木内部ExactQuotaのテレメトリ規則、中心経路の直接テストがすべて追加されています。40%の選定は規範の優先順位に沿い、比較生データも内部整合しています。
 
-### 中
+作業ログでは、空き19〜24の平均oracle regretが70.0%改善、`loss>=4石`率が61.5%減、序盤・中盤225局面の合算も0.253石改善とされ、性能ゲートを満たしています。FFO #40〜44の合計ノード数1,299,102,329もredo前と一致したと記録されています。今回直接再確認した`budget-regression`でも決定性、安全性、ノード超過、壁時計発動率の各条件を満たしました。
 
-1. 木内部のExactQuotaフォールバックが`fallbackReason`へ反映されない
-
-木内部exactがquota切れになると`exact_stats.aborted_by_quota`は増えますが、検索全体の`fallback_reason`は更新されません。[search.rs](/C:/Users/yoshi/work/othello-trainer/engine/src/search.rs:1149)
-
-そのまま探索が完了すると、以下の矛盾した結果になり得ます。
-
-```text
-exactAbortedByQuota > 0
-fallbackReason = null
-```
-
-ルートexactのquota切れだけは`ExactQuota`が設定されています。木内部でも実際のイベントを反映する必要があります。
-
-2. quota切れ後の中盤継続を直接固定するテストが不足している
-
-追加テストは合法手、決定性、baseline完走を確認していますが、次の一連の挙動を直接assertしていません。
-
-- 木内部exactが実際に開始される
-- ExactQuotaで中断される
-- 同じイテレーションが中盤探索として継続する
-- 完成した中盤結果を返す
-- 不完全なExact値がMidgame TTへ混入しない
-
-T085aの中心機能なので、専用テストが必要です。
-
-3. コミット単体に性能検証結果が含まれていない
-
-oracle regretなどの結果は現在の未コミットなタスク作業ログにだけ存在します。`cf57b56..05b5267`のコミット自体からは、quota候補比較やregret集計を再現できません。
-
-### 軽微
-
-- `AbortReason::GlobalNodeLimit`はendgame側で定義されていますが、`solve_exact_window_limited_with_nodes`自身は`ExactQuota`か`WallClock`しか返しません。Global判定は呼び出し側が制限値の一致から推測しています。現状動作は成立しますが、APIの責務が名前ほど明確ではありません。
-- `eval_cli`末尾などに不要な空行が残っています。`git diff --check`上の問題はありません。
-
-## (c) 検証結果
-
-- `git log cf57b56..05b5267`: 対象コミットは`05b5267`の1件。
-- `git diff --check cf57b56..05b5267`: 成功。
-- `cargo test -p engine`: read-only環境で`.cargo-build-lock`を開けず実行不能。
-- 既存のコミット直前debugテストバイナリを直接実行:
-  - 148 passed
-  - 0 failed
-  - 2 ignored
-- FFO既存releaseバイナリの直接再実行は長時間化したため中断。作業ログには#40〜44成功と従来ノード数との完全一致が記録されていますが、本レビュー環境では完走を独立確認できていません。
-- `git status --short`の残差は`tasks/STATUS.md`と`tasks/T085a-exact-node-budget.md`のみで、対象コミットの実装残差ではありません。
-
-## (d) 必須対応
-
-1. 25% / 40% / 60% / 75%を同一コーパス・同一条件で比較し、目的関数ごとの数値と60%選定理由を記録する。
-2. manifestを空き13〜30まで拡張し、各空き数・境界条件を`budget-regression`で検証する。
-3. 木内部ExactQuotaを`fallbackReason`へ反映する。
-4. 木内部quota切れ後の中盤継続とTTドメイン非混入を直接テストする。
-5. 修正後に通常テスト、FFO #40〜44、budget-regressionを再実行する。
-
-上記を満たせば再レビュー可能です。
+混在改行による`git diff --check`不一致は修正が望ましいものの、探索の正しさや受け入れ機能を損なう問題ではないため、doneを止める理由とは判断しません。
