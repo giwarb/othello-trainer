@@ -54,7 +54,7 @@
 use crate::bitboard::{Board, Side};
 use crate::endgame::{
     final_score, solve_exact, solve_exact_bounded, solve_exact_bounded_with_nodes,
-    solve_exact_with_nodes, TimeBudget,
+    solve_exact_limited_with_nodes, solve_exact_with_nodes, TimeBudget,
 };
 use crate::eval::evaluate_for;
 use crate::mpc;
@@ -208,6 +208,8 @@ pub struct SearchResult {
     /// (壁時計を一切参照しないため、結果は完全に決定的になる。T084の
     /// 決定性モード要件はこの不変条件に依拠している)。
     pub timed_out: bool,
+    /// `max_nodes`に達したため探索を打ち切った場合に`true`。
+    pub node_limit_hit: bool,
 }
 
 /// [`search_all_moves`] が返す、1つの合法手についての評価値。
@@ -260,7 +262,19 @@ pub fn search_with_eval(
     tt: &mut TranspositionTable,
     weights: Option<&PatternWeights>,
 ) -> SearchResult {
-    search_with_eval_inner(board, side_to_move, limit, tt, weights, true)
+    search_with_eval_inner(board, side_to_move, limit, tt, weights, true, None)
+}
+
+/// [`search_with_eval`]に探索全体のノード数予算を追加したCLI/ベンチ用入口。
+pub fn search_with_eval_with_node_limit(
+    board: &Board,
+    side_to_move: Side,
+    limit: &SearchLimit,
+    tt: &mut TranspositionTable,
+    weights: Option<&PatternWeights>,
+    max_nodes: u64,
+) -> SearchResult {
+    search_with_eval_inner(board, side_to_move, limit, tt, weights, true, Some(max_nodes))
 }
 
 /// [`search_with_eval`]の実体。`enable_etc`でETC(T051、[`etc_try_cutoff`]
@@ -276,6 +290,7 @@ fn search_with_eval_inner(
     tt: &mut TranspositionTable,
     weights: Option<&PatternWeights>,
     enable_etc: bool,
+    max_nodes: Option<u64>,
 ) -> SearchResult {
     // TTスケール混同防止(T007): 同じ `tt` に対して過去に異なる
     // `exact_from_empties` で探索していた場合、その古いエントリは
@@ -296,6 +311,8 @@ fn search_with_eval_inner(
     // 追跡する(`SearchResult::timed_out`)。`limit.time_ms`が`None`の間は
     // 一切書き換わらず`false`のままになる(壁時計を参照しないため決定的)。
     let mut time_budget_hit = false;
+    let mut node_limit_hit = false;
+    let mut total_nodes: u64 = 0;
 
     if empties <= limit.exact_from_empties as u32 {
         // T034: `time_ms`が指定されていれば、`search_all_moves`/`negascout`
@@ -313,15 +330,32 @@ fn search_with_eval_inner(
         // 元の`solve_exact`/`solve_exact_bounded`と完全に同じであり、
         // スコア・タイムアウト判定には一切影響しない(ノード数を追加で
         // カウントして返すだけ)。
-        let (exact, exact_nodes) = match limit.time_ms {
-            Some(time_ms) => {
-                solve_exact_bounded_with_nodes(board, side_to_move, tt, TimeBudget { start, time_ms })
-            }
-            None => {
+        let (exact, exact_nodes, exact_node_limit_hit) = if max_nodes.is_some() {
+            solve_exact_limited_with_nodes(
+                board,
+                side_to_move,
+                tt,
+                limit.time_ms.map(|time_ms| TimeBudget { start, time_ms }),
+                max_nodes,
+            )
+        } else {
+            match limit.time_ms {
+                Some(time_ms) => {
+                    let (result, nodes) = solve_exact_bounded_with_nodes(
+                        board,
+                        side_to_move,
+                        tt,
+                        TimeBudget { start, time_ms },
+                    );
+                    (result, nodes, false)
+                }
+                None => {
                 let (raw, nodes) = solve_exact_with_nodes(board, side_to_move, tt);
-                (Some(raw), nodes)
+                    (Some(raw), nodes, false)
+                }
             }
         };
+        total_nodes = exact_nodes;
 
         if let Some(raw) = exact {
             let score = raw * 100;
@@ -341,6 +375,7 @@ fn search_with_eval_inner(
                 is_exact: true,
                 elapsed_ms: start.elapsed().as_millis() as u64,
                 timed_out: false,
+                node_limit_hit: false,
             };
         }
         // T034: `exact`が`None`(タイムアウト)だった場合はここで`return`せず
@@ -349,13 +384,17 @@ fn search_with_eval_inner(
         // いないため)。T084: このフォールバックが起きたこと自体を
         // `time_budget_hit`に記録する(最終的な`SearchResult::timed_out`に
         // 反映される)。
-        time_budget_hit = true;
+        node_limit_hit = exact_node_limit_hit;
+        time_budget_hit = !exact_node_limit_hit;
     }
 
-    let mut total_nodes: u64 = 0;
     let mut last_result: Option<SearchResult> = None;
 
     for depth in 1..=limit.max_depth {
+        if max_nodes.is_some_and(|max_nodes| total_nodes >= max_nodes) {
+            node_limit_hit = true;
+            break;
+        }
         let mut nodes: u64 = 0;
         let mut timed_out = false;
         let score = {
@@ -363,6 +402,8 @@ fn search_with_eval_inner(
                 limit,
                 tt: &mut *tt,
                 nodes: &mut nodes,
+                nodes_before: total_nodes,
+                max_nodes,
                 start,
                 timed_out: &mut timed_out,
                 weights,
@@ -377,7 +418,12 @@ fn search_with_eval_inner(
             // 未完走(T034)。結果は不正確なため使わず、直前に完了した
             // イテレーションの結果(`last_result`、無ければ関数末尾の
             // フォールバック)をそのまま返す。
-            time_budget_hit = true;
+            if max_nodes.is_some_and(|max_nodes| total_nodes + nodes >= max_nodes) {
+                node_limit_hit = true;
+            } else {
+                time_budget_hit = true;
+            }
+            total_nodes += nodes;
             break;
         }
 
@@ -402,7 +448,13 @@ fn search_with_eval_inner(
             // (このイテレーション時点ではまだループが続くかどうか未確定)。
             elapsed_ms: 0,
             timed_out: false,
+            node_limit_hit: false,
         });
+
+        if max_nodes.is_some_and(|max_nodes| total_nodes >= max_nodes) {
+            node_limit_hit = true;
+            break;
+        }
 
         if let Some(time_ms) = limit.time_ms {
             if start.elapsed().as_millis() as u64 >= time_ms {
@@ -421,6 +473,7 @@ fn search_with_eval_inner(
         Some(mut result) => {
             result.elapsed_ms = elapsed_ms;
             result.timed_out = time_budget_hit;
+            result.node_limit_hit = node_limit_hit;
             result
         }
         None => SearchResult {
@@ -428,14 +481,18 @@ fn search_with_eval_inner(
             // (T034)ルート分岐の完全読みがタイムアウトし、かつ反復深化の
             // depth=1すら一度も完走できなかった場合。反復が一度も行われな
             // かった場合、静的評価をそのまま返す。
-            best_move: None,
+            best_move: {
+                let legal = board.legal_moves(side_to_move);
+                (legal != 0).then(|| legal.trailing_zeros() as u8)
+            },
             score: static_eval(board, side_to_move, weights),
             depth: 0,
             pv: Vec::new(),
-            nodes: 0,
+            nodes: total_nodes,
             is_exact: false,
             elapsed_ms,
             timed_out: time_budget_hit,
+            node_limit_hit,
         },
     }
 }
@@ -577,7 +634,7 @@ pub fn search_all_moves_with_eval(
 
         // この手の「公平な持ち分」を反映した `SearchLimit` を用意する。
         // `time_ms` が指定されていなければ(時間無制限)従来どおり `limit`
-        // をそのまま使う(このコピーは安価: `SearchLimit` は3つのプリミ
+        // をそのまま使う(このコピーは安価: `SearchLimit` は4つのプリミ
         // ティブフィールドのみ)。
         let per_move_limit: SearchLimit = match limit.time_ms {
             Some(total_time_ms) => {
@@ -635,6 +692,8 @@ pub fn search_all_moves_with_eval(
                         limit: &per_move_limit,
                         tt: &mut *tt,
                         nodes: &mut nodes,
+                        nodes_before: 0,
+                        max_nodes: None,
                         start: move_start,
                         timed_out: &mut timed_out,
                         weights,
@@ -675,6 +734,10 @@ struct SearchCtx<'a> {
     limit: &'a SearchLimit,
     tt: &'a mut TranspositionTable,
     nodes: &'a mut u64,
+    /// この反復より前(ルートexact試行・完了済み反復)に消費したノード数。
+    nodes_before: u64,
+    /// この単一ルート探索に課された総ノード数予算。
+    max_nodes: Option<u64>,
     /// この反復深化の1イテレーション(1つの`depth`の探索、または
     /// `search_all_moves`の1つの合法手についての1イテレーション)の
     /// 経過時間計測の起点。`negascout`の再帰の**途中**で`limit.time_ms`の
@@ -768,6 +831,13 @@ fn negascout(
     if *ctx.timed_out {
         return 0;
     }
+    if ctx
+        .max_nodes
+        .is_some_and(|max_nodes| ctx.nodes_before + *ctx.nodes >= max_nodes)
+    {
+        *ctx.timed_out = true;
+        return 0;
+    }
     if let Some(time_ms) = ctx.limit.time_ms {
         if *ctx.nodes % TIME_CHECK_NODE_INTERVAL == 0 && ctx.start.elapsed().as_millis() as u64 >= time_ms {
             *ctx.timed_out = true;
@@ -788,17 +858,34 @@ fn negascout(
         // `solve_exact_bounded`(同じ`ctx.start`を共有する時間予算付き
         // バージョン)を使い、打ち切られた場合は`ctx.timed_out`を立てて
         // 呼び出し元にイテレーション全体を破棄させる。
-        return match ctx.limit.time_ms {
-            Some(time_ms) => {
-                let budget = TimeBudget { start: ctx.start, time_ms };
-                match solve_exact_bounded(board, side, ctx.tt, budget) {
-                    Some(score) => score * 100,
-                    None => {
-                        *ctx.timed_out = true;
-                        0
-                    }
+        if ctx.max_nodes.is_some() {
+            let remaining = ctx
+                .max_nodes
+                .map(|max_nodes| max_nodes.saturating_sub(ctx.nodes_before + *ctx.nodes));
+            let (score, exact_nodes, _) = solve_exact_limited_with_nodes(
+                board,
+                side,
+                ctx.tt,
+                ctx.limit.time_ms.map(|time_ms| TimeBudget { start: ctx.start, time_ms }),
+                remaining,
+            );
+            *ctx.nodes += exact_nodes;
+            return match score {
+                Some(score) => score * 100,
+                None => {
+                    *ctx.timed_out = true;
+                    0
                 }
-            }
+            };
+        }
+        return match ctx.limit.time_ms {
+            Some(time_ms) => match solve_exact_bounded(board, side, ctx.tt, TimeBudget { start: ctx.start, time_ms }) {
+                Some(score) => score * 100,
+                None => {
+                    *ctx.timed_out = true;
+                    0
+                }
+            },
             None => solve_exact(board, side, ctx.tt) * 100,
         };
     }
@@ -1881,11 +1968,11 @@ mod tests {
                 let limit = default_limit(max_depth, 10);
 
                 let mut tt_on = TranspositionTable::new(4);
-                let result_on = search_with_eval_inner(board, *side, &limit, &mut tt_on, None, true);
+                let result_on = search_with_eval_inner(board, *side, &limit, &mut tt_on, None, true, None);
 
                 let mut tt_off = TranspositionTable::new(4);
                 let result_off =
-                    search_with_eval_inner(board, *side, &limit, &mut tt_off, None, false);
+                    search_with_eval_inner(board, *side, &limit, &mut tt_off, None, false, None);
 
                 total_nodes_with_etc += result_on.nodes;
                 total_nodes_without_etc += result_off.nodes;
@@ -1972,11 +2059,11 @@ mod tests {
                 let limit = default_limit(max_depth, 10);
 
                 let mut tt_on = TranspositionTable::new(16);
-                let result_on = search_with_eval_inner(board, *side, &limit, &mut tt_on, None, true);
+                let result_on = search_with_eval_inner(board, *side, &limit, &mut tt_on, None, true, None);
 
                 let mut tt_off = TranspositionTable::new(16);
                 let result_off =
-                    search_with_eval_inner(board, *side, &limit, &mut tt_off, None, false);
+                    search_with_eval_inner(board, *side, &limit, &mut tt_off, None, false, None);
 
                 total_nodes_with_etc += result_on.nodes;
                 total_nodes_without_etc += result_off.nodes;
@@ -2238,5 +2325,45 @@ mod tests {
         assert_eq!(result_a.nodes, result_b.nodes);
         assert!(result_a.is_exact && result_b.is_exact);
         assert!(!result_a.timed_out && !result_b.timed_out);
+    }
+
+    #[test]
+    fn node_budget_fallback_always_returns_a_legal_move() {
+        let (board, side) = play_until_empties(18, first_move_strategy);
+        let legal = board.legal_moves(side);
+        assert_ne!(legal, 0, "test position must have a legal move");
+        let limit = SearchLimit {
+            max_depth: 10,
+            time_ms: None,
+            exact_from_empties: 18,
+        };
+        let mut tt = TranspositionTable::new(16);
+        let result = search_with_eval_with_node_limit(&board, side, &limit, &mut tt, None, 1);
+
+        let mv = result.best_move.expect("a legal position must never return move=None");
+        assert_ne!(legal & (1u64 << mv), 0, "fallback move must be legal");
+        assert_eq!(result.nodes, 1);
+        assert!(result.node_limit_hit);
+        assert!(!result.timed_out);
+    }
+
+    #[test]
+    fn node_budget_search_is_deterministic() {
+        let board = Board::initial();
+        let limit = SearchLimit {
+            max_depth: 20,
+            time_ms: None,
+            exact_from_empties: 10,
+        };
+        let mut tt_a = TranspositionTable::new(16);
+        let a = search_with_eval_with_node_limit(&board, Side::Black, &limit, &mut tt_a, None, 2048);
+        let mut tt_b = TranspositionTable::new(16);
+        let b = search_with_eval_with_node_limit(&board, Side::Black, &limit, &mut tt_b, None, 2048);
+
+        assert_eq!(a.best_move, b.best_move);
+        assert_eq!(a.score, b.score);
+        assert_eq!(a.depth, b.depth);
+        assert_eq!(a.nodes, b.nodes);
+        assert!(a.node_limit_hit && b.node_limit_hit);
     }
 }

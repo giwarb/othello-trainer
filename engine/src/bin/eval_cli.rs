@@ -31,7 +31,7 @@
 //! - `moves --depth N --exact-from-empties M [--pattern-weights PATH]`
 //!   同様に `--pattern-weights` を指定すると、全合法手のランキングを
 //!   パターン評価で計算する。
-//! - `best --depth N [--time-ms T] --exact-from-empties M [--pattern-weights PATH]`
+//! - `best --depth N [--time-ms T] [--max-nodes N] --exact-from-empties M [--pattern-weights PATH]`
 //!   (T084) 単一局面(標準入力、`moves`/`apply`と同じJSONオブジェクト)を
 //!   **単一ルートのPVS探索**(`search::search_with_eval`、反復深化+NegaScout+TT+
 //!   ETC+終盤完全読み。`moves`が使う`search_all_moves_with_eval`とは異なり、
@@ -98,7 +98,7 @@ fn main() {
         "best" => cmd_best(&args[2..]),
         _ => {
             eprintln!(
-                "usage:\n  eval_cli gen --category NAME --min-empties N --max-empties M --count C --seed S\n  eval_cli eval --depth N --exact-from-empties M [--pattern-weights PATH]   (JSON配列を標準入力から読む)\n  eval_cli moves --depth N --exact-from-empties M [--pattern-weights PATH]  (単一局面のJSONオブジェクトを標準入力から読み、全合法手のスコアを返す)\n  eval_cli best --depth N [--time-ms T] --exact-from-empties M [--pattern-weights PATH]  (T084: 単一局面のJSONオブジェクトを標準入力から読み、single-root探索で最善手1つとテレメトリを返す)"
+                "usage:\n  eval_cli gen --category NAME --min-empties N --max-empties M --count C --seed S\n  eval_cli eval --depth N --exact-from-empties M [--pattern-weights PATH]   (JSON配列を標準入力から読む)\n  eval_cli moves --depth N --exact-from-empties M [--pattern-weights PATH]  (単一局面のJSONオブジェクトを標準入力から読み、全合法手のスコアを返す)\n  eval_cli best --depth N [--time-ms T] [--max-nodes N] --exact-from-empties M [--pattern-weights PATH]  (T084: 単一局面のJSONオブジェクトを標準入力から読み、single-root探索で最善手1つとテレメトリを返す)"
             );
             std::process::exit(2);
         }
@@ -618,6 +618,11 @@ fn cmd_best(args: &[String]) {
     let depth = get_arg_u32(args, "--depth", Some(10)) as u8;
     let exact_from_empties = get_arg_u32(args, "--exact-from-empties", Some(0)) as u8;
     let time_ms = get_arg(args, "--time-ms").map(|v| v.parse::<u64>().expect("invalid --time-ms"));
+    let max_nodes = get_arg(args, "--max-nodes").map(|value| {
+        let parsed = value.parse::<u64>().expect("invalid --max-nodes");
+        assert!(parsed > 0, "--max-nodes must be greater than zero");
+        parsed
+    });
     let pattern_weights = load_pattern_weights(args);
 
     let mut input = String::new();
@@ -654,7 +659,17 @@ fn cmd_best(args: &[String]) {
         exact_from_empties,
     };
     let mut tt = TranspositionTable::new(16);
-    let result = search::search_with_eval(&b, side, &limit, &mut tt, pattern_weights.as_ref());
+    let result = match max_nodes {
+        Some(max_nodes) => search::search_with_eval_with_node_limit(
+            &b,
+            side,
+            &limit,
+            &mut tt,
+            pattern_weights.as_ref(),
+            max_nodes,
+        ),
+        None => search::search_with_eval(&b, side, &limit, &mut tt, pattern_weights.as_ref()),
+    };
 
     let exact_completed = result.is_exact;
     // 「試みたが完走できず、通常の反復深化(またはその反復深化すら一度も
@@ -689,6 +704,7 @@ fn cmd_best(args: &[String]) {
             "elapsedMs": result.elapsed_ms,
             "nps": nps,
             "timedOut": result.timed_out,
+            "nodeLimitHit": result.node_limit_hit,
             "exact": {
                 "attempted": exact_attempted,
                 "completed": exact_completed,
@@ -697,6 +713,7 @@ fn cmd_best(args: &[String]) {
             "requestedDepth": depth,
             "requestedExactFromEmpties": exact_from_empties,
             "requestedTimeMs": time_ms,
+            "requestedMaxNodes": max_nodes,
         })
     );
 }

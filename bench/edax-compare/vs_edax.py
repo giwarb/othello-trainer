@@ -109,6 +109,7 @@ DEFAULT_ENGINE_TIME_MS = 1000
 # ルート自体が空き10以下になるまで一切発生しない、常に安全)。
 DEFAULT_FIXED_DEPTH = 8
 DEFAULT_FIXED_DEPTH_EXACT_FROM_EMPTIES = 10
+DEFAULT_NODE_CHECK_MAX_NODES = 4096
 
 # Edaxレベル(-l 10 を主軸に、-l 5 / -l 1 も)。
 DEFAULT_LEVELS = [10, 5, 1]
@@ -198,12 +199,37 @@ def rel_to_root(path: Path) -> str:
     try:
         return path.resolve().relative_to(ROOT).as_posix()
     except ValueError:
-        return str(path)
+        return f"<external>/{path.name}"
+
+
+def git_value(*args: str) -> str:
+    out = subprocess.run(["git", *args], cwd=ROOT, capture_output=True, text=True)
+    if out.returncode != 0:
+        raise RuntimeError(f"git {' '.join(args)} failed: {out.stderr.strip()}")
+    return out.stdout.strip()
+
+
+def ensure_clean_worktree(allow_dirty: bool, allowed_outputs: tuple[Path, ...]) -> None:
+    status = git_value("status", "--porcelain")
+    allowed = {rel_to_root(path) for path in allowed_outputs}
+    dirty_lines = [
+        line for line in status.splitlines() if line[3:].replace(chr(92), "/") not in allowed
+    ]
+    dirty = "\n".join(dirty_lines)
+    if dirty and not allow_dirty:
+        raise RuntimeError(
+            "benchmark provenance requires a committed worktree; commit tracked changes first "
+            "(or pass --allow-dirty for a non-publishable local smoke run)"
+        )
+    if dirty:
+        print("WARNING: running from a dirty worktree (--allow-dirty); results are not publishable")
 
 
 def build_run_metadata(weights: Path) -> dict:
     return {
         "gitCommit": git_commit_hash(),
+        "gitTree": git_value("rev-parse", "HEAD^{tree}"),
+        "harnessSha256": sha256_of_file(Path(__file__)),
         "weightsPath": rel_to_root(weights),
         "weightsSha256": sha256_of_file(weights) if weights.exists() else None,
         "generatedAt": datetime.now(timezone.utc).isoformat(timespec="seconds"),
@@ -277,6 +303,7 @@ def engine_best(
     exact_from_empties: int,
     weights: Path | None,
     time_ms: int | None = None,
+    max_nodes: int | None = None,
 ) -> dict:
     """T084: `eval_cli best`(single-root探索、`search_with_eval`)を呼び、
     最善手とテレメトリ一式(depth/nodes/elapsedMs/nps/timedOut/exact.*)を
@@ -287,6 +314,8 @@ def engine_best(
         cmd += ["--pattern-weights", str(weights)]
     if time_ms is not None:
         cmd += ["--time-ms", str(time_ms)]
+    if max_nodes is not None:
+        cmd += ["--max-nodes", str(max_nodes)]
     out = run(cmd, input_text=input_json)
     return json.loads(out)
 
@@ -469,6 +498,7 @@ def play_game(
     engine_depth: int,
     engine_exact_from_empties: int,
     engine_time_ms: int | None,
+    engine_max_nodes: int | None,
     weights: Path,
     edax_level: int,
     start_board: str,
@@ -509,10 +539,23 @@ def play_game(
         engine_telemetry: dict | None = None
         if side == engine_side:
             if engine_mode == "single-root":
-                r = engine_best(board, side, engine_depth, engine_exact_from_empties, weights, time_ms=engine_time_ms)
+                r = engine_best(
+                    board,
+                    side,
+                    engine_depth,
+                    engine_exact_from_empties,
+                    weights,
+                    time_ms=engine_time_ms,
+                    max_nodes=engine_max_nodes,
+                )
                 mv = r.get("move")
                 if mv is None:
-                    break  # 自作エンジン側に合法手が無い(=両者パス済みで終局)
+                    if engine_has_legal_move(board, side):
+                        raise RuntimeError(
+                            f"eval_cli best returned move=null despite legal moves: "
+                            f"game_id={game_id} ply={ply} board={board} side={side}"
+                        )
+                    break
                 engine_telemetry = {
                     "discDiff": r["score"]["discDiff"],
                     "scoreType": r["score"]["type"],
@@ -521,6 +564,7 @@ def play_game(
                     "elapsedMs": r["elapsedMs"],
                     "nps": r["nps"],
                     "timedOut": r["timedOut"],
+                    "nodeLimitHit": r.get("nodeLimitHit", False),
                     "exactAttempted": r["exact"]["attempted"],
                     "exactCompleted": r["exact"]["completed"],
                     "exactFallback": r["exact"]["fallback"],
@@ -548,6 +592,7 @@ def play_game(
                     "elapsedMs": None,
                     "nps": None,
                     "timedOut": None,
+                    "nodeLimitHit": None,
                     "exactAttempted": None,
                     "exactCompleted": None,
                     "exactFallback": None,
@@ -616,6 +661,10 @@ def game_key(engine_mode: str, level: int, opening_id: str, engine_is_black: boo
     return f"{engine_mode}|{level}|{opening_id}|{'black' if engine_is_black else 'white'}"
 
 
+def loss_entry_key(game_id: int, ply: int) -> str:
+    return f"{game_id}|{ply}"
+
+
 # --- fixed-depth決定性回帰チェック(T084要件2・4) ---
 
 
@@ -669,10 +718,57 @@ def run_fixed_depth_regression(openings: list[dict], depth: int, exact_from_empt
     return result
 
 
+def run_node_budget_regression(openings: list[dict], depth: int, exact_from_empties: int, weights: Path, max_nodes: int) -> dict:
+    """smoke openingを同じノード予算で2回探索し、壁時計に依存しない
+    着手・評価・深さ・ノード数の完全一致を検証する。"""
+
+    def run_once() -> list[dict]:
+        rows = []
+        for pos in openings:
+            r = engine_best(
+                pos["board"],
+                pos["side_to_move"],
+                depth,
+                exact_from_empties,
+                weights,
+                time_ms=None,
+                max_nodes=max_nodes,
+            )
+            rows.append(
+                {
+                    "id": pos["id"],
+                    "move": r.get("move"),
+                    "discDiff": r["score"]["discDiff"],
+                    "depth": r["depth"],
+                    "nodes": r["nodes"],
+                    "nodeLimitHit": r["nodeLimitHit"],
+                }
+            )
+        return rows
+
+    print(f"  node-budget regression: run 1/2 ({len(openings)} positions, max-nodes={max_nodes})...")
+    run1 = run_once()
+    print(f"  node-budget regression: run 2/2 ({len(openings)} positions)...")
+    run2 = run_once()
+    mismatches = [{"id": a["id"], "run1": a, "run2": b} for a, b in zip(run1, run2) if a != b]
+    result = {
+        "maxNodes": max_nodes,
+        "positions": len(openings),
+        "run1": run1,
+        "run2": run2,
+        "mismatches": mismatches,
+        "allMatched": not mismatches,
+    }
+    if mismatches:
+        raise RuntimeError(f"node-budget determinism check FAILED: {mismatches[:3]}")
+    print(f"  node-budget regression: PASSED ({len(openings)}/{len(openings)} positions matched)")
+    return result
+
+
 # --- 弱点分析(T084要件7: オラクルロスの修正) ---
 
 
-def analyze_game_losses_v2(game: dict, high_level: int, checkpoint_cb=None) -> list[dict]:
+def analyze_game_losses_v2(game: dict, high_level: int, checkpoint_cb=None, completed_keys: set[str] | None = None) -> list[dict]:
     """負けた対局1局について、自作エンジンが着手した各局面のロスを、
     「同一root・同一設定で全合法手の着手後局面を評価し、
     loss = max(全子の値) - (選択手の子の値)」方式で算出する(T084要件7)。
@@ -688,8 +784,11 @@ def analyze_game_losses_v2(game: dict, high_level: int, checkpoint_cb=None) -> l
     (=1局面ごとに、要件8)呼び出す(呼び出し元がチェックポイントの
     書き出しに使う)。"""
     losses = []
+    completed_keys = completed_keys or set()
     for mv in game["moves"]:
         if mv["mover"] != "engine":
+            continue
+        if loss_entry_key(game["game_id"], mv["ply"]) in completed_keys:
             continue
         before_board = mv["board_before"]
         before_side = mv["side"]
@@ -748,7 +847,13 @@ def analyze_game_losses_v2(game: dict, high_level: int, checkpoint_cb=None) -> l
     return losses
 
 
-def run_loss_analysis(games: list[dict], high_level: int, sample_per_level: int, checkpoint_cb=None) -> dict:
+def run_loss_analysis(
+    games: list[dict],
+    high_level: int,
+    sample_per_level: int,
+    checkpoint_cb=None,
+    completed_keys: set[str] | None = None,
+) -> dict:
     """T084要件6・9c: single-rootモードの負け対局のみを弱点分析の対象と
     する(design報告の焦点はsingle-rootの真の弱点であり、allmovesは
     A/Bの対局結果比較のみが目的のため。対象を広げると弱点分析のEdax
@@ -769,7 +874,12 @@ def run_loss_analysis(games: list[dict], high_level: int, sample_per_level: int,
                 f"  analyzing losses for level={level} game_id={g['game_id']} "
                 f"(engine {g['margin_engine_minus_edax']:+d})..."
             )
-            game_losses = analyze_game_losses_v2(g, high_level, checkpoint_cb=checkpoint_cb)
+            game_losses = analyze_game_losses_v2(
+                g,
+                high_level,
+                checkpoint_cb=checkpoint_cb,
+                completed_keys=completed_keys,
+            )
             all_losses.extend(game_losses)
             analyzed_game_ids.append(
                 {"level": level, "game_id": g["game_id"], "n_losing_at_level": len(losing), "sampled": len(sample)}
@@ -796,6 +906,7 @@ def write_report(
     settings: dict,
     meta: dict,
     fixed_depth_result: dict | None,
+    node_budget_result: dict | None,
     games: list[dict],
     loss_analysis: dict,
 ) -> None:
@@ -816,6 +927,8 @@ def write_report(
     lines.append("## (a) 実行条件")
     lines.append("")
     lines.append(f"- git commit: `{meta['gitCommit']}`")
+    lines.append(f"- git tree: `{meta['gitTree']}` / harness sha256: `{meta['harnessSha256']}`")
+    lines.append(f"- settings sha256: `{meta['settingsSha256']}`")
     lines.append(f"- パターン重み: `{meta['weightsPath']}` (sha256=`{meta['weightsSha256']}`)")
     lines.append(f"- 実行日時(UTC): {meta['generatedAt']}")
     lines.append(
@@ -847,6 +960,13 @@ def write_report(
             f"--exact-from-empties {fixed_depth_result['exactFromEmpties']}`(時間予算なし)で"
             f"{fixed_depth_result['positions']}局面を2回連続実行し、全着手・全ノード数が一致するかを"
             f"検証: **{status}**"
+        )
+    if node_budget_result is not None:
+        status = "PASSED" if node_budget_result["allMatched"] else "FAILED"
+        lines.append(
+            f"- ノード予算決定性チェック: `--max-nodes {node_budget_result['maxNodes']}`で"
+            f"smoke {node_budget_result['positions']}局面を2回実行し、着手・評価・深さ・ノード数を照合: "
+            f"**{status}**"
         )
     lines.append("")
 
@@ -1046,9 +1166,11 @@ class ResultsCheckpoint:
         self.loss_entries: list[dict] = []
         self.loss_meta: dict | None = None
         self.fixed_depth_result: dict | None = None
+        self.node_budget_result: dict | None = None
         self.settings: dict | None = None
         self.meta: dict | None = None
         self._done_game_keys: set[str] = set()
+        self._done_loss_keys: set[str] = set()
 
     def try_resume(self) -> bool:
         if not self.path.exists():
@@ -1070,7 +1192,9 @@ class ResultsCheckpoint:
         }
         loss_analysis = doc.get("loss_analysis") or {}
         self.loss_entries = loss_analysis.get("entries", []) or []
+        self._done_loss_keys = {loss_entry_key(e["game_id"], e["ply"]) for e in self.loss_entries}
         self.fixed_depth_result = doc.get("fixed_depth_result")
+        self.node_budget_result = doc.get("node_budget_result")
         print(
             f"  [resume] loaded {len(self.games)} already-completed game(s) and "
             f"{len(self.loss_entries)} already-analyzed loss entrie(s) from {self.path.name}"
@@ -1087,7 +1211,11 @@ class ResultsCheckpoint:
         self.save()
 
     def add_loss_entry(self, entry: dict) -> None:
+        key = loss_entry_key(entry["game_id"], entry["ply"])
+        if key in self._done_loss_keys:
+            return
         self.loss_entries.append(entry)
+        self._done_loss_keys.add(key)
         self.save()
 
     def save(self) -> None:
@@ -1097,6 +1225,7 @@ class ResultsCheckpoint:
             "settings": self.settings,
             "games": self.games,
             "fixed_depth_result": self.fixed_depth_result,
+            "node_budget_result": self.node_budget_result,
             "loss_analysis": {
                 **(self.loss_meta or {}),
                 "entries": self.loss_entries,
@@ -1125,6 +1254,7 @@ def run_smoke(args: argparse.Namespace) -> None:
         engine_depth=args.engine_depth,
         engine_exact_from_empties=args.engine_exact_from_empties,
         engine_time_ms=args.engine_time_ms,
+        engine_max_nodes=args.engine_max_nodes,
         weights=args.weights,
         edax_level=edax_level,
         start_board=start_board,
@@ -1171,6 +1301,19 @@ def main() -> None:
         help="自作エンジン側の着手選択(wall-time系列)に付与する時間予算(ミリ秒)。0以下を指定すると時間無制限になる"
         "(空きマス20〜28付近で組合せ爆発的に遅くなることがあるため非推奨)。",
     )
+    ap.add_argument(
+        "--engine-max-nodes",
+        type=int,
+        default=None,
+        help="single-root着手選択の決定論的ノード数予算。省略時はノード数無制限",
+    )
+    ap.add_argument(
+        "--node-check-max-nodes",
+        type=int,
+        default=DEFAULT_NODE_CHECK_MAX_NODES,
+        help="smoke10局面のノード予算決定性チェックに使う予算",
+    )
+    ap.add_argument("--allow-dirty", action="store_true", help="dirty worktreeでの非公開ローカル検証を許可する")
     ap.add_argument("--weights", type=Path, default=DEFAULT_PATTERN_WEIGHTS)
     ap.add_argument("--high-level", type=int, default=DEFAULT_HIGH_LEVEL, help="弱点分析用のEdax高レベル")
     ap.add_argument("--loss-sample-per-level", type=int, default=DEFAULT_LOSS_SAMPLE_PER_LEVEL)
@@ -1196,6 +1339,12 @@ def main() -> None:
     args.engine_modes = [m.strip() for m in args.engine_modes.split(",") if m.strip()]
     engine_time_ms: int | None = args.engine_time_ms if args.engine_time_ms and args.engine_time_ms > 0 else None
     args.engine_time_ms = engine_time_ms
+    if args.engine_max_nodes is not None and args.engine_max_nodes <= 0:
+        ap.error("--engine-max-nodes must be greater than zero")
+    if args.node_check_max_nodes <= 0:
+        ap.error("--node-check-max-nodes must be greater than zero")
+
+    ensure_clean_worktree(args.allow_dirty, (args.results_output, args.report_output))
 
     ensure_engine_built()
     ensure_edax_available()
@@ -1218,6 +1367,7 @@ def main() -> None:
         "engine_depth": args.engine_depth,
         "engine_exact_from_empties": args.engine_exact_from_empties,
         "engine_time_ms": args.engine_time_ms,
+        "engine_max_nodes": args.engine_max_nodes,
         "weights": rel_to_root(args.weights),
         "openings_path": rel_to_root(args.openings),
         "opening_set": args.opening_set,
@@ -1228,8 +1378,10 @@ def main() -> None:
         "loss_sample_per_level": args.loss_sample_per_level,
         "fixed_depth": args.fixed_depth,
         "fixed_depth_exact_from_empties": args.fixed_depth_exact_from_empties,
+        "node_check_max_nodes": args.node_check_max_nodes,
     }
     run_key = json.dumps(settings, sort_keys=True)
+    meta["settingsSha256"] = hashlib.sha256(run_key.encode("utf-8")).hexdigest()
 
     checkpoint = ResultsCheckpoint(args.results_output, run_key)
     if not args.no_resume:
@@ -1252,6 +1404,19 @@ def main() -> None:
                 fd_positions, args.fixed_depth, args.fixed_depth_exact_from_empties, args.weights
             )
             checkpoint.save()
+
+    if checkpoint.node_budget_result is not None and checkpoint.node_budget_result.get("allMatched"):
+        print("=== node-budget determinism regression check: already completed (resumed), skipping ===")
+    else:
+        print("=== node-budget determinism regression check ===")
+        checkpoint.node_budget_result = run_node_budget_regression(
+            opening_set(openings_doc, "smoke"),
+            args.engine_depth,
+            args.engine_exact_from_empties,
+            args.weights,
+            args.node_check_max_nodes,
+        )
+        checkpoint.save()
 
     # --- 対局(single-root / allmoves x 各レベル x 各opening x 黒白) ---
     total_planned = len(args.engine_modes) * len(args.levels) * len(openings) * 2
@@ -1276,6 +1441,7 @@ def main() -> None:
                         engine_depth=args.engine_depth,
                         engine_exact_from_empties=args.engine_exact_from_empties,
                         engine_time_ms=args.engine_time_ms,
+                        engine_max_nodes=args.engine_max_nodes,
                         weights=args.weights,
                         edax_level=level,
                         start_board=start["board"],
@@ -1298,22 +1464,19 @@ def main() -> None:
         print("=== weakness analysis: skipped (--skip-loss-analysis) ===")
     else:
         print("=== weakness analysis: analyzing losing single-root games with Edax high level (corrected oracle, T084) ===")
-        already_analyzed_game_ids = {e["game_id"] for e in checkpoint.loss_entries}
-        # 既に(部分的にでも)分析済みのgame_idはスキップする(要件8のresume。
-        # 1局面=1手ごとの粒度で再開したい場合、ここをさらに細かくすることも
-        # できるが、1局内の手は互いに独立な計算なので「game_id単位」の
-        # 再開でも過剰な再計算は発生しない。1局あたりの手数は数十程度)。
         single_root_games = [g for g in checkpoint.games if g.get("engine_mode") == "single-root"]
-        remaining_games = [g for g in single_root_games if g["game_id"] not in already_analyzed_game_ids]
-        already_done_games = [g for g in single_root_games if g["game_id"] in already_analyzed_game_ids]
-        if already_done_games:
-            print(f"  [resume] {len(already_done_games)} game(s) already analyzed, skipping")
+        if checkpoint._done_loss_keys:
+            print(f"  [resume] {len(checkpoint._done_loss_keys)} loss move(s) already analyzed, skipping individually")
 
         def checkpoint_cb(entry: dict) -> None:
             checkpoint.add_loss_entry(entry)  # 1局面ごとにチェックポイント保存(要件8)
 
         remaining_loss_analysis = run_loss_analysis(
-            remaining_games, args.high_level, args.loss_sample_per_level, checkpoint_cb=checkpoint_cb
+            single_root_games,
+            args.high_level,
+            args.loss_sample_per_level,
+            checkpoint_cb=checkpoint_cb,
+            completed_keys=set(checkpoint._done_loss_keys),
         )
         checkpoint.loss_meta = {
             "high_level": remaining_loss_analysis["high_level"],
@@ -1341,7 +1504,15 @@ def main() -> None:
         "entries": checkpoint.loss_entries,
     }
 
-    write_report(args.report_output, settings, meta, checkpoint.fixed_depth_result, checkpoint.games, loss_analysis_doc)
+    write_report(
+        args.report_output,
+        settings,
+        meta,
+        checkpoint.fixed_depth_result,
+        checkpoint.node_budget_result,
+        checkpoint.games,
+        loss_analysis_doc,
+    )
     print(f"Wrote {args.report_output.name}")
 
 

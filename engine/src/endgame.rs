@@ -184,7 +184,7 @@ pub(crate) fn final_score(board: &Board, side: Side) -> i32 {
 pub fn solve_exact(board: &Board, side_to_move: Side, tt: &mut TranspositionTable) -> i32 {
     let mut nodes: u64 = 0;
     let mut timed_out = false;
-    negamax(board, side_to_move, -64, 64, tt, &mut nodes, None, &mut timed_out)
+    negamax(board, side_to_move, -64, 64, tt, &mut nodes, None, None, &mut timed_out)
 }
 
 /// [`solve_exact`] と同じ完全読みを行い、結果に加えて探索した(`negamax`
@@ -200,7 +200,7 @@ pub fn solve_exact_with_nodes(
 ) -> (i32, u64) {
     let mut nodes: u64 = 0;
     let mut timed_out = false;
-    let score = negamax(board, side_to_move, -64, 64, tt, &mut nodes, None, &mut timed_out);
+    let score = negamax(board, side_to_move, -64, 64, tt, &mut nodes, None, None, &mut timed_out);
     (score, nodes)
 }
 
@@ -240,6 +240,7 @@ pub fn solve_exact_bounded(
         tt,
         &mut nodes,
         Some(budget),
+        None,
         &mut timed_out,
     );
     if timed_out {
@@ -276,12 +277,44 @@ pub fn solve_exact_bounded_with_nodes(
         tt,
         &mut nodes,
         Some(budget),
+        None,
         &mut timed_out,
     );
     if timed_out {
         (None, nodes)
     } else {
         (Some(score), nodes)
+    }
+}
+
+/// 時間予算・ノード数予算のいずれかで完全読みを打ち切れる版。
+/// `node_limit`はこの呼び出し内で訪問できる最大ノード数で、`None`なら
+/// 無制限。第3要素は打ち切り理由がノード数予算だった場合に`true`。
+pub fn solve_exact_limited_with_nodes(
+    board: &Board,
+    side_to_move: Side,
+    tt: &mut TranspositionTable,
+    time_budget: Option<TimeBudget>,
+    node_limit: Option<u64>,
+) -> (Option<i32>, u64, bool) {
+    let mut nodes = 0;
+    let mut aborted = false;
+    let score = negamax(
+        board,
+        side_to_move,
+        -64,
+        64,
+        tt,
+        &mut nodes,
+        time_budget,
+        node_limit,
+        &mut aborted,
+    );
+    let node_limit_hit = aborted && node_limit.is_some_and(|limit| nodes >= limit);
+    if aborted {
+        (None, nodes, node_limit_hit)
+    } else {
+        (Some(score), nodes, false)
     }
 }
 
@@ -329,11 +362,16 @@ fn negamax(
     tt: &mut TranspositionTable,
     nodes: &mut u64,
     budget: Option<TimeBudget>,
+    node_limit: Option<u64>,
     timed_out: &mut bool,
 ) -> i32 {
     *nodes += 1;
 
     if *timed_out {
+        return 0;
+    }
+    if node_limit.is_some_and(|limit| *nodes >= limit) {
+        *timed_out = true;
         return 0;
     }
     if let Some(budget) = budget {
@@ -377,7 +415,7 @@ fn negamax(
             // 相手にも合法手がない: 終局。
             return final_score(board, side);
         }
-        return -negamax(board, side.opposite(), -beta, -alpha, tt, nodes, budget, timed_out);
+        return -negamax(board, side.opposite(), -beta, -alpha, tt, nodes, budget, node_limit, timed_out);
     }
 
     // 合法手を列挙し、隅優先 → 相手の着手後合法手数が少ない順 → 空き領域
@@ -416,7 +454,17 @@ fn negamax(
 
     for mv in moves {
         let next_board = board.apply_move(side, mv);
-        let score = -negamax(&next_board, side.opposite(), -beta, -alpha, tt, nodes, budget, timed_out);
+        let score = -negamax(
+            &next_board,
+            side.opposite(),
+            -beta,
+            -alpha,
+            tt,
+            nodes,
+            budget,
+            node_limit,
+            timed_out,
+        );
 
         if *timed_out {
             // 子の探索が時間切れで打ち切られた: このノードの計算は不完全
