@@ -48,3 +48,19 @@ attempts: 0
 (なし)
 
 ## 作業ログ(担当エージェントが追記)
+
+### 2026-07-14 18:03 JST — Codex実装
+
+- 実施内容: `StoredTTEntry::quality_cmp` に depth → Exact → 同Bound内のscore強度(Lowerは大、Upperは小) → `best_move=Some` の品質順序を実装。`store` は両slotの同一hash/domainを探索し、劣る新規値から既存のscore/depth/boundを保護しつつmoveのみ補完、優る/同等の新規値を昇格、重複排除、異hash衝突時のdepth高品質保持・always最新保持・追い出し退避を行う。`probe` は両slot一致時に品質比較する。16-byte entry / 32-byte bucketは維持。
+- テスト追加: 深いExactの浅いLower/Upperからの保護、同深度boundからExactへの昇格、深いboundと浅いExactの比較、Lower/Upper強度、moveのみ補完、probe順序非依存、追い出し退避、同一hash/domain重複排除、完全同品質時の新規優先、10,000エントリ衝突stressで誤probeゼロを直接assert。
+- 実装前 budget-regression: `deterministic:true`、48局面中央値 214,325 nodes、合計 8,925,834 nodes。実装後: `deterministic:true`、中央値 214,190 nodes(差 -135、-0.063%)、合計 8,923,030 nodes(差 -2,804、-0.031%)。中央値は悪化せず、2%ゲートを満たした。move/scoreは全48局面で実装前と一致。
+- TT統計: 現行CLIに統計出力がないため、一時的なAtomicカウンタをprobe hitと、NegaScout/ETC/endgameのTT即時return箇所へ追加して同じ48局面を2回ずつ探索した。集計は TT hit 2,325,456、TT cutoff 790,778。一時計測コードは直後に全て復元し、最終差分には含めていない。
+- FFO #40-44: 全問正解。実装前→実装後 nodes は #40 42,133,930→42,038,895(-95,035)、#41 192,558,694→192,463,295(-95,399)、#42 266,858,189→266,602,242(-255,947)、#43 384,365,162→384,600,140(+234,978)、#44 413,186,354→412,952,212(-234,142)。合計 1,299,102,329→1,298,656,784(-445,545、-0.034%)。品質保護により保持されるTTエントリが変わったため局面別には増減したが、合計は微減。
+- 実行コマンドと結果:
+  - `cargo test -p engine tt::tests -- --nocapture`: 20 passed、失敗なし。
+  - `cargo test -p engine`: 162 passed、2 ignored、失敗なし。`fixed_depth_exact_search_result_is_unchanged_from_the_pre_t084_baseline` と `fixed_depth_midgame_search_result_is_unchanged_from_the_pre_t084_baseline` を含む。
+  - `cargo build --release -p engine --bin eval_cli`: 成功。
+  - `eval_cli budget-regression --manifest bench/edax-compare/t085_exact_positions.json --max-nodes 240000 --time-ms 1500 --exact-from-empties 18 --pattern-weights train/weights/pattern_v2.bin`: 実装前後とも `deterministic:true`、上記ノード結果。
+  - `cargo test -p engine --release --test ffo_bench -- --nocapture`: 1 passed、1 ignored、失敗なし、FFO #40-44全問正解。
+  - `git diff --check`: 問題なし。
+- コミット: N/A(`.git`書き込み禁止のため、オーケストレーターが代行)。
