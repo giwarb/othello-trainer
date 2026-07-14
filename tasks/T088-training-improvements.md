@@ -1,7 +1,7 @@
 ---
 id: T088
 title: 学習法改善 — 年代分割・D4正規化・Huber・early stopping・ステージ/X-Cサンプリングの8構成ablation
-status: in_progress # todo | in_progress | review | redo | done | blocked
+status: review # todo | in_progress | review | redo | done | blocked
 assignee: codex(gpt-5.6-sol)
 attempts: 0
 ---
