@@ -249,8 +249,15 @@ export async function requestCpuMove(
   state: GameState,
   engine: EngineQuery,
   limit: AnalyzeLimit,
+  bookMove: number | null = null,
 ): Promise<GameState> {
   if (state.phase !== 'cpu') return state
+
+  // Apply a legal opening-book move immediately without invoking engine search (T093).
+  // Missing or invalid book moves fall back to the existing engine path.
+  if (bookMove !== null && legalMoves(state.board, state.sideToMove).includes(bookMove)) {
+    return playMove(state, bookMove)
+  }
 
   const response = await engine.requestAnalyze(state.board, state.sideToMove, limit)
   const bestMove = response.pv[0]

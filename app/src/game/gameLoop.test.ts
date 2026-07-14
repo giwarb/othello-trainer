@@ -72,6 +72,30 @@ describe('requestCpuMove', () => {
     expect(next.sideToMove).toBe('black')
     expect(next.phase).toBe('human')
   })
+
+  it('applies a supplied book move without calling the engine', async () => {
+    const afterHumanMove = playMove(createGame('black'), notationToSquare('d3'))
+    const bookMove = legalMoves(afterHumanMove.board, 'white')[0]!
+    const engine: EngineQuery = { requestAnalyze: vi.fn() }
+
+    const next = await requestCpuMove(afterHumanMove, engine, limit, bookMove)
+
+    expect(engine.requestAnalyze).not.toHaveBeenCalled()
+    expect(next.lastMove).toBe(bookMove)
+    expect(next.phase).toBe('human')
+  })
+
+  it('falls back to the engine when no book move is supplied', async () => {
+    const afterHumanMove = playMove(createGame('black'), notationToSquare('d3'))
+    const engineMove = legalMoves(afterHumanMove.board, 'white')[0]!
+    const requestAnalyze = vi.fn().mockResolvedValue({ pv: [squareToNotation(engineMove)] })
+    const engine: EngineQuery = { requestAnalyze }
+
+    const next = await requestCpuMove(afterHumanMove, engine, limit, null)
+
+    expect(requestAnalyze).toHaveBeenCalledOnce()
+    expect(next.lastMove).toBe(engineMove)
+  })
 })
 
 describe('createGame with vsHuman (T077)', () => {

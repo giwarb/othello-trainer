@@ -16,14 +16,23 @@ import type { EngineClient } from './engine/client.ts'
 import { getSharedEngineClient } from './engine/sharedClient.ts'
 import type { AnalyzeLimit, MoveEvalJson } from './engine/types.ts'
 import { createGame, createGameFromPosition, playMove, requestCpuMove, type GameState } from './game/gameLoop.ts'
-import { countDiscs, initialBoard, squareToNotation, type Board as BoardState, type Side } from './game/othello.ts'
+import {
+  countDiscs,
+  initialBoard,
+  notationToSquare,
+  squareToNotation,
+  type Board as BoardState,
+  type Side,
+} from './game/othello.ts'
 import { loadJosekiDb, lookupJosekiNode } from './joseki/lookup.ts'
 import { PracticeMode } from './joseki/PracticeMode.tsx'
+import { selectCpuBookMove } from './joseki/selectCpuBookMove.ts'
 import type { JosekiDb } from './joseki/types.ts'
 import { EvalBar } from './midgame/EvalBar.tsx'
 import { PracticeMode as MidgamePracticeMode } from './midgame/PracticeMode.tsx'
 import { loadEvalBarEnabled, saveEvalBarEnabled } from './settings/evalBarSettings.ts'
 import { loadMoveEvalOverlayEnabled, saveMoveEvalOverlayEnabled } from './settings/moveEvalOverlaySettings.ts'
+import { loadOpeningBookEnabled, saveOpeningBookEnabled } from './settings/openingBookSettings.ts'
 import { TitleScreen } from './TitleScreen.tsx'
 import { PlayMode as TsumePlayMode } from './tsume/PlayMode.tsx'
 import { VerbalizeMode } from './verbalize/VerbalizeMode.tsx'
@@ -205,7 +214,11 @@ function PlayMode() {
   const [game, setGame] = useState<GameState>(() => createGame('black'))
   const [thinking, setThinking] = useState(false)
   const [josekiDb, setJosekiDb] = useState<JosekiDb | null>(null)
+  const [josekiDbReady, setJosekiDbReady] = useState(false)
   const [firstMoveSquare, setFirstMoveSquare] = useState<number | null>(null)
+  const [openingBookEnabled, setOpeningBookEnabled] = useState<boolean>(() =>
+    loadOpeningBookEnabled(localStorage),
+  )
   const [blunderConfig, setBlunderConfig] = useState<BlunderConfig>(DEFAULT_BLUNDER_CONFIG)
   const [evalInfo, setEvalInfo] = useState<EvalInfo | null>(null)
   const [moveEvalOverlayEnabled, setMoveEvalOverlayEnabled] = useState<boolean>(() =>
@@ -247,6 +260,9 @@ function PlayMode() {
       .catch((error: unknown) => {
         console.error('定石DBの読み込みに失敗しました', error)
       })
+      .finally(() => {
+        if (!cancelled) setJosekiDbReady(true)
+      })
     return () => {
       cancelled = true
     }
@@ -263,14 +279,24 @@ function PlayMode() {
     }
   }, [game, firstMoveSquare])
 
-  // CPUの手番になったら、エンジンに問い合わせて着手を適用する。
+  // CPUの手番になったら、ブックONかつ現局面に後続定石手があれば探索せず即時適用し、
+  // DB外・終端・ロード失敗・ブックOFFなら従来のエンジン探索へフォールバックする。
   useEffect(() => {
     if (game.phase !== 'cpu') return
+    if (openingBookEnabled && !josekiDbReady) return
 
     let cancelled = false
     setThinking(true)
 
-    requestCpuMove(game, getEngine(), cpuMoveLimitForLevel(level))
+    // CPUが黒で初手を指す場合は任意の合法初手を正規化基準にできるためf5を使う。
+    // 人間の初手直後でstate反映前の場合は`game.lastMove`が実際の初手となる。
+    const firstMove = firstMoveSquare ?? game.lastMove ?? notationToSquare('f5')
+    const bookMove =
+      openingBookEnabled && josekiDb
+        ? selectCpuBookMove(josekiDb, game.board, game.sideToMove, firstMove)
+        : null
+
+    requestCpuMove(game, getEngine(), cpuMoveLimitForLevel(level), bookMove)
       .then((next) => {
         if (!cancelled) {
           setGame(next)
@@ -288,9 +314,8 @@ function PlayMode() {
     return () => {
       cancelled = true
     }
-    // eslint disabled equivalent: levelはCPU思考開始時点の値を使えばよく、
-    // 依存配列にはgameとlevelの両方を含めておく(強さ変更は次の着手から反映される)。
-  }, [game, level])
+    // 依存する設定・DB・初手情報の変更は、そのCPU手番の選択に反映する。
+  }, [game, level, openingBookEnabled, josekiDb, josekiDbReady, firstMoveSquare])
 
   // 盤面セル評価オーバーレイ(T039)。人間の手番になった時点で、表示ONの場合のみ
   // 現局面(着手前)の全合法手の評価をまとめて取得する。`evaluateHumanMove`
@@ -386,6 +411,12 @@ function PlayMode() {
   function handleToggleEvalBar(enabled: boolean) {
     setEvalBarEnabled(enabled)
     saveEvalBarEnabled(localStorage, enabled)
+  }
+
+  /** CPU定石ブックON/OFFを切り替え、`localStorage`へ永続化する(T093)。 */
+  function handleToggleOpeningBook(enabled: boolean) {
+    setOpeningBookEnabled(enabled)
+    saveOpeningBookEnabled(localStorage, enabled)
   }
 
   /**
@@ -541,6 +572,14 @@ function PlayMode() {
                 </option>
               ))}
             </select>
+          </label>
+          <label class={'opening-book-toggle'}>
+            <input
+              type={'checkbox'}
+              checked={openingBookEnabled}
+              onChange={(event) => handleToggleOpeningBook((event.target as HTMLInputElement).checked)}
+            />
+            定石ブック
           </label>
         </div>
 
