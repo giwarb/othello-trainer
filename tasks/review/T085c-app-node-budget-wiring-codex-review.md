@@ -1,45 +1,64 @@
 # T085c 最終レビューレポート
 
+レビュー対象:
+
+- `git log 47926ef..6e46d5b`
+- `git diff 47926ef..6e46d5b`
+- 対象コミット: `6e46d5b`
+- 変更ファイル:
+  - `engine/src/protocol.rs`
+  - `app/scripts/test-node-budget-wasm.mjs`
+
 ## (a) 重大（done を止めるブロッカー）
 
-### 1. 永続Worker上でノード予算探索が決定的になっていない
+### 1. redo後の本番デプロイ成功・Playwright確認の完了を確認できない
 
-要件5「同一局面・同一設定で2回同じ手/スコア」を満たしていません。
+redo #1 の修正自体は `origin/main` までpush済みであることを確認した一方、受け入れ基準で要求されている以下の証跡が作業ログにありません。
 
-本番Workerは単一の `Engine` を保持し、リクエスト間で置換表を再利用します（`app/src/engine/worker.ts:25,60,77`）。一方、追加されたWASM決定性検査は各探索で別々の `new Engine()` を生成しています（`app/scripts/test-node-budget-wasm.mjs:18-19`）。Rust側テストも同様に2つの `Engine` を使用しており（`engine/src/protocol.rs:775-778`）、実際のWorker経路を再現していません。
+- 修正後コミットを含むGitHub Actionsデプロイの成功
+- 修正後の本番URLで、Playwrightによる対局モード・強いCPUの正常着手確認
 
-既存WASMに本番の `pattern_v2.bin` をロードし、`openings.json` の `smoke-01` を本番強CPU設定で同じ `Engine` に2回連続して問い合わせた結果:
+`gh run list`による確認も実行しましたが、レビュー環境のネットワーク制限によりGitHub APIへ接続できず、独立確認できませんでした。redo #1 のフィードバックでも「再度必要」と明記されているため、現時点では受け入れ基準未達です。
 
-- 設定: `depth=12, timeMs=1500, maxNodes=160000, exactFromEmpties=16`
-- 1回目: `d6`, score `6.12`, depth `9`, nodes `160001`
-- 2回目: `d6`, score `0.50`, depth `10`, nodes `160001`
-
-着手は一致しましたがスコアが変化しており、明確に要件違反です。小予算の初期局面でも同様にスコア・到達深さが変化しました。
-
-さらに本番では評価バーや全合法手比較も同じWorker・置換表を利用するため、CPUの結果が過去の探索や表示設定に影響されます。T085bの校正は探索ごとに新しい置換表を生成しているため、校正条件とも一致しません。
-
-`maxNodes` 指定時に探索開始前のTT状態を一定にするなど、校正時と本番Workerで同じ前提を保証する必要があります。回帰テストは、同一の `Engine` インスタンスへ本番設定・本番重みで連続リクエストする形に修正すべきです。
+コード上のブロッカーではありませんが、done判定を止める受け入れ手続き上のブロッカーです。
 
 ## (b) 中（次タスクで対応すべき）
 
-### 1. デプロイおよび本番Playwright確認の完了を確認できない
+### 1. 校正ハーネスと本番EngineでTT容量が異なる
 
-コミットはローカルの `origin/main` 追跡先に含まれ、作業ツリーもクリーンでした。一方、作業ログにはGitHub Actionsのデプロイ成功および本番URLでのPlaywright確認結果が記録されていません。
+本番WASMの `Engine` は64 MiBのTTを使用しています。
 
-`gh run list --commit b17b5fe` は実行環境のネットワーク制限でGitHub APIへ接続できず、外部からも確認できませんでした。修正後に以下を証跡付きで完了する必要があります。
+- [engine/src/lib.rs](C:/Users/yoshi/work/othello-trainer/engine/src/lib.rs:86)
 
-- GitHub Actionsデプロイ成功
-- 本番URLの対局モードで強CPUが正常に着手
-- 同一Workerでの決定性確認
+一方、T085bの校正に使われた `eval_cli best` は16 MiBです。
+
+- [engine/src/bin/eval_cli.rs](C:/Users/yoshi/work/othello-trainer/engine/src/bin/eval_cli.rs:667)
+
+今回の `tt.clear()` により過去探索への依存は解消されますが、TT容量までT085bの校正条件と一致するわけではありません。160kノード内でも衝突・置換状況が変わり得るため、「校正条件と完全に一致」という説明は厳密には成立しません。
+
+本タスクの明示要件はTTを空にして決定性を回復することであり、現在の実測でも要求された結果が得られているためブロッカーとはしません。今後の校正では、本番とベンチのTT容量を統一するか、校正メタデータにTT容量を明記すべきです。
 
 ## (c) 軽微（記録のみ）
 
-該当なし。
+指摘なし。
 
-`maxNodes` のserde/type/client受け渡し、非`allMoves`経路への配線、`allMoves:true`との併用エラー、強CPUだけへのプリセット適用、解析キャッシュキーへの追加は、差分上は仕様どおりです。`maxNodes` 未指定時も従来の `search_with_eval` 分岐が維持されています。`git diff --check 13d5473..b17b5fe` は成功しました。
+redo #1 の修正内容については、以下を適切に満たしています。
+
+- `allMoves + maxNodes` のエラー判定より後へ副作用が漏れていない。
+- `maxNodes` 指定の非`allMoves`探索直前だけ `tt.clear()` を実行している。
+- `maxNodes` 未指定の分岐は従来の `search_with_eval` のままである。
+- Rustテストは同一 `Engine`、本番重み、本番強CPU設定で連続実行している。
+- 介在する `allMoves` 探索後も move/score/depth/nodes の一致を検証している。
+- WASMビルド後テストも同じ条件を再現している。
+- `train/weights/pattern_v2.bin` と `app/public/pattern_v2.bin` のSHA-256は一致している。
+- `git diff --check 47926ef..6e46d5b` は成功した。
+- 対象差分にスコープ外の変更はない。
+- 現在の作業ツリーはクリーンである。
 
 ## (d) 総合判定
 
 **不合格**
 
-主要な配線は適切ですが、本タスクの中心目的である決定的なノード予算探索が実際の永続Worker経路では成立していません。追加テストもWorkerの置換表再利用を再現せず、この不具合を検出できない構造です。要件5および校正済み探索を本番へ移す目的に反するため、doneにはできません。
+redo #1 のコード修正は妥当であり、前回の決定性ブロッカーは解消されています。適用範囲、通常経路の維持、同一Worker相当の回帰テストにも問題は見当たりません。
+
+ただし、必須受け入れ基準である修正後のGitHub Actionsデプロイ成功と、本番URLに対するPlaywright確認を完了した証跡がないため、現時点ではdoneにできません。これらを実施・記録できれば、コードの再修正なしで合格と判断できます。
