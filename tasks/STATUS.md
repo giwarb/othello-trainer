@@ -23,6 +23,8 @@
 |---|---|---|---|---|
 | T090a | Edax教師コーパス生成(smoke 1k→primary 50k、全合法手teacher値) | implementer(Sonnetフォールバック) | in_progress | 0 |
 | T090b | Edax教師蒸留学習(混合損失、ゲート通過候補は20局スモークまで) | codex(gpt-5.6-sol) | todo | 0 |
+| T092 | CIにエンジンテストジョブ追加(cargo test+FFO fast、GitHubランナー上) | implementer | in_progress | 0 |
+| T093 | CPU対局の定石ブックon/off(フェーズ1、TSのみ・エンジン変更なし) | codex(gpt-5.6-sol) | in_progress | 0 |
 
 ## 有効な方針・申し送り(今後のタスクに効くもの)
 
