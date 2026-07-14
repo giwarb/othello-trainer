@@ -18,7 +18,8 @@
 
 | ID | タスク | 担当 | 状態 | 試行 |
 |---|---|---|---|---|
-| T088 | 学習法改善(年代分割・D4正規化・Huber・early stopping、8構成ablation) | codex(gpt-5.6-sol) | in_progress | 0 |
+| T088 | 学習法改善(年代分割・D4正規化・Huber・early stopping、8構成ablation) | codex(gpt-5.6-sol) | review | 0 |
+| T089a | 探索改善(history+aspiration、fixed-depth完全一致ゲート) | implementer(Sonnetフォールバック) | todo | 0 |
 
 ## 有効な方針・申し送り(今後のタスクに効くもの)
 
