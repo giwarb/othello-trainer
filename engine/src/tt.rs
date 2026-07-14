@@ -17,6 +17,8 @@
 
 #![allow(dead_code)]
 
+use std::cmp::Ordering;
+
 /// 評価値の種別(NegaScout/PVSにおける一般的なバウンドの種類)。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Bound {
@@ -99,6 +101,36 @@ impl StoredTTEntry {
             best_move: self.best_move,
         }
     }
+
+    /// 設計書 T086 §4.2 の品質順序で比較する。
+    ///
+    /// Lower と Upper の間には強弱を定義せず、同じ種類の bound 同士だけ
+    /// score を比較する。品質が完全に同じ場合の「新しい方を優先」は、
+    /// 呼び出し側が `Ordering::Equal` のとき新規を選ぶことで実現する。
+    fn quality_cmp(self, other: Self) -> Ordering {
+        self.depth()
+            .cmp(&other.depth())
+            .then_with(|| match (self.bound, other.bound) {
+                (Bound::Exact, Bound::Exact) => Ordering::Equal,
+                (Bound::Exact, _) => Ordering::Greater,
+                (_, Bound::Exact) => Ordering::Less,
+                (Bound::Lower, Bound::Lower) => self.score.cmp(&other.score),
+                (Bound::Upper, Bound::Upper) => other.score.cmp(&self.score),
+                _ => Ordering::Equal,
+            })
+            .then_with(|| self.best_move.is_some().cmp(&other.best_move.is_some()))
+    }
+
+    fn same_position(self, other: Self) -> bool {
+        self.hash == other.hash && self.domain() == other.domain()
+    }
+
+    fn with_move_from(mut self, other: Self) -> Self {
+        if self.best_move.is_none() {
+            self.best_move = other.best_move;
+        }
+        self
+    }
 }
 
 /// 1つのインデックスに対応するバケット。depth優先スロットとalways-replaceスロットを持つ。
@@ -172,47 +204,94 @@ impl TranspositionTable {
     /// ハッシュが完全一致するものだけを返す(衝突誤検出を防ぐ)。
     pub fn probe(&self, hash: u64, domain: TTDomain) -> Option<TTEntry> {
         let bucket = &self.buckets[self.index(hash)];
+        let matches = |entry: StoredTTEntry| entry.hash == hash && entry.domain() == domain;
 
-        if let Some(entry) = bucket.depth_slot {
-            if entry.hash == hash && entry.domain() == domain {
-                return Some(entry.into_entry());
-            }
+        match (
+            bucket.depth_slot.filter(|entry| matches(*entry)),
+            bucket.always_slot.filter(|entry| matches(*entry)),
+        ) {
+            (Some(depth), Some(always)) => Some(
+                if !always.quality_cmp(depth).is_lt() {
+                    always
+                } else {
+                    depth
+                }
+                .into_entry(),
+            ),
+            (Some(entry), None) | (None, Some(entry)) => Some(entry.into_entry()),
+            (None, None) => None,
         }
-        if let Some(entry) = bucket.always_slot {
-            if entry.hash == hash && entry.domain() == domain {
-                return Some(entry.into_entry());
-            }
-        }
-        None
     }
 
     /// 2-tier方式でエントリを格納する。
     ///
-    /// depth優先スロットが空、既存エントリと同じ局面(ハッシュ一致)、
-    /// または新しいエントリの深さが既存より深い場合はdepth優先スロットを上書きする。
-    /// それ以外の場合はalways-replaceスロットを上書きする。
+    /// 同一局面は品質順序で保護し、異なる局面の衝突ではdepth優先スロットに
+    /// 高品質なエントリ、always-replaceスロットに最新の候補を保持する。
     pub fn store(&mut self, entry: TTEntry) {
         let idx = self.index(entry.hash);
         let bucket = &mut self.buckets[idx];
-
-        let replace_depth_slot = match bucket.depth_slot {
-            None => true,
-            Some(existing) => {
-                if existing.hash == entry.hash && existing.domain() != entry.domain {
-                    false
-                } else {
-                    (existing.hash == entry.hash && existing.domain() == entry.domain)
-                        || entry.depth >= existing.depth()
-                }
-            }
-        };
-
         let stored = StoredTTEntry::from_entry(entry);
 
-        if replace_depth_slot {
+        let depth_match = bucket
+            .depth_slot
+            .filter(|existing| existing.same_position(stored));
+        let always_match = bucket
+            .always_slot
+            .filter(|existing| existing.same_position(stored));
+
+        match (depth_match, always_match) {
+            (Some(depth), Some(always)) => {
+                // 旧実装等が残した重複も、このstoreを機に高品質側へ統合する。
+                let existing = if !always.quality_cmp(depth).is_lt() {
+                    always
+                } else {
+                    depth
+                };
+                let selected = if stored.quality_cmp(existing).is_lt() {
+                    existing.with_move_from(stored)
+                } else {
+                    stored.with_move_from(existing)
+                };
+                bucket.depth_slot = Some(selected);
+                bucket.always_slot = None;
+            }
+            (Some(existing), None) => {
+                bucket.depth_slot = Some(if stored.quality_cmp(existing).is_lt() {
+                    existing.with_move_from(stored)
+                } else {
+                    stored.with_move_from(existing)
+                });
+            }
+            (None, Some(existing)) if stored.quality_cmp(existing).is_lt() => {
+                bucket.always_slot = Some(existing.with_move_from(stored));
+            }
+            (None, Some(existing)) => {
+                bucket.always_slot = None;
+                Self::store_collision(bucket, stored.with_move_from(existing));
+            }
+            (None, None) => Self::store_collision(bucket, stored),
+        }
+    }
+
+    fn store_collision(bucket: &mut Bucket, stored: StoredTTEntry) {
+        let Some(depth) = bucket.depth_slot else {
             bucket.depth_slot = Some(stored);
-        } else {
+            return;
+        };
+
+        if stored.quality_cmp(depth).is_lt() {
+            // depth側を守り、最新エントリをalways側へ入れる。
             bucket.always_slot = Some(stored);
+            return;
+        }
+
+        // 同品質なら新しい方をdepth側へ置く。追い出したdepth側は、現在の
+        // always側より高品質な場合に限り退避する。
+        bucket.depth_slot = Some(stored);
+        match bucket.always_slot {
+            None => bucket.always_slot = Some(depth),
+            Some(always) if depth.quality_cmp(always).is_gt() => bucket.always_slot = Some(depth),
+            Some(_) => {}
         }
     }
 
@@ -368,9 +447,8 @@ mod tests {
             tt.probe(deeper_colliding_hash, TTDomain::Midgame),
             Some(deeper)
         );
-        // 元の浅いエントリはdepth優先スロットから追い出され取得できなくなる
-        // (本実装ではdepth優先スロット上書き時に旧エントリの退避は行わない仕様とする)。
-        assert_eq!(tt.probe(base_hash, TTDomain::Midgame), None);
+        // 追い出された元のエントリは空いていたalwaysスロットへ退避される。
+        assert_eq!(tt.probe(base_hash, TTDomain::Midgame), Some(shallow));
     }
 
     #[test]
@@ -402,5 +480,168 @@ mod tests {
         let midgame = sample_entry(8, 6, 1750, Bound::Exact, Some(4));
         tt.store(midgame);
         assert_eq!(tt.probe(8, TTDomain::Exact), None);
+    }
+
+    #[test]
+    fn deep_exact_survives_shallow_bounds() {
+        for bound in [Bound::Lower, Bound::Upper] {
+            let mut tt = TranspositionTable::new(1);
+            let deep = sample_entry(101, 12, 700, Bound::Exact, Some(8));
+            tt.store(deep);
+            tt.store(sample_entry(101, 5, -999, bound, Some(9)));
+            assert_eq!(tt.probe(101, TTDomain::Midgame), Some(deep));
+        }
+    }
+
+    #[test]
+    fn exact_replaces_bound_at_the_same_depth() {
+        let mut tt = TranspositionTable::new(1);
+        tt.store(sample_entry(102, 8, 100, Bound::Lower, Some(1)));
+        let exact = sample_entry(102, 8, 50, Bound::Exact, Some(2));
+        tt.store(exact);
+        assert_eq!(tt.probe(102, TTDomain::Midgame), Some(exact));
+    }
+
+    #[test]
+    fn deeper_bound_beats_shallow_exact() {
+        let mut tt = TranspositionTable::new(1);
+        let deeper = sample_entry(103, 9, 10, Bound::Upper, None);
+        tt.store(deeper);
+        tt.store(sample_entry(103, 8, 20, Bound::Exact, Some(3)));
+        assert_eq!(
+            tt.probe(103, TTDomain::Midgame),
+            Some(TTEntry {
+                best_move: Some(3),
+                ..deeper
+            })
+        );
+    }
+
+    #[test]
+    fn stronger_same_kind_bound_is_kept() {
+        let mut lower_tt = TranspositionTable::new(1);
+        let strong_lower = sample_entry(104, 7, 300, Bound::Lower, Some(4));
+        lower_tt.store(strong_lower);
+        lower_tt.store(sample_entry(104, 7, 200, Bound::Lower, Some(5)));
+        assert_eq!(lower_tt.probe(104, TTDomain::Midgame), Some(strong_lower));
+
+        let mut upper_tt = TranspositionTable::new(1);
+        let strong_upper = sample_entry(105, 7, -300, Bound::Upper, Some(6));
+        upper_tt.store(strong_upper);
+        upper_tt.store(sample_entry(105, 7, -200, Bound::Upper, Some(7)));
+        assert_eq!(upper_tt.probe(105, TTDomain::Midgame), Some(strong_upper));
+    }
+
+    #[test]
+    fn inferior_store_can_only_complete_a_missing_move() {
+        let mut tt = TranspositionTable::new(1);
+        let deep = sample_entry(106, 10, 400, Bound::Exact, None);
+        tt.store(deep);
+        tt.store(sample_entry(106, 3, -1, Bound::Upper, Some(17)));
+        assert_eq!(
+            tt.probe(106, TTDomain::Midgame),
+            Some(TTEntry {
+                best_move: Some(17),
+                ..deep
+            })
+        );
+    }
+
+    #[test]
+    fn probe_compares_both_slots_instead_of_using_slot_order() {
+        let mut tt = TranspositionTable::new(1);
+        let hash = 107;
+        let shallow = sample_entry(hash, 3, 1, Bound::Exact, Some(1));
+        let deep = sample_entry(hash, 11, 2, Bound::Lower, Some(2));
+        let idx = tt.index(hash);
+        tt.buckets[idx].depth_slot = Some(StoredTTEntry::from_entry(shallow));
+        tt.buckets[idx].always_slot = Some(StoredTTEntry::from_entry(deep));
+        assert_eq!(tt.probe(hash, TTDomain::Midgame), Some(deep));
+
+        tt.buckets[idx].depth_slot = Some(StoredTTEntry::from_entry(deep));
+        tt.buckets[idx].always_slot = Some(StoredTTEntry::from_entry(shallow));
+        assert_eq!(tt.probe(hash, TTDomain::Midgame), Some(deep));
+    }
+
+    #[test]
+    fn promoted_collision_evacuates_displaced_depth_when_it_is_better() {
+        let mut tt = TranspositionTable::new(1);
+        let stride = tt.bucket_count() as u64;
+        let base = sample_entry(11, 8, 10, Bound::Exact, Some(1));
+        let weak = sample_entry(11 + stride, 2, 20, Bound::Upper, Some(2));
+        let strongest = sample_entry(11 + 2 * stride, 10, 30, Bound::Lower, Some(3));
+        tt.store(base);
+        tt.store(weak);
+        tt.store(strongest);
+        assert_eq!(tt.probe(strongest.hash, TTDomain::Midgame), Some(strongest));
+        assert_eq!(tt.probe(base.hash, TTDomain::Midgame), Some(base));
+        assert_eq!(tt.probe(weak.hash, TTDomain::Midgame), None);
+    }
+
+    #[test]
+    fn same_position_is_not_duplicated_across_slots() {
+        let mut tt = TranspositionTable::new(1);
+        let stride = tt.bucket_count() as u64;
+        let blocker = sample_entry(19, 12, 1, Bound::Exact, Some(1));
+        let first = sample_entry(19 + stride, 3, 2, Bound::Upper, None);
+        let promoted = sample_entry(19 + stride, 11, 3, Bound::Exact, Some(2));
+        tt.store(blocker);
+        tt.store(first);
+        tt.store(promoted);
+
+        let bucket = &tt.buckets[tt.index(promoted.hash)];
+        let copies = [bucket.depth_slot, bucket.always_slot]
+            .into_iter()
+            .flatten()
+            .filter(|entry| entry.same_position(StoredTTEntry::from_entry(promoted)))
+            .count();
+        assert_eq!(copies, 1);
+        assert_eq!(tt.probe(promoted.hash, TTDomain::Midgame), Some(promoted));
+    }
+
+    #[test]
+    fn fully_equal_quality_prefers_the_new_entry() {
+        let mut tt = TranspositionTable::new(1);
+        tt.store(sample_entry(108, 6, 10, Bound::Exact, Some(4)));
+        let newer = sample_entry(108, 6, 20, Bound::Exact, Some(4));
+        tt.store(newer);
+        assert_eq!(tt.probe(108, TTDomain::Midgame), Some(newer));
+    }
+
+    #[test]
+    fn collision_stress_never_returns_a_wrong_hash_or_domain() {
+        let mut tt = TranspositionTable::new(1);
+        let stride = tt.bucket_count() as u64;
+        let base = 1234u64;
+
+        for i in 0..10_000u64 {
+            let mut entry = sample_entry(
+                base + i * stride,
+                (i % 65) as i8,
+                i as i32 - 5000,
+                match i % 3 {
+                    0 => Bound::Exact,
+                    1 => Bound::Lower,
+                    _ => Bound::Upper,
+                },
+                (i % 2 == 0).then_some((i % 64) as u8),
+            );
+            entry.domain = if i % 2 == 0 {
+                TTDomain::Midgame
+            } else {
+                TTDomain::Exact
+            };
+            tt.store(entry);
+        }
+
+        for i in 0..10_000u64 {
+            let hash = base + i * stride;
+            for domain in [TTDomain::Midgame, TTDomain::Exact] {
+                if let Some(entry) = tt.probe(hash, domain) {
+                    assert_eq!(entry.hash, hash);
+                    assert_eq!(entry.domain, domain);
+                }
+            }
+        }
     }
 }
