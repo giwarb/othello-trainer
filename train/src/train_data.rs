@@ -9,8 +9,15 @@ use engine::bitboard::{Board, Side};
 
 use crate::wthor::WthorGame;
 
-/// 1件の学習サンプル。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LastMoveKind {
+    Other,
+    X,
+    C,
+}
+
+/// 1件の学習サンプル。
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Sample {
     /// 学習対象の局面。
     pub board: Board,
@@ -18,7 +25,36 @@ pub struct Sample {
     pub mover: Side,
     /// 対局終了時の (mover視点の石数 − 相手視点の石数)。正なら最終的にmover側が勝った
     /// (石数で上回った)ことを意味する。
-    pub outcome: i8,
+    pub outcome: f32,
+    pub last_move_kind: LastMoveKind,
+    pub vulnerable_xc: bool,
+}
+
+fn last_move_metadata(mv_index: u8, board_before: &Board) -> (LastMoveKind, bool) {
+    const X: &[(u8, u8)] = &[(9, 0), (14, 7), (49, 56), (54, 63)];
+    const C: &[(u8, u8)] = &[
+        (1, 0),
+        (8, 0),
+        (6, 7),
+        (15, 7),
+        (48, 56),
+        (57, 56),
+        (55, 63),
+        (62, 63),
+    ];
+    if let Some(&(_, corner)) = X.iter().find(|&&(cell, _)| cell == mv_index) {
+        return (
+            LastMoveKind::X,
+            (board_before.black | board_before.white) & (1u64 << corner) == 0,
+        );
+    }
+    if let Some(&(_, corner)) = C.iter().find(|&&(cell, _)| cell == mv_index) {
+        return (
+            LastMoveKind::C,
+            (board_before.black | board_before.white) & (1u64 << corner) == 0,
+        );
+    }
+    (LastMoveKind::Other, false)
 }
 
 /// 1対局分の着手列(`WthorGame::moves`と同じ座標系)を先頭から再生し、
@@ -32,7 +68,7 @@ pub fn samples_from_game(moves: &[u8]) -> Result<Vec<Sample>, String> {
     let mut side = Side::Black;
     // (着手直後の局面, 次に着手する側) を全ステップ分記録しておき、
     // 終局後にまとめて最終結果ラベルを付与する。
-    let mut snapshots: Vec<(Board, Side)> = Vec::with_capacity(moves.len());
+    let mut snapshots: Vec<(Board, Side, LastMoveKind, bool)> = Vec::with_capacity(moves.len());
 
     for (step, &mv_index) in moves.iter().enumerate() {
         if mv_index >= 64 {
@@ -57,6 +93,7 @@ pub fn samples_from_game(moves: &[u8]) -> Result<Vec<Sample>, String> {
             ));
         }
 
+        let (last_move_kind, vulnerable_xc) = last_move_metadata(mv_index, &board);
         board = board.apply_move(side, mv_bit);
         side = side.opposite();
 
@@ -65,7 +102,7 @@ pub fn samples_from_game(moves: &[u8]) -> Result<Vec<Sample>, String> {
         if !board.has_legal_move(next_mover) {
             next_mover = next_mover.opposite();
         }
-        snapshots.push((board, next_mover));
+        snapshots.push((board, next_mover, last_move_kind, vulnerable_xc));
     }
 
     let black_final = board.disc_count(Side::Black) as i32;
@@ -73,7 +110,7 @@ pub fn samples_from_game(moves: &[u8]) -> Result<Vec<Sample>, String> {
 
     let samples = snapshots
         .into_iter()
-        .map(|(board, mover)| {
+        .map(|(board, mover, last_move_kind, vulnerable_xc)| {
             let outcome = match mover {
                 Side::Black => black_final - white_final,
                 Side::White => white_final - black_final,
@@ -81,7 +118,9 @@ pub fn samples_from_game(moves: &[u8]) -> Result<Vec<Sample>, String> {
             Sample {
                 board,
                 mover,
-                outcome: outcome as i8,
+                outcome: outcome as f32,
+                last_move_kind,
+                vulnerable_xc,
             }
         })
         .collect();
@@ -156,15 +195,22 @@ mod tests {
     }
 
     #[test]
+    fn vulnerable_xc_requires_empty_corresponding_corner() {
+        let empty = Board::initial();
+        assert_eq!(last_move_metadata(9, &empty), (LastMoveKind::X, true));
+        let occupied = Board { black: 1, white: 0 };
+        assert_eq!(last_move_metadata(9, &occupied), (LastMoveKind::X, false));
+        assert_eq!(last_move_metadata(1, &empty), (LastMoveKind::C, true));
+        assert_eq!(last_move_metadata(20, &empty), (LastMoveKind::Other, false));
+    }
+
+    #[test]
     fn collect_samples_aggregates_across_games() {
         let moves_a: Vec<u8> = ["f5", "d6", "c3", "d3"]
             .iter()
             .map(|n| notation_to_index(n))
             .collect();
-        let moves_b: Vec<u8> = ["f5", "f6"]
-            .iter()
-            .map(|n| notation_to_index(n))
-            .collect();
+        let moves_b: Vec<u8> = ["f5", "f6"].iter().map(|n| notation_to_index(n)).collect();
         let games = vec![
             WthorGame {
                 tournament_number: 0,

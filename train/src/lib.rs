@@ -14,6 +14,8 @@
 //! エンジンへの重み統合(`engine/src/search.rs`)はT043で完了済み(WASM API
 //! への配線は後続タスク)。
 
+pub mod experiment;
 pub mod regression;
+pub mod t088_experiment;
 pub mod train_data;
 pub mod wthor;

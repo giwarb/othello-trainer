@@ -54,6 +54,14 @@ pub struct TrainConfig {
     pub epochs: u32,
     /// シャッフル順序を決める乱数シード(再現性のため固定値を渡す想定)。
     pub seed: u64,
+    /// MSEまたはHuberの勾配。
+    pub loss: Loss,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum Loss {
+    Mse,
+    Huber { delta: f32 },
 }
 
 impl Default for TrainConfig {
@@ -63,6 +71,7 @@ impl Default for TrainConfig {
             l2: 1e-5,
             epochs: 20,
             seed: 0x9E3779B97F4A7C15,
+            loss: Loss::Mse,
         }
     }
 }
@@ -98,12 +107,16 @@ impl Model {
                 self.weights.class_tables[class_of[i]].stage_tables[stage][state as usize];
         }
 
-        let error = prediction - sample.outcome as f32;
+        let error = prediction - sample.outcome;
+        let loss_gradient = match cfg.loss {
+            Loss::Mse => error,
+            Loss::Huber { delta } => error.clamp(-delta, delta),
+        };
         for i in 0..self.weights.patterns.len() {
             let class_id = class_of[i];
             let state = pattern_state_index(&aligned_cells[i], &sample.board, sample.mover);
             let w = &mut self.weights.class_tables[class_id].stage_tables[stage][state as usize];
-            let grad = error + cfg.l2 * *w;
+            let grad = loss_gradient + cfg.l2 * *w;
             *w -= cfg.learning_rate * grad;
         }
     }
@@ -130,6 +143,13 @@ impl Model {
             for &i in &order {
                 self.sgd_step(&samples[i], cfg);
             }
+        }
+    }
+
+    /// 呼び出し側で生成したsampling順を1 epochだけ学習する。
+    pub fn train_order(&mut self, samples: &[Sample], cfg: &TrainConfig, order: &[usize]) {
+        for &i in order {
+            self.sgd_step(&samples[i], cfg);
         }
     }
 
@@ -264,7 +284,9 @@ mod tests {
         let sample = Sample {
             board: asymmetric_test_board(),
             mover: Side::Black,
-            outcome: 10,
+            outcome: 10.0,
+            last_move_kind: crate::train_data::LastMoveKind::Other,
+            vulnerable_xc: false,
         };
         // 学習率は「1サンプルあたりのアクティブ特徴数(22パターン)」との積が
         // 安定領域(おおむね2未満)に収まる値にする(22 * 0.03 = 0.66)。
@@ -275,6 +297,7 @@ mod tests {
             l2: 0.0,
             epochs: 1,
             seed: 1,
+            loss: Loss::Mse,
         };
 
         let error_before =
@@ -295,13 +318,16 @@ mod tests {
         let sample = Sample {
             board: asymmetric_test_board(),
             mover: Side::Black,
-            outcome: 8,
+            outcome: 8.0,
+            last_move_kind: crate::train_data::LastMoveKind::Other,
+            vulnerable_xc: false,
         };
         let cfg = TrainConfig {
             learning_rate: 0.05,
             l2: 0.0,
             epochs: 200,
             seed: 42,
+            loss: Loss::Mse,
         };
         model.train(&[sample], &cfg);
         let pred = model.predict(&sample.board, sample.mover);
@@ -318,13 +344,16 @@ mod tests {
         let sample = Sample {
             board: Board::initial(),
             mover: Side::Black,
-            outcome: 4,
+            outcome: 4.0,
+            last_move_kind: crate::train_data::LastMoveKind::Other,
+            vulnerable_xc: false,
         };
         let cfg = TrainConfig {
             learning_rate: 0.05,
             l2: 1e-4,
             epochs: 5,
             seed: 7,
+            loss: Loss::Mse,
         };
         model.train(&[sample], &cfg);
 
@@ -355,5 +384,37 @@ mod tests {
         let a = shuffle_indices(50, 999);
         let b = shuffle_indices(50, 999);
         assert_eq!(a, b);
+    }
+
+    #[test]
+    fn huber_clamps_outlier_gradient() {
+        let sample = Sample {
+            board: asymmetric_test_board(),
+            mover: Side::Black,
+            outcome: 40.0,
+            last_move_kind: crate::train_data::LastMoveKind::Other,
+            vulnerable_xc: false,
+        };
+        let mut mse = Model::new(patterns::generate_patterns());
+        let mut huber = mse.clone();
+        let base = TrainConfig {
+            learning_rate: 0.001,
+            l2: 0.0,
+            epochs: 1,
+            seed: 1,
+            loss: Loss::Mse,
+        };
+        mse.train(&[sample], &base);
+        huber.train(
+            &[sample],
+            &TrainConfig {
+                loss: Loss::Huber { delta: 8.0 },
+                ..base
+            },
+        );
+        assert!(
+            mse.predict(&sample.board, sample.mover)
+                > huber.predict(&sample.board, sample.mover) * 4.9
+        );
     }
 }

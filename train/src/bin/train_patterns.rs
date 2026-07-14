@@ -47,6 +47,9 @@ fn default_data_files() -> Vec<PathBuf> {
 }
 
 fn main() -> ExitCode {
+    if env::args().nth(1).as_deref() == Some("experiment") {
+        return train::t088_experiment::run();
+    }
     let args: Vec<String> = env::args().skip(1).collect();
     let files: Vec<PathBuf> = if args.is_empty() {
         default_data_files()

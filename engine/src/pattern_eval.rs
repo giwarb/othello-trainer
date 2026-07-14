@@ -334,10 +334,24 @@ impl PatternWeights {
         }
         let num_instances = read_u32(&mut pos)? as usize;
         let num_classes = read_u32(&mut pos)? as usize;
-        if num_instances == 0 || num_classes == 0 || num_classes > num_instances {
+        const MAX_PWV3_INSTANCES: usize = 256;
+        const MAX_PWV3_CLASSES: usize = 64;
+        if num_instances == 0
+            || num_classes == 0
+            || num_classes > num_instances
+            || num_instances > MAX_PWV3_INSTANCES
+            || num_classes > MAX_PWV3_CLASSES
+        {
             return Err("PWV3のinstance/class数が不正です".to_string());
         }
         let stored_hash: [u8; 32] = read_bytes(&mut pos, 32)?.try_into().unwrap();
+        let minimum_remaining = num_instances
+            .checked_mul(4)
+            .and_then(|n| num_classes.checked_mul(161).and_then(|c| n.checked_add(c)))
+            .ok_or_else(|| "PWV3の個数から必要byte数がオーバーフローしました".to_string())?;
+        if bytes.len() - pos < minimum_remaining {
+            return Err("PWV3のinstance/class数と残りbyte数が整合しません".to_string());
+        }
 
         let mut pattern_defs = Vec::with_capacity(num_instances);
         let mut stored_class_of = Vec::with_capacity(num_instances);
@@ -680,6 +694,22 @@ mod tests {
     fn pwv3_rejects_schema_hash_mismatch() {
         let mut bytes = pwv3_bytes();
         bytes[28] ^= 1;
+        assert!(PatternWeights::from_bytes(&bytes).is_err());
+    }
+
+    #[test]
+    fn pwv3_rejects_excessive_instance_count_before_allocation() {
+        let mut bytes = pwv3_bytes();
+        bytes[20..24].copy_from_slice(&257u32.to_le_bytes());
+        assert!(PatternWeights::from_bytes(&bytes).is_err());
+    }
+
+    #[test]
+    fn pwv3_rejects_counts_inconsistent_with_remaining_bytes() {
+        let mut bytes = pwv3_bytes();
+        bytes[20..24].copy_from_slice(&200u32.to_le_bytes());
+        bytes[24..28].copy_from_slice(&64u32.to_le_bytes());
+        bytes.truncate(60);
         assert!(PatternWeights::from_bytes(&bytes).is_err());
     }
 
