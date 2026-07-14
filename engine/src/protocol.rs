@@ -315,7 +315,13 @@ pub fn handle_analyze(request_json: &str, tt: &mut TranspositionTable, weights: 
 
     let start = Instant::now();
     let result = match request.limit.max_nodes {
-        Some(max_nodes) => search_with_eval_with_node_limit(&board, side, &limit, tt, weights, max_nodes),
+        Some(max_nodes) => {
+            // T085bの校正は探索ごとに空のTTを使っている。Workerが保持するTTの
+            // 過去リクエスト依存を除き、同じノード予算を同じ探索条件にする。
+            // maxNodes未指定の通常探索/allMovesは従来どおりTTを再利用する。
+            tt.clear();
+            search_with_eval_with_node_limit(&board, side, &limit, tt, weights, max_nodes)
+        }
         None => search_with_eval(&board, side, &limit, tt, weights),
     };
     let elapsed_ms = start.elapsed().as_millis() as u64;
@@ -769,17 +775,41 @@ mod tests {
 
     #[test]
     fn node_limited_protocol_requests_are_deterministic() {
+        const SMOKE_01_BLACK: &str = "0x1030100004080000";
+        const SMOKE_01_WHITE: &str = "0x0000241C18100000";
+        // debugビルドは本番WASMより大幅に遅く、1500msではwall保険が先に
+        // 発火する。releaseでは本番値をそのまま使い、debugではノード予算へ
+        // 到達できる猶予を与えてTT状態からの独立性を検証する。
+        let time_ms = if cfg!(debug_assertions) { 15_000 } else { 1_500 };
         let request = format!(
-            r#"{{"id":34,"cmd":"analyze","board":{{"black":"{INITIAL_BLACK}","white":"{INITIAL_WHITE}","turn":"black"}},"limit":{{"depth":20,"timeMs":1500,"maxNodes":2048,"exactFromEmpties":10}}}}"#
+            r#"{{"id":34,"cmd":"analyze","board":{{"black":"{SMOKE_01_BLACK}","white":"{SMOKE_01_WHITE}","turn":"black"}},"limit":{{"depth":12,"timeMs":{time_ms},"maxNodes":160000,"exactFromEmpties":16}}}}"#
         );
-        let mut first_engine = Engine::new();
-        let first: serde_json::Value = serde_json::from_str(&first_engine.analyze(&request)).unwrap();
-        let mut second_engine = Engine::new();
-        let second: serde_json::Value = serde_json::from_str(&second_engine.analyze(&request)).unwrap();
+        let unrelated_request = format!(
+            r#"{{"id":35,"cmd":"analyze","board":{{"black":"{INITIAL_BLACK}","white":"{INITIAL_WHITE}","turn":"black"}},"limit":{{"depth":6,"timeMs":100,"exactFromEmpties":10}},"allMoves":true}}"#
+        );
+        let weights = include_bytes!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../train/weights/pattern_v2.bin"
+        ));
+        let mut engine = Engine::new();
+        engine
+            .load_pattern_weights(weights)
+            .expect("production pattern weights should load");
+
+        let first: serde_json::Value = serde_json::from_str(&engine.analyze(&request)).unwrap();
+        let second: serde_json::Value = serde_json::from_str(&engine.analyze(&request)).unwrap();
+        let unrelated: serde_json::Value =
+            serde_json::from_str(&engine.analyze(&unrelated_request)).unwrap();
+        let after_unrelated: serde_json::Value =
+            serde_json::from_str(&engine.analyze(&request)).unwrap();
 
         assert!(first.get("error").is_none());
-        assert_eq!(second["pv"], first["pv"]);
-        assert_eq!(second["score"], first["score"]);
-        assert_eq!(second["nodes"], first["nodes"]);
+        assert!(unrelated.get("error").is_none());
+        for response in [&second, &after_unrelated] {
+            assert_eq!(response["pv"][0], first["pv"][0]);
+            assert_eq!(response["score"], first["score"]);
+            assert_eq!(response["depth"], first["depth"]);
+            assert_eq!(response["nodes"], first["nodes"]);
+        }
     }
 }
