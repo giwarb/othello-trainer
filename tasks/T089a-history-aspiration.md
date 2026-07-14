@@ -1,7 +1,7 @@
 ---
 id: T089a
 title: 探索改善 — history heuristic + aspiration window(fixed-depth完全一致ゲート付き)
-status: review # todo | in_progress | review | redo | done | blocked
+status: done # todo | in_progress | review | redo | done | blocked
 assignee: implementer
 attempts: 0
 ---

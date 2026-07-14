@@ -8,7 +8,7 @@
 
 **エンジン強化(Edax level 10 攻略)ロードマップを実行中**。設計書: `tasks/design/T083-engine-strengthening-report.md`(全体)、`tasks/design/T085-beat-level10-report.md`(T085系の規範)。
 
-- **T089a実装完了(2026-07-14、implementer=Sonnet・約71分、コミット 0cf615f/40a773d、worker自身がpush済み)、verifier+Claude代替レビュー並列検証中**。絶対条件は全合格(fixed-depth完全一致(同点4件はsearch_all_movesで真の同点と個別確認)・FFO完全不変・決定性)。**性能ゲート(深さ+1 or ノード20%減)は未達(-5.38%)だがオーケストレーター裁定でwaiveして採用方向**(60局 -29.07→-25.57の改善・退行なし、詳細はタスクファイルの裁定欄)。ablationは構成A(history=mobility後のタイブレーク)採用。Sonnetは停止質問の規律を遵守(推測で進めず3択を提示)。**レビュー重点**: 既存テスト`leaf_exact_quota_abort_...`の検証内容変更の妥当性。
+- **実行中: T090a**(Edax教師コーパス生成、implementer=Sonnetフォールバック)。smoke 1k→primary 50kの段階制、50k見積もり超過時は停止・報告の安全弁あり。完成後T090b(蒸留学習)を起票。
 - **T088 done(2026-07-14)**: verifier・Claude代替レビューとも合格(24run集計の独立再現・compare再実行の完全再現・前提修正の実地再現)。軽微申し送り: 作業ログのゲート(c) provenance欄のeval_cliハッシュが旧バッチのものに転記ミス(数値自体は正)、ゲート(e)のNPS測定スクリプト/生ログが未保存(算術検算のみ可)。
 - **T088の核心的含意**: WTHOR最終石差ラベルへの適合を上げても実戦力(oracle regret)に転化しない — **教師ラベルの質が律速。次の評価関数改善はT090(Edax教師蒸留)が本命**。v3特徴の再試行もT090の教師で行う方が合理的。**結果: v3不採用**(正常完了の否定的結論)— frozen MAEが3seedとも悪化(v2 16.23〜16.48 vs v3 16.34〜16.85)、oracle regret 0.89→2.22石で採用ゲート(c)(d)不通過。サイズ5.96MB・NPS 91.6%・20局smokeは通過。pattern_v3.binは未作成・既定評価は不変。**T088(学習法改善)への示唆**: 特徴を増やしても現行の学習法(SGD+L2・20epoch固定)では活かせない可能性 — T088で学習法を改善した後にv3特徴の再試行を検討する価値あり(実験基盤はコミット済みで再利用可能)。
 - **T085シリーズ(a/b/c)完結(2026-07-14)**: ノード予算探索(160k/wall1500ms保険)が本番アプリの強CPUまで貫通。redo各1回(a: quota比較未実施、c: Worker常駐TTの決定性違反→maxNodes経路の開始前TTクリアで解消)。
@@ -20,8 +20,7 @@
 
 | ID | タスク | 担当 | 状態 | 試行 |
 |---|---|---|---|---|
-| T089a | 探索改善(history+aspiration、fixed-depth完全一致ゲート) | implementer(Sonnetフォールバック) | review | 0 |
-| T090a | Edax教師コーパス生成(smoke 1k→primary 50k、全合法手teacher値) | implementer(Sonnetフォールバック) | todo | 0 |
+| T090a | Edax教師コーパス生成(smoke 1k→primary 50k、全合法手teacher値) | implementer(Sonnetフォールバック) | in_progress | 0 |
 
 ## 有効な方針・申し送り(今後のタスクに効くもの)
 
@@ -58,6 +57,7 @@
 | T086 | TT置換規則の品質保護 | 深いExactの保持・両slot品質probe。verifier/codex-reviewとも指摘ゼロ。FFOノード-0.03%、budget-regression中央値-0.06% |
 | T087 | Pattern v3実験 | **不採用が結論**(MAE全seed悪化・regret悪化)。学習法が先と判明。PWV3形式・実験基盤はコミット済みで再利用可。verifierが汚染検証(独立再学習でMAE完全一致)まで実施し結論の信頼性を確認。codex-reviewのインフラ指摘5件はT088前提修正へ |
 | T088 | 学習法改善の8構成ablation | **不採用が結論**。validation改善はfrozen 2024で2.1%どまり・oracle regret 29%悪化 → **WTHORラベルが律速、T090蒸留が本命**と確定。前提修正5件(resume/identity/provenance等)は実装済み。X/C hard-negativeは効果なし |
+| T089a | history+aspiration | 採用(性能ゲート未達-5.38%をwaive裁定)。fixed-depth完全一致・FFO完全不変・決定性を維持したまま60局平均石差 -29.07→-25.57。Sonnetフォールバック初戦、redo 0回 |
 
 ## 完了フェーズ(詳細は STATUS-archive.md と各タスクファイル)
 
