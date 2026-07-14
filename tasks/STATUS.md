@@ -76,10 +76,11 @@
 | ID | タスク | 担当 | 状態 | 試行 |
 |---|---|---|---|---|
 | T084 | ベンチ補正: single-root探索導入+テレメトリ+オラクルロス修正+固定opening | codex(gpt-5.6-sol) | done | 1 |
-| T085a | exact切替とノード数予算管理の再設計(TTドメイン分離・baseline-first・exact quota) | codex(gpt-5.6-sol) | review | 1 |
+| T085a | exact切替とノード数予算管理の再設計(TTドメイン分離・baseline-first・exact quota) | codex(gpt-5.6-sol) | done | 1 |
 | T091 | Codexラッパーのログ収集修正(stderr進捗の逐次記録、tail可能化) | implementer | done | 0 |
-| T085b | ノード予算の校正と採用判定(ベンチ堅牢化+A/B+primary60局) | codex(gpt-5.6-sol) | todo | 0 |
+| T085b | ノード予算の校正と採用判定(ベンチ堅牢化+A/B+primary60局) | codex(gpt-5.6-sol) | in_progress | 0 |
 
+- **T085a done(2026-07-14)**: verifier・codex-reviewとも合格。verifierはredoフィードバック6項目を実測確認(quota比較データの再計算一致・コーパス48局面の空き13〜30連続被覆・境界挙動(13-14でroot exact試行/25-30で完全抑制)・fallbackReason規則の実装とテレメトリ整合・専用テスト・cargo test 149件・FFOノード数1,299,102,329完全一致・budget-regression 2回diff一致・Actions成功・ツリー清潔)。作業ログの「git diff --check: pass」記述は改行混在のため実際は警告あり(不正確だが機能無影響、T085bで正規化)。**T085aの成果総括: 空き19〜24帯の探索崩壊(平均到達深さ3.0)を解消し、同帯の平均oracle regretを5.56→1.667石(70%減)、loss>=4石を13→5件に削減。quota 40%採用(4候補比較で選定)。**次: T085bを委譲。
 - **T085a redo#1 codex-review合格(2026-07-14)**: ブロッカー・中所見なし。軽微3件のみ(quota比較JSONの改行混在→T085bで正規化、eval_cli usage表示の記載漏れ→T085bで追記、tasksファイル差分=想定内)。40%選定の妥当性・比較データの内部整合・budget-regression 48局面の再実行(決定性・WallClock発動0/48)をレビュー側でも独立確認済み。verifier待ち。**T085b起票済み**(前提修正2件+A/B校正+primary60局、`tasks/T085b-node-budget-calibration.md`)、verifier合格後に委譲する。
 - **T085a redo#1実装完了(2026-07-14、Codex・約42分、代行コミット cc6e48d)、verifier+codex-review並列検証中(範囲 651bcef..cc6e48d)**。フィードバック6項目全対応の報告: quota 4候補比較で**40%採用**(regret 1.667石で60%の2.111石を上回り、25%とはregret同率でexact完走9/18 vs 3/18の差)、コーパス48局面(空き13〜30連続被覆)、fallbackReason規則明文化、quota中断→中盤継続→TT非混入の直接テスト、cargo test 149件・FFOノード数完全一致、budget-regression 48/48決定的一致。**性能改善: 空き19〜24 regret 5.56→1.667石(70%減)・loss>=4石 13→5件(61.5%減)、序中盤合算225局面 2.20→1.947石(改善、ゲート合格)**。
 - **T091 done(2026-07-14)**: 実運用(T085a redo#1のcodex-review起動)でライブログ成長を実測(25秒で26KB→53KB、可読)し確定。verifierによる形式検証は実装者の機械検証証跡+オーケストレーター実地観測で代替(検証用codex追加消費の回避)。
