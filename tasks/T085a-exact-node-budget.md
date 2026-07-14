@@ -1,7 +1,7 @@
 ---
 id: T085a
 title: exact切替とノード数予算管理の再設計(TTドメイン分離・baseline-first・exact quota・テレメトリ拡張)
-status: todo        # todo | in_progress | review | redo | done | blocked
+status: in_progress # todo | in_progress | review | redo | done | blocked
 assignee: codex(gpt-5.6-sol)
 attempts: 0
 ---

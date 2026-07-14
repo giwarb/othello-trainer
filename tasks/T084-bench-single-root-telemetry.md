@@ -1,7 +1,7 @@
 ---
 id: T084
 title: ベンチ補正: single-rootベストムーブ探索の導入 + テレメトリ + オラクルロス修正 + 固定openingマニフェスト
-status: review # todo | in_progress | review | redo | done | blocked
+status: done # todo | in_progress | review | redo | done | blocked
 assignee: codex(gpt-5.6-sol)
 attempts: 1
 ---
