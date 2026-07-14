@@ -74,3 +74,41 @@ attempts: 0
 (なし)
 
 ## 作業ログ(担当エージェントが追記)
+
+### 2026-07-14 実装・実験開始
+
+- 実行計画: 代表seed=1で Huber delta 3候補(config 4)、L2 3候補(config 5)、X/C 4候補(config 7)を validation-only で逐次実行し、各候補のvalidation MAEを保存して最良値を固定する。その後、config 1〜8 × seed 1〜3 の24 runを逐次実行する。2024 frozen testは候補選択runでは計算せず、固定後の24 runだけで計算する。
+- 長時間実行設計: 各epoch終了時に世代付きweights/stateとbest weights、epoch、learning rate、best epoch/MAE、停滞数、shuffle seed、manifest hash、epoch別metricsを原子的に保存する。state先行・weights後行で完全な最新世代だけをresumeし、run identity不一致は拒否する。results.tsvはrun完了ごとに原子的に追記する。比較は局面単位、smokeは対局単位で同様に保存・resumeする。
+- 所要見込み: 候補選択10 run + 本番24 runで45〜120分、oracle 36局面とsmoke 20局を含め全体60〜150分。early stopping対象は最大60 epoch、その他は20 epoch。進捗はepoch/run/局面/対局ごとに標準出力へ出す。
+- 事前検証: cargo test -p train は28件成功。小規模runをepoch 10で中断後 resume run=config-5-seed-1 epoch=10 を確認し、L2変更時のrun identity不一致を拒否。T087 trainerもepochs変更を拒否。smoke_pattern_v3.py は2対局を1件ずつresumeしdepth変更を拒否、compare_pattern_v3.py は2局面を1件ずつresumeしcandidate重み変更を拒否。PWV3の過大instance数・残りbyte数不整合の否定テストも成功。
+
+### 2026-07-14 実装・実験完了
+
+- 実装: 2015〜2022/2023/2024の対局単位年代分割、D4 canonical key、outcome平均・分散・出現数・年・phase・直前着手X/C/other集計、後年優先のsplit間重複除去、f32 target、Huber、early stopping/LR decay、stage逆平方根sampling、X/C倍率/cap sampling、8構成CLIを実装した。early stoppingは絶対最良重みとmin_delta=0.02のpatience基準を分離し、修正版schema=2で全候補と24 runを再実行した。
+- manifest: data hash=b6e39360424d3b91。canonical key数はtrain=620,474、validation=114,061、test=138,476。元出現数は822,433 / 148,311 / 173,010。validationによりtrainから4,236 key、testによりtrainから8,502 key、validationから4,494 keyを除外した。2024 vulnerable X/C canonical samples=23,727。
+- 代表seed候補選択(validationのみ): Huber deltaは4=14.235191、8=14.250082、12=14.268386で4を選択。修正版early stoppingでL2は1e-6=14.205071、1e-5=14.205053、1e-4=14.204909で1e-4を選択。X/Cはなし=14.204909、2倍/15%=14.225600、3倍/25%=14.232181、4倍/25%=14.230570で「なし」を選択。候補選択中は2024 testを計算していない。
+- 正式実行: cargo run -p train --release --bin train_patterns -- experiment --configs 1,2,3,4,5,6,7,8 --seeds 1,2,3 --huber-delta 4 --l2 0.0001 --xc-oversample 1 --xc-cap 1 --checkpoint-dir train/data/t088/main-v2。527.4秒、24/24 run完了。各runのepoch metrics/current/best/final/identity/manifestとrun完了ごとのresults.tsvを非コミット領域へ保存した。
+
+| config | validation MAE seed 1 / 2 / 3 | frozen 2024 MAE中央値 | X/C high-loss率中央値 |
+|---:|---|---:|---:|
+| 1 | 16.272653 / 16.005812 / 16.139248 | 14.577849 | 0.544949 |
+| 2 | 16.044946 / 16.037285 / 16.030405 | 14.636923 | 0.546213 |
+| 3 | 14.423089 / 14.418519 / 14.418297 | 14.520175 | 0.547056 |
+| 4 | 14.235016 / 14.232722 / 14.233072 | 14.292946 | 0.541113 |
+| 5 | 14.204909 / 14.209698 / 14.206166 | 14.269088 | 0.541324 |
+| 6 | 14.218374 / 14.230182 / 14.229671 | 14.301331 | 0.543558 |
+| 7 | 14.204909 / 14.209698 / 14.206166 | 14.269088 | 0.541324 |
+| 8 | 14.218374 / 14.230182 / 14.229671 | 14.301331 | 0.543558 |
+
+- 既存pattern_v2.bin参考値: 2015〜2024学習で2024リークあり。canonical 2024 test MAE=14.358465、X/C high-loss率=0.539849。採用判断には不使用。
+- 採用ゲート(候補=config 5、frozen中央値run=seed 3):
+  - (a) 合格。config 1比validation MAE改善率はseed 1/2/3で12.707% / 11.222% / 11.978%。
+  - (b) 不合格。frozen MAE中央値14.577849→14.269088、改善2.118%で5%未満。
+  - (c) 不合格。Edax oracle mean regret 1.888889→2.444444、29.412%悪化。provenance: candidate SHA-256=7ddbcd894574322a81e30e2a71670a9fc0738c276497f79cb355a351789a0881、baseline SHA-256=6246f8aae69dcba828d4baeee9ea156f3f1694a43f02bf3355644c51cfe35957、eval_cli=3a2ea3f85b02c22c7b38516d9e09df5df4bc17753f6ab4ad61fa6b94cee6dd2c、Edax=aabb5ac7d3f9a872fc0e7388ab1eee1d23c687f76c28642122524dc318b322b1、eval.dat=f8b2299612d9fa4414157e70e932636e33111c2602d0c2fc382a7d90ef21b792、corpus=778140e43f52b8c70c75e3c721be441404260899d4d2dc668e9b781368a0459e、git tree=59902be5c21dc60b18b56481e25ed4f3ebc891dd。
+  - (d) 不合格。X/C high-loss率中央値0.544949→0.541324、改善0.665%で20%未満。候補のX/C subset MAEはseed 1/2/3で12.149965 / 12.153601 / 12.149650。
+  - (e) 合格。固定局面depth 8を各7回測定した中央値NPSは409,179→425,934、比率104.09%。
+- 最終判定: 不採用。(b)(c)(d)不通過のため新重みはコミットしない。engine既定評価への配線も行っていない。
+- 前提修正検証: compare/smokeはそれぞれ局面/対局を1件保存して再実行し次の1件へresume、重みまたはdepth変更でidentity mismatch拒否を確認。T087 trainerはepochs変更を拒否。T088はepoch 10 checkpointからresumeしL2変更を拒否。PWV3過大instance数・残りbyte不整合テスト成功。比較出力に重み/eval_cli/Edax/eval.dat/corpus/git tree provenanceを保存した。
+- 永続化境界の最終確認: T087はmetaを先に、weightsを完了マーカーとして後に置く順序へ修正。T088はepoch-XX.stateを先に、epoch-XX.binを完了マーカーとして後に置き、不完全世代を無視する方式へ修正した。修正後もepoch 10で強制中断し、完全なepoch 10世代からresumeすることを確認した。
+- 最終検証: cargo test -p engine は177 passed / 2 ignored、cargo test -p train は28 passed（実WTHOR合法性テスト含む）、cargo test -p engine --release --test ffo_bench はFFO #40〜44のfast test成功（1 passed / heavy 1 ignored、探索コード無変更）、cargo test -p engine --release --test pattern_eval_nps_bench -- --nocapture は成功（pattern/heuristic=0.807）、git diff --check 成功。
+- コミットハッシュ: 未作成（実装ワーカー環境は.git書き込み不可）。
