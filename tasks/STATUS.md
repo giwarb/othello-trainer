@@ -1,6 +1,15 @@
 # プロジェクト進捗ボード
 
-最終更新: 2026-07-14 09:50 (オーケストレーター、T084をredo(致命バグ: single-root対局の途中終了汚染)にして再委譲)
+最終更新: 2026-07-14 (オーケストレーター、ユーザー指示によりサブエージェント構成を再編(難実装をCodex gpt-5.6-solへ、tester/reviewer廃止)。T084はredoのまま停止中)
+
+## サブエージェント構成の再編(2026-07-14 ユーザー指示)
+
+ユーザー指摘「Sonnet implementerには難しかったのかも。gpt-5.6-solに難しい実装もやらせたい。役割も多すぎ、タスク完了まで時間がかかりすぎる」を受けて再編。変更内容:
+- **実装の難易度ルーティング新設**(CLAUDE.md): エンジン/アルゴリズム/横断変更/redo1回以上/設計レポート起点 → Codex gpt-5.6-sol(`codex-task.ps1 -Model gpt-5.6-sol`)。それ以外 → implementer(Sonnet)。
+- **tester廃止**(テストは実装ワーカーが書く運用が既に定着)、**reviewer廃止**(最終レビューはcodex-reviewに一本化、redo後再確認はverifier)。パイプラインは「実装1体 → verifier+codex-review並列 → 判定」に簡素化。
+- **codex-task.ps1をT081方式に近代化**(stdin渡し・UTF-8・unelevated sandbox・UTF-8 BOM)。旧版は引数渡しバグ+旧AGENTS.mdの委譲指示でCodexが混乱する構造だった。
+- **AGENTS.mdを全面改訂**: 旧「Codexをオーケストレーター扱いする」テンプレ(古い・プロジェクト情報なし)から、「Codexは常にワーカー」前提のガイド(プロジェクト概要・ビルド/テストコマンド・ワーカー規律・長時間実行ルール)に書き換え。codex-design/review のプロンプトの AGENTS.md 無効化文言も新前提に更新。
+- オーケストレーターの直接編集は例外規定(ユーザー直接指示)を適用(.claude/agents/・AGENTS.md・scripts/codex-*.ps1)。スクリプトは構文検証済み、実運用初回(T084 redo想定)で動作確認する。
 
 ## 【次セッションへの引き継ぎ 2026-07-14 09:55】ユーザー指示により一時停止。T084がredo待ち
 

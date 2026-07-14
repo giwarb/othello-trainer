@@ -1,6 +1,6 @@
 ---
 name: implementer
-description: 実装担当ワーカー(Sonnet)。tasks/ のタスク仕様ファイルに従ってコードを実装する。実装タスクを委譲するときに使う。
+description: 実装担当ワーカー(Sonnet)。tasks/ のタスク仕様ファイルに従ってコードを実装する。軽〜中難度の実装タスク(UI・前例踏襲・docs等)を委譲するときに使う。難度の高い実装(エンジン/アルゴリズム/複数モジュール横断/redo後)はこのエージェントではなく Codex gpt-5.6-sol(./scripts/codex-task.ps1)に委譲される。テスト作成も実装タスクの一部としてこのエージェントが行う(旧testerは廃止)。
 model: sonnet
 ---
 
