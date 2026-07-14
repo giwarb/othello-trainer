@@ -52,7 +52,10 @@
 #![allow(dead_code)]
 
 use crate::bitboard::{Board, Side};
-use crate::endgame::{final_score, solve_exact, solve_exact_bounded, solve_exact_with_nodes, TimeBudget};
+use crate::endgame::{
+    final_score, solve_exact, solve_exact_bounded, solve_exact_bounded_with_nodes,
+    solve_exact_with_nodes, TimeBudget,
+};
 use crate::eval::evaluate_for;
 use crate::mpc;
 use crate::pattern_eval::PatternWeights;
@@ -178,6 +181,33 @@ pub struct SearchResult {
     /// ケースが生まれたため、事前計算した空きマス数ベースの判定では
     /// 「exact」と誤表示されてしまう(レビュー指摘、T034フィードバック)。
     pub is_exact: bool,
+    /// T084: この`search`/`search_with_eval`呼び出し全体の経過時間
+    /// (ミリ秒、`Instant::now()`起点からの壁時計時間)。
+    ///
+    /// single-rootベストムーブ探索(`eval_cli best`)のテレメトリ
+    /// (NPS計算・タイムアウト率の可視化)のために追加した。探索アルゴリズム
+    /// 自体には一切影響しない計測専用のフィールド(この値を探索の分岐条件に
+    /// 使っている箇所はない)。
+    pub elapsed_ms: u64,
+    /// T084: `limit.time_ms`(時間予算)が、この呼び出しが返した結果を
+    /// 制限した(=より深く/正確に探索できたはずが時間切れで打ち切られた)
+    /// 場合に`true`。
+    ///
+    /// 具体的には次のいずれかが起きた場合に`true`になる:
+    /// - ルート局面が完全読み対象(`empties <= exact_from_empties`)だったが、
+    ///   `solve_exact_bounded`/`solve_exact_bounded_with_nodes`が時間切れで
+    ///   完走できなかった(その後、反復深化にフォールバックした)。
+    /// - 反復深化のあるイテレーションが再帰の途中で時間切れになり、
+    ///   その反復の結果を破棄した(直前に完了したイテレーションの結果を
+    ///   返した)。
+    /// - 反復深化のあるイテレーションは完了したが、その直後に経過時間が
+    ///   `time_ms`以上になっていたため、それ以上深い反復を行わずに
+    ///   打ち切った(=もっと深く読めたかどうかは不明)。
+    ///
+    /// `limit.time_ms`が`None`(時間無制限)の場合は常に`false`
+    /// (壁時計を一切参照しないため、結果は完全に決定的になる。T084の
+    /// 決定性モード要件はこの不変条件に依拠している)。
+    pub timed_out: bool,
 }
 
 /// [`search_all_moves`] が返す、1つの合法手についての評価値。
@@ -262,17 +292,35 @@ fn search_with_eval_inner(
     let empties = board.empty_count();
     let start = Instant::now();
 
+    // T084: 時間予算(`limit.time_ms`)がこの呼び出しの結果を制限したかどうかを
+    // 追跡する(`SearchResult::timed_out`)。`limit.time_ms`が`None`の間は
+    // 一切書き換わらず`false`のままになる(壁時計を参照しないため決定的)。
+    let mut time_budget_hit = false;
+
     if empties <= limit.exact_from_empties as u32 {
         // T034: `time_ms`が指定されていれば、`search_all_moves`/`negascout`
         // と同じ理由(完全読み自体が特定局面で時間予算を大幅に超過しうる)
-        // により`solve_exact_bounded`を使う。打ち切られた(`None`)場合は
+        // により`solve_exact_bounded`系を使う。打ち切られた(`None`)場合は
         // ここでは`return`せず、下の通常の反復深化ループにフォールバック
         // する(そちらも同じ`start`を共有しているため、既に予算を
         // 使い切っていれば`negascout`の葉判定内で即座に打ち切られ、
         // 関数末尾の静的評価フォールバックに帰着する。ハングはしない)。
-        let exact = match limit.time_ms {
-            Some(time_ms) => solve_exact_bounded(board, side_to_move, tt, TimeBudget { start, time_ms }),
-            None => Some(solve_exact(board, side_to_move, tt)),
+        //
+        // T084: ノード数テレメトリのため、`solve_exact`/`solve_exact_bounded`
+        // ではなく`_with_nodes`版(既存のノード数計測専用エントリポイント。
+        // `solve_exact_with_nodes`はT009で、`solve_exact_bounded_with_nodes`は
+        // 本タスクで追加)を使う。探索アルゴリズム自体(alpha-beta+TTの挙動)は
+        // 元の`solve_exact`/`solve_exact_bounded`と完全に同じであり、
+        // スコア・タイムアウト判定には一切影響しない(ノード数を追加で
+        // カウントして返すだけ)。
+        let (exact, exact_nodes) = match limit.time_ms {
+            Some(time_ms) => {
+                solve_exact_bounded_with_nodes(board, side_to_move, tt, TimeBudget { start, time_ms })
+            }
+            None => {
+                let (raw, nodes) = solve_exact_with_nodes(board, side_to_move, tt);
+                (Some(raw), nodes)
+            }
         };
 
         if let Some(raw) = exact {
@@ -286,14 +334,22 @@ fn search_with_eval_inner(
                 score,
                 depth: empties as u8,
                 pv,
-                nodes: 1,
+                // 完全読みは1回の呼び出しで完結するため、実際に訪問した
+                // ノード数(`exact_nodes`)をそのまま報告する
+                // (以前はここが`1`固定のプレースホルダーだった。T084)。
+                nodes: exact_nodes.max(1),
                 is_exact: true,
+                elapsed_ms: start.elapsed().as_millis() as u64,
+                timed_out: false,
             };
         }
         // T034: `exact`が`None`(タイムアウト)だった場合はここで`return`せず
         // 下の反復深化ループへフォールバックする。以降で構築される
         // `SearchResult`はすべて`is_exact: false`(完全読みを完走できて
-        // いないため)。
+        // いないため)。T084: このフォールバックが起きたこと自体を
+        // `time_budget_hit`に記録する(最終的な`SearchResult::timed_out`に
+        // 反映される)。
+        time_budget_hit = true;
     }
 
     let mut total_nodes: u64 = 0;
@@ -321,6 +377,7 @@ fn search_with_eval_inner(
             // 未完走(T034)。結果は不正確なため使わず、直前に完了した
             // イテレーションの結果(`last_result`、無ければ関数末尾の
             // フォールバック)をそのまま返す。
+            time_budget_hit = true;
             break;
         }
 
@@ -341,27 +398,46 @@ fn search_with_eval_inner(
             // (葉の一部が`solve_exact_bounded`で完全読みされていたとしても、
             // ルートから見た最終結果としては「完全読み」を名乗れない)。
             is_exact: false,
+            // 下で`time_budget_hit`の最終値に基づき上書きするプレースホルダー
+            // (このイテレーション時点ではまだループが続くかどうか未確定)。
+            elapsed_ms: 0,
+            timed_out: false,
         });
 
         if let Some(time_ms) = limit.time_ms {
             if start.elapsed().as_millis() as u64 >= time_ms {
+                // T084: イテレーション自体は完了したが、時間予算を使い切った
+                // ためこれ以上深い反復を行わずに打ち切った。もっと深く読めた
+                // 可能性があるという意味で「時間予算に制限された」とみなす。
+                time_budget_hit = true;
                 break;
             }
         }
     }
 
-    last_result.unwrap_or_else(|| SearchResult {
-        // max_depth == 0 のような呼び出しへのフォールバック、または
-        // (T034)ルート分岐の完全読みがタイムアウトし、かつ反復深化の
-        // depth=1すら一度も完走できなかった場合。反復が一度も行われな
-        // かった場合、静的評価をそのまま返す。
-        best_move: None,
-        score: static_eval(board, side_to_move, weights),
-        depth: 0,
-        pv: Vec::new(),
-        nodes: 0,
-        is_exact: false,
-    })
+    let elapsed_ms = start.elapsed().as_millis() as u64;
+
+    match last_result {
+        Some(mut result) => {
+            result.elapsed_ms = elapsed_ms;
+            result.timed_out = time_budget_hit;
+            result
+        }
+        None => SearchResult {
+            // max_depth == 0 のような呼び出しへのフォールバック、または
+            // (T034)ルート分岐の完全読みがタイムアウトし、かつ反復深化の
+            // depth=1すら一度も完走できなかった場合。反復が一度も行われな
+            // かった場合、静的評価をそのまま返す。
+            best_move: None,
+            score: static_eval(board, side_to_move, weights),
+            depth: 0,
+            pv: Vec::new(),
+            nodes: 0,
+            is_exact: false,
+            elapsed_ms,
+            timed_out: time_budget_hit,
+        },
+    }
 }
 
 /// 現在の局面の**全合法手**それぞれについて評価値を返す(T018)。
@@ -2039,5 +2115,128 @@ mod tests {
                 eval.score
             );
         }
+    }
+
+    // ------------------------------------------------------------------
+    // T084: テレメトリ追加(elapsed_ms/timed_out フィールドの追加、
+    // 完全読みショートカットのノード数を`1`固定から実カウントへ変更)が
+    // 探索アルゴリズム自体の挙動(最善手・評価値・到達深さ)を
+    // 一切変えていないことのロック用回帰テスト。
+    //
+    // 期待値はT084着手前(このタスクでコードを変更する前)のビルドで
+    // `search()`を直接呼んで採取した実測値(作業ログ参照。
+    // `cargo test -p engine --lib --release -- --ignored --nocapture` で
+    // 一時テストを実行して採取した)。
+    // ------------------------------------------------------------------
+
+    #[test]
+    fn fixed_depth_midgame_search_result_is_unchanged_from_the_pre_t084_baseline() {
+        // 初期局面からdepth=8・exact_from_empties=0(常にNegaScout経由、
+        // 完全読みには入らない)で探索した場合の結果は、T084着手前と
+        // ビット単位で一致するはず(ノード数はNegaScout側の集計であり、
+        // T084では一切変更していないため、この経路ではnodesも含めて完全一致
+        // することを確認する)。
+        let board = Board::initial();
+        let limit = default_limit(8, 0);
+        let mut tt = TranspositionTable::new(16);
+        let result = search(&board, Side::Black, &limit, &mut tt);
+
+        assert_eq!(result.best_move, Some(19), "best_move regressed from the pre-T084 baseline");
+        assert_eq!(result.score, 0, "score regressed from the pre-T084 baseline");
+        assert_eq!(result.depth, 8, "depth regressed from the pre-T084 baseline");
+        assert_eq!(result.nodes, 3493, "nodes regressed from the pre-T084 baseline (NegaScout path is untouched by T084)");
+        assert!(!result.is_exact);
+        assert!(!result.timed_out, "time_ms was not set, so timed_out must always be false");
+    }
+
+    #[test]
+    fn fixed_depth_exact_search_result_is_unchanged_from_the_pre_t084_baseline() {
+        // 空きマス10の局面(必ず完全読みショートカットに入る)で探索した
+        // 場合、best_move/score/depth/is_exactはT084着手前と完全に一致する
+        // はず。nodesだけは意図的な改善対象(以前は`1`固定のプレースホルダー
+        // だった。詳しくは`SearchResult::nodes`のドキュメントとT084の
+        // 作業ログを参照)なので、ここでは「1より大きい実カウントになった」
+        // ことだけを確認し、厳密な値は別テストで検証する。
+        let (board, side) = play_until_empties(10, first_move_strategy);
+        let exact_threshold = board.empty_count() as u8;
+        let limit = default_limit(20, exact_threshold);
+        let mut tt = TranspositionTable::new(16);
+        let result = search(&board, side, &limit, &mut tt);
+
+        assert_eq!(result.best_move, Some(52), "best_move regressed from the pre-T084 baseline");
+        assert_eq!(result.score, -2200, "score regressed from the pre-T084 baseline");
+        assert_eq!(result.depth, 10, "depth regressed from the pre-T084 baseline");
+        assert!(result.is_exact);
+        assert!(!result.timed_out, "time_ms was not set, so timed_out must always be false");
+        assert!(
+            result.nodes > 1,
+            "T084: the exact-shortcut path should now report the real node count from \
+             solve_exact_with_nodes instead of the old hardcoded placeholder of 1, got {}",
+            result.nodes
+        );
+    }
+
+    #[test]
+    fn fixed_depth_exact_search_nodes_match_solve_exact_with_nodes_directly() {
+        // T084要件1: `search()`が完全読みショートカットで報告するノード数が、
+        // 同じ局面を直接`solve_exact_with_nodes`で解いた場合のノード数と
+        // 完全に一致することを確認する(テレメトリが実際の探索を正しく
+        // 反映していることの直接的な検証)。
+        let (board, side) = play_until_empties(10, first_move_strategy);
+        let exact_threshold = board.empty_count() as u8;
+        let limit = default_limit(20, exact_threshold);
+
+        let mut tt = TranspositionTable::new(16);
+        let result = search(&board, side, &limit, &mut tt);
+
+        let mut tt_direct = TranspositionTable::new(16);
+        let (direct_score, direct_nodes) = solve_exact_with_nodes(&board, side, &mut tt_direct);
+
+        assert_eq!(result.score, direct_score * 100);
+        assert_eq!(result.nodes, direct_nodes);
+    }
+
+    #[test]
+    fn fixed_depth_search_is_deterministic_across_repeated_calls() {
+        // T084要件2(決定性モード): `--depth N`のみ(時間予算なし)で
+        // 実行した場合、同一局面・同一重みなら着手・スコア・到達深さ・
+        // ノード数が完全に再現されることを確認する(壁時計を一切参照しない
+        // ため、実行タイミングに左右されないはず)。
+        let board = Board::initial();
+        let limit = default_limit(7, 12);
+
+        let mut tt_a = TranspositionTable::new(16);
+        let result_a = search(&board, Side::Black, &limit, &mut tt_a);
+
+        let mut tt_b = TranspositionTable::new(16);
+        let result_b = search(&board, Side::Black, &limit, &mut tt_b);
+
+        assert_eq!(result_a.best_move, result_b.best_move);
+        assert_eq!(result_a.score, result_b.score);
+        assert_eq!(result_a.depth, result_b.depth);
+        assert_eq!(result_a.nodes, result_b.nodes);
+        assert_eq!(result_a.is_exact, result_b.is_exact);
+        assert!(!result_a.timed_out && !result_b.timed_out);
+    }
+
+    #[test]
+    fn fixed_depth_exact_shortcut_search_is_deterministic_across_repeated_calls() {
+        // 上と同じ決定性の確認を、完全読みショートカット経路(exact-from-empties
+        // が根から直ちに適用される局面)でも行う。
+        let (board, side) = play_until_empties(9, first_move_strategy);
+        let exact_threshold = board.empty_count() as u8;
+        let limit = default_limit(20, exact_threshold);
+
+        let mut tt_a = TranspositionTable::new(16);
+        let result_a = search(&board, side, &limit, &mut tt_a);
+
+        let mut tt_b = TranspositionTable::new(16);
+        let result_b = search(&board, side, &limit, &mut tt_b);
+
+        assert_eq!(result_a.best_move, result_b.best_move);
+        assert_eq!(result_a.score, result_b.score);
+        assert_eq!(result_a.nodes, result_b.nodes);
+        assert!(result_a.is_exact && result_b.is_exact);
+        assert!(!result_a.timed_out && !result_b.timed_out);
     }
 }

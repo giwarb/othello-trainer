@@ -31,6 +31,17 @@
 //! - `moves --depth N --exact-from-empties M [--pattern-weights PATH]`
 //!   同様に `--pattern-weights` を指定すると、全合法手のランキングを
 //!   パターン評価で計算する。
+//! - `best --depth N [--time-ms T] --exact-from-empties M [--pattern-weights PATH]`
+//!   (T084) 単一局面(標準入力、`moves`/`apply`と同じJSONオブジェクト)を
+//!   **単一ルートのPVS探索**(`search::search_with_eval`、反復深化+NegaScout+TT+
+//!   ETC+終盤完全読み。`moves`が使う`search_all_moves_with_eval`とは異なり、
+//!   全合法手を個別にfull-window探索して時間予算を分割する方式ではない)で
+//!   1回だけ探索し、最善手とテレメトリ一式(到達深さ・総ノード数・経過ms・
+//!   NPS・タイムアウト有無・exact読みの試行/完走/フォールバックの別)を
+//!   返す。`--time-ms`を省略すると時間無制限(fixed-depthモード、決定性
+//!   検証・回帰検知用)、指定するとその予算内で反復深化を打ち切る
+//!   (wall-timeモード、Edax対戦ハーネス`bench/edax-compare/vs_edax.py`の
+//!   single-root着手選択がこのモードを使う)。
 //!
 //! 盤面の局面表現は本リポジトリ既存の規約 (`bench/ffo_positions.json` および
 //! Edaxの `.obf` 形式と同じ) に従う: 64文字 (a1,b1,...,h1,a2,...,h8の順、
@@ -84,9 +95,10 @@ fn main() {
         "eval" => cmd_eval(&args[2..]),
         "moves" => cmd_moves(&args[2..]),
         "apply" => cmd_apply(&args[2..]),
+        "best" => cmd_best(&args[2..]),
         _ => {
             eprintln!(
-                "usage:\n  eval_cli gen --category NAME --min-empties N --max-empties M --count C --seed S\n  eval_cli eval --depth N --exact-from-empties M [--pattern-weights PATH]   (JSON配列を標準入力から読む)\n  eval_cli moves --depth N --exact-from-empties M [--pattern-weights PATH]  (単一局面のJSONオブジェクトを標準入力から読み、全合法手のスコアを返す)"
+                "usage:\n  eval_cli gen --category NAME --min-empties N --max-empties M --count C --seed S\n  eval_cli eval --depth N --exact-from-empties M [--pattern-weights PATH]   (JSON配列を標準入力から読む)\n  eval_cli moves --depth N --exact-from-empties M [--pattern-weights PATH]  (単一局面のJSONオブジェクトを標準入力から読み、全合法手のスコアを返す)\n  eval_cli best --depth N [--time-ms T] --exact-from-empties M [--pattern-weights PATH]  (T084: 単一局面のJSONオブジェクトを標準入力から読み、single-root探索で最善手1つとテレメトリを返す)"
             );
             std::process::exit(2);
         }
@@ -582,6 +594,109 @@ fn cmd_moves(args: &[String]) {
             "board": board_str,
             "side_to_move": side_str,
             "moves": moves_json,
+        })
+    );
+}
+
+/// T084: 標準入力の単一局面(`moves`/`apply`と同じJSON形式)に対して、
+/// **単一ルート**の探索(`search::search_with_eval`。反復深化+NegaScout+TT+
+/// ETC+終盤完全読み。`cmd_moves`が使う`search_all_moves_with_eval`のように
+/// 全合法手を個別にfull-window探索して時間予算を候補数で分割する方式
+/// ではない)を1回だけ行い、最善手とテレメトリ一式を返す。
+///
+/// エンジン強化ロードマップの設計レビュー(`tasks/design/T083-engine-strengthening-report.md`)
+/// で、既存のEdax対戦ハーネス(T082)が`moves`(全合法手分割探索)を着手選択に
+/// 使っており、単一ルートで1秒使った場合の実力が一度も測られていないことが
+/// 判明したため、その計測を可能にするために追加した。
+///
+/// `--pattern-weights`省略時は`None`(3項ヒューリスティック評価)で
+/// `search::search_with_eval`を直接呼ぶ(`cmd_eval`/`cmd_moves`と異なり
+/// `Engine::analyze`経由にはしない。理由は同じ: このCLIはEdax比較専用の
+/// 開発補助ツールであり、`search`モジュールを直接呼んでも`Engine`インスタンスの
+/// 挙動と支障なく一致する。既存公開API(`#[wasm_bindgen]`)には一切触れない)。
+fn cmd_best(args: &[String]) {
+    let depth = get_arg_u32(args, "--depth", Some(10)) as u8;
+    let exact_from_empties = get_arg_u32(args, "--exact-from-empties", Some(0)) as u8;
+    let time_ms = get_arg(args, "--time-ms").map(|v| v.parse::<u64>().expect("invalid --time-ms"));
+    let pattern_weights = load_pattern_weights(args);
+
+    let mut input = String::new();
+    io::stdin()
+        .read_to_string(&mut input)
+        .expect("failed to read stdin");
+    let pos: Value = serde_json::from_str(&input).expect("invalid input JSON");
+
+    let board_str = pos
+        .get("board")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .to_string();
+    let side_str = pos
+        .get("side_to_move")
+        .and_then(Value::as_str)
+        .unwrap_or("black")
+        .to_string();
+
+    let b = obf_to_board(&board_str);
+    let side = parse_side(&side_str);
+
+    // exact読みが「試みられた」かどうかは、ルート局面自体の空きマス数と
+    // `exact_from_empties`の比較だけで(探索前に)決まる(探索木の途中で
+    // さらにexactへ入るケースはここでは数えない。あくまでルート局面が
+    // 完全読みショートカットの対象だったかどうか)。「完走したか」は
+    // `SearchResult::is_exact`が正確に報告する(T034の教訓どおり、
+    // 事前計算した空きマス数ベースの判定だけでは実態と食い違いうるため)。
+    let exact_attempted = b.empty_count() <= exact_from_empties as u32;
+
+    let limit = SearchLimit {
+        max_depth: depth,
+        time_ms,
+        exact_from_empties,
+    };
+    let mut tt = TranspositionTable::new(16);
+    let result = search::search_with_eval(&b, side, &limit, &mut tt, pattern_weights.as_ref());
+
+    let exact_completed = result.is_exact;
+    // 「試みたが完走できず、通常の反復深化(またはその反復深化すら一度も
+    // 完了せず静的評価)にフォールバックした」ケース。
+    let exact_fallback = exact_attempted && !exact_completed;
+
+    let nps: u64 = if result.elapsed_ms > 0 {
+        ((result.nodes as f64) / (result.elapsed_ms as f64 / 1000.0)).round() as u64
+    } else {
+        // 経過時間が1ms未満に丸められた場合、0除算を避けてノード数を
+        // そのままNPSとして報告する(1秒未満で完了した場合の下限値の目安)。
+        result.nodes
+    };
+
+    eprintln!(
+        "[eval_cli best] elapsed_ms={} depth={} nodes={} nps={} timed_out={} is_exact={} exact_attempted={} exact_fallback={}",
+        result.elapsed_ms, result.depth, result.nodes, nps, result.timed_out, result.is_exact, exact_attempted, exact_fallback
+    );
+
+    println!(
+        "{}",
+        json!({
+            "board": board_str,
+            "side_to_move": side_str,
+            "move": result.best_move.map(square_to_notation),
+            "score": {
+                "discDiff": result.score as f64 / 100.0,
+                "type": eval_kind(result.is_exact),
+            },
+            "depth": result.depth,
+            "nodes": result.nodes,
+            "elapsedMs": result.elapsed_ms,
+            "nps": nps,
+            "timedOut": result.timed_out,
+            "exact": {
+                "attempted": exact_attempted,
+                "completed": exact_completed,
+                "fallback": exact_fallback,
+            },
+            "requestedDepth": depth,
+            "requestedExactFromEmpties": exact_from_empties,
+            "requestedTimeMs": time_ms,
         })
     );
 }

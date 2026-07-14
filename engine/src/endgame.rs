@@ -249,6 +249,42 @@ pub fn solve_exact_bounded(
     }
 }
 
+/// [`solve_exact_bounded`]と同じ完全読みを行い、結果に加えて探索した
+/// (`negamax`を呼び出した)ノード数も返す(T084)。
+///
+/// `solve_exact_with_nodes`(T009、無条件版)と対になる、時間予算付き版。
+/// 既存の [`solve_exact_bounded`] のシグネチャ・挙動は一切変更していない
+/// (本関数はそれとは独立の新規関数であり、`negamax`を同じ引数で呼ぶだけの
+/// 薄いラッパー)。`search.rs`の single-root ベストムーブ探索(`search`/
+/// `search_with_eval`)が、ルート局面が直接完全読みに委譲された場合の
+/// 正確なノード数をテレメトリとして報告するために追加した。
+/// タイムアウトした場合(戻り値の `Option<i32>` が `None`)でも、それまでに
+/// 訪問したノード数は `u64` 側に返す(呼び出し元が使うかどうかは任意)。
+pub fn solve_exact_bounded_with_nodes(
+    board: &Board,
+    side_to_move: Side,
+    tt: &mut TranspositionTable,
+    budget: TimeBudget,
+) -> (Option<i32>, u64) {
+    let mut nodes: u64 = 0;
+    let mut timed_out = false;
+    let score = negamax(
+        board,
+        side_to_move,
+        -64,
+        64,
+        tt,
+        &mut nodes,
+        Some(budget),
+        &mut timed_out,
+    );
+    if timed_out {
+        (None, nodes)
+    } else {
+        (Some(score), nodes)
+    }
+}
+
 /// [`solve_exact_bounded`]に渡す時間予算(T034)。`search.rs`の
 /// `SearchLimit::time_ms`と同じ意味論(反復深化開始からの累計経過時間)を
 /// 完全読みソルバーにも適用できるようにするための小さな値型。
@@ -850,6 +886,62 @@ mod tests {
             "solve_exact should return the same correct score whether or not the tt was previously \
              used by a solve_exact_bounded call that timed out (i.e. the timed-out call must not have \
              stored any incomplete/incorrect entries into the tt)"
+        );
+    }
+
+    // ------------------------------------------------------------------
+    // T084: `solve_exact_bounded_with_nodes` の回帰テスト。
+    // ------------------------------------------------------------------
+
+    #[test]
+    fn solve_exact_bounded_with_nodes_matches_solve_exact_when_the_budget_is_generous() {
+        // 十分な時間予算があれば、スコアは無条件版と完全に一致し、
+        // タイムアウトもしない(`Some`が返る)ことを確認する。
+        let (board, side) = play_until_empties(10, first_move_strategy);
+
+        let mut tt_bounded = TranspositionTable::new(64);
+        let budget = TimeBudget {
+            start: Instant::now(),
+            time_ms: 60_000,
+        };
+        let (score, nodes) = solve_exact_bounded_with_nodes(&board, side, &mut tt_bounded, budget);
+
+        let mut tt_direct = TranspositionTable::new(64);
+        let expected = solve_exact(&board, side, &mut tt_direct);
+
+        assert_eq!(
+            score,
+            Some(expected),
+            "with a generous time budget solve_exact_bounded_with_nodes should match solve_exact exactly"
+        );
+        assert!(
+            nodes > 0,
+            "solve_exact_bounded_with_nodes should report a positive node count for a non-trivial position"
+        );
+    }
+
+    #[test]
+    fn solve_exact_bounded_with_nodes_times_out_the_same_way_as_solve_exact_bounded() {
+        // 極端に短い時間予算では、無条件版と同じくNoneでタイムアウトを
+        // 報告することを確認する(ノード数の計測を追加しても、既存の
+        // `solve_exact_bounded`のタイムアウト挙動は変わらない)。
+        let (board, side) = play_until_empties(18, first_move_strategy);
+        assert_eq!(board.empty_count(), 18);
+
+        let mut tt = TranspositionTable::new(64);
+        let budget = TimeBudget {
+            start: Instant::now(),
+            time_ms: 1,
+        };
+        let (score, nodes) = solve_exact_bounded_with_nodes(&board, side, &mut tt, budget);
+
+        assert!(
+            score.is_none(),
+            "a 1ms budget should not be enough to fully solve an 18-empties position"
+        );
+        assert!(
+            nodes > 0,
+            "even a timed-out call should have visited at least some nodes before giving up"
         );
     }
 }

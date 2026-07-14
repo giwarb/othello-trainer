@@ -1,0 +1,224 @@
+{
+  "description": "T084: 固定openingマニフェスト。eval_cli gen (ランダム自己対戦から空きマス48-52=8-12手目相当の局面を抽出、xorshift64ベースの再現可能な乱数) で生成し、以後は再生成せずこのファイルをそのまま読む。各局面は黒白持ち替えで2局(色交換ペア)に使う。smoke: 10局面(=20局分、スモーク/single-root vs allmoves比較用)、primary: 30局面(=60局分、将来の一次判定用に予約)。",
+  "generatedBy": "eval_cli gen --min-empties 48 --max-empties 52 (T084)",
+  "minEmpties": 48,
+  "maxEmpties": 52,
+  "smoke": {
+    "genArgs": {
+      "category": "smoke",
+      "count": 10,
+      "seed": 8001
+    },
+    "positions": [
+      {
+        "id": "smoke-01",
+        "board": "-------------------XO-----XOO-----OOO-----O-XO------XX------X---",
+        "side_to_move": "black"
+      },
+      {
+        "id": "smoke-02",
+        "board": "-----------------OOO-X-----XOX-----XXO----XO-XO-----------------",
+        "side_to_move": "black"
+      },
+      {
+        "id": "smoke-03",
+        "board": "------------X------X------XOX------OX-----OOOOO---O--XX--O------",
+        "side_to_move": "black"
+      },
+      {
+        "id": "smoke-04",
+        "board": "-----------------X-X-X----XOXO-----XO------OO-------O-----------",
+        "side_to_move": "black"
+      },
+      {
+        "id": "smoke-05",
+        "board": "-------------O----OOO------OXO-----XOO------XO------------------",
+        "side_to_move": "black"
+      },
+      {
+        "id": "smoke-06",
+        "board": "-----------------XO-------XOOOO--XXXO------X-O------------------",
+        "side_to_move": "white"
+      },
+      {
+        "id": "smoke-07",
+        "board": "----------------OOO---X--OOOOX----OXX-----XOO-------O-----------",
+        "side_to_move": "black"
+      },
+      {
+        "id": "smoke-08",
+        "board": "--------------------------XXXXX---OXO-X----O-OX-----O-----------",
+        "side_to_move": "white"
+      },
+      {
+        "id": "smoke-09",
+        "board": "-----------O-X-----OX------OX-----OOOX------XO------------------",
+        "side_to_move": "black"
+      },
+      {
+        "id": "smoke-10",
+        "board": "--------------------O-O---XXOOO----XOO-----XOX------X------X----",
+        "side_to_move": "white"
+      }
+    ]
+  },
+  "primary": {
+    "genArgs": {
+      "category": "primary",
+      "count": 30,
+      "seed": 9001
+    },
+    "positions": [
+      {
+        "id": "primary-01",
+        "board": "-----X-------X-----XOX-----OO-----OXOX-----XX-----OX------------",
+        "side_to_move": "white"
+      },
+      {
+        "id": "primary-02",
+        "board": "------------------X--------XX-----OXXXX--OOOO------O------O-----",
+        "side_to_move": "black"
+      },
+      {
+        "id": "primary-03",
+        "board": "-X--------XX------XXO------XO-----XOO----XO-OX------------------",
+        "side_to_move": "white"
+      },
+      {
+        "id": "primary-04",
+        "board": "----X--------X----X--OX---OOOX-----OX-----O-X-------------------",
+        "side_to_move": "white"
+      },
+      {
+        "id": "primary-05",
+        "board": "---------------------O----XXO-----XXOO---X--XXX-------O---------",
+        "side_to_move": "white"
+      },
+      {
+        "id": "primary-06",
+        "board": "-----------O------X-O-----XXXO----XXX-O-----OO------O-X--------X",
+        "side_to_move": "black"
+      },
+      {
+        "id": "primary-07",
+        "board": "---X------OX------XOX----X-OO----XXXOO-------O-------O----------",
+        "side_to_move": "black"
+      },
+      {
+        "id": "primary-08",
+        "board": "------------------X--O-----XO-----XXXO-----XO-O---X-O-----------",
+        "side_to_move": "white"
+      },
+      {
+        "id": "primary-09",
+        "board": "-X------OX-------OOX-O----OOO-----OOX-------X-------------------",
+        "side_to_move": "black"
+      },
+      {
+        "id": "primary-10",
+        "board": "------------------X-O----O-OX-----OOXO-----OXX------------------",
+        "side_to_move": "black"
+      },
+      {
+        "id": "primary-11",
+        "board": "-------------------XXX--XXXXX-----OOOX------OO------O-----------",
+        "side_to_move": "white"
+      },
+      {
+        "id": "primary-12",
+        "board": "--------------X--XO-OXO---XOO-----OXO-------O-------O-----------",
+        "side_to_move": "black"
+      },
+      {
+        "id": "primary-13",
+        "board": "-------------------XO------XOO-----OOX----O-X-------OX----------",
+        "side_to_move": "black"
+      },
+      {
+        "id": "primary-14",
+        "board": "------------------O-OX----OOX----XOXO-----O-OX----O-------------",
+        "side_to_move": "black"
+      },
+      {
+        "id": "primary-15",
+        "board": "------------------O------XXXX-----XXXX----OXX-----OO------O-O---",
+        "side_to_move": "black"
+      },
+      {
+        "id": "primary-16",
+        "board": "--------------------------XXX----XOOO---X-XOXXX-----------------",
+        "side_to_move": "white"
+      },
+      {
+        "id": "primary-17",
+        "board": "-------------------XO------OX-X---OOOXX------XX------X----------",
+        "side_to_move": "white"
+      },
+      {
+        "id": "primary-18",
+        "board": "-----------O-----XXO------XOXO-----XXX-----OX-------------------",
+        "side_to_move": "white"
+      },
+      {
+        "id": "primary-19",
+        "board": "-------------------X-------XXO----OOOXO----XXXX---X-O-----------",
+        "side_to_move": "white"
+      },
+      {
+        "id": "primary-20",
+        "board": "----------------------O--OOOOOOO-XXXXX-----X--------X-----------",
+        "side_to_move": "white"
+      },
+      {
+        "id": "primary-21",
+        "board": "------X-----OXO----XX------XO-O----XOO------OX------------------",
+        "side_to_move": "black"
+      },
+      {
+        "id": "primary-22",
+        "board": "-----------X--------XX----XOOX---XXXOX----XOO-------------------",
+        "side_to_move": "white"
+      },
+      {
+        "id": "primary-23",
+        "board": "-----------O------OOX------XX-----XXXO---XX---O-----------------",
+        "side_to_move": "white"
+      },
+      {
+        "id": "primary-24",
+        "board": "----------X-------XOO-----XOO----OXOO-----XX--------------------",
+        "side_to_move": "white"
+      },
+      {
+        "id": "primary-25",
+        "board": "-------------O---XXX-O----XXOO----XOO-----OXX----O--------------",
+        "side_to_move": "black"
+      },
+      {
+        "id": "primary-26",
+        "board": "------------X------X------XOO----X-OOO---OXOO------O------O-X---",
+        "side_to_move": "black"
+      },
+      {
+        "id": "primary-27",
+        "board": "------------------XX-X-----XXXO---OOOXX----OO-------------------",
+        "side_to_move": "black"
+      },
+      {
+        "id": "primary-28",
+        "board": "----------X--X----XOX-----XXXX-----OX-----O--X------------------",
+        "side_to_move": "white"
+      },
+      {
+        "id": "primary-29",
+        "board": "------------------O-X----OOOXO-----XXO------XO--------O--------O",
+        "side_to_move": "black"
+      },
+      {
+        "id": "primary-30",
+        "board": "---X------XXO------XO-----XOX----XXXXX-------X------------------",
+        "side_to_move": "white"
+      }
+    ]
+  }
+}
