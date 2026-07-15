@@ -24,7 +24,7 @@
 
 | ID | タスク | 担当 | 状態 | 試行 |
 |---|---|---|---|---|
-| T104 | 終盤: 空き1〜4専用ソルバーとshallow層 | implementer(Sonnetフォールバック) | in_progress | 0 |
+| T104 | 終盤: 空き1〜4専用ソルバーとshallow層 | implementer(Sonnetフォールバック) | in_progress(redo#1: 静的順序付けでノード+30%とC2完走6→5を回収) | 1 |
 | T109 | 蒸留データ量の学習曲線実験(ユーザー指示2026-07-16: 終盤シリーズと並行) | implementer(Sonnetフォールバック) | in_progress | 0 |
 
 ## 有効な方針・申し送り(今後のタスクに効くもの)
