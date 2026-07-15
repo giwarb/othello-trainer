@@ -5,6 +5,7 @@ use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
+use std::thread;
 
 use engine::bitboard::{Board, Side};
 use engine::pattern_eval::stage_for_empty_count;
@@ -18,6 +19,8 @@ use crate::{train_data, wthor};
 const HUBER_DELTA: f32 = 4.0;
 const DEFAULT_LR: f32 = 0.005;
 const MIN_LR: f32 = 0.0003125;
+const WTHOR_CACHE_SCHEMA: u32 = 1;
+const WTHOR_CACHE_MAGIC: &[u8; 4] = b"T095";
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -154,22 +157,172 @@ fn is_x_or_c(cell: u8) -> bool {
     matches!(cell, 1 | 6 | 8 | 9 | 14 | 15 | 48 | 49 | 54 | 55 | 57 | 62)
 }
 
-fn load_outcomes() -> Result<(HashMap<CanonicalKey, f32>, Vec<train_data::Sample>, String), String>
-{
-    let mut training_raw = Vec::new();
-    let mut test_raw = Vec::new();
+fn wthor_files() -> Result<(Vec<(PathBuf, Vec<u8>)>, String), String> {
     let mut hash = 0xcbf29ce484222325;
-    let mut files: Vec<_> = fs::read_dir("train/data")
+    let mut paths: Vec<_> = fs::read_dir("train/data")
         .map_err(|e| e.to_string())?
         .flatten()
         .map(|e| e.path())
         .filter(|p| p.extension().is_some_and(|e| e == "wtb"))
         .collect();
-    files.sort();
-    for path in files {
-        let bytes = fs::read(&path).map_err(|e| format!("{}: {e}", path.display()))?;
+    paths.sort();
+    let mut files = Vec::with_capacity(paths.len());
+    for path in paths {
+        let bytes = fs::read(&path).map_err(|e| e.to_string())?;
         hash = fnv_update(hash, path.to_string_lossy().as_bytes());
         hash = fnv_update(hash, &bytes);
+        files.push((path, bytes));
+    }
+    Ok((files, format!("{hash:016x}")))
+}
+
+fn push_sample(bytes: &mut Vec<u8>, sample: &train_data::Sample) {
+    bytes.extend_from_slice(&sample.board.black.to_le_bytes());
+    bytes.extend_from_slice(&sample.board.white.to_le_bytes());
+    bytes.push(match sample.mover {
+        Side::Black => 0,
+        Side::White => 1,
+    });
+    bytes.extend_from_slice(&sample.outcome.to_bits().to_le_bytes());
+    bytes.push(match sample.last_move_kind {
+        train_data::LastMoveKind::Other => 0,
+        train_data::LastMoveKind::X => 1,
+        train_data::LastMoveKind::C => 2,
+    });
+    bytes.push(u8::from(sample.vulnerable_xc));
+}
+
+fn encode_outcome_cache(
+    outcomes: &HashMap<CanonicalKey, f32>,
+    test: &[train_data::Sample],
+    wthor_hash: &str,
+) -> Vec<u8> {
+    let mut bytes = Vec::new();
+    bytes.extend_from_slice(WTHOR_CACHE_MAGIC);
+    bytes.extend_from_slice(&WTHOR_CACHE_SCHEMA.to_le_bytes());
+    bytes.extend_from_slice(&(wthor_hash.len() as u32).to_le_bytes());
+    bytes.extend_from_slice(wthor_hash.as_bytes());
+    bytes.extend_from_slice(&(outcomes.len() as u64).to_le_bytes());
+    bytes.extend_from_slice(&(test.len() as u64).to_le_bytes());
+    let mut entries: Vec<_> = outcomes.iter().collect();
+    entries.sort_by_key(|(key, _)| **key);
+    for (key, outcome) in entries {
+        bytes.extend_from_slice(&key.0.to_le_bytes());
+        bytes.extend_from_slice(&key.1.to_le_bytes());
+        bytes.push(key.2);
+        bytes.extend_from_slice(&outcome.to_bits().to_le_bytes());
+    }
+    for sample in test {
+        push_sample(&mut bytes, sample);
+    }
+    bytes
+}
+
+struct CacheReader<'a> {
+    bytes: &'a [u8],
+    offset: usize,
+}
+
+impl<'a> CacheReader<'a> {
+    fn take(&mut self, count: usize) -> Result<&'a [u8], String> {
+        let end = self
+            .offset
+            .checked_add(count)
+            .ok_or("cache_size_overflow")?;
+        let value = self.bytes.get(self.offset..end).ok_or("truncated_cache")?;
+        self.offset = end;
+        Ok(value)
+    }
+
+    fn u8(&mut self) -> Result<u8, String> {
+        Ok(self.take(1)?[0])
+    }
+    fn u32(&mut self) -> Result<u32, String> {
+        Ok(u32::from_le_bytes(self.take(4)?.try_into().unwrap()))
+    }
+    fn u64(&mut self) -> Result<u64, String> {
+        Ok(u64::from_le_bytes(self.take(8)?.try_into().unwrap()))
+    }
+}
+
+fn decode_outcome_cache(
+    bytes: &[u8],
+    expected_hash: &str,
+) -> Result<(HashMap<CanonicalKey, f32>, Vec<train_data::Sample>), String> {
+    let mut reader = CacheReader { bytes, offset: 0 };
+    if reader.take(4)? != WTHOR_CACHE_MAGIC {
+        return Err("bad_magic".into());
+    }
+    if reader.u32()? != WTHOR_CACHE_SCHEMA {
+        return Err("bad_schema".into());
+    }
+    let hash_len = reader.u32()? as usize;
+    if reader.take(hash_len)? != expected_hash.as_bytes() {
+        return Err("bad_hash".into());
+    }
+    let outcome_count = reader.u64()? as usize;
+    let test_count = reader.u64()? as usize;
+    let mut outcomes = HashMap::with_capacity(outcome_count);
+    for _ in 0..outcome_count {
+        let key = CanonicalKey(reader.u64()?, reader.u64()?, reader.u8()?);
+        let outcome = f32::from_bits(reader.u32()?);
+        if outcomes.insert(key, outcome).is_some() {
+            return Err("duplicate_key".into());
+        }
+    }
+    let mut test = Vec::with_capacity(test_count);
+    for _ in 0..test_count {
+        let board = Board {
+            black: reader.u64()?,
+            white: reader.u64()?,
+        };
+        let mover = match reader.u8()? {
+            0 => Side::Black,
+            1 => Side::White,
+            _ => return Err("bad_mover".into()),
+        };
+        let outcome = f32::from_bits(reader.u32()?);
+        let last_move_kind = match reader.u8()? {
+            0 => train_data::LastMoveKind::Other,
+            1 => train_data::LastMoveKind::X,
+            2 => train_data::LastMoveKind::C,
+            _ => return Err("bad_last_move".into()),
+        };
+        let vulnerable_xc = match reader.u8()? {
+            0 => false,
+            1 => true,
+            _ => return Err("bad_vulnerable".into()),
+        };
+        test.push(train_data::Sample {
+            board,
+            mover,
+            outcome,
+            last_move_kind,
+            vulnerable_xc,
+        });
+    }
+    if reader.offset != bytes.len() {
+        return Err("trailing_bytes".into());
+    }
+    Ok((outcomes, test))
+}
+
+fn load_outcomes() -> Result<(HashMap<CanonicalKey, f32>, Vec<train_data::Sample>, String), String>
+{
+    let (files, wthor_hash) = wthor_files()?;
+    let cache_path = PathBuf::from(format!(
+        "train/data/t090-wthor-outcomes-v{WTHOR_CACHE_SCHEMA}-{wthor_hash}.bin"
+    ));
+    if let Ok(bytes) = fs::read(&cache_path) {
+        if let Ok((outcomes, test)) = decode_outcome_cache(&bytes, &wthor_hash) {
+            println!("wthor_cache_hit={}", cache_path.display());
+            return Ok((outcomes, test, wthor_hash));
+        }
+        eprintln!("invalid_wthor_cache={}", cache_path.display());
+    }
+    let mut training_raw = Vec::new();
+    let mut test_raw = Vec::new();
+    for (path, bytes) in files {
         let parsed = wthor::parse(&bytes).map_err(|e| format!("{}: {e}", path.display()))?;
         let year = parsed.header.year_of_games;
         for game in parsed.games {
@@ -191,7 +344,10 @@ fn load_outcomes() -> Result<(HashMap<CanonicalKey, f32>, Vec<train_data::Sample
         .collect();
     let mut test: Vec<_> = test_map.into_values().map(|record| record.sample).collect();
     test.sort_by_key(|sample| experiment::canonicalize(sample).0);
-    Ok((outcomes, test, format!("{hash:016x}")))
+    let cache_bytes = encode_outcome_cache(&outcomes, &test, &wthor_hash);
+    atomic_write(&cache_path, &cache_bytes)?;
+    println!("wthor_cache_built={}", cache_path.display());
+    Ok((outcomes, test, wthor_hash))
 }
 
 fn load_corpus(
@@ -324,6 +480,14 @@ fn features(model: &Model, board: &Board, mover: Side) -> Vec<Feature> {
         .collect()
 }
 
+fn prediction_from_features(model: &Model, items: &[Feature]) -> f32 {
+    let mut prediction = 0.0;
+    for &(class, stage, state) in items {
+        prediction += model.weights.class_tables[class].stage_tables[stage][state];
+    }
+    prediction
+}
+
 fn huber(error: f32) -> (f32, f32) {
     if error.abs() <= HUBER_DELTA {
         (0.5 * error * error, error)
@@ -364,6 +528,24 @@ fn add_child_score_gradient(
     }
 }
 
+fn child_score_features(
+    model: &Model,
+    child: &Board,
+    parent_mover: Side,
+) -> (f32, Vec<Feature>, f32) {
+    let opponent = parent_mover.opposite();
+    if child.has_legal_move(opponent) {
+        let items = features(model, child, opponent);
+        (-prediction_from_features(model, &items), items, -1.0)
+    } else if child.has_legal_move(parent_mover) {
+        let items = features(model, child, parent_mover);
+        (prediction_from_features(model, &items), items, 1.0)
+    } else {
+        let score = child.disc_count(parent_mover) as f32 - child.disc_count(opponent) as f32;
+        (score, Vec::new(), 0.0)
+    }
+}
+
 fn add_gradient(map: &mut HashMap<Feature, f32>, items: &[Feature], scale: f32) {
     for &key in items {
         *map.entry(key).or_default() += scale;
@@ -380,7 +562,7 @@ fn train_step(
     let (teacher_weight, ranking_weight, outcome_weight) =
         mix.coefficients(record.outcome.is_some());
     let parent_features = features(model, &record.board, record.mover);
-    let prediction = model.predict(&record.board, record.mover);
+    let prediction = prediction_from_features(model, &parent_features);
     let (teacher_loss, teacher_gradient) = huber(prediction - record.teacher_value);
     let mut gradient = HashMap::new();
     add_gradient(
@@ -391,21 +573,16 @@ fn train_step(
 
     let mut ranking_loss = 0.0;
     if ranking_weight > 0.0 && !record.pairs.is_empty() {
+        let (best_score, best_features, best_sign) =
+            child_score_features(model, &record.children[record.best].board, record.mover);
         for &other in &record.pairs {
-            let best_score = child_score(model, &record.children[record.best].board, record.mover);
             let other_score = child_score(model, &record.children[other].board, record.mover);
             let target =
                 record.children[record.best].teacher_value - record.children[other].teacher_value;
             let (loss, loss_gradient) = huber((best_score - other_score) - target);
             ranking_loss += loss / record.pairs.len() as f32;
             let scale = ranking_weight * loss_gradient / record.pairs.len() as f32;
-            add_child_score_gradient(
-                &mut gradient,
-                model,
-                &record.children[record.best].board,
-                record.mover,
-                scale,
-            );
+            add_gradient(&mut gradient, &best_features, best_sign * scale);
             add_child_score_gradient(
                 &mut gradient,
                 model,
@@ -732,6 +909,44 @@ fn run_one(
     atomic_write(&dir.join("result.tsv"), result.as_bytes())
 }
 
+#[allow(clippy::too_many_arguments)]
+fn run_all(
+    runs: &[(Mix, u64)],
+    jobs: usize,
+    train: &[DistillRecord],
+    validation: &[DistillRecord],
+    frozen: &[DistillRecord],
+    wthor_2024: &[train_data::Sample],
+    root: &Path,
+    identity: &str,
+    max_epochs: u32,
+    l2: f32,
+) -> Result<(), String> {
+    for batch in runs.chunks(jobs) {
+        thread::scope(|scope| -> Result<(), String> {
+            let handles: Vec<_> = batch
+                .iter()
+                .map(|&(mix, seed)| {
+                    scope.spawn(move || {
+                        run_one(
+                            mix, seed, train, validation, frozen, wthor_2024, root, identity,
+                            max_epochs, l2,
+                        )
+                    })
+                })
+                .collect();
+            for handle in handles {
+                match handle.join() {
+                    Ok(result) => result?,
+                    Err(_) => return Err("distillation_worker_panicked".into()),
+                }
+            }
+            Ok(())
+        })?;
+    }
+    Ok(())
+}
+
 pub fn run() -> ExitCode {
     let corpus = PathBuf::from(
         arg("--corpus").unwrap_or_else(|| "train/data/teacher/corpus_primary.jsonl".into()),
@@ -769,6 +984,22 @@ pub fn run() -> ExitCode {
             eprintln!("invalid --seeds: {error}");
             return ExitCode::FAILURE;
         }
+    };
+    let run_count = mixes.len().saturating_mul(seeds.len());
+    let default_jobs = thread::available_parallelism()
+        .map_or(1, usize::from)
+        .min(run_count.max(1));
+    let jobs = match arg("--jobs").map(|value| value.parse::<usize>()) {
+        Some(Ok(0)) => {
+            eprintln!("--jobs_must_be_positive");
+            return ExitCode::FAILURE;
+        }
+        Some(Ok(value)) => value.min(run_count.max(1)),
+        Some(Err(error)) => {
+            eprintln!("invalid_--jobs:{error}");
+            return ExitCode::FAILURE;
+        }
+        None => default_jobs,
     };
     let max_epochs = match arg("--max-epochs").map(|value| value.parse()) {
         Some(Ok(value)) => value,
@@ -851,24 +1082,25 @@ pub fn run() -> ExitCode {
     print!("{manifest}");
     let identity = format!("corpus_hash={corpus_hash}\nreference_hash={reference_hash}\nwthor_hash={wthor_hash}\ntrain={}\nvalidation={}\nfrozen={}\n",
         train.len(), validation.len(), frozen.len());
-    for mix in mixes {
-        for &seed in &seeds {
-            if let Err(error) = run_one(
-                mix,
-                seed,
-                &train,
-                &validation,
-                &frozen,
-                &wthor_2024,
-                &root,
-                &identity,
-                max_epochs,
-                l2,
-            ) {
-                eprintln!("{error}");
-                return ExitCode::FAILURE;
-            }
-        }
+    let runs: Vec<_> = mixes
+        .into_iter()
+        .flat_map(|mix| seeds.iter().map(move |&seed| (mix, seed)))
+        .collect();
+    println!("distillation_jobs={jobs}");
+    if let Err(error) = run_all(
+        &runs,
+        jobs,
+        &train,
+        &validation,
+        &frozen,
+        &wthor_2024,
+        &root,
+        &identity,
+        max_epochs,
+        l2,
+    ) {
+        eprintln!("{error}");
+        return ExitCode::FAILURE;
     }
     ExitCode::SUCCESS
 }
@@ -876,6 +1108,131 @@ pub fn run() -> ExitCode {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn legacy_train_step(
+        model: &mut Model,
+        record: &DistillRecord,
+        mix: Mix,
+        learning_rate: f32,
+        l2: f32,
+    ) -> f32 {
+        let (teacher_weight, ranking_weight, outcome_weight) =
+            mix.coefficients(record.outcome.is_some());
+        let parent_features = features(model, &record.board, record.mover);
+        let prediction = model.predict(&record.board, record.mover);
+        let (teacher_loss, teacher_gradient) = huber(prediction - record.teacher_value);
+        let mut gradient = HashMap::new();
+        add_gradient(
+            &mut gradient,
+            &parent_features,
+            teacher_weight * teacher_gradient,
+        );
+        let mut ranking_loss = 0.0;
+        if ranking_weight > 0.0 && !record.pairs.is_empty() {
+            for &other in &record.pairs {
+                let best_score =
+                    child_score(model, &record.children[record.best].board, record.mover);
+                let other_score = child_score(model, &record.children[other].board, record.mover);
+                let target = record.children[record.best].teacher_value
+                    - record.children[other].teacher_value;
+                let (loss, loss_gradient) = huber((best_score - other_score) - target);
+                ranking_loss += loss / record.pairs.len() as f32;
+                let scale = ranking_weight * loss_gradient / record.pairs.len() as f32;
+                add_child_score_gradient(
+                    &mut gradient,
+                    model,
+                    &record.children[record.best].board,
+                    record.mover,
+                    scale,
+                );
+                add_child_score_gradient(
+                    &mut gradient,
+                    model,
+                    &record.children[other].board,
+                    record.mover,
+                    -scale,
+                );
+            }
+        }
+        let mut outcome_loss = 0.0;
+        if let Some(outcome) = record.outcome {
+            let (loss, loss_gradient) = huber(prediction - outcome);
+            outcome_loss = loss;
+            add_gradient(
+                &mut gradient,
+                &parent_features,
+                outcome_weight * loss_gradient,
+            );
+        }
+        for ((class, stage, state), value) in gradient {
+            let weight = &mut model.weights.class_tables[class].stage_tables[stage][state];
+            *weight -= learning_rate * (value + l2 * *weight);
+        }
+        teacher_weight * teacher_loss
+            + ranking_weight * ranking_loss
+            + outcome_weight * outcome_loss
+    }
+
+    #[test]
+    fn outcome_cache_round_trips_and_rejects_wrong_key() {
+        let mut outcomes = HashMap::new();
+        outcomes.insert(CanonicalKey(11, 22, 1), f32::from_bits(0x40a00001));
+        outcomes.insert(CanonicalKey(3, 4, 0), -7.25);
+        let test = vec![train_data::Sample {
+            board: Board {
+                black: 5,
+                white: 10,
+            },
+            mover: Side::White,
+            outcome: f32::from_bits(0xc0e80001),
+            last_move_kind: train_data::LastMoveKind::C,
+            vulnerable_xc: true,
+        }];
+        let bytes = encode_outcome_cache(&outcomes, &test, "abc123");
+        let (decoded_outcomes, decoded_test) = decode_outcome_cache(&bytes, "abc123").unwrap();
+        assert_eq!(decoded_outcomes, outcomes);
+        assert_eq!(decoded_test, test);
+        assert_eq!(
+            encode_outcome_cache(&decoded_outcomes, &decoded_test, "abc123"),
+            bytes
+        );
+        assert!(decode_outcome_cache(&bytes, "different").is_err());
+        assert!(decode_outcome_cache(&bytes[..bytes.len() - 1], "abc123").is_err());
+    }
+
+    #[test]
+    fn optimized_train_step_is_bit_identical_to_legacy_calculation() {
+        let board = Board::initial();
+        let mover = Side::Black;
+        let children: Vec<_> = [19u8, 26, 37, 44]
+            .into_iter()
+            .enumerate()
+            .map(|(index, move_index)| Child {
+                move_index,
+                board: board.apply_move(mover, 1u64 << move_index),
+                teacher_value: 8.0 - index as f32 * 2.0,
+            })
+            .collect();
+        let record = DistillRecord {
+            key: CanonicalKey(0, 0, 0),
+            board,
+            mover,
+            teacher_value: 8.0,
+            outcome: Some(3.5),
+            children,
+            best: 0,
+            pairs: vec![1, 2, 3],
+        };
+        let mix = Mix::parse("baseline").unwrap();
+        let mut legacy = Model::new(patterns::generate_patterns());
+        let mut optimized = legacy.clone();
+        for _ in 0..10 {
+            let old_loss = legacy_train_step(&mut legacy, &record, mix, 0.005, 1e-5);
+            let new_loss = train_step(&mut optimized, &record, mix, 0.005, 1e-5);
+            assert_eq!(new_loss.to_bits(), old_loss.to_bits());
+            assert_eq!(optimized.to_bytes_v3(), legacy.to_bytes_v3());
+        }
+    }
 
     #[test]
     fn outcome_missing_renormalizes_remaining_terms() {
