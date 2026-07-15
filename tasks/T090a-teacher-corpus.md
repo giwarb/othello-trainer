@@ -1,7 +1,7 @@
 ---
 id: T090a
 title: Edax教師コーパス生成(smoke 1,000局面 → primary 50,000局面、全合法手teacher value付き)
-status: review # todo | in_progress | review | redo | done | blocked
+status: done # todo | in_progress | review | redo | done | blocked
 assignee: codex(gpt-5.6-sol)
 attempts: 2
 ---
