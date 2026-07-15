@@ -172,3 +172,77 @@ T090aで生成した教師コーパス(Edax level 16 / exact の全合法手評�
   checkpoints, metrics, and gate JSON remain under the existing ignored `train/data`
   area. Commit: unavailable in the Codex sandbox; orchestrator to commit the listed
   source/task files.
+
+### 2026-07-15 redo #1 implementation and final result
+
+- Corrected all child-score consumers (fixed-reference engine choice, pairwise training and
+  frozen/validation metrics) to share the engine's negamax convention: normal children use
+  `-f(child, opponent)`, opponent-pass children use `+f(child, parent mover)`, and terminal
+  children use the exact parent-perspective disc difference with no model gradient. Added
+  dedicated opponent-pass score/gradient and terminal-score tests.
+- Replaced the optional ignored-data corpus test with a generated minimal JSONL fixture that
+  always verifies deserialization, canonicalKey matching, legal children, bestValue/
+  diffFromBest consistency and limited unique pair construction. Resume now truncates rows
+  beyond the completed checkpoint and de-duplicates epoch rows in `metrics.tsv`. Invalid
+  numeric CLI arguments now return explicit errors instead of panicking.
+- WTHOR outcome policy now matches T088 test priority: outcome averages use 2015-2023 games,
+  then remove every canonical key occurring in 2024. Thus 2024 outcomes are exclusive to gate
+  (c). Teacher records may still carry Edax labels regardless of source year; only their
+  auxiliary WTHOR outcome target is omitted for a 2024-overlapping key. This policy and counts
+  are written to the manifest, and run identity was bumped to schema 4.
+- Redo smoke command (one epoch, checkpointed):
+  `cargo run -p train --release --bin train_distillation -- --corpus train/data/teacher/corpus_smoke.jsonl --checkpoint-dir train/data/t090b/redo-smoke-v2 --mixes baseline --seeds 1 --max-epochs 1 --reference-weights train/weights/pattern_v2.bin`.
+  PASS in 25.3 seconds including a 4.49-second release rebuild. Split = 890/54/56 and
+  outcome matches = 625/39/37.
+- Final primary command used a fresh schema-4 run directory:
+  `cargo run -p train --release --bin train_distillation -- --corpus train/data/teacher/corpus_primary.jsonl --checkpoint-dir train/data/t090b/primary-redo1-v2 --mixes teacher-only,baseline,no-ranking --seeds 1,2 --max-epochs 60 --reference-weights train/weights/pattern_v2.bin`.
+  All six runs completed with an epoch checkpoint and progress line after each epoch. Split =
+  train **45,055**, validation **2,363**, frozen **2,582**; 2015-2023 non-2024-overlap outcome
+  matches = **36,131 / 1,883 / 2,063**. All six `metrics.tsv` files have exactly one unique row
+  per completed epoch.
+
+| mix | seed | best epoch / epochs | validation mixed loss | validation teacher MAE | validation ranking MAE | frozen agreement | frozen mean regret | WTHOR 2024 MAE |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| teacher-only 1/0/0 | 1 | 39 / 41 | 23.550049 | 7.610597 | 13.691504 | 0.313323 | 8.251743 | 15.445753 |
+| teacher-only 1/0/0 | 2 | 38 / 38 | 23.547520 | 7.609925 | 13.688218 | 0.312936 | 8.268397 | 15.443605 |
+| baseline 0.6/0.3/0.1 | 1 | 55 / 56 | 26.759363 | 7.485589 | 9.081751 | 0.407823 | 3.961270 | 15.306156 |
+| baseline 0.6/0.3/0.1 | 2 | 58 / 59 | **26.712393** | **7.478952** | **9.056571** | **0.407049** | **3.939582** | **15.295711** |
+| no-ranking 0.7/0/0.3 | 1 | 41 / 41 | 30.896461 | 7.685079 | 13.790802 | 0.311387 | 8.284276 | 15.418285 |
+| no-ranking 0.7/0/0.3 | 2 | 38 / 38 | 30.949739 | 7.696871 | 13.820697 | 0.312548 | 8.389233 | 15.441660 |
+
+- Validation-selected candidate: baseline seed 2, PWV3, **2,729,712 bytes**, SHA-256
+  `43614bd042d1fbd53ae112efa8dac45cbf6f15356e9a6d400c0c8910e4fe398d`. The trainer,
+  engine PWV3 loader and oracle comparison loaded it successfully; it is below 8 MB.
+  - **(a) PASS**: frozen teacher best-move agreement **0.368319 -> 0.407049**
+    (+3.8730 percentage points, +10.52% relative).
+  - **(b) FAIL**: independent 18-position Edax-oracle mean regret **2.000000 -> 2.555556**
+    stones, **27.78% worse** rather than 20% better. Command:
+    `python bench/edax-compare/compare_pattern_v3.py --v2 train/weights/pattern_v2.bin --candidate train/data/t090b/primary-redo1-v2/baseline-seed-2/final.bin --output train/data/t090b/gates/oracle-redo1-v2.json`.
+  - **(c) PASS**: WTHOR 2024 MAE **14.358465 -> 15.295711**, +6.53%, within +10%.
+  - **(d) PASS**: deterministic opening/midgame 28-position depth-8 native benchmark,
+    seven runs each. v2 NPS = 814257/798179/813367/808118/814069/815194/850739;
+    candidate = 792517/780689/778849/773272/780261/781600/756414. Medians
+    **814,069 -> 780,261**, ratio **95.85%** (required >=80%).
+  - **(e) NOT RUN**: gate (b) failed, so the candidate did not qualify for the level-10
+    20-game smoke. No candidate weight is copied to `train/weights`, and T090c progression is
+    not recommended.
+- Acceptance verification:
+  - `cargo test -p train`: PASS, 36 unit tests plus 1 real-WTHOR test and doc tests. This
+    includes pairwise/mixed loss, generated corpus fixture, pass/terminal child handling,
+    canonical later-split priority and metrics resume tests.
+  - `cargo test -p engine`: initial run had one transient failure in the pre-existing
+    wall-clock-sensitive `node_limited_protocol_requests_are_deterministic` test (143,189 vs
+    160,000 nodes). The test passed alone, then the complete rerun passed **178 / 2 ignored**.
+    No engine source was changed.
+  - `cargo test -p engine --release --test ffo_bench -- --nocapture`: PASS, FFO #40-44
+    scores 38/0/6/-12/-14 unchanged, 1 passed / 1 heavy ignored, 614.833 seconds.
+  - `cargo build --release -p engine --bin eval_cli --bin calibrate_mpc`: PASS.
+  - Invalid `--seeds nope` returned exit 1 with `invalid --seeds: invalid digit found in string`.
+  - Targeted `rustfmt train/src/t090_distillation.rs` and `git diff --check`: PASS.
+- Final decision: **not adopted (normal negative experiment)** because gate (b) failed.
+  Generated checkpoints, metrics and gate JSON remain in the existing ignored `train/data`
+  area. Commit unavailable in the Codex sandbox; orchestrator should commit only the source
+  and task-log files listed in the worker handoff.
+- Final same-identity schema-4 restart reported resume epochs 41/38/56/59/41/38 for the six
+  runs and left every `metrics.tsv` with rows=unique epochs (41/38/56/59/41/38), confirming
+  resume does not repeat epochs or metric rows.
