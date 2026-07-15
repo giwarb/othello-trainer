@@ -302,3 +302,27 @@ redo#1の結論(静的順序付けだけではノード増を+30%→+28.6%程度
 
 **総合判定: 合格**(検証対象1〜8すべて確認、実行可能な項目は再実行して基準を満たすことを確認、記録項目は存在と内容の妥当性を確認)。
 
+### 2026-07-16 redo(B1修正): ルートexactパスのbest_move欠落を修正
+
+verifier合格後のClaude代替レビュー(`tasks/review/T104-endgame-shallow-solver-claude-review.md`)が重大B1を検出: ルート局面自体の空きマス数が`SHALLOW_MAX_EMPTIES`(=4)以下のとき、shallow層がTT probe/storeを一切行わないため、`search.rs`のルートexactパス2箇所(`max_nodes`なし経路・`max_nodes`ありのdepth=1後in-tree root exact経路)が`best_move: None`/`pv: []`を返す。baseline`bdb4389`は正しく`move`を返しており、これはT104が導入した回帰(実対局で`gameLoop.ts`がCPU着手不能になる、T084同種のブロッカー)。実ビルドで再現確認済み(`eval_cli best`が`move: null`)。
+
+**修正方針**: レビュー提案2「ルート呼び出しではshallow層へ委譲しない」を採用(非ルートのホットパスは完全に不変)。
+
+**実装(`engine/src/endgame.rs`)**:
+1. `negamax`のシグネチャに`is_root: bool`引数を追加(`known_hash`の直後)。shallow委譲の判定条件を`SHALLOW_ENABLED && board.empty_count() <= SHALLOW_MAX_EMPTIES`から`SHALLOW_ENABLED && !is_root && board.empty_count() <= SHALLOW_MAX_EMPTIES`に変更。
+2. 公開5関数(`solve_exact`/`solve_exact_with_nodes`/`solve_exact_bounded`/`solve_exact_bounded_with_nodes`/`solve_exact_window_limited_with_nodes`)の最外周`negamax`呼び出しのみ`is_root: true`を渡す。
+3. `negamax_child`(常に子局面を表す)の内部呼び出しは`is_root: false`固定(シグネチャ自体は変更不要、子は本質的に非ルートのため)。
+4. `negamax`自身のパス再帰呼び出し(`legal == 0`かつ相手に合法手がある場合の`-negamax(...)`)も`is_root: false`固定。ルート自身が合法手なし(パス必須)のケースは、baseline(`bdb4389`)でもTT格納前に早期returnするため元々ルート自身のTTエントリは格納されない(=この扱いはB1修正の対象外で挙動はbaselineと同じ)ことをコメントに明記。
+5. テストヘルパー`solve_with_etc`/`solve_with_seeded_child_etc`(`negamax`自体をA/Bテストする目的の関数)は`is_root: false`固定(`true`にすると空き≤4局面でshallow分岐そのものが常に無効化されテストの意味が消えるため)。
+
+**回帰テスト追加(`engine/src/search.rs`)**: `root_exact_at_shallow_empties_returns_a_legal_best_move_via_both_entry_points`。ルート空き1・2・3・4それぞれで、B1が壊していた2つのエントリポイント(`search_with_eval`=max_nodesなし経路、`search_with_eval_with_node_limit`=max_nodesありのdepth=1後in-tree root exact経路)の両方について、`best_move.is_some()`・その手が合法手・`pv`が非空・スコアが独立な`endgame::solve_exact`と一致することを検証。**テストの実効性を確認するため、`!is_root &&`を一時的に取り除いて同テストを実行し、期待どおり`empties=1`の時点でpanicすることを確認してから修正を復元した**(発火0件のまま合格しない、という自己参照防止の慣行に従う)。
+
+**検証**:
+- `cargo test -p engine --lib` 192 passed(191+新規1件)/ 0 failed / 2 ignored。`cargo test -p engine`(統合テスト込み)も同様。
+- `cargo test -p engine --release --test ffo_bench`: 全問正解、**合計nodes=641,077,417で完全不変**(ルートが空き20以上のFFOベンチには本修正が一切影響しないことを直接確認。ホットパス=非ルートの挙動を変えていないことの裏付けであり、NPS再計測は不要という指示どおり実施していない)。
+- `cargo build --release --target wasm32-unknown-unknown` 成功。
+- 実ビルドでの手動再現確認: `play_until_empties(4, first_move_strategy)`で得た局面(OBF `OOOOOOOXOOOOOOXXOOOOOXOXOOOOXOOXOOOOXOOXOOOXOXOXOOOOOOOXXXO---O-`、黒番)を`eval_cli best --depth 8 --exact-from-empties 16`に投入し、修正前は`move: null`(レビュー指摘どおり再現)、修正後は`"move":"h8"`(スコア`discDiff: -16.0`)が返ることを確認。
+- **作業中に発見・修正した副次事故**: `is_root`引数を5箇所の公開関数呼び出しへ挿入する際、Pythonスクリプトでの直接ファイル書き換え(`open(..., 'w', encoding='utf-8')`)が`engine/src/endgame.rs`の改行コードをCRLF→LF全体に変換してしまい、`git diff`が実質無関係な2845行全体を差分として検出する事故が発生した。原因(Git Bash上のPython3のテキストモード書き込みがCRLFを保持しない)を特定し、ファイル全体をCRLFへ復元(バイナリモードで`\r\n`→`\n`正規化後、`\n`→`\r\n`変換)して、意図した差分(34行)のみが残ることを確認した。以後の同ファイルへの機械的挿入は`Edit`ツール(バイト単位の差分適用、改行コード変更なし)のみを使うべき教訓として記録する。
+
+**変更ファイル**: `engine/src/endgame.rs`(+34/-1行相当、`is_root`引数の追加と5+2箇所の呼び出し更新)、`engine/src/search.rs`(+104行、回帰テスト1件追加)。他ファイルへの変更なし。
+
