@@ -1,7 +1,7 @@
 ---
 id: T101
 title: 終盤ソルバー: Exact ETC(子局面TT boundによる先行カット)
-status: in_progress # todo | in_progress | review | redo | done | blocked
+status: done # todo | in_progress | review | redo | done | blocked
 assignee: codex(gpt-5.6-sol)
 attempts: 1
 ---
