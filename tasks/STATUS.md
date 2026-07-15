@@ -25,7 +25,7 @@
 | ID | タスク | 担当 | 状態 | 試行 |
 |---|---|---|---|---|
 | T098 | 終盤ベンチ契約(C1/C2/C3)とbaseline固定 | codex(gpt-5.6-sol) | in_progress(redo#1: ハーネス不一致の再計測) | 1 |
-| T099 | 終盤: 候補生成一回化+TT move排序 | codex(gpt-5.6-sol) | in_progress | 0 |
+| T099 | 終盤: 候補生成一回化+TT move排序 | codex(gpt-5.6-sol) | review(ゲート合格: ノード同値・壁時計-21.6%) | 0 |
 
 ## 有効な方針・申し送り(今後のタスクに効くもの)
 
@@ -39,6 +39,7 @@
 - **T088の数値を引用する際の注意(Claude代替レビュー申し送り)**: 学習法改善の効果は frozen 2024 の **2.118%改善** を基準にすること。validation 12%改善は構成間でtarget定義が異なる(生 vs canonical平均)ため過大であり根拠にしない。構成1は厳密な現行再現でない(best-epoch復元が全構成適用)が判定は保守的方向。
 - **次回のベンチ校正への申し送り(T085c codex-review中所見)**: 校正用 `eval_cli` はTT 16MiB、本番WASM Engineは64MiBで容量が不一致。今後の校正では容量を統一するか校正メタデータにTT容量を明記する。
 - **T095 codex-review中指摘3件(次にt090_distillation.rsを触るタスクで対応)**: (1)破損キャッシュの件数フィールドで過大メモリ確保しうる(checked arithmetic+チェックサム推奨)、(2)mix/seed重複指定で同一checkpoint dirへ競合書き込み(CLIで重複拒否を)、(3)キャッシュ保存失敗で学習全体が失敗する(警告扱いで続行が妥当)。
+- **T098 redo#1の再生成baselineは「T099適用後ソルバー」基準になる**(redo実行時の作業ツリーにT099のendgame.rs変更が含まれるため)。T099自身のゲートはペア比較(ef9c1f1一時展開 vs T099)で判定済みで有効。T100以降は再生成baselineを比較基準にする(provenanceのエンジン版数で識別)。
 - **T096申し送り(次にcompare_pattern_v3.pyを触るタスクで対応)**: resume identityが`HEAD^{tree}`(リポジトリ全体)依存で、無関係な後続コミットでも既存チェックポイントからresumeできなくなる。関連ファイル(スクリプト・重み・corpus)のハッシュに絞るべき(codex-review中指摘)。manifestのCRLF出力もLF明示に(軽微)。
 - **既存フレーキーテスト**: `engine/src/protocol.rs` の `node_limited_protocol_requests_are_deterministic` は`cargo test -p engine`のフル並列実行時にCPU競合で非決定的に失敗しうる(T085c由来、単独実行では常にPASS)。verifierが額面失敗を報告したら、まず単独再実行で切り分けること。
 - `explain.rs`(評価内訳分解層)は旧3項ヒューリスティックのままで、パターン評価v2の表示値と理由説明がズレうる(T045 reviewer指摘、フォローアップ候補)。
