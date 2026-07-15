@@ -1,7 +1,7 @@
 ---
 id: T109
 title: 蒸留学習のデータ量スケーリング実験(学習曲線)
-status: review # todo | in_progress | review | done | blocked
+status: done # todo | in_progress | review | done | blocked
 assignee: implementer(Sonnet, Codex上限フォールバック)
 attempts: 0
 ---
