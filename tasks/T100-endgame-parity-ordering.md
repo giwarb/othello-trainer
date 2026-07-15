@@ -1,7 +1,7 @@
 ---
 id: T100
 title: 終盤ソルバー: 固定象限パリティと排序調整
-status: in_progress # todo | in_progress | review | redo | done | blocked
+status: review # todo | in_progress | review | redo | done | blocked
 assignee: codex(gpt-5.6-sol)
 attempts: 0
 ---
@@ -82,3 +82,15 @@ attempts: 0
   - fresh TT決定性: t096-exact-01、窓[27,28]、512,000 capを2回実行し、双方 score=28 / nodes=96,336 / bound=lower / completed=true。
   - `cargo build --release -p engine --bin eval_cli`、`git diff --check` — pass。
 - コミット: 未実施（Codex環境では`.git`書き込み禁止）。コミット代行対象は `engine/src/endgame.rs`。本作業ログはコミット対象外。
+
+### 2026-07-15 21:28 JST — Codex継続対応（探索経路固定テスト更新）
+
+- 実施内容:
+  - スコープ修正で許可された `engine/src/search.rs` のテスト `leaf_exact_quota_abort_continues_midgame_iteration_without_tt_domain_leak` のみを更新。`engine/src/endgame.rs` の実装本体は初回セッションから変更していない。
+  - T100排序後の新経路は `exact_leaf_attempts=2`（木内部exactを開始した2回）、`exact_aborted_by_quota=1`（局所quota切れ後に中盤探索へ継続した1回）、`exact_leaf_completed=1` / `exact_completed=true`（boundを証明して完走した1回）、ルート直下のExactドメイン格納数1（完走した子だけ）であることを確認し、assertとT089a注記を整合させた。
+  - フレッシュTTでの再実行について、従来のbest move/score/nodes/attempts/abortedに加え `exact_leaf_completed` も一致確認し、決定性検証を維持した。quota-abortした子がExactドメインを汚染しないこと、完走した子だけが格納されること、depth=2の中盤探索が完走することも引き続き検証している。
+- 実行コマンドと結果:
+  - `cargo test -p engine search::tests::leaf_exact_quota_abort_continues_midgame_iteration_without_tt_domain_leak -- --exact --nocapture` — 1 passed / 0 failed。
+  - `cargo test -p engine` — 177 passed / 0 failed / 2 ignored。既知フレーキーの `protocol::tests::node_limited_protocol_requests_are_deterministic` も今回のフル並列実行ではpass。
+  - `git diff --check` — pass。
+- コミット: 未実施（Codex環境では`.git`書き込み禁止）。コミット代行対象は `engine/src/endgame.rs` と `engine/src/search.rs`。本作業ログはコミット対象外。
