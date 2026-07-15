@@ -24,7 +24,7 @@
 
 | ID | タスク | 担当 | 状態 | 試行 |
 |---|---|---|---|---|
-| T098 | 終盤ベンチ契約(C1/C2/C3)とbaseline固定 | codex(gpt-5.6-sol) | review(codex-review中) | 0 |
+| T098 | 終盤ベンチ契約(C1/C2/C3)とbaseline固定 | codex(gpt-5.6-sol) | in_progress(redo#1: ハーネス不一致の再計測) | 1 |
 | T099 | 終盤: 候補生成一回化+TT move排序 | codex(gpt-5.6-sol) | in_progress | 0 |
 
 ## 有効な方針・申し送り(今後のタスクに効くもの)
