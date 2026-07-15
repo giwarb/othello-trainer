@@ -172,6 +172,7 @@ name = "train"
 version = "0.1.0"
 dependencies = [
  "engine",
+ "serde_json",
 ]
 
 [[package]]

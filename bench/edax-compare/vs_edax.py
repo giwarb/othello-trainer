@@ -72,6 +72,7 @@ import re
 import subprocess
 import sys
 import tempfile
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -288,6 +289,21 @@ def provenance_identity(meta: dict | None) -> dict:
     return {key: meta.get(key) for key in PROVENANCE_IDENTITY_KEYS}
 
 
+
+# T090a: primary生成(シャード並列、`gen_teacher_corpus.py`)実行中、あるシャードの
+# `corpus_primary_shard4of8.meta.json`書き込み中の`os.replace`が
+# `PermissionError: [WinError 5] アクセスが拒否されました。`で失敗し、そのシャード
+# プロセスがクラッシュする事象が発生した(ジョブ完了直前、6,240/6,250局面時点。
+# コーパスJSONL本体は1局面ごとの`flush`+`fsync`で既に書き切れており無傷、影響は
+# 進捗メタデータの最終更新のみ)。Windowsでは`os.replace`の宛先ファイルを外部プロセス
+# (人間・監視ツールによるエディタでの開閉、ウイルス対策ソフトのスキャン等)が一瞬
+# ハンドルを保持しているだけで`ERROR_ACCESS_DENIED`が起きうるため、短いリトライで
+# 十分に緩和できる(ファイル破損の心配はない: 失敗時は宛先が古いままか、リトライ後に
+# 新しい一時ファイルへ置き換わるかのいずれかで、中間状態が残ることはない)。
+_ATOMIC_REPLACE_MAX_RETRIES = 5
+_ATOMIC_REPLACE_RETRY_DELAY_S = 0.1
+
+
 def atomic_write_text(path: Path, text: str) -> None:
     """Flush and fsync a same-directory temporary file before atomic replacement."""
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -306,7 +322,14 @@ def atomic_write_text(path: Path, text: str) -> None:
             tmp.write(text)
             tmp.flush()
             os.fsync(tmp.fileno())
-        os.replace(tmp_path, path)
+        for attempt in range(1, _ATOMIC_REPLACE_MAX_RETRIES + 1):
+            try:
+                os.replace(tmp_path, path)
+                break
+            except PermissionError:
+                if attempt == _ATOMIC_REPLACE_MAX_RETRIES:
+                    raise
+                time.sleep(_ATOMIC_REPLACE_RETRY_DELAY_S * attempt)
         tmp_path = None
     finally:
         if tmp_path is not None:

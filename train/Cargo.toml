@@ -5,3 +5,7 @@ edition = "2021"
 
 [dependencies]
 engine = { path = "../engine" }
+# T090a: `bin/teacher_candidates.rs`(Edax教師コーパス生成の候補局面プール抽出)が
+# JSON出力に使う。`engine`クレートの依存を通じてビルドキャッシュには既に
+# 存在するが、Rust 2018+では明示的な依存宣言が必要なためここに追加する。
+serde_json = "1"
