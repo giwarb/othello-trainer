@@ -1,7 +1,7 @@
 ---
 id: T095
 title: 蒸留学習トレーナーの高速化(6run並列化・WTHORキャッシュ・重複計算排除)
-status: in_progress # todo | in_progress | review | done | blocked
+status: review # todo | in_progress | review | done | blocked
 assignee: codex(gpt-5.6-sol)
 attempts: 0
 ---
@@ -47,3 +47,16 @@ attempts: 0
 ## フィードバック(やり直し時にオーケストレーターが記入)
 
 ## 作業ログ(担当エージェントが追記)
+
+### 2026-07-15 16:05 JST — Codex実装
+
+- 実施内容: `train/src/t090_distillation.rs` に、論理コア数とrun数の小さい方を既定並列度とする scoped thread 実行を追加した。`--jobs N` で上限を指定でき、`--jobs 1` は従来順序の直列実行となる。run identity・run別checkpoint directory・epoch単位checkpoint/resumeは変更していない。
+- WTHORキャッシュ: 従来と同一の `wthor_hash` とスキーマversion 1をキーに、outcome mapとcanonical順のWTHOR 2024 test集合を固定little-endian形式で `train/data/t090-wthor-outcomes-v1-<hash>.bin` に保存するようにした。ヘッダmagic/schema/hash、重複key、enum値、truncation/trailing bytesを検証し、不正・不一致なら再構築する。キャッシュファイルは既存の `train/data/` gitignore規則に一致。
+- 重複計算排除: 親局面のpattern state indexから予測値と勾配を共用し、rankingのbest子局面はscoreとgradient用featuresをpairs loop外で1回だけ計算するよう変更した。勾配加算順序は維持した。
+- 等価性テスト: キャッシュのbit-preserving roundtrip・wrong-key・truncationテストと、旧 `train_step` 計算をテスト内に保持して10 stepすべてのloss bitおよびweight bytesを比較するテストを追加した。
+- smoke等価性（同一引数、1 epoch、6run）: 修正前、修正後 `--jobs 1`、修正後既定並列（jobs=6）で各runの `final.bin` SHA-256が3者一致。`teacher-only-seed-1=103AEE6E72FBF707DF42975776686E46ABE324EABABC250D07637AB0448F4169`、`teacher-only-seed-2=49D560A0A8D40F630DBE3F2755BCA946D4ACC07733FB2C8F7E01229B2C52F0E2`、`baseline-seed-1=A9F60406C7BB532C29983F5363BEA34B48C6FB8B35872B16B96F2391D450C62A`、`baseline-seed-2=F3750D28BB3FCB888FFB47778FA68A90FB1D0534CF759AF84067200552382B18`、`no-ranking-seed-1=33DD34E8D5C00ADF764AA2F339E8B312F28BB7DA01D7F9E64856E966479E0711`、`no-ranking-seed-2=0F2DF888C054D319981AEC0E16ED52E20DEC7AA627138B73EBC99DF442DF0DB2`。
+- キャッシュ実測（release smoke 6run、1 epoch、専有状態）: 初回構築+直列22.508秒、2回目cache hit+直列0.692秒（同一6runの重みは全件byte一致、wall 96.9%短縮）。cache hit+並列は0.421秒。修正前の同一smoke直列は18.792秒。
+- primary高速化実測（release、50,000 corpus、6run、最大60 epoch/early stopping、専有状態）: 修正前直列96.989秒、修正後cache hit+既定jobs=6で37.480秒、61.4%短縮。6runすべてについて修正前後の `best.bin`・`final.bin`・`metrics.tsv` のSHA-256一致を確認した。
+- 実行コマンドと結果: `cargo check -p train` 成功。`cargo test -p train` は38 passed。`cargo test -p engine` は178 passed / 既定ignored 2。`cargo test -p engine --release --test ffo_bench -- --nocapture` はFFO #40〜#44の5局面が期待score一致（1 passed / heavy 1 ignored、513.32秒）。release trainerのsmoke/primary比較実行はいずれもexit 0。
+- 任意項目4は見送り: 必須3項で61.4%短縮を達成しており、canonicalizeのbit trick化は広範な一致検証を要する追加リスクのため、数値不変を優先して今回は変更しなかった。
+- 一時成果物: `train/data/t095/` の比較checkpointはSHA確認後に削除。実運用キャッシュのみgitignore領域に保持。コミットはサンドボックス制約により未実施（オーケストレーター代行予定）。
