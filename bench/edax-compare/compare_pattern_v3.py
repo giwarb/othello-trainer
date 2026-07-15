@@ -8,6 +8,7 @@ import os
 import re
 import subprocess
 import tempfile
+import random
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -15,7 +16,7 @@ EVAL = ROOT / "target" / "release" / "eval_cli.exe"
 EDAX_DIR = ROOT / "bench" / "edax-compare" / "edax-extract"
 EDAX = EDAX_DIR / "wEdax-x86-64.exe"
 EVAL_DATA = EDAX_DIR / "data" / "eval.dat"
-CORPUS = ROOT / "bench" / "edax-compare" / "t085_exact_positions.json"
+DEFAULT_CORPUS = ROOT / "bench" / "edax-compare" / "t085_exact_positions.json"
 ROW = re.compile(r"^\s*(\d+)(?:@\d+%)?\s+([+-]?\d+)\s")
 
 
@@ -70,13 +71,39 @@ def edax_exact(position):
     return scores[-1]
 
 
-def metadata(v2, candidate):
+def metadata(v2, candidate, corpus):
     return {
-        "schema": 2, "depth": 8, "gitTree": git_tree(),
+        "schema": 3, "depth": 8, "gitTree": git_tree(),
         "v2Sha256": digest(v2), "candidateSha256": digest(candidate),
         "evalCliSha256": digest(EVAL), "edaxSha256": digest(EDAX),
-        "edaxEvalSha256": digest(EVAL_DATA), "corpusSha256": digest(CORPUS),
+        "edaxEvalSha256": digest(EVAL_DATA), "corpusSha256": digest(corpus),
     }
+
+
+def paired_bootstrap(state, seed, samples):
+    by_label = {result["label"]: {row["id"]: row for row in result["rows"]}
+                for result in state["results"]}
+    ids = sorted(by_label["v2"])
+    if ids != sorted(by_label["candidate"]):
+        raise RuntimeError("paired bootstrap requires identical completed position ids")
+    differences = [by_label["candidate"][key]["regret"] - by_label["v2"][key]["regret"]
+                   for key in ids]
+    rng = random.Random(seed)
+    means = sorted(sum(rng.choice(differences) for _ in differences) / len(differences)
+                   for _ in range(samples))
+
+    def percentile(fraction):
+        return means[round(fraction * (len(means) - 1))]
+
+    lower, upper = percentile(0.025), percentile(0.975)
+    classification = ("candidate_worse" if lower > 0 else
+                      "candidate_improved" if upper < 0 else "no_significant_difference")
+    return {"method": "paired bootstrap percentile CI", "unit": "position",
+            "difference": "candidate mean regret - v2 mean regret", "seed": seed,
+            "samples": samples, "positions": len(ids),
+            "meanDifference": sum(differences) / len(differences),
+            "confidenceLevel": 0.95, "ci95": [lower, upper],
+            "classification": classification}
 
 
 def main():
@@ -84,12 +111,14 @@ def main():
     parser.add_argument("--v2", type=Path, required=True)
     parser.add_argument("--candidate", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--corpus", type=Path, default=DEFAULT_CORPUS)
+    parser.add_argument("--bootstrap-seed", type=int, default=96002)
+    parser.add_argument("--bootstrap-samples", type=int, default=100000)
     parser.add_argument("--stop-after", type=int)
     args = parser.parse_args()
-    positions = [p for p in json.loads(CORPUS.read_text(encoding="utf-8"))["positions"]
-                 if "oracleScore" in p]
-    identity = metadata(args.v2, args.candidate)
-    state = {"metadata": identity, "positions": len(positions), "results": [
+    positions = json.loads(args.corpus.read_text(encoding="utf-8"))["positions"]
+    identity = metadata(args.v2, args.candidate, args.corpus)
+    state = {"metadata": identity, "positions": len(positions), "oracleRows": [], "results": [
         {"label": "v2", "weights": str(args.v2), "rows": []},
         {"label": "candidate", "weights": str(args.candidate), "rows": []},
     ]}
@@ -98,6 +127,19 @@ def main():
         if state.get("metadata") != identity:
             raise RuntimeError("resume identity mismatch; refusing stale checkpoint")
     processed = 0
+    completed_oracles = {row["id"]: row for row in state.get("oracleRows", [])}
+    for position in positions:
+        if position["id"] in completed_oracles:
+            continue
+        score = edax_exact(position)
+        state.setdefault("oracleRows", []).append({"id": position["id"], "oracleScore": score})
+        atomic_json(args.output, state)
+        processed += 1
+        print(f'oracle {len(state["oracleRows"])}/{len(positions)} {position["id"]} score={score}', flush=True)
+        if args.stop_after is not None and processed >= args.stop_after:
+            print("intentional checkpoint stop", flush=True)
+            return
+    oracle_scores = {row["id"]: row["oracleScore"] for row in state["oracleRows"]}
     for result, weights in zip(state["results"], (args.v2, args.candidate)):
         completed = {row["id"] for row in result["rows"]}
         for position in positions:
@@ -107,7 +149,7 @@ def main():
             child = apply_move(position, move)
             child_score = edax_exact(child)
             move_value = child_score if child["side_to_move"] == position["side_to_move"] else -child_score
-            regret = position["oracleScore"] - move_value
+            regret = oracle_scores[position["id"]] - move_value
             result["rows"].append({"id": position["id"], "move": move,
                                    "moveValue": move_value, "regret": regret})
             result["meanRegret"] = sum(row["regret"] for row in result["rows"]) / len(result["rows"])
@@ -118,7 +160,10 @@ def main():
             if args.stop_after is not None and processed >= args.stop_after:
                 print("intentional checkpoint stop", flush=True)
                 return
-    print(json.dumps({r["label"]: r["meanRegret"] for r in state["results"]}))
+    state["statistics"] = paired_bootstrap(state, args.bootstrap_seed, args.bootstrap_samples)
+    atomic_json(args.output, state)
+    print(json.dumps({**{r["label"]: r["meanRegret"] for r in state["results"]},
+                      "statistics": state["statistics"]}))
 
 
 if __name__ == "__main__":
