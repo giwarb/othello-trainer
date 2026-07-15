@@ -29,16 +29,51 @@
 //!
 //! # 探索アルゴリズム
 //!
-//! negamax + fail-soft alpha-beta。[`crate::tt::TranspositionTable`] を使い、
-//! 局面 (盤面+手番) の [`crate::zobrist::zobrist_hash`] をキーにして
-//! 探索結果をキャッシュする(NWSではなく通常のalpha-beta窓で実装しているが、
-//! TTによる枝刈り自体はNWS的な再探索にも十分効く)。
+//! negamax + fail-soft alpha-beta + NWS中心のPVS構造(T103)。
+//! [`crate::tt::TranspositionTable`] を使い、局面 (盤面+手番) の
+//! [`crate::zobrist::zobrist_hash`] をキーにして探索結果をキャッシュする。
 //! 着手順序は「TT move → 隅 → 着手後の相手の合法手数が少ない順 →
 //! static square class (通常/X・C) → 固定4象限パリティ(奇数優先) → マス番号」
 //! という決定的なヒューリスティックで並べ替える(空きマス数によらず全体に
 //! 適用する)。
 //! 安定石による静的カットや、空き4/3/2/1のハードコード専用関数は
-//! 本実装では行わない(T006のスコープ外、あれば高速化に寄与するのみ)。
+//! 本実装では行わない(T006のスコープ外、T102は不採用。あれば高速化に
+//! 寄与するのみ)。
+//!
+//! # NWS中心のPVS構造 (T103)
+//!
+//! `negamax` の子局面探索は次のように分岐する。
+//!
+//! - 呼び出し窓が既に狭い(`beta - alpha <= 1`)場合は、全ての兄弟手を
+//!   その窓のまま探索する(これ自体が null window search = NWS であり、
+//!   別途分岐する必要がない)。
+//! - 呼び出し窓が広い(full window)場合、最初の候補だけは通常の
+//!   `(-beta, -alpha)` 窓で探索する(Principal Variation)。2手目以降は
+//!   まず null window `(-(alpha+1), -alpha)` で「この手が現在のalphaを
+//!   上回れないこと」の反証を試み、`alpha < score < beta` の場合
+//!   (=反証に失敗し、実際にPVを超える可能性がある場合)だけ通常窓で
+//!   再探索する。null windowがfail-low/fail-highした場合はその
+//!   fail-soft値をそのまま使う(再探索しない)。
+//! - 子の探索(null window探索・再探索のいずれも)が時間/ノード予算切れで
+//!   打ち切られた場合、その呼び出しの戻り値は一切使わず(alpha/betaとの
+//!   比較にも用いず)、直ちに`0`を返して自身の置換表格納もスキップする
+//!   (T034からの既存契約をPVSの各分岐に維持する。設計レポート§7
+//!   「abortされた第一探索の値の再利用バグ」対策)。
+//! - 2刻み窓最適化(最終石差の偶奇を利用したnull window幅の調整)は
+//!   行わない(centi-disc丸めとの相互作用を避けるため。設計レポート§3.2)。
+//!
+//! ## `alpha_orig` / `beta_orig`(TT格納bound判定用の呼び出し時窓)
+//!
+//! `negamax`はTT probeで得た既存のLower/Upper boundを使い、ローカルな
+//! `alpha`/`beta`を(呼び出し時の値よりも)狭めてから子の探索に使うことが
+//! ある。これは健全な最適化だが(TTが保証する既知の下限/上限を起点に
+//! するだけで、真の最適値の探索範囲は変わらない)、探索結果をTTへ
+//! 格納する際のbound種別(Exact/Lower/Upper)は、この**内部的に狭めた後の
+//! 窓ではなく、関数が呼び出された時点の元々の窓**(`alpha_orig`/
+//! `beta_orig`、TT probeより前に確定させる)を基準に判定しなければならない
+//! (設計レポート§3.2・§7)。内部的に狭めた窓を基準に判定すると、実際には
+//! (呼び出し元が要求した広い窓に対して)Exactなはずの値をUpperとして
+//! 過小に報告してしまう。
 //!
 //! # 固定4象限パリティベース着手順序付け (T100)
 //!
@@ -81,6 +116,10 @@ const ETC_MIN_EMPTIES: u32 = 15;
 std::thread_local! {
     static TEST_ETC_MIN_EMPTIES: std::cell::Cell<Option<u32>> = const { std::cell::Cell::new(None) };
     static TEST_ETC_CUTOFFS: std::cell::Cell<u64> = const { std::cell::Cell::new(0) };
+    // T103: PVSのfull-window再探索(null windowの反証に失敗し、通常窓で
+    // 取り直した回数)を数える。「再探索経路が実際に通った」ことをテストで
+    // 確認するためのテスト専用テレメトリで、本番探索の挙動には一切影響しない。
+    static TEST_RESEARCH_COUNT: std::cell::Cell<u64> = const { std::cell::Cell::new(0) };
 }
 
 fn etc_min_empties() -> u32 {
@@ -94,6 +133,11 @@ fn etc_min_empties() -> u32 {
 #[cfg(test)]
 fn record_etc_cutoff() {
     TEST_ETC_CUTOFFS.set(TEST_ETC_CUTOFFS.get() + 1);
+}
+
+#[cfg(test)]
+fn record_pvs_research() {
+    TEST_RESEARCH_COUNT.set(TEST_RESEARCH_COUNT.get() + 1);
 }
 
 /// 通常入口はETC on。テストは`negamax::<false>`を直接選び、公開APIや
@@ -464,6 +508,46 @@ impl TimeBudget {
 /// 抑えつつ、数msのオーダーで超過を検出する)。
 const TIME_CHECK_NODE_INTERVAL: u64 = 1024;
 
+/// `negamax`の子局面を1つ探索する薄いラッパー(T103)。
+///
+/// `MoveInfo`から子盤面・子象限パリティ・子hash(ETC対象時のみ)を組み立て、
+/// 手番を反転して`negamax`を呼び、符号反転した子手番視点の値を返す。
+/// full-window探索と、PVSのnull window探索・条件付き再探索のいずれからも
+/// 同じ組み立てロジックを再利用するために切り出した(重複した引数構築を
+/// 避けるだけで、探索アルゴリズム自体はここでは何も変えない)。
+#[allow(clippy::too_many_arguments)]
+fn negamax_child<const ETC_ENABLED: bool>(
+    move_info: &MoveInfo,
+    side: Side,
+    quadrant_parity: u8,
+    etc_eligible: bool,
+    child_alpha: i32,
+    child_beta: i32,
+    tt: &mut TranspositionTable,
+    nodes: &mut u64,
+    budget: Option<TimeBudget>,
+    node_limit: Option<u64>,
+    timed_out: &mut bool,
+) -> i32 {
+    -negamax::<ETC_ENABLED>(
+        &move_info.next_board,
+        side.opposite(),
+        quadrant_parity ^ QUADRANT_ID[move_info.square as usize],
+        if etc_eligible {
+            Some(move_info.child_hash)
+        } else {
+            None
+        },
+        child_alpha,
+        child_beta,
+        tt,
+        nodes,
+        budget,
+        node_limit,
+        timed_out,
+    )
+}
+
 /// negamax + fail-soft alpha-beta + TT による完全読み本体。
 ///
 /// `alpha` / `beta` は `side` から見た石差の窓。
@@ -514,6 +598,11 @@ fn negamax<const ETC_ENABLED: bool>(
     }
 
     let hash = known_hash.unwrap_or_else(|| zobrist_hash(board, side));
+    // T103: TT probeでローカルな探索窓を狭める**前**の、呼び出し時点の窓を
+    // 保存する。TT格納時のbound判定は必ずこちらを使う(モジュール冒頭の
+    // 「alpha_orig / beta_orig」ドキュメント参照)。
+    let alpha_orig = alpha;
+    let beta_orig = beta;
     let mut alpha = alpha;
     let mut beta = beta;
 
@@ -535,7 +624,6 @@ fn negamax<const ETC_ENABLED: bool>(
         }
     }
 
-    let alpha_orig = alpha;
     let legal = board.legal_moves(side);
 
     if legal == 0 {
@@ -626,25 +714,69 @@ fn negamax<const ETC_ENABLED: bool>(
 
     let mut best_score = i32::MIN;
     let mut best_move: Option<u8> = None;
+    // 呼び出し窓が既に狭い場合、以下のPVS分岐(1手目full window→2手目以降
+    // null window→条件付き再探索)は数学的に単一窓ループと同じ結果になる
+    // (null windowの反証条件`alpha < score < beta`が常に偽になるため)。
+    // 無駄な分岐を避け、そのまま単一窓で探索する(モジュール冒頭の
+    // 「NWS中心のPVS構造」ドキュメント参照)。
+    let narrow_window = beta - alpha <= 1;
 
-    for move_info in &moves[..move_count] {
-        let score = -negamax::<ETC_ENABLED>(
-            &move_info.next_board,
-            side.opposite(),
-            quadrant_parity ^ QUADRANT_ID[move_info.square as usize],
-            if etc_eligible {
-                Some(move_info.child_hash)
+    for (index, move_info) in moves[..move_count].iter().enumerate() {
+        let score = if narrow_window || index == 0 {
+            negamax_child::<ETC_ENABLED>(
+                move_info,
+                side,
+                quadrant_parity,
+                etc_eligible,
+                -beta,
+                -alpha,
+                tt,
+                nodes,
+                budget,
+                node_limit,
+                timed_out,
+            )
+        } else {
+            // まずnull window `(-(alpha+1), -alpha)` でこの手が現在のalphaを
+            // 上回れないことの反証を試みる。
+            let null_score = negamax_child::<ETC_ENABLED>(
+                move_info,
+                side,
+                quadrant_parity,
+                etc_eligible,
+                -(alpha + 1),
+                -alpha,
+                tt,
+                nodes,
+                budget,
+                node_limit,
+                timed_out,
+            );
+            if *timed_out {
+                // 打ち切られた探索の戻り値は一切使わない(T034/T103契約)。
+                return 0;
+            }
+            if null_score > alpha && null_score < beta {
+                // 反証に失敗した(=alphaを上回りうる): 通常窓で再探索する。
+                #[cfg(test)]
+                record_pvs_research();
+                negamax_child::<ETC_ENABLED>(
+                    move_info,
+                    side,
+                    quadrant_parity,
+                    etc_eligible,
+                    -beta,
+                    -alpha,
+                    tt,
+                    nodes,
+                    budget,
+                    node_limit,
+                    timed_out,
+                )
             } else {
-                None
-            },
-            -beta,
-            -alpha,
-            tt,
-            nodes,
-            budget,
-            node_limit,
-            timed_out,
-        );
+                null_score
+            }
+        };
 
         if *timed_out {
             // 子の探索が時間切れで打ち切られた: このノードの計算は不完全
@@ -664,9 +796,12 @@ fn negamax<const ETC_ENABLED: bool>(
         }
     }
 
+    // T103: 呼び出し時点の窓(alpha_orig/beta_orig)を基準にbound判定する
+    // (TT probeでローカルに狭めた後のalpha/betaを使わない。モジュール冒頭の
+    // ドキュメント参照)。
     let bound = if best_score <= alpha_orig {
         Bound::Upper
-    } else if best_score >= beta {
+    } else if best_score >= beta_orig {
         Bound::Lower
     } else {
         Bound::Exact
@@ -1113,6 +1248,208 @@ mod tests {
                 );
             }
         }
+    }
+
+    // ------------------------------------------------------------------
+    // T103: NWS中心のPVS構造の回帰テスト。
+    // ------------------------------------------------------------------
+    //
+    // `negamax`の子局面探索は「1手目は通常窓、2手目以降はnull windowで
+    // 反証を試み、失敗時のみ通常窓で再探索する」というPVS構造になった
+    // (モジュール冒頭「NWS中心のPVS構造 (T103)」ドキュメント参照)。
+    // 以下のテストは、(1) full window・fail-high狭窓・fail-low狭窓の
+    // いずれでも独立実装のnaive_solveと一致すること、(2) TTへ格納される
+    // bound種別が呼び出し窓(alpha_orig/beta_orig)を基準に正しく
+    // 判定されること、(3) PVSの全窓再探索経路が実際に発火すること
+    // (発火0件のままpassしない)を検証する。
+
+    #[test]
+    fn pvs_full_and_narrow_windows_match_naive_reference_with_research_firing() {
+        TEST_RESEARCH_COUNT.set(0);
+
+        let mut checked_full_against_naive = 0usize;
+        let mut checked_narrow_against_naive = 0usize;
+        let mut pass_positions = 0usize;
+        let mut deep_full_window_checks = 0usize;
+
+        for seed in 1..=40u64 {
+            for (board, side) in random_small_positions(seed) {
+                if board.legal_moves(side) == 0 && board.legal_moves(side.opposite()) != 0 {
+                    pass_positions += 1;
+                }
+
+                let hash = zobrist_hash(&board, side);
+
+                if board.empty_count() <= 6 {
+                    // naive_solveは枝刈りなしの全探索のため、コストを抑える
+                    // ため空き6以下に限定する(既存
+                    // `solve_exact_matches_naive_reference_on_small_positions`
+                    // と同じ制約)。
+                    let truth = naive_solve(&board, side);
+
+                    let mut tt_full = TranspositionTable::new(4);
+                    let full = solve_exact_window_limited_with_nodes(
+                        &board, side, -64, 64, &mut tt_full, None, None,
+                    );
+                    assert_eq!(full.score, Some(truth), "full window mismatch");
+                    // 空き0(既に終局)・パス局面(手番側に合法手がない)は
+                    // `negamax`がTT probe/storeの手前で早期returnするため、
+                    // TTへは何も格納されない(モジュール冒頭ドキュメント・
+                    // T034の既存契約どおり)。これらの局面ではTTエントリの
+                    // 存在自体をアサートしない。
+                    if board.empty_count() > 0 && board.legal_moves(side) != 0 {
+                        let full_entry = tt_full
+                            .probe(hash, TTDomain::Exact)
+                            .expect("full-window solve should store a TT entry for the root");
+                        assert_eq!(full_entry.bound, Bound::Exact);
+                        assert_eq!(full_entry.score, truth);
+                    }
+                    checked_full_against_naive += 1;
+
+                    if board.legal_moves(side).count_ones() > 1 {
+                        let mut tt_fh = TranspositionTable::new(4);
+                        let fail_high = solve_exact_window_limited_with_nodes(
+                            &board,
+                            side,
+                            truth - 1,
+                            truth,
+                            &mut tt_fh,
+                            None,
+                            None,
+                        );
+                        assert_eq!(fail_high.score, Some(truth), "fail-high window mismatch");
+                        let fh_entry = tt_fh
+                            .probe(hash, TTDomain::Exact)
+                            .expect("fail-high solve should store a TT entry for the root");
+                        assert_eq!(fh_entry.bound, Bound::Lower);
+                        assert_eq!(fh_entry.score, truth);
+
+                        let mut tt_fl = TranspositionTable::new(4);
+                        let fail_low = solve_exact_window_limited_with_nodes(
+                            &board,
+                            side,
+                            truth,
+                            truth + 1,
+                            &mut tt_fl,
+                            None,
+                            None,
+                        );
+                        assert_eq!(fail_low.score, Some(truth), "fail-low window mismatch");
+                        let fl_entry = tt_fl
+                            .probe(hash, TTDomain::Exact)
+                            .expect("fail-low solve should store a TT entry for the root");
+                        assert_eq!(fl_entry.bound, Bound::Upper);
+                        assert_eq!(fl_entry.score, truth);
+
+                        checked_narrow_against_naive += 1;
+                    }
+                } else {
+                    // 空き7〜10: naive比較は計算量的に行わないが、full windowで
+                    // 解くことでPVS(null window→条件付き再探索)が実際に動く
+                    // より大きな木を増やす。
+                    let mut tt = TranspositionTable::new(8);
+                    let outcome = solve_exact_window_limited_with_nodes(
+                        &board, side, -64, 64, &mut tt, None, None,
+                    );
+                    assert!(outcome.score.is_some());
+                    deep_full_window_checks += 1;
+                }
+            }
+        }
+
+        // 空き12前後のより深い局面も追加し、再探索が発火する木を増やす
+        // (naive比較は計算量的に行わない。既存の
+        // `solve_exact_completes_within_a_few_seconds_for_around_twelve_empties`
+        // と同じ規模)。
+        for strategy in [first_move_strategy, last_move_strategy, middle_move_strategy] {
+            let (board, side) = play_until_empties(12, strategy);
+            let mut tt = TranspositionTable::new(16);
+            let outcome =
+                solve_exact_window_limited_with_nodes(&board, side, -64, 64, &mut tt, None, None);
+            assert!(outcome.score.is_some());
+            deep_full_window_checks += 1;
+        }
+
+        assert!(
+            checked_full_against_naive >= 100,
+            "expected at least 100 full-window naive-checked positions, got {checked_full_against_naive}"
+        );
+        assert!(
+            checked_narrow_against_naive >= 40,
+            "expected at least 40 narrow-window naive-checked positions, got {checked_narrow_against_naive}"
+        );
+        assert!(deep_full_window_checks > 0);
+        assert!(
+            pass_positions > 0,
+            "expected at least one pass position among the sampled boards"
+        );
+
+        let research_count = TEST_RESEARCH_COUNT.get();
+        assert!(
+            research_count > 0,
+            "expected the PVS full-window re-search path to fire at least once, got 0"
+        );
+    }
+
+    #[test]
+    fn quota_abort_does_not_store_root_hash_in_exact_tt_through_pvs_path() {
+        // T103: abortされた探索(null window探索・全窓再探索のいずれで
+        // 打ち切られた場合も含む)の戻り値は使わず、置換表にも格納しない
+        // という契約(T034)がPVS化後も守られていることを、複数合法手を
+        // 持つ(=full windowでPVS分岐が実際に選択される)局面で確認する。
+        let mut checked = 0usize;
+
+        for seed in 1..=16u64 {
+            for (board, side) in random_small_positions(seed) {
+                if board.empty_count() < 6 || board.legal_moves(side).count_ones() < 2 {
+                    continue;
+                }
+
+                let hash = zobrist_hash(&board, side);
+
+                let mut tt_probe = TranspositionTable::new(4);
+                let (_, total_nodes) = solve_exact_with_nodes(&board, side, &mut tt_probe);
+                if total_nodes < 4 {
+                    continue;
+                }
+                let node_limit = (total_nodes / 2).max(1);
+
+                let mut tt = TranspositionTable::new(4);
+                let outcome = solve_exact_window_limited_with_nodes(
+                    &board,
+                    side,
+                    -64,
+                    64,
+                    &mut tt,
+                    None,
+                    Some(node_limit),
+                );
+                assert_eq!(
+                    outcome.score, None,
+                    "expected a node budget of half the full node count to abort the search"
+                );
+                assert_eq!(outcome.abort_reason, Some(AbortReason::ExactQuota));
+                assert!(
+                    tt.probe(hash, TTDomain::Exact).is_none(),
+                    "an aborted root search must not store a (partial) entry for its own hash"
+                );
+
+                // 同じttを使い回して打ち切りなしで解いても、フレッシュなttで
+                // 解いた場合と完全に同じ答えになる(打ち切られた探索が
+                // 何らかの不完全なエントリを残していないことの間接確認)。
+                let resumed = solve_exact(&board, side, &mut tt);
+                let mut tt_fresh = TranspositionTable::new(4);
+                let fresh = solve_exact(&board, side, &mut tt_fresh);
+                assert_eq!(resumed, fresh);
+
+                checked += 1;
+            }
+        }
+
+        assert!(
+            checked >= 8,
+            "expected several multi-move positions to exercise the quota-abort path through PVS, got {checked}"
+        );
     }
 
     /// `solve_exact(board, Black) == -solve_exact(board, White)` という等式は、

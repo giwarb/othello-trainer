@@ -3380,10 +3380,15 @@ mod tests {
         // 設計、T085a)が以前より多く残った状態で後続の子のexact試行に
         // 入れるようになり、そのうち1子は実際に完全読みが**完走**する
         // ようになった。さらにT100の終盤排序変更後は同じ1子の完走と1子の
-        // quota-abortを2回の試行で再現する(`exact_leaf_attempts==2`,
+        // quota-abortを2回の試行で再現していた(`exact_leaf_attempts==2`,
         // `exact_leaf_completed==1`, `exact_aborted_by_quota==1`)。
+        // T103(NWS中心のPVS構造への移行)で終盤ソルバー1回あたりの
+        // ノード消費がさらに減った結果、同じ共有quotaの中でより多くの子が
+        // exactを試みられるようになり、4回の試行のうち3子が完走・1子が
+        // quota-abortする(`exact_leaf_attempts==4`,
+        // `exact_leaf_completed==3`, `exact_aborted_by_quota==1`)。
         // これは探索が改善した結果であり
-        // (完走した1子については、静的評価による近似ではなく証明済みの
+        // (完走した子については、静的評価による近似ではなく証明済みの
         // 石差を得ている)、T089aの絶対条件である「探索結果(best move/
         // score)を変えないこと」は、あくまで**同一の`SearchLimit`/
         // `max_nodes`設定に対してaspiration+historyを有効/無効で切り替え
@@ -3411,12 +3416,12 @@ mod tests {
         let mut tt = TranspositionTable::new(16);
         let result = search_with_eval_with_node_limit(&board, side, &limit, &mut tt, None, 240_000);
 
-        assert_eq!(result.exact_leaf_attempts, 2);
+        assert_eq!(result.exact_leaf_attempts, 4);
         assert_eq!(result.exact_aborted_by_quota, 1);
-        assert_eq!(result.exact_leaf_completed, 1);
+        assert_eq!(result.exact_leaf_completed, 3);
         assert!(
             result.exact_completed,
-            "one of the two leaf-exact attempts should complete under the T100 move order"
+            "three of the four leaf-exact attempts should complete under the T103 PVS solver"
         );
         assert_eq!(result.last_completed_depth, 2);
         assert_eq!(result.fallback_reason, Some(AbortReason::ExactQuota));
@@ -3445,11 +3450,14 @@ mod tests {
         assert!(tt.probe(root_hash, TTDomain::Exact).is_none());
 
         // TTドメイン分離(T085a)の安全性: quota-abortした/そもそも
-        // exactを試みなかった子はExactドメインへ格納されず(中断した
-        // 不完全な結果でExactを汚染しない)、実際に完走した子だけが
-        // Exactドメインに格納される。`exact_leaf_attempts=2`の内訳は
-        // `exact_leaf_completed=1`と`exact_aborted_by_quota=1`なので、
-        // Exactドメインを持つ子は完走したちょうど1つだけのはず。
+        // exactを試みなかった局面はExactドメインへ格納されず(中断した
+        // 不完全な結果でExactを汚染しない)。T103時点の
+        // `exact_leaf_attempts=4`(完走3・quota-abort1)のうち、root直下の
+        // 子のTT(depth=2固定探索の子=ply1)に実測でExactドメインとして
+        // 格納されているのは2つ(残り1回の完走はより深い子孫局面に
+        // 格納されており、`exact_leaf_completed`の総数と1対1に対応する
+        // とは限らない)。いずれにせよaborted/unattemptedな局面が
+        // Exactドメインへ漏れていないことが本アサーションの主眼。
         let mut legal = board.legal_moves(side);
         let mut midgame_children = 0;
         let mut exact_children = 0;
@@ -3467,8 +3475,8 @@ mod tests {
         }
         assert!(midgame_children > 0);
         assert_eq!(
-            exact_children, 1,
-            "exactly the one leaf-exact attempt that actually completed should be stored under \
+            exact_children, 2,
+            "only children with a genuinely completed leaf-exact solve should be stored under \
              TTDomain::Exact; aborted/unattempted children must not leak into the Exact domain"
         );
     }
