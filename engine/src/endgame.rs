@@ -33,31 +33,19 @@
 //! 局面 (盤面+手番) の [`crate::zobrist::zobrist_hash`] をキーにして
 //! 探索結果をキャッシュする(NWSではなく通常のalpha-beta窓で実装しているが、
 //! TTによる枝刈り自体はNWS的な再探索にも十分効く)。
-//! 着手順序は「隅優先 → 着手後の相手の合法手数が少ない順 → 空き領域パリティ
-//! (奇数優先、同着時のタイブレークのみ)」というヒューリスティックで並べ替える
-//! (空きマス数によらず全体に適用する)。パリティ部分はT052で追加した
-//! ([`empty_region_sizes`]参照)。
+//! 着手順序は「TT move → 隅 → 着手後の相手の合法手数が少ない順 →
+//! static square class (通常/X・C) → 固定4象限パリティ(奇数優先) → マス番号」
+//! という決定的なヒューリスティックで並べ替える(空きマス数によらず全体に
+//! 適用する)。
 //! 安定石による静的カットや、空き4/3/2/1のハードコード専用関数は
 //! 本実装では行わない(T006のスコープ外、あれば高速化に寄与するのみ)。
 //!
-//! # パリティベース着手順序付け (T052)
+//! # 固定4象限パリティベース着手順序付け (T100)
 //!
-//! オセロの終盤完全読みでは、空きマスを「隣接する空きマス同士を同じ領域と
-//! みなすフラッドフィル(上下左右4方向連結)」で連結領域に分割し、各領域の
-//! 空きマス数の奇偶(パリティ)を着手順序のヒントに使うと、アルファベータの
-//! 枝刈り効率が上がることが経験的に知られている(Edaxの`src/endgame.c`の
-//! `QUADRANT_ID`関連ロジックが同種のアイデアを固定象限で近似する版)。
-//! 本実装は固定象限ではなく実際のフラッドフィル領域を使う、より素朴な版。
-//! [`empty_region_sizes`]が現局面の空きマスをこの方法で連結領域分割し、
-//! 各空きマスについて「そのマスが属する領域の空きマス数」を返す。
-//!
-//! **パリティを着手順序のどの優先度に置くかは実測で決めた(T052作業ログ参照)**:
-//! 隅優先の次に(=相手の着手後合法手数より高い優先度で)パリティを適用すると、
-//! 既存のモビリティ順(相手の合法手数が少ない順)という強い情報を上書きして
-//! しまい、FFO #40でノード数が約13%増加するという明確な悪化が実測で確認された。
-//! そのため最終的には、モビリティ順を維持したまま、**同じモビリティ値を持つ
-//! 候補手同士の同着時のタイブレークとしてのみ**パリティ(奇数優先)を使う
-//! 構成を採用している([`negamax`]のソートキーの3番目の要素)。
+//! 盤面を a1-d4/e1-h4/a5-d8/e5-h8 の4象限に固定分割し、各象限の空きマス
+//! 数が奇数かを`u8`の4bitで保持する。ルートで一度だけ算出し、着手ごとに
+//! [`QUADRANT_ID`]の該当bitをXORして子へ渡すため、再帰中のflood fillは行わない。
+//! T052の実測を踏まえ、パリティは相手mobilityとsquare classより下位に置く。
 //! **着手順序を変えるだけで、探索結果(最終的な評価値)には一切影響しない**
 //! (通常のアルファベータ探索において、より良い手を先に読むほど枝刈りが
 //! 効くという性質を利用した高速化)。
@@ -75,6 +63,49 @@ use web_time::Instant;
 /// ビットとマスの対応は `bitboard.rs` 冒頭のドキュメントを参照
 /// (index = rank0*8 + file なので a1=0, h1=7, a8=56, h8=63)。
 const CORNER_MASK: u64 = (1u64 << 0) | (1u64 << 7) | (1u64 << 56) | (1u64 << 63);
+const X_SQUARE_MASK: u64 = (1u64 << 9) | (1u64 << 14) | (1u64 << 49) | (1u64 << 54);
+const C_SQUARE_MASK: u64 = (1u64 << 1)
+    | (1u64 << 8)
+    | (1u64 << 6)
+    | (1u64 << 15)
+    | (1u64 << 57)
+    | (1u64 << 48)
+    | (1u64 << 62)
+    | (1u64 << 55);
+
+const fn make_quadrant_ids() -> [u8; 64] {
+    let mut ids = [0u8; 64];
+    let mut square = 0usize;
+    while square < 64 {
+        let file_half = if square % 8 >= 4 { 1 } else { 0 };
+        let rank_half = if square / 8 >= 4 { 2 } else { 0 };
+        ids[square] = 1u8 << (file_half + rank_half);
+        square += 1;
+    }
+    ids
+}
+
+/// 各マスが属する固定象限を示すone-hot bit。
+const QUADRANT_ID: [u8; 64] = make_quadrant_ids();
+
+fn initial_quadrant_parity(board: &Board) -> u8 {
+    let mut parity = 0u8;
+    let mut empties = !(board.black | board.white);
+    while empties != 0 {
+        let square = empties.trailing_zeros() as usize;
+        parity ^= QUADRANT_ID[square];
+        empties &= empties - 1;
+    }
+    parity
+}
+
+fn square_class(mv: u64) -> u8 {
+    if mv & (X_SQUARE_MASK | C_SQUARE_MASK) != 0 {
+        1
+    } else {
+        0
+    }
+}
 
 /// Precomputed child position and ordering data for one legal endgame move.
 /// The move list uses a fixed-size stack buffer because a board has only 64 squares.
@@ -86,7 +117,8 @@ struct MoveInfo {
     next_board: Board,
     opp_mobility: u32,
     is_corner: bool,
-    is_even_parity: bool,
+    square_class: u8,
+    is_odd_quadrant: bool,
     is_tt_move: bool,
 }
 
@@ -98,89 +130,21 @@ impl MoveInfo {
         next_board: Board { black: 0, white: 0 },
         opp_mobility: 0,
         is_corner: false,
-        is_even_parity: false,
+        square_class: 0,
+        is_odd_quadrant: false,
         is_tt_move: false,
     };
 
-    fn sort_key(self) -> (u8, u8, u32, u8, u8) {
+    fn sort_key(self) -> (u8, u8, u32, u8, u8, u8) {
         (
             if self.is_tt_move { 0 } else { 1 },
             if self.is_corner { 0 } else { 1 },
             self.opp_mobility,
-            if self.is_even_parity { 1 } else { 0 },
+            self.square_class,
+            if self.is_odd_quadrant { 0 } else { 1 },
             self.square,
         )
     }
-}
-
-// パリティベース着手順序付け(T052)で使う、空きマスの連結領域分割
-// (flood fill)のための上下左右4方向シフト。`bitboard.rs`の
-// `shift_n`/`shift_s`/`shift_e`/`shift_w`(斜め方向含む8方向版)と同じ
-// 考え方だが、あちらは非公開かつ8方向版なので、ここでは4方向のみの
-// 版を`endgame.rs`内に独立して用意する(モジュール分割を増やさないため。
-// タスクの変更対象は`endgame.rs`のみ)。
-const FILE_A: u64 = 0x0101_0101_0101_0101;
-const FILE_H: u64 = 0x8080_8080_8080_8080;
-
-fn shift_n(x: u64) -> u64 {
-    x >> 8
-}
-
-fn shift_s(x: u64) -> u64 {
-    x << 8
-}
-
-fn shift_e(x: u64) -> u64 {
-    (x << 1) & !FILE_A
-}
-
-fn shift_w(x: u64) -> u64 {
-    (x >> 1) & !FILE_H
-}
-
-/// マスク`mask`の各ビットについて、上下左右4方向の隣接マスを合わせた
-/// ビットマスクを返す(`mask`自身のビットは含まないことがある)。
-/// `bitboard.rs`の`dilate8`(8方向版)の4方向限定版。
-fn orthogonal_neighbors(mask: u64) -> u64 {
-    shift_n(mask) | shift_s(mask) | shift_e(mask) | shift_w(mask)
-}
-
-/// 現局面の空きマス(`empties`ビットマスク)を、上下左右4方向連結の
-/// フラッドフィルで連結領域に分割し、各マスについて「そのマスが属する
-/// 領域に含まれる空きマス数」を64要素の配列(index=マス位置0..63)で返す。
-/// 空きマスでない位置の値は`0`(未使用)。
-///
-/// 反復的な膨張(dilate)を、それ以上領域が広がらなくなるまで繰り返す
-/// 方式で実装している(再帰・スタックを使わない単純なビット演算のみの版)。
-fn empty_region_sizes(empties: u64) -> [u32; 64] {
-    let mut sizes = [0u32; 64];
-    let mut remaining = empties;
-
-    while remaining != 0 {
-        // 未処理の空きマスから1つ選び、そこから連結する領域全体を求める。
-        let seed = remaining & remaining.wrapping_neg();
-        let mut region = seed;
-        loop {
-            let expanded = (region | orthogonal_neighbors(region)) & empties;
-            if expanded == region {
-                break;
-            }
-            region = expanded;
-        }
-
-        let size = region.count_ones();
-        let mut bits = region;
-        while bits != 0 {
-            let lsb = bits & bits.wrapping_neg();
-            let idx = lsb.trailing_zeros() as usize;
-            sizes[idx] = size;
-            bits &= bits - 1;
-        }
-
-        remaining &= !region;
-    }
-
-    sizes
 }
 
 /// 終局時の最終石差 (`side` から見た値) を計算する。
@@ -224,6 +188,7 @@ pub fn solve_exact(board: &Board, side_to_move: Side, tt: &mut TranspositionTabl
     negamax(
         board,
         side_to_move,
+        initial_quadrant_parity(board),
         -64,
         64,
         tt,
@@ -250,6 +215,7 @@ pub fn solve_exact_with_nodes(
     let score = negamax(
         board,
         side_to_move,
+        initial_quadrant_parity(board),
         -64,
         64,
         tt,
@@ -292,6 +258,7 @@ pub fn solve_exact_bounded(
     let score = negamax(
         board,
         side_to_move,
+        initial_quadrant_parity(board),
         -64,
         64,
         tt,
@@ -329,6 +296,7 @@ pub fn solve_exact_bounded_with_nodes(
     let score = negamax(
         board,
         side_to_move,
+        initial_quadrant_parity(board),
         -64,
         64,
         tt,
@@ -399,6 +367,7 @@ pub fn solve_exact_window_limited_with_nodes(
     let score = negamax(
         board,
         side_to_move,
+        initial_quadrant_parity(board),
         alpha.clamp(-64, 64),
         beta.clamp(-64, 64),
         tt,
@@ -465,6 +434,7 @@ const TIME_CHECK_NODE_INTERVAL: u64 = 1024;
 fn negamax(
     board: &Board,
     side: Side,
+    quadrant_parity: u8,
     alpha: i32,
     beta: i32,
     tt: &mut TranspositionTable,
@@ -528,6 +498,7 @@ fn negamax(
         return -negamax(
             board,
             side.opposite(),
+            quadrant_parity,
             -beta,
             -alpha,
             tt,
@@ -538,15 +509,9 @@ fn negamax(
         );
     }
 
-    // 合法手を列挙し、TT手 → 隅 → 相手の着手後合法手数が少ない順 → 空き領域
-    // パリティ(奇数優先、同着時のタイブレークのみ、T052) → マス番号に並べ替える。
-    // パリティをモビリティより高い優先度に置くと明確に悪化することが実測で
-    // 確認されたため、あえてこの優先順位(モビリティが先)にしている
-    // (モジュール冒頭ドキュメント・T052作業ログ参照)。
-    // T052: 着手先マスが属する空き領域の空きマス数(パリティ判定用)を、
-    // 現局面の空きマス集合から一度だけ計算しておく(手ごとに計算し直さない)。
-    let empty_squares = !(board.black | board.white);
-    let region_sizes = empty_region_sizes(empty_squares);
+    // 合法手を列挙し、TT手 → 隅 → 相手の着手後合法手数が少ない順 →
+    // static square class → 固定象限の奇数パリティ → マス番号に並べ替える。
+    // パリティはT052の実測に従い、モビリティより下位に維持する。
 
     let tt_move_bit = tt_move
         .filter(|&square| square < 64)
@@ -573,7 +538,8 @@ fn negamax(
             next_board,
             opp_mobility,
             is_corner: mv & CORNER_MASK != 0,
-            is_even_parity: region_sizes[square as usize] % 2 == 0,
+            square_class: square_class(mv),
+            is_odd_quadrant: quadrant_parity & QUADRANT_ID[square as usize] != 0,
             is_tt_move: tt_move_bit == Some(mv),
         };
         move_count += 1;
@@ -587,6 +553,7 @@ fn negamax(
         let score = -negamax(
             &move_info.next_board,
             side.opposite(),
+            quadrant_parity ^ QUADRANT_ID[move_info.square as usize],
             -beta,
             -alpha,
             tt,
@@ -657,107 +624,33 @@ mod tests {
         assert!(lower_square.sort_key() < higher_square.sort_key());
     }
 
-    // =====================================================================
-    // T052: パリティベース着手順序付けで使う `empty_region_sizes`
-    // (空きマスの連結領域分割、上下左右4方向flood fill)のユニットテスト。
-    // =====================================================================
-
     #[test]
-    fn empty_region_sizes_of_fully_empty_board_is_one_connected_region_of_64() {
-        // 空きマスが1つも埋まっていない盤面(全64マスが空き)は、
-        // 上下左右4方向で全マスが連結するので、単一の領域(サイズ64)になる。
-        let empties = u64::MAX;
-        let sizes = empty_region_sizes(empties);
-        for idx in 0..64usize {
-            assert_eq!(
-                sizes[idx], 64,
-                "square index {idx} should belong to a size-64 region"
-            );
-        }
+    fn quadrant_ids_match_four_fixed_board_quadrants() {
+        assert_eq!(QUADRANT_ID[0], 0b0001); // a1
+        assert_eq!(QUADRANT_ID[27], 0b0001); // d4
+        assert_eq!(QUADRANT_ID[4], 0b0010); // e1
+        assert_eq!(QUADRANT_ID[31], 0b0010); // h4
+        assert_eq!(QUADRANT_ID[32], 0b0100); // a5
+        assert_eq!(QUADRANT_ID[59], 0b0100); // d8
+        assert_eq!(QUADRANT_ID[36], 0b1000); // e5
+        assert_eq!(QUADRANT_ID[63], 0b1000); // h8
     }
 
     #[test]
-    fn empty_region_sizes_of_single_isolated_empty_square_is_one() {
-        // 盤面のほぼ全体を黒で埋め、1マス(d4)だけ空けておく。
-        // 唯一の空きマスは周囲を全て非空きマスに囲まれているので、
-        // それだけで独立した領域(サイズ1、奇数パリティ)になる。
-        let hole = 1u64 << 27; // d4 = index 27
-        let empties = hole;
-        let sizes = empty_region_sizes(empties);
-
-        assert_eq!(sizes[27], 1);
-        // 空きマスでない位置は0のまま(未使用値)であることも確認する。
-        assert_eq!(sizes[0], 0);
-        assert_eq!(sizes[63], 0);
-    }
-
-    #[test]
-    fn empty_region_sizes_splits_board_into_disconnected_regions_when_a_row_is_fully_occupied() {
-        // rank0=3 (盤面の「4行目」)を全マス黒で埋め、盤面を上下2つの領域に
-        // 分断する。上側(rank0=0..2, 3行×8列=24マス)と下側
-        // (rank0=4..7, 4行×8列=32マス)は、この行を挟んで上下左右には
-        // 連結しない(黒石で塞がれているため)。
-        let row4_mask: u64 = 0xFFu64 << (3 * 8);
+    fn quadrant_parity_initialization_and_move_xor_match_recomputation() {
         let board = Board {
-            black: row4_mask,
+            black: !(1u64 << 0 | 1u64 << 1 | 1u64 << 4 | 1u64 << 32),
             white: 0,
         };
-        let empties = !(board.black | board.white);
-        assert_eq!(empties.count_ones(), 56);
+        let parity = initial_quadrant_parity(&board);
+        assert_eq!(parity, 0b0110);
 
-        let sizes = empty_region_sizes(empties);
-
-        // 上側(rank0=0..2)は互いに同じ領域(サイズ24、偶数パリティ)。
-        for rank in 0..3u32 {
-            for file in 0..8u32 {
-                let idx = (rank * 8 + file) as usize;
-                assert_eq!(
-                    sizes[idx], 24,
-                    "index {idx} (rank={rank}, file={file}) expected size 24"
-                );
-            }
-        }
-        // 下側(rank0=4..7)は互いに同じ領域(サイズ32、偶数パリティ)。
-        for rank in 4..8u32 {
-            for file in 0..8u32 {
-                let idx = (rank * 8 + file) as usize;
-                assert_eq!(
-                    sizes[idx], 32,
-                    "index {idx} (rank={rank}, file={file}) expected size 32"
-                );
-            }
-        }
-        // 埋まっている行(rank0=3)は空きマスではないので0のまま。
-        for file in 0..8u32 {
-            let idx = (3 * 8 + file) as usize;
-            assert_eq!(
-                sizes[idx], 0,
-                "index {idx} should be unused (not an empty square)"
-            );
-        }
+        let moved = Board {
+            black: board.black | 1u64 << 4,
+            white: 0,
+        };
+        assert_eq!(parity ^ QUADRANT_ID[4], initial_quadrant_parity(&moved));
     }
-
-    #[test]
-    fn empty_region_sizes_treats_diagonal_adjacency_as_disconnected() {
-        // 4方向連結(上下左右)のみを連結とみなし、斜め隣接は連結と
-        // みなさないことを確認する。a1(index 0)とb2(index 9)は
-        // 斜めに隣接するのみで、上下左右には隣接しないため、
-        // 他がすべて埋まっていれば別々の領域(いずれもサイズ1)になる。
-        let a1 = 1u64 << 0;
-        let b2 = 1u64 << 9;
-        let empties = a1 | b2;
-        let sizes = empty_region_sizes(empties);
-
-        assert_eq!(
-            sizes[0], 1,
-            "a1 should be its own size-1 region (not connected to b2 diagonally)"
-        );
-        assert_eq!(
-            sizes[9], 1,
-            "b2 should be its own size-1 region (not connected to a1 diagonally)"
-        );
-    }
-
     // =====================================================================
     // 独立した参照実装 (naive reference implementation)
     //

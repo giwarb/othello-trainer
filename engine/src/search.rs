@@ -3377,10 +3377,12 @@ mod tests {
         // `result.aspiration_fail_high == 1`)により、木内部exactを試みる
         // 子の訪問順とその時点の残quotaが変わった。その結果、
         // `exact_quota_remaining`(探索呼び出し全体で共有される既存の
-        // 設計、T085a)が以前より多く残った状態で2つ目・3つ目の子の
-        // exact試行に入れるようになり、そのうち1子は実際に完全読みが
-        // **完走**するようになった(`exact_leaf_attempts==3`,
-        // `exact_completed==true`)。これは探索が改善した結果であり
+        // 設計、T085a)が以前より多く残った状態で後続の子のexact試行に
+        // 入れるようになり、そのうち1子は実際に完全読みが**完走**する
+        // ようになった。さらにT100の終盤排序変更後は同じ1子の完走と1子の
+        // quota-abortを2回の試行で再現する(`exact_leaf_attempts==2`,
+        // `exact_leaf_completed==1`, `exact_aborted_by_quota==1`)。
+        // これは探索が改善した結果であり
         // (完走した1子については、静的評価による近似ではなく証明済みの
         // 石差を得ている)、T089aの絶対条件である「探索結果(best move/
         // score)を変えないこと」は、あくまで**同一の`SearchLimit`/
@@ -3409,11 +3411,12 @@ mod tests {
         let mut tt = TranspositionTable::new(16);
         let result = search_with_eval_with_node_limit(&board, side, &limit, &mut tt, None, 240_000);
 
-        assert_eq!(result.exact_leaf_attempts, 3);
+        assert_eq!(result.exact_leaf_attempts, 2);
         assert_eq!(result.exact_aborted_by_quota, 1);
+        assert_eq!(result.exact_leaf_completed, 1);
         assert!(
             result.exact_completed,
-            "one of the three leaf-exact attempts should complete under T089a's new move order"
+            "one of the two leaf-exact attempts should complete under the T100 move order"
         );
         assert_eq!(result.last_completed_depth, 2);
         assert_eq!(result.fallback_reason, Some(AbortReason::ExactQuota));
@@ -3432,6 +3435,7 @@ mod tests {
         assert_eq!(result.nodes, repeat.nodes);
         assert_eq!(result.exact_leaf_attempts, repeat.exact_leaf_attempts);
         assert_eq!(result.exact_aborted_by_quota, repeat.exact_aborted_by_quota);
+        assert_eq!(result.exact_leaf_completed, repeat.exact_leaf_completed);
 
         let root_hash = zobrist_hash(&board, side);
         let midgame = tt
@@ -3443,12 +3447,9 @@ mod tests {
         // TTドメイン分離(T085a)の安全性: quota-abortした/そもそも
         // exactを試みなかった子はExactドメインへ格納されず(中断した
         // 不完全な結果でExactを汚染しない)、実際に完走した子だけが
-        // Exactドメインに格納される。完走したのは`exact_leaf_attempts=3`
-        // 中`exact_aborted_by_quota=1`+この1子(完走)なので、Exact
-        // ドメインを持つ子はちょうど1つのはず(3回目撃されたattemptの
-        // 内訳は「1回完走・1回quota-abort・1回はグローバル予算判定で
-        // 打ち切られる前に別の子として観測」のいずれかだが、格納される
-        // のは完走した1子だけ)。
+        // Exactドメインに格納される。`exact_leaf_attempts=2`の内訳は
+        // `exact_leaf_completed=1`と`exact_aborted_by_quota=1`なので、
+        // Exactドメインを持つ子は完走したちょうど1つだけのはず。
         let mut legal = board.legal_moves(side);
         let mut midgame_children = 0;
         let mut exact_children = 0;
