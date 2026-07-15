@@ -160,3 +160,31 @@ v3×蒸留の3 seedは(偶然)全て同一の60手選択・同一regretになっ
 - `train/data/t110/`(学習run成果物・oracle計測結果・summary)は`train/data/`のgitignore対象であり、コミット対象外。
 - スコープ外差分: `engine/src/endgame.rs` `engine/src/search.rs` `tasks/T104-endgame-shallow-solver.md`はすべてT104(並行実行中の別タスク)由来であり、本タスクでは一切変更していない。
 - 一時ファイル: scratchpad(`t110_seed_oracle_state.py`、equivalence/M1確認用の一時checkpoint-dir)のみで、リポジトリ内には作成していない。
+
+---
+
+### 2026-07-16 verifier検証結果
+
+すべて実測で独立に再現・再集計し、作業ログの数値と一致することを確認した。判定: **合格**。
+
+**受け入れ基準ごとの結果**:
+
+1. `cargo test -p train` 全件パス → PASS。53 passed / 0 failed / 0 ignored(lib)。差分でコミット84539a5の`#[test]`数を確認(前19→後25、+6)。他ファイル計47(既存)+6(新規)=53で一致。作業ログの「既存53+新規6件=59」という記載は**算術ミス**(正しくは既存47+新規6=53)。テスト結果自体(53 passed, 0 failed)は正しく、機能面の問題ではない。
+2. `cargo test -p engine` 全件パス → PASS。191 passed / 0 failed / 2 ignored(ffo_bench release-onlyの既知ignore)。T104並行WIP由来の失敗なし、作業ログの記載(191 passed)と完全一致。
+3. コミット84539a5の変更ファイル → `git show --stat 84539a5`で`train/src/t090_distillation.rs`のみ(197行、+183/-14)を確認。PASS。
+4. 無指定時等価SHA-256 → 現在のリポジトリで`--pattern-set`無指定のsmoke run(`corpus_smoke.jsonl`、baseline seed1 1epoch)を独立実行し、`final.bin`/`best.bin`のSHA-256が`a9f60406c7bb532c29983f5363bea34b48c6fb8b35872b16b96f2391d450c62a`で完全一致することを実測確認(作業ログ・T095/T109記載値とも一致)。PASS。
+5. v3×蒸留3seeds完走・成果物 → `train/data/t110/v3/baseline-seed-{1,2,3}/`に`metrics.tsv`(ヘッダ`epoch	learning_rate	train_loss	train_teacher_mae	validation_loss	validation_teacher_mae	validation_ranking_mae`、train/val両MAE列あり)・`result.tsv`・`final.bin`(全seed5,964,708 bytes)・`complete.txt`が存在することを確認。`train/data/t110/results.tsv`(3 run + v2蒸留参照 + v2WTHOR参照 + v3WTHOR参照の6行)、`train/data/t110/oracle/`に4 JSON(v3-baseline-seed-{1,2,3}.json、v3-wthor-seed-2.json)が存在。PASS。
+6. 4点比較表と解釈 → 作業ログに4点比較表と解釈4項目あり。PASS(数値の妥当性は下記4を参照)。
+7. oracle計測の局面単位逐次保存・resume可能 → JSON構造(`positions`/`oracleRows`/`results[].rows`)がT096/T109から継承した既存の逐次保存形式であることを確認(atomic書き込み・resume機構自体はT109以前から変更なし、本タスクでの新規オーケストレーション部分もT109の手法をそのまま踏襲)。PASS。
+8. コード変更コミット(パス明示) → 84539a5は`train/src/t090_distillation.rs`のみ変更。PASS。
+9. `git status --short`にT110由来の差分・未追跡が残っていない → 実行時点で`engine/src/endgame.rs` `engine/src/search.rs`のみ(T104由来、除外対象)。`train/src/t090_distillation.rs`は既にコミット済みでクリーン、`train/data/t110/`は`train/data/`が.gitignore対象(32行目)であることを確認。PASS。
+
+**追加確認(タスク指示の(4)(5)(6)(7))**:
+
+- **(4) oracle生データからの再集計**: `train/data/t110/oracle/*.json`の`results[].rows[].regret`を独立にPython集計し、4点すべてで作業ログ・results.tsvの数値と完全一致を確認: v3×蒸留(seed1/2/3とも)2.6666666666666665、v3×WTHOR 1.4333333333333333、各JSON内のv2参照行1.5666666666666667(=v2×WTHOR)。v2×蒸留3.4667はT109からの流用値のため本タスクのoracle JSONには含まれないが、T109作業ログに記載の独立検証(`train/data/t109/oracle/full-seed1.json`のrows再計算=3.466666666666667、かつ`train/data/t109/subset-full/baseline-seed-2/final.bin`と`train/data/t090b/primary-redo1-v2/baseline-seed-2/final.bin`のSHA-256が`43614bd042d1fbd53ae112efa8dac45cbf6f15356e9a6d400c0c8910e4fe398d`で一致することを本セッションでも再実測)により、参照値としての正当性を確認した。CI・classificationも各JSONの`statistics`フィールドと`results.tsv`の該当列が一致することを確認。
+- **(5) v3×蒸留3seed同値の検証**: 3つのoracle JSONの`candidateSha256`はそれぞれ異なる(4f95618865c0f1df.../1952e13704a4e815.../59b289c2fd978844...、`final.bin`実体のSHA-256とも一致=重みは確かに異なる)一方、`results[].rows`(id・move・moveValue・regret)は60局面すべてで3ファイル間バイト一致することを確認した。作業ログの説明(depth-8静的評価のargmaxがこの60局面群でたまたま一致しただけで、キャッシュ流用バグではない)と整合する実測結果。
+- **(6) 追加テスト6件の自己参照チェック**: `train/src/t090_distillation.rs`のテストコードを読んだ。`parse_pattern_set_defaults_to_v2_and_rejects_unknown_values`と`pattern_set_identity_default_v2_is_empty_but_v3_is_distinct`はリテラル文字列("v2"/"v3"/"pattern_set=v3\n"等)に対する具体的な期待値アサーションで自己参照ではない。`patterns_for_v3_has_more_instances_and_classes_than_v2`はT087で確定した具体的数値(22/38インスタンス、6/10クラス)をハードコードした期待値と比較しており妥当。`ensure_metrics_header_rejects_pre_t109_header_without_train_teacher_mae_column`は独立にハードコードした「T109以前の6列ヘッダ」文字列を入力に使っており妥当。`ensure_metrics_header_creates_current_header_when_file_is_absent`/`...accepts_matching_header_without_modifying_file`の2件は`METRICS_HEADER`定数を通じて実装と同じ定数を参照する構造(ヘッダの内容自体を独立にハードコードしていない)だが、これはヘッダ生成・書き込みの副作用(ファイルが実際に作成される/既存ファイルが変更されないこと)を検証するテストとして標準的なパターンであり、実質的にトートロジーではない(振る舞いを検証している)。M1回帰防止の主目的は`...rejects_pre_t109_header...`が独立に担っている。総じて6件とも実質的な検証内容を持つと判断。
+- **(7) v3バイトサイズ・equivalence SHAクロスチェック**: T087作業ログ(`tasks/T087-pattern-v3.md`80行目)に記載の推奨v3サイズ5,964,708 bytesと一致することを確認。加えて`--pattern-set v3`を指定した独立smoke runでも同一の5,964,708 bytesが生成されることを実測確認(v3特徴生成が既存T087実装をそのまま再利用している証跡)。無指定時等価SHA(`a9f60406...`)はT095/T109作業ログ記載値と一致することを`grep`で確認済み、かつ上記4で独立smoke runにより再現。
+- **resume拒否の実地確認(追加)**: v2既定でsmoke checkpoint-dirを作成後、同一dirへ`--pattern-set v3`で実行したところ`run identity mismatch for baseline; refusing resume`を出力し、プロセス終了コード1(明確な失敗)で停止することを確認(作業ログの記載と一致、かつ「メッセージは出すが実は継続する」という抜け道がないことを終了コードで確認)。
+
+**判定**: 合格。作業ログの「59 passed」という表記のみ算術上の誤記(実際は53 passed、既存47+新規6)だが、テスト自体は全件パスしており受け入れ基準・タスクの結論に影響しない軽微な記載ミス。オーケストレーターへの申し送り事項として記録する。
