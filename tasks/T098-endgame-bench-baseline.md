@@ -1,9 +1,9 @@
 ---
 id: T098
 title: 終盤ソルバー計測基盤(C1/C2/C3)とbaseline固定
-status: review # todo | in_progress | review | redo | done | blocked
+status: in_progress # todo | in_progress | review | redo | done | blocked
 assignee: codex(gpt-5.6-sol)
-attempts: 0
+attempts: 1
 ---
 
 # T098: 終盤ベンチ契約とbaseline固定
@@ -61,6 +61,19 @@ attempts: 0
 - [ ] タスク完了時点で、当該タスク由来の差分・未追跡ファイルが `git status --short` に残っていないこと(大きな生JSONはgitignore領域、集計レポートのみコミット)
 
 ## フィードバック(やり直し時にオーケストレーターが記入)
+
+### redo #1(2026-07-15 夜、codex-review不合格: tasks/review/T098-endgame-bench-baseline-codex-review.md)
+
+**ブロッカー**: コミット済み `endgame_baseline.json` の provenance で計測時ハーネス(`harnessSha256=14457e...`)とコミット済みハーネス(`6cd159...`)が不一致。計測後にハーネスを修正したため、baselineが監査・再現不能。**T099は既に走行中のため、endgame.rs には触らないこと(本redoは bench/edax-compare と eval_cli のみ)。**
+
+1. **【必須】ノード系baselineの再確定**: コミット済み(または本redoで修正した)ハーネスで C1(#40-44完全+#45-49 cap)・C2(540 jobs)・C3(48局面)を**再計測**し、`harnessSha256` が成果物ハーネスと一致する状態で `endgame_baseline.json` を再生成する(決定的な値なので1回実行、速度反復なし。推定15〜25分)。
+2. **【裁定】速度比(135.7倍)の扱い**: 再計測不要。レポート内で `"informative": true` 等のフラグ+「pre-commitハーネスでの参考測定、正式な速度計測はT108のフルプロトコルで実施」の注記を付けて参考値として残す(消さない)。
+3. **【中1】Edax真値の機械的検証**: `edax_batch` に終了コード0チェックと「最終行の深さ>=局面の空き数(完全読み到達)」検証を追加し、**60局面全件のEdax真値を再生成**(Edax側は速い)して manifest に深さ・nodesも保存する。既存値との一致を確認し、不一致があれば報告して停止。
+4. **【中2】不完全checkpointからのbaseline出力防止**: `report` は C1/C2/C3の期待件数が揃わない場合に失敗させる(`--allow-partial` 等の明示フラグがある場合のみ例外)。
+5. **【中3】集計レポートの充実**: コミット対象レポートに、C2の空き数×予算×窓別のnodes分布(中央値・p90と局面別nodes)、C3のテレメトリ集計(到達深度・exact試行・bound証明完走・quota/global abort)を含める(生checkpointが消えても後続タスクがbaseline比較できるように)。
+6. **【中4】窓クランプ**: `cmd_solve` の `[-64,64]` クランプについて、真値が±64の局面で標準証明窓が実行不能になる問題を解消する(ソルバーが安全に受けられる範囲で外側を許可、またはS=±64時の窓定義をハーネス契約に明記)。
+7. **【軽微】**: eval_cli usage表示に `solve` を追加。JSON成果物はLFで書き出す(CRLF回避)。
+8. 完了時: pytest全件・FFO fast(値・ノード不変)・決定性2回・作業ログ更新・変更ファイル一覧明記(コミットはオーケストレーター代行)。
 
 ### 仕上げ指示(2026-07-15 夜、ユーザー指示による計測打ち切り後の再委譲)
 
