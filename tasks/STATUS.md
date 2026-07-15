@@ -8,7 +8,6 @@
 
 **エンジン強化(Edax level 10 攻略)ロードマップを実行中**。設計書: `tasks/design/T083-engine-strengthening-report.md`(全体)、`tasks/design/T085-beat-level10-report.md`(T085系の規範)。
 
-- **T093検証状況(07-15 朝)**: codex-review合格(コード面ブロッカーなし)。verifierはT093固有項目を全合格(本番でブックon初手117ms/off 2281msの実測差・永続化・フォールバック・CI稼働確認)としたが、`npm run build` が**T090a生成の CPU 100% 飽和による決定性自己チェック(T085c由来スクリプト)の揺れ**で失敗し形式不合格。**裁定: redo不要、生成完了後にbuild 1回再実行で確認できたらdone**。副次的知見: 壁時計保険はCPU飽和環境下で発動し決定性を崩しうる(自己チェックはmaxNodes到達前提。低速端末での挙動として記憶しておく)。
 - 監視記録(07-15 07:57): 30,900/50,000。レート0.51局面/秒で安定、**完走見込み18時過ぎ**。8シャード健全・停滞なし。介入せず完走まで走らせる裁定(コーパス一貫性優先)。T090b(蒸留学習)起票済み・委譲はT090a検証後。
 - **実行中: T090a primary生成(8シャード並列、23:38:25開始、デタッチプロセスでセッション非依存)**。smoke完走(1,000局面、exact率31.5%、エラー0、resume/拒否とも実証)。監視: `train/data/teacher/logs/primary_orchestrator.log` または各シャードの `corpus_primary_shard{I}of8.meta.json` の progress.done。**注意: N=3検証で並列効率約2倍(非線形)のためN=8でも5〜6時間かかる可能性**。完走後の残作業: ワーカー再開(SendMessage)→マージ→verify→コミット→verifier+Claudeレビュー。ワーカーは指示どおり完走待ち停止中。
 - **T088 done(2026-07-14)**: verifier・Claude代替レビューとも合格(24run集計の独立再現・compare再実行の完全再現・前提修正の実地再現)。軽微申し送り: 作業ログのゲート(c) provenance欄のeval_cliハッシュが旧バッチのものに転記ミス(数値自体は正)、ゲート(e)のNPS測定スクリプト/生ログが未保存(算術検算のみ可)。
@@ -24,7 +23,6 @@
 |---|---|---|---|---|
 | T090a | Edax教師コーパス生成(smoke 1k→primary 50k、全合法手teacher値) | implementer(Sonnetフォールバック) | in_progress | 0 |
 | T090b | Edax教師蒸留学習(混合損失、ゲート通過候補は20局スモークまで) | codex(gpt-5.6-sol) | todo | 0 |
-| T093 | CPU対局の定石ブックon/off(フェーズ1、TSのみ・エンジン変更なし) | codex(gpt-5.6-sol) | review | 0 |
 
 ## 有効な方針・申し送り(今後のタスクに効くもの)
 
@@ -63,6 +61,7 @@
 | T088 | 学習法改善の8構成ablation | **不採用が結論**。validation改善はfrozen 2024で2.1%どまり・oracle regret 29%悪化 → **WTHORラベルが律速、T090蒸留が本命**と確定。前提修正5件(resume/identity/provenance等)は実装済み。X/C hard-negativeは効果なし |
 | T089a | history+aspiration | 採用(性能ゲート未達-5.38%をwaive裁定)。fixed-depth完全一致・FFO完全不変・決定性を維持したまま60局平均石差 -29.07→-25.57。Sonnetフォールバック初戦、redo 0回 |
 | T092 | CIにRust Testsワークフロー追加 | engine debug+FFO fast+trainをpush/PRで自動実行(約12分)。初回から連続成功。CIの「エンジン回帰を検知できない」穴を解消 |
+| T093 | CPU対局の定石ブックon/off(フェーズ1) | ユーザー要望の2モード実現。ブックon時は定石DBから即着手(本番実測: 初手117ms vs off 2281ms)。既定on・永続化。build失敗はCPU飽和の環境要因と切り分け済み(低負荷で成功)。フェーズ2(Edax評価値付き自前ブック)はT090後 |
 
 ## 完了フェーズ(詳細は STATUS-archive.md と各タスクファイル)
 
