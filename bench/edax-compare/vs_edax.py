@@ -56,8 +56,9 @@ T084での改修点(設計レビュー `tasks/design/T083-engine-strengthening-r
                                                        # + single-root/allmoves各レベル20局
                                                        # + 弱点分析 + レポート)
 
-前提: `cargo build --release -p engine --bin eval_cli` でビルド済み、
-`bench/edax-compare/edax-extract/`にEdaxが展開済み(`download-edax.ps1`)、
+前提: `eval_cli`は起動時に`cargo build --release -p engine --bin eval_cli`を
+自動実行して最新化する。`bench/edax-compare/edax-extract/`にEdaxが展開済み
+(`download-edax.ps1`)、
 `train/weights/pattern_v2.bin` が存在すること。
 """
 
@@ -86,6 +87,7 @@ EDAX_EXE = EDAX_DIR / "wEdax-x86-64.exe"
 EDAX_EVAL_DATA = EDAX_DIR / "data" / "eval.dat"
 DEFAULT_PATTERN_WEIGHTS = ROOT / "train" / "weights" / "pattern_v2.bin"
 DEFAULT_OPENINGS_PATH = COMPARE_DIR / "openings.json"
+EDAX_BATCH_TASKS = 1
 
 DEFAULT_RESULTS_PATH = COMPARE_DIR / "vs_edax_results.json"
 DEFAULT_REPORT_PATH = COMPARE_DIR / "vs_edax_report.md"
@@ -451,11 +453,122 @@ def true_ply_of_board(board: str) -> int:
 # 拾う正規表現(`run-comparison.py`/`compare_pattern_eval.py`と同じ。
 # `12@73%` のような選択探索の確信度サフィックスは無視する)。
 _EDAX_ROW_RE = re.compile(r"^\s*(\d+)(?:@\d+%)?\s+([+-]?\d+)\s")
+_EDAX_PROBLEM_RE = re.compile(r"^\*\*\* problem # (\d+) \*\*\*$")
 
 # PV欄のマス目表記(`a1`〜`h8`、大文字/小文字どちらもありうる)を抜き出す
 # 正規表現。大文字/小文字は「白=大文字・黒=小文字」という色ベースの固定規約
 # であることを `verify_pv_extraction()` で確認済み。
 _MOVE_TOKEN_RE = re.compile(r"\b[a-hA-H][1-8]\b")
+
+
+def _parse_edax_block(block: str, board: str, side_to_move: str, level: int, returncode: int, stderr: str) -> dict:
+    """1局面分の`-vv`出力から最終探索行を取り出す。"""
+    last_depth = None
+    last_score = None
+    last_move_tokens: list[str] = []
+    for line in block.splitlines():
+        match = _EDAX_ROW_RE.match(line)
+        if match:
+            last_depth = int(match.group(1))
+            last_score = int(match.group(2))
+            last_move_tokens = _MOVE_TOKEN_RE.findall(line)
+
+    if last_score is None:
+        raise RuntimeError(
+            f"failed to parse Edax score for board={board} side={side_to_move} level={level} "
+            f"(returncode={returncode}):\n{block}\nstderr={stderr}"
+        )
+    if not last_move_tokens:
+        raise RuntimeError(
+            f"failed to extract PV move from Edax output for board={board} side={side_to_move} level={level} "
+            f"(returncode={returncode}):\n{block}\nstderr={stderr}"
+        )
+
+    raw_move = last_move_tokens[0]
+    return {"depth": last_depth, "discDiff": float(last_score), "move": raw_move[0].lower() + raw_move[1]}
+
+
+def _parse_edax_batch_output(out: str, positions: list[dict], level: int, returncode: int, stderr: str) -> list[dict]:
+    """複数局面出力を`problem # N`で分割し、入力行との1対1対応を検証する。"""
+    headings: list[tuple[int, int]] = []
+    lines = out.splitlines()
+    for line_index, line in enumerate(lines):
+        match = _EDAX_PROBLEM_RE.match(line.strip())
+        if match:
+            headings.append((int(match.group(1)), line_index))
+
+    expected_numbers = list(range(1, len(positions) + 1))
+    actual_numbers = [number for number, _ in headings]
+    if actual_numbers != expected_numbers:
+        raise RuntimeError(
+            "Edax batch problem ordering/count mismatch: "
+            f"expected={expected_numbers} actual={actual_numbers} positions={len(positions)} "
+            f"(returncode={returncode})"
+        )
+
+    parsed = []
+    for index, ((_, start), position) in enumerate(zip(headings, positions)):
+        end = headings[index + 1][1] if index + 1 < len(headings) else len(lines)
+        block = "\n".join(lines[start:end])
+        parsed.append(
+            _parse_edax_block(block, position["board"], position["sideToMove"], level, returncode, stderr)
+        )
+    assert len(parsed) == len(positions), "Edax batch parser result count mismatch"
+    return parsed
+
+
+def _edax_solve_batch(positions: list[dict], level: int, n_tasks: int | None) -> list[dict]:
+    """同一levelの局面群を1つのOBFファイル・1プロセスで順番に解く。
+
+    Edaxの`problem # N`がOBFの1-based行番号と完全一致することを検証し、
+    欠落・重複・順序ずれがあればバッチ全体を失敗させる。
+    """
+    if not positions:
+        return []
+    obf_lines = []
+    for position in positions:
+        side_char = "X" if position["sideToMove"] == "black" else "O"
+        obf_lines.append(f"{position['board']} {side_char};\n")
+
+    tmp = tempfile.NamedTemporaryFile(dir=EDAX_DIR, prefix="_vs_edax_batch_", suffix=".obf", delete=False)
+    tmp_path = Path(tmp.name)
+    try:
+        tmp.write("".join(obf_lines).encode("ascii"))
+        tmp.close()
+        command = [
+                str(EDAX_EXE),
+                "-solve",
+                str(tmp_path),
+                "-l",
+                str(level),
+            ]
+        if n_tasks is not None:
+            command += ["-n", str(n_tasks)]
+        command += [
+                "-eval-file",
+                str(EDAX_EVAL_DATA),
+                "-book-usage",
+                "off",
+                "-vv",
+            ]
+        result = subprocess.run(
+            command,
+            cwd=str(EDAX_DIR),
+            capture_output=True,
+            text=True,
+        )
+    finally:
+        tmp_path.unlink(missing_ok=True)
+    return _parse_edax_batch_output(result.stdout, positions, level, result.returncode, result.stderr)
+
+
+def edax_solve_batch(positions: list[dict], level: int) -> list[dict]:
+    """教師コーパス用の決定的な1タスク・複数局面バッチ。
+
+    Edaxの既定マルチタスク探索は並列負荷下でlevel16の値が揺れるため、外側で
+    シャード並列化する教師生成では`-n 1`に固定して新旧等価性を保証する。
+    """
+    return _edax_solve_batch(positions, level, n_tasks=EDAX_BATCH_TASKS)
 
 
 def edax_solve(board: str, side_to_move: str, level: int) -> dict:
@@ -476,61 +589,7 @@ def edax_solve(board: str, side_to_move: str, level: int) -> dict:
     ここでは適用せず、直接subprocessを呼んで終了コードに関わらず
     stdoutをパースし、パース自体が失敗した場合にのみエラーにする。
     """
-    side_char = "X" if side_to_move == "black" else "O"
-    obf_line = f"{board} {side_char};\n"
-
-    tmp = tempfile.NamedTemporaryFile(dir=EDAX_DIR, prefix="_vs_edax_", suffix=".obf", delete=False)
-    tmp_path = Path(tmp.name)
-    try:
-        tmp.write(obf_line.encode("ascii"))
-        tmp.close()
-
-        result = subprocess.run(
-            [
-                str(EDAX_EXE),
-                "-solve",
-                str(tmp_path),
-                "-l",
-                str(level),
-                "-eval-file",
-                str(EDAX_EVAL_DATA),
-                "-book-usage",
-                "off",
-                "-vv",
-            ],
-            cwd=str(EDAX_DIR),
-            capture_output=True,
-            text=True,
-        )
-        out = result.stdout
-    finally:
-        tmp_path.unlink(missing_ok=True)
-
-    last_depth = None
-    last_score = None
-    last_move_tokens: list[str] = []
-    for line in out.splitlines():
-        m = _EDAX_ROW_RE.match(line)
-        if m:
-            last_depth = int(m.group(1))
-            last_score = int(m.group(2))
-            last_move_tokens = _MOVE_TOKEN_RE.findall(line)
-
-    if last_score is None:
-        raise RuntimeError(
-            f"failed to parse Edax score for board={board} side={side_to_move} level={level} "
-            f"(returncode={result.returncode}):\n{out}\nstderr={result.stderr}"
-        )
-    if not last_move_tokens:
-        raise RuntimeError(
-            f"failed to extract PV move from Edax output for board={board} side={side_to_move} level={level} "
-            f"(returncode={result.returncode}):\n{out}\nstderr={result.stderr}"
-        )
-
-    raw_move = last_move_tokens[0]
-    move = raw_move[0].lower() + raw_move[1]
-
-    return {"depth": last_depth, "discDiff": float(last_score), "move": move}
+    return _edax_solve_batch([{"board": board, "sideToMove": side_to_move}], level, n_tasks=None)[0]
 
 
 INITIAL_LEGAL_MOVES = {"d3", "c4", "f5", "e6"}
@@ -1732,6 +1791,7 @@ def main() -> None:
         "engine_max_nodes": args.engine_max_nodes,
         "weights": rel_to_root(args.weights),
         "openings_path": rel_to_root(args.openings),
+        "openings_sha256": sha256_of_file(args.openings),
         "opening_set": args.opening_set,
         "opening_count": len(openings),
         "levels": args.levels,

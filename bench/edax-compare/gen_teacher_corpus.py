@@ -81,7 +81,7 @@ Edaxの探索値に置き換えるための第一段(コーパス生成)。
       "exact": true,            // true: 完全読み(空き<=EXACT_EMPTIES_THRESHOLDまたは終局)
       "level": 60,              // Edaxへ渡した -l 値(終局子はnull、Edax未呼び出し)
       "edaxDepth": 24,          // Edaxが報告した到達深さ(終局子はnull)
-      "elapsedMs": 812.3        // このEdax呼び出しの所要時間(終局子は無し、elapsedNoteのみ)
+      "elapsedMs": 812.3        // 同levelバッチの合計時間を子局面数で均等割(終局子は無し)
     }
   ],
   "bestMove": "d3",             // children中でvalueが最大の手
@@ -446,40 +446,45 @@ def label_position(index: int, position: dict, children_info: dict) -> dict:
     side = position["sideToMove"]
     mover_key = canonical_key_of_position(board, side)
 
-    child_records = []
-    for child in children_info["moves"]:
+    moves = children_info["moves"]
+    child_records: list[dict | None] = [None] * len(moves)
+    batches: dict[int, list[tuple[int, dict]]] = {}
+    for child_index, child in enumerate(moves):
         child_empties = child["childEmpties"]
         if child["childIsTerminal"]:
             value = vs_edax.terminal_value(child["childBoard"], side)
-            child_records.append(
-                {
-                    "move": child["move"],
-                    "value": value,
-                    "exact": True,
-                    "level": None,
-                    "edaxDepth": None,
-                    "childEmpties": child_empties,
-                    "elapsedNote": "terminal (no Edax call)",
-                }
-            )
+            child_records[child_index] = {
+                "move": child["move"],
+                "value": value,
+                "exact": True,
+                "level": None,
+                "edaxDepth": None,
+                "childEmpties": child_empties,
+                "elapsedNote": "terminal (no Edax call)",
+            }
             continue
 
         exact_requested = child_empties <= EXACT_EMPTIES_THRESHOLD
         level = EXACT_EDAX_LEVEL if exact_requested else DEFAULT_EDAX_LEVEL
+        batches.setdefault(level, []).append((child_index, child))
+
+    for level, batch in batches.items():
         t0 = time.monotonic()
-        result = vs_edax.edax_solve(child["childBoard"], child["childSideToMove"], level)
-        elapsed_ms = (time.monotonic() - t0) * 1000.0
-        if child["childSideToMove"] == side:
-            value = result["discDiff"]
-        else:
-            value = -result["discDiff"]
-        is_exact = exact_requested and result["depth"] >= child_empties
-        if exact_requested and not is_exact:
-            raise RuntimeError(
-                f"Edax exact search incomplete: move={child['move']} depth={result['depth']} empties={child_empties}"
-            )
-        child_records.append(
-            {
+        results = vs_edax.edax_solve_batch(
+            [{"board": child["childBoard"], "sideToMove": child["childSideToMove"]} for _, child in batch], level
+        )
+        elapsed_ms = (time.monotonic() - t0) * 1000.0 / len(batch)
+        assert len(results) == len(batch), "Edax batch result count mismatch"
+        for (child_index, child), result in zip(batch, results):
+            child_empties = child["childEmpties"]
+            exact_requested = child_empties <= EXACT_EMPTIES_THRESHOLD
+            value = result["discDiff"] if child["childSideToMove"] == side else -result["discDiff"]
+            is_exact = exact_requested and result["depth"] >= child_empties
+            if exact_requested and not is_exact:
+                raise RuntimeError(
+                    f"Edax exact search incomplete: move={child['move']} depth={result['depth']} empties={child_empties}"
+                )
+            child_records[child_index] = {
                 "move": child["move"],
                 "value": value,
                 "exact": is_exact,
@@ -488,10 +493,11 @@ def label_position(index: int, position: dict, children_info: dict) -> dict:
                 "childEmpties": child_empties,
                 "elapsedMs": round(elapsed_ms, 1),
             }
-        )
 
-    best = max(child_records, key=lambda c: c["value"])
-    for child in child_records:
+    assert all(child is not None for child in child_records), "child labeling left an unfilled result"
+    completed_records = [child for child in child_records if child is not None]
+    best = max(completed_records, key=lambda c: c["value"])
+    for child in completed_records:
         child["diffFromBest"] = best["value"] - child["value"]
     return {
         "positionId": index,
@@ -506,7 +512,7 @@ def label_position(index: int, position: dict, children_info: dict) -> dict:
         "gameIndex": position.get("gameIndex"),
         "priorityLoss": position.get("priorityLoss"),
         "canonicalKey": list(mover_key),
-        "children": child_records,
+        "children": completed_records,
         "bestMove": best["move"],
         "bestValue": best["value"],
         "generatedAt": datetime.now(timezone.utc).isoformat(timespec="seconds"),
@@ -711,6 +717,8 @@ def generate(
         "exactEmptiesThreshold": EXACT_EMPTIES_THRESHOLD,
         "exactEdaxLevel": EXACT_EDAX_LEVEL,
         "defaultEdaxLevel": DEFAULT_EDAX_LEVEL,
+        "edaxTasksPerProcess": vs_edax.EDAX_BATCH_TASKS,
+        "elapsedMsPolicy": "batch-averaged",
         "numPhaseBins": NUM_PHASE_BINS,
         "xcQuotaFraction": XC_QUOTA_FRACTION,
         "openingKeyPlies": OPENING_KEY_PLIES,
