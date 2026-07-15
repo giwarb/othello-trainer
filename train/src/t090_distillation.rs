@@ -156,7 +156,7 @@ fn is_x_or_c(cell: u8) -> bool {
 
 fn load_outcomes() -> Result<(HashMap<CanonicalKey, f32>, Vec<train_data::Sample>, String), String>
 {
-    let mut all = Vec::new();
+    let mut training_raw = Vec::new();
     let mut test_raw = Vec::new();
     let mut hash = 0xcbf29ce484222325;
     let mut files: Vec<_> = fs::read_dir("train/data")
@@ -174,21 +174,22 @@ fn load_outcomes() -> Result<(HashMap<CanonicalKey, f32>, Vec<train_data::Sample
         let year = parsed.header.year_of_games;
         for game in parsed.games {
             if let Ok(samples) = train_data::samples_from_game(&game.moves) {
-                all.extend(samples.iter().copied().map(|sample| (year, sample)));
+                if (2015..=2023).contains(&year) {
+                    training_raw.extend(samples.iter().copied().map(|sample| (year, sample)));
+                }
                 if year == 2024 {
                     test_raw.extend(samples.into_iter().map(|sample| (year, sample)));
                 }
             }
         }
     }
-    let outcomes = experiment::aggregate(&all)
+    let test_map = experiment::aggregate(&test_raw);
+    let outcomes = experiment::aggregate(&training_raw)
         .into_iter()
+        .filter(|(key, _)| !test_map.contains_key(key))
         .map(|(key, record)| (key, record.sample.outcome))
         .collect();
-    let mut test: Vec<_> = experiment::aggregate(&test_raw)
-        .into_values()
-        .map(|record| record.sample)
-        .collect();
+    let mut test: Vec<_> = test_map.into_values().map(|record| record.sample).collect();
     test.sort_by_key(|sample| experiment::canonicalize(sample).0);
     Ok((outcomes, test, format!("{hash:016x}")))
 }
@@ -262,8 +263,8 @@ fn load_corpus(
         }
         let engine_choice = (0..children.len())
             .max_by(|&a, &b| {
-                let a_score = -reference.predict(&children[a].board, mover.opposite());
-                let b_score = -reference.predict(&children[b].board, mover.opposite());
+                let a_score = child_score(reference, &children[a].board, mover);
+                let b_score = child_score(reference, &children[b].board, mover);
                 a_score
                     .total_cmp(&b_score)
                     .then_with(|| children[b].move_index.cmp(&children[a].move_index))
@@ -334,6 +335,35 @@ fn huber(error: f32) -> (f32, f32) {
     }
 }
 
+/// Score a move from the parent mover's perspective, following the engine's
+/// negamax pass and terminal conventions.
+fn child_score(model: &Model, child: &Board, parent_mover: Side) -> f32 {
+    let opponent = parent_mover.opposite();
+    if child.has_legal_move(opponent) {
+        -model.predict(child, opponent)
+    } else if child.has_legal_move(parent_mover) {
+        model.predict(child, parent_mover)
+    } else {
+        child.disc_count(parent_mover) as f32 - child.disc_count(opponent) as f32
+    }
+}
+
+/// Add `scale * d(child_score)/d(weights)`. Terminal scores have no model gradient.
+fn add_child_score_gradient(
+    map: &mut HashMap<Feature, f32>,
+    model: &Model,
+    child: &Board,
+    parent_mover: Side,
+    scale: f32,
+) {
+    let opponent = parent_mover.opposite();
+    if child.has_legal_move(opponent) {
+        add_gradient(map, &features(model, child, opponent), -scale);
+    } else if child.has_legal_move(parent_mover) {
+        add_gradient(map, &features(model, child, parent_mover), scale);
+    }
+}
+
 fn add_gradient(map: &mut HashMap<Feature, f32>, items: &[Feature], scale: f32) {
     for &key in items {
         *map.entry(key).or_default() += scale;
@@ -362,33 +392,26 @@ fn train_step(
     let mut ranking_loss = 0.0;
     if ranking_weight > 0.0 && !record.pairs.is_empty() {
         for &other in &record.pairs {
-            let best_score =
-                -model.predict(&record.children[record.best].board, record.mover.opposite());
-            let other_score =
-                -model.predict(&record.children[other].board, record.mover.opposite());
+            let best_score = child_score(model, &record.children[record.best].board, record.mover);
+            let other_score = child_score(model, &record.children[other].board, record.mover);
             let target =
                 record.children[record.best].teacher_value - record.children[other].teacher_value;
             let (loss, loss_gradient) = huber((best_score - other_score) - target);
             ranking_loss += loss / record.pairs.len() as f32;
             let scale = ranking_weight * loss_gradient / record.pairs.len() as f32;
-            // best_score-other_score = f(other child)-f(best child).
-            add_gradient(
+            add_child_score_gradient(
                 &mut gradient,
-                &features(
-                    model,
-                    &record.children[record.best].board,
-                    record.mover.opposite(),
-                ),
-                -scale,
-            );
-            add_gradient(
-                &mut gradient,
-                &features(
-                    model,
-                    &record.children[other].board,
-                    record.mover.opposite(),
-                ),
+                model,
+                &record.children[record.best].board,
+                record.mover,
                 scale,
+            );
+            add_child_score_gradient(
+                &mut gradient,
+                model,
+                &record.children[other].board,
+                record.mover,
+                -scale,
             );
         }
     }
@@ -434,7 +457,7 @@ fn metrics(model: &Model, records: &[DistillRecord], mix: Mix) -> Metrics {
         let scores: Vec<_> = record
             .children
             .iter()
-            .map(|child| -model.predict(&child.board, record.mover.opposite()))
+            .map(|child| child_score(model, &child.board, record.mover))
             .collect();
         let selected = (0..scores.len())
             .max_by(|&a, &b| {
@@ -545,6 +568,33 @@ fn latest_checkpoint(dir: &Path) -> Option<(u32, PathBuf, PathBuf)> {
         .max_by_key(|(epoch, _, _)| *epoch)
 }
 
+fn truncate_metrics_after(metrics_path: &Path, completed_epoch: u32) -> Result<(), String> {
+    if !metrics_path.exists() {
+        return Ok(());
+    }
+    let text = fs::read_to_string(metrics_path).map_err(|e| e.to_string())?;
+    let mut lines = text.lines();
+    let mut kept = String::new();
+    if let Some(header) = lines.next() {
+        kept.push_str(header);
+        kept.push('\n');
+    }
+    let mut seen_epochs = HashSet::new();
+    for line in lines {
+        let Some(field) = line.split('\t').next() else {
+            continue;
+        };
+        let row_epoch: u32 = field
+            .parse()
+            .map_err(|_| format!("invalid metrics epoch {field}"))?;
+        if row_epoch <= completed_epoch && seen_epochs.insert(row_epoch) {
+            kept.push_str(line);
+            kept.push('\n');
+        }
+    }
+    atomic_write(metrics_path, kept.as_bytes())
+}
+
 #[allow(clippy::too_many_arguments)]
 fn run_one(
     mix: Mix,
@@ -561,7 +611,7 @@ fn run_one(
     let dir = root.join(format!("{}-seed-{seed}", mix.name));
     fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
     let identity = format!(
-        "schema=2\n{identity_base}mix={}\nteacher={}\nranking={}\noutcome={}\nseed={seed}\nmax_epochs={max_epochs}\nl2={l2}\n",
+        "schema=4\n{identity_base}mix={}\nteacher={}\nranking={}\noutcome={}\nseed={seed}\nmax_epochs={max_epochs}\nl2={l2}\n",
         mix.name, mix.teacher, mix.ranking, mix.outcome);
     let identity_path = dir.join("identity.txt");
     if identity_path.exists()
@@ -604,6 +654,7 @@ fn run_one(
         println!("resume mix={} seed={seed} epoch={epoch}", mix.name);
     }
     let metrics_path = dir.join("metrics.tsv");
+    truncate_metrics_after(&metrics_path, epoch)?;
     if !metrics_path.exists() {
         atomic_write(&metrics_path,
             b"epoch\tlearning_rate\ttrain_loss\tvalidation_loss\tvalidation_teacher_mae\tvalidation_ranking_mae\n")?;
@@ -707,13 +758,34 @@ pub fn run() -> ExitCode {
             return ExitCode::FAILURE;
         }
     };
-    let seeds: Vec<u64> = arg("--seeds")
+    let seeds: Result<Vec<u64>, _> = arg("--seeds")
         .unwrap_or_else(|| "1,2".into())
         .split(',')
-        .map(|value| value.parse().unwrap())
+        .map(str::parse)
         .collect();
-    let max_epochs = arg("--max-epochs").map_or(60, |value| value.parse().unwrap());
-    let l2 = arg("--l2").map_or(1e-5, |value| value.parse().unwrap());
+    let seeds = match seeds {
+        Ok(value) => value,
+        Err(error) => {
+            eprintln!("invalid --seeds: {error}");
+            return ExitCode::FAILURE;
+        }
+    };
+    let max_epochs = match arg("--max-epochs").map(|value| value.parse()) {
+        Some(Ok(value)) => value,
+        Some(Err(error)) => {
+            eprintln!("invalid --max-epochs: {error}");
+            return ExitCode::FAILURE;
+        }
+        None => 60,
+    };
+    let l2 = match arg("--l2").map(|value| value.parse()) {
+        Some(Ok(value)) => value,
+        Some(Err(error)) => {
+            eprintln!("invalid --l2: {error}");
+            return ExitCode::FAILURE;
+        }
+        None => 1e-5,
+    };
     let reference_bytes = match fs::read(&reference_path) {
         Ok(value) => value,
         Err(error) => {
@@ -762,7 +834,7 @@ pub fn run() -> ExitCode {
     );
     let reference_hash = format!("{:016x}", fnv_update(0xcbf29ce484222325, &reference_bytes));
     fs::create_dir_all(&root).unwrap();
-    let manifest = format!("split=fnv1a(canonicalKey)%100:train0-89,validation90-94,frozen95-99\ntrain={}\nvalidation={}\nfrozen={}\noutcome_matched_train={}\noutcome_matched_validation={}\noutcome_matched_frozen={}\nwthor_2024={}\ncorpus_hash={corpus_hash}\nreference_hash={reference_hash}\nwthor_hash={wthor_hash}\n",
+    let manifest = format!("split=fnv1a(canonicalKey)%100:train0-89,validation90-94,frozen95-99\noutcome_policy=canonical averages from WTHOR 2015-2023; keys occurring in 2024 removed with test priority; 2024 reserved for gate c\ntrain={}\nvalidation={}\nfrozen={}\noutcome_matched_train={}\noutcome_matched_validation={}\noutcome_matched_frozen={}\nwthor_2024={}\ncorpus_hash={corpus_hash}\nreference_hash={reference_hash}\nwthor_hash={wthor_hash}\n",
         train.len(), validation.len(), frozen.len(),
         train.iter().filter(|r| r.outcome.is_some()).count(),
         validation.iter().filter(|r| r.outcome.is_some()).count(),
@@ -862,18 +934,139 @@ mod tests {
     }
 
     #[test]
-    fn corpus_loader_builds_only_limited_unique_pairs() {
+    fn corpus_loader_fixture_validates_schema_key_moves_values_and_pairs() {
         let reference = Model::new(patterns::generate_patterns());
-        let path = Path::new("train/data/teacher/corpus_smoke.jsonl");
-        if !path.exists() {
-            return;
+        let board = Board::initial();
+        let sample = train_data::Sample {
+            board,
+            mover: Side::Black,
+            outcome: 0.0,
+            last_move_kind: train_data::LastMoveKind::Other,
+            vulnerable_xc: false,
+        };
+        let key = experiment::canonicalize(&sample).0;
+        let board_text: String = (0..64)
+            .map(|i| {
+                if board.black & (1u64 << i) != 0 {
+                    'X'
+                } else if board.white & (1u64 << i) != 0 {
+                    'O'
+                } else {
+                    '-'
+                }
+            })
+            .collect();
+        let json = format!(
+            r#"{{"board":"{board_text}","sideToMove":"black","source":"engineLoss","canonicalKey":[{},{},{}],"children":[{{"move":"d3","value":4.0,"diffFromBest":0.0}},{{"move":"c4","value":3.0,"diffFromBest":1.0}},{{"move":"f5","value":2.0,"diffFromBest":2.0}},{{"move":"e6","value":1.0,"diffFromBest":3.0}}],"bestMove":"d3","bestValue":4.0}}"#,
+            key.0, key.1, key.2
+        );
+        let path =
+            env::temp_dir().join(format!("t090-corpus-fixture-{}.jsonl", std::process::id()));
+        fs::write(&path, format!("{json}\n")).unwrap();
+        let result = load_corpus(&path, &reference, &HashMap::new());
+        fs::remove_file(&path).unwrap();
+        let records = result.unwrap();
+        assert_eq!(records.len(), 1);
+        let record = &records[0];
+        assert_eq!(record.key, key);
+        assert_eq!(record.children.len(), 4);
+        assert_eq!(record.best, 0);
+        assert_eq!(record.teacher_value, 4.0);
+        assert!(record.pairs.len() <= 3);
+        let unique: HashSet<_> = record.pairs.iter().collect();
+        assert_eq!(unique.len(), record.pairs.len());
+        assert!(!record.pairs.contains(&record.best));
+    }
+
+    #[test]
+    fn child_score_handles_opponent_pass_without_negating() {
+        let child = Board {
+            black: 18_373_833_327_367_946_240,
+            white: 4_596_557_680_640,
+        };
+        assert_eq!(child.legal_moves(Side::White), 0);
+        assert_ne!(child.legal_moves(Side::Black), 0);
+        let mut model = Model::new(patterns::generate_patterns());
+        for (class, stage, state) in features(&model, &child, Side::Black) {
+            model.weights.class_tables[class].stage_tables[stage][state] = 1.0;
         }
-        let records = load_corpus(path, &reference, &HashMap::new()).unwrap();
-        assert!(records.iter().all(|record| record.pairs.len() <= 3));
-        assert!(records.iter().all(|record| {
-            let unique: HashSet<_> = record.pairs.iter().collect();
-            unique.len() == record.pairs.len() && !record.pairs.contains(&record.best)
-        }));
+        let prediction = model.predict(&child, Side::Black);
+        assert!(prediction > 0.0);
+        assert_eq!(child_score(&model, &child, Side::Black), prediction);
+    }
+
+    #[test]
+    fn child_score_uses_exact_parent_disc_difference_at_terminal() {
+        let parent =
+            parse_board("OOOOOOOOOOXXXXXOOXOOXXXOOOXOXXXOOOOOOXXOOOOOOOXOOOOXXOXOOOOOOOO-")
+                .unwrap();
+        let child = parent.apply_move(Side::White, 1u64 << 63);
+        assert!(child.is_terminal());
+        let model = Model::new(patterns::generate_patterns());
+        assert_eq!(child_score(&model, &child, Side::White), 28.0);
+    }
+    #[test]
+    fn pairwise_gradient_handles_opponent_pass_sign() {
+        let parent = Board {
+            black: 18_228_592_239_385_247_744,
+            white: 1_130_496_464_523_264,
+        };
+        let mover = Side::Black;
+        let pass_move = 57u8;
+        let other_move = (parent.legal_moves(mover) & !(1u64 << pass_move)).trailing_zeros() as u8;
+        assert!(other_move < 64);
+        let record = DistillRecord {
+            key: CanonicalKey(0, 0, 0),
+            board: parent,
+            mover,
+            teacher_value: 4.0,
+            outcome: None,
+            children: vec![
+                Child {
+                    move_index: pass_move,
+                    board: parent.apply_move(mover, 1u64 << pass_move),
+                    teacher_value: 4.0,
+                },
+                Child {
+                    move_index: other_move,
+                    board: parent.apply_move(mover, 1u64 << other_move),
+                    teacher_value: 0.0,
+                },
+            ],
+            best: 0,
+            pairs: vec![1],
+        };
+        assert_eq!(record.children[0].board.legal_moves(Side::White), 0);
+        assert_ne!(record.children[0].board.legal_moves(Side::Black), 0);
+        let mut model = Model::new(patterns::generate_patterns());
+        let difference = |model: &Model| {
+            child_score(model, &record.children[0].board, mover)
+                - child_score(model, &record.children[1].board, mover)
+        };
+        let before = difference(&model);
+        train_step(
+            &mut model,
+            &record,
+            Mix {
+                name: "ranking",
+                teacher: 0.0,
+                ranking: 1.0,
+                outcome: 0.0,
+            },
+            0.001,
+            0.0,
+        );
+        assert!(difference(&model) > before);
+    }
+
+    #[test]
+    fn resume_truncates_metrics_rows_newer_than_checkpoint() {
+        let path = env::temp_dir().join(format!("t090-metrics-fixture-{}.tsv", std::process::id()));
+        fs::write(&path, "epoch\tloss\n1\t1.0\n2\t0.9\n2\t0.9\n3\t0.8\n").unwrap();
+        truncate_metrics_after(&path, 2).unwrap();
+        let result = fs::read_to_string(&path).unwrap();
+        fs::remove_file(&path).unwrap();
+        assert_eq!(result, "epoch\tloss\n1\t1.0\n2\t0.9\n");
     }
 
     #[test]
