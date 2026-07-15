@@ -24,7 +24,7 @@
 
 | ID | タスク | 担当 | 状態 | 試行 |
 |---|---|---|---|---|
-| T101 | 終盤: Exact ETC(子TT boundカット) | codex(gpt-5.6-sol) | in_progress | 0 |
+| T101 | 終盤: Exact ETC(子TT boundカット) | codex(gpt-5.6-sol) | review(FFOノード-6.5%・ゲート合格、codex-review中) | 0 |
 
 ## 有効な方針・申し送り(今後のタスクに効くもの)
 

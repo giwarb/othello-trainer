@@ -1,7 +1,7 @@
 ---
 id: T101
 title: 終盤ソルバー: Exact ETC(子局面TT boundによる先行カット)
-status: in_progress # todo | in_progress | review | redo | done | blocked
+status: review # todo | in_progress | review | redo | done | blocked
 assignee: codex(gpt-5.6-sol)
 attempts: 0
 ---
@@ -55,3 +55,44 @@ attempts: 0
 ## フィードバック(やり直し時にオーケストレーターが記入)
 
 ## 作業ログ(担当エージェントが追記)
+
+### 2026-07-15 22:18 JST — Codex 実装
+
+- `engine/src/endgame.rs` に Exact ETC を実装した。複数合法手かつ空き15以上で全子の Exact-domain TT を probe し、子手番視点の `Exact` / `Upper` が `score <= -beta`、かつ `depth >= child_empties` の場合だけ親の `Lower` cutoff として使用する。`Lower`、深さ不足、閾値未達は不使用。
+- ETC 対象ノードでは生成済み子盤面の hash を `MoveInfo` に保持し、子再帰でも再利用する。公開API、abort伝播、論理ノード定義は変更していない。通常入口は const flag で on、同一内部探索を `negamax::<false>` としてテスト可能にした。
+- 当初の閾値8では既存の空き14 exact leaf quota テレメトリが変化したため、abort契約と既存回帰を維持する deep 側の固定値15へ調整した。
+- T100レビュー軽微指摘を反映: `negamax` 付近の旧コメントを現状へ更新し、排序の相対順 `隅 > mobility > square class > パリティ` を固定する単体テストを追加した。
+- 正当性テスト: Exact/Upper の安全条件と Lower 不使用を個別検証。16 seed のランダム到達小空き局面（空き10以下、160局面以上、実パス局面を含む）で ETC on/off score 完全一致。fresh TT 同一局面2回で `(score, nodes)` 完全一致。
+
+#### FFO #40–44 on/off（TT 256MiB、full window、各1回）
+
+| FFO | score on/off | nodes off | nodes on | 削減率 | wall off | wall on |
+|---:|---:|---:|---:|---:|---:|---:|
+| 40 | 38 / 38 | 45,356,628 | 44,106,279 | 2.76% | 14.730s | 13.224s |
+| 41 | 0 / 0 | 192,907,085 | 184,072,750 | 4.58% | 59.186s | 56.855s |
+| 42 | 6 / 6 | 257,445,670 | 248,730,603 | 3.39% | 75.585s | 71.596s |
+| 43 | -12 / -12 | 285,053,628 | 264,260,190 | 7.29% | 92.677s | 82.779s |
+| 44 | -14 / -14 | 288,715,239 | 258,951,798 | 10.31% | 89.918s | 78.635s |
+| 合計 | 全問一致 | 1,069,478,250 | 1,000,121,620 | **6.49%** | 332.095s | 303.089s |
+
+- 主ゲート5%削減を通過。壁時計は ETC on が off より8.73%短く、既定onを採用。
+
+#### C2 on/off（60局面 × fail-high/fail-low/full、TT 64MiB）
+
+| cap | ETC | 完走 / 180 | 全job合計nodes | 完走job合計nodes |
+|---:|:---:|---:|---:|---:|
+| 512,000 | off | 6 | 90,645,357 | 1,557,357 |
+| 512,000 | on | 6 | 90,640,526 | 1,552,526 |
+| 4,000,000 | off | 43 | 626,885,976 | 78,885,976 |
+| 4,000,000 | on | 44 | 624,182,234 | 80,182,234 |
+
+- 512k は完走数同数・合計nodes非増、4M は完走数+1・合計nodes減。完走したon/offペアの score/bound不一致0件、全完走結果の期待bound不一致0件。
+
+#### 実行コマンドと結果
+
+- `cargo test -p engine` — PASS（181 passed, 0 failed, 2 ignored。閾値8時の既存quota回帰失敗を検出後、閾値15へ修正して再実行）
+- `cargo test -p engine --release --test ffo_bench -- --nocapture` — PASS（#40–44 全問正解、1 passed, 1 ignored）
+- `cargo build --release -p engine --bin eval_cli` — PASS
+- `target/release/eval_cli.exe solve ...` / ETC off分離build — FFOおよびC2を1局面/jobごとのcheckpoint保存・resume付きで実行、上表の通り
+- `git diff --check` — PASS
+- コミット: 未実施（`.git` 書き込み不可。オーケストレーター代行）
