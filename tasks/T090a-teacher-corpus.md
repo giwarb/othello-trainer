@@ -1,9 +1,9 @@
 ---
 id: T090a
 title: Edax教師コーパス生成(smoke 1,000局面 → primary 50,000局面、全合法手teacher value付き)
-status: review # todo | in_progress | review | redo | done | blocked
+status: in_progress # todo | in_progress | review | redo | done | blocked
 assignee: codex(gpt-5.6-sol)
-attempts: 1
+attempts: 2
 ---
 
 # T090a: Edax教師コーパス生成
@@ -78,6 +78,18 @@ attempts: 1
 ### redo #1 追記(2026-07-15 11:10、実測ゲート抵触へのオーケストレーター裁定)
 
 **両方の抵触を許容し、追補生成・再選定は行わない**。理由: (1)50,000局面は全て一意なcanonical局面であり重複リスクは排除済み、(2)opening集中(最大10.21%)は人間の大会棋譜の実分布(最頻出定石の自然な占有率)であり病的な偏りではない、(3)閾値2%はオーケストレーターの当て推量で実分布に対し厳格すぎた(実測により更新)、(4)smoke bin0のX/C被覆46.15%はsmoke(開発用1,000件)のみの事象でprimaryは全bin>=50%、(5)追補は数時間のEdax実行を要し効果は投機的 — 蒸留の質はT090bの採用ゲートで実証判定される。**この裁定と実測値をmanifest(teacher_manifests/)へ「measured deviations, accepted by orchestrator ruling 2026-07-15」として記録**した上で、残りの受け入れ工程(厳密verify smoke+primary、cargo test -p train / -p engine)を完了させ、最終報告せよ。
+
+### redo #2(2026-07-15、verifier+codex-review両不合格。引き続きEdax再実行・再生成は禁止)
+
+現行51,000件のデータは3軸すべてで実測クリーン(verifierが独立再計算で確認: exact規則違反0・canonicalKey再計算不一致0/重複0)。残るのは検証能力とスキーマ整合のみ。以下を修正せよ:
+
+1. **(ブロッカー) openingKeyのバックフィル(実データ欠陥)**: スキーマv2は `openingKey` をwthorレコードの必須フィールドと定義するが、既存51,000件に未付与。**選択肢(a)を採用**: redo#1のfinalizeで実施済みの監査用candidate mapping(全opening照合成功・未照合0件)を使い、既存のwthorレコード全件へ `openingKey` を後処理で付与、engineLossレコードには `null` を付与する。シャードファイルも同期。manifestのSHA-256を更新。
+2. **(ブロッカー) verifyにexact閾値規則の事後検証を追加**: 盤面から再計算した childEmpties と EXACT_EMPTIES_THRESHOLD(24) の対応(<=24⇔exact/level60、>24⇔level16)を全件検証。verifierの独立検証で現行データは0違反と判明済みなのでパスするはず。
+3. **(ブロッカー) verifyにcanonicalKeyの盤面再計算照合を追加**: `teacher_candidates.exe canonical`(redo#1で追加済みのサブコマンド)等で board/sideToMove からD4キーを全件再計算し、(a)保存値と一致、(b)再計算値同士に重複なし、を検証。こちらも現行データは0不一致と判明済み。
+4. **(ブロッカー付随) verifyにスキーマ契約検査を追加**: 必須フィールドの存在・source固有フィールドのnull契約(openingKey含む)を検証。
+5. **(中所見) verifierのnegative testを拡充**: 合法手の欠落/余分、diffFromBest不一致、exact閾値違反、canonicalKey改ざん・D4重複、必須フィールド欠落、の各改変コーパスが exit 1 になるテストを test_teacher_corpus.py に追加。
+6. **(軽微)**: finalize の manifest 出力に `newline="\n"` を明示(CRLF混入の解消。既存manifest 2ファイルもLFで再出力)、作業ログの「git diff --check: 成功」の記載を実態に合わせて訂正する一文を追記。
+7. 完了時: 拡張後の厳密verify(smoke+primary)全件パス、test_teacher_corpus.py 全パス、`cargo test -p train`、コミット対象一覧の明記(オーケストレーター代行)。**再生成・Edax実行は一切禁止**(openingKeyバックフィルは監査mappingからの決定論的付与であり該当しない)。
 
 ## 作業ログ(担当エージェントが追記)
 
