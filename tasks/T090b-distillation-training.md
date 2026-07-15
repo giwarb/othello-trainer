@@ -86,3 +86,76 @@ T090aで生成した教師コーパス(Edax level 16 / exact の全合法手評�
 - Investigation commands: UTF-8 `Get-Content`, `rg -n`, and `git status --short`.
   No supplemental decision was found. The pre-existing out-of-scope change is
   `tasks/STATUS.md`. Commit: not implemented / not committed.
+
+### 2026-07-15 implementation and primary-run plan
+
+- Implemented the teacher-corpus loader, deterministic canonical-key position split,
+  fixed reference-weight engine choice, limited unique pair construction, and the
+  clarified mixed Huber objective in a dedicated T090b runner. The runner preserves
+  T088's early stopping, LR decay, run-identity rejection, epoch progress logging,
+  and atomic epoch checkpoint/resume behavior.
+- Smoke measurement command:
+  `cargo run -p train --release --bin train_distillation -- --corpus train/data/teacher/corpus_smoke.jsonl --checkpoint-dir train/data/t090b/smoke --mixes baseline --seeds 1 --max-epochs 1 --reference-weights train/weights/pattern_v2.bin`.
+  Result: PASS; split train/validation/frozen = 890/54/56, outcome matches =
+  829/52/54 (65 missing in total), wall time 26.5 seconds including release build and
+  one-time WTHOR loading.
+- Primary plan: run `{teacher-only, baseline, no-ranking} x seeds {1,2}`, at most 60
+  epochs each. Every epoch atomically saves current weights and state and prints
+  validation progress; every run has a separate identity and completion marker, so
+  interruption resumes from the last completed epoch. Based on the smoke measurement,
+  estimated primary wall time is 10-30 minutes. Gate (b) remains position-checkpointed
+  by `compare_pattern_v3.py`; a level-10 smoke, if reached, remains game-checkpointed
+  by `vs_edax.py`.
+
+### 2026-07-15 implementation result
+
+- Primary deterministic split (`fnv1a(canonicalKey) % 100`): train **45,055**,
+  validation **2,363**, frozen teacher test **2,582**. WTHOR canonical outcome was
+  matched for 44,994 / 2,361 / 2,580 respectively; the specified 65 non-WTHOR
+  records omit the outcome term and renormalize the remaining coefficients. Frozen
+  WTHOR 2024 contains 138,476 canonical positions. Smoke is not included in any split.
+- The final epoch-numbered checkpoint implementation was rerun from scratch for all
+  six runs. It produced byte-identical selected weights to the initial run. A same-
+  identity restart printed `resume mix=baseline seed=2 epoch=59` and completed without
+  repeating an epoch. Each run retains one complete `epoch-N.bin` / `epoch-N.state`
+  pair plus best/final artifacts; identity mismatch is rejected.
+
+| mix | seed | best epoch / epochs | validation mixed loss | validation teacher MAE | validation ranking MAE | frozen agreement | frozen mean regret | WTHOR 2024 MAE |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| teacher-only 1/0/0 | 1 | 39 / 41 | 23.550049 | 7.610597 | 13.687892 | 0.314098 | 8.236251 | 15.445753 |
+| teacher-only 1/0/0 | 2 | 38 / 38 | 23.547520 | 7.609925 | 13.684723 | 0.313710 | 8.250581 | 15.443605 |
+| baseline 0.6/0.3/0.1 | 1 | 55 / 56 | 27.392184 | 7.495471 | 9.098022 | 0.406274 | 3.969404 | 15.302234 |
+| baseline 0.6/0.3/0.1 | 2 | 58 / 59 | **27.347963** | **7.490193** | **9.072993** | **0.407049** | **3.955461** | **15.291866** |
+| no-ranking 0.7/0/0.3 | 1 | 41 / 41 | 32.710499 | 7.719055 | 13.824954 | 0.312936 | 8.338885 | 15.390803 |
+| no-ranking 0.7/0/0.3 | 2 | 36 / 38 | 32.760661 | 7.729952 | 13.852348 | 0.313710 | 8.406274 | 15.419343 |
+
+- Gate candidate: baseline seed 2, PWV3, 2,729,712 bytes (under 8 MB; loader and
+  SHA-256 verification passed).
+  - **(a) PASS**: frozen best-move agreement 0.367545 -> 0.407049
+    (+3.9504 percentage points, +10.75% relative).
+  - **(b) FAIL**: independent `compare_pattern_v3.py` fixed 18-position Edax-oracle
+    mean regret 2.000000 -> 2.666667 stones (**33.33% worse**, versus required 20%
+    improvement). The JSON was checkpointed after every position.
+  - **(c) PASS**: WTHOR 2024 MAE 14.358465 -> 15.291866, +6.50%, within the allowed
+    +10%.
+  - **(d) PASS**: deterministic 28-position depth-8 native NPS, seven runs each;
+    v2 median 859,807 vs candidate median 839,340, ratio **97.62%** (required >=80%).
+  - **(e) NOT RUN**: the candidate failed gate (b), so it did not qualify for the
+    level-10 20-game smoke. No candidate weight is adopted or copied into
+    `train/weights`, and T090c progression is not recommended.
+- Acceptance commands:
+  - `cargo test -p train`: PASS, 32 unit tests + 1 real-data test, including corpus
+    loader, pairwise loss direction/sign, mixed-loss renormalization, and split tests.
+  - `cargo test -p engine`: PASS, 178 passed / 2 ignored (plus bin/doc tests).
+  - `cargo test -p engine --release --test ffo_bench`: PASS, FFO fast #40-44,
+    1 passed / 1 heavy ignored, 519.87 seconds.
+  - `cargo build --release -p engine --bin eval_cli --bin calibrate_mpc`: PASS.
+  - `python bench/edax-compare/compare_pattern_v3.py --v2 train/weights/pattern_v2.bin --candidate train/data/t090b/primary-v2/baseline-seed-2/final.bin --output train/data/t090b/gates/oracle.json`: PASS (measurement completed; gate result failed as above).
+  - Targeted `rustfmt` on the two new Rust source files: PASS. The repository-wide
+    `cargo fmt --all -- --check` reports pre-existing formatting differences in
+    out-of-scope engine/train files; none were modified.
+- Overall decision: **not adopted (normal negative experiment)** because gate (b)
+  failed despite the large in-corpus frozen regret improvement. Generated corpus,
+  checkpoints, metrics, and gate JSON remain under the existing ignored `train/data`
+  area. Commit: unavailable in the Codex sandbox; orchestrator to commit the listed
+  source/task files.
