@@ -8,7 +8,7 @@ use std::process::ExitCode;
 use std::thread;
 
 use engine::bitboard::{Board, Side};
-use engine::pattern_eval::stage_for_empty_count;
+use engine::pattern_eval::{stage_for_empty_count, NUM_STAGES};
 use engine::patterns::{self, pattern_state_index};
 use serde::Deserialize;
 
@@ -21,6 +21,12 @@ const DEFAULT_LR: f32 = 0.005;
 const MIN_LR: f32 = 0.0003125;
 const WTHOR_CACHE_SCHEMA: u32 = 1;
 const WTHOR_CACHE_MAGIC: &[u8; 4] = b"T095";
+/// `encode_outcome_cache`が1件のoutcomeエントリに書き出す固定バイト数
+/// (key.0: 8, key.1: 8, key.2: 1, outcome: 4)。
+const OUTCOME_ENTRY_BYTES: usize = 8 + 8 + 1 + 4;
+/// `push_sample`が1件書き出す固定バイト数
+/// (board.black: 8, board.white: 8, mover: 1, outcome: 4, last_move_kind: 1, vulnerable_xc: 1)。
+const TEST_ENTRY_BYTES: usize = 8 + 8 + 1 + 4 + 1 + 1;
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -262,6 +268,21 @@ fn decode_outcome_cache(
     }
     let outcome_count = reader.u64()? as usize;
     let test_count = reader.u64()? as usize;
+    // 件数フィールドが壊れている(改ざん・破損)場合に、内容を読む前の
+    // `with_capacity` だけで過大メモリ確保しないよう、残りバイト数と
+    // checked arithmeticで整合性を確認してから確保する。
+    let outcome_bytes = outcome_count
+        .checked_mul(OUTCOME_ENTRY_BYTES)
+        .ok_or("cache_size_overflow")?;
+    let test_bytes = test_count
+        .checked_mul(TEST_ENTRY_BYTES)
+        .ok_or("cache_size_overflow")?;
+    let required_bytes = outcome_bytes
+        .checked_add(test_bytes)
+        .ok_or("cache_size_overflow")?;
+    if bytes.len().saturating_sub(reader.offset) < required_bytes {
+        return Err("truncated_cache".into());
+    }
     let mut outcomes = HashMap::with_capacity(outcome_count);
     for _ in 0..outcome_count {
         let key = CanonicalKey(reader.u64()?, reader.u64()?, reader.u8()?);
@@ -345,9 +366,18 @@ fn load_outcomes() -> Result<(HashMap<CanonicalKey, f32>, Vec<train_data::Sample
     let mut test: Vec<_> = test_map.into_values().map(|record| record.sample).collect();
     test.sort_by_key(|sample| experiment::canonicalize(sample).0);
     let cache_bytes = encode_outcome_cache(&outcomes, &test, &wthor_hash);
-    atomic_write(&cache_path, &cache_bytes)?;
-    println!("wthor_cache_built={}", cache_path.display());
+    save_cache_best_effort(&cache_path, &cache_bytes);
     Ok((outcomes, test, wthor_hash))
+}
+
+/// キャッシュはあくまで高速化用途なので、書き込みに失敗しても学習全体を
+/// 失敗させない(メモリ上に構築済みのoutcomes/testで続行できる)。書き込み不可の
+/// 環境(読み取り専用の`train/data`等)でも、従来どおり学習を起動できるようにする。
+fn save_cache_best_effort(path: &Path, bytes: &[u8]) {
+    match atomic_write(path, bytes) {
+        Ok(()) => println!("wthor_cache_built={}", path.display()),
+        Err(error) => eprintln!("wthor_cache_write_failed={}: {error}", path.display()),
+    }
 }
 
 fn load_corpus(
@@ -686,6 +716,59 @@ fn shuffle(count: usize, seed: u64) -> Vec<usize> {
     order
 }
 
+/// `seed`と`phase`から、フェーズごとに独立したシャッフルseedを決定論的に導く。
+fn subset_seed_for_phase(seed: u64, phase: usize) -> u64 {
+    let hash = fnv_update(0xcbf29ce484222325, &seed.to_le_bytes());
+    fnv_update(hash, &[phase as u8])
+}
+
+/// T109: 既存コーパスのtrain splitから、空きマス帯(phase)で層化した
+/// 入れ子(nested)部分集合を決定論的に抽出する。
+///
+/// 「入れ子」とは、同一`seed`について `target` を大きくしていくと、小さい方の
+/// 抽出結果が常に大きい方の抽出結果の部分集合になることを指す。これはフェーズ内の
+/// シャッフル順序を`target`に依存させず、各フェーズの採用件数
+/// `floor(target * phase_count / total)`だけをtargetの関数として単調非減少に
+/// することで保証している(同じ並び替え済み配列の接頭辞を伸ばすだけなので、
+/// 小さいtargetの選択は必ず大きいtargetの選択に含まれる)。
+///
+/// `target >= records.len()`の場合は全量をそのまま返す(無引数時の既存動作を
+/// 変えないため、この関数自体を呼ばない経路もrun()側に用意している)。
+/// 各フェーズの採用件数はfloor演算のため、合計は`target`よりわずかに
+/// (最大でも`NUM_STAGES`件未満)少なくなり得る。
+fn select_train_subset(records: Vec<DistillRecord>, target: usize, seed: u64) -> Vec<DistillRecord> {
+    let total = records.len();
+    if target >= total {
+        return records;
+    }
+    let mut by_phase: Vec<Vec<usize>> = vec![Vec::new(); NUM_STAGES];
+    for (index, record) in records.iter().enumerate() {
+        let phase = stage_for_empty_count(record.board.empty_count());
+        by_phase[phase].push(index);
+    }
+    let mut selected = Vec::with_capacity(target);
+    for (phase, mut group) in by_phase.into_iter().enumerate() {
+        if group.is_empty() {
+            continue;
+        }
+        // ファイル/ハッシュ由来の元順序に依存しない安定した基準順を先に作ってから
+        // シャッフルする(同じ集合なら常に同じ基準順になる)。
+        group.sort_by_key(|&index| records[index].key);
+        let phase_seed = subset_seed_for_phase(seed, phase);
+        let order = shuffle(group.len(), phase_seed);
+        let cutpoint = ((target as u128 * group.len() as u128) / total as u128) as usize;
+        for &local in &order[..cutpoint] {
+            selected.push(group[local]);
+        }
+    }
+    selected.sort_unstable();
+    let mut slots: Vec<Option<DistillRecord>> = records.into_iter().map(Some).collect();
+    selected
+        .into_iter()
+        .map(|index| slots[index].take().expect("subset index selected twice"))
+        .collect()
+}
+
 #[cfg(windows)]
 fn replace_file(temp: &Path, destination: &Path) -> Result<(), String> {
     use std::os::windows::ffi::OsStrExt;
@@ -833,8 +916,10 @@ fn run_one(
     let metrics_path = dir.join("metrics.tsv");
     truncate_metrics_after(&metrics_path, epoch)?;
     if !metrics_path.exists() {
+        // T109: train側のteacher MAEも毎epoch記録する(train_lossは混合損失であり、
+        // 過学習ギャップの直接観測にはvalidation側との比較が別途必要なため)。
         atomic_write(&metrics_path,
-            b"epoch\tlearning_rate\ttrain_loss\tvalidation_loss\tvalidation_teacher_mae\tvalidation_ranking_mae\n")?;
+            b"epoch\tlearning_rate\ttrain_loss\ttrain_teacher_mae\tvalidation_loss\tvalidation_teacher_mae\tvalidation_ranking_mae\n")?;
     }
     while epoch < max_epochs && stale < 5 {
         println!(
@@ -849,6 +934,9 @@ fn run_one(
         }
         train_loss /= train.len().max(1) as f64;
         epoch += 1;
+        // train側のteacher MAEは重み更新後のモデルで、trainサブセット(または全量)
+        // 全件に対するforward-onlyの再評価。数値結果(重み・train_loss)には影響しない。
+        let train_metrics = metrics(&model, train, mix);
         let validation_metrics = metrics(&model, validation, mix);
         let absolute_best = validation_metrics.mixed < best_loss;
         let meaningful = validation_metrics.mixed + 0.02 <= patience_loss;
@@ -871,7 +959,8 @@ fn run_one(
         }
         let mut table = fs::read_to_string(&metrics_path).map_err(|e| e.to_string())?;
         table.push_str(&format!(
-            "{epoch}\t{learning_rate:.7}\t{train_loss:.6}\t{:.6}\t{:.6}\t{:.6}\n",
+            "{epoch}\t{learning_rate:.7}\t{train_loss:.6}\t{:.6}\t{:.6}\t{:.6}\t{:.6}\n",
+            train_metrics.teacher_mae,
             validation_metrics.mixed,
             validation_metrics.teacher_mae,
             validation_metrics.ranking_mae
@@ -896,14 +985,15 @@ fn run_one(
     }
     let best_model =
         Model::from_bytes(&fs::read(dir.join("best.bin")).map_err(|e| e.to_string())?)?;
+    let train_metrics = metrics(&best_model, train, mix);
     let validation_metrics = metrics(&best_model, validation, mix);
     let frozen_metrics = metrics(&best_model, frozen, mix);
     let wthor_2024_mae = best_model.mean_absolute_error(wthor_2024);
     let bytes = best_model.to_bytes_v3();
     atomic_write(&dir.join("final.bin"), &bytes)?;
     atomic_write(&dir.join("complete.txt"), identity.as_bytes())?;
-    let result = format!("mix\tseed\tbest_epoch\tepochs\tvalidation_loss\tvalidation_teacher_mae\tvalidation_ranking_mae\tfrozen_agreement\tfrozen_mean_regret\twthor_2024_mae\tbytes\n{}\t{seed}\t{best_epoch}\t{epoch}\t{:.6}\t{:.6}\t{:.6}\t{:.6}\t{:.6}\t{wthor_2024_mae:.6}\t{}\n",
-        mix.name, validation_metrics.mixed, validation_metrics.teacher_mae,
+    let result = format!("mix\tseed\tbest_epoch\tepochs\ttrain_size\ttrain_teacher_mae\tvalidation_loss\tvalidation_teacher_mae\tvalidation_ranking_mae\tfrozen_agreement\tfrozen_mean_regret\twthor_2024_mae\tbytes\n{}\t{seed}\t{best_epoch}\t{epoch}\t{}\t{:.6}\t{:.6}\t{:.6}\t{:.6}\t{:.6}\t{:.6}\t{wthor_2024_mae:.6}\t{}\n",
+        mix.name, train.len(), train_metrics.teacher_mae, validation_metrics.mixed, validation_metrics.teacher_mae,
         validation_metrics.ranking_mae, frozen_metrics.agreement,
         frozen_metrics.regret, bytes.len());
     atomic_write(&dir.join("result.tsv"), result.as_bytes())
@@ -947,6 +1037,22 @@ fn run_all(
     Ok(())
 }
 
+/// `--mixes`内の重複したmix名を検出する。重複したmix/seedの組はrun_all内の
+/// 直積で同一checkpoint dirへの競合書き込みを引き起こすため、runより前に拒否する。
+fn find_duplicate_mix(mixes: &[Mix]) -> Option<&'static str> {
+    let mut seen = HashSet::new();
+    mixes
+        .iter()
+        .find(|mix| !seen.insert(mix.name))
+        .map(|mix| mix.name)
+}
+
+/// `--seeds`内の重複したseed値を検出する(用途は`find_duplicate_mix`と同じ)。
+fn find_duplicate_seed(seeds: &[u64]) -> Option<u64> {
+    let mut seen = HashSet::new();
+    seeds.iter().find(|&&seed| !seen.insert(seed)).copied()
+}
+
 pub fn run() -> ExitCode {
     let corpus = PathBuf::from(
         arg("--corpus").unwrap_or_else(|| "train/data/teacher/corpus_primary.jsonl".into()),
@@ -973,6 +1079,10 @@ pub fn run() -> ExitCode {
             return ExitCode::FAILURE;
         }
     };
+    if let Some(name) = find_duplicate_mix(&mixes) {
+        eprintln!("duplicate --mixes entry: {name}");
+        return ExitCode::FAILURE;
+    }
     let seeds: Result<Vec<u64>, _> = arg("--seeds")
         .unwrap_or_else(|| "1,2".into())
         .split(',')
@@ -985,6 +1095,10 @@ pub fn run() -> ExitCode {
             return ExitCode::FAILURE;
         }
     };
+    if let Some(seed) = find_duplicate_seed(&seeds) {
+        eprintln!("duplicate --seeds entry: {seed}");
+        return ExitCode::FAILURE;
+    }
     let run_count = mixes.len().saturating_mul(seeds.len());
     let default_jobs = thread::available_parallelism()
         .map_or(1, usize::from)
@@ -1016,6 +1130,24 @@ pub fn run() -> ExitCode {
             return ExitCode::FAILURE;
         }
         None => 1e-5,
+    };
+    // T109: train splitのみを対象にした入れ子(nested)層化サブサンプリング。
+    // 未指定なら従来どおり全量(挙動不変)。
+    let train_subset_size = match arg("--train-subset-size").map(|value| value.parse::<usize>()) {
+        Some(Ok(value)) => Some(value),
+        Some(Err(error)) => {
+            eprintln!("invalid --train-subset-size: {error}");
+            return ExitCode::FAILURE;
+        }
+        None => None,
+    };
+    let subset_seed = match arg("--subset-seed").map(|value| value.parse::<u64>()) {
+        Some(Ok(value)) => value,
+        Some(Err(error)) => {
+            eprintln!("invalid --subset-seed: {error}");
+            return ExitCode::FAILURE;
+        }
+        None => 42,
     };
     let reference_bytes = match fs::read(&reference_path) {
         Ok(value) => value,
@@ -1059,13 +1191,31 @@ pub fn run() -> ExitCode {
         eprintln!("all three deterministic splits must be non-empty");
         return ExitCode::FAILURE;
     }
+    let full_train_len = train.len();
+    if let Some(target) = train_subset_size {
+        if target == 0 {
+            eprintln!("--train-subset-size must be positive");
+            return ExitCode::FAILURE;
+        }
+        train = select_train_subset(train, target, subset_seed);
+        if train.is_empty() {
+            eprintln!("--train-subset-size produced an empty train split");
+            return ExitCode::FAILURE;
+        }
+    }
     let corpus_hash = format!(
         "{:016x}",
         fnv_update(0xcbf29ce484222325, &fs::read(&corpus).unwrap())
     );
     let reference_hash = format!("{:016x}", fnv_update(0xcbf29ce484222325, &reference_bytes));
     fs::create_dir_all(&root).unwrap();
-    let manifest = format!("split=fnv1a(canonicalKey)%100:train0-89,validation90-94,frozen95-99\noutcome_policy=canonical averages from WTHOR 2015-2023; keys occurring in 2024 removed with test priority; 2024 reserved for gate c\ntrain={}\nvalidation={}\nfrozen={}\noutcome_matched_train={}\noutcome_matched_validation={}\noutcome_matched_frozen={}\nwthor_2024={}\ncorpus_hash={corpus_hash}\nreference_hash={reference_hash}\nwthor_hash={wthor_hash}\n",
+    let subset_manifest_line = match train_subset_size {
+        Some(target) => format!(
+            "train_subset_size_target={target}\ntrain_subset_seed={subset_seed}\ntrain_full_size={full_train_len}\n"
+        ),
+        None => format!("train_subset_size_target=full\ntrain_full_size={full_train_len}\n"),
+    };
+    let manifest = format!("split=fnv1a(canonicalKey)%100:train0-89,validation90-94,frozen95-99\noutcome_policy=canonical averages from WTHOR 2015-2023; keys occurring in 2024 removed with test priority; 2024 reserved for gate c\ntrain={}\nvalidation={}\nfrozen={}\noutcome_matched_train={}\noutcome_matched_validation={}\noutcome_matched_frozen={}\nwthor_2024={}\ncorpus_hash={corpus_hash}\nreference_hash={reference_hash}\nwthor_hash={wthor_hash}\n{subset_manifest_line}",
         train.len(), validation.len(), frozen.len(),
         train.iter().filter(|r| r.outcome.is_some()).count(),
         validation.iter().filter(|r| r.outcome.is_some()).count(),
@@ -1080,7 +1230,14 @@ pub fn run() -> ExitCode {
         reference_frozen.agreement, reference_frozen.regret);
     atomic_write(&root.join("reference.tsv"), reference_row.as_bytes()).unwrap();
     print!("{manifest}");
-    let identity = format!("corpus_hash={corpus_hash}\nreference_hash={reference_hash}\nwthor_hash={wthor_hash}\ntrain={}\nvalidation={}\nfrozen={}\n",
+    // 引数無し(全量)の場合はidentity文字列を従来どおり不変に保つ(既存動作の
+    // 無引数不変要件)。サブセット指定時のみ、誤って別配置と取り違えて resume
+    // しないよう識別情報を追加する。
+    let subset_identity = match train_subset_size {
+        Some(target) => format!("train_subset_size_target={target}\ntrain_subset_seed={subset_seed}\n"),
+        None => String::new(),
+    };
+    let identity = format!("corpus_hash={corpus_hash}\nreference_hash={reference_hash}\nwthor_hash={wthor_hash}\ntrain={}\nvalidation={}\nfrozen={}\n{subset_identity}",
         train.len(), validation.len(), frozen.len());
     let runs: Vec<_> = mixes
         .into_iter()
@@ -1431,5 +1588,160 @@ mod tests {
         let key = CanonicalKey(12, 34, 1);
         assert_eq!(key_hash(key), key_hash(key));
         assert!(key_hash(key) % 100 < 100);
+    }
+
+    /// テスト用の最小`DistillRecord`。`select_train_subset`は`board`(の空きマス数から
+    /// 求まるphase)と`key`しか見ないため、他フィールドはダミー値でよい。
+    fn fixture_record(index: u64, phase: usize) -> DistillRecord {
+        let filled = 64usize.saturating_sub(phase * 5);
+        let black = if filled >= 64 {
+            u64::MAX
+        } else {
+            (1u64 << filled) - 1
+        };
+        DistillRecord {
+            key: CanonicalKey(index, 0, 0),
+            board: Board { black, white: 0 },
+            mover: Side::Black,
+            teacher_value: 0.0,
+            outcome: None,
+            children: Vec::new(),
+            best: 0,
+            pairs: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn select_train_subset_target_at_or_above_total_returns_all_records_unchanged() {
+        let records: Vec<_> = (0..10).map(|i| fixture_record(i, (i % 4) as usize)).collect();
+        let total = records.len();
+        let subset = select_train_subset(records.clone(), total, 1);
+        assert_eq!(subset.len(), total);
+        let subset_over = select_train_subset(records, total + 5, 1);
+        assert_eq!(subset_over.len(), total);
+    }
+
+    #[test]
+    fn select_train_subset_is_deterministic_for_same_seed() {
+        let records: Vec<_> = (0..500)
+            .map(|i| fixture_record(i, (i % 13) as usize))
+            .collect();
+        let a = select_train_subset(records.clone(), 120, 7);
+        let b = select_train_subset(records, 120, 7);
+        assert_eq!(
+            a.iter().map(|r| r.key).collect::<Vec<_>>(),
+            b.iter().map(|r| r.key).collect::<Vec<_>>()
+        );
+    }
+
+    #[test]
+    fn select_train_subset_nests_across_increasing_sizes() {
+        let records: Vec<_> = (0..900)
+            .map(|i| fixture_record(i, (i % 13) as usize))
+            .collect();
+        let seed = 99;
+        let small = select_train_subset(records.clone(), 90, seed);
+        let medium = select_train_subset(records.clone(), 300, seed);
+        let large = select_train_subset(records, 700, seed);
+        let small_keys: HashSet<_> = small.iter().map(|r| r.key).collect();
+        let medium_keys: HashSet<_> = medium.iter().map(|r| r.key).collect();
+        let large_keys: HashSet<_> = large.iter().map(|r| r.key).collect();
+        assert!(
+            small_keys.is_subset(&medium_keys),
+            "small subset must be nested inside the medium subset"
+        );
+        assert!(
+            medium_keys.is_subset(&large_keys),
+            "medium subset must be nested inside the large subset"
+        );
+        // floor除算のため合計は要求サイズよりわずかに少なくなり得る(最大でもNUM_STAGES件未満)。
+        assert!(small.len() <= 90 && small.len() + NUM_STAGES > 90);
+    }
+
+    #[test]
+    fn select_train_subset_preserves_phase_proportions_by_floor() {
+        let mut records = Vec::new();
+        for i in 0..400u64 {
+            records.push(fixture_record(i, 0));
+        }
+        for i in 400..500u64 {
+            records.push(fixture_record(i, 1));
+        }
+        let subset = select_train_subset(records, 100, 5);
+        let phase0 = subset
+            .iter()
+            .filter(|r| stage_for_empty_count(r.board.empty_count()) == 0)
+            .count();
+        let phase1 = subset
+            .iter()
+            .filter(|r| stage_for_empty_count(r.board.empty_count()) == 1)
+            .count();
+        assert_eq!(phase0, 80, "floor(100 * 400 / 500) = 80");
+        assert_eq!(phase1, 20, "floor(100 * 100 / 500) = 20");
+    }
+
+    #[test]
+    fn decode_outcome_cache_rejects_overflowing_count_without_large_allocation() {
+        let mut bytes = Vec::new();
+        bytes.extend_from_slice(WTHOR_CACHE_MAGIC);
+        bytes.extend_from_slice(&WTHOR_CACHE_SCHEMA.to_le_bytes());
+        let hash = "abc123";
+        bytes.extend_from_slice(&(hash.len() as u32).to_le_bytes());
+        bytes.extend_from_slice(hash.as_bytes());
+        // outcome_countを桁あふれさせる壊れた値。checked_mulでオーバーフローを検出し、
+        // `HashMap::with_capacity`へ到達する前にErrで打ち切ることを確認する。
+        bytes.extend_from_slice(&u64::MAX.to_le_bytes());
+        bytes.extend_from_slice(&0u64.to_le_bytes());
+        assert_eq!(
+            decode_outcome_cache(&bytes, hash).unwrap_err(),
+            "cache_size_overflow"
+        );
+    }
+
+    #[test]
+    fn decode_outcome_cache_rejects_oversized_count_claiming_more_than_file_contains() {
+        let mut bytes = Vec::new();
+        bytes.extend_from_slice(WTHOR_CACHE_MAGIC);
+        bytes.extend_from_slice(&WTHOR_CACHE_SCHEMA.to_le_bytes());
+        let hash = "abc123";
+        bytes.extend_from_slice(&(hash.len() as u32).to_le_bytes());
+        bytes.extend_from_slice(hash.as_bytes());
+        // 巨大だがオーバーフローはしない件数。ファイルにはその分のバイトが無いため、
+        // 実際に確保する前にtruncated_cacheとして拒否されるはず。
+        bytes.extend_from_slice(&1_000_000_000u64.to_le_bytes());
+        bytes.extend_from_slice(&0u64.to_le_bytes());
+        assert_eq!(
+            decode_outcome_cache(&bytes, hash).unwrap_err(),
+            "truncated_cache"
+        );
+    }
+
+    #[test]
+    fn save_cache_best_effort_does_not_panic_when_directory_is_missing() {
+        let missing_dir = env::temp_dir().join(format!(
+            "t090-cache-fixture-missing-dir-{}",
+            std::process::id()
+        ));
+        assert!(!missing_dir.exists());
+        let path = missing_dir.join("cache.bin");
+        save_cache_best_effort(&path, b"payload");
+        assert!(!path.exists());
+    }
+
+    #[test]
+    fn find_duplicate_mix_detects_repeated_names_only() {
+        let baseline = Mix::parse("baseline").unwrap();
+        let teacher_only = Mix::parse("teacher-only").unwrap();
+        assert_eq!(find_duplicate_mix(&[baseline, teacher_only]), None);
+        assert_eq!(
+            find_duplicate_mix(&[baseline, baseline]),
+            Some("baseline")
+        );
+    }
+
+    #[test]
+    fn find_duplicate_seed_detects_repeated_values_only() {
+        assert_eq!(find_duplicate_seed(&[1, 2, 3]), None);
+        assert_eq!(find_duplicate_seed(&[1, 2, 1]), Some(1));
     }
 }
