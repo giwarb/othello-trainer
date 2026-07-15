@@ -163,6 +163,12 @@ impl Mix {
                 ranking: 0.0,
                 outcome: 0.3,
             }),
+            "outcome-only" => Ok(Self {
+                name: "outcome-only",
+                teacher: 0.0,
+                ranking: 0.0,
+                outcome: 1.0,
+            }),
             _ => Err(format!("unknown mix {name}")),
         }
     }
@@ -661,11 +667,19 @@ fn train_step(
     let prediction = prediction_from_features(model, &parent_features);
     let (teacher_loss, teacher_gradient) = huber(prediction - record.teacher_value);
     let mut gradient = HashMap::new();
-    add_gradient(
-        &mut gradient,
-        &parent_features,
-        teacher_weight * teacher_gradient,
-    );
+    // T112: teacher_weightがちょうど0(outcome-onlyの主経路)のとき、
+    // add_gradientを無条件に呼ぶとgradientマップにvalue=0.0のエントリが
+    // 作られ、末尾のL2減衰(weight -= lr*(value + l2*weight))がこの局面が
+    // 触れた特徴だけに余計にかかってしまう。outcomeが無い局面(outcome-only
+    // では学習に使えずスキップされるべき)でこれが唯一のadd_gradient経路に
+    // なるため、teacher_weight==0のときは呼ばない(完全スキップを保証する)。
+    if teacher_weight != 0.0 {
+        add_gradient(
+            &mut gradient,
+            &parent_features,
+            teacher_weight * teacher_gradient,
+        );
+    }
 
     let mut ranking_loss = 0.0;
     if ranking_weight > 0.0 && !record.pairs.is_empty() {
@@ -981,12 +995,16 @@ fn run_one(
         println!("resume mix={} seed={seed} epoch={epoch}", mix.name);
     }
     let metrics_path = dir.join("metrics.tsv");
-    truncate_metrics_after(&metrics_path, epoch)?;
     // T109: train側のteacher MAEも毎epoch記録する(train_lossは混合損失であり、
     // 過学習ギャップの直接観測にはvalidation側との比較が別途必要なため)。
-    // T110(M1): ヘッダが無ければ現行ヘッダで作成し、あれば現行ヘッダと一致することを
-    // 確認する(不一致なら列ずれを防ぐため明確なエラーで停止する)。
+    // T110(M1)/T112(M1'): ヘッダが無ければ現行ヘッダで作成し、あれば現行ヘッダと
+    // 一致することを確認する(不一致なら列ずれを防ぐため明確なエラーで停止する)。
+    // ヘッダ検証は`truncate_metrics_after`より先に行う: 旧順序では不一致ヘッダの
+    // ファイルでも`truncate_metrics_after`がatomic_writeで一度書き戻してしまい、
+    // 直後にこのチェックが拒否しても副作用(ファイル変更)が既に発生していた
+    // (T110レビュー指摘M1'、resumeを拒否する経路が完全には副作用フリーでない)。
     ensure_metrics_header(&metrics_path)?;
+    truncate_metrics_after(&metrics_path, epoch)?;
     while epoch < max_epochs && stale < 5 {
         println!(
             "start mix={} seed={seed} epoch={}/{}",
@@ -1488,6 +1506,56 @@ mod tests {
         );
     }
 
+    /// T112: outcome-only(teacher 0 / ranking 0 / outcome 1.0)は既存の
+    /// 再正規化規約(`coefficients`)と整合し、outcomeがあれば(0,0,1.0)、
+    /// 無ければ再正規化する分母(teacher+ranking)が0なので(0,0,0)になる
+    /// (=学習に一切寄与しない完全スキップ)。
+    #[test]
+    fn outcome_only_mix_has_pure_outcome_coefficients_and_is_fully_skipped_without_outcome() {
+        let mix = Mix::parse("outcome-only").unwrap();
+        assert_eq!(mix.teacher, 0.0);
+        assert_eq!(mix.ranking, 0.0);
+        assert_eq!(mix.outcome, 1.0);
+        assert_eq!(mix.coefficients(true), (0.0, 0.0, 1.0));
+        assert_eq!(mix.coefficients(false), (0.0, 0.0, 0.0));
+    }
+
+    /// T112: outcome-onlyでoutcomeが無いレコードは`train_step`が完全な
+    /// no-op(loss=0・重み一切不変)であることを確認する。teacher項の
+    /// `add_gradient`をteacher_weight==0でも無条件に呼ぶと、value=0.0の
+    /// エントリがgradientマップに作られてしまい、末尾のL2減衰
+    /// (`weight -= lr*(value + l2*weight)`)がこの局面の触れた特徴だけに
+    /// 余計にかかる(スキップのはずが微小な重み減衰が発生する)退行を防ぐ。
+    #[test]
+    fn train_step_is_a_full_no_op_for_outcome_only_mix_without_outcome() {
+        let mix = Mix::parse("outcome-only").unwrap();
+        let board = Board::initial();
+        let mover = Side::Black;
+        let children: Vec<_> = [19u8, 26u8]
+            .into_iter()
+            .map(|move_index| Child {
+                move_index,
+                board: board.apply_move(mover, 1u64 << move_index),
+                teacher_value: if move_index == 19 { 6.0 } else { 2.0 },
+            })
+            .collect();
+        let record = DistillRecord {
+            key: CanonicalKey(0, 0, 0),
+            board,
+            mover,
+            teacher_value: 8.0,
+            outcome: None,
+            children,
+            best: 0,
+            pairs: vec![1],
+        };
+        let mut model = Model::new(patterns::generate_patterns());
+        let before = model.to_bytes_v3();
+        let loss = train_step(&mut model, &record, mix, 0.005, 1e-5);
+        assert_eq!(loss, 0.0);
+        assert_eq!(model.to_bytes_v3(), before);
+    }
+
     #[test]
     fn pairwise_huber_uses_teacher_difference_and_negamax_sign() {
         let mut model = Model::new(patterns::generate_patterns());
@@ -1912,5 +1980,51 @@ mod tests {
             "unexpected error message: {error}"
         );
         fs::remove_dir_all(&dir).ok();
+    }
+
+    /// T110レビュー指摘M1'の回帰テスト: `run_one`が`ensure_metrics_header`より先に
+    /// `truncate_metrics_after`を呼ぶと、ヘッダ不一致で最終的にrunを拒否する場合でも
+    /// truncateが一度ファイルを書き戻してしまい(副作用フリーでない拒否経路)。修正後は
+    /// ヘッダ検証を先に行うため、拒否時にmetrics.tsvが一切変更されないことを確認する。
+    #[test]
+    fn run_one_rejects_stale_header_before_truncate_mutates_the_file() {
+        let root = env::temp_dir().join(format!("t112-m1-prime-order-{}", std::process::id()));
+        fs::remove_dir_all(&root).ok();
+        let mix = Mix::parse("teacher-only").unwrap();
+        let run_dir = root.join(format!("{}-seed-{}", mix.name, 9u64));
+        fs::create_dir_all(&run_dir).unwrap();
+        let metrics_path = run_dir.join("metrics.tsv");
+        let stale_header =
+            "epoch\tlearning_rate\ttrain_loss\tvalidation_loss\tvalidation_teacher_mae\tvalidation_ranking_mae";
+        let original = format!("{stale_header}\n1\t0.005\t1.0\t2.0\t3.0\t4.0\n2\t0.005\t0.9\t1.9\t2.9\t3.9\n");
+        fs::write(&metrics_path, &original).unwrap();
+        let before = fs::read(&metrics_path).unwrap();
+
+        let empty_samples: &[train_data::Sample] = &[];
+        let result = run_one(
+            mix,
+            9,
+            &[],
+            &[],
+            &[],
+            empty_samples,
+            &root,
+            "",
+            1,
+            1e-5,
+            PatternSet::V2,
+        );
+        let error = result.unwrap_err();
+        assert!(
+            error.contains("header mismatch"),
+            "unexpected error message: {error}"
+        );
+
+        let after = fs::read(&metrics_path).unwrap();
+        assert_eq!(
+            before, after,
+            "T112 M1': header mismatch must be rejected before truncate_metrics_after mutates the file"
+        );
+        fs::remove_dir_all(&root).ok();
     }
 }
