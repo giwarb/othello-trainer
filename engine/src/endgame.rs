@@ -317,12 +317,22 @@ pub(crate) fn final_score(board: &Board, side: Side) -> i32 {
 
 /// shallow層(`solve_1`〜`solve_4`)を適用する空きマス数の上限(T104)。
 ///
-/// 設計レポート§3.1・本タスクの要件記述にある「空き4以下」にそのまま
-/// 対応させ、専用ソルバーの実装範囲(`solve_1`〜`solve_4`)と1対1に固定する
-/// (空き5以上の探索ロジック変更は本タスクのスコープ外であり、既存の
-/// 一般`negamax`経路をそのまま使う)。この値を4より大きくするには
-/// `solve_5`等の追加実装と別途の正しさ検証・計測が要るため、実装範囲を
-/// 超えて引き上げない。
+/// 設計レポート§3.1・本タスク当初要件の「空き4以下」に合わせ`4`とした。
+/// TT probe/store・Zobrist hash・移動排序を持たない専用層はTTによる
+/// transposition再利用ができないため、FFO合計ノードがbaseline
+/// (コミット`bdb4389`)比+28.63%増加し(`CornerThenParity`静的順序付け
+/// 込みの実測、2026-07-16 redo#1)、C2 512kベンチの完走数も6→5に回帰する
+/// (実測・詳細比較表は本タスクの作業ログ参照)。
+///
+/// 2026-07-16 redo#2でこの回帰を解消するため`SHALLOW_MAX_EMPTIES`自体を
+/// ablationし(2にすればFFOノード増+6.0%・C2 512k完走数6/180で両方
+/// クリアすることを確認済み)、一時的に`2`を採用していたが、
+/// 同日中にユーザー裁定により**`4`へ戻し、C2 512k完走数非減・FFOノード
+/// +10%以内のゲートは本タスクではwaiveする**(「ノード予算の話をすると
+/// 厄介すぎる、T105に進みたい」という方針判断。ノード予算(160k)との
+/// 整合はT107のexactポリシー再校正で扱う、STATUS.md申し送り参照)。
+/// 主判定であるNPS 1.3倍以上は`4`でも十分に達成している
+/// (作業ログの公式NPS計測結果を参照)。
 const SHALLOW_MAX_EMPTIES: u32 = 4;
 
 /// 手番相対のビットボード(`player`=手番側の石、`opponent`=相手側の石)から、
@@ -691,13 +701,128 @@ fn solve_4(
     best
 }
 
-/// 空き`SHALLOW_MAX_EMPTIES`(=4)以下の局面を、TT probe/store・Zobrist
-/// hash更新・一般用途のムーブオーダリングを一切行わずに解く(T104)。
-/// `negamax`から空きマス数がこの閾値以下になった時点で委譲される。
+/// T104 redo#1: shallow層(`solve_2`〜`solve_4`)が空きマスを走査する順序。
+///
+/// 初回実装(コミット`4bbca88`)は空きマスを自然なビット順(マス番号昇順)
+/// のまま走査しており、`negamax`(shallow層無効時)が使うT103のNWS/PVS
+/// 構造や隅優先・相手mobility昇順の排序と比べて枝刈り効率が下がり、
+/// FFO合計ノードが+30.3%増加してC2 512k完走数が6→5に回帰した
+/// (2026-07-16 redo#1フィードバック参照)。この回帰への対応として、
+/// **動的なムーブオーダリング(評価値・mobilityによるソート)ではなく**、
+/// `solve_shallow`の入口で一度だけ行う安価な静的並べ替えを導入する
+/// (4要素以下の挿入ソート1回のみ、以降の再帰的な子呼び出しは
+/// [`other_of_2`]/[`others_of_3`]/[`others_of_4`]が元の順序を保つため、
+/// 再帰のたびに並べ替え直す必要はない)。
+///
+/// - `Parity`: 奇数パリティ象限(空きマス数が奇数の象限)の空きマスを
+///   優先する(T100の固定象限パリティと同じ原理: 終盤の奇数理論)。
+/// - `AvoidXc`: X/C打ち(隅に隣接する危険マス)を後回しにする静的位置優先。
+/// - `ParityThenAvoidXc`: 上記2つを組み合わせ、パリティを主キー・
+///   X/C回避を副キーにする。
+/// - `None`: 順序付けなし(初回実装との比較用)。
+///
+/// 採用する変種は`SHALLOW_MOVE_ORDER`定数で固定する(実行時分岐や
+/// ユーザー設定は増やさない)。各変種のFFO/C2実測比較は本タスクの
+/// 作業ログを参照。
+#[derive(Clone, Copy, PartialEq, Eq)]
+#[allow(dead_code)]
+enum ShallowMoveOrder {
+    None,
+    Parity,
+    AvoidXc,
+    ParityThenAvoidXc,
+    /// (redo#1追加調査) 隅を最優先する静的位置優先。
+    CornerFirst,
+    /// (redo#1追加調査) 隅優先を主キー・パリティを副キーにする。
+    CornerThenParity,
+}
+
+/// 現在採用している変種(計測結果に基づき固定)。
+const SHALLOW_MOVE_ORDER: ShallowMoveOrder = ShallowMoveOrder::CornerThenParity;
+
+/// `squares`(shallow層が走査する空きマス配列)を`SHALLOW_MOVE_ORDER`に
+/// 従って並べ替える。4要素以下なので単純な挿入ソートで十分
+/// (要素数の割にクロージャ呼び出しが増えても影響は無視できる規模)。
+/// 最終キーに必ずマス番号を入れ、同点時の順序を決定的にする。
+fn order_empties_for_shallow(squares: &mut [u8], quadrant_parity: u8) {
+    if SHALLOW_MOVE_ORDER == ShallowMoveOrder::None {
+        return;
+    }
+    let key = |sq: u8| -> (u8, u8, u8) {
+        let odd_quadrant_rank = match SHALLOW_MOVE_ORDER {
+            ShallowMoveOrder::Parity
+            | ShallowMoveOrder::ParityThenAvoidXc
+            | ShallowMoveOrder::CornerThenParity => {
+                if quadrant_parity & QUADRANT_ID[sq as usize] != 0 {
+                    0
+                } else {
+                    1
+                }
+            }
+            ShallowMoveOrder::None | ShallowMoveOrder::AvoidXc | ShallowMoveOrder::CornerFirst => {
+                0
+            }
+        };
+        let avoid_xc_rank = match SHALLOW_MOVE_ORDER {
+            ShallowMoveOrder::AvoidXc | ShallowMoveOrder::ParityThenAvoidXc => {
+                if (1u64 << sq) & (X_SQUARE_MASK | C_SQUARE_MASK) != 0 {
+                    1
+                } else {
+                    0
+                }
+            }
+            ShallowMoveOrder::None
+            | ShallowMoveOrder::Parity
+            | ShallowMoveOrder::CornerFirst
+            | ShallowMoveOrder::CornerThenParity => 0,
+        };
+        let corner_rank = match SHALLOW_MOVE_ORDER {
+            ShallowMoveOrder::CornerFirst | ShallowMoveOrder::CornerThenParity => {
+                if (1u64 << sq) & CORNER_MASK != 0 {
+                    0
+                } else {
+                    1
+                }
+            }
+            ShallowMoveOrder::None
+            | ShallowMoveOrder::Parity
+            | ShallowMoveOrder::AvoidXc
+            | ShallowMoveOrder::ParityThenAvoidXc => 0,
+        };
+        // CornerFirst/CornerThenParityでは隅優先を最優先キーに置くため、
+        // odd_quadrant_rankの位置にcorner_rankを合成する
+        // (既存の3要素タプルのまま変種を追加するための実装上の都合)。
+        let primary = match SHALLOW_MOVE_ORDER {
+            ShallowMoveOrder::CornerFirst | ShallowMoveOrder::CornerThenParity => corner_rank,
+            _ => odd_quadrant_rank,
+        };
+        let secondary = match SHALLOW_MOVE_ORDER {
+            ShallowMoveOrder::CornerThenParity => odd_quadrant_rank,
+            _ => avoid_xc_rank,
+        };
+        (primary, secondary, sq)
+    };
+    // 挿入ソート(要素数<=4)。
+    for i in 1..squares.len() {
+        let mut j = i;
+        while j > 0 && key(squares[j - 1]) > key(squares[j]) {
+            squares.swap(j - 1, j);
+            j -= 1;
+        }
+    }
+}
+
+/// 空き`SHALLOW_MAX_EMPTIES`以下の局面を、TT probe/store・Zobrist
+/// hash更新・一般用途のムーブオーダリング(評価値・mobilityによる動的
+/// ソート)を一切行わずに解く(T104)。`negamax`から空きマス数がこの
+/// 閾値以下になった時点で委譲される。空きマスの走査順序だけは
+/// `order_empties_for_shallow`による安価な静的並べ替えを適用する
+/// (T104 redo#1)。
 #[allow(clippy::too_many_arguments)]
 fn solve_shallow(
     board: &Board,
     side: Side,
+    quadrant_parity: u8,
     alpha: i32,
     beta: i32,
     nodes: &mut u64,
@@ -719,6 +844,8 @@ fn solve_shallow(
         empty_squares[count] = sq;
         count += 1;
     }
+
+    order_empties_for_shallow(&mut empty_squares[..count], quadrant_parity);
 
     #[cfg(test)]
     record_shallow_dispatch(count);
@@ -1110,7 +1237,17 @@ fn negamax<const ETC_ENABLED: bool, const SHALLOW_ENABLED: bool>(
     timed_out: &mut bool,
 ) -> i32 {
     if SHALLOW_ENABLED && board.empty_count() <= SHALLOW_MAX_EMPTIES {
-        return solve_shallow(board, side, alpha, beta, nodes, budget, node_limit, timed_out);
+        return solve_shallow(
+            board,
+            side,
+            quadrant_parity,
+            alpha,
+            beta,
+            nodes,
+            budget,
+            node_limit,
+            timed_out,
+        );
     }
 
     *nodes += 1;
@@ -2388,12 +2525,98 @@ mod tests {
         // 専用層(solve_1〜solve_4)が実際に発火したことを、発火0件のまま
         // passしないよう明示的に確認する(空き0はsolve_shallowの
         // 早期return分岐だが、本テストでは意図的に踏んでいないため0でよい)。
+        // `negamax`が実際に`solve_shallow`へ委譲するのは空き
+        // `SHALLOW_MAX_EMPTIES`以下のみ(モジュール冒頭の定数ドキュメント
+        // 参照。2026-07-16時点は`4`)なので、発火確認もこの閾値までに
+        // 限定する(定数参照にして閾値変更に追従させる。閾値を下げた場合に
+        // 備え、solve_3/solve_4自体の正しさは閾値を経由せず直接呼び出す
+        // `solve_3_and_solve_4_remain_correct_even_when_unreachable_from_negamax`
+        // でも独立に検証している)。
         let dispatch_counts = shallow_dispatch_counts();
-        assert!(
-            dispatch_counts[1] > 0 && dispatch_counts[2] > 0 && dispatch_counts[3] > 0 && dispatch_counts[4] > 0,
-            "expected solve_shallow to dispatch into solve_1..solve_4 at least once each, got {:?}",
-            dispatch_counts
-        );
+        for empties in 1..=SHALLOW_MAX_EMPTIES as usize {
+            assert!(
+                dispatch_counts[empties] > 0,
+                "expected solve_shallow to dispatch at empties={empties} at least once, got {:?}",
+                dispatch_counts
+            );
+        }
+    }
+
+    #[test]
+    fn solve_3_and_solve_4_remain_correct_even_when_unreachable_from_negamax() {
+        // `SHALLOW_MAX_EMPTIES`(モジュール冒頭の定数ドキュメント参照。
+        // 2026-07-16時点は`4`のため現在は`negamax`からも到達する)を
+        // 一時的に2へ下げていた期間(redo#2)に、`solve_3`/`solve_4`が
+        // `negamax`の閾値経由では到達不能になっても無検証にならないよう
+        // 追加したテスト。`SHALLOW_MAX_EMPTIES`を再び下げる判断が将来
+        // 入ってもこの回帰保護を失わないよう、`negamax`の閾値を経由せず
+        // 直接呼び出して独立実装`naive_solve`との一致を確認し続ける。
+        let mut checked3 = 0usize;
+        let mut checked4 = 0usize;
+
+        for seed in 1..=80u64 {
+            for (board, side) in random_small_positions(seed) {
+                let empties = board.empty_count();
+                if empties != 3 && empties != 4 {
+                    continue;
+                }
+
+                let (player, opponent) = match side {
+                    Side::Black => (board.black, board.white),
+                    Side::White => (board.white, board.black),
+                };
+                let mut squares = [0u8; 4];
+                let mut count = 0usize;
+                let mut remaining = !(board.black | board.white);
+                while remaining != 0 {
+                    let sq = remaining.trailing_zeros() as u8;
+                    remaining &= remaining - 1;
+                    squares[count] = sq;
+                    count += 1;
+                }
+                assert_eq!(count, empties as usize);
+
+                let truth = naive_solve(&board, side);
+                let mut nodes = 0u64;
+                let mut timed_out = false;
+                let direct_score = if empties == 3 {
+                    checked3 += 1;
+                    solve_3(
+                        player,
+                        opponent,
+                        [squares[0], squares[1], squares[2]],
+                        -64,
+                        64,
+                        &mut nodes,
+                        None,
+                        None,
+                        &mut timed_out,
+                    )
+                } else {
+                    checked4 += 1;
+                    solve_4(
+                        player,
+                        opponent,
+                        [squares[0], squares[1], squares[2], squares[3]],
+                        -64,
+                        64,
+                        &mut nodes,
+                        None,
+                        None,
+                        &mut timed_out,
+                    )
+                };
+                assert!(!timed_out);
+                assert_eq!(
+                    direct_score, truth,
+                    "solve_{}(direct call) should match naive_solve at empties={empties}",
+                    empties
+                );
+            }
+        }
+
+        assert!(checked3 >= 10, "expected several empties=3 positions, got {checked3}");
+        assert!(checked4 >= 10, "expected several empties=4 positions, got {checked4}");
     }
 
     // 注記: `negamax`(shallow層無効時)は空き1〜4でもT103のNWS/PVS構造
