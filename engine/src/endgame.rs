@@ -87,9 +87,9 @@
 
 #![allow(dead_code)]
 
-use crate::bitboard::{flips_for_move, Board, Side};
+use crate::bitboard::{apply_move_with_flips, flips_for_move, legal_moves_relative, Board, Side};
 use crate::tt::{Bound, TTDomain, TTEntry, TranspositionTable};
-use crate::zobrist::zobrist_hash;
+use crate::zobrist::{incremental_move_hash, toggle_side_to_move, zobrist_hash};
 // search.rsと同じ理由(wasm32-unknown-unknownでの`std::time::Instant`の
 // 実行時panicを避けるため)で`web_time`のドロップイン実装を使う(T034)。
 use web_time::Instant;
@@ -126,6 +126,11 @@ std::thread_local! {
     // テスト専用テレメトリで、本番探索の挙動には一切影響しない。
     static TEST_SHALLOW_DISPATCH_COUNTS: std::cell::Cell<[u64; 5]> =
         const { std::cell::Cell::new([0; 5]) };
+    // T105: `negamax`が増分計算した子/パスhashと、盤面全体を舐める
+    // `zobrist_hash`のフル再計算を照合した(`debug_assert_eq!`を通過した)
+    // 回数を数える。「発火0件のままpassしない」ことをテストで確認するための
+    // テスト専用テレメトリで、本番探索の挙動には一切影響しない。
+    static TEST_INCREMENTAL_HASH_CHECKS: std::cell::Cell<u64> = const { std::cell::Cell::new(0) };
 }
 
 fn etc_min_empties() -> u32 {
@@ -165,6 +170,21 @@ fn shallow_dispatch_counts() -> [u64; 5] {
     TEST_SHALLOW_DISPATCH_COUNTS.get()
 }
 
+#[cfg(test)]
+fn record_incremental_hash_check() {
+    TEST_INCREMENTAL_HASH_CHECKS.set(TEST_INCREMENTAL_HASH_CHECKS.get() + 1);
+}
+
+#[cfg(test)]
+fn reset_incremental_hash_checks() {
+    TEST_INCREMENTAL_HASH_CHECKS.set(0);
+}
+
+#[cfg(test)]
+fn incremental_hash_checks() -> u64 {
+    TEST_INCREMENTAL_HASH_CHECKS.get()
+}
+
 /// 通常入口はETC on。テストは`negamax::<false, _>`を直接選び、公開APIや
 /// 実行時設定を増やさずに同一実装のA/B比較を行う。
 const DEFAULT_ETC_ENABLED: bool = true;
@@ -198,6 +218,13 @@ fn initial_quadrant_parity(board: &Board) -> u8 {
         empties &= empties - 1;
     }
     parity
+}
+
+/// ルート局面の空きマスビットマスクを求める(T105 stage3)。以後
+/// `negamax`/`negamax_child`/`solve_shallow`はこの値を`board`から
+/// 再導出せず、着手ごとに`empty_squares & !mv`で増分更新して渡し合う。
+fn initial_empty_squares(board: &Board) -> u64 {
+    !(board.black | board.white)
 }
 
 fn square_class(mv: u64) -> u8 {
@@ -823,6 +850,7 @@ fn solve_shallow(
     board: &Board,
     side: Side,
     quadrant_parity: u8,
+    empty_squares_mask: u64,
     alpha: i32,
     beta: i32,
     nodes: &mut u64,
@@ -835,9 +863,12 @@ fn solve_shallow(
         Side::White => (board.white, board.black),
     };
 
+    // T105 stage3: 呼び出し元(`negamax`)が既に増分管理している空きマス
+    // ビットマスクをそのまま使い、`!(board.black | board.white)`による
+    // 再導出を行わない。
     let mut empty_squares = [0u8; 4];
     let mut count = 0usize;
-    let mut remaining_empties = !(board.black | board.white);
+    let mut remaining_empties = empty_squares_mask;
     while remaining_empties != 0 {
         let sq = remaining_empties.trailing_zeros() as u8;
         remaining_empties &= remaining_empties - 1;
@@ -926,6 +957,7 @@ pub fn solve_exact(board: &Board, side_to_move: Side, tt: &mut TranspositionTabl
         board,
         side_to_move,
         initial_quadrant_parity(board),
+        initial_empty_squares(board),
         None,
         true, // is_root: ルートではshallow層へ委譲しない(T104 redo#2、B1対策)
         -64,
@@ -955,6 +987,7 @@ pub fn solve_exact_with_nodes(
         board,
         side_to_move,
         initial_quadrant_parity(board),
+        initial_empty_squares(board),
         None,
         true, // is_root: ルートではshallow層へ委譲しない(T104 redo#2、B1対策)
         -64,
@@ -1000,6 +1033,7 @@ pub fn solve_exact_bounded(
         board,
         side_to_move,
         initial_quadrant_parity(board),
+        initial_empty_squares(board),
         None,
         true, // is_root: ルートではshallow層へ委譲しない(T104 redo#2、B1対策)
         -64,
@@ -1040,6 +1074,7 @@ pub fn solve_exact_bounded_with_nodes(
         board,
         side_to_move,
         initial_quadrant_parity(board),
+        initial_empty_squares(board),
         None,
         true, // is_root: ルートではshallow層へ委譲しない(T104 redo#2、B1対策)
         -64,
@@ -1113,6 +1148,7 @@ pub fn solve_exact_window_limited_with_nodes(
         board,
         side_to_move,
         initial_quadrant_parity(board),
+        initial_empty_squares(board),
         None,
         true, // is_root: ルートではshallow層へ委譲しない(T104 redo#2、B1対策)
         alpha.clamp(-64, 64),
@@ -1165,17 +1201,26 @@ const TIME_CHECK_NODE_INTERVAL: u64 = 1024;
 
 /// `negamax`の子局面を1つ探索する薄いラッパー(T103)。
 ///
-/// `MoveInfo`から子盤面・子象限パリティ・子hash(ETC対象時のみ)を組み立て、
-/// 手番を反転して`negamax`を呼び、符号反転した子手番視点の値を返す。
-/// full-window探索と、PVSのnull window探索・条件付き再探索のいずれからも
-/// 同じ組み立てロジックを再利用するために切り出した(重複した引数構築を
-/// 避けるだけで、探索アルゴリズム自体はここでは何も変えない)。
+/// `MoveInfo`から子盤面・子象限パリティ・子hashを組み立て、手番を反転して
+/// `negamax`を呼び、符号反転した子手番視点の値を返す。full-window探索と、
+/// PVSのnull window探索・条件付き再探索のいずれからも同じ組み立てロジックを
+/// 再利用するために切り出した(重複した引数構築を避けるだけで、探索
+/// アルゴリズム自体はここでは何も変えない)。
+///
+/// T105: `move_info.child_hash`は(ETC対象かどうかによらず)常に親の
+/// `hash`から増分計算済みの値であるため、`etc_eligible`による分岐なしに
+/// 常に`Some(move_info.child_hash)`を渡せる(以前はETC非対象の子では
+/// `None`を渡し、子側で盤面全体を再走査してhashを再計算していた)。
+///
+/// `parent_empty_squares`(親局面の空きマスビットマスク)から
+/// `& !move_info.mv`で子の空きマスマスクを増分更新して渡す(T105 stage3、
+/// `board`から`!(black|white)`を再導出しない)。
 #[allow(clippy::too_many_arguments)]
 fn negamax_child<const ETC_ENABLED: bool, const SHALLOW_ENABLED: bool>(
     move_info: &MoveInfo,
     side: Side,
     quadrant_parity: u8,
-    etc_eligible: bool,
+    parent_empty_squares: u64,
     child_alpha: i32,
     child_beta: i32,
     tt: &mut TranspositionTable,
@@ -1188,11 +1233,8 @@ fn negamax_child<const ETC_ENABLED: bool, const SHALLOW_ENABLED: bool>(
         &move_info.next_board,
         side.opposite(),
         quadrant_parity ^ QUADRANT_ID[move_info.square as usize],
-        if etc_eligible {
-            Some(move_info.child_hash)
-        } else {
-            None
-        },
+        parent_empty_squares & !move_info.mv,
+        Some(move_info.child_hash),
         false, // is_root: 子局面は常に非ルート(T104 redo#2)
         child_alpha,
         child_beta,
@@ -1247,6 +1289,7 @@ fn negamax<const ETC_ENABLED: bool, const SHALLOW_ENABLED: bool>(
     board: &Board,
     side: Side,
     quadrant_parity: u8,
+    empty_squares: u64,
     known_hash: Option<u64>,
     is_root: bool,
     alpha: i32,
@@ -1257,11 +1300,18 @@ fn negamax<const ETC_ENABLED: bool, const SHALLOW_ENABLED: bool>(
     node_limit: Option<u64>,
     timed_out: &mut bool,
 ) -> i32 {
-    if SHALLOW_ENABLED && !is_root && board.empty_count() <= SHALLOW_MAX_EMPTIES {
+    // T105 stage3: 空きマス数は呼び出し元(ルートまたは`negamax_child`)が
+    // 増分更新した`empty_squares`から1回だけpopcountする
+    // (以前は`board.empty_count()`を本関数内で2回、`board.black|board.white`
+    // からの都度導出込みで呼んでいた)。
+    let empties = empty_squares.count_ones();
+
+    if SHALLOW_ENABLED && !is_root && empties <= SHALLOW_MAX_EMPTIES {
         return solve_shallow(
             board,
             side,
             quadrant_parity,
+            empty_squares,
             alpha,
             beta,
             nodes,
@@ -1287,7 +1337,6 @@ fn negamax<const ETC_ENABLED: bool, const SHALLOW_ENABLED: bool>(
         }
     }
 
-    let empties = board.empty_count();
     if empties == 0 {
         return final_score(board, side);
     }
@@ -1319,19 +1368,43 @@ fn negamax<const ETC_ENABLED: bool, const SHALLOW_ENABLED: bool>(
         }
     }
 
-    let legal = board.legal_moves(side);
+    // T105 stage4: own/oppをここで1回だけ取り出し、以後の合法手判定
+    // ([`legal_moves_relative`])・子生成(stage1)・opp_mobility計算に
+    // 使い回す(`Board::legal_moves`のBlack/White match+
+    // `!(board.black|board.white)`の再導出を、増分管理済みの
+    // `empty_squares`で置き換える。設計レポート§3.7・§7「黒白絶対表現と
+    // relative表現の混同」対策として、`Board`はTT格納・`final_score`・
+    // 再帰呼び出しの引数としてのみ扱い、ホットパスの合法手判定・移動生成は
+    // own/opp+`empty_squares`のrelative表現に統一する)。
+    let (own, opp) = match side {
+        Side::Black => (board.black, board.white),
+        Side::White => (board.white, board.black),
+    };
+    let legal = legal_moves_relative(own, opp, empty_squares);
 
     if legal == 0 {
         // 自分に合法手がない: パス。
-        if board.legal_moves(side.opposite()) == 0 {
+        if legal_moves_relative(opp, own, empty_squares) == 0 {
             // 相手にも合法手がない: 終局。
             return final_score(board, side);
         }
+        // T105 stage2: パスは盤面が変わらず手番だけ入れ替わるため、
+        // `toggle_side_to_move`だけで子hashを増分計算できる(盤面全体の
+        // 再走査が不要。設計レポート§7「パス時のside key」対策)。
+        let pass_hash = toggle_side_to_move(hash);
+        debug_assert_eq!(
+            pass_hash,
+            zobrist_hash(board, side.opposite()),
+            "T105 incremental hash mismatch after pass"
+        );
+        #[cfg(test)]
+        record_incremental_hash_check();
         return -negamax::<ETC_ENABLED, SHALLOW_ENABLED>(
             board,
             side.opposite(),
             quadrant_parity,
-            None,
+            empty_squares, // パスは着手なしのため空きマスは不変(T105 stage3)。
+            Some(pass_hash),
             false, // is_root: パス再帰は常に非ルート(T104 redo#2)。
             // ルート自身が合法手なし(パス必須)の場合、baseline(bdb4389)
             // でもこの分岐はTT格納前に早期returnするためルート自身のTT
@@ -1359,27 +1432,56 @@ fn negamax<const ETC_ENABLED: bool, const SHALLOW_ENABLED: bool>(
     let mut moves = [MoveInfo::EMPTY; 64];
     let mut move_count = 0usize;
     let etc_eligible = ETC_ENABLED && empties >= etc_min_empties() && legal.count_ones() > 1;
+    // T105 stage1: `own`/`opp`(パス判定の直前で導出済み、stage4)を再利用し、
+    // flip maskも`flips_for_move`で1回だけ計算して`apply_move_with_flips`で
+    // 子盤面を組み立てる(以前は`board.apply_move`が内部でflipを計算した後、
+    // `next_board`との差分から同じflipを逆算しており二重計算だった。
+    // T099で保存だけされて未使用だった`MoveInfo.flips`をここで実際に使う)。
     let mut remaining = legal;
     while remaining != 0 {
         let mv = remaining & remaining.wrapping_neg();
         remaining &= remaining - 1;
         let square = mv.trailing_zeros() as u8;
-        let next_board = board.apply_move(side, mv);
-        let opp_mobility = next_board.legal_moves(side.opposite()).count_ones();
-        let flips = match side {
-            Side::Black => board.white & !next_board.white,
-            Side::White => board.black & !next_board.black,
+        let flips = flips_for_move(own, opp, mv);
+        let (new_own, new_opp) = apply_move_with_flips(own, opp, mv, flips);
+        let next_board = match side {
+            Side::Black => Board {
+                black: new_own,
+                white: new_opp,
+            },
+            Side::White => Board {
+                black: new_opp,
+                white: new_own,
+            },
         };
+        // T105 stage4: 相手の着手後合法手数も、`next_board.legal_moves`
+        // (Black/White match + `!(black|white)`の再導出)を経由せず、
+        // 既に手元にある`new_own`/`new_opp`と増分更新した空きマスマスク
+        // (`empty_squares & !mv`、flipは空きマスの状態を変えないため
+        // `mv`だけ除けばよい)から直接求める。
+        let child_empty_squares = empty_squares & !mv;
+        let opp_mobility = legal_moves_relative(new_opp, new_own, child_empty_squares).count_ones();
+        // T105 stage2: 子hashは常に親の`hash`からの増分計算(盤面全体の
+        // 再走査なし)。以前は`etc_eligible`のときだけこの計算(当時は
+        // `zobrist_hash`によるフルスキャン)を行い、それ以外は`0`
+        // (未使用のプレースホルダ)にしていたが、増分計算はフルスキャンより
+        // 大幅に軽いため常に計算してよく、`negamax_child`が`etc_eligible`
+        // によらず常にこの値を子へ渡せるようになる(全ノードでの
+        // hash再計算を回避)。
+        let child_hash = incremental_move_hash(hash, square, side, flips);
+        debug_assert_eq!(
+            child_hash,
+            zobrist_hash(&next_board, side.opposite()),
+            "T105 incremental hash mismatch at square {square}"
+        );
+        #[cfg(test)]
+        record_incremental_hash_check();
         moves[move_count] = MoveInfo {
             mv,
             square,
             flips,
             next_board,
-            child_hash: if etc_eligible {
-                zobrist_hash(&next_board, side.opposite())
-            } else {
-                0
-            },
+            child_hash,
             opp_mobility,
             is_corner: mv & CORNER_MASK != 0,
             square_class: square_class(mv),
@@ -1427,7 +1529,7 @@ fn negamax<const ETC_ENABLED: bool, const SHALLOW_ENABLED: bool>(
                 move_info,
                 side,
                 quadrant_parity,
-                etc_eligible,
+                empty_squares,
                 -beta,
                 -alpha,
                 tt,
@@ -1443,7 +1545,7 @@ fn negamax<const ETC_ENABLED: bool, const SHALLOW_ENABLED: bool>(
                 move_info,
                 side,
                 quadrant_parity,
-                etc_eligible,
+                empty_squares,
                 -(alpha + 1),
                 -alpha,
                 tt,
@@ -1464,7 +1566,7 @@ fn negamax<const ETC_ENABLED: bool, const SHALLOW_ENABLED: bool>(
                     move_info,
                     side,
                     quadrant_parity,
-                    etc_eligible,
+                    empty_squares,
                     -beta,
                     -alpha,
                     tt,
@@ -1557,6 +1659,7 @@ mod tests {
             board,
             side,
             initial_quadrant_parity(board),
+            initial_empty_squares(board),
             None,
             // is_root: false固定。この関数は`negamax`自体(shallow委譲の
             // on/off込み)を直接A/Bテストするためのヘルパーであり、
@@ -1616,6 +1719,7 @@ mod tests {
             board,
             side,
             initial_quadrant_parity(board),
+            initial_empty_squares(board),
             None,
             false, // is_root: 上のsolve_with_etcと同じ理由でfalse固定。
             best_score - 1,
@@ -1910,6 +2014,40 @@ mod tests {
         assert!(pass_positions > 0);
         assert!(seeded_positions >= 16);
         assert!(etc_cutoffs > 0);
+    }
+
+    /// T105: `negamax`が増分計算した子/パスhashを、`debug_assert_eq!`で
+    /// 盤面全体の`zobrist_hash`フル再計算と照合する経路(モジュール本体側の
+    /// `record_incremental_hash_check`呼び出し)が、複数seedのランダム
+    /// 自己対戦(パスを含む多数の局面)で実際に十分な回数発火していることを
+    /// 確認する。`debug_assert_eq!`自体は不一致なら即座にpanicするため、
+    /// このテストが完走すること自体が「1件でもズレなかった」ことの証明で
+    /// あり、発火件数の下限を課すことで「そもそも一度も通っていないのに
+    /// 素通りでpassする」事故を防ぐ(要件5「発火件数の下限つき」)。
+    #[test]
+    fn incremental_hash_check_fires_across_random_positions_including_passes() {
+        reset_incremental_hash_checks();
+        let mut checked = 0usize;
+        let mut pass_positions = 0usize;
+        for seed in 1..=16 {
+            for (board, side) in random_small_positions(seed) {
+                // min_empties=8: SHALLOW_MAX_EMPTIES(=4)より深いnegamaxの
+                // 通常経路(子hash・パスhashの増分計算箇所)を、shallow層に
+                // 落ちる前に複数ノード分通過させる。
+                let _ = solve_with_etc::<true, true>(&board, side, 8);
+                checked += 1;
+                if board.legal_moves(side) == 0 && board.legal_moves(side.opposite()) != 0 {
+                    pass_positions += 1;
+                }
+            }
+        }
+        assert!(checked >= 160);
+        assert!(pass_positions > 0);
+        assert!(
+            incremental_hash_checks() >= 200,
+            "expected the incremental-hash debug check to fire at least 200 times, got {}",
+            incremental_hash_checks()
+        );
     }
 
     #[test]

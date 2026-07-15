@@ -42,6 +42,30 @@ const SQUARE_KEYS: [[u64; 2]; 64] = generate_square_keys();
 /// 手番が黒番であることを表すZobrist値。手番が変わるとこの値がXORされる。
 const SIDE_KEY: u64 = generate_side_key();
 
+/// 各マス(0..63)について、「そのマスの色が黒⇔白で入れ替わった」ことを
+/// hashへ反映するための事前計算値(`SQUARE_KEYS[sq][0] ^ SQUARE_KEYS[sq][1]`、
+/// T105)。
+///
+/// 終盤ソルバーのflip(ひっくり返し)は「そのマスの石が相手の色から
+/// 自分の色へ変わる」操作であり、色そのものを問わず必ず
+/// 黒キー⇔白キーの入れ替えになる。したがって、flipされた1マスあたり
+/// `hash ^= FLIP_KEY[sq]` の1回のXORだけで正しく更新でき、
+/// 「元の色が黒だったか白だったか」を呼び出し側が判定する必要がない
+/// (設計レポート§7「flip石のhash色切替」対策)。
+/// 一方、着手先そのもの(元は空きマス)は「無」から「着手側の色」への
+/// 変化なので、[`toggle_square`] で着手側の色を明示して加える必要がある。
+const FLIP_KEY: [u64; 64] = generate_flip_keys();
+
+const fn generate_flip_keys() -> [u64; 64] {
+    let mut table = [0u64; 64];
+    let mut i = 0;
+    while i < 64 {
+        table[i] = SQUARE_KEYS[i][0] ^ SQUARE_KEYS[i][1];
+        i += 1;
+    }
+    table
+}
+
 const fn generate_square_keys() -> [[u64; 2]; 64] {
     let mut table = [[0u64; 2]; 64];
     let mut state = SEED;
@@ -108,6 +132,33 @@ pub fn toggle_square(hash: u64, square: u8, side: Side) -> u64 {
 /// 増分更新用ヘルパー: 手番の黒/白が入れ替わったことをハッシュに反映する。
 pub fn toggle_side_to_move(hash: u64) -> u64 {
     hash ^ SIDE_KEY
+}
+
+/// 増分更新用ヘルパー: `mover_side`が`mover_square`に着手し`flips`を
+/// ひっくり返した後の子局面(手番は相手に移る)のhashを、`hash`
+/// (着手前、`mover_side`視点)から盤面を再走査せずに計算する(T105)。
+///
+/// - `mover_square`は着手先(着手前は空きマス)。
+/// - `flips`はひっくり返った相手石のビットマスク(`mover_side`の相手の色
+///   から`mover_side`の色へ変わる。[`FLIP_KEY`]のドキュメント参照)。
+/// - 手番の交代([`toggle_side_to_move`])もこの関数内で行う。
+///
+/// パス(着手なし・手番交代のみ)には使わない。パスは`toggle_side_to_move`
+/// を直接呼べばよい(着手先も flipもないため)。
+pub(crate) fn incremental_move_hash(
+    hash: u64,
+    mover_square: u8,
+    mover_side: Side,
+    flips: u64,
+) -> u64 {
+    let mut h = toggle_square(hash, mover_square, mover_side);
+    let mut remaining = flips;
+    while remaining != 0 {
+        let sq = remaining.trailing_zeros() as usize;
+        remaining &= remaining - 1;
+        h ^= FLIP_KEY[sq];
+    }
+    toggle_side_to_move(h)
 }
 
 #[cfg(test)]
@@ -188,5 +239,92 @@ mod tests {
         let h2 = toggle_side_to_move(h1);
         assert_eq!(h0, h2);
         assert_ne!(h0, h1);
+    }
+
+    /// T105: `incremental_move_hash`(着手)と`toggle_side_to_move`(パス)
+    /// による増分hash更新が、盤面全体を舐める`zobrist_hash`の再計算と
+    /// 常に一致することを、複数seedのランダム自己対戦(パスも含む)全手数で
+    /// 検証する。1手ごとにassertするため、途中で1回でもズレれば
+    /// このテストがpanicする(設計レポート§7「flip石のhash色切替」
+    /// 「パス時のside key」対策)。
+    #[test]
+    fn incremental_move_hash_matches_full_recompute_across_random_self_play_including_passes() {
+        use crate::bitboard::flips_for_move;
+
+        fn play_and_check(mut state: u64) -> (usize, usize) {
+            let mut board = Board::initial();
+            let mut side = Side::Black;
+            let mut hash = zobrist_hash(&board, side);
+            let mut move_steps = 0usize;
+            let mut pass_steps = 0usize;
+
+            loop {
+                let legal = board.legal_moves(side);
+                if legal == 0 {
+                    if board.legal_moves(side.opposite()) == 0 {
+                        break;
+                    }
+                    // パス: 盤面は変わらず手番だけ入れ替わる。
+                    hash = toggle_side_to_move(hash);
+                    side = side.opposite();
+                    pass_steps += 1;
+                    assert_eq!(
+                        hash,
+                        zobrist_hash(&board, side),
+                        "incremental hash mismatch after pass (seed={state})"
+                    );
+                    continue;
+                }
+
+                // 同一のLCGパラメータをテスト全体で使う決定的な擬似乱数選択
+                // (`endgame.rs`のテスト専用`random_small_positions`と同じ
+                // 定数だが、モジュールを跨いだ再利用はしない独立実装)。
+                state = state
+                    .wrapping_mul(6_364_136_223_846_793_005)
+                    .wrapping_add(1_442_695_040_888_963_407);
+                let selected = (state % legal.count_ones() as u64) as u32;
+                let mut remaining = legal;
+                for _ in 0..selected {
+                    remaining &= remaining - 1;
+                }
+                let mv = remaining & remaining.wrapping_neg();
+                let square = mv.trailing_zeros() as u8;
+
+                let (own, opp) = match side {
+                    Side::Black => (board.black, board.white),
+                    Side::White => (board.white, board.black),
+                };
+                let flips = flips_for_move(own, opp, mv);
+
+                hash = incremental_move_hash(hash, square, side, flips);
+                board = board.apply_move(side, mv);
+                side = side.opposite();
+                move_steps += 1;
+
+                assert_eq!(
+                    hash,
+                    zobrist_hash(&board, side),
+                    "incremental hash mismatch after move at square {square} (seed={state})"
+                );
+            }
+            (move_steps, pass_steps)
+        }
+
+        let mut total_moves = 0usize;
+        let mut total_passes = 0usize;
+        for seed in 1..=30u64 {
+            let (moves, passes) = play_and_check(seed);
+            total_moves += moves;
+            total_passes += passes;
+        }
+
+        assert!(
+            total_moves >= 500,
+            "expected substantial move coverage across seeds, got {total_moves}"
+        );
+        assert!(
+            total_passes >= 1,
+            "expected at least one pass to be exercised by these seeds, got {total_passes}"
+        );
     }
 }

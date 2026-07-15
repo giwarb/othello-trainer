@@ -118,6 +118,14 @@ const DIRECTIONS: [ShiftFn; 8] = [
 ///
 /// [`Board::apply_move`] はこの関数を呼び出してflipを計算し、新しい
 /// `Board`を組み立てる薄いラッパーになっている(実装の重複を避けるため)。
+///
+/// T105 stage6: `DIRECTIONS`(関数ポインタ配列)を`for`ループで回す実装を、
+/// 8方向を直接の関数呼び出しへ展開したマクロ版と比較実測した(設計
+/// レポート§3.8「scalar hot path比較」)。FFO #40-44合計NPSで
+/// loop版8,351,043/8,111,911・展開版8,349,706/7,389,373という結果になり、
+/// 差が単発計測のノイズ幅(同一実装内でも6.36M〜9.18Mまで振れた)に
+/// 埋もれ、展開版が明確に優れているとは判断できなかったため**不採用とし
+/// 元のループ実装のまま残す**(判断根拠の詳細は本タスクの作業ログ参照)。
 pub(crate) fn flips_for_move(own: u64, opp: u64, mv_bit: u64) -> u64 {
     let mut flips = 0u64;
     for &dir in DIRECTIONS.iter() {
@@ -133,6 +141,48 @@ pub(crate) fn flips_for_move(own: u64, opp: u64, mv_bit: u64) -> u64 {
         }
     }
     flips
+}
+
+/// 指定した手番の合法手を、`Board`/`Side`を経由せず手番相対の
+/// (own, opp)ビットボードから直接求める(`Board::legal_moves`の中身と同じ
+/// Kogge-Stone系ロジックだが、`sides(side)`変換を経由しない。T105)。
+///
+/// [`Board::legal_moves`] はこの関数を呼び出す薄いラッパーになっている
+/// (実装の重複を避けるため)。呼び出し元(終盤ソルバーのホットパス)が
+/// 既に`own`/`opp`を手元に持っている場合、`Board`を経由する変換コストを
+/// 避けられる。
+///
+/// T105 stage6: `flips_for_move`と同じ比較実験を行い、同じ理由で
+/// unrolled展開版は不採用とした(作業ログ参照)。
+pub(crate) fn legal_moves_relative(own: u64, opp: u64, empty: u64) -> u64 {
+    let mut moves = 0u64;
+
+    for &dir in DIRECTIONS.iter() {
+        // 自分の石から見て、その方向に連続する相手の石の集合を広げていく。
+        let mut t = dir(own) & opp;
+        // 盤面は8x8なので、自分の石と相手の石に挟まれうる相手の石の連続は
+        // 最大6個(残り2マスは自分の石とその先の空きマス)。
+        // 初回のシフトを含めて最大6回シフトすれば十分収束する。
+        for _ in 0..5 {
+            t |= dir(t) & opp;
+        }
+        // 相手の石の連続の先が空きマスであれば、そこが合法手。
+        moves |= dir(t) & empty;
+    }
+
+    moves
+}
+
+/// 既に計算済みのflip maskから、着手後の(own, opp)ビットボードを直接
+/// 構築する(`flips_for_move`を呼び出し側で1回だけ計算し、その結果を
+/// 再利用するための薄いヘルパー。T105)。
+///
+/// [`Board::apply_move`] はこの関数を呼び出して新しい`Board`を組み立てる
+/// (実装の重複を避けるため)。`flips`は同じ`own`/`opp`/`mv_bit`に対して
+/// [`flips_for_move`] が返した値であることを前提とする(この関数自体は
+/// flipの再計算・妥当性検証を行わない)。
+pub(crate) fn apply_move_with_flips(own: u64, opp: u64, mv_bit: u64, flips: u64) -> (u64, u64) {
+    (own | mv_bit | flips, opp & !flips)
 }
 
 impl Board {
@@ -161,22 +211,7 @@ impl Board {
     pub fn legal_moves(&self, side: Side) -> u64 {
         let (own, opp) = self.sides(side);
         let empty = !(self.black | self.white);
-        let mut moves = 0u64;
-
-        for &dir in DIRECTIONS.iter() {
-            // 自分の石から見て、その方向に連続する相手の石の集合を広げていく。
-            let mut t = dir(own) & opp;
-            // 盤面は8x8なので、自分の石と相手の石に挟まれうる相手の石の連続は
-            // 最大6個(残り2マスは自分の石とその先の空きマス)。
-            // 初回のシフトを含めて最大6回シフトすれば十分収束する。
-            for _ in 0..5 {
-                t |= dir(t) & opp;
-            }
-            // 相手の石の連続の先が空きマスであれば、そこが合法手。
-            moves |= dir(t) & empty;
-        }
-
-        moves
+        legal_moves_relative(own, opp, empty)
     }
 
     /// 指定した1手 (1ビットのみ立ったビットマスク) を打った後の新しい `Board` を返す。
@@ -192,9 +227,7 @@ impl Board {
 
         let (own, opp) = self.sides(side);
         let flips = flips_for_move(own, opp, mv_bit);
-
-        let new_own = own | mv_bit | flips;
-        let new_opp = opp & !flips;
+        let (new_own, new_opp) = apply_move_with_flips(own, opp, mv_bit, flips);
 
         match side {
             Side::Black => Board {
