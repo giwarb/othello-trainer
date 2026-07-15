@@ -1,7 +1,7 @@
 ---
 id: T098
 title: 終盤ソルバー計測基盤(C1/C2/C3)とbaseline固定
-status: in_progress # todo | in_progress | review | redo | done | blocked
+status: review # todo | in_progress | review | redo | done | blocked
 assignee: codex(gpt-5.6-sol)
 attempts: 0
 ---
@@ -72,3 +72,13 @@ attempts: 0
 4. 想定外に大きな未計測項目が残っている場合は、勝手に長時間実行せず「何が残っていて何分かかる見込みか」を作業ログに書いて終了する(オーケストレーターが判断する)。
 
 ## 作業ログ(担当エージェントが追記)
+
+### 2026-07-15 Codex 実装・baseline確定
+
+- 実装: `eval_cli solve`（任意窓、node/time limit、TT容量、JSONテレメトリ）を追加し、`best` にTT容量指定と solver/node-definition version、root exact完走・bound証明完走・leaf exact完走の区別を追加した。C1/C2/C3、Edax batch、局面単位atomic checkpoint/resume、E50・速度比集計を行う `endgame_bench.py` とテストを追加した。`endgame.rs` のアルゴリズム、exact policy/quota、アプリ/Worker protocolは変更していない。
+- manifest: `endgame_positions.json` はT096の60局面すべてにEdax 4.6 level 60、book off、`-n 1`、64MiBの手番側石差を固定済み。native full-windowで先頭3局面（空き18,18,19）を照合し、score 28/42/12が全件一致した。
+- 計測打ち切り: 初回セッションで速度第2反復開始後、ユーザー指示により停止された。本仕上げでは新しい長時間速度計測を開始せず、完走した第1反復（空き20〜24のC2独立34局面）のみ採用した。第2反復の部分データ（engine 1局面）は集計から除外した。T108でwarmup+3反復+交互順のフルプロトコルを行う。
+- baseline: C1は#40〜44が全問正解、#45〜49は5,000,000 node cap到達で未完として記録。C2は540/540 jobs完了。`E50_exact(160k)` と `E50_bound(64k)` はともに観測範囲（空き18〜26）で50%到達なし、すなわち `<18`（JSONは`null`とcorpus minimum 18を併記）。C2完走率は64kがfail-high/fail-low/fullすべて0/60、160kが1/60・0/60・0/60、512kが5/60・0/60・0/60。native/Edax速度比（空き20〜24、34局面、第1反復）は幾何平均135.679764倍、p90 514.302227倍。
+- C3: 48/48局面完了、平均oracle regret 1.4375石、2回実行の決定性100%、wall保険率0%。
+- 検証: `python -m pytest bench/edax-compare/ -q` は15 passed（atomic中断→resume後の結果一致と部分速度反復除外を含む）。`cargo test -p engine` は178 passed / 2 ignored。`cargo test -p engine --release --test ffo_bench -- --nocapture` は#40〜44が全問正解、合計1,298,656,784 nodes（既存記録一致）、474.741秒。新CLI同一狭窓を2回実行し、score=28、bound=lower、nodes=158,526が完全一致。`rustfmt --edition 2021 --check engine/src/bin/eval_cli.rs engine/src/search.rs`、対象ファイルの`git diff --check`も成功。全workspaceの`cargo fmt --all -- --check`は本タスク外の既存未整形ファイルを多数検出したため不合格だったが、本タスクのRust変更2ファイルは個別check済み。
+- 変更ファイル（コミット対象）: `.gitignore`, `engine/src/bin/eval_cli.rs`, `engine/src/search.rs`, `bench/edax-compare/endgame_bench.py`, `bench/edax-compare/endgame_positions.json`, `bench/edax-compare/test_endgame_bench.py`, `bench/edax-compare/endgame_baseline.json`。`tasks/T098-endgame-bench-baseline.md` は作業ログのみでコミット対象外。コミットハッシュはCodex環境の`.git`書き込み禁止のため未作成。
