@@ -2,7 +2,7 @@
 id: T103
 title: 終盤ソルバー: NWS中心のPVS構造への移行
 status: in_progress # todo | in_progress | review | redo | done | blocked
-assignee: codex(gpt-5.6-sol)
+assignee: implementer(Sonnet, Codex上限フォールバック)
 attempts: 0
 ---
 
@@ -11,6 +11,10 @@ attempts: 0
 ## 目的
 
 終盤ソルバー強化シリーズ第6弾(ノード削減の本丸その2、設計上の期待値が最大の探索構造改革)。現行の通常αβ探索を、null window search(NWS)を中核とするPVS構造へ移行する。
+
+## 委譲体制の注記(2026-07-15夜)
+
+Codex週間上限到達(リセット7/22 6:00)のため、7/14夜の前例(ユーザー承認済み)に従い implementer(Sonnet)フォールバック+検証強化(verifier+Claude代替レビュー)で実施する。**本タスクは探索の構造改革であり、以下を厳守すること**: (1) 一度に全部書き換えず、NWSヘルパー導入→狭窓経路切替→full-window PVS化の順に小さく進め、各段階でnaive一致テストを回す。(2) 仕様に無い設計判断は推測で進めず、作業ログに質問を書いて停止する。(3) 「テストが通った」ではなく「どのテストが何を検証したか」を作業ログに書く。
 
 ## 規範文書
 
