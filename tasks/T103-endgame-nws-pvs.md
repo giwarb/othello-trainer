@@ -1,0 +1,57 @@
+---
+id: T103
+title: 終盤ソルバー: NWS中心のPVS構造への移行
+status: in_progress # todo | in_progress | review | redo | done | blocked
+assignee: codex(gpt-5.6-sol)
+attempts: 0
+---
+
+# T103: NWS中心の終盤PVS
+
+## 目的
+
+終盤ソルバー強化シリーズ第6弾(ノード削減の本丸その2、設計上の期待値が最大の探索構造改革)。現行の通常αβ探索を、null window search(NWS)を中核とするPVS構造へ移行する。
+
+## 規範文書
+
+- `tasks/design/T097-endgame-solver-report.md` §3.2(NWS/PVS構造・abort契約・TT格納規約)・§5 T103節・§7(リスク表: PVS再探索漏れ・alpha_orig管理・abortされた第一探索の値の再利用バグ)。
+
+## 要件(設計レポート§3.2・§5 T103節が規範)
+
+1. **構造**: `solve_exact_window_limited_with_nodes` 等の外部契約(シグネチャ・戻り値・abort契約)は維持し、内部を以下へ:
+   - 狭窓呼び出し(beta-alpha<=1)は直接NWSへ
+   - full windowでは最初の候補を通常窓で探索、2手目以降はnull windowで反証を試み、`alpha < score < beta` のときだけ通常窓で再探索
+2. **abort安全性**: abortされた探索の結果は使用せず、TTにも格納しない。quota abort後にExact TTが汚染されないこと(既存テストの維持+NWS経路での追加検証)。
+3. **TT格納のbound判定**: TTや(将来の)カットで窓を変更する前の**呼び出し時の窓(alpha_orig/beta_orig)**を保存してbound種別を判定する(§3.2)。
+4. **2刻み窓最適化はしない**(最終石差が実質偶数でも、centi-disc丸めとの相互作用を避けるため通常の1刻みnull windowを使う。設計レポート§3.2)。
+5. ETC(T101)・排序(T099/T100)・パリティは既存のまま統合する(NWS内でも機能すること)。
+6. 変更は `engine/src/endgame.rs` のみ。公開API・論理ノード定義は不変。
+
+## 計測プロトコル(軽量サイクル+ゲート改定2026-07-15)
+
+- **主判定**: FFO #40-44合計ノード **25%以上削減**(施策前=コミットed8d93c時点のbuildとの比較。作業ログのT101 on実測 1,000,121,620 nodesを基準にしてよい)。
+- **C2**: 512k系列で完走数非減・合計ノード非増、4M系列の前後比較を併記(full-window jobsの改善が特に出るはず)。
+- 15〜25%の場合はグレーゾーンとして数値を報告し、オーケーストレーター判断を仰ぐ(勝手に不採用にしない)。
+- 壁時計は参考記録。
+
+## やらないこと(スコープ外)
+
+- 浅空き特化ソルバー(T104)、増分hash(T105)、TT区間化(T106)
+- MTD(f)等の別探索方式(設計レポート§6で却下)
+- exactポリシー変更(T107)、ハーネス変更
+
+## 受け入れ基準(検証コマンド)
+
+- [ ] `cargo test -p engine` 全件パス(protocolフレーキーは単独再実行で切り分け)
+- [ ] **naive solver一致**: full-window・fail-low狭窓・fail-high狭窓の3種で、ランダム局面(多seed・パス含む)のscore/bound整合がnaiveと一致。**PVS再探索経路が実際に通ったこと**(再探索カウンタ>0)を確認するテストを含む(発火0件passの禁止)
+- [ ] **abort安全性**: quota直前で停止するケースでExact TTに当該hashが未格納であることの検証(既存quota-abortテストの維持+NWS経路)
+- [ ] `cargo test -p engine --release --test ffo_bench` — FFO #40-44 全問正解
+- [ ] FFO合計ノード前後比較表(25%以上削減で採用、15〜25%は報告して判断待ち)
+- [ ] C2 512k/4M前後比較表が作業ログにある
+- [ ] fresh TT同一局面2回実行の決定性
+- [ ] 変更対象ファイルのみパス指定でコミット(オーケストレーター代行、変更ファイル一覧明記)
+- [ ] タスク完了時点で、当該タスク由来の差分・未追跡ファイルが `git status --short` に残っていないこと
+
+## フィードバック(やり直し時にオーケストレーターが記入)
+
+## 作業ログ(担当エージェントが追記)

@@ -1,7 +1,7 @@
 ---
 id: T102
 title: 終盤ソルバー: 保守的な辺安定石カット
-status: in_progress # todo | in_progress | review | redo | done | blocked
+status: done # todo | in_progress | review | redo | done | blocked
 assignee: codex(gpt-5.6-sol)
 attempts: 0
 ---
@@ -54,3 +54,33 @@ attempts: 0
 ## フィードバック(やり直し時にオーケストレーターが記入)
 
 ## 作業ログ(担当エージェントが追記)
+
+### 2026-07-15 23:16 JST — Codex 実装・計測（主ゲート未達のため不採用）
+
+- `engine/src/endgame.rs` に一時実装として、既存 `eval::stable_mask` と同じ「隅から連続する辺石」だけを用いた上下界 `lower = 2*S_self - 64` / `upper = 64 - 2*S_opp`、fail-low の `Upper` 格納、fail-high の `Lower` 格納、窓狭窄を追加した。公開API・abort伝播・論理ノード定義は変更しなかった。
+- 一時テストでは、32 seed の空き8以下到達可能局面から全継続を列挙し、判定された黒白の安定石が以後一度も反転しないことを確認した。16 seed で full-window と fail-low/fail-high 狭窓の stability on/off/naive 整合、カット発火数が0でないこと、fresh TT 2回の `(score, nodes, cutoff count, bound)` 決定性も確認した。
+- 適用閾値は固定値20と24を比較した。FFO #40–44では両閾値のノード列が完全に同一だったため、より広い24を最終候補として同一build系列のon/offを計測した。
+
+#### FFO #40–44 stability on/off（TT 256MiB、full window、各1回）
+
+| FFO | score on/off | nodes off | nodes on | 削減率 | wall off | wall on |
+|---:|---:|---:|---:|---:|---:|---:|
+| 40 | 38 / 38 | 44,106,279 | 37,010,189 | 16.09% | 12.410s | 11.160s |
+| 41 | 0 / 0 | 184,072,750 | 179,622,428 | 2.42% | 53.696s | 54.465s |
+| 42 | 6 / 6 | 248,730,603 | 233,180,869 | 6.25% | 68.954s | 70.109s |
+| 43 | -12 / -12 | 264,260,190 | 259,621,802 | 1.76% | 80.890s | 83.212s |
+| 44 | -14 / -14 | 258,951,798 | 258,095,468 | 0.33% | 78.111s | 79.835s |
+| 合計 | 全問一致 | 1,000,121,620 | 967,530,756 | **3.26%** | 294.060s | 298.781s |
+
+- 主ゲートの5%削減に対して3.26%で未達。壁時計もonがoffより1.61%遅かった。主判定で不採用が確定したため、C2 512k/4Mは実施していない（C2は主ゲート未達を救済しない補助条件）。要件5に従い、既定無効コードを残さず `engine/src/endgame.rs` / `engine/src/eval.rs` と一時テストの差分をすべて破棄した。
+
+#### 実行コマンドと結果
+
+- `cargo test -p engine endgame::tests::edge_stable_mask_has_no_false_positives_across_all_small_continuations -- --nocapture` — PASS（32 seed、空き8以下、全継続列挙。テストは不採用差分とともに破棄）
+- `cargo test -p engine endgame::tests::stability_on_off_and_naive_agree_for_full_and_narrow_windows -- --nocapture` — PASS（full/fail-low/fail-high、発火必須。テストは不採用差分とともに破棄）
+- `cargo test -p engine endgame::tests::fresh_tt_runs_are_deterministic_with_stability_cutoff -- --nocapture` — PASS（発火込み。テストは不採用差分とともに破棄）
+- `cargo test -p engine` — PASS（一時実装時: 184 passed, 0 failed, 2 ignored）
+- `cargo test -p engine`（差分破棄後）— PASS（181 passed, 0 failed, 2 ignored）
+- `cargo test -p engine --release --test ffo_bench -- --nocapture` — PASS（on/offとも #40–44 全問正解、上表）
+- `git diff --check` — PASS。最終 `git status --short` は必須作業ログ `tasks/T102-endgame-stability-cutoff.md` のみで、T102由来のソース差分・未追跡ファイルなし
+- コミット: なし（不採用のためコミット対象ソースなし。`.git`書き込み不可）
