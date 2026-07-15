@@ -25,7 +25,7 @@
 | ID | タスク | 担当 | 状態 | 試行 |
 |---|---|---|---|---|
 | T105 | 終盤: 増分hash・flip再利用・状態増分更新 | implementer(Sonnetフォールバック) | in_progress(T104完了により実装フェーズへ。baseline=a3a91ef) | 0 |
-| T112 | 同一45k局面のラベル/損失対照実験(密度仮説vs損失仮説、ユーザー承認2026-07-16) | implementer(Sonnetフォールバック) | in_progress | 0 |
+| T112 | 同一45k局面のラベル/損失対照実験(密度仮説vs損失仮説、ユーザー承認2026-07-16) | implementer(Sonnetフォールバック) | review(結果: outcome-only 3.6〜3.8=最悪→密度が主因。teacher-only 2.8が45k内最良=ラベル質も副次要因、ranking/outcome混合は有害方向。verifier+代替レビュー中) | 0 |
 
 ## 有効な方針・申し送り(今後のタスクに効くもの)
 
