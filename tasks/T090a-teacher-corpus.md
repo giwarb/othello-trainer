@@ -1,9 +1,9 @@
 ---
 id: T090a
 title: Edax教師コーパス生成(smoke 1,000局面 → primary 50,000局面、全合法手teacher value付き)
-status: review # todo | in_progress | review | redo | done | blocked
-assignee: implementer
-attempts: 0
+status: in_progress # todo | in_progress | review | redo | done | blocked
+assignee: codex(gpt-5.6-sol)
+attempts: 1
 ---
 
 # T090a: Edax教師コーパス生成
@@ -62,7 +62,18 @@ attempts: 0
 
 ## フィードバック(やり直し時にオーケストレーターが記入)
 
-(なし)
+### redo #1(2026-07-15、verifier+codex-review両不合格。担当をCodexに切替=ルーティング基準4)
+
+**大前提(オーケストレーター裁定): 生成済みコーパス(smoke 1,000+primary 50,000)は再生成禁止**。両検証ともデータ自体の健全性を確認済み(重複0・合法手集合一致・best=max・exact規則全子レコード整合・shard4復旧完全)。以下はすべて後処理・スクリプト修正・コミット衛生で対応する。Edaxの再実行は一切不要。詳細は `tasks/review/T090a-teacher-corpus-codex-review.md` とverifierレポート参照。
+
+1. **(ブロッカー1) bestとの差の保存**: 既存JSONL(smoke/primary両方)に後処理で各子レコードへ `diffFromBest`(bestValue−value)を付与し、スキーマ(docstring)を更新。マージ済み `corpus_primary.jsonl` とシャードファイルの整合を保つこと(シャード側も更新するか、マージ済みを正としシャードは`.bak`扱いにするか、方式をmanifestに記録)。
+2. **(ブロッカー2) verify_teacher_corpus.py の厳密化**: (a)各レコードで盤面から合法手集合を再計算し `children[].move` と完全照合(全件)、(b)malformed行=エラー、(c)ファイル不在=エラー(exit 1)、(d)meta期待件数との不一致=エラー、(e)positionId欠番検査。厳密化後のスクリプトで**既存のsmoke+primaryを再検証してパス**させ、結果を作業ログに記録(これが受け入れの実体)。
+3. **(ブロッカー3) X/C層・opening上限**: 選定ロジックに X/C層quota と openingキー(序盤Nプライの正規化局面、N=8目安)ごとの上限を実装(将来の拡張生成用)。**既存コーパスは再選定しない**代わりに、実測レポートをmanifestへ追加: phase binごとのX/C被覆率、openingキー集中度(最大キーの占有率)。もし「いずれかのbinのX/C被覆<50%」または「単一openingキー>2%」なら数値を報告して停止(オーケストレーターが追補生成を判断)。そうでなければ「仕様乖離は実測により実害なしと確認」とmanifestに明記して許容(裁定済み)。
+4. **(ブロッカー4) provenance**: `gitCommit` を `PROVENANCE_IDENTITY_KEYS` に追加(以後のresume/拡張生成に適用。既存メタの書き換えは不要)。
+5. **(ブロッカー5) manifest・smoke統計のコミット**: `corpus_smoke.meta.json` / `corpus_primary.meta.json`(+項目3の実測レポート、+smoke統計)を非gitignore領域(例: `bench/edax-compare/teacher_manifests/`)へ複製してコミット。スキーマ正本の場所(docstring)もそこから参照できるようREADME一行を添える。
+6. **(中所見)**: (a)resume時にJSONL末尾のmalformed行をtruncateしてから追記、(b)merge_shardsで各シャードmetaのrun key/入力hash/Edax hash/設定の一致を検証、(c)最小限の自動テスト(phase配分・D4のPython/Rust一致サンプル・checkpoint末尾破損からのresume・provenance拒否・merge不一致検出。pytestまたは軽量スクリプトで可)、(d)`exact`の事後検証をverifyスクリプトに追加(edaxDepth>=子局面空き数 等)。
+7. **(軽微)**: teacher_candidates.rsのbin範囲コメント修正、self-testの自己参照解消、source固有フィールドのnull方針をスキーマに明記。
+8. 完了時: `cargo test -p train` / `-p engine`、厳密verify(smoke+primary)パス、コミット対象一覧を最終メッセージに明記(Codexはコミット不可、オーケストレーター代行)。git status清潔(代行後)。
 
 ## 作業ログ(担当エージェントが追記)
 
