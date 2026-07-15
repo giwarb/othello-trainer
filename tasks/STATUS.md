@@ -24,7 +24,8 @@
 
 | ID | タスク | 担当 | 状態 | 試行 |
 |---|---|---|---|---|
-| T104 | 終盤: 空き1〜4専用ソルバーとshallow層 | implementer(Sonnetフォールバック) | in_progress(redo#1: 静的順序付けでノード+30%とC2完走6→5を回収) | 1 |
+| T104 | 終盤: 空き1〜4専用ソルバーとshallow層 | implementer(Sonnetフォールバック) | in_progress(ユーザー裁定=閾値4+CornerThenParityで採用、公式NPS計測→仕上げ中) | 1 |
+| T105 | 終盤: 増分hash・flip再利用・状態増分更新 | (T104完了後に委譲、同一ファイルのため直列) | todo | 0 |
 | T110 | v3特徴×蒸留の組み合わせ実験(表現力仮説の検証) | implementer(Sonnetフォールバック) | review(結果: v3×蒸留2.67でv2×蒸留3.47から改善も有意差なし。v3×WTHOR=1.43がv2×WTHOR=1.57と同等以上の新発見。verifier+代替レビュー中) | 0 |
 
 ## 有効な方針・申し送り(今後のタスクに効くもの)
