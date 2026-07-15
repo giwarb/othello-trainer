@@ -1,7 +1,7 @@
 ---
 id: T112
 title: 同一45k局面でのラベル/損失対照実験(密度仮説 vs 損失仮説の切り分け)
-status: review # todo | in_progress | review | done | blocked
+status: done # todo | in_progress | review | done | blocked
 assignee: implementer(Sonnet, Codex上限フォールバック)
 attempts: 0
 ---
