@@ -19,6 +19,24 @@ ROOT = Path(__file__).resolve().parents[2]
 TEACHER_DATA_DIR = ROOT / "train" / "data" / "teacher"
 TOOL = ROOT / "target" / "release" / "teacher_candidates.exe"
 BATCH_SIZE = 500
+EXACT_EMPTIES_THRESHOLD = 24
+REQUIRED_RECORD_FIELDS = {
+    "positionId",
+    "board",
+    "sideToMove",
+    "empties",
+    "source",
+    "phaseBin",
+    "hasXcLegalMove",
+    "openingKey",
+    "priorityLoss",
+    "canonicalKey",
+    "children",
+    "bestMove",
+    "bestValue",
+    "generatedAt",
+}
+REQUIRED_CHILD_FIELDS = {"move", "value", "diffFromBest", "exact", "level", "edaxDepth"}
 
 
 def report(set_name: str, message: str) -> None:
@@ -39,6 +57,68 @@ def compute_children(records: list[dict]) -> list[dict]:
     if len(result) != len(records):
         raise RuntimeError(f"children batch size mismatch: {len(result)} != {len(records)}")
     return result
+
+
+def compute_canonical_keys(records: list[dict]) -> list[list[int]]:
+    payload = [{"board": rec.get("board"), "sideToMove": rec.get("sideToMove")} for rec in records]
+    proc = subprocess.run(
+        [str(TOOL), "canonical"],
+        input=json.dumps(payload),
+        capture_output=True,
+        text=True,
+    )
+    if proc.returncode != 0:
+        raise RuntimeError(f"teacher_candidates canonical failed: {proc.stderr}")
+    result = json.loads(proc.stdout)
+    if len(result) != len(records):
+        raise RuntimeError(f"canonical batch size mismatch: {len(result)} != {len(records)}")
+    return result
+
+
+def schema_errors(record: dict) -> list[str]:
+    errors = []
+    missing = sorted(REQUIRED_RECORD_FIELDS - record.keys())
+    if missing:
+        errors.append(f"missing required field(s): {', '.join(missing)}")
+    board = record.get("board")
+    if not isinstance(board, str) or len(board) != 64 or set(board) - {"X", "O", "-"}:
+        errors.append("board must be a 64-character X/O/- string")
+    if record.get("sideToMove") not in {"black", "white"}:
+        errors.append("sideToMove must be black or white")
+    if isinstance(board, str) and len(board) == 64 and record.get("empties") != board.count("-"):
+        errors.append("empties does not match board")
+
+    source = record.get("source")
+    if source == "wthor":
+        if not isinstance(record.get("phaseBin"), int) or not 0 <= record["phaseBin"] < 6:
+            errors.append("wthor phaseBin must be an integer in [0, 5]")
+        if not isinstance(record.get("hasXcLegalMove"), bool):
+            errors.append("wthor hasXcLegalMove must be boolean")
+        if not isinstance(record.get("openingKey"), str) or not record["openingKey"]:
+            errors.append("wthor openingKey must be a non-empty string")
+        if record.get("priorityLoss") is not None:
+            errors.append("wthor priorityLoss must be null")
+    elif source == "engineLoss":
+        if record.get("phaseBin") is not None or record.get("hasXcLegalMove") is not None:
+            errors.append("engineLoss phaseBin/hasXcLegalMove must be null")
+        if record.get("openingKey") is not None:
+            errors.append("engineLoss openingKey must be null")
+        loss = record.get("priorityLoss")
+        if not isinstance(loss, (int, float)) or isinstance(loss, bool) or loss < 4:
+            errors.append("engineLoss priorityLoss must be numeric and >= 4")
+    else:
+        errors.append("source must be wthor or engineLoss")
+
+    children = record.get("children")
+    if isinstance(children, list):
+        for index, child in enumerate(children):
+            if not isinstance(child, dict):
+                errors.append(f"children[{index}] must be an object")
+                continue
+            child_missing = sorted(REQUIRED_CHILD_FIELDS - child.keys())
+            if child_missing:
+                errors.append(f"children[{index}] missing required field(s): {', '.join(child_missing)}")
+    return errors
 
 
 def verify_one(set_name: str) -> tuple[int, int]:
@@ -62,6 +142,9 @@ def verify_one(set_name: str) -> tuple[int, int]:
         return 0, 1
     expected_total = (meta_doc.get("progress") or {}).get("total")
     expected_done = (meta_doc.get("progress") or {}).get("done")
+    if meta_doc.get("schemaVersion") != 2:
+        report(set_name, f"ERROR: meta schemaVersion must be 2, got {meta_doc.get('schemaVersion')!r}")
+        errors += 1
     if not isinstance(expected_total, int) or not isinstance(expected_done, int):
         report(set_name, "ERROR: meta progress.total/done must be integers")
         errors += 1
@@ -100,16 +183,22 @@ def verify_one(set_name: str) -> tuple[int, int]:
         report(set_name, f"positionId sequence mismatch: missing={len(missing)} duplicates={duplicates}")
         errors += 1
 
+    for rec in records:
+        for message in schema_errors(rec):
+            report(set_name, f"positionId={rec.get('positionId')}: {message}")
+            errors += 1
+
     seen_canonical: dict[tuple, int] = {}
     for start in range(0, len(records), BATCH_SIZE):
         batch = records[start : start + BATCH_SIZE]
         try:
             legal_info = compute_children(batch)
+            canonical_keys = compute_canonical_keys(batch)
         except Exception as exc:  # noqa: BLE001
-            report(set_name, f"ERROR: legal move recomputation failed at record {start}: {exc}")
+            report(set_name, f"ERROR: board recomputation failed at record {start}: {exc}")
             return len(records), errors + 1
 
-        for rec, info in zip(batch, legal_info):
+        for rec, info, recomputed_key in zip(batch, legal_info, canonical_keys):
             pos_id = rec.get("positionId")
             children = rec.get("children")
             if not isinstance(children, list) or not children:
@@ -150,29 +239,47 @@ def verify_one(set_name: str) -> tuple[int, int]:
                     if child.get("childEmpties") not in (None, actual["childEmpties"]):
                         raise ValueError(f"move={child['move']} childEmpties mismatch")
                     if actual["childIsTerminal"]:
-                        if not child.get("exact") or child.get("level") is not None:
+                        if child.get("exact") is not True or child.get("level") is not None:
                             raise ValueError(f"terminal move={child['move']} must be exact with level=null")
-                    elif child.get("exact"):
-                        if child.get("level") != 60 or not isinstance(child.get("edaxDepth"), int):
-                            raise ValueError(f"exact move={child['move']} requires level=60 and integer edaxDepth")
+                        if child.get("edaxDepth") is not None:
+                            raise ValueError(f"terminal move={child['move']} requires edaxDepth=null")
+                    elif actual["childEmpties"] <= EXACT_EMPTIES_THRESHOLD:
+                        if child.get("exact") is not True or child.get("level") != 60:
+                            raise ValueError(
+                                f"move={child['move']} empties={actual['childEmpties']} requires exact=true/level=60"
+                            )
+                        if not isinstance(child.get("edaxDepth"), int):
+                            raise ValueError(f"exact move={child['move']} requires integer edaxDepth")
                         if child["edaxDepth"] < actual["childEmpties"]:
                             raise ValueError(
                                 f"exact move={child['move']} depth={child['edaxDepth']} < empties={actual['childEmpties']}"
                             )
-                    elif child.get("level") != 16:
-                        raise ValueError(f"non-exact move={child['move']} requires level=16")
+                    elif child.get("exact") is not False or child.get("level") != 16:
+                        raise ValueError(
+                            f"move={child['move']} empties={actual['childEmpties']} requires exact=false/level=16"
+                        )
             except (KeyError, TypeError, ValueError, StopIteration) as exc:
                 report(set_name, f"positionId={pos_id}: {exc}")
                 errors += 1
 
             key_value = rec.get("canonicalKey")
-            if not isinstance(key_value, list) or len(key_value) != 3:
+            if (
+                not isinstance(key_value, list)
+                or len(key_value) != 3
+                or any(not isinstance(value, int) or isinstance(value, bool) for value in key_value)
+            ):
                 report(set_name, f"positionId={pos_id}: malformed canonicalKey")
                 errors += 1
             else:
-                key = tuple(key_value)
+                if key_value != recomputed_key:
+                    report(
+                        set_name,
+                        f"positionId={pos_id}: canonicalKey mismatch stored={key_value} board={recomputed_key}",
+                    )
+                    errors += 1
+                key = tuple(recomputed_key)
                 if key in seen_canonical:
-                    report(set_name, f"positionId={pos_id}: canonicalKey duplicates {seen_canonical[key]}")
+                    report(set_name, f"positionId={pos_id}: recomputed D4 key duplicates {seen_canonical[key]}")
                     errors += 1
                 else:
                     seen_canonical[key] = pos_id

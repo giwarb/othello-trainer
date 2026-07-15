@@ -138,20 +138,20 @@
     "requiresOrchestratorDecision": false
   },
   "postprocessing": {
-    "operation": "backfill diffFromBest without Edax rerun",
-    "completedAt": "2026-07-15T01:45:29+00:00",
+    "operation": "backfill diffFromBest and audited openingKey without Edax rerun",
+    "completedAt": "2026-07-15T02:20:21+00:00",
     "authoritativeFile": "corpus_primary.jsonl",
     "shardPolicy": "primary merged file is authoritative; all shard JSONL files were synchronized",
-    "corpusSha256": "983454b53678150f02f0095fcac5aa7073daebe02bbe8e49a89cc9544c1fe665",
+    "corpusSha256": "b4215bcd01b7d085851b6b7311007451edc11bf87efd3c910f74712ced9a5d47",
     "shardSha256": {
-      "corpus_primary_shard0of8.jsonl": "d5d3c96a291954bd80795b14e2443603f67853347f9e3effdab674cdcb1130de",
-      "corpus_primary_shard1of8.jsonl": "8f930db7a04b08b9463cee4b91c44fe77e37b6e77a125aa7516f0d087a79a7d4",
-      "corpus_primary_shard2of8.jsonl": "0252321f57018d27ffac977c75f6870ed4a7715477a9dd9124f76b54d0a5b11d",
-      "corpus_primary_shard3of8.jsonl": "af466bc4cc59e7ba86c1b86f6da25081044e86ad7d44b71f465e5c2391ef56e0",
-      "corpus_primary_shard4of8.jsonl": "932cbd69d608a672c4cae099449c2d2e51bcd89495e8a098318d3070de50f9ce",
-      "corpus_primary_shard5of8.jsonl": "8ea90dbfee93631db725135465ee24ff91e283cb9a0b33df2353a592e9ffefe6",
-      "corpus_primary_shard6of8.jsonl": "cdeb80a49241a8b23a0d80c9bf5197c28d197a2a6331d8d7a75d0831e888c9b2",
-      "corpus_primary_shard7of8.jsonl": "157e1d435d0bd3a896041606b10168faeb695112be42ee7eb85cadc2676035f9"
+      "corpus_primary_shard0of8.jsonl": "ad4148f4e4dc05e1ad53a0d1d64eba05d29b0800bf1dccf0481eadb361a9bc6b",
+      "corpus_primary_shard1of8.jsonl": "6849565d80744fb77b20dfa677511789b1355d430b7154cbc3c03dcf85a6fc17",
+      "corpus_primary_shard2of8.jsonl": "792d6a8526037ce9b9e8b0f9dcb1ea8ac84326a0583120255775e2257fd84efb",
+      "corpus_primary_shard3of8.jsonl": "1dc6590793b08815e81e0b67f8146a26bd3fc2d2b76100b7b4301e1609d41050",
+      "corpus_primary_shard4of8.jsonl": "cd3943ca9822a2532f4c4d0a0ca591a3a58fce5b2eb28e67eee108a4422b240b",
+      "corpus_primary_shard5of8.jsonl": "035ceca22228cc55c623ab437420a1eafccad8ae08d3f8872eae6095eedbdc4a",
+      "corpus_primary_shard6of8.jsonl": "52e4a04d331b1a8dd4076410050323708753418427bb09119069d4937a931c34",
+      "corpus_primary_shard7of8.jsonl": "406782869bd4a7741a9fbf3c0d0967fa9dbcf5415f397a9fba492995ee0ff726"
     }
   },
   "generationCommand": "python bench/edax-compare/gen_teacher_corpus.py primary --num-shards 8",

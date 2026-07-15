@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """T090a redo: 既存コーパスをEdax再実行なしで補正し、コミット用manifestを作る。
 
-各childへ`diffFromBest = bestValue - value`を付与する。primaryはマージ済みJSONLを
-正本としつつ全8シャードにも同じ補正を適用する。候補プールの`openingKey`を盤面で
-照合し、phase別X/C被覆率と最大opening占有率を実測してmetaへ記録する。
+各childへ`diffFromBest = bestValue - value`を付与する。監査用candidate mappingから
+WTHORレコードへ`openingKey`を付与し、engineLossレコードへnullを付与する。primaryは
+マージ済みJSONLを正本としつつ全8シャードも同期し、監査結果をmetaへ記録する。
 """
 
 from __future__ import annotations
@@ -29,7 +29,7 @@ def sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
-def backfill(path: Path) -> int:
+def backfill(path: Path, openings: dict[tuple[str, str], str]) -> int:
     temp = path.with_suffix(path.suffix + ".tmp")
     count = 0
     try:
@@ -42,6 +42,16 @@ def backfill(path: Path) -> int:
                 best = record["bestValue"]
                 for child in record["children"]:
                     child["diffFromBest"] = best - child["value"]
+                source_name = record.get("source")
+                if source_name == "wthor":
+                    position_key = (record["board"], record["sideToMove"])
+                    if position_key not in openings:
+                        raise RuntimeError(f"{path}:{line_no}: WTHOR position lacks audited opening mapping")
+                    record["openingKey"] = openings[position_key]
+                elif source_name == "engineLoss":
+                    record["openingKey"] = None
+                else:
+                    raise RuntimeError(f"{path}:{line_no}: unknown source {source_name!r}")
                 out.write(json.dumps(record, ensure_ascii=False) + "\n")
                 count += 1
             out.flush()
@@ -158,7 +168,7 @@ def update_meta(set_name: str, stats: dict, report: dict, jsonl_paths: list[Path
     doc["corpusStats"] = stats
     doc["selectionAudit"] = report
     doc["postprocessing"] = {
-        "operation": "backfill diffFromBest without Edax rerun",
+        "operation": "backfill diffFromBest and audited openingKey without Edax rerun",
         "completedAt": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "authoritativeFile": f"corpus_{set_name}.jsonl",
         "shardPolicy": "primary merged file is authoritative; all shard JSONL files were synchronized",
@@ -174,10 +184,12 @@ def update_meta(set_name: str, stats: dict, report: dict, jsonl_paths: list[Path
         "python bench/edax-compare/finalize_teacher_corpus.py smoke="
         "train/data/teacher/candidates_smoke_audit.json primary=train/data/teacher/candidates_primary_audit.json"
     )
-    meta_path.write_text(json.dumps(doc, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    with meta_path.open("w", encoding="utf-8", newline="\n") as out:
+        out.write(json.dumps(doc, indent=2, ensure_ascii=False) + "\n")
     MANIFEST_DIR.mkdir(parents=True, exist_ok=True)
     manifest_path = MANIFEST_DIR / f"corpus_{set_name}.meta.json"
-    manifest_path.write_text(json.dumps(doc, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    with manifest_path.open("w", encoding="utf-8", newline="\n") as out:
+        out.write(json.dumps(doc, indent=2, ensure_ascii=False) + "\n")
     return doc
 
 
@@ -198,9 +210,10 @@ def main() -> None:
             paths.extend(sorted(DATA_DIR.glob("corpus_primary_shard*of8.jsonl")))
             if len(paths) != 9:
                 raise RuntimeError("expected merged primary plus 8 shard JSONL files")
+        openings = opening_map(candidates[set_name])
         for path in paths:
-            print(f"{path.name}: backfilled {backfill(path)} record(s)")
-        stats, report = corpus_stats(paths[0], opening_map(candidates[set_name]))
+            print(f"{path.name}: backfilled {backfill(path, openings)} record(s)")
+        stats, report = corpus_stats(paths[0], openings)
         if report["openingUnmatched"]:
             raise RuntimeError(f"{set_name}: {report['openingUnmatched']} WTHOR positions lack opening mapping")
         update_meta(set_name, stats, report, paths)

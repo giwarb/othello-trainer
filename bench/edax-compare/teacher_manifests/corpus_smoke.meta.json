@@ -139,11 +139,11 @@
     "requiresOrchestratorDecision": false
   },
   "postprocessing": {
-    "operation": "backfill diffFromBest without Edax rerun",
-    "completedAt": "2026-07-15T01:45:23+00:00",
+    "operation": "backfill diffFromBest and audited openingKey without Edax rerun",
+    "completedAt": "2026-07-15T02:20:14+00:00",
     "authoritativeFile": "corpus_smoke.jsonl",
     "shardPolicy": "primary merged file is authoritative; all shard JSONL files were synchronized",
-    "corpusSha256": "ae0205466c8749cde26e36a47b358cd8a76e17ab704378934ac0b4a3ebb3bd8c",
+    "corpusSha256": "ca25bbb8492653f11aee8df196ec312446a14c5f30cc077ee1025a02c5a17e21",
     "shardSha256": {}
   },
   "generationCommand": "python bench/edax-compare/gen_teacher_corpus.py smoke",

@@ -16,9 +16,69 @@ SPEC = importlib.util.spec_from_file_location("gen_teacher_corpus", HERE / "gen_
 assert SPEC and SPEC.loader
 gen = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(gen)
+VERIFY_SPEC = importlib.util.spec_from_file_location("verify_teacher_corpus", HERE / "verify_teacher_corpus.py")
+assert VERIFY_SPEC and VERIFY_SPEC.loader
+verify = importlib.util.module_from_spec(VERIFY_SPEC)
+VERIFY_SPEC.loader.exec_module(verify)
 
 
 class TeacherCorpusTests(unittest.TestCase):
+    @staticmethod
+    def valid_corpus_record(
+        board: str = "---------------------------OX------XO---------------------------", side: str = "black"
+    ) -> dict:
+        base = {"board": board, "sideToMove": side}
+        legal = verify.compute_children([base])[0]["moves"]
+        canonical = verify.compute_canonical_keys([base])[0]
+        children = []
+        for index, move in enumerate(legal):
+            value = float(index)
+            children.append(
+                {
+                    "move": move["move"],
+                    "value": value,
+                    "diffFromBest": float(len(legal) - 1 - index),
+                    "exact": False,
+                    "level": 16,
+                    "edaxDepth": 16,
+                    "elapsedMs": 1.0,
+                }
+            )
+        return {
+            "positionId": 0,
+            "board": board,
+            "sideToMove": side,
+            "empties": board.count("-"),
+            "source": "engineLoss",
+            "phaseBin": None,
+            "hasXcLegalMove": None,
+            "openingKey": None,
+            "priorityLoss": 4.0,
+            "canonicalKey": canonical,
+            "children": children,
+            "bestMove": children[-1]["move"],
+            "bestValue": children[-1]["value"],
+            "generatedAt": "2026-07-15T00:00:00+00:00",
+        }
+
+    def assert_verifier_rejects(self, records: list[dict]) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            data_dir = Path(temp_dir)
+            (data_dir / "corpus_smoke.jsonl").write_text(
+                "".join(json.dumps(record) + "\n" for record in records), encoding="utf-8", newline="\n"
+            )
+            count = len(records)
+            (data_dir / "corpus_smoke.meta.json").write_text(
+                json.dumps({"schemaVersion": 2, "progress": {"done": count, "total": count}}) + "\n",
+                encoding="utf-8",
+                newline="\n",
+            )
+            with mock.patch.object(verify, "TEACHER_DATA_DIR", data_dir):
+                with mock.patch.object(verify.sys, "argv", ["verify_teacher_corpus.py", "smoke"]):
+                    with self.assertRaises(SystemExit) as raised:
+                        verify.main()
+            self.assertEqual(raised.exception.code, 1)
+
     def test_phase_allocation_and_xc_opening_constraints(self) -> None:
         positions = []
         for phase in range(6):
@@ -96,6 +156,50 @@ class TeacherCorpusTests(unittest.TestCase):
             with mock.patch.object(gen, "TEACHER_DATA_DIR", data_dir):
                 with self.assertRaisesRegex(RuntimeError, "provenance mismatch"):
                     gen.merge_shards("test", 2, 2)
+
+    def test_verifier_rejects_legal_move_missing_and_extra(self) -> None:
+        missing = self.valid_corpus_record()
+        missing["children"].pop(0)
+        self.assert_verifier_rejects([missing])
+
+        extra = self.valid_corpus_record()
+        extra["children"].append(
+            {
+                "move": "a1",
+                "value": -1.0,
+                "diffFromBest": extra["bestValue"] + 1.0,
+                "exact": False,
+                "level": 16,
+                "edaxDepth": 16,
+            }
+        )
+        self.assert_verifier_rejects([extra])
+
+    def test_verifier_rejects_diff_and_exact_threshold_corruption(self) -> None:
+        bad_diff = self.valid_corpus_record()
+        bad_diff["children"][0]["diffFromBest"] += 1
+        self.assert_verifier_rejects([bad_diff])
+
+        bad_exact = self.valid_corpus_record()
+        bad_exact["children"][0].update({"exact": True, "level": 60, "edaxDepth": 59})
+        self.assert_verifier_rejects([bad_exact])
+
+    def test_verifier_rejects_canonical_tamper_and_d4_duplicate(self) -> None:
+        tampered = self.valid_corpus_record()
+        tampered["canonicalKey"][0] += 1
+        self.assert_verifier_rejects([tampered])
+
+        initial = self.valid_corpus_record()
+        first_move = verify.compute_children([initial])[0]["moves"][0]
+        first = self.valid_corpus_record(first_move["childBoard"], first_move["childSideToMove"])
+        second = self.valid_corpus_record(first["board"][::-1], first["sideToMove"])
+        second["positionId"] = 1
+        self.assert_verifier_rejects([first, second])
+
+    def test_verifier_rejects_missing_required_field(self) -> None:
+        record = self.valid_corpus_record()
+        del record["openingKey"]
+        self.assert_verifier_rejects([record])
 
 
 if __name__ == "__main__":
