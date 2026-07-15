@@ -17,5 +17,6 @@
 pub mod experiment;
 pub mod regression;
 pub mod t088_experiment;
+pub mod t090_distillation;
 pub mod train_data;
 pub mod wthor;
