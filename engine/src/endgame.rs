@@ -77,6 +77,25 @@ const C_SQUARE_MASK: u64 = (1u64 << 1)
 /// 相対的に大きいため、複数合法手かつこの空き数以上に限定する。
 const ETC_MIN_EMPTIES: u32 = 15;
 
+#[cfg(test)]
+std::thread_local! {
+    static TEST_ETC_MIN_EMPTIES: std::cell::Cell<Option<u32>> = const { std::cell::Cell::new(None) };
+    static TEST_ETC_CUTOFFS: std::cell::Cell<u64> = const { std::cell::Cell::new(0) };
+}
+
+fn etc_min_empties() -> u32 {
+    #[cfg(test)]
+    if let Some(override_value) = TEST_ETC_MIN_EMPTIES.with(std::cell::Cell::get) {
+        return override_value;
+    }
+    ETC_MIN_EMPTIES
+}
+
+#[cfg(test)]
+fn record_etc_cutoff() {
+    TEST_ETC_CUTOFFS.set(TEST_ETC_CUTOFFS.get() + 1);
+}
+
 /// 通常入口はETC on。テストは`negamax::<false>`を直接選び、公開APIや
 /// 実行時設定を増やさずに同一実装のA/B比較を行う。
 const DEFAULT_ETC_ENABLED: bool = true;
@@ -551,7 +570,7 @@ fn negamax<const ETC_ENABLED: bool>(
 
     let mut moves = [MoveInfo::EMPTY; 64];
     let mut move_count = 0usize;
-    let etc_eligible = ETC_ENABLED && empties >= ETC_MIN_EMPTIES && legal.count_ones() > 1;
+    let etc_eligible = ETC_ENABLED && empties >= etc_min_empties() && legal.count_ones() > 1;
     let mut remaining = legal;
     while remaining != 0 {
         let mv = remaining & remaining.wrapping_neg();
@@ -590,6 +609,8 @@ fn negamax<const ETC_ENABLED: bool>(
                 .probe(move_info.child_hash, TTDomain::Exact)
                 .and_then(|entry| etc_cutoff_score(entry, child_empties, beta));
             if let Some(score) = cutoff {
+                #[cfg(test)]
+                record_etc_cutoff();
                 tt.store(TTEntry {
                     hash,
                     domain: TTDomain::Exact,
@@ -667,7 +688,33 @@ fn negamax<const ETC_ENABLED: bool>(
 mod tests {
     use super::*;
 
-    fn solve_with_etc<const ETC_ENABLED: bool>(board: &Board, side: Side) -> (i32, u64) {
+    struct EtcTestScope {
+        previous_min_empties: Option<u32>,
+    }
+
+    impl EtcTestScope {
+        fn new(min_empties: u32) -> Self {
+            let previous_min_empties = TEST_ETC_MIN_EMPTIES.replace(Some(min_empties));
+            TEST_ETC_CUTOFFS.set(0);
+            Self {
+                previous_min_empties,
+            }
+        }
+    }
+
+    impl Drop for EtcTestScope {
+        fn drop(&mut self) {
+            TEST_ETC_MIN_EMPTIES.set(self.previous_min_empties);
+            TEST_ETC_CUTOFFS.set(0);
+        }
+    }
+
+    fn solve_with_etc<const ETC_ENABLED: bool>(
+        board: &Board,
+        side: Side,
+        min_empties: u32,
+    ) -> (i32, u64, u64) {
+        let _scope = EtcTestScope::new(min_empties);
         let mut tt = TranspositionTable::new(4);
         let mut nodes = 0;
         let mut aborted = false;
@@ -685,7 +732,60 @@ mod tests {
             &mut aborted,
         );
         assert!(!aborted);
-        (score, nodes)
+        (score, nodes, TEST_ETC_CUTOFFS.get())
+    }
+
+    fn solve_with_seeded_child_etc<const ETC_ENABLED: bool>(
+        board: &Board,
+        side: Side,
+        min_empties: u32,
+    ) -> (i32, u64, u64) {
+        let legal = board.legal_moves(side);
+        assert!(legal.count_ones() > 1);
+
+        let mut best_score = i32::MIN;
+        let mut best_child = None;
+        let mut remaining = legal;
+        while remaining != 0 {
+            let mv = remaining & remaining.wrapping_neg();
+            remaining &= remaining - 1;
+            let child = board.apply_move(side, mv);
+            let child_score = solve_with_etc::<false>(&child, side.opposite(), min_empties).0;
+            let score = -child_score;
+            if score > best_score {
+                best_score = score;
+                best_child = Some((child, child_score));
+            }
+        }
+
+        let (best_child, child_score) = best_child.unwrap();
+        let _scope = EtcTestScope::new(min_empties);
+        let mut tt = TranspositionTable::new(4);
+        tt.store(TTEntry {
+            hash: zobrist_hash(&best_child, side.opposite()),
+            domain: TTDomain::Exact,
+            depth: (board.empty_count() - 1) as i8,
+            score: child_score,
+            bound: Bound::Exact,
+            best_move: None,
+        });
+        let mut nodes = 0;
+        let mut aborted = false;
+        let score = negamax::<ETC_ENABLED>(
+            board,
+            side,
+            initial_quadrant_parity(board),
+            None,
+            best_score - 1,
+            best_score,
+            &mut tt,
+            &mut nodes,
+            None,
+            None,
+            &mut aborted,
+        );
+        assert!(!aborted);
+        (score, nodes, TEST_ETC_CUTOFFS.get())
     }
 
     fn exact_entry(depth: i8, score: i32, bound: Bound) -> TTEntry {
@@ -944,11 +1044,20 @@ mod tests {
     fn etc_on_off_scores_match_on_broad_random_small_positions_including_passes() {
         let mut checked = 0usize;
         let mut pass_positions = 0usize;
+        let mut seeded_positions = 0usize;
+        let mut etc_cutoffs = 0u64;
         for seed in 1..=16 {
             for (board, side) in random_small_positions(seed) {
-                let on = solve_with_etc::<true>(&board, side).0;
-                let off = solve_with_etc::<false>(&board, side).0;
-                assert_eq!(on, off);
+                let on = solve_with_etc::<true>(&board, side, 8);
+                let off = solve_with_etc::<false>(&board, side, 8);
+                assert_eq!(on.0, off.0);
+                if board.empty_count() >= 8 && board.legal_moves(side).count_ones() > 1 {
+                    let seeded_on = solve_with_seeded_child_etc::<true>(&board, side, 8);
+                    let seeded_off = solve_with_seeded_child_etc::<false>(&board, side, 8);
+                    assert_eq!(seeded_on.0, seeded_off.0);
+                    seeded_positions += 1;
+                    etc_cutoffs += seeded_on.2;
+                }
                 checked += 1;
                 if board.legal_moves(side) == 0 && board.legal_moves(side.opposite()) != 0 {
                     pass_positions += 1;
@@ -957,18 +1066,23 @@ mod tests {
         }
         assert!(checked >= 160);
         assert!(pass_positions > 0);
+        assert!(seeded_positions >= 16);
+        assert!(etc_cutoffs > 0);
     }
 
     #[test]
     fn fresh_tt_runs_are_deterministic_with_etc() {
         let position = random_small_positions(0x5eed)
             .into_iter()
-            .find(|(board, _)| board.empty_count() == 10)
+            .find(|(board, side)| {
+                board.empty_count() >= 8 && board.legal_moves(*side).count_ones() > 1
+            })
             .unwrap();
-        assert_eq!(
-            solve_with_etc::<true>(&position.0, position.1),
-            solve_with_etc::<true>(&position.0, position.1)
-        );
+        let first = solve_with_seeded_child_etc::<true>(&position.0, position.1, 8);
+        let second = solve_with_seeded_child_etc::<true>(&position.0, position.1, 8);
+        assert!(first.2 > 0);
+        assert!(second.2 > 0);
+        assert_eq!(first, second);
     }
 
     #[test]
