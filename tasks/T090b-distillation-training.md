@@ -1,7 +1,7 @@
 ---
 id: T090b
 title: Edax教師蒸留学習(混合損失: teacher Huber + pairwise ranking + WTHOR outcome)
-status: in_progress # todo | in_progress | review | redo | done | blocked
+status: review # todo | in_progress | review | redo | done | blocked
 assignee: codex(gpt-5.6-sol)
 attempts: 1
 ---
