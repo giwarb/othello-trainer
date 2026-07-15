@@ -1,7 +1,7 @@
 ---
 id: T098
 title: 終盤ソルバー計測基盤(C1/C2/C3)とbaseline固定
-status: in_progress # todo | in_progress | review | redo | done | blocked
+status: done # todo | in_progress | review | redo | done | blocked
 assignee: codex(gpt-5.6-sol)
 attempts: 1
 ---
@@ -95,3 +95,14 @@ attempts: 1
 - C3: 48/48局面完了、平均oracle regret 1.4375石、2回実行の決定性100%、wall保険率0%。
 - 検証: `python -m pytest bench/edax-compare/ -q` は15 passed（atomic中断→resume後の結果一致と部分速度反復除外を含む）。`cargo test -p engine` は178 passed / 2 ignored。`cargo test -p engine --release --test ffo_bench -- --nocapture` は#40〜44が全問正解、合計1,298,656,784 nodes（既存記録一致）、474.741秒。新CLI同一狭窓を2回実行し、score=28、bound=lower、nodes=158,526が完全一致。`rustfmt --edition 2021 --check engine/src/bin/eval_cli.rs engine/src/search.rs`、対象ファイルの`git diff --check`も成功。全workspaceの`cargo fmt --all -- --check`は本タスク外の既存未整形ファイルを多数検出したため不合格だったが、本タスクのRust変更2ファイルは個別check済み。
 - 変更ファイル（コミット対象）: `.gitignore`, `engine/src/bin/eval_cli.rs`, `engine/src/search.rs`, `bench/edax-compare/endgame_bench.py`, `bench/edax-compare/endgame_positions.json`, `bench/edax-compare/test_endgame_bench.py`, `bench/edax-compare/endgame_baseline.json`。`tasks/T098-endgame-bench-baseline.md` は作業ログのみでコミット対象外。コミットハッシュはCodex環境の`.git`書き込み禁止のため未作成。
+
+
+### 2026-07-15 Codex redo #1
+
+- Fixed the audit blocker: C1 (10 jobs), C2 (540 jobs), and C3 (48 positions) were remeasured once with the final harness. `endgame_baseline.json` now records identical measurement/report harness SHA-256 values (`f384cbb6979032e3edc806b34fa5cbf36d25c82c95c34b0b95b9439cee327428`). A CLI from T098 commit `ef9c1f1` was built separately so the concurrent T099 `engine/src/endgame.rs` work was not included.
+- Edax truth refresh: reran all 60 positions with Edax 4.6 level 60, book off, `-n 1`, and 64 MiB. The harness now rejects nonzero exits and final depths below the position empties. All scores matched the previous manifest; `edaxDepth` and `edaxNodes` are saved for every position. JSON artifacts use LF.
+- Hardened the report contract: a normal `report` fails unless the exact C1/C2/C3 key sets are complete (`--allow-partial` is the explicit exception). Added C2 empties x budget x window node median/p90 and per-position nodes, plus C3 depth/exact/bound/quota/node/wall telemetry and per-position rows.
+- CLI/contract fixes: `solve` is present in usage, and endpoint proof windows `[-65,-64]` / `[64,65]` are accepted and verified. The retained speed result is flagged `informative=true`, identifies the pre-commit measurement harness, and states that the formal protocol is deferred to T108.
+- Baseline values: C1 #40-44 all correct; #45-49 reached the 5,000,000-node cap and are honestly incomplete. C2 completion rates are 64k: 0/60, 0/60, 0/60; 160k: 1/60, 0/60, 0/60; 512k: 5/60, 0/60, 0/60 for fail-high/fail-low/full. `E50_exact(160k)` and `E50_bound(64k)` remain below the corpus minimum (`null`, `<18`). C3 remains mean regret 1.4375, determinism 100%, wall insurance 0%; telemetry totals include root attempts/completions 8/4, leaf attempts/completions 276/245, bound proofs 245, quota aborts 35, node-limit hits 26, wall-limit hits 0. Informative native/Edax ratio remains geometric mean 135.679764x and p90 514.302227x from one completed repetition.
+- Verification: `python -m pytest bench/edax-compare/ -q` -> 17 passed. `cargo test -p engine` on the isolated T098 snapshot -> 178 passed / 2 ignored (plus bin tests passed). `cargo test -p engine --release --test ffo_bench -- --nocapture` -> #40-44 all correct, 1,298,656,784 nodes, 606.01 s. Two identical CLI runs -> score 28, lower bound, 158,526 nodes. Endpoint windows returned -64/lower and +64/upper. C1 resume skipped all 10 jobs and left the checkpoint SHA-256 unchanged. `rustfmt --edition 2021 --check engine/src/bin/eval_cli.rs`, Python compile, target-file `git diff --check`, and provenance/report assertions passed.
+- Commit files for this redo: `engine/src/bin/eval_cli.rs`, `bench/edax-compare/endgame_bench.py`, `bench/edax-compare/endgame_positions.json`, `bench/edax-compare/test_endgame_bench.py`, `bench/edax-compare/endgame_baseline.json`. This task log remains excluded. Commit hash is unavailable because `.git` is read-only to Codex.

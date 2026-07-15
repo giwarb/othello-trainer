@@ -24,8 +24,7 @@
 
 | ID | タスク | 担当 | 状態 | 試行 |
 |---|---|---|---|---|
-| T098 | 終盤ベンチ契約(C1/C2/C3)とbaseline固定 | codex(gpt-5.6-sol) | in_progress(redo#1: ハーネス不一致の再計測) | 1 |
-| T099 | 終盤: 候補生成一回化+TT move排序 | codex(gpt-5.6-sol) | review(ロジック合格。唯一のブロッカー=一時tar残骸、T098 redo完了後にオーケストレーターが削除してdone化) | 0 |
+| T100 | 終盤: 固定象限パリティと排序調整 | codex(gpt-5.6-sol) | in_progress | 0 |
 
 ## 有効な方針・申し送り(今後のタスクに効くもの)
 
@@ -39,7 +38,7 @@
 - **T088の数値を引用する際の注意(Claude代替レビュー申し送り)**: 学習法改善の効果は frozen 2024 の **2.118%改善** を基準にすること。validation 12%改善は構成間でtarget定義が異なる(生 vs canonical平均)ため過大であり根拠にしない。構成1は厳密な現行再現でない(best-epoch復元が全構成適用)が判定は保守的方向。
 - **次回のベンチ校正への申し送り(T085c codex-review中所見)**: 校正用 `eval_cli` はTT 16MiB、本番WASM Engineは64MiBで容量が不一致。今後の校正では容量を統一するか校正メタデータにTT容量を明記する。
 - **T095 codex-review中指摘3件(次にt090_distillation.rsを触るタスクで対応)**: (1)破損キャッシュの件数フィールドで過大メモリ確保しうる(checked arithmetic+チェックサム推奨)、(2)mix/seed重複指定で同一checkpoint dirへ競合書き込み(CLIで重複拒否を)、(3)キャッシュ保存失敗で学習全体が失敗する(警告扱いで続行が妥当)。
-- **T098 redo#1の再生成baselineは「T099適用後ソルバー」基準になる**(redo実行時の作業ツリーにT099のendgame.rs変更が含まれるため)。T099自身のゲートはペア比較(ef9c1f1一時展開 vs T099)で判定済みで有効。T100以降は再生成baselineを比較基準にする(provenanceのエンジン版数で識別)。
+- **T098のbaseline(61d0611)は「T099適用前ソルバー(ef9c1f1別ビルド)」基準で確定**(redoワーカーがT099の変更を分離して計測、harness SHA 3者一致をオーケストレーター検証済み)。T100以降のノード比較はこのbaselineを基準にしてよいが、T099はノード同値なのでどちら基準でも同じ。
 - **T099 codex-review中指摘(T105=増分hash/flip再利用タスクで対応)**: `MoveInfo::flips`/`mv` が保存のみで未使用(flip maskの再構築演算も無駄)。T105でflip mask起点の子盤面構築+増分hashに統合するか、それまで不要なら除去。軽微: endgame.rs冒頭コメントの排序説明が旧内容(T100で更新)、TT moveテストは実局面経由が望ましい。
 - **T096申し送り(次にcompare_pattern_v3.pyを触るタスクで対応)**: resume identityが`HEAD^{tree}`(リポジトリ全体)依存で、無関係な後続コミットでも既存チェックポイントからresumeできなくなる。関連ファイル(スクリプト・重み・corpus)のハッシュに絞るべき(codex-review中指摘)。manifestのCRLF出力もLF明示に(軽微)。
 - **既存フレーキーテスト**: `engine/src/protocol.rs` の `node_limited_protocol_requests_are_deterministic` は`cargo test -p engine`のフル並列実行時にCPU競合で非決定的に失敗しうる(T085c由来、単独実行では常にPASS)。verifierが額面失敗を報告したら、まず単独再実行で切り分けること。
@@ -76,6 +75,8 @@
 | T094 | 教師生成のEdaxバッチ化 | **採用**(redo1回: A/B比較条件の誤りをcodex-reviewが検出)。旧本番条件比で壁時計**-64.6%**(50k: 9.4h→3時間台見込み)。`-n 1`固定を正式仕様化し教師ラベルの決定性欠陥も解消(既存50kコーパスは非決定世代、manifestフラグで識別可) |
 | T095 | 蒸留トレーナー高速化 | **採用**(redo 0回、verifier/codex-review両合格)。6run並列+WTHORキャッシュ+重複計算排除で primary 6run 97秒→34〜37秒、キャッシュヒット時の起動20秒→0.7秒。直列/並列/修正前で重みSHA-256完全一致(数値不変) |
 | T096 | oracle頑健化と蒸留候補再判定 | **完了**(redo 0回、verifier/codex-review両合格)。教師コーパス非重複の60局面oracle(層化・seed再現可)を確立。蒸留候補はv2比 regret +1.90石(95%CI[+0.67,+3.30])で**有意に悪化→不採用が統計的に確定**。20局スモークは仕様どおり省略 |
+| T098 | 終盤ベンチ契約とbaseline固定 | **完了**(redo1回: 計測ハーネスのSHA不一致をレビューが検出→分離ビルドで再計測)。eval_cli solve・C1/C2/C3ハーネス・Edax真値60局面(機械検証付き)・E50指標を確立。baseline: Edax比幾何平均135.7倍(参考値)、E50_exact(160k)<18、C2 160k完走1/60 |
+| T099 | 終盤: 候補生成一回化+TT move排序 | **採用**(redo 0回、レビューのブロッカーは一時ファイル残骸のみ→オーケストレーター削除)。MoveInfo導入・Vec排除・TT move最優先。C2ノード同値で壁時計**-21.6%**、FFO正解値・決定性不変 |
 
 ## 完了フェーズ(詳細は STATUS-archive.md と各タスクファイル)
 

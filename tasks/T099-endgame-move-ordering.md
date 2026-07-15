@@ -1,7 +1,7 @@
 ---
 id: T099
 title: 終盤ソルバー: 候補生成の一回化とTT moveオーダリング
-status: review # todo | in_progress | review | redo | done | blocked
+status: done # todo | in_progress | review | redo | done | blocked
 assignee: codex(gpt-5.6-sol)
 attempts: 0
 ---
