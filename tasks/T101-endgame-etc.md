@@ -1,9 +1,9 @@
 ---
 id: T101
 title: 終盤ソルバー: Exact ETC(子局面TT boundによる先行カット)
-status: review # todo | in_progress | review | redo | done | blocked
+status: in_progress # todo | in_progress | review | redo | done | blocked
 assignee: codex(gpt-5.6-sol)
-attempts: 0
+attempts: 1
 ---
 
 # T101: 終盤 Exact ETC
@@ -53,6 +53,14 @@ attempts: 0
 - [ ] タスク完了時点で、当該タスク由来の差分・未追跡ファイルが `git status --short` に残っていないこと
 
 ## フィードバック(やり直し時にオーケストレーターが記入)
+
+### redo #1(2026-07-15、codex-review不合格: tasks/review/T101-endgame-etc-codex-review.md)
+
+**実装本体の安全条件(Exact/Upperのみ・符号・深さ条件・Lower不使用)は問題なしと確認済み。ブロッカーはテストの空洞化のみ。**
+
+- on/off比較テスト(`random_small_positions`、空き10以下)と決定性テストは、ETC発動条件(空き15以上)を満たす局面を一切探索しておらず、**ETC経路を一度も通らない同一探索同士の比較になっている**(閾値8→15変更時にテスト局面が未追随)。
+- 修正: (1) テストからETC閾値を上書きできる入口(cfg(test)のセッター等、本番経路の定数は不変)を設けるか、空き15以上の局面セットを使う。(2) **ETCが実際に発火したことをカウンタ(テスト用テレメトリ)で確認**した上で、on/off score一致とfresh TT決定性を再検証する(発火0件のままpassするテストを残さない)。(3) 発火ありのランダム局面比較(パス含む)を受け入れ基準の水準(広範)で実施。
+- FFO・C2の手動計測は有効なので再実行不要。cargo test全件と新テストのみ再確認。実装本体は変更しないこと(テスト整備が目的。もしテスト強化で実バグが見つかったら修正+報告)。
 
 ## 作業ログ(担当エージェントが追記)
 
