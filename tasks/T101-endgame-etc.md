@@ -104,3 +104,19 @@ attempts: 1
 - `target/release/eval_cli.exe solve ...` / ETC off分離build — FFOおよびC2を1局面/jobごとのcheckpoint保存・resume付きで実行、上表の通り
 - `git diff --check` — PASS
 - コミット: 未実施（`.git` 書き込み不可。オーケストレーター代行）
+
+### 2026-07-15 22:41 JST — Codex redo #1 テスト修正
+
+- 本番の `ETC_MIN_EMPTIES = 15` と実装本体の安全条件は維持したまま、`cfg(test)` の thread-local 閾値 override と ETC cutoff カウンタを追加した。テスト終了時に override とカウンタを復元し、並列テスト間で状態を共有しない。
+- ランダム小空き on/off テストは従来どおり16 seed・160局面以上・実パス局面を含む full-window score 一致を確認する。加えて、空き8以上のランダム親局面について、ETC-off で厳密に求めた最善子の有効な Exact TT エントリを fresh TT に投入し、ETC-on/off の狭窓 score 一致を16局面以上で比較する。ETC-on の cutoff 合計が0件なら必ず失敗する。
+- fresh TT 決定性テストも同じ有効な子 Exact TT を投入したランダム局面を使い、両実行で ETC cutoff が発火したこと、および `(score, nodes, cutoff count)` の完全一致を確認するよう修正した。
+- FFO/C2手動on/off計測は redo 指示により再実行していない。release FFO回帰の on nodes は既存計測値 `1,000,121,620` と完全一致し、本番探索挙動が不変であることを確認した。
+
+#### 実行コマンドと結果
+
+- `cargo test -p engine endgame::tests::etc_on_off_scores_match_on_broad_random_small_positions_including_passes -- --nocapture` — PASS（1 passed、ETC発火必須）
+- `cargo test -p engine endgame::tests::fresh_tt_runs_are_deterministic_with_etc -- --nocapture` — PASS（1 passed、両fresh TT実行でETC発火）
+- `cargo test -p engine` — PASS（181 passed, 0 failed, 2 ignored）
+- `cargo test -p engine --release --test ffo_bench -- --nocapture` — PASS（#40–44 全問正解、合計nodes 1,000,121,620、1 passed, 1 ignored）
+- `git diff --check` — PASS
+- コミット: 未実施（`.git` 書き込み不可。オーケストレーター代行）
