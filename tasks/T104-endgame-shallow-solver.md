@@ -1,7 +1,7 @@
 ---
 id: T104
 title: 終盤ソルバー: 空き1〜4専用ソルバーとshallow層
-status: review # todo | in_progress | review | redo | done | blocked
+status: done # todo | in_progress | review | redo | done | blocked
 assignee: implementer(Sonnet, Codex上限フォールバック)
 attempts: 2
 ---
@@ -96,6 +96,13 @@ Claude代替レビュー(`tasks/review/T104-endgame-shallow-solver-claude-review
 3. FFO #40-44を1回実行し、正解値と合計ノード数(641,077,417)が**不変**であることを確認(ルートが空き5以上のベンチには影響しないはずの確認)。NPSの再計測は不要(ホットパス不変のため。もしホットパスに手を入れた場合のみ再計測)。
 4. `cargo test -p engine` 全件パス+WASMビルド確認 → パス明示でコミット(pushなし)→ 完了報告。
 5. 注意: T105担当が同一ファイルの変更をstash退避して待機中。redo修正は現在のHEAD(ce1dacf+tasksコミット)の上で行い、余計なリファクタをしないこと(T105のstash適用を難しくしない)。
+
+### 2026-07-16 — オーケストレーター判定: done(採用)
+
+- 採用構成: SHALLOW_MAX_EMPTIES=4 + CornerThenParity(ユーザー裁定)。実装コミット: 4bbca88 + ce1dacf + a3a91ef(redo#2)。
+- 公式NPS **3.065倍**(ゲート1.3倍)。FFOノード+28.63%・C2完走6→5はユーザー裁定でwaive(T107の予算再校正で回収予定)。
+- redo#2(レビューが検出した重大B1: ルート空き4以下でbest_move None)は is_rootガードで修正。verifier再実行・再レビューとも合格(FFOノード641,077,417完全不変、回帰テストは独立参照照合・実効性確認済み)。
+- verifier+レビューの独立検出がまた機能した実例(verifier初回合格→レビューがアプリ層の致命バグを検出)。
 
 ## 作業ログ(担当エージェントが追記)
 
