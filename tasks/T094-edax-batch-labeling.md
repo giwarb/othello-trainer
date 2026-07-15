@@ -1,7 +1,7 @@
 ---
 id: T094
 title: 教師コーパス生成のEdaxバッチ化(局面単位で1プロセス化、起動オーバーヘッド除去)
-status: in_progress # todo | in_progress | review | done | blocked
+status: review # todo | in_progress | review | done | blocked
 assignee: codex(gpt-5.6-sol)
 attempts: 0
 ---
@@ -62,3 +62,26 @@ attempts: 0
 ## フィードバック(やり直し時にオーケストレーターが記入)
 
 ## 作業ログ(担当エージェントが追記)
+
+### 2026-07-15 15:00 JST — Codex実装
+
+- 実施内容:
+  - `vs_edax.py` に複数行OBFを1プロセスで解く `edax_solve_batch()` と、`problem # N` の1-based連番・件数を入力行数と照合するブロックパーサを追加。不一致時は部分結果を採用せずバッチ全体をエラーにする。
+  - `label_position()` を同一level単位の最大2バッチへ変更し、終局子を従来どおりEdax対象外に維持。exact子ごとの `edaxDepth >= childEmpties` 検証、終了コード非ゼロでも完全な全ブロックをパースできれば許容する挙動、子の元順序を維持。
+  - `elapsedMs` はバッチ壁時計を子数で均等割し、meta/manifest settingsへ `elapsedMsPolicy: "batch-averaged"` と `edaxTasksPerProcess: 1` を追加。
+  - Edax既定マルチタスクは8プロセス並列下でlevel16の値が再実行間でも揺れたため、外側で8シャード並列する教師バッチAPIだけ `-n 1` に固定。通常対局が使う既存 `edax_solve()` は従来どおりEdax既定タスク数を維持。
+  - `vs_edax.py` 通常対局run key settingsへ `openings_sha256` を追加し、冒頭docstringを実際の `eval_cli` 自動ビルド動作に更新。
+  - parserの正常系・非ゼロ終了コード許容・problem番号欠落/順序ずれ拒否、level別バッチ化・子順序・平均elapsed、resume重複防止を回帰テストへ追加。
+- 新旧等価性 (104局面、996子局面、Edax `-n 1`、8シャードと同じ局面集合): `edaxDepth` / `value` (score) / `bestValue` / `diffFromBest` の不一致 0件。比較はmoveをキーに旧1子1プロセス出力と新level別バッチ出力を照合。
+- 8シャード性能A/B (同一104局面、各シャード13局面、各局面ごとJSONL追記+flush+fsync・逐次pos/sログ):
+  - 旧: 161.359秒、0.6445 pos/s
+  - 新: 132.984秒、0.7820 pos/s
+  - 改善率: +21.34% (壁時計 -17.58%)
+- resume/manifest実動作: 1局面scratch生成を2回実行。2回目は `1/1 already done (resume), 0 remaining`、JSONLは1行・positionId `[0]` のまま重複なし。meta settingsに `elapsedMsPolicy="batch-averaged"`、`edaxTasksPerProcess=1` を確認。
+- 実行コマンドと結果:
+  - `python -m pytest bench/edax-compare/ -q` → 10 passed
+  - `python -m py_compile bench/edax-compare/vs_edax.py bench/edax-compare/gen_teacher_corpus.py bench/edax-compare/test_teacher_corpus.py` → 成功
+  - `cargo test -p engine` → 178 passed, 0 failed, 2 ignored（ほかbin/doc testsも成功）
+  - `git diff --check` → 問題なし
+- 一時A/B出力・ログ・resume scratch・検証ハーネスは検証後に削除済み。
+- コミット: 未実施（Codexサンドボックスは `.git` 書き込み禁止）。
