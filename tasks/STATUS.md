@@ -9,8 +9,7 @@
 **エンジン強化(Edax level 10 攻略)ロードマップを実行中**。設計書: `tasks/design/T083-engine-strengthening-report.md`(全体)、`tasks/design/T085-beat-level10-report.md`(T085系の規範)。
 
 - 監視記録(07-15 07:57): 30,900/50,000。レート0.51局面/秒で安定、**完走見込み18時過ぎ**。8シャード健全・停滞なし。介入せず完走まで走らせる裁定(コーパス一貫性優先)。T090b(蒸留学習)起票済み・委譲はT090a検証後。
-- **T090a生成完了(07-15 朝)**: primary 50,000局面完走(想定より早く約9.5時間。終盤帯は完全読みが高速で加速)。shard4終盤のPermissionError(一時ファイルロック、外部監視の読み取りと衝突)はresumeで復旧、atomic書き込みにリトライを追加。マージ済み corpus_primary.jsonl 56.8MB。コミット715ef8e・Actions全緑。**verifier+codex-review並列検証中**。合格後T090b(蒸留)をCodexに委譲。
-- (履歴)T090a primary生成(8シャード並列、23:38:25開始、デタッチプロセスでセッション非依存)。smoke完走(1,000局面、exact率31.5%、エラー0、resume/拒否とも実証)。監視: `train/data/teacher/logs/primary_orchestrator.log` または各シャードの `corpus_primary_shard{I}of8.meta.json` の progress.done。**注意: N=3検証で並列効率約2倍(非線形)のためN=8でも5〜6時間かかる可能性**。完走後の残作業: ワーカー再開(SendMessage)→マージ→verify→コミット→verifier+Claudeレビュー。ワーカーは指示どおり完走待ち停止中。
+- **T090a redo#1実行中(Codexへ切替=ルーティング基準4)**: 生成済み50,000局面は**データ健全と両検証が確認済みのため再生成禁止**。redo内容は仕様未達の消化のみ — bestDiff後処理付与・verify厳密化(合法手全件照合等)・X/C層quota+opening上限の実装と実測レポート(被覆<50%または単一opening>2%なら停止)・gitCommitのidentity追加・manifest/統計のコミット・中所見4件。フィードバック詳細はタスクファイル。redo合格後にT090b(蒸留)委譲。smoke完走(1,000局面、exact率31.5%、エラー0、resume/拒否とも実証)。監視: `train/data/teacher/logs/primary_orchestrator.log` または各シャードの `corpus_primary_shard{I}of8.meta.json` の progress.done。**注意: N=3検証で並列効率約2倍(非線形)のためN=8でも5〜6時間かかる可能性**。完走後の残作業: ワーカー再開(SendMessage)→マージ→verify→コミット→verifier+Claudeレビュー。ワーカーは指示どおり完走待ち停止中。
 - **T088 done(2026-07-14)**: verifier・Claude代替レビューとも合格(24run集計の独立再現・compare再実行の完全再現・前提修正の実地再現)。軽微申し送り: 作業ログのゲート(c) provenance欄のeval_cliハッシュが旧バッチのものに転記ミス(数値自体は正)、ゲート(e)のNPS測定スクリプト/生ログが未保存(算術検算のみ可)。
 - **T088の核心的含意**: WTHOR最終石差ラベルへの適合を上げても実戦力(oracle regret)に転化しない — **教師ラベルの質が律速。次の評価関数改善はT090(Edax教師蒸留)が本命**。v3特徴の再試行もT090の教師で行う方が合理的。**結果: v3不採用**(正常完了の否定的結論)— frozen MAEが3seedとも悪化(v2 16.23〜16.48 vs v3 16.34〜16.85)、oracle regret 0.89→2.22石で採用ゲート(c)(d)不通過。サイズ5.96MB・NPS 91.6%・20局smokeは通過。pattern_v3.binは未作成・既定評価は不変。**T088(学習法改善)への示唆**: 特徴を増やしても現行の学習法(SGD+L2・20epoch固定)では活かせない可能性 — T088で学習法を改善した後にv3特徴の再試行を検討する価値あり(実験基盤はコミット済みで再利用可能)。
 - **T085シリーズ(a/b/c)完結(2026-07-14)**: ノード予算探索(160k/wall1500ms保険)が本番アプリの強CPUまで貫通。redo各1回(a: quota比較未実施、c: Worker常駐TTの決定性違反→maxNodes経路の開始前TTクリアで解消)。
@@ -22,7 +21,7 @@
 
 | ID | タスク | 担当 | 状態 | 試行 |
 |---|---|---|---|---|
-| T090a | Edax教師コーパス生成(smoke 1k→primary 50k、全合法手teacher値) | implementer(Sonnetフォールバック) | review | 0 |
+| T090a | Edax教師コーパス生成(smoke 1k→primary 50k、全合法手teacher値) | codex(gpt-5.6-sol)←redoで切替 | in_progress | 1 |
 | T090b | Edax教師蒸留学習(混合損失、ゲート通過候補は20局スモークまで) | codex(gpt-5.6-sol) | todo | 0 |
 
 ## 有効な方針・申し送り(今後のタスクに効くもの)
