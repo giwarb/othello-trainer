@@ -1,7 +1,7 @@
 ---
 id: T096
 title: oracle regret測定の頑健化(18→48+局面)とT090b蒸留候補の再判定
-status: review # todo | in_progress | review | done | blocked
+status: done # todo | in_progress | review | done | blocked
 assignee: codex(gpt-5.6-sol)
 attempts: 0
 ---
@@ -66,3 +66,23 @@ T090b(Edax教師蒸留)の不採用判定の決め手だったゲート(b)「ora
 - 実行・検証コマンド: `cargo build --release -p train --bin teacher_candidates`（既存release binaryを選定に使用）、`python bench/edax-compare/select_t096_oracle_positions.py`（2回実行しmanifest SHA-256一致）、`cargo build --release -p engine --bin eval_cli`（PASS）、`python bench/edax-compare/compare_pattern_v3.py --corpus bench/edax-compare/t096_oracle_positions.json --v2 train/weights/pattern_v2.bin --candidate train/data/t090b/primary-redo1-v2/baseline-seed-2/final.bin --output train/data/t096_oracle_results.json --stop-after 1`（checkpoint作成）、同コマンドから `--stop-after` を除いてresume（60+60+60件完了）、再実行（全件resumeスキップ後に同一統計を再計算）、`cargo test -p engine`（178 passed / 0 failed / 2 ignored）、`cargo test -p train`（38 unit + 1 real-data passed / 0 failed）、`python -m py_compile bench/edax-compare/compare_pattern_v3.py bench/edax-compare/select_t096_oracle_positions.py`（PASS）、成果物assert（manifest 60件・canonical unique 60件・教師重複0・結果各系列60件・全regret非負・判定一致、PASS）、`git diff --check`（PASS）。
 - 成果物区分: コミット対象は `bench/edax-compare/compare_pattern_v3.py`、`bench/edax-compare/select_t096_oracle_positions.py`、`bench/edax-compare/t096_oracle_positions.json`。ローカル/gitignore対象は教師・WTHOR入力、候補重み、`train/data/t096_oracle_results.json`。タスク作業ログは運用規律によりコミット対象外。
 - コミット: 未実施（Codexサンドボックスは `.git` 書き込み禁止）。作業開始時HEADは `b7c5ee9d03d23970813d5f88d549a40aa27307c9`。オーケストレーターが上記コミット対象3ファイルのみをパス指定してコミットする。
+
+### 2026-07-15 16:54 verifier 独立検証
+
+**判定: 合格**（軽微〜中程度の指摘2件あり、いずれもブロッカーではない）
+
+受け入れ基準ごとの実測結果:
+
+1. **manifest(60局面・層化・seed・教師重複除外の記録)** → PASS。`bench/edax-compare/t096_oracle_positions.json` に seed 96001、strata 18-20/21-23/24-26各20、`excludedTeacherOverlap: 8623`、`verifiedSelectedTeacherOverlap: 0` 等が記録されている。`select_t096_oracle_positions.py` をデフォルト引数で再実行(既存の `train/data/teacher/candidates_primary_audit.json` SHA-256 `85955636...`、`corpus_primary.jsonl` SHA-256 `b4215bcd...` はローカルに存在し、manifest記載値と一致)し、出力をscratchpadへ書き出したところ **SHA-256 `eec09e7a3c194a71cbb60f25ce13e1887204bbbc4a9ba052cb19c61507786356` で完全一致**(diffなし)。再現性の主張を独立検証済み。
+2. **v2/候補60局面ずつのregret、結果JSON** → PASS。`train/data/t096_oracle_results.json`(SHA-256 `e0af34a6...`、作業ログ記載値と一致)を読み、Pythonで独自集計: v2 regret合計94/60=1.5666666667、候補合計208/60=3.4666666667、全120件(v2 60+候補60)のregretがすべて非負。作業ログの数値と完全一致。
+3. **paired bootstrap 95%CI** → PASS。局面ごとのregret差(candidate-v2)を抽出し、独自seed(123456)・100,000回リサンプルでpercentile CIを再計算した結果 `[0.6666666666666666, 3.3]` となり、作業ログの `[+0.667, +3.300]` と一致(下限>0で「候補が悪化」の結論は不変)。
+4. **20局スモーク省略の妥当性** → PASS。要件5「候補が悪化でなければスモーク実施」に対し、判定が`candidate_worse`のため省略は仕様どおり。省略の判断が作業ログに明記されている。
+5. **resume動作** → **条件付きPASS(要注意)**。実結果ファイルに対し同一コマンドをそのまま再実行したところ `RuntimeError: resume identity mismatch; refusing stale checkpoint` で失敗した。原因は `compare_pattern_v3.py` のcheckpoint識別子が `git rev-parse HEAD^{tree}` (リポジトリ全体のtreeハッシュ)を含んでおり、T096コミット(1bd96fc)後にオーケストレーターの`tasks:`コミットが複数入ったことでHEAD^{tree}が変化し、識別子不一致になったため(T096の差分やRustコードの変更が原因ではない)。結果JSONのgitTreeフィールドのみを現在のHEAD^{tree}に一致させたコピーで再実行したところ、**6.7秒で全180行(oracle60+v2 60+候補60)をスキップし、統計量も完全一致**して完走した。resumeそのもののロジック(スキップ・統計再計算)は正しいが、identityが「タスクに無関係な後続コミット」でも壊れる設計になっている点は要改善(`tasks/review/T096-oracle-robustness-codex-review.md` も同一指摘を「中」として記録済み・doneのブロッカーではないとしている)。
+6. **`cargo test -p train`** → PASS。38 unit + 1 real-data = 39件全パス。
+7. **`cargo test -p engine`** → **条件付きPASS(要注意)**。デフォルト並列実行で2回とも `protocol::tests::node_limited_protocol_requests_are_deterministic` の1件のみFAILED(177 passed/1 failed/2 ignored)。同テストを単独実行(`--test-threads=1`かつ他テストと分離)すると常にPASS、`protocol::`テストのみを4スレッドで実行してもPASSすることから、他の重い探索系テストとのCPU競合によるノード予算/壁時計依存の既存フレーキーテストと判断した。`git log -S` で当該テスト・該当コードの最終変更コミットが `b17b5fe`/`6e46d5b`(T085c系列、T096より前)であることを確認し、T096のコミット(1bd96fc、変更ファイルは `bench/edax-compare/` の3ファイルのみでengine/は無変更)由来の回帰でないことを確認した。よって「Rustコード無変更が原則」は満たされているが、`cargo test -p engine` を額面通り実行すると環境依存で非決定的に1件失敗しうる状態が既存コードベースに残っている。
+8. **`python -m py_compile`** → PASS(`compare_pattern_v3.py`、`select_t096_oracle_positions.py` とも構文エラーなし)。
+9. **`git status --short`** → クリーン(タスク由来の差分・未追跡ファイルなし)。独立検証中に生成した一時ファイルはすべてリポジトリ外のscratchpadに書き出し、リポジトリ内には残していない。
+
+**追加確認**: `tasks/review/T096-oracle-robustness-codex-review.md`(codex-review、総合判定「合格」)を参照。resume identity問題と `git diff --check` のCRLF起因trailing whitespace検出(manifest全行、機能的影響なし)を「中」「軽微」として記録済みで、本verifierの独立測定結果とも整合する。
+
+**総合所見**: 主要な統計的主張(60局面manifestの再現性、v2/候補regretの再集計一致、paired bootstrap CIの独立再現、悪化判定とスモーク省略の妥当性)はすべて独立検証で裏付けられた。resumeのidentity設計とengineテストの既存フレーキーは、いずれもT096の測定結果・判定の正しさを損なわないため、doneを妨げるブロッカーとは判断しない(codex-reviewと同見解)。次タスクでresume identityをHEAD^{tree}全体ではなく関連ファイルハッシュのみに絞る改善を推奨する(申し送り事項)。
