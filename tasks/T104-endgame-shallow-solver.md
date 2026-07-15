@@ -1,7 +1,7 @@
 ---
 id: T104
 title: 終盤ソルバー: 空き1〜4専用ソルバーとshallow層
-status: in_progress # todo | in_progress | review | redo | done | blocked
+status: review # todo | in_progress | review | redo | done | blocked
 assignee: implementer(Sonnet, Codex上限フォールバック)
 attempts: 1
 ---
@@ -235,4 +235,35 @@ redo#1の結論(静的順序付けだけではノード増を+30%→+28.6%程度
 **テストへの影響**: `SHALLOW_MAX_EMPTIES`変更に伴い、`solve_shallow`が実際に委譲するのは空き1〜2のみになった。既存テスト`solve_shallow_matches_naive_and_generic_negamax_including_all_case_kinds`の「専用層が実際に発火したこと」の確認を、ハードコードの`1..=4`から`1..=SHALLOW_MAX_EMPTIES as usize`(定数参照)に変更(オーケストレーターの提案どおり、テスト意図は不変)。`solve_3`/`solve_4`はコード上到達不能になったが削除はせず(将来閾値を引き上げる可能性に備える設計判断)、新規テスト`solve_3_and_solve_4_remain_correct_even_when_unreachable_from_negamax`で`negamax`の閾値を経由せず直接呼び出して独立参照`naive_solve`との一致を検証し、死角化した専用層コードの回帰保護を維持した。`search.rs`の`leaf_exact_quota_abort_continues_midgame_iteration_without_tt_domain_leak`は、閾値2での実測値(`exact_leaf_attempts=3`、完走2・quota-abort1、root直下でExactドメインに格納される子は引き続き1)に合わせて期待値・コメントを更新した。
 
 **検証**: `cargo test -p engine --lib` 191 passed(190+新規1件)/ 0 failed / 2 ignored。`cargo test -p engine`(統合テスト込み)も同様。`cargo build --release --target wasm32-unknown-unknown`成功。閾値2ビルドでの決定性個別確認(`t096-exact-04:512000:fail_high`を2回連続実行、nodes=472,027・completed=Trueで完全に決定的)。
+
+### 2026-07-16 redo #3: ユーザー裁定により`SHALLOW_MAX_EMPTIES=4`へ戻し、公式NPS計測・最終確定
+
+**背景**: redo#2でablationを完走させ閾値2構成の全検証(テスト・WASM・決定性)を終えた直後、オーケストレーター経由でユーザー裁定が入った:「最初から閾値4でいい。T105に行こう。ノード数の予算の話をすると厄介すぎる」。これにより採用構成が**`SHALLOW_MAX_EMPTIES=4` + `CornerThenParity`静的順序付け**(redo#1で計測済みの構成)に確定し、受け入れ基準の「C2 512k完走数非減」と計測プロトコルの「FFOノード増+10%以内」はユーザー裁定により本タスクではwaiveされた(記録として比較表は保持)。ノード予算(160k)との整合はT107(exactポリシー再校正)で扱う。
+
+**対応**:
+1. `engine/src/endgame.rs`の`SHALLOW_MAX_EMPTIES`を`2`→`4`に戻し、定数ドキュメントを最終経緯(redo#1で発見→redo#2でablation→ユーザー裁定でwaive・4へ戻す)がわかるように書き直した。
+2. `solve_shallow_matches_naive_and_generic_negamax_including_all_case_kinds`・`solve_3_and_solve_4_remain_correct_even_when_unreachable_from_negamax`のコメントを、`SHALLOW_MAX_EMPTIES`が定数参照のため閾値変更に自動追従することを踏まえて現状(4、`negamax`から到達可能)に合わせて更新(アサーション自体は`SHALLOW_MAX_EMPTIES`定数参照のままなので変更不要、コメントのみ修正)。
+3. `search.rs`の`leaf_exact_quota_abort_continues_midgame_iteration_without_tt_domain_leak`を再度実測し直したところ、閾値4+CornerThenParityでの値(`exact_leaf_attempts=2`, `exact_leaf_completed=1`, `exact_aborted_by_quota=1`, `exact_children=1`)は**redo#1(静的順序付けなしの初回実装4bbca88)と完全に同一**だった(順序付けはこの局面の集計結果には影響しなかった)。期待値をredo#1時点の値に戻し、コメントで経緯(4→2→4の推移とユーザー裁定)を追記した。
+4. `cargo test -p engine`(191 passed / 0 failed / 2 ignored)・`cargo build --release --target wasm32-unknown-unknown`を再確認、全green。
+
+**公式NPS計測(専有ウィンドウ・3回中央値、`SHALLOW_MAX_EMPTIES=4`+`CornerThenParity`)**:
+
+計測直前に毎回`tasklist //V | grep -iE "python|cargo.exe|rustc|eval_cli"`で専有状態を確認した(baseline run2の直前に`python3.11.exe`が1件、CPU時間0:00:00の状態で一瞬観測されたが、実行直後の確認では消えており、他runと比較して極端な外れ値にもなっていないため採用。中央値を使うため軽微な単発ノイズの影響は吸収される設計)。
+
+| | run1 | run2 | run3 | 中央値 |
+|---|---:|---:|---:|---:|
+| after(閾値4+CornerThenParity) 壁時計 | 64.522s | 65.457s | 65.736s | **65.457s** |
+| after NPS | 9,935,771 | 9,793,836 | 9,752,230 | **9,793,836** |
+| baseline(bdb4389) 壁時計 | 155.957s | 176.173s | 150.097s | **155.957s** |
+| baseline NPS | 3,195,647 | 2,828,937 | 3,320,416 | **3,195,647** |
+
+**NPS比(中央値): 9,793,836 / 3,195,647 = 3.065倍**(最悪ペア同士でも65.736s/9,752,230 vs 150.097s/3,320,416で2.94倍、最良ペアで3.51倍。主判定1.3倍以上をどのペアの取り方でも大きく上回る)。壁時計は中央値で155.957s→65.457s(2.38倍高速)。合計nodesは決定的に641,077,417(baseline比+28.63%、waive対象として記録のみ)。
+
+**最終構成のまとめ**:
+- `SHALLOW_MAX_EMPTIES = 4`、`SHALLOW_MOVE_ORDER = ShallowMoveOrder::CornerThenParity`
+- FFO #40-44: 全問正解、合計nodes 641,077,417(baseline比+28.63%、waive)、NPS 3.065倍(中央値)
+- C2: 512k完走5/180(baseline6/180、-1件、waive)、160k完走1/180(baseline2/180、-1件、参考)、64k完走0/180(baseline同数)
+- テスト: `cargo test -p engine` 191 passed / 0 failed / 2 ignored。`cargo test -p engine --release --test ffo_bench`全問正解。`cargo build --release --target wasm32-unknown-unknown`成功。決定性: `t096-exact-04:512000:fail_high`を2回連続実行しnodes=512,000・completed=Falseで完全に決定的(既存`fresh_tt_runs_are_deterministic_with_etc`もpass)。
+
+**コミット**: 変更ファイル(`engine/src/endgame.rs`, `engine/src/search.rs`)のみパス指定でコミット(`4bbca88`に積む形、pushなし)。コミットハッシュは完了報告に記載。
 

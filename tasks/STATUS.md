@@ -24,7 +24,7 @@
 
 | ID | タスク | 担当 | 状態 | 試行 |
 |---|---|---|---|---|
-| T104 | 終盤: 空き1〜4専用ソルバーとshallow層 | implementer(Sonnetフォールバック) | in_progress(ユーザー裁定=閾値4+CornerThenParityで採用、公式NPS計測→仕上げ中) | 1 |
+| T104 | 終盤: 空き1〜4専用ソルバーとshallow層 | implementer(Sonnetフォールバック) | review(公式NPS 3.065倍で主ゲート通過、verifier+代替レビュー中) | 1 |
 | T105 | 終盤: 増分hash・flip再利用・状態増分更新 | implementer(Sonnetフォールバック) | in_progress(ユーザー指示で先行起動。T104完了まで読み取り専用の準備フェーズ、完了確認後に実装) | 0 |
 
 ## 有効な方針・申し送り(今後のタスクに効くもの)
