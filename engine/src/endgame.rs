@@ -73,6 +73,14 @@ const C_SQUARE_MASK: u64 = (1u64 << 1)
     | (1u64 << 62)
     | (1u64 << 55);
 
+/// ETCを有効にする最小空き数。浅い終盤では全子のhash/probeコストが
+/// 相対的に大きいため、複数合法手かつこの空き数以上に限定する。
+const ETC_MIN_EMPTIES: u32 = 15;
+
+/// 通常入口はETC on。テストは`negamax::<false>`を直接選び、公開APIや
+/// 実行時設定を増やさずに同一実装のA/B比較を行う。
+const DEFAULT_ETC_ENABLED: bool = true;
+
 const fn make_quadrant_ids() -> [u8; 64] {
     let mut ids = [0u8; 64];
     let mut square = 0usize;
@@ -115,6 +123,7 @@ struct MoveInfo {
     square: u8,
     flips: u64,
     next_board: Board,
+    child_hash: u64,
     opp_mobility: u32,
     is_corner: bool,
     square_class: u8,
@@ -128,6 +137,7 @@ impl MoveInfo {
         square: 0,
         flips: 0,
         next_board: Board { black: 0, white: 0 },
+        child_hash: 0,
         opp_mobility: 0,
         is_corner: false,
         square_class: 0,
@@ -144,6 +154,20 @@ impl MoveInfo {
             if self.is_odd_quadrant { 0 } else { 1 },
             self.square,
         )
+    }
+}
+
+/// 子手番視点のTT boundから、親のfail-highを安全に証明できる値を返す。
+/// Upper/Exactだけが「子の真値 <= score」を保証する。Lowerは逆向きなので
+/// このcutoffには決して使用しない。
+fn etc_cutoff_score(entry: TTEntry, child_empties: u32, beta: i32) -> Option<i32> {
+    if entry.depth as u32 >= child_empties
+        && matches!(entry.bound, Bound::Exact | Bound::Upper)
+        && entry.score <= -beta
+    {
+        Some(-entry.score)
+    } else {
+        None
     }
 }
 
@@ -185,10 +209,11 @@ pub(crate) fn final_score(board: &Board, side: Side) -> i32 {
 pub fn solve_exact(board: &Board, side_to_move: Side, tt: &mut TranspositionTable) -> i32 {
     let mut nodes: u64 = 0;
     let mut timed_out = false;
-    negamax(
+    negamax::<DEFAULT_ETC_ENABLED>(
         board,
         side_to_move,
         initial_quadrant_parity(board),
+        None,
         -64,
         64,
         tt,
@@ -212,10 +237,11 @@ pub fn solve_exact_with_nodes(
 ) -> (i32, u64) {
     let mut nodes: u64 = 0;
     let mut timed_out = false;
-    let score = negamax(
+    let score = negamax::<DEFAULT_ETC_ENABLED>(
         board,
         side_to_move,
         initial_quadrant_parity(board),
+        None,
         -64,
         64,
         tt,
@@ -255,10 +281,11 @@ pub fn solve_exact_bounded(
 ) -> Option<i32> {
     let mut nodes: u64 = 0;
     let mut timed_out = false;
-    let score = negamax(
+    let score = negamax::<DEFAULT_ETC_ENABLED>(
         board,
         side_to_move,
         initial_quadrant_parity(board),
+        None,
         -64,
         64,
         tt,
@@ -293,10 +320,11 @@ pub fn solve_exact_bounded_with_nodes(
 ) -> (Option<i32>, u64) {
     let mut nodes: u64 = 0;
     let mut timed_out = false;
-    let score = negamax(
+    let score = negamax::<DEFAULT_ETC_ENABLED>(
         board,
         side_to_move,
         initial_quadrant_parity(board),
+        None,
         -64,
         64,
         tt,
@@ -364,10 +392,11 @@ pub fn solve_exact_window_limited_with_nodes(
 ) -> ExactSearchOutcome {
     let mut nodes = 0;
     let mut aborted = false;
-    let score = negamax(
+    let score = negamax::<DEFAULT_ETC_ENABLED>(
         board,
         side_to_move,
         initial_quadrant_parity(board),
+        None,
         alpha.clamp(-64, 64),
         beta.clamp(-64, 64),
         tt,
@@ -429,12 +458,13 @@ const TIME_CHECK_NODE_INTERVAL: u64 = 1024;
 /// 自体に意味はない。呼び出し元は`timed_out`を見て結果を丸ごと破棄する)。
 /// 一度`timed_out`が立った後の全呼び出しも同様に即座に`0`を返し、
 /// 置換表への格納も行わない。`budget`が`None`なら従来どおり無条件に
-/// 終局まで読み切る(既存の`solve_exact`/`solve_exact_with_nodes`の
-/// 挙動・性能は変えない)。
-fn negamax(
+/// 終局まで読み切る。`ETC_ENABLED`は通常ビルドでは既定onで、テストと
+/// 比較計測では同じ探索をcompile-timeにoffへ切り替えられる。
+fn negamax<const ETC_ENABLED: bool>(
     board: &Board,
     side: Side,
     quadrant_parity: u8,
+    known_hash: Option<u64>,
     alpha: i32,
     beta: i32,
     tt: &mut TranspositionTable,
@@ -464,7 +494,7 @@ fn negamax(
         return final_score(board, side);
     }
 
-    let hash = zobrist_hash(board, side);
+    let hash = known_hash.unwrap_or_else(|| zobrist_hash(board, side));
     let mut alpha = alpha;
     let mut beta = beta;
 
@@ -495,10 +525,11 @@ fn negamax(
             // 相手にも合法手がない: 終局。
             return final_score(board, side);
         }
-        return -negamax(
+        return -negamax::<ETC_ENABLED>(
             board,
             side.opposite(),
             quadrant_parity,
+            None,
             -beta,
             -alpha,
             tt,
@@ -520,6 +551,7 @@ fn negamax(
 
     let mut moves = [MoveInfo::EMPTY; 64];
     let mut move_count = 0usize;
+    let etc_eligible = ETC_ENABLED && empties >= ETC_MIN_EMPTIES && legal.count_ones() > 1;
     let mut remaining = legal;
     while remaining != 0 {
         let mv = remaining & remaining.wrapping_neg();
@@ -536,6 +568,11 @@ fn negamax(
             square,
             flips,
             next_board,
+            child_hash: if etc_eligible {
+                zobrist_hash(&next_board, side.opposite())
+            } else {
+                0
+            },
             opp_mobility,
             is_corner: mv & CORNER_MASK != 0,
             square_class: square_class(mv),
@@ -546,14 +583,39 @@ fn negamax(
     }
     moves[..move_count].sort_unstable_by_key(|info| info.sort_key());
 
+    if etc_eligible {
+        let child_empties = empties - 1;
+        for move_info in &moves[..move_count] {
+            let cutoff = tt
+                .probe(move_info.child_hash, TTDomain::Exact)
+                .and_then(|entry| etc_cutoff_score(entry, child_empties, beta));
+            if let Some(score) = cutoff {
+                tt.store(TTEntry {
+                    hash,
+                    domain: TTDomain::Exact,
+                    depth: empties as i8,
+                    score,
+                    bound: Bound::Lower,
+                    best_move: Some(move_info.square),
+                });
+                return score;
+            }
+        }
+    }
+
     let mut best_score = i32::MIN;
     let mut best_move: Option<u8> = None;
 
     for move_info in &moves[..move_count] {
-        let score = -negamax(
+        let score = -negamax::<ETC_ENABLED>(
             &move_info.next_board,
             side.opposite(),
             quadrant_parity ^ QUADRANT_ID[move_info.square as usize],
+            if etc_eligible {
+                Some(move_info.child_hash)
+            } else {
+                None
+            },
             -beta,
             -alpha,
             tt,
@@ -605,6 +667,38 @@ fn negamax(
 mod tests {
     use super::*;
 
+    fn solve_with_etc<const ETC_ENABLED: bool>(board: &Board, side: Side) -> (i32, u64) {
+        let mut tt = TranspositionTable::new(4);
+        let mut nodes = 0;
+        let mut aborted = false;
+        let score = negamax::<ETC_ENABLED>(
+            board,
+            side,
+            initial_quadrant_parity(board),
+            None,
+            -64,
+            64,
+            &mut tt,
+            &mut nodes,
+            None,
+            None,
+            &mut aborted,
+        );
+        assert!(!aborted);
+        (score, nodes)
+    }
+
+    fn exact_entry(depth: i8, score: i32, bound: Bound) -> TTEntry {
+        TTEntry {
+            hash: 0,
+            domain: TTDomain::Exact,
+            depth,
+            score,
+            bound,
+            best_move: None,
+        }
+    }
+
     #[test]
     fn move_info_sort_key_prioritizes_tt_move_and_breaks_ties_by_square() {
         let mut tt_move = MoveInfo::EMPTY;
@@ -622,6 +716,66 @@ mod tests {
         let mut higher_square = lower_square;
         higher_square.square = 13;
         assert!(lower_square.sort_key() < higher_square.sort_key());
+    }
+
+    #[test]
+    fn move_info_sort_key_keeps_corner_mobility_square_class_parity_order() {
+        let mut corner = MoveInfo::EMPTY;
+        corner.is_corner = true;
+        corner.opp_mobility = 63;
+        corner.square_class = 1;
+
+        let mut non_corner = MoveInfo::EMPTY;
+        non_corner.opp_mobility = 0;
+        assert!(corner.sort_key() < non_corner.sort_key());
+
+        let mut lower_mobility = MoveInfo::EMPTY;
+        lower_mobility.opp_mobility = 1;
+        lower_mobility.square_class = 1;
+        let mut better_square_class = MoveInfo::EMPTY;
+        better_square_class.opp_mobility = 2;
+        better_square_class.square_class = 0;
+        assert!(lower_mobility.sort_key() < better_square_class.sort_key());
+
+        let mut normal_square = MoveInfo::EMPTY;
+        normal_square.opp_mobility = 1;
+        normal_square.square_class = 0;
+        let mut odd_bad_square = MoveInfo::EMPTY;
+        odd_bad_square.opp_mobility = 1;
+        odd_bad_square.square_class = 1;
+        odd_bad_square.is_odd_quadrant = true;
+        assert!(normal_square.sort_key() < odd_bad_square.sort_key());
+
+        let mut odd = MoveInfo::EMPTY;
+        odd.is_odd_quadrant = true;
+        odd.square = 63;
+        let mut even = MoveInfo::EMPTY;
+        even.square = 0;
+        assert!(odd.sort_key() < even.sort_key());
+    }
+
+    #[test]
+    fn etc_accepts_only_deep_enough_exact_or_upper_child_bounds() {
+        assert_eq!(
+            etc_cutoff_score(exact_entry(9, -12, Bound::Exact), 9, 10),
+            Some(12)
+        );
+        assert_eq!(
+            etc_cutoff_score(exact_entry(9, -10, Bound::Upper), 9, 10),
+            Some(10)
+        );
+        assert_eq!(
+            etc_cutoff_score(exact_entry(9, -12, Bound::Lower), 9, 10),
+            None
+        );
+        assert_eq!(
+            etc_cutoff_score(exact_entry(8, -12, Bound::Upper), 9, 10),
+            None
+        );
+        assert_eq!(
+            etc_cutoff_score(exact_entry(9, -9, Bound::Upper), 9, 10),
+            None
+        );
     }
 
     #[test]
@@ -751,6 +905,70 @@ mod tests {
 
     fn middle_move_strategy(moves: &[u64]) -> u64 {
         moves[moves.len() / 2]
+    }
+
+    fn random_small_positions(mut state: u64) -> Vec<(Board, Side)> {
+        let mut board = Board::initial();
+        let mut side = Side::Black;
+        let mut positions = Vec::new();
+
+        loop {
+            if board.empty_count() <= 10 {
+                positions.push((board, side));
+            }
+            let legal = board.legal_moves(side);
+            if legal == 0 {
+                if board.legal_moves(side.opposite()) == 0 {
+                    break;
+                }
+                side = side.opposite();
+                continue;
+            }
+
+            state = state
+                .wrapping_mul(6_364_136_223_846_793_005)
+                .wrapping_add(1_442_695_040_888_963_407);
+            let selected = (state % legal.count_ones() as u64) as u32;
+            let mut remaining = legal;
+            for _ in 0..selected {
+                remaining &= remaining - 1;
+            }
+            let mv = remaining & remaining.wrapping_neg();
+            board = board.apply_move(side, mv);
+            side = side.opposite();
+        }
+        positions
+    }
+
+    #[test]
+    fn etc_on_off_scores_match_on_broad_random_small_positions_including_passes() {
+        let mut checked = 0usize;
+        let mut pass_positions = 0usize;
+        for seed in 1..=16 {
+            for (board, side) in random_small_positions(seed) {
+                let on = solve_with_etc::<true>(&board, side).0;
+                let off = solve_with_etc::<false>(&board, side).0;
+                assert_eq!(on, off);
+                checked += 1;
+                if board.legal_moves(side) == 0 && board.legal_moves(side.opposite()) != 0 {
+                    pass_positions += 1;
+                }
+            }
+        }
+        assert!(checked >= 160);
+        assert!(pass_positions > 0);
+    }
+
+    #[test]
+    fn fresh_tt_runs_are_deterministic_with_etc() {
+        let position = random_small_positions(0x5eed)
+            .into_iter()
+            .find(|(board, _)| board.empty_count() == 10)
+            .unwrap();
+        assert_eq!(
+            solve_with_etc::<true>(&position.0, position.1),
+            solve_with_etc::<true>(&position.0, position.1)
+        );
     }
 
     #[test]
