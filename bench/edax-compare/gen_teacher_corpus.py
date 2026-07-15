@@ -23,13 +23,14 @@ Edaxの探索値に置き換えるための第一段(コーパス生成)。
 4. **合法手・子局面の一括計算**: `teacher_candidates.exe children`
    (1プロセス起動でN局面すべてを処理、`engine::bitboard::Board`の認定済み実装を
    使う。Othelloのルールや着手適用をPython側で再実装しない)。
-5. **Edax教師値**: 各候補局面の子局面ごとに、空きマス数が閾値以下
+5. **Edax教師値**: 各候補局面の子局面を同一levelごとにまとめ、空きマス数が閾値以下
    (`EXACT_EMPTIES_THRESHOLD`)なら`EXACT_EDAX_LEVEL`(Edaxが即座に完全読みへ
    落ちる帯であることを`t085_exact_positions.json`の既存実績(空き19〜24を
    `-l 60`で解いた実績、T085b)から踏襲)、それ以外は`DEFAULT_EDAX_LEVEL`
    (T082/T084から使われている`DEFAULT_HIGH_LEVEL=16`と同じ値)で
-   `vs_edax.edax_solve`(既存のOBF一時ファイル・終了コード非ゼロ許容パースを
-   再利用)を呼ぶ。終局する子局面はEdaxを呼ばず確定石差(`vs_edax.terminal_value`)
+   `vs_edax.edax_solve_batch`で1つの複数行OBF・1プロセスとして解く。教師値の
+   決定性を優先してEdaxは`-n 1`に固定する。終局する子局面はEdaxを呼ばず
+   確定石差(`vs_edax.terminal_value`)
    を使う(Edaxは空きマス0の局面のPVパースに失敗することがT082で判明済みのため)。
 6. **1局面ごとのcheckpoint**: 完了した局面を`.jsonl`へ逐次追記する
    (CLAUDE.mdの長時間実行ルール)。設定・Edax/teacher_candidatesバイナリの
@@ -60,6 +61,11 @@ Edaxの探索値に置き換えるための第一段(コーパス生成)。
 再配布可否不明の理由、および本コーパス自体も生成物でサイズが大きいため)、本コーパスの
 フォーマット仕様はこのdocstringを正本とする(`train/data/teacher/README.md`にも同内容の
 説明を書いているが、そのファイル自体は上記gitignoreの対象でコミットされない)。
+
+meta/manifestの`settings`には`edaxTasksPerProcess: 1`と
+`elapsedMsPolicy: "batch-averaged"`を記録する。これらが無い既存コーパスは、
+Edax既定マルチタスクで1子局面ずつ生成され、level 16ラベルに軽微な非決定性を含みうる
+旧世代として区別できる。
 
 ```jsonc
 {
@@ -726,8 +732,9 @@ def generate(
         "phaseBinLowerBounds": pool.get("phaseBinLowerBounds"),
         "selectionStats": selection_stats,
     }
-    # シャード無し(num_shards<=1)の場合はキーを追加しない: 既存のsmoke checkpoint
-    # (T090aシャード機能追加前に生成済み)のrunKeyと完全に一致させ、resume互換を保つため。
+    # シャード無し(num_shards<=1)の場合はシャード識別キーだけを追加しない。
+    # edaxTasksPerProcess/elapsedMsPolicyの追加により旧世代checkpointとはrunKeyが異なり、
+    # 決定性・計時方針が異なるコーパスへの誤resumeを防ぐ。
     if num_shards > 1:
         settings["numShards"] = num_shards
         settings["shardIndex"] = shard_index

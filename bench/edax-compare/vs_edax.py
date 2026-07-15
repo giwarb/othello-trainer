@@ -566,7 +566,7 @@ def edax_solve_batch(positions: list[dict], level: int) -> list[dict]:
     """教師コーパス用の決定的な1タスク・複数局面バッチ。
 
     Edaxの既定マルチタスク探索は並列負荷下でlevel16の値が揺れるため、外側で
-    シャード並列化する教師生成では`-n 1`に固定して新旧等価性を保証する。
+    シャード並列化する教師生成では`-n 1`に固定して再実行間の決定性を保証する。
     """
     return _edax_solve_batch(positions, level, n_tasks=EDAX_BATCH_TASKS)
 
