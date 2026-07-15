@@ -1,7 +1,7 @@
 ---
 id: T096
 title: oracle regret測定の頑健化(18→48+局面)とT090b蒸留候補の再判定
-status: in_progress # todo | in_progress | review | done | blocked
+status: review # todo | in_progress | review | done | blocked
 assignee: codex(gpt-5.6-sol)
 attempts: 0
 ---
@@ -54,3 +54,15 @@ T090b(Edax教師蒸留)の不採用判定の決め手だったゲート(b)「ora
 ## フィードバック(やり直し時にオーケストレーターが記入)
 
 ## 作業ログ(担当エージェントが追記)
+
+### 2026-07-15 Codex 実装・再判定
+
+- 候補重み `train/data/t090b/primary-redo1-v2/baseline-seed-2/final.bin` を確認した。サイズ2,729,712 bytes、SHA-256 `43614bd042d1fbd53ae112efa8dac45cbf6f15356e9a6d400c0c8910e4fe398d` で仕様と一致したため、再学習せず再判定を実施した。
+- `select_t096_oracle_positions.py` を追加し、WTHOR 2015--2024由来の監査poolから空き18--26の17,311局面を抽出、Rust正本 `teacher_candidates canonical` でD4 canonicalKeyを算出した。教師 `corpus_primary.jsonl` の50,000 canonicalKeyとの重複8,623件を除外し、seed `96001` で空き18--20 / 21--23 / 24--26から各20局面、計60局面を層化抽出した。選定後の教師重複0件、canonical重複0件。既存T085の18局面は含めず、全60局面を独立な新規WTHOR局面とした。manifestは `bench/edax-compare/t096_oracle_positions.json`、SHA-256 `eec09e7a3c194a71cbb60f25ce13e1887204bbbc4a9ba052cb19c61507786356`。
+- `compare_pattern_v3.py` に任意manifest指定、root exact oracleを含む局面単位atomic checkpoint/resume、paired bootstrapを追加した。`--stop-after 1` で1局面保存後、同じ結果JSONからresumeしてroot oracle 60件、v2 60件、候補60件を完走した。全regretは非負。結果はgitignore対象 `train/data/t096_oracle_results.json`、SHA-256 `e0af34a653946ebba1af02ad0ce228553597871e1c316ad430918b308eda32fd`。
+- exact oracle結果: v2平均regret `1.5666666667`石、候補平均regret `3.4666666667`石、候補-v2差 `+1.9000000000`石。局面単位paired bootstrap（seed `96002`、100,000 resamples、percentile 95% CI）は `[+0.6666666667, +3.3000000000]`。CI下限が0より大きいため三択判定は **候補が悪化** (`candidate_worse`)。
+- 条件付き20局スモークは、新oracleで「候補が悪化」だったため要件5に従い省略した。従ってT090bゲート(e)の60局昇格判断には進まず、候補は再び不採用判定。
+- 任意の中盤level 21参考系列は主判定に不要なため実施しなかった。
+- 実行・検証コマンド: `cargo build --release -p train --bin teacher_candidates`（既存release binaryを選定に使用）、`python bench/edax-compare/select_t096_oracle_positions.py`（2回実行しmanifest SHA-256一致）、`cargo build --release -p engine --bin eval_cli`（PASS）、`python bench/edax-compare/compare_pattern_v3.py --corpus bench/edax-compare/t096_oracle_positions.json --v2 train/weights/pattern_v2.bin --candidate train/data/t090b/primary-redo1-v2/baseline-seed-2/final.bin --output train/data/t096_oracle_results.json --stop-after 1`（checkpoint作成）、同コマンドから `--stop-after` を除いてresume（60+60+60件完了）、再実行（全件resumeスキップ後に同一統計を再計算）、`cargo test -p engine`（178 passed / 0 failed / 2 ignored）、`cargo test -p train`（38 unit + 1 real-data passed / 0 failed）、`python -m py_compile bench/edax-compare/compare_pattern_v3.py bench/edax-compare/select_t096_oracle_positions.py`（PASS）、成果物assert（manifest 60件・canonical unique 60件・教師重複0・結果各系列60件・全regret非負・判定一致、PASS）、`git diff --check`（PASS）。
+- 成果物区分: コミット対象は `bench/edax-compare/compare_pattern_v3.py`、`bench/edax-compare/select_t096_oracle_positions.py`、`bench/edax-compare/t096_oracle_positions.json`。ローカル/gitignore対象は教師・WTHOR入力、候補重み、`train/data/t096_oracle_results.json`。タスク作業ログは運用規律によりコミット対象外。
+- コミット: 未実施（Codexサンドボックスは `.git` 書き込み禁止）。作業開始時HEADは `b7c5ee9d03d23970813d5f88d549a40aa27307c9`。オーケストレーターが上記コミット対象3ファイルのみをパス指定してコミットする。
