@@ -1,7 +1,7 @@
 ---
 id: T104
 title: 終盤ソルバー: 空き1〜4専用ソルバーとshallow層
-status: in_progress # todo | in_progress | review | redo | done | blocked
+status: review # todo | in_progress | review | redo | done | blocked
 assignee: implementer(Sonnet, Codex上限フォールバック)
 attempts: 2
 ---
