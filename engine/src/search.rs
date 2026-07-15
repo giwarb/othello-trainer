@@ -3503,4 +3503,108 @@ mod tests {
              TTDomain::Exact; aborted/unattempted children must not leak into the Exact domain"
         );
     }
+
+    // ------------------------------------------------------------------
+    // T104 redo#2: レビュー指摘B1の回帰テスト。
+    // ------------------------------------------------------------------
+    //
+    // T104(空き1〜4専用ソルバー+shallow層)は、shallow層がTT probe/store
+    // を一切行わない設計のため、**ルート局面自体**の空きマス数が
+    // `SHALLOW_MAX_EMPTIES`(=4)以下だと、そのルート局面のTTエントリ
+    // (best_move込み)が一切格納されなくなり、以下の2箇所のルートexact
+    // パスが`best_move: None`・`pv: []`を返してしまっていた
+    // (baseline`bdb4389`は正しく手を返していた。実対局では
+    // `app/src/game/gameLoop.ts`がpv[0]をundefinedとして着手せずCPUが
+    // 終盤で手を返せなくなる、T084同種のブロッカーだった):
+    //
+    // - `max_nodes`なし経路(`search_with_eval_inner`のルート直接exact、
+    //   `max_nodes.is_none() && empties <= exact_from_empties`分岐)
+    // - `max_nodes`あり経路(depth=1完了後のin-tree root exact、
+    //   `max_nodes.is_some() && depth == 1`分岐)
+    //
+    // 修正(`endgame::negamax`に`is_root`引数を追加し、`solve_exact`系
+    // 公開関数の最外周呼び出しのみ`is_root: true`でshallow委譲を抑止)後、
+    // 両経路とも空き1〜4のルートで`best_move`がSome・合法手・`pv`が非空で
+    // あり、スコアが独立な`endgame::solve_exact`と一致することを確認する。
+    #[test]
+    fn root_exact_at_shallow_empties_returns_a_legal_best_move_via_both_entry_points() {
+        for target_empties in [1u32, 2, 3, 4] {
+            let (board, side) = play_until_empties(target_empties, first_move_strategy);
+            assert_eq!(
+                board.empty_count(),
+                target_empties,
+                "test setup should reach exactly {target_empties} empties"
+            );
+            assert!(
+                board.legal_moves(side) != 0,
+                "test setup should reach a position where the side to move has a legal move \
+                 (empties={target_empties})"
+            );
+
+            let mut tt_direct = TranspositionTable::new(1);
+            let expected_score = solve_exact(&board, side, &mut tt_direct) * 100;
+
+            // exact_from_emptiesを十分大きく(24)取り、空き1〜4のいずれでも
+            // 「ルート自体を即exact解決してよい」条件を満たすようにする。
+            let limit = default_limit(4, 24);
+
+            // (a) max_nodesなし経路(`search_with_eval`、B1のうち1つ目の
+            // ルートexactパス)。
+            let mut tt_no_limit = TranspositionTable::new(1);
+            let result_no_limit = search_with_eval(&board, side, &limit, &mut tt_no_limit, None);
+            assert_eq!(
+                result_no_limit.score, expected_score,
+                "empties={target_empties}: no-max-nodes root exact path score mismatch"
+            );
+            let best_move_a = result_no_limit.best_move.unwrap_or_else(|| {
+                panic!(
+                    "empties={target_empties}: best_move should be Some via the no-max-nodes \
+                     root exact path (B1 regression: shallow layer must not swallow the root's \
+                     own TT entry)"
+                )
+            });
+            assert!(
+                board.legal_moves(side) & (1u64 << best_move_a) != 0,
+                "empties={target_empties}: best_move {best_move_a} (no-max-nodes path) should \
+                 be a legal move"
+            );
+            assert!(
+                !result_no_limit.pv.is_empty(),
+                "empties={target_empties}: pv should be non-empty (no-max-nodes path)"
+            );
+            assert_eq!(result_no_limit.pv[0], best_move_a);
+
+            // (b) max_nodesあり経路(`search_with_eval_with_node_limit`、
+            // depth=1完了後のin-tree root exact、B1のうち2つ目のパス)。
+            let mut tt_with_limit = TranspositionTable::new(1);
+            let result_with_limit = search_with_eval_with_node_limit(
+                &board,
+                side,
+                &limit,
+                &mut tt_with_limit,
+                None,
+                200_000,
+            );
+            assert_eq!(
+                result_with_limit.score, expected_score,
+                "empties={target_empties}: max-nodes root exact path score mismatch"
+            );
+            let best_move_b = result_with_limit.best_move.unwrap_or_else(|| {
+                panic!(
+                    "empties={target_empties}: best_move should be Some via the max-nodes root \
+                     exact path (B1 regression)"
+                )
+            });
+            assert!(
+                board.legal_moves(side) & (1u64 << best_move_b) != 0,
+                "empties={target_empties}: best_move {best_move_b} (max-nodes path) should be a \
+                 legal move"
+            );
+            assert!(
+                !result_with_limit.pv.is_empty(),
+                "empties={target_empties}: pv should be non-empty (max-nodes path)"
+            );
+            assert_eq!(result_with_limit.pv[0], best_move_b);
+        }
+    }
 }

@@ -927,6 +927,7 @@ pub fn solve_exact(board: &Board, side_to_move: Side, tt: &mut TranspositionTabl
         side_to_move,
         initial_quadrant_parity(board),
         None,
+        true, // is_root: ルートではshallow層へ委譲しない(T104 redo#2、B1対策)
         -64,
         64,
         tt,
@@ -955,6 +956,7 @@ pub fn solve_exact_with_nodes(
         side_to_move,
         initial_quadrant_parity(board),
         None,
+        true, // is_root: ルートではshallow層へ委譲しない(T104 redo#2、B1対策)
         -64,
         64,
         tt,
@@ -999,6 +1001,7 @@ pub fn solve_exact_bounded(
         side_to_move,
         initial_quadrant_parity(board),
         None,
+        true, // is_root: ルートではshallow層へ委譲しない(T104 redo#2、B1対策)
         -64,
         64,
         tt,
@@ -1038,6 +1041,7 @@ pub fn solve_exact_bounded_with_nodes(
         side_to_move,
         initial_quadrant_parity(board),
         None,
+        true, // is_root: ルートではshallow層へ委譲しない(T104 redo#2、B1対策)
         -64,
         64,
         tt,
@@ -1110,6 +1114,7 @@ pub fn solve_exact_window_limited_with_nodes(
         side_to_move,
         initial_quadrant_parity(board),
         None,
+        true, // is_root: ルートではshallow層へ委譲しない(T104 redo#2、B1対策)
         alpha.clamp(-64, 64),
         beta.clamp(-64, 64),
         tt,
@@ -1188,6 +1193,7 @@ fn negamax_child<const ETC_ENABLED: bool, const SHALLOW_ENABLED: bool>(
         } else {
             None
         },
+        false, // is_root: 子局面は常に非ルート(T104 redo#2)
         child_alpha,
         child_beta,
         tt,
@@ -1223,11 +1229,26 @@ fn negamax_child<const ETC_ENABLED: bool, const SHALLOW_ENABLED: bool>(
 /// モジュール冒頭の「T104: 空き1〜4専用ソルバーとshallow層」ドキュメント
 /// 参照)。テストは`negamax::<_, false>`を選ぶことで、この専用層を経由
 /// しない従来どおりの汎用パスと比較できる。
+///
+/// `is_root`が`true`の場合、空きマス数に関わらずこの委譲を行わない
+/// (T104 redo#2、レビュー指摘B1対策)。shallow層はTT probe/storeを
+/// 一切行わないため、**呼び出し元が最初に問い合わせた局面自体**
+/// (`solve_exact`系公開関数からの最外周呼び出し)が空き
+/// `SHALLOW_MAX_EMPTIES`以下だと、その局面のTTエントリ(best_move込み)が
+/// 一切格納されず、`search.rs`のルートexactパスが`best_move: None`/
+/// `pv: []`を返してしまう回帰があった(baseline`bdb4389`は`move`を
+/// 正しく返していた)。公開5関数(`solve_exact`/`solve_exact_with_nodes`/
+/// `solve_exact_bounded`/`solve_exact_bounded_with_nodes`/
+/// `solve_exact_window_limited_with_nodes`)の最外周呼び出しのみ
+/// `is_root: true`を渡し、`negamax_child`経由の子呼び出しと自身の
+/// パス再帰呼び出しは常に`is_root: false`を渡す(=ルート以外は従来どおり
+/// shallow層を経由する、ホットパス・NPSは不変)。
 fn negamax<const ETC_ENABLED: bool, const SHALLOW_ENABLED: bool>(
     board: &Board,
     side: Side,
     quadrant_parity: u8,
     known_hash: Option<u64>,
+    is_root: bool,
     alpha: i32,
     beta: i32,
     tt: &mut TranspositionTable,
@@ -1236,7 +1257,7 @@ fn negamax<const ETC_ENABLED: bool, const SHALLOW_ENABLED: bool>(
     node_limit: Option<u64>,
     timed_out: &mut bool,
 ) -> i32 {
-    if SHALLOW_ENABLED && board.empty_count() <= SHALLOW_MAX_EMPTIES {
+    if SHALLOW_ENABLED && !is_root && board.empty_count() <= SHALLOW_MAX_EMPTIES {
         return solve_shallow(
             board,
             side,
@@ -1311,6 +1332,11 @@ fn negamax<const ETC_ENABLED: bool, const SHALLOW_ENABLED: bool>(
             side.opposite(),
             quadrant_parity,
             None,
+            false, // is_root: パス再帰は常に非ルート(T104 redo#2)。
+            // ルート自身が合法手なし(パス必須)の場合、baseline(bdb4389)
+            // でもこの分岐はTT格納前に早期returnするためルート自身のTT
+            // エントリは元々格納されない(=この扱いはB1修正の対象外で、
+            // 挙動はbaselineと同じまま)。
             -beta,
             -alpha,
             tt,
@@ -1532,6 +1558,11 @@ mod tests {
             side,
             initial_quadrant_parity(board),
             None,
+            // is_root: false固定。この関数は`negamax`自体(shallow委譲の
+            // on/off込み)を直接A/Bテストするためのヘルパーであり、
+            // `is_root: true`にすると空き<=4の局面でshallow分岐自体が
+            // 常に無効化されてしまいテストの意味がなくなる(T104 redo#2)。
+            false,
             -64,
             64,
             &mut tt,
@@ -1586,6 +1617,7 @@ mod tests {
             side,
             initial_quadrant_parity(board),
             None,
+            false, // is_root: 上のsolve_with_etcと同じ理由でfalse固定。
             best_score - 1,
             best_score,
             &mut tt,
