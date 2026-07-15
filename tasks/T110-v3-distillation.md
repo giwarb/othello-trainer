@@ -1,7 +1,7 @@
 ---
 id: T110
 title: v3特徴×蒸留の組み合わせ実験(表現力仮説の検証)
-status: review # todo | in_progress | review | done | blocked
+status: done # todo | in_progress | review | done | blocked
 assignee: implementer(Sonnet, Codex上限フォールバック)
 attempts: 0
 ---
