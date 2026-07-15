@@ -1,7 +1,7 @@
 ---
 id: T095
 title: 蒸留学習トレーナーの高速化(6run並列化・WTHORキャッシュ・重複計算排除)
-status: todo # todo | in_progress | review | done | blocked
+status: in_progress # todo | in_progress | review | done | blocked
 assignee: codex(gpt-5.6-sol)
 attempts: 0
 ---

@@ -1,7 +1,7 @@
 ---
 id: T094
 title: 教師コーパス生成のEdaxバッチ化(局面単位で1プロセス化、起動オーバーヘッド除去)
-status: review # todo | in_progress | review | redo | done | blocked
+status: done # todo | in_progress | review | redo | done | blocked
 assignee: codex(gpt-5.6-sol)
 attempts: 1
 ---
@@ -149,3 +149,18 @@ attempts: 1
   - verifier合格済みで今回実装を変更していないresume実動作・manifest実出力・申し送り2件・`cargo test -p engine`は、redo #1指示どおり再実行せず、pytestと差分精読で非破壊を確認。
 - 一時ハーネス、旧コミット展開物、サンプル、JSONL、ログはリポジトリ外の`%TEMP%/t094-redo1b`にのみ作成。リポジトリ内に検証生成物なし。
 - コミット: 未実施（Codexサンドボックスは`.git`書き込み禁止）。
+
+### 2026-07-15 15:32 JST — verifier redo#1再検証(コミット040062d、コード修正なし)
+
+判定: **合格**
+
+- **1. `git diff 5220fe3..040062d -- bench/` 精読**: 変更は `bench/edax-compare/gen_teacher_corpus.py` と `bench/edax-compare/vs_edax.py` の2ファイルのみ、計59行(コンテキスト込み)。全変更箇所がdocstring/コメント文字列の書き換えに限定されることを確認(①冒頭docstringのEdax呼び出し説明を「子局面ごとに`edax_solve`」→「同一levelごとにまとめて`edax_solve_batch`、`-n 1`固定」に更新、②manifest仕様説明に`edaxTasksPerProcess`/`elapsedMsPolicy`が無い既存コーパスの識別方法を追記、③`generate()`内`num_shards<=1`分岐のコメントをrunKey非互換の理由説明に更新、④`edax_solve_batch()`のdocstring内「新旧等価性を保証」→「再実行間の決定性を保証」)。`git diff 040062d -- bench/`(作業ツリーとの比較)・`git diff --check 5220fe3..040062d -- bench/` はいずれも差分なし/警告なしで、コード本体(関数シグネチャ・制御フロー・呼び出し引数)に変更がないことを確認。`test_teacher_corpus.py` は差分に含まれない。
+- **2. `python -m pytest bench/edax-compare/ -q`** → `10 passed in 0.73s`(全件パス)。
+- **3. 決定性(要件5(a))の独立確認**: `train/data/teacher/candidates.json`(93,069局面)から親の空き>=30の局面を`gameIndex`/`empties`順にソートし等間隔抽出した10局面(空き=[30,38,42,43,31,33,38,33,32,42]、いずれも子局面の空き>=29>24=EXACT_EMPTIES_THRESHOLDのためlevel16のみ対象、exact/terminalの混入なし)を用い、作業ツリーの`gen.run_children_batch`→`gen.label_position`(本番コードパス)を直接2回実行して比較。実行はscratchpad(`%TEMP%\claude\...\scratchpad\t094_determinism_check.py`)から行い、リポジトリを汚染していない。結果: 10局面・子局面合計120件すべてlevel=16。`elapsedMs`と`generatedAt`を除外したJSON(`sort_keys=True`でシリアライズ)が両回とも17,959バイトでバイト完全一致(`move`/`value`/`exact`/`level`/`edaxDepth`/`childEmpties`/`bestMove`/`bestValue`/`diffFromBest`含む全フィールド)。作業ログの40局面規模の再現ではないが、独立サンプル・独立実行で決定性を再確認できた。
+- **4. redo#1指摘2・3の反映確認**: diff精読(上記1)で both 反映済みを確認。指摘2(`gen_teacher_corpus.py:729`付近のrunKeyコメント)は「シャード無し設定は既存smoke checkpointとrunKeyが完全一致する」という誤った記述から「`edaxTasksPerProcess`/`elapsedMsPolicy`追加によりrunKeyが異なり誤resumeを防ぐ」という現行挙動の説明に修正済み。指摘3(旧世代コーパスの識別方法の明記)はdocstringに「`edaxTasksPerProcess: 1`と`elapsedMsPolicy: "batch-averaged"`が無い既存コーパスは、Edax既定マルチタスクで1子局面ずつ生成されlevel 16ラベルに軽微な非決定性を含みうる旧世代として区別できる」という一文が追加済み(フィードバック文言とほぼ同一の表現)。
+- **5. A/B測定(作業ログ「Codex redo #1」記載)の方法論の記述レベル確認(再実行せず)**:
+  - 旧側のコード取得方法(`git archive 4386455 ...`)を検証: `git show 4386455:bench/edax-compare/vs_edax.py`の`edax_solve()`のsubprocess呼び出し引数を確認したところ`-n`フラグが存在せず、Edax既定マルチタスクで実行される実装であることを確認(feedbackの要求「旧=4386455のコード・既定`-n`」と一致)。
+  - 新側: 現行`vs_edax.py`の`EDAX_BATCH_TASKS = 1`が`edax_solve_batch()`経由で常に`-n 1`を付与すること(`_edax_solve_batch`内`if n_tasks is not None: command += ["-n", str(n_tasks)]`)をコードで確認、feedbackの要求「新=`-n 1`」と一致。
+  - サンプル設計(親空き30〜50から等間隔40局面抽出、`positionId % 8`で8シャード固定配分、1局面ごとJSONL追記+flush+fsync)は本検証で用いた10局面抽出方法と同系統(候補プールからの決定的サンプリング)であり、恣意的な結果誘導の兆候は見られない。報告された数値(決定性: 58,940バイト完全一致/価値妥当性: 433子中404件一致・最大差2石・平均絶対差0.0785石/性能: 旧1.6202pos/s→新4.5714pos/s、+182.15%)は、上記コード確認(旧=既定マルチタスク8並列競合あり、新=`-n 1`+起動回数1/8.5)から方向性・オーダーとも整合的であり、記述レベルで妥当と判断する(絶対値そのものの追加独立再測定は本タスクの要求範囲外のため実施していない)。
+- **6. `git status --short`**: 検証時点で `tasks/STATUS.md` と `tasks/T094-edax-batch-labeling.md`(本レポート追記によるもの)以外の差分・未追跡ファイルなし。検証に使用した一時ファイル(決定性確認スクリプト・出力JSON)はすべて`C:\Users\yoshi\AppData\Local\Temp\claude\C--Users-yoshi-work-othello-trainer\b84f45e2-040c-40fb-ac0c-431e4056e28c\scratchpad\`配下に作成し、リポジトリ内には作成していない。
+- **結論**: redo#1で変更された範囲(docstring/コメント3箇所、決定性・性能A/Bの再測定記録)はすべて独立に確認でき、実装ロジックへの変更が無いこと・pytest全件パス・決定性の独立再現・指摘2/3の反映・A/B方法論の妥当性・リポジトリ清潔性のいずれも問題なし。**合格**。
