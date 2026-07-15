@@ -22,7 +22,7 @@
 
 | ID | タスク | 担当 | 状態 | 試行 |
 |---|---|---|---|---|
-| T094 | 教師コーパス生成のEdaxバッチ化(起動42.3万→5万回) | codex(gpt-5.6-sol) | in_progress(redo#1) | 1 |
+| T094 | 教師コーパス生成のEdaxバッチ化(起動42.3万→5万回) | codex(gpt-5.6-sol) | review(redo#1) | 1 |
 | T095 | トレーナー高速化(6run並列・WTHORキャッシュ・重複計算排除) | codex(gpt-5.6-sol) | todo | 0 |
 | T096 | oracle頑健化(18→48+局面)とT090b蒸留候補の再判定 | codex(gpt-5.6-sol) | todo | 0 |
 
