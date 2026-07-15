@@ -61,6 +61,7 @@
 | T089a | history+aspiration | 採用(性能ゲート未達-5.38%をwaive裁定)。fixed-depth完全一致・FFO完全不変・決定性を維持したまま60局平均石差 -29.07→-25.57。Sonnetフォールバック初戦、redo 0回 |
 | T092 | CIにRust Testsワークフロー追加 | engine debug+FFO fast+trainをpush/PRで自動実行(約12分)。初回から連続成功。CIの「エンジン回帰を検知できない」穴を解消 |
 | T093 | CPU対局の定石ブックon/off(フェーズ1) | ユーザー要望の2モード実現。ブックon時は定石DBから即着手(本番実測: 初手117ms vs off 2281ms)。既定on・永続化。build失敗はCPU飽和の環境要因と切り分け済み(低負荷で成功)。フェーズ2(Edax評価値付き自前ブック)はT090後 |
+| T090a | Edax教師コーパス生成 | **50,000局面確定**(全合法手値・diffFromBest・openingKey・exact率34.6%、8シャード並列9.4h)。redo2回(検証能力・スキーマ整合の強化、データ自体は終始健全)。verify(51k全件・否定テスト)とmanifest/provenance完備。T090b/cの教師基盤 |
 
 ## 完了フェーズ(詳細は STATUS-archive.md と各タスクファイル)
 
