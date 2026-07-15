@@ -9,7 +9,7 @@
 **エンジン強化(Edax level 10 攻略)ロードマップを実行中**。設計書: `tasks/design/T083-engine-strengthening-report.md`(全体)、`tasks/design/T085-beat-level10-report.md`(T085系の規範)。
 
 - 監視記録(07-15 07:57): 30,900/50,000。レート0.51局面/秒で安定、**完走見込み18時過ぎ**。8シャード健全・停滞なし。介入せず完走まで走らせる裁定(コーパス一貫性優先)。T090b(蒸留学習)起票済み・委譲はT090a検証後。
-- **実行中: T090b**(Edax教師蒸留学習、Codex gpt-5.6-sol)。教師コーパス(T090a、50,000局面・全合法手値・diffFromBest・openingKey付き)を入力に、混合損失(teacher Huber 0.6+pairwise ranking 0.3+WTHOR outcome 0.1)のablation→採用ゲート→20局スモーク。**これが評価関数改善の本命**。smoke完走(1,000局面、exact率31.5%、エラー0、resume/拒否とも実証)。監視: `train/data/teacher/logs/primary_orchestrator.log` または各シャードの `corpus_primary_shard{I}of8.meta.json` の progress.done。**注意: N=3検証で並列効率約2倍(非線形)のためN=8でも5〜6時間かかる可能性**。完走後の残作業: ワーカー再開(SendMessage)→マージ→verify→コミット→verifier+Claudeレビュー。ワーカーは指示どおり完走待ち停止中。
+- **T090b done(蒸留不採用)により、評価関数系3施策(T087特徴追加・T088学習法・T090b蒸留)がすべて実証的不採用で確定**。次の一手(200k拡張/v3×蒸留/oracle測定頑健化/T089b/一区切り)はユーザー相談中。smoke完走(1,000局面、exact率31.5%、エラー0、resume/拒否とも実証)。監視: `train/data/teacher/logs/primary_orchestrator.log` または各シャードの `corpus_primary_shard{I}of8.meta.json` の progress.done。**注意: N=3検証で並列効率約2倍(非線形)のためN=8でも5〜6時間かかる可能性**。完走後の残作業: ワーカー再開(SendMessage)→マージ→verify→コミット→verifier+Claudeレビュー。ワーカーは指示どおり完走待ち停止中。
 - **T088 done(2026-07-14)**: verifier・Claude代替レビューとも合格(24run集計の独立再現・compare再実行の完全再現・前提修正の実地再現)。軽微申し送り: 作業ログのゲート(c) provenance欄のeval_cliハッシュが旧バッチのものに転記ミス(数値自体は正)、ゲート(e)のNPS測定スクリプト/生ログが未保存(算術検算のみ可)。
 - **T088の核心的含意**: WTHOR最終石差ラベルへの適合を上げても実戦力(oracle regret)に転化しない — **教師ラベルの質が律速。次の評価関数改善はT090(Edax教師蒸留)が本命**。v3特徴の再試行もT090の教師で行う方が合理的。**結果: v3不採用**(正常完了の否定的結論)— frozen MAEが3seedとも悪化(v2 16.23〜16.48 vs v3 16.34〜16.85)、oracle regret 0.89→2.22石で採用ゲート(c)(d)不通過。サイズ5.96MB・NPS 91.6%・20局smokeは通過。pattern_v3.binは未作成・既定評価は不変。**T088(学習法改善)への示唆**: 特徴を増やしても現行の学習法(SGD+L2・20epoch固定)では活かせない可能性 — T088で学習法を改善した後にv3特徴の再試行を検討する価値あり(実験基盤はコミット済みで再利用可能)。
 - **T085シリーズ(a/b/c)完結(2026-07-14)**: ノード予算探索(160k/wall1500ms保険)が本番アプリの強CPUまで貫通。redo各1回(a: quota比較未実施、c: Worker常駐TTの決定性違反→maxNodes経路の開始前TTクリアで解消)。
@@ -21,7 +21,6 @@
 
 | ID | タスク | 担当 | 状態 | 試行 |
 |---|---|---|---|---|
-| T090b | Edax教師蒸留学習(混合損失、ゲート通過候補は20局スモークまで) | codex(gpt-5.6-sol) | in_progress | 0 |
 
 ## 有効な方針・申し送り(今後のタスクに効くもの)
 
@@ -62,6 +61,7 @@
 | T092 | CIにRust Testsワークフロー追加 | engine debug+FFO fast+trainをpush/PRで自動実行(約12分)。初回から連続成功。CIの「エンジン回帰を検知できない」穴を解消 |
 | T093 | CPU対局の定石ブックon/off(フェーズ1) | ユーザー要望の2モード実現。ブックon時は定石DBから即着手(本番実測: 初手117ms vs off 2281ms)。既定on・永続化。build失敗はCPU飽和の環境要因と切り分け済み(低負荷で成功)。フェーズ2(Edax評価値付き自前ブック)はT090後 |
 | T090a | Edax教師コーパス生成 | **50,000局面確定**(全合法手値・diffFromBest・openingKey・exact率34.6%、8シャード並列9.4h)。redo2回(検証能力・スキーマ整合の強化、データ自体は終始健全)。verify(51k全件・否定テスト)とmanifest/provenance完備。T090b/cの教師基盤 |
+| T090b | Edax教師蒸留学習 | **不採用が結論**(redo1回: パス符号バグをレビューが検出→修正・全面再実行後も同結論)。教師分布内は一致率+10.5%と本物の改善(ranking損失の寄与が支配的)だが、独立oracle regret 2.00→2.56石で汎化せず。学習基盤・混合損失・パス/終局規約テストはコミット済みで再利用可 |
 
 ## 完了フェーズ(詳細は STATUS-archive.md と各タスクファイル)
 
