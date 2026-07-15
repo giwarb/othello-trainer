@@ -120,3 +120,32 @@ attempts: 1
   - 解釈: 桁は一致し方向性(新>旧)は独立に再現できたが、具体的な改善率(+21%)そのものはこの再測定では厳密には再現できていない。局面サンプルが異なる(Codexの元セットは破棄済み)ことに起因する可能性が高く、実装の不具合を示す兆候ではないと判断する(スキーマ検証・順序保持検証・単体テストがすべて独立に合格しているため)。この点は差異として本レポートに明記し、オーケストレーターの判断に委ねる。
 - `git status --short` → タスク由来の差分・未追跡ファイルなし(クリーン)。検証に使用した一時ファイルはすべてscratchpad(`C:\Users\yoshi\AppData\Local\Temp\claude\...`)に配置し、リポジトリ内には作成していない。
 - 結論: 受け入れ基準の必須項目(等価性・OBFパーステスト・resume・manifestフラグ・申し送り2件・engine無変更・コミット範囲・リポジトリ清潔性)はすべて独立に確認でき合格。8シャードA/B計測のみ、独立再測定で絶対値・改善率の完全再現はできなかった(方向性のみ一致)ものの、これはサンプル差に起因すると考えられ、原記録(作業ログ)自体はコード上の根拠(problem番号照合パーサ・-n 1固定・batch-averaged均等割)を伴っており合理的と判断する。
+
+### 2026-07-15 15:27 JST — Codex redo #1
+
+- 実施内容:
+  - redo指摘の誤ったコメント（「シャードなしなら旧smoke checkpointとrun keyが完全一致」）を、`edaxTasksPerProcess` / `elapsedMsPolicy`追加後は旧世代への誤resumeを防ぐためrun keyが異なる、という現行挙動に更新。
+  - `gen_teacher_corpus.py`の正本docstringを同一levelバッチ・`-n 1`決定性仕様へ更新。meta/manifestの`edaxTasksPerProcess: 1`と`elapsedMsPolicy: "batch-averaged"`がない既存コーパスは、Edax既定マルチタスクで1子1プロセス生成されlevel 16ラベルに軽微な非決定性を含みうる旧世代、と識別できる旨を追記。
+  - `vs_edax.edax_solve_batch()`のdocstringから誤った「新旧等価性」表現を除き、再実行間の決定性を保証する正式仕様へ修正。バッチ化・パーサ・resume・manifest・通常対局run keyの実装本体は5220fe3から変更なし。
+- 検証サンプル:
+  - `train/data/teacher/candidates.json`から、親の空き30〜50のlevel 16対象40局面を決定的に等間隔抽出。合計433子局面。8シャードへ`positionId % 8`で固定配分（各5局面）。各ワーカーは1局面ごとにJSONL追記・flush・fsyncし、逐次pos/sログを出力。
+  - 旧側は`git archive 4386455 bench/edax-compare/gen_teacher_corpus.py bench/edax-compare/vs_edax.py`で一時領域へ展開したコードを使用。旧`label_position()`→旧`edax_solve()`の1子1プロセス、Edax `-n`未指定（既定マルチタスク）で実行。新側は作業ツリーの同一levelバッチ、`-n 1`で実行。
+- 決定性（要件5(a)）:
+  - 新実装を同一40局面・同一8シャード配分で2回生成。ラベルの決定性対象外である`elapsedMs`と生成時刻メタデータ`generatedAt`を除外後、全58,940 bytesが一致。`move` / `value`（score）/ `exact` / `level` / `edaxDepth` / `childEmpties` / `bestMove` / `bestValue` / `diffFromBest`を含む全教師フィールドに不一致0件。
+- 値の妥当性（要件5(b)、旧既定`-n` vs 新`-n 1`）:
+  - 433子中404件一致、29件不一致（不一致率6.70%）。絶対差分布: 0石=404件、1石=24件、2石=5件。最大差2石、平均絶対差0.0785石。符号付き差（新-旧）: -2=4件、-1=15件、0=404件、+1=9件、+2=1件。
+  - 大半（93.30%）が一致し、不一致も最大2石のため、level近似探索の順序差として要件の目安内と判断。逸脱なし。
+- 8シャード性能A/B（要件6、同一40局面・433子）:
+  - 旧（4386455、1子1プロセス、`-n`未指定）: 24.688秒、1.6202 pos/s。
+  - 新（バッチ、`-n 1`）: 8.750秒、4.5714 pos/s。
+  - pos/s改善率 **+182.15%**、壁時計 **-64.56%**。両側とも同一局面、8並列、1局面ごとのflush+fsync条件。
+- 実行コマンドと結果:
+  - `python <temp>/ab_harness.py run new`を2回 → 40/40局面完了（8.750秒および7.688秒）、教師フィールド一致。
+  - `python <temp>/ab_harness.py run old` → 40/40局面完了（24.688秒）。
+  - 差分集計スクリプト → 上記433子の差分布、最大差2石。
+  - `python -m pytest bench/edax-compare/ -q` → `10 passed in 0.43s`。
+  - `python -m py_compile bench/edax-compare/vs_edax.py bench/edax-compare/gen_teacher_corpus.py bench/edax-compare/test_teacher_corpus.py` → 成功。
+  - `git diff --check` → 問題なし。
+  - verifier合格済みで今回実装を変更していないresume実動作・manifest実出力・申し送り2件・`cargo test -p engine`は、redo #1指示どおり再実行せず、pytestと差分精読で非破壊を確認。
+- 一時ハーネス、旧コミット展開物、サンプル、JSONL、ログはリポジトリ外の`%TEMP%/t094-redo1b`にのみ作成。リポジトリ内に検証生成物なし。
+- コミット: 未実施（Codexサンドボックスは`.git`書き込み禁止）。
