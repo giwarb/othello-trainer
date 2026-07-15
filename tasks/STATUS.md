@@ -24,7 +24,7 @@
 
 | ID | タスク | 担当 | 状態 | 試行 |
 |---|---|---|---|---|
-| T103 | 終盤: NWS中心のPVS構造 | implementer(Sonnetフォールバック) | in_progress | 0 |
+| T103 | 終盤: NWS中心のPVS構造 | implementer(Sonnetフォールバック) | review | 0 |
 
 ## 有効な方針・申し送り(今後のタスクに効くもの)
 
