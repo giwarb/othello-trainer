@@ -104,6 +104,37 @@ const DIRECTIONS: [ShiftFn; 8] = [
     shift_n, shift_s, shift_e, shift_w, shift_ne, shift_nw, shift_se, shift_sw,
 ];
 
+/// `own`(手番側)が `mv_bit`(1ビットのみ立った着手先)に着手した場合に
+/// ひっくり返る石(相手石)のビットマスクを返す。`Board`を新規に構築せずに
+/// flipだけを知りたい呼び出し元向けの下位プリミティブ(終盤専用ソルバー
+/// `endgame::solve_1`〜`solve_4`がBoard/apply_moveの汎用経路を避けるために
+/// 使う。T104)。
+///
+/// `mv_bit` が(その時点で)空きマスであり、8方向のいずれかで相手石の連続を
+/// 挟んで自分の石に到達する場合のみ非0を返す。`mv_bit`が実際に空きマスか
+/// どうかはこの関数はチェックしない(呼び出し元が持つ空きマスリストから
+/// 呼ばれる前提)。戻り値が0であることは、その手が合法手でない
+/// (=1石も返せない)ことと同値である(`legal_moves`の判定基準そのもの)。
+///
+/// [`Board::apply_move`] はこの関数を呼び出してflipを計算し、新しい
+/// `Board`を組み立てる薄いラッパーになっている(実装の重複を避けるため)。
+pub(crate) fn flips_for_move(own: u64, opp: u64, mv_bit: u64) -> u64 {
+    let mut flips = 0u64;
+    for &dir in DIRECTIONS.iter() {
+        let mut captured = 0u64;
+        let mut x = dir(mv_bit);
+        while x & opp != 0 {
+            captured |= x;
+            x = dir(x);
+        }
+        // その方向の連続が自分の石で終端していれば、挟んだ相手の石は全てひっくり返る。
+        if x & own != 0 {
+            flips |= captured;
+        }
+    }
+    flips
+}
+
 impl Board {
     /// 標準オセロの開始局面を返す。
     /// 中央4マスのうち、左上(d4)と右下(e5)が白、右上(e4)と左下(d5)が黒。
@@ -160,20 +191,7 @@ impl Board {
         );
 
         let (own, opp) = self.sides(side);
-        let mut flips = 0u64;
-
-        for &dir in DIRECTIONS.iter() {
-            let mut captured = 0u64;
-            let mut x = dir(mv_bit);
-            while x & opp != 0 {
-                captured |= x;
-                x = dir(x);
-            }
-            // その方向の連続が自分の石で終端していれば、挟んだ相手の石は全てひっくり返る。
-            if x & own != 0 {
-                flips |= captured;
-            }
-        }
+        let flips = flips_for_move(own, opp, mv_bit);
 
         let new_own = own | mv_bit | flips;
         let new_opp = opp & !flips;
@@ -625,5 +643,101 @@ mod tests {
         assert!(b.has_legal_move(Side::Black));
         assert!(b.has_legal_move(Side::White));
         assert!(!b.is_terminal());
+    }
+
+    // =====================================================================
+    // T104: `flips_for_move` (盤面を作らずflipだけを直接計算する下位プリミティブ)
+    // の回帰テスト。
+    // =====================================================================
+
+    #[test]
+    fn flips_for_move_matches_apply_move_derived_flips_on_initial_board_legal_moves() {
+        let b = Board::initial();
+        for &side in &[Side::Black, Side::White] {
+            let (own, opp) = b.sides(side);
+            let mut legal = b.legal_moves(side);
+            assert!(legal != 0);
+            while legal != 0 {
+                let mv = legal & legal.wrapping_neg();
+                legal &= legal - 1;
+
+                let after = b.apply_move(side, mv);
+                let (new_own, new_opp) = after.sides(side);
+                // apply_move前後の差分から「実際にひっくり返った石」を逆算する
+                // (自分の石が増えた分のうち、着手マス自身を除いたビット)。
+                let flips_via_apply_move = new_own & !own & !mv;
+                assert_eq!(new_opp, opp & !flips_via_apply_move);
+
+                assert_eq!(
+                    flips_for_move(own, opp, mv),
+                    flips_via_apply_move,
+                    "flips_for_move should match the flips implied by apply_move for {:?} at bit {}",
+                    side,
+                    mv.trailing_zeros()
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn flips_for_move_returns_zero_for_illegal_moves() {
+        let b = Board::initial();
+        for &side in &[Side::Black, Side::White] {
+            let (own, opp) = b.sides(side);
+            let legal = b.legal_moves(side);
+            let empty = !(b.black | b.white);
+            let mut illegal_empties = empty & !legal;
+            assert!(illegal_empties != 0);
+            while illegal_empties != 0 {
+                let mv = illegal_empties & illegal_empties.wrapping_neg();
+                illegal_empties &= illegal_empties - 1;
+                assert_eq!(
+                    flips_for_move(own, opp, mv),
+                    0,
+                    "flips_for_move should be 0 for a non-legal-move empty square"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn flips_for_move_nonzero_iff_square_is_in_legal_moves_across_self_play() {
+        // 自己対戦で辿る複数局面にわたり、flips_for_move(own, opp, mv) != 0 <=>
+        // mv が legal_moves(side) に含まれる、という同値性を確認する
+        // (legal_movesの判定基準そのものであることの直接検証)。
+        let mut board = Board::initial();
+        let mut side = Side::Black;
+        for _ in 0..30 {
+            let legal = board.legal_moves(side);
+            let (own, opp) = board.sides(side);
+            for square in 0..64u32 {
+                let mv = 1u64 << square;
+                if board.black & mv != 0 || board.white & mv != 0 {
+                    continue; // 空きマスのみ対象。
+                }
+                let flips = flips_for_move(own, opp, mv);
+                assert_eq!(
+                    flips != 0,
+                    legal & mv != 0,
+                    "square {} mismatch between flips_for_move and legal_moves",
+                    square
+                );
+            }
+
+            if legal == 0 {
+                let other = side.opposite();
+                if board.legal_moves(other) == 0 {
+                    break;
+                }
+                side = other;
+                continue;
+            }
+            let mv = legal & legal.wrapping_neg();
+            board = board.apply_move(side, mv);
+            side = side.opposite();
+            if board.is_terminal() {
+                break;
+            }
+        }
     }
 }

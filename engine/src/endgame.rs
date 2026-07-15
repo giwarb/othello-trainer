@@ -87,7 +87,7 @@
 
 #![allow(dead_code)]
 
-use crate::bitboard::{Board, Side};
+use crate::bitboard::{flips_for_move, Board, Side};
 use crate::tt::{Bound, TTDomain, TTEntry, TranspositionTable};
 use crate::zobrist::zobrist_hash;
 // search.rsと同じ理由(wasm32-unknown-unknownでの`std::time::Instant`の
@@ -120,6 +120,12 @@ std::thread_local! {
     // 取り直した回数)を数える。「再探索経路が実際に通った」ことをテストで
     // 確認するためのテスト専用テレメトリで、本番探索の挙動には一切影響しない。
     static TEST_RESEARCH_COUNT: std::cell::Cell<u64> = const { std::cell::Cell::new(0) };
+    // T104: `solve_shallow`が実際に空き0〜4のどのケースへ何回ディスパッチ
+    // したかを数える(index = 空きマス数)。「専用層が実際に呼ばれたこと」
+    // (発火0件のままpassしない、という指示)をテストで確認するための
+    // テスト専用テレメトリで、本番探索の挙動には一切影響しない。
+    static TEST_SHALLOW_DISPATCH_COUNTS: std::cell::Cell<[u64; 5]> =
+        const { std::cell::Cell::new([0; 5]) };
 }
 
 fn etc_min_empties() -> u32 {
@@ -140,9 +146,33 @@ fn record_pvs_research() {
     TEST_RESEARCH_COUNT.set(TEST_RESEARCH_COUNT.get() + 1);
 }
 
-/// 通常入口はETC on。テストは`negamax::<false>`を直接選び、公開APIや
+#[cfg(test)]
+fn record_shallow_dispatch(empties_count: usize) {
+    TEST_SHALLOW_DISPATCH_COUNTS.with(|cell| {
+        let mut counts = cell.get();
+        counts[empties_count] += 1;
+        cell.set(counts);
+    });
+}
+
+#[cfg(test)]
+fn reset_shallow_dispatch_counts() {
+    TEST_SHALLOW_DISPATCH_COUNTS.set([0; 5]);
+}
+
+#[cfg(test)]
+fn shallow_dispatch_counts() -> [u64; 5] {
+    TEST_SHALLOW_DISPATCH_COUNTS.get()
+}
+
+/// 通常入口はETC on。テストは`negamax::<false, _>`を直接選び、公開APIや
 /// 実行時設定を増やさずに同一実装のA/B比較を行う。
 const DEFAULT_ETC_ENABLED: bool = true;
+
+/// 通常入口はshallow層(空き4以下の専用ソルバー、T104)on。ETCと同じ理由で
+/// テストは`negamax::<_, false>`を直接選び、公開APIや実行時設定を増やさずに
+/// 「専用層あり/なし」のA/B比較(node計上・正しさの検証)を行う。
+const DEFAULT_SHALLOW_ENABLED: bool = true;
 
 const fn make_quadrant_ids() -> [u8; 64] {
     let mut ids = [0u8; 64];
@@ -260,6 +290,499 @@ pub(crate) fn final_score(board: &Board, side: Side) -> i32 {
     }
 }
 
+// =========================================================================
+// T104: 空き1〜4専用ソルバーとshallow層
+//
+// 探索木の末端(空き1〜4)は全ノードの大半を占める一方、汎用の`negamax`は
+// TT probe/store・Zobrist hash再計算・`MoveInfo`生成とソートといった
+// 1ノードあたりのオーバーヘッドを常に払っている。以下の`solve_1`〜
+// `solve_4`は、`Board`/`Side`の汎用APIを経由せず手番相対のビットボード
+// (`player`=手番側の石, `opponent`=相手側の石)と空きマスのビット位置
+// リストを直接扱うことで、このオーバーヘッドを避ける
+// (設計レポート§3.1・§3.6)。
+//
+// ## ノード計上(設計レポート§3.6・§7「node budgetの意味変更」対策)
+//
+// `negamax`は呼び出されるたびに(パスの再帰・空き0の早期returnも含めて)
+// 無条件に`*nodes += 1`する、という「1回の関数呼び出し = 1論理局面の
+// 訪問」という定義を持つ。専用化によってこの定義を変えてしまうと、
+// (例えば専用層に入った途端ノードがほぼ無料になるなどすると)
+// `node_limit`によるexact quotaの意味が施策前後で変わってしまう
+// (過少計上によるquotaの実質的な緩和は設計レポート§7で明示的にリスクと
+// されている)。そのため`solve_1`〜`solve_4`・`solve_shallow`は、
+// 実際に子局面を再帰的に構築する代わりに直接計算で済ませる箇所でも、
+// 「`negamax`ならその計算のために何回自分自身を呼び出したはずか」を
+// 数えた分だけ`nodes`を増やす(各関数のドキュメント参照)。
+// =========================================================================
+
+/// shallow層(`solve_1`〜`solve_4`)を適用する空きマス数の上限(T104)。
+///
+/// 設計レポート§3.1・本タスクの要件記述にある「空き4以下」にそのまま
+/// 対応させ、専用ソルバーの実装範囲(`solve_1`〜`solve_4`)と1対1に固定する
+/// (空き5以上の探索ロジック変更は本タスクのスコープ外であり、既存の
+/// 一般`negamax`経路をそのまま使う)。この値を4より大きくするには
+/// `solve_5`等の追加実装と別途の正しさ検証・計測が要るため、実装範囲を
+/// 超えて引き上げない。
+const SHALLOW_MAX_EMPTIES: u32 = 4;
+
+/// 手番相対のビットボード(`player`=手番側の石、`opponent`=相手側の石)から、
+/// `Board`/`Side`を経由せず直接最終石差を計算する。[`final_score`]と同じ
+/// 「総取り規約」を適用する、shallow層(T104)専用の下位関数。
+fn final_score_relative(player: u64, opponent: u64) -> i32 {
+    let player_count = player.count_ones() as i32;
+    let opp_count = opponent.count_ones() as i32;
+    let empties = 64 - player_count - opp_count;
+
+    match player_count.cmp(&opp_count) {
+        std::cmp::Ordering::Greater => (player_count + empties) - opp_count,
+        std::cmp::Ordering::Less => player_count - (opp_count + empties),
+        std::cmp::Ordering::Equal => 0,
+    }
+}
+
+/// `solve_1`〜`solve_4`・[`solve_shallow`]の入口で共通に使う、`negamax`と
+/// 同じnode/time予算チェック(T104)。`negamax`本体が行う
+/// 「`*nodes += 1` → `timed_out`確認 → `node_limit`確認 → 一定間隔での
+/// `budget`確認」という一連の判定を、専用ソルバー内でも同じ地点・同じ定義で
+/// 行うための共通ヘルパー。中断が既に発生していたか、この呼び出しで新たに
+/// 中断が確定した場合は`Some(0)`(`negamax`がtimed_out時に返す、値に意味の
+/// ないプレースホルダと同じ)を返す。継続してよい場合は`None`を返す。
+#[inline]
+fn shallow_budget_guard(
+    nodes: &mut u64,
+    node_limit: Option<u64>,
+    budget: Option<TimeBudget>,
+    timed_out: &mut bool,
+) -> Option<i32> {
+    *nodes += 1;
+    if *timed_out {
+        return Some(0);
+    }
+    if node_limit.is_some_and(|limit| *nodes >= limit) {
+        *timed_out = true;
+        return Some(0);
+    }
+    if let Some(budget) = budget {
+        if *nodes % TIME_CHECK_NODE_INTERVAL == 0 && budget.expired() {
+            *timed_out = true;
+            return Some(0);
+        }
+    }
+    None
+}
+
+/// 長さ2の空きマスリストから、`used`以外のもう1マスを返す。
+fn other_of_2(squares: [u8; 2], used: u8) -> u8 {
+    if squares[0] == used {
+        squares[1]
+    } else {
+        squares[0]
+    }
+}
+
+/// 長さ3の空きマスリストから、`used`を取り除いた残り2マスを返す
+/// (順序は元のリストの順序を保つ)。
+fn others_of_3(squares: [u8; 3], used: u8) -> [u8; 2] {
+    let mut out = [0u8; 2];
+    let mut i = 0usize;
+    for &sq in squares.iter() {
+        if sq != used {
+            out[i] = sq;
+            i += 1;
+        }
+    }
+    out
+}
+
+/// 長さ4の空きマスリストから、`used`を取り除いた残り3マスを返す
+/// (順序は元のリストの順序を保つ)。
+fn others_of_4(squares: [u8; 4], used: u8) -> [u8; 3] {
+    let mut out = [0u8; 3];
+    let mut i = 0usize;
+    for &sq in squares.iter() {
+        if sq != used {
+            out[i] = sq;
+            i += 1;
+        }
+    }
+    out
+}
+
+/// 空き1の局面を`Board`を経由せず解く(count_last_flip相当、T104)。
+///
+/// `player`/`opponent`は手番側から見たビットボード、`empty_sq`は唯一残った
+/// 空きマスのビット位置(0..63)。`nodes`・`node_limit`・`budget`・
+/// `timed_out`の意味は`negamax`と同じ。
+///
+/// # ノード計上について
+///
+/// 素朴な`negamax`は空き1の局面に対して次のいずれかの回数だけ自分自身を
+/// (直接・間接に)呼び出す。
+///
+/// - 手番側がその1マスに置ける場合: このノード自身(1) + 着手後の空き0局面
+///   (1) = 2回。
+/// - 手番側は置けないが相手は置ける場合: このノード自身(1) + パス後の
+///   (同じ局面・手番だけ入れ替えた)ノード(1) + 相手の着手後の空き0局面
+///   (1) = 3回。
+/// - どちらも置けない(総取り規約の終局): このノード自身(1)のみ。
+///
+/// この関数は、実際に子局面を再帰的に訪問する代わりに`count_last_flip`的な
+/// 直接計算で済ませているが、上記いずれの分岐でも`negamax`と同じ回数だけ
+/// `nodes`をカウントする(モジュール冒頭の「T104: 空き1〜4専用ソルバーと
+/// shallow層」ドキュメント参照)。
+fn solve_1(
+    player: u64,
+    opponent: u64,
+    empty_sq: u8,
+    nodes: &mut u64,
+    node_limit: Option<u64>,
+    budget: Option<TimeBudget>,
+    timed_out: &mut bool,
+) -> i32 {
+    if let Some(score) = shallow_budget_guard(nodes, node_limit, budget, timed_out) {
+        return score;
+    }
+
+    let mv = 1u64 << empty_sq;
+    let flips = flips_for_move(player, opponent, mv);
+    if flips != 0 {
+        // 手番側がここに置ける: 置けば盤面が埋まる。着手後の空き0局面を
+        // negamaxが1回余分に訪問するのと同じ意味で+1してから、
+        // 盤面を作らずflip数だけから最終石差を直接計算する
+        // (count_last_flip相当)。
+        *nodes += 1;
+        return final_score_relative(player | mv | flips, opponent & !flips);
+    }
+
+    let opp_flips = flips_for_move(opponent, player, mv);
+    if opp_flips != 0 {
+        // 手番側は置けないが、パス後の相手はここに置ける:
+        // パス継続の呼び出し1回 + 相手の着手後の空き0局面1回、
+        // 合計2回分をnegamaxと同じ定義でカウントする。
+        *nodes += 2;
+        return -final_score_relative(opponent | mv | opp_flips, player & !opp_flips);
+    }
+
+    // 両者ともこの最後のマスに置けない: 総取り規約を適用した終局
+    // (このノード自身の1回のみで、追加のノードは発生しない)。
+    final_score_relative(player, opponent)
+}
+
+/// 空き2の局面を専用に解く(T104)。`squares`は残り2マスのビット位置
+/// (順不同)。パス(片方または両方の合法手なし)・早期終局・総取り規約を
+/// `negamax`と同じ規約で扱い、子局面は[`solve_1`]に委譲する。
+/// TT probe/store・Zobrist hash更新・一般用途のムーブオーダリング
+/// (`MoveInfo`生成・ソート)は一切行わない。
+#[allow(clippy::too_many_arguments)]
+fn solve_2(
+    player: u64,
+    opponent: u64,
+    squares: [u8; 2],
+    alpha: i32,
+    beta: i32,
+    nodes: &mut u64,
+    node_limit: Option<u64>,
+    budget: Option<TimeBudget>,
+    timed_out: &mut bool,
+) -> i32 {
+    if let Some(score) = shallow_budget_guard(nodes, node_limit, budget, timed_out) {
+        return score;
+    }
+
+    let mut legal = [(0u8, 0u64); 2];
+    let mut legal_count = 0usize;
+    for &sq in squares.iter() {
+        let flips = flips_for_move(player, opponent, 1u64 << sq);
+        if flips != 0 {
+            legal[legal_count] = (sq, flips);
+            legal_count += 1;
+        }
+    }
+
+    if legal_count == 0 {
+        let opponent_can_move = squares
+            .iter()
+            .any(|&sq| flips_for_move(opponent, player, 1u64 << sq) != 0);
+        if !opponent_can_move {
+            return final_score_relative(player, opponent);
+        }
+        return -solve_2(
+            opponent, player, squares, -beta, -alpha, nodes, node_limit, budget, timed_out,
+        );
+    }
+
+    let mut best = i32::MIN;
+    let mut alpha = alpha;
+    for &(sq, flips) in &legal[..legal_count] {
+        let mv = 1u64 << sq;
+        let child_player = opponent & !flips;
+        let child_opponent = player | mv | flips;
+        let remaining = other_of_2(squares, sq);
+        let score = -solve_1(
+            child_player,
+            child_opponent,
+            remaining,
+            nodes,
+            node_limit,
+            budget,
+            timed_out,
+        );
+        if *timed_out {
+            return 0;
+        }
+        if score > best {
+            best = score;
+        }
+        if best > alpha {
+            alpha = best;
+        }
+        if alpha >= beta {
+            break;
+        }
+    }
+    best
+}
+
+/// 空き3の局面を専用に解く(T104)。[`solve_2`]と同じ構造で、子局面を
+/// [`solve_2`]に委譲する。
+#[allow(clippy::too_many_arguments)]
+fn solve_3(
+    player: u64,
+    opponent: u64,
+    squares: [u8; 3],
+    alpha: i32,
+    beta: i32,
+    nodes: &mut u64,
+    node_limit: Option<u64>,
+    budget: Option<TimeBudget>,
+    timed_out: &mut bool,
+) -> i32 {
+    if let Some(score) = shallow_budget_guard(nodes, node_limit, budget, timed_out) {
+        return score;
+    }
+
+    let mut legal = [(0u8, 0u64); 3];
+    let mut legal_count = 0usize;
+    for &sq in squares.iter() {
+        let flips = flips_for_move(player, opponent, 1u64 << sq);
+        if flips != 0 {
+            legal[legal_count] = (sq, flips);
+            legal_count += 1;
+        }
+    }
+
+    if legal_count == 0 {
+        let opponent_can_move = squares
+            .iter()
+            .any(|&sq| flips_for_move(opponent, player, 1u64 << sq) != 0);
+        if !opponent_can_move {
+            return final_score_relative(player, opponent);
+        }
+        return -solve_3(
+            opponent, player, squares, -beta, -alpha, nodes, node_limit, budget, timed_out,
+        );
+    }
+
+    let mut best = i32::MIN;
+    let mut alpha = alpha;
+    for &(sq, flips) in &legal[..legal_count] {
+        let mv = 1u64 << sq;
+        let child_player = opponent & !flips;
+        let child_opponent = player | mv | flips;
+        let remaining = others_of_3(squares, sq);
+        let score = -solve_2(
+            child_player,
+            child_opponent,
+            remaining,
+            -beta,
+            -alpha,
+            nodes,
+            node_limit,
+            budget,
+            timed_out,
+        );
+        if *timed_out {
+            return 0;
+        }
+        if score > best {
+            best = score;
+        }
+        if best > alpha {
+            alpha = best;
+        }
+        if alpha >= beta {
+            break;
+        }
+    }
+    best
+}
+
+/// 空き4の局面を専用に解く(T104)。[`solve_2`]/[`solve_3`]と同じ構造で、
+/// 子局面を[`solve_3`]に委譲する。
+#[allow(clippy::too_many_arguments)]
+fn solve_4(
+    player: u64,
+    opponent: u64,
+    squares: [u8; 4],
+    alpha: i32,
+    beta: i32,
+    nodes: &mut u64,
+    node_limit: Option<u64>,
+    budget: Option<TimeBudget>,
+    timed_out: &mut bool,
+) -> i32 {
+    if let Some(score) = shallow_budget_guard(nodes, node_limit, budget, timed_out) {
+        return score;
+    }
+
+    let mut legal = [(0u8, 0u64); 4];
+    let mut legal_count = 0usize;
+    for &sq in squares.iter() {
+        let flips = flips_for_move(player, opponent, 1u64 << sq);
+        if flips != 0 {
+            legal[legal_count] = (sq, flips);
+            legal_count += 1;
+        }
+    }
+
+    if legal_count == 0 {
+        let opponent_can_move = squares
+            .iter()
+            .any(|&sq| flips_for_move(opponent, player, 1u64 << sq) != 0);
+        if !opponent_can_move {
+            return final_score_relative(player, opponent);
+        }
+        return -solve_4(
+            opponent, player, squares, -beta, -alpha, nodes, node_limit, budget, timed_out,
+        );
+    }
+
+    let mut best = i32::MIN;
+    let mut alpha = alpha;
+    for &(sq, flips) in &legal[..legal_count] {
+        let mv = 1u64 << sq;
+        let child_player = opponent & !flips;
+        let child_opponent = player | mv | flips;
+        let remaining = others_of_4(squares, sq);
+        let score = -solve_3(
+            child_player,
+            child_opponent,
+            remaining,
+            -beta,
+            -alpha,
+            nodes,
+            node_limit,
+            budget,
+            timed_out,
+        );
+        if *timed_out {
+            return 0;
+        }
+        if score > best {
+            best = score;
+        }
+        if best > alpha {
+            alpha = best;
+        }
+        if alpha >= beta {
+            break;
+        }
+    }
+    best
+}
+
+/// 空き`SHALLOW_MAX_EMPTIES`(=4)以下の局面を、TT probe/store・Zobrist
+/// hash更新・一般用途のムーブオーダリングを一切行わずに解く(T104)。
+/// `negamax`から空きマス数がこの閾値以下になった時点で委譲される。
+#[allow(clippy::too_many_arguments)]
+fn solve_shallow(
+    board: &Board,
+    side: Side,
+    alpha: i32,
+    beta: i32,
+    nodes: &mut u64,
+    budget: Option<TimeBudget>,
+    node_limit: Option<u64>,
+    timed_out: &mut bool,
+) -> i32 {
+    let (player, opponent) = match side {
+        Side::Black => (board.black, board.white),
+        Side::White => (board.white, board.black),
+    };
+
+    let mut empty_squares = [0u8; 4];
+    let mut count = 0usize;
+    let mut remaining_empties = !(board.black | board.white);
+    while remaining_empties != 0 {
+        let sq = remaining_empties.trailing_zeros() as u8;
+        remaining_empties &= remaining_empties - 1;
+        empty_squares[count] = sq;
+        count += 1;
+    }
+
+    #[cfg(test)]
+    record_shallow_dispatch(count);
+
+    match count {
+        0 => {
+            // 盤面が完全に埋まっている: negamaxの`empties == 0`早期return
+            // と同じく、このノード自身の1回だけをカウントする。
+            *nodes += 1;
+            final_score_relative(player, opponent)
+        }
+        1 => solve_1(
+            player,
+            opponent,
+            empty_squares[0],
+            nodes,
+            node_limit,
+            budget,
+            timed_out,
+        ),
+        2 => solve_2(
+            player,
+            opponent,
+            [empty_squares[0], empty_squares[1]],
+            alpha,
+            beta,
+            nodes,
+            node_limit,
+            budget,
+            timed_out,
+        ),
+        3 => solve_3(
+            player,
+            opponent,
+            [empty_squares[0], empty_squares[1], empty_squares[2]],
+            alpha,
+            beta,
+            nodes,
+            node_limit,
+            budget,
+            timed_out,
+        ),
+        4 => solve_4(
+            player,
+            opponent,
+            [
+                empty_squares[0],
+                empty_squares[1],
+                empty_squares[2],
+                empty_squares[3],
+            ],
+            alpha,
+            beta,
+            nodes,
+            node_limit,
+            budget,
+            timed_out,
+        ),
+        _ => unreachable!(
+            "solve_shallow must only be called with empty_count() <= SHALLOW_MAX_EMPTIES"
+        ),
+    }
+}
+
 /// 空きマスが少ない局面を完全読みし、`side_to_move` から見た最終石差を返す。
 ///
 /// 返り値は centi-disc スケールではなく素の石差 (1石=1) であることに注意
@@ -272,7 +795,7 @@ pub(crate) fn final_score(board: &Board, side: Side) -> i32 {
 pub fn solve_exact(board: &Board, side_to_move: Side, tt: &mut TranspositionTable) -> i32 {
     let mut nodes: u64 = 0;
     let mut timed_out = false;
-    negamax::<DEFAULT_ETC_ENABLED>(
+    negamax::<DEFAULT_ETC_ENABLED, DEFAULT_SHALLOW_ENABLED>(
         board,
         side_to_move,
         initial_quadrant_parity(board),
@@ -300,7 +823,7 @@ pub fn solve_exact_with_nodes(
 ) -> (i32, u64) {
     let mut nodes: u64 = 0;
     let mut timed_out = false;
-    let score = negamax::<DEFAULT_ETC_ENABLED>(
+    let score = negamax::<DEFAULT_ETC_ENABLED, DEFAULT_SHALLOW_ENABLED>(
         board,
         side_to_move,
         initial_quadrant_parity(board),
@@ -344,7 +867,7 @@ pub fn solve_exact_bounded(
 ) -> Option<i32> {
     let mut nodes: u64 = 0;
     let mut timed_out = false;
-    let score = negamax::<DEFAULT_ETC_ENABLED>(
+    let score = negamax::<DEFAULT_ETC_ENABLED, DEFAULT_SHALLOW_ENABLED>(
         board,
         side_to_move,
         initial_quadrant_parity(board),
@@ -383,7 +906,7 @@ pub fn solve_exact_bounded_with_nodes(
 ) -> (Option<i32>, u64) {
     let mut nodes: u64 = 0;
     let mut timed_out = false;
-    let score = negamax::<DEFAULT_ETC_ENABLED>(
+    let score = negamax::<DEFAULT_ETC_ENABLED, DEFAULT_SHALLOW_ENABLED>(
         board,
         side_to_move,
         initial_quadrant_parity(board),
@@ -455,7 +978,7 @@ pub fn solve_exact_window_limited_with_nodes(
 ) -> ExactSearchOutcome {
     let mut nodes = 0;
     let mut aborted = false;
-    let score = negamax::<DEFAULT_ETC_ENABLED>(
+    let score = negamax::<DEFAULT_ETC_ENABLED, DEFAULT_SHALLOW_ENABLED>(
         board,
         side_to_move,
         initial_quadrant_parity(board),
@@ -516,7 +1039,7 @@ const TIME_CHECK_NODE_INTERVAL: u64 = 1024;
 /// 同じ組み立てロジックを再利用するために切り出した(重複した引数構築を
 /// 避けるだけで、探索アルゴリズム自体はここでは何も変えない)。
 #[allow(clippy::too_many_arguments)]
-fn negamax_child<const ETC_ENABLED: bool>(
+fn negamax_child<const ETC_ENABLED: bool, const SHALLOW_ENABLED: bool>(
     move_info: &MoveInfo,
     side: Side,
     quadrant_parity: u8,
@@ -529,7 +1052,7 @@ fn negamax_child<const ETC_ENABLED: bool>(
     node_limit: Option<u64>,
     timed_out: &mut bool,
 ) -> i32 {
-    -negamax::<ETC_ENABLED>(
+    -negamax::<ETC_ENABLED, SHALLOW_ENABLED>(
         &move_info.next_board,
         side.opposite(),
         quadrant_parity ^ QUADRANT_ID[move_info.square as usize],
@@ -563,7 +1086,17 @@ fn negamax_child<const ETC_ENABLED: bool>(
 /// 置換表への格納も行わない。`budget`が`None`なら従来どおり無条件に
 /// 終局まで読み切る。`ETC_ENABLED`は通常ビルドでは既定onで、テストと
 /// 比較計測では同じ探索をcompile-timeにoffへ切り替えられる。
-fn negamax<const ETC_ENABLED: bool>(
+///
+/// `SHALLOW_ENABLED`が`true`(通常ビルドの既定)の場合、空きマス数が
+/// [`SHALLOW_MAX_EMPTIES`]以下になった時点でTT probe/store・Zobrist
+/// hash計算・`MoveInfo`生成/ソートを一切行わない専用層
+/// ([`solve_shallow`]、T104)へ委譲する。この分岐は`*nodes`を
+/// インクリメントする**前**に行い、node計上の責務を丸ごと`solve_shallow`
+/// 側(以降は`solve_1`〜`solve_4`)に渡す(二重カウントを避けるため。
+/// モジュール冒頭の「T104: 空き1〜4専用ソルバーとshallow層」ドキュメント
+/// 参照)。テストは`negamax::<_, false>`を選ぶことで、この専用層を経由
+/// しない従来どおりの汎用パスと比較できる。
+fn negamax<const ETC_ENABLED: bool, const SHALLOW_ENABLED: bool>(
     board: &Board,
     side: Side,
     quadrant_parity: u8,
@@ -576,6 +1109,10 @@ fn negamax<const ETC_ENABLED: bool>(
     node_limit: Option<u64>,
     timed_out: &mut bool,
 ) -> i32 {
+    if SHALLOW_ENABLED && board.empty_count() <= SHALLOW_MAX_EMPTIES {
+        return solve_shallow(board, side, alpha, beta, nodes, budget, node_limit, timed_out);
+    }
+
     *nodes += 1;
 
     if *timed_out {
@@ -632,7 +1169,7 @@ fn negamax<const ETC_ENABLED: bool>(
             // 相手にも合法手がない: 終局。
             return final_score(board, side);
         }
-        return -negamax::<ETC_ENABLED>(
+        return -negamax::<ETC_ENABLED, SHALLOW_ENABLED>(
             board,
             side.opposite(),
             quadrant_parity,
@@ -723,7 +1260,7 @@ fn negamax<const ETC_ENABLED: bool>(
 
     for (index, move_info) in moves[..move_count].iter().enumerate() {
         let score = if narrow_window || index == 0 {
-            negamax_child::<ETC_ENABLED>(
+            negamax_child::<ETC_ENABLED, SHALLOW_ENABLED>(
                 move_info,
                 side,
                 quadrant_parity,
@@ -739,7 +1276,7 @@ fn negamax<const ETC_ENABLED: bool>(
         } else {
             // まずnull window `(-(alpha+1), -alpha)` でこの手が現在のalphaを
             // 上回れないことの反証を試みる。
-            let null_score = negamax_child::<ETC_ENABLED>(
+            let null_score = negamax_child::<ETC_ENABLED, SHALLOW_ENABLED>(
                 move_info,
                 side,
                 quadrant_parity,
@@ -760,7 +1297,7 @@ fn negamax<const ETC_ENABLED: bool>(
                 // 反証に失敗した(=alphaを上回りうる): 通常窓で再探索する。
                 #[cfg(test)]
                 record_pvs_research();
-                negamax_child::<ETC_ENABLED>(
+                negamax_child::<ETC_ENABLED, SHALLOW_ENABLED>(
                     move_info,
                     side,
                     quadrant_parity,
@@ -844,7 +1381,7 @@ mod tests {
         }
     }
 
-    fn solve_with_etc<const ETC_ENABLED: bool>(
+    fn solve_with_etc<const ETC_ENABLED: bool, const SHALLOW_ENABLED: bool>(
         board: &Board,
         side: Side,
         min_empties: u32,
@@ -853,7 +1390,7 @@ mod tests {
         let mut tt = TranspositionTable::new(4);
         let mut nodes = 0;
         let mut aborted = false;
-        let score = negamax::<ETC_ENABLED>(
+        let score = negamax::<ETC_ENABLED, SHALLOW_ENABLED>(
             board,
             side,
             initial_quadrant_parity(board),
@@ -870,7 +1407,7 @@ mod tests {
         (score, nodes, TEST_ETC_CUTOFFS.get())
     }
 
-    fn solve_with_seeded_child_etc<const ETC_ENABLED: bool>(
+    fn solve_with_seeded_child_etc<const ETC_ENABLED: bool, const SHALLOW_ENABLED: bool>(
         board: &Board,
         side: Side,
         min_empties: u32,
@@ -885,7 +1422,8 @@ mod tests {
             let mv = remaining & remaining.wrapping_neg();
             remaining &= remaining - 1;
             let child = board.apply_move(side, mv);
-            let child_score = solve_with_etc::<false>(&child, side.opposite(), min_empties).0;
+            let child_score =
+                solve_with_etc::<false, SHALLOW_ENABLED>(&child, side.opposite(), min_empties).0;
             let score = -child_score;
             if score > best_score {
                 best_score = score;
@@ -906,7 +1444,7 @@ mod tests {
         });
         let mut nodes = 0;
         let mut aborted = false;
-        let score = negamax::<ETC_ENABLED>(
+        let score = negamax::<ETC_ENABLED, SHALLOW_ENABLED>(
             board,
             side,
             initial_quadrant_parity(board),
@@ -1183,12 +1721,12 @@ mod tests {
         let mut etc_cutoffs = 0u64;
         for seed in 1..=16 {
             for (board, side) in random_small_positions(seed) {
-                let on = solve_with_etc::<true>(&board, side, 8);
-                let off = solve_with_etc::<false>(&board, side, 8);
+                let on = solve_with_etc::<true, true>(&board, side, 8);
+                let off = solve_with_etc::<false, true>(&board, side, 8);
                 assert_eq!(on.0, off.0);
                 if board.empty_count() >= 8 && board.legal_moves(side).count_ones() > 1 {
-                    let seeded_on = solve_with_seeded_child_etc::<true>(&board, side, 8);
-                    let seeded_off = solve_with_seeded_child_etc::<false>(&board, side, 8);
+                    let seeded_on = solve_with_seeded_child_etc::<true, true>(&board, side, 8);
+                    let seeded_off = solve_with_seeded_child_etc::<false, true>(&board, side, 8);
                     assert_eq!(seeded_on.0, seeded_off.0);
                     seeded_positions += 1;
                     etc_cutoffs += seeded_on.2;
@@ -1213,8 +1751,8 @@ mod tests {
                 board.empty_count() >= 8 && board.legal_moves(*side).count_ones() > 1
             })
             .unwrap();
-        let first = solve_with_seeded_child_etc::<true>(&position.0, position.1, 8);
-        let second = solve_with_seeded_child_etc::<true>(&position.0, position.1, 8);
+        let first = solve_with_seeded_child_etc::<true, true>(&position.0, position.1, 8);
+        let second = solve_with_seeded_child_etc::<true, true>(&position.0, position.1, 8);
         assert!(first.2 > 0);
         assert!(second.2 > 0);
         assert_eq!(first, second);
@@ -1295,9 +1833,12 @@ mod tests {
                     // 空き0(既に終局)・パス局面(手番側に合法手がない)は
                     // `negamax`がTT probe/storeの手前で早期returnするため、
                     // TTへは何も格納されない(モジュール冒頭ドキュメント・
-                    // T034の既存契約どおり)。これらの局面ではTTエントリの
-                    // 存在自体をアサートしない。
-                    if board.empty_count() > 0 && board.legal_moves(side) != 0 {
+                    // T034の既存契約どおり)。空き`SHALLOW_MAX_EMPTIES`以下は
+                    // T104のshallow層(`solve_1`〜`solve_4`)へ委譲され、
+                    // そちらもTT probe/storeを一切行わない設計のため
+                    // (要件3「TT probe/store...を省略する」)、同様にTT
+                    // エントリの存在をアサートしない。
+                    if board.empty_count() > SHALLOW_MAX_EMPTIES && board.legal_moves(side) != 0 {
                         let full_entry = tt_full
                             .probe(hash, TTDomain::Exact)
                             .expect("full-window solve should store a TT entry for the root");
@@ -1318,11 +1859,13 @@ mod tests {
                             None,
                         );
                         assert_eq!(fail_high.score, Some(truth), "fail-high window mismatch");
-                        let fh_entry = tt_fh
-                            .probe(hash, TTDomain::Exact)
-                            .expect("fail-high solve should store a TT entry for the root");
-                        assert_eq!(fh_entry.bound, Bound::Lower);
-                        assert_eq!(fh_entry.score, truth);
+                        if board.empty_count() > SHALLOW_MAX_EMPTIES {
+                            let fh_entry = tt_fh
+                                .probe(hash, TTDomain::Exact)
+                                .expect("fail-high solve should store a TT entry for the root");
+                            assert_eq!(fh_entry.bound, Bound::Lower);
+                            assert_eq!(fh_entry.score, truth);
+                        }
 
                         let mut tt_fl = TranspositionTable::new(4);
                         let fail_low = solve_exact_window_limited_with_nodes(
@@ -1335,11 +1878,13 @@ mod tests {
                             None,
                         );
                         assert_eq!(fail_low.score, Some(truth), "fail-low window mismatch");
-                        let fl_entry = tt_fl
-                            .probe(hash, TTDomain::Exact)
-                            .expect("fail-low solve should store a TT entry for the root");
-                        assert_eq!(fl_entry.bound, Bound::Upper);
-                        assert_eq!(fl_entry.score, truth);
+                        if board.empty_count() > SHALLOW_MAX_EMPTIES {
+                            let fl_entry = tt_fl
+                                .probe(hash, TTDomain::Exact)
+                                .expect("fail-low solve should store a TT entry for the root");
+                            assert_eq!(fl_entry.bound, Bound::Upper);
+                            assert_eq!(fl_entry.score, truth);
+                        }
 
                         checked_narrow_against_naive += 1;
                     }
@@ -1728,6 +2273,318 @@ mod tests {
         assert!(
             nodes > 0,
             "even a timed-out call should have visited at least some nodes before giving up"
+        );
+    }
+
+    // ------------------------------------------------------------------
+    // T104: 空き1〜4専用ソルバーとshallow層の回帰テスト。
+    // ------------------------------------------------------------------
+    //
+    // 以下のテストは、(1) 通常手・片側パス・両者パス(早期終局・総取り規約)
+    // を含む空き1〜4の局面群で、shallow層(`solve_1`〜`solve_4`)を有効に
+    // した`negamax`が独立実装`naive_solve`および専用層を無効化した
+    // `negamax::<_, false>`と完全に一致すること、(2) 専用層が実際に
+    // (空き0〜4の全パターンで)発火したこと(発火0件のままpassしない)、
+    // (3) node_limitによるquota abortが専用層の内部でも正しく機能し、
+    // ノード計上が過少にならないこと、を検証する。
+
+    /// 黒だけで盤面のほぼ全体を埋め、`holes`で指定したマスだけを空けた
+    /// 局面を作る。白石が1つも存在しないため、どちらの色からも
+    /// (相手石を挟めないので)一切合法手がなく、必ず「両者パス→総取り規約」
+    /// の早期終局になる(既存の
+    /// `solve_exact_applies_majority_takes_remaining_empties_rule_on_early_termination`
+    /// と同じ構成を、空き2〜4マスへ一般化したもの)。
+    fn all_black_board_with_holes(holes: &[u32]) -> Board {
+        let mut black = u64::MAX;
+        for &sq in holes {
+            black &= !(1u64 << sq);
+        }
+        Board { black, white: 0 }
+    }
+
+    #[test]
+    fn solve_shallow_matches_naive_and_generic_negamax_including_all_case_kinds() {
+        reset_shallow_dispatch_counts();
+
+        let mut checked_by_empties = [0usize; 5]; // index = empties (1..=4使用)
+        let mut one_side_pass_checked = 0usize;
+        let mut both_pass_majority_checked = 0usize;
+
+        // 通常手・片側パスは幅広いランダム自己対戦の中から自然に出現する。
+        for seed in 1..=80u64 {
+            for (board, side) in random_small_positions(seed) {
+                let empties = board.empty_count();
+                if empties == 0 || empties > 4 {
+                    continue;
+                }
+
+                let truth = naive_solve(&board, side);
+                let (shallow_score, _shallow_nodes, _) =
+                    solve_with_etc::<false, true>(&board, side, 8);
+                let (generic_score, _generic_nodes, _) =
+                    solve_with_etc::<false, false>(&board, side, 8);
+
+                assert_eq!(
+                    shallow_score, truth,
+                    "shallow-on score should match naive_solve at empties={empties}"
+                );
+                assert_eq!(
+                    generic_score, truth,
+                    "shallow-off score should match naive_solve at empties={empties}"
+                );
+                assert_eq!(
+                    shallow_score, generic_score,
+                    "shallow-on/off score mismatch at empties={empties}"
+                );
+
+                if board.legal_moves(side) == 0 && board.legal_moves(side.opposite()) != 0 {
+                    one_side_pass_checked += 1;
+                }
+                checked_by_empties[empties as usize] += 1;
+            }
+        }
+
+        // 両者パス(総取り規約)は自然な自己対戦ではまず出現しないため、
+        // 空き2・3・4それぞれについて明示的に構築して確実にカバーする
+        // (空き1は既存の
+        // `solve_exact_applies_majority_takes_remaining_empties_rule_on_early_termination`
+        // で確認済み)。
+        for holes in [
+            vec![9u32, 54], // 空き2 (X-square同士、隣接なし)
+            vec![9u32, 54, 27],
+            vec![9u32, 54, 27, 36],
+        ] {
+            let board = all_black_board_with_holes(&holes);
+            assert_eq!(board.empty_count() as usize, holes.len());
+            assert!(!board.has_legal_move(Side::Black));
+            assert!(!board.has_legal_move(Side::White));
+            assert!(board.is_terminal());
+
+            for &side in &[Side::Black, Side::White] {
+                let truth = naive_solve(&board, side);
+                let (shallow_score, _, _) = solve_with_etc::<false, true>(&board, side, 8);
+                let (generic_score, _, _) = solve_with_etc::<false, false>(&board, side, 8);
+                assert_eq!(shallow_score, truth);
+                assert_eq!(generic_score, truth);
+                assert_eq!(shallow_score, generic_score);
+            }
+            both_pass_majority_checked += 1;
+        }
+
+        assert!(
+            checked_by_empties[1] > 0
+                && checked_by_empties[2] > 0
+                && checked_by_empties[3] > 0
+                && checked_by_empties[4] > 0,
+            "expected naturally-occurring positions at every empties count 1..=4, got {:?}",
+            checked_by_empties
+        );
+        assert!(
+            one_side_pass_checked > 0,
+            "expected at least one naturally-occurring one-side-pass position among empties<=4"
+        );
+        assert_eq!(both_pass_majority_checked, 3);
+
+        // 専用層(solve_1〜solve_4)が実際に発火したことを、発火0件のまま
+        // passしないよう明示的に確認する(空き0はsolve_shallowの
+        // 早期return分岐だが、本テストでは意図的に踏んでいないため0でよい)。
+        let dispatch_counts = shallow_dispatch_counts();
+        assert!(
+            dispatch_counts[1] > 0 && dispatch_counts[2] > 0 && dispatch_counts[3] > 0 && dispatch_counts[4] > 0,
+            "expected solve_shallow to dispatch into solve_1..solve_4 at least once each, got {:?}",
+            dispatch_counts
+        );
+    }
+
+    // 注記: `negamax`(shallow層無効時)は空き1〜4でもT103のNWS/PVS構造
+    // (兄弟手をnull windowで先に反証し、失敗時のみ通常窓で再探索する)を
+    // そのまま使う一方、`solve_1`〜`solve_4`は(要件どおりTT/hash/ソートを
+    // 省く軽量実装として)単純なfail-soft alpha-betaのみを使い、PVS構造を
+    // 持たない。この2つは探索アルゴリズムそのものが異なる(スコアは
+    // 一致するが、木の中間ノードで踏む経路が異なる)ため、
+    // 「shallow層のノード数と汎用negamaxのノード数」を直接比較しても
+    // 一致しない(実測: ランダム局面群で最大4割程度が不一致、差の符号も
+    // 両方向に出る)。これは正しさの問題ではなくアルゴリズムの違いに
+    // 起因するため、比較テストとしては採用しない。代わりに、`solve_1`の
+    // ノード計上契約(モジュール冒頭・関数ドキュメントに明記した
+    // 「negamaxならこの局面で何回自分自身を呼び出すはずか」という定義)を
+    // 手計算した期待値と直接照合する(以下の
+    // `solve_1_node_accounting_matches_documented_negamax_call_counts`)。
+
+    #[test]
+    fn solve_1_node_accounting_matches_documented_negamax_call_counts() {
+        // ケースA: 手番側がその1マスに置ける -> 2ノード
+        // (a1を除き黒で埋め、白は最小限だけ置いて、黒がa1に置けば
+        // 盤面が埋まるように構成する)。
+        {
+            // a1(bit0)だけ空け、残りは黒で埋める。黒がa1に置くには、
+            // a1から見たいずれかの方向に白の連続→黒、が必要。
+            // b1(bit1)を白にし、c1(bit2)を黒にすれば、a1→b1(白)→c1(黒)
+            // で東方向にひっくり返せる。
+            let a1 = 0u8;
+            let mut black = u64::MAX & !(1u64 << 0) & !(1u64 << 1);
+            let white = 1u64 << 1;
+            black |= 0; // 明示のためのno-op(可読性用)
+            let mut nodes = 0u64;
+            let mut timed_out = false;
+            let score = solve_1(black, white, a1, &mut nodes, None, None, &mut timed_out);
+            assert_eq!(nodes, 2, "case A (mover can play) should count exactly 2 nodes");
+            // 黒(手番側=player)がa1に置いてb1を裏返すと、盤面は全て黒になる
+            // (64-0=64)。
+            assert_eq!(score, 64);
+            assert!(!timed_out);
+        }
+
+        // ケースB: 手番側は置けないが相手は置ける -> 3ノード。
+        // 白だけで埋め尽くし黒石が1つも無い盤面にすると、手番(黒)は
+        // どの方向にも黒石で終端できないため常に合法手なしになる一方、
+        // 相手(白)はcase Aと対称な配置にしてa1に置けるようにする。
+        {
+            let a1 = 0u8;
+            // player=黒(石なし相当ではなくボード上に0個)、opponent=白が
+            // ほぼ全域+a1に置けば黒(1個だけ配置)を挟める構成。
+            let mut opponent_white = u64::MAX & !(1u64 << 0) & !(1u64 << 1);
+            let player_black = 1u64 << 1; // b1だけ黒(白から見て挟める相手石)
+            opponent_white |= 0;
+            let mut nodes = 0u64;
+            let mut timed_out = false;
+            let score = solve_1(
+                player_black,
+                opponent_white,
+                a1,
+                &mut nodes,
+                None,
+                None,
+                &mut timed_out,
+            );
+            assert_eq!(
+                nodes, 3,
+                "case B (mover passes, opponent can play) should count exactly 3 nodes"
+            );
+            // 白がa1に置いてb1(黒)を裏返すと盤面は全て白になり、
+            // 手番(黒)から見た最終石差は -64。
+            assert_eq!(score, -64);
+            assert!(!timed_out);
+        }
+
+        // ケースC: 両者ともその1マスに置けない(総取り規約) -> 1ノード。
+        {
+            let a1 = 0u8;
+            // 白石が1つも無いため、黒番・白番のいずれも合法手が作れない
+            // (既存の`solve_exact_applies_majority_takes_remaining_empties_rule_on_early_termination`
+            // と同じ構成)。
+            let black = u64::MAX & !(1u64 << 0);
+            let white = 0u64;
+            let mut nodes = 0u64;
+            let mut timed_out = false;
+            let score = solve_1(black, white, a1, &mut nodes, None, None, &mut timed_out);
+            assert_eq!(
+                nodes, 1,
+                "case C (both stuck, majority rule) should count exactly 1 node"
+            );
+            // 黒63石 + 空き1マスの総取り = 64、白0石 => 差は64。
+            assert_eq!(score, 64);
+            assert!(!timed_out);
+        }
+    }
+
+    #[test]
+    fn solve_1_node_limit_aborts_exactly_at_the_documented_call_counts() {
+        // ケースAは2ノード消費するはずなので、node_limit=1で最初の
+        // ガード自身が中断を確定させ(1ノード目の時点でlimit到達)、
+        // node_limit=2なら2ノード目(仮想子局面分)の時点で中断する
+        // ことを確認する。
+        let a1 = 0u8;
+        let black = u64::MAX & !(1u64 << 0) & !(1u64 << 1);
+        let white = 1u64 << 1;
+
+        let mut nodes = 0u64;
+        let mut timed_out = false;
+        let score = solve_1(black, white, a1, &mut nodes, Some(1), None, &mut timed_out);
+        assert!(timed_out, "node_limit=1 should abort case A before it completes");
+        assert_eq!(score, 0);
+        assert_eq!(nodes, 1);
+
+        let mut nodes2 = 0u64;
+        let mut timed_out2 = false;
+        let score2 = solve_1(black, white, a1, &mut nodes2, Some(2), None, &mut timed_out2);
+        // shallow_budget_guardはエントリ時点(nodes==1)ではlimit未到達
+        // (1 < 2)なのでまだ中断しない。その後の「仮想子局面」+1で
+        // nodes==2に達するが、この+1自体はnode_limitを再チェックしない
+        // 設計(モジュール冒頭ドキュメント参照: これらの仮想増分は
+        // O(1)の算術のみで、それ以上の再帰的な仕事が存在しないため)。
+        // そのため最終的にはnodes==2まで到達し、タイムアウトはしないまま
+        // 正しい値を返す。
+        assert!(!timed_out2);
+        assert_eq!(nodes2, 2);
+        assert_eq!(score2, 64);
+    }
+
+    #[test]
+    fn solve_shallow_honors_node_limit_and_aborts_without_undercounting() {
+        // 空き1〜4のみの局面(ルート自体がshallow層へ委譲される)に対しても、
+        // node_limitによるquota abortが専用層の内部で正しく機能すること、
+        // かつabortまでに消費したノード数がnode_limit以上(過少計上でない)
+        // かつ無制限solveの総ノード数以下であることを確認する
+        // (`quota_abort_does_not_store_root_hash_in_exact_tt_through_pvs_path`
+        // と同じ発想を、shallow層自体がルートになるケースへ適用したもの)。
+        let mut checked = 0usize;
+
+        for seed in 1..=80u64 {
+            for (board, side) in random_small_positions(seed) {
+                let empties = board.empty_count();
+                if empties == 0 || empties > 4 || board.legal_moves(side).count_ones() < 2 {
+                    continue;
+                }
+
+                let mut tt_full = TranspositionTable::new(1);
+                let full = solve_exact_window_limited_with_nodes(
+                    &board, side, -64, 64, &mut tt_full, None, None,
+                );
+                let total_nodes = full.nodes;
+                if total_nodes < 4 {
+                    continue;
+                }
+                let node_limit = (total_nodes / 2).max(1);
+
+                let mut tt_limited = TranspositionTable::new(1);
+                let limited = solve_exact_window_limited_with_nodes(
+                    &board,
+                    side,
+                    -64,
+                    64,
+                    &mut tt_limited,
+                    None,
+                    Some(node_limit),
+                );
+                assert_eq!(
+                    limited.score, None,
+                    "expected the shallow layer to abort under half the node budget"
+                );
+                assert_eq!(limited.abort_reason, Some(AbortReason::ExactQuota));
+                assert!(
+                    limited.nodes >= node_limit,
+                    "aborted shallow search must not undercount nodes below node_limit \
+                     (nodes={}, node_limit={})",
+                    limited.nodes,
+                    node_limit
+                );
+                assert!(
+                    limited.nodes <= total_nodes,
+                    "aborted shallow search must not exceed the unlimited total node count \
+                     (nodes={}, total_nodes={})",
+                    limited.nodes,
+                    total_nodes
+                );
+
+                checked += 1;
+            }
+        }
+
+        assert!(
+            checked >= 8,
+            "expected several empties<=4 positions exercising the shallow node-limit abort path, \
+             got {checked}"
         );
     }
 }
