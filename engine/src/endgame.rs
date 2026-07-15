@@ -76,6 +76,43 @@ use web_time::Instant;
 /// (index = rank0*8 + file なので a1=0, h1=7, a8=56, h8=63)。
 const CORNER_MASK: u64 = (1u64 << 0) | (1u64 << 7) | (1u64 << 56) | (1u64 << 63);
 
+/// Precomputed child position and ordering data for one legal endgame move.
+/// The move list uses a fixed-size stack buffer because a board has only 64 squares.
+#[derive(Clone, Copy)]
+struct MoveInfo {
+    mv: u64,
+    square: u8,
+    flips: u64,
+    next_board: Board,
+    opp_mobility: u32,
+    is_corner: bool,
+    is_even_parity: bool,
+    is_tt_move: bool,
+}
+
+impl MoveInfo {
+    const EMPTY: Self = Self {
+        mv: 0,
+        square: 0,
+        flips: 0,
+        next_board: Board { black: 0, white: 0 },
+        opp_mobility: 0,
+        is_corner: false,
+        is_even_parity: false,
+        is_tt_move: false,
+    };
+
+    fn sort_key(self) -> (u8, u8, u32, u8, u8) {
+        (
+            if self.is_tt_move { 0 } else { 1 },
+            if self.is_corner { 0 } else { 1 },
+            self.opp_mobility,
+            if self.is_even_parity { 1 } else { 0 },
+            self.square,
+        )
+    }
+}
+
 // パリティベース着手順序付け(T052)で使う、空きマスの連結領域分割
 // (flood fill)のための上下左右4方向シフト。`bitboard.rs`の
 // `shift_n`/`shift_s`/`shift_e`/`shift_w`(斜め方向含む8方向版)と同じ
@@ -461,7 +498,9 @@ fn negamax(
     let mut alpha = alpha;
     let mut beta = beta;
 
+    let mut tt_move = None;
     if let Some(entry) = tt.probe(hash, TTDomain::Exact) {
+        tt_move = entry.best_move;
         // depth には格納時点の空きマス数を入れている。本ソルバーは常に
         // 終局まで完全に読み切るので、格納時の空きマス数が今回以上であれば
         // (=同じ局面なら通常は等しい) そのまま信頼できる。
@@ -499,44 +538,54 @@ fn negamax(
         );
     }
 
-    // 合法手を列挙し、隅優先 → 相手の着手後合法手数が少ない順 → 空き領域
-    // パリティ(奇数優先、同着時のタイブレークのみ、T052)に並べ替える。
+    // 合法手を列挙し、TT手 → 隅 → 相手の着手後合法手数が少ない順 → 空き領域
+    // パリティ(奇数優先、同着時のタイブレークのみ、T052) → マス番号に並べ替える。
     // パリティをモビリティより高い優先度に置くと明確に悪化することが実測で
     // 確認されたため、あえてこの優先順位(モビリティが先)にしている
     // (モジュール冒頭ドキュメント・T052作業ログ参照)。
-    let mut moves: Vec<u64> = Vec::with_capacity(legal.count_ones() as usize);
-    let mut remaining = legal;
-    while remaining != 0 {
-        let lsb = remaining & remaining.wrapping_neg();
-        moves.push(lsb);
-        remaining &= remaining - 1;
-    }
-
     // T052: 着手先マスが属する空き領域の空きマス数(パリティ判定用)を、
     // 現局面の空きマス集合から一度だけ計算しておく(手ごとに計算し直さない)。
     let empty_squares = !(board.black | board.white);
     let region_sizes = empty_region_sizes(empty_squares);
 
-    moves.sort_by_key(|&mv| {
-        let is_corner = mv & CORNER_MASK != 0;
-        let region_size = region_sizes[mv.trailing_zeros() as usize];
-        let is_even_parity = region_size % 2 == 0;
+    let tt_move_bit = tt_move
+        .filter(|&square| square < 64)
+        .map(|square| 1u64 << square)
+        .filter(|&mv| legal & mv != 0);
+
+    let mut moves = [MoveInfo::EMPTY; 64];
+    let mut move_count = 0usize;
+    let mut remaining = legal;
+    while remaining != 0 {
+        let mv = remaining & remaining.wrapping_neg();
+        remaining &= remaining - 1;
+        let square = mv.trailing_zeros() as u8;
         let next_board = board.apply_move(side, mv);
         let opp_mobility = next_board.legal_moves(side.opposite()).count_ones();
-        (
-            if is_corner { 0u32 } else { 1u32 },
+        let flips = match side {
+            Side::Black => board.white & !next_board.white,
+            Side::White => board.black & !next_board.black,
+        };
+        moves[move_count] = MoveInfo {
+            mv,
+            square,
+            flips,
+            next_board,
             opp_mobility,
-            if is_even_parity { 1u32 } else { 0u32 },
-        )
-    });
+            is_corner: mv & CORNER_MASK != 0,
+            is_even_parity: region_sizes[square as usize] % 2 == 0,
+            is_tt_move: tt_move_bit == Some(mv),
+        };
+        move_count += 1;
+    }
+    moves[..move_count].sort_unstable_by_key(|info| info.sort_key());
 
     let mut best_score = i32::MIN;
     let mut best_move: Option<u8> = None;
 
-    for mv in moves {
-        let next_board = board.apply_move(side, mv);
+    for move_info in &moves[..move_count] {
         let score = -negamax(
-            &next_board,
+            &move_info.next_board,
             side.opposite(),
             -beta,
             -alpha,
@@ -555,7 +604,7 @@ fn negamax(
 
         if score > best_score {
             best_score = score;
-            best_move = Some(mv.trailing_zeros() as u8);
+            best_move = Some(move_info.square);
         }
         if best_score > alpha {
             alpha = best_score;
@@ -588,6 +637,25 @@ fn negamax(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn move_info_sort_key_prioritizes_tt_move_and_breaks_ties_by_square() {
+        let mut tt_move = MoveInfo::EMPTY;
+        tt_move.square = 63;
+        tt_move.is_tt_move = true;
+
+        let mut corner = MoveInfo::EMPTY;
+        corner.square = 0;
+        corner.is_corner = true;
+
+        assert!(tt_move.sort_key() < corner.sort_key());
+
+        let mut lower_square = MoveInfo::EMPTY;
+        lower_square.square = 12;
+        let mut higher_square = lower_square;
+        higher_square.square = 13;
+        assert!(lower_square.sort_key() < higher_square.sort_key());
+    }
 
     // =====================================================================
     // T052: パリティベース着手順序付けで使う `empty_region_sizes`
