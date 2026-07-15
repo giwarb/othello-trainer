@@ -106,6 +106,69 @@ T090aのsmoke(seed 90101)=93,077件、primary(seed 90102)=93,069件、本probe(s
 
 **このターンでの成果物**: コード変更なし。`bench/edax-compare/gen_teacher_corpus.py`への実装方針(CORPUS_SETS新エントリ`expanded200k`・t096オラクル除外フィルタの設計・schemaVersion付与漏れの発見)は調査済みで、規模問題が解消され次第すぐ実装に移せる状態。
 
+### 2026-07-16 オーケストレーター裁定への対応・年範囲拡張の実地確認・コード実装完了
+
+**オーケストレーター裁定(方針A採用)を受けての対応**。FFO公式サイト(`https://www.ffothello.org/wthor/base/WTH_[YEAR].wtb`)から2000〜2014年分(15ファイル)を追加ダウンロード(`train/data/`、`.gitignore`対象・コミット禁止、T040と同じ取得方法)。
+
+- ダウンロード結果(全件HTTP 200、`curl`実測): 2000=289,220B/2001=379,116B/2002=368,780B/2003=262,360B/2004=619,700B/2005=285,548B/2006=200,072B/2007=168,520B/2008=151,792B/2009=295,680B/2010=147,712B/2011=128,604B/2012=150,160B/2013=162,944B/2014=123,572B。
+- パース検証(`teacher_candidates extract --years <年>-<年>`を年ごとに実行、`train::wthor::parse`経由で全件成功、失敗年なし):
+
+  | 年 | 対局数 | dedup後候補 |
+  |---:|---:|---:|
+  | 2000 | 4,253 | 20,800 |
+  | 2001 | 5,575 | 26,794 |
+  | 2002 | 5,423 | 26,365 |
+  | 2003 | 3,858 | 18,843 |
+  | 2004 | 9,113 | 41,076 |
+  | 2005 | 4,199 | 21,123 |
+  | 2006 | 2,942 | 14,860 |
+  | 2007 | 2,478 | 12,677 |
+  | 2008 | 2,232 | 11,379 |
+  | 2009 | 4,348 | 21,607 |
+  | 2010 | 2,172 | 11,090 |
+  | 2011 | 1,891 | 9,793 |
+  | 2012 | 2,208 | 11,346 |
+  | 2013 | 2,396 | 12,182 |
+  | 2014 | 1,817 | 9,376 |
+
+  2000-2014合計: 54,905対局(2000年代前半、特に2004年=9,113局は突出して多い。「新旧年代の構成比」: 2015-2024が19,119局・2000-2014が54,905局で、**新設計では旧年代(2000-2014)が対局数の約74%を占める**構成になる)。
+- **combined pool実測**(`teacher_candidates extract --years 2000-2024 --seed 90300`、scratchpad出力): `wrote 340574 candidate position(s) (before dedup: 443748, games scanned: 74024)`。オーケストレーター指示の「dedup後25万件以上」を大幅に上回り(340,574 > 250,000)、200,000選定に十分な余裕があることを確認。**2000年より前へのさらなる遡りは不要と判断**(フォールバックB=K拡張も不要)。
+
+**コード変更(承認された3点、実施済み)**:
+1. `bench/edax-compare/gen_teacher_corpus.py::TeacherCorpusCheckpoint._write_meta`と`merge_shards()`の`merged_doc`に`"schemaVersion": 2`を直接追加。
+2. `load_oracle_excluded_keys()`(新規関数)+`select_positions()`に`excluded_keys`引数を追加。`excluded_keys`が空集合(smoke/primaryの既存呼び出し、引数省略)の場合は除外ロジックが完全にno-opで`selection_stats`に`oracleExclusion`キーも追加しない設計にし、既存2setの`settings`/`runKey`/resume挙動を不変に保った。`generate()`は`CORPUS_SETS[set_name]`の`excludeT096Oracle`フラグでのみこの経路を起動する。
+3. `CORPUS_SETS`に`"expanded200k": {"targetCount": 200_000, "seed": DEFAULT_SEED + 3, "excludeT096Oracle": True}`を追加(smoke/primaryのエントリは無変更)。年範囲はCORPUS_SETSに持たせず、起動コマンドで`--years 2000-2024`を明示指定する設計にした(既存の`--years`CLI引数をそのまま使い、設定の二重管理を避けるため)。
+
+`verify_teacher_corpus.py`にも対応する変更: `set_names`のargparse choicesに`"expanded200k"`を追加、`T096_ORACLE_POSITIONS_PATH`から`ORACLE_KEYS`をモジュールロード時に読み込み、各レコードの再計算canonicalKeyとの一致を全件チェック(混入時はexit 1)。オラクルファイルが存在しない場合は検証をサイレントにスキップせず`RuntimeError`で明示的に停止するようにした(検証能力の空洞化を避けるため)。
+
+**テスト追加**(`bench/edax-compare/test_teacher_corpus.py`、全14件パス): `test_select_positions_excludes_oracle_keys`(優先層・WTHOR層双方からの除外+統計記録)、`test_select_positions_without_excluded_keys_is_unchanged`(除外なし呼び出しで`oracleExclusion`キー自体が出ないことの確認=smoke/primary不変性の担保)、`test_verifier_rejects_oracle_contaminated_position`(オラクル一致でexit 1)、`test_verifier_accepts_clean_position_when_oracle_keys_disjoint`(対照テスト、無関係キーでは拒否されないことの確認=前テストの偽陽性でないことの確認)。
+
+**実行結果**:
+- `python -m py_compile bench/edax-compare/gen_teacher_corpus.py bench/edax-compare/verify_teacher_corpus.py`: 成功。
+- `python -m pytest bench/edax-compare/ -q`: `21 passed`。
+- `python bench/edax-compare/test_teacher_corpus.py`: `Ran 14 tests ... OK`。
+- `cargo test -p train --release`: `56 passed; 0 failed`(新規ダウンロード年ファイル込みの`downloaded_wthor_files_parse_and_all_moves_are_legal`含め全件成功、既存回帰なし)。
+
+**選定dry-run実地確認**(`python bench/edax-compare/gen_teacher_corpus.py expanded200k --dry-run --years 2000-2024`、Edax呼び出しなし):
+```
+pool: 340531 candidates from 74024 games
+loaded 362 loss_analysis entries, 68 with loss>=4.0, 65 after D4 dedup
+t096 oracle exclusion enabled: 60 canonical key(s) to exclude (sha256=eec09e7a...)
+selected 200000 position(s): {targetCount: 200000, prioritySelected: 65,
+  poolAvailableAfterPriorityDedup: [4635, 44584, 69901, 73788, 73938, 73682],
+  binAllocation: [4635, 39061, 39061, 39060, 39059, 39059], sampledFromPool: 199935,
+  xcQuotaFraction: 0.5, openingMaxFraction: 0.02, openingMaxCount: 4000,
+  maxOpeningCountSelected: 4000, totalSelected: 200000,
+  oracleExclusion: {excludedKeyCount: 60, priorityPositionsExcluded: 0, poolPositionsExcluded: 3}}
+```
+200,000件ちょうど選定成功(エラーなし、X/C quota・opening capとも満たした)。**t096 oracleとの一致がpool側で実際に3件検出され除外された**(engineLoss優先層側は0件)。これは除外ロジックが実際に効いていることの実地確認になっている(t096 oracleはWTHOR実局面由来のため、2000-2024という拡張年範囲の大きな候補プールに同一局面が再出現するのは自然)。bin0(空き50-59、序盤寄り)は母集団4,635で頭打ちだが、waterfall配分により残り5binへ再配分され合計は正確に200,000。
+
+**このターンで判明・確定した設計選択(要件1「seedを変える vs 包含する」への回答)**: expanded200kはprimaryとは**別seed(DEFAULT_SEED+3)・別年範囲(2000-2024 vs 2015-2024)の独立抽出**とし、primaryとの明示的なcross-set重複除去は行わない。理由: (1) smoke/primary自体も互いにcross-set重複除去をしていない既存設計を踏襲、(2) pool 340,531に対しprimaryの51,000件が仮に全部重複したとしても200,000選定には十分な余裕がある(実際には年範囲もseedも異なるため重複はごく僅かと推定される)、(3) 明示的な重複チェックを追加するとprimaryの全50,000件のcanonicalKeyを読み込んでexpanded200k側の`select_positions`に食わせる追加実装が必要になり、スコープ外の設計変更に近づく。
+
+副次的注記: `train/data/teacher/candidates.json`はexpanded200kのseed(90103)・年範囲(2000-2024)で上書き済み(gitignore対象の作業キャッシュファイルであり、smoke/primaryは既に完成しているためこのファイルへの依存はない)。
+
+次: 本生成(`--num-shards 8`)を起動し、最初のcheckpointが実際に書かれることを確認してからバックグラウンド化する。
+
 **副次的に発見した実装上の注意点(規模問題とは独立、後続実装時に反映すること)**:
 - `TeacherCorpusCheckpoint._write_meta`および`merge_shards`の出力に`schemaVersion: 2`が含まれていない(T090aでは`finalize_teacher_corpus.py`という別スクリプトが事後的に付与していたが、そのスクリプトは`smoke`/`primary`固定・8シャード固定でハードコードされており新setには使えない)。`verify_teacher_corpus.py`は`schemaVersion != 2`でエラーにするため、**このままでは新規生成したコーパスの検証が必ず失敗する**。`gen_teacher_corpus.py`の`_write_meta`/`merge_shards`側で直接`schemaVersion: 2`を書くよう修正が必要(diffFromBest/openingKeyは既にlabel_position/extractが生成時点で正しく付与しているため、finalize相当の後処理は本来不要なはず)。
 - t096オラクル除外は`select_positions()`に`excluded_keys`引数を追加し、優先層・WTHOR層それぞれで`canonical_key_of_position(...) in excluded_keys`を除外する形で実装可能(t096の`canonicalKey`フィールドをそのまま集合化するだけでD4対称形も一括除外できる)。既存smoke/primaryのresume可能性を壊さないよう、この除外ロジックはCORPUS_SETS設定に`excludeT096Oracle`のようなフラグを持たせ、フラグがfalse(smoke/primary)のときは`settings`/`selectionStats`の出力形が一切変わらない(=runKeyが変わらない)ように条件分岐すること(`excluded_keys`が空集合なら追加statsフィールド自体を出力しない、等)。`PROVENANCE_IDENTITY_KEYS`やグローバルな`meta`にオラクルSHA256を追加すると、smoke/primaryの`provenance_identity`比較が変わり誤って`start_fresh()`(=既存50,000件JSONLの空文字上書き)を誘発しかねないため、**グローバルなprovenance/meta構造は一切変更しないこと**。
