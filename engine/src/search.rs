@@ -219,6 +219,14 @@ pub struct SearchResult {
     pub static_only: bool,
     pub exact_root_attempts: u32,
     pub exact_leaf_attempts: u32,
+    /// ルート局面を終盤完全読みで最後まで解いた場合のみ`true`。
+    pub exact_root_completed: bool,
+    /// 探索木内の狭窓exact呼び出しがboundを証明して完走した回数。
+    pub exact_bound_proof_completed: u32,
+    /// 探索木内のexact呼び出しが完走した回数(full windowを含む)。
+    pub exact_leaf_completed: u32,
+    /// 互換フィールド。root/leafのいずれかのexactが1回でも完走した場合に
+    /// `true`であり、root exact完走だけを意味しない。
     pub exact_completed: bool,
     pub exact_aborted_by_quota: u32,
     pub exact_nodes: u64,
@@ -246,6 +254,9 @@ const EXACT_QUOTA_PERCENT: u8 = 40;
 struct ExactStats {
     root_attempts: u32,
     leaf_attempts: u32,
+    root_completed: bool,
+    bound_proof_completed: u32,
+    leaf_completed: u32,
     completed: bool,
     aborted_by_quota: u32,
     nodes: u64,
@@ -539,6 +550,9 @@ fn search_with_eval_inner(
                 static_only: false,
                 exact_root_attempts: 1,
                 exact_leaf_attempts: 0,
+                exact_root_completed: true,
+                exact_bound_proof_completed: 0,
+                exact_leaf_completed: 0,
                 exact_completed: true,
                 exact_aborted_by_quota: 0,
                 exact_nodes: exact_nodes,
@@ -678,6 +692,9 @@ fn search_with_eval_inner(
             static_only: false,
             exact_root_attempts: exact_stats.root_attempts,
             exact_leaf_attempts: exact_stats.leaf_attempts,
+            exact_root_completed: exact_stats.root_completed,
+            exact_bound_proof_completed: exact_stats.bound_proof_completed,
+            exact_leaf_completed: exact_stats.leaf_completed,
             exact_completed: exact_stats.completed,
             exact_aborted_by_quota: exact_stats.aborted_by_quota,
             exact_nodes: exact_stats.nodes,
@@ -710,6 +727,7 @@ fn search_with_eval_inner(
                 exact_stats.nodes += outcome.nodes;
                 exact_quota_remaining = exact_quota_remaining.saturating_sub(outcome.nodes);
                 if let Some(raw) = outcome.score {
+                    exact_stats.root_completed = true;
                     exact_stats.completed = true;
                     let hash = zobrist_hash(board, side_to_move);
                     let best_move = tt
@@ -733,6 +751,9 @@ fn search_with_eval_inner(
                         static_only: false,
                         exact_root_attempts: exact_stats.root_attempts,
                         exact_leaf_attempts: 0,
+                        exact_root_completed: true,
+                        exact_bound_proof_completed: exact_stats.bound_proof_completed,
+                        exact_leaf_completed: exact_stats.leaf_completed,
                         exact_completed: true,
                         exact_aborted_by_quota: exact_stats.aborted_by_quota,
                         exact_nodes: exact_stats.nodes,
@@ -794,6 +815,9 @@ fn search_with_eval_inner(
             result.last_completed_depth = result.depth;
             result.exact_root_attempts = exact_stats.root_attempts;
             result.exact_leaf_attempts = exact_stats.leaf_attempts;
+            result.exact_root_completed = exact_stats.root_completed;
+            result.exact_bound_proof_completed = exact_stats.bound_proof_completed;
+            result.exact_leaf_completed = exact_stats.leaf_completed;
             result.exact_completed = exact_stats.completed;
             result.exact_aborted_by_quota = exact_stats.aborted_by_quota;
             result.exact_nodes = exact_stats.nodes;
@@ -835,6 +859,9 @@ fn search_with_eval_inner(
             static_only: true,
             exact_root_attempts: exact_stats.root_attempts,
             exact_leaf_attempts: exact_stats.leaf_attempts,
+            exact_root_completed: exact_stats.root_completed,
+            exact_bound_proof_completed: exact_stats.bound_proof_completed,
+            exact_leaf_completed: exact_stats.leaf_completed,
             exact_completed: false,
             exact_aborted_by_quota: exact_stats.aborted_by_quota,
             exact_nodes: exact_stats.nodes,
@@ -1427,6 +1454,10 @@ fn negascout(
             ctx.exact_stats.nodes += outcome.nodes;
             match outcome.score {
                 Some(score) => {
+                    ctx.exact_stats.leaf_completed += 1;
+                    if alpha_disc > -64 || beta_disc < 64 {
+                        ctx.exact_stats.bound_proof_completed += 1;
+                    }
                     ctx.exact_stats.completed = true;
                     return score * 100;
                 }

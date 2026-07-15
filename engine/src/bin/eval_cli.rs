@@ -49,6 +49,7 @@
 //! (空)文字列。
 
 use engine::bitboard::{Board, Side};
+use engine::endgame::{self, AbortReason as ExactAbortReason, TimeBudget};
 use engine::eval::feature_diffs;
 use engine::pattern_eval::PatternWeights;
 use engine::search::{self, SearchLimit};
@@ -56,6 +57,10 @@ use engine::tt::TranspositionTable;
 use engine::Engine;
 use serde_json::{json, Value};
 use std::io::{self, Read};
+use std::time::Instant;
+
+const ENDGAME_SOLVER_VERSION: &str = "baseline-t052-alpha-beta-tt-v1";
+const NODE_DEFINITION_VERSION: &str = "logical-negamax-invocation-v1";
 
 /// `--pattern-weights PATH` が指定されていれば、そのファイルを読み込んで
 /// [`PatternWeights`] を返す(読み込み・パース失敗時はエラーメッセージを
@@ -96,6 +101,7 @@ fn main() {
         "moves" => cmd_moves(&args[2..]),
         "apply" => cmd_apply(&args[2..]),
         "best" => cmd_best(&args[2..]),
+        "solve" => cmd_solve(&args[2..]),
         "budget-regression" => cmd_budget_regression(&args[2..]),
         _ => {
             eprintln!(
@@ -118,6 +124,18 @@ fn get_arg_u32(args: &[String], name: &str, default: Option<u32>) -> u32 {
         Some(v) => v.parse().unwrap_or_else(|_| panic!("invalid {name}: {v}")),
         None => default.unwrap_or_else(|| panic!("missing required arg {name}")),
     }
+}
+
+fn get_arg_i32(args: &[String], name: &str, default: i32) -> i32 {
+    get_arg(args, name)
+        .map(|v| v.parse().unwrap_or_else(|_| panic!("invalid {name}: {v}")))
+        .unwrap_or(default)
+}
+
+fn get_arg_usize(args: &[String], name: &str, default: usize) -> usize {
+    get_arg(args, name)
+        .map(|v| v.parse().unwrap_or_else(|_| panic!("invalid {name}: {v}")))
+        .unwrap_or(default)
 }
 
 /// 依存クレートを増やさないための、テスト専用の最小限xorshift64*実装。
@@ -617,6 +635,103 @@ fn cmd_moves(args: &[String]) {
 /// `Engine::analyze`経由にはしない。理由は同じ: このCLIはEdax比較専用の
 /// 開発補助ツールであり、`search`モジュールを直接呼んでも`Engine`インスタンスの
 /// 挙動と支障なく一致する。既存公開API(`#[wasm_bindgen]`)には一切触れない)。
+fn cmd_solve(args: &[String]) {
+    let alpha = get_arg_i32(args, "--alpha", -64);
+    let beta = get_arg_i32(args, "--beta", 64);
+    assert!((-64..=64).contains(&alpha), "--alpha must be in -64..64");
+    assert!((-64..=64).contains(&beta), "--beta must be in -64..64");
+    assert!(alpha < beta, "--alpha must be less than --beta");
+    let max_nodes = get_arg(args, "--max-nodes").map(|value| {
+        let parsed = value.parse::<u64>().expect("invalid --max-nodes");
+        assert!(parsed > 0, "--max-nodes must be greater than zero");
+        parsed
+    });
+    let time_ms = get_arg(args, "--time-ms").map(|value| {
+        let parsed = value.parse::<u64>().expect("invalid --time-ms");
+        assert!(parsed > 0, "--time-ms must be greater than zero");
+        parsed
+    });
+    let tt_mb = get_arg_usize(args, "--tt-mb", 64);
+    assert!(tt_mb > 0, "--tt-mb must be greater than zero");
+
+    let mut input = String::new();
+    io::stdin()
+        .read_to_string(&mut input)
+        .expect("failed to read stdin");
+    let pos: Value = serde_json::from_str(&input).expect("invalid input JSON");
+    let board_str = pos
+        .get("board")
+        .and_then(Value::as_str)
+        .expect("missing board")
+        .to_string();
+    assert_eq!(
+        board_str.chars().count(),
+        64,
+        "board must contain 64 squares"
+    );
+    assert!(
+        board_str
+            .chars()
+            .all(|c| matches!(c, 'X' | 'x' | 'O' | 'o' | '-')),
+        "board contains an invalid square"
+    );
+    let side_str = pos
+        .get("side_to_move")
+        .and_then(Value::as_str)
+        .unwrap_or("black")
+        .to_string();
+    let board = obf_to_board(&board_str);
+    let side = parse_side(&side_str);
+    let mut tt = TranspositionTable::new(tt_mb);
+    let started = Instant::now();
+    let outcome = endgame::solve_exact_window_limited_with_nodes(
+        &board,
+        side,
+        alpha,
+        beta,
+        &mut tt,
+        time_ms.map(|time_ms| TimeBudget {
+            start: web_time::Instant::now(),
+            time_ms,
+        }),
+        max_nodes,
+    );
+    let elapsed_us = started.elapsed().as_micros() as u64;
+    let bound = match outcome.score {
+        None => "incomplete",
+        Some(_) if alpha == -64 && beta == 64 => "exact",
+        Some(score) if score <= alpha => "upper",
+        Some(score) if score >= beta => "lower",
+        Some(_) => "exact",
+    };
+    let abort_reason = outcome.abort_reason.map(|reason| match reason {
+        ExactAbortReason::ExactQuota => "node_limit",
+        ExactAbortReason::GlobalNodeLimit => "global_node_limit",
+        ExactAbortReason::WallClock => "wall_clock",
+    });
+
+    println!(
+        "{}",
+        json!({
+            "board": board_str,
+            "sideToMove": side_str,
+            "empties": board.empty_count(),
+            "window": {"alpha": alpha, "beta": beta},
+            "score": outcome.score,
+            "bound": bound,
+            "completed": outcome.score.is_some(),
+            "nodes": outcome.nodes,
+            "elapsedUs": elapsed_us,
+            "abortReason": abort_reason,
+            "requestedMaxNodes": max_nodes,
+            "requestedTimeMs": time_ms,
+            "ttCapacityMiB": tt_mb,
+            "solverVersion": ENDGAME_SOLVER_VERSION,
+            "nodeDefinitionVersion": NODE_DEFINITION_VERSION,
+        })
+    );
+}
+
 fn cmd_best(args: &[String]) {
     let depth = get_arg_u32(args, "--depth", Some(10)) as u8;
     let exact_from_empties = get_arg_u32(args, "--exact-from-empties", Some(0)) as u8;
@@ -627,6 +742,8 @@ fn cmd_best(args: &[String]) {
         parsed
     });
     let exact_quota_percent = get_arg_u32(args, "--exact-quota-percent", Some(40)) as u8;
+    let tt_mb = get_arg_usize(args, "--tt-mb", 16);
+    assert!(tt_mb > 0, "--tt-mb must be greater than zero");
     assert!(
         matches!(exact_quota_percent, 25 | 40 | 60 | 75),
         "--exact-quota-percent must be one of 25, 40, 60, 75"
@@ -664,7 +781,7 @@ fn cmd_best(args: &[String]) {
         time_ms,
         exact_from_empties,
     };
-    let mut tt = TranspositionTable::new(16);
+    let mut tt = TranspositionTable::new(tt_mb);
     let result = match max_nodes {
         Some(max_nodes) => search::search_with_eval_with_node_limit_and_exact_quota(
             &b,
@@ -721,6 +838,9 @@ fn cmd_best(args: &[String]) {
             "staticOnly": result.static_only,
             "exactRootAttempts": result.exact_root_attempts,
             "exactLeafAttempts": result.exact_leaf_attempts,
+            "exactRootCompleted": result.exact_root_completed,
+            "exactBoundProofCompleted": result.exact_bound_proof_completed,
+            "exactLeafCompleted": result.exact_leaf_completed,
             "exactCompleted": result.exact_completed,
             "exactAbortedByQuota": result.exact_aborted_by_quota,
             "exactNodes": result.exact_nodes,
@@ -734,11 +854,17 @@ fn cmd_best(args: &[String]) {
                 "attempted": exact_attempted,
                 "completed": exact_completed,
                 "fallback": exact_fallback,
+                "rootCompleted": result.exact_root_completed,
+                "boundProofCompleted": result.exact_bound_proof_completed,
+                "leafCompleted": result.exact_leaf_completed,
             },
             "requestedDepth": depth,
             "requestedExactFromEmpties": exact_from_empties,
             "exactQuotaPercent": exact_quota_percent,
             "requestedTimeMs": time_ms,
+            "ttCapacityMiB": tt_mb,
+            "solverVersion": ENDGAME_SOLVER_VERSION,
+            "nodeDefinitionVersion": NODE_DEFINITION_VERSION,
         })
     );
 }

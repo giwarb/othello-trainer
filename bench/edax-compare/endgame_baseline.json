@@ -1,0 +1,670 @@
+{
+  "schemaVersion": 1,
+  "title": "T098 endgame solver baseline",
+  "generatedAt": "2026-07-15T10:48:55+00:00",
+  "status": "baseline",
+  "contract": {
+    "C1": "FFO #40-49 full window; #45-49 may use a recorded node cap",
+    "C2": "60 independent positions; fail-high [S-1,S], fail-low [S,S+1], full [-64,64]",
+    "C3": "eval_cli best --max-nodes 160000 --time-ms 1500 --tt-mb 64",
+    "E50Bound": "largest empties where >=50% complete at least one standard proof window",
+    "E50Exact": "largest empties where >=50% complete both proofs with summed nodes <= budget"
+  },
+  "provenance": {
+    "harnessSha256": "14457ef473db9f608a29b50db4ef594e7f46bcbaadb37bc086fa4c0a01f2b883",
+    "evalCliSha256": "dc82a4e06ce2f2d961cbcaddda3322bf22211c00a16a5a80971693e2526005e5",
+    "positionsSha256": "99c9d0e15de5d3b488f695119c8a51dff17e0d31e05fd895514db606e39586c7",
+    "ffoSha256": "ba0a453750811e571237d1b0b13b6c4e5f2f948a81e66b803aab7b8cfcda1e72",
+    "c3PositionsSha256": "778140e43f52b8c70c75e3c721be441404260899d4d2dc668e9b781368a0459e",
+    "weightsSha256": "b916c29e4f84692610a65b75c1692132628de5ba2b27b71bf2e8b94426b76c2a",
+    "solverVersion": "baseline-t052-alpha-beta-tt-v1",
+    "nodeDefinitionVersion": "logical-negamax-invocation-v1",
+    "ttMiB": 64,
+    "reportHarnessSha256": "6cd15982cadca3683fc2079f3b0e8f7d8bfb4f68ae9cce363ae54ee7d6b9156c",
+    "platform": "Windows-10-10.0.26200-SP0",
+    "processor": "AMD64 Family 25 Model 80 Stepping 0, AuthenticAMD",
+    "edaxSha256": "aabb5ac7d3f9a872fc0e7388ab1eee1d23c687f76c28642122524dc318b322b1",
+    "edaxEvalSha256": "f8b2299612d9fa4414157e70e932636e33111c2602d0c2fc382a7d90ef21b792",
+    "manifestSha256": "99c9d0e15de5d3b488f695119c8a51dff17e0d31e05fd895514db606e39586c7"
+  },
+  "signConventionVerification": {
+    "nativeFullWindow": [
+      {
+        "id": "t096-exact-01",
+        "empties": 18,
+        "nativeScore": 28,
+        "edaxScore": 28,
+        "nodes": 3260998,
+        "matched": true
+      },
+      {
+        "id": "t096-exact-02",
+        "empties": 18,
+        "nativeScore": 42,
+        "edaxScore": 42,
+        "nodes": 3121202,
+        "matched": true
+      },
+      {
+        "id": "t096-exact-03",
+        "empties": 19,
+        "nativeScore": 12,
+        "edaxScore": 12,
+        "nodes": 3527004,
+        "matched": true
+      }
+    ]
+  },
+  "summary": {
+    "c1": {
+      "completed": 5,
+      "total": 10,
+      "correctCompleted": 5,
+      "rows": [
+        {
+          "id": 40,
+          "empties": 20,
+          "expectedScore": 38,
+          "maxNodes": null,
+          "correct": true,
+          "run": {
+            "abortReason": null,
+            "board": "O--OOOOX-OOOOOOXOOXXOOOXOOXOOOXXOOOOOOXX---OOOOX----O--X--------",
+            "bound": "exact",
+            "completed": true,
+            "elapsedUs": 15938616,
+            "empties": 20,
+            "nodeDefinitionVersion": "logical-negamax-invocation-v1",
+            "nodes": 42811434,
+            "requestedMaxNodes": null,
+            "requestedTimeMs": null,
+            "score": 38,
+            "sideToMove": "black",
+            "solverVersion": "baseline-t052-alpha-beta-tt-v1",
+            "ttCapacityMiB": 64,
+            "window": {
+              "alpha": -64,
+              "beta": 64
+            }
+          }
+        },
+        {
+          "id": 41,
+          "empties": 22,
+          "expectedScore": 0,
+          "maxNodes": null,
+          "correct": true,
+          "run": {
+            "abortReason": null,
+            "board": "-OOOOO----OOOOX--OOOOOO-XXXXXOO--XXOOX--OOXOXX----OXXO---OOO--O-",
+            "bound": "exact",
+            "completed": true,
+            "elapsedUs": 77911723,
+            "empties": 22,
+            "nodeDefinitionVersion": "logical-negamax-invocation-v1",
+            "nodes": 197077282,
+            "requestedMaxNodes": null,
+            "requestedTimeMs": null,
+            "score": 0,
+            "sideToMove": "black",
+            "solverVersion": "baseline-t052-alpha-beta-tt-v1",
+            "ttCapacityMiB": 64,
+            "window": {
+              "alpha": -64,
+              "beta": 64
+            }
+          }
+        },
+        {
+          "id": 42,
+          "empties": 22,
+          "expectedScore": 6,
+          "maxNodes": null,
+          "correct": true,
+          "run": {
+            "abortReason": null,
+            "board": "--OOO-------XX-OOOOOOXOO-OOOOXOOX-OOOXXO---OOXOO---OOOXO--OOOO--",
+            "bound": "exact",
+            "completed": true,
+            "elapsedUs": 103905116,
+            "empties": 22,
+            "nodeDefinitionVersion": "logical-negamax-invocation-v1",
+            "nodes": 283343173,
+            "requestedMaxNodes": null,
+            "requestedTimeMs": null,
+            "score": 6,
+            "sideToMove": "black",
+            "solverVersion": "baseline-t052-alpha-beta-tt-v1",
+            "ttCapacityMiB": 64,
+            "window": {
+              "alpha": -64,
+              "beta": 64
+            }
+          }
+        },
+        {
+          "id": 43,
+          "empties": 23,
+          "expectedScore": -12,
+          "maxNodes": null,
+          "correct": true,
+          "run": {
+            "abortReason": null,
+            "board": "--XXXXX---XXXX---OOOXX---OOXXXX--OOXXXO-OOOOXOO----XOX----XXXXX-",
+            "bound": "exact",
+            "completed": true,
+            "elapsedUs": 177454565,
+            "empties": 23,
+            "nodeDefinitionVersion": "logical-negamax-invocation-v1",
+            "nodes": 396462965,
+            "requestedMaxNodes": null,
+            "requestedTimeMs": null,
+            "score": -12,
+            "sideToMove": "white",
+            "solverVersion": "baseline-t052-alpha-beta-tt-v1",
+            "ttCapacityMiB": 64,
+            "window": {
+              "alpha": -64,
+              "beta": 64
+            }
+          }
+        },
+        {
+          "id": 44,
+          "empties": 23,
+          "expectedScore": -14,
+          "maxNodes": null,
+          "correct": true,
+          "run": {
+            "abortReason": null,
+            "board": "--O-X-O---O-XO-O-OOXXXOOOOOOXXXOOOOOXX--XXOOXO----XXXX-----XXX--",
+            "bound": "exact",
+            "completed": true,
+            "elapsedUs": 168996485,
+            "empties": 23,
+            "nodeDefinitionVersion": "logical-negamax-invocation-v1",
+            "nodes": 423278742,
+            "requestedMaxNodes": null,
+            "requestedTimeMs": null,
+            "score": -14,
+            "sideToMove": "white",
+            "solverVersion": "baseline-t052-alpha-beta-tt-v1",
+            "ttCapacityMiB": 64,
+            "window": {
+              "alpha": -64,
+              "beta": 64
+            }
+          }
+        },
+        {
+          "id": 45,
+          "empties": 24,
+          "expectedScore": 6,
+          "maxNodes": 5000000,
+          "correct": null,
+          "run": {
+            "abortReason": "node_limit",
+            "board": "---XXXX-X-XXXO--XXOXOO--XXXOXO--XXOXXO---OXXXOO-O-OOOO------OO--",
+            "bound": "incomplete",
+            "completed": false,
+            "elapsedUs": 1937174,
+            "empties": 24,
+            "nodeDefinitionVersion": "logical-negamax-invocation-v1",
+            "nodes": 5000000,
+            "requestedMaxNodes": 5000000,
+            "requestedTimeMs": null,
+            "score": null,
+            "sideToMove": "black",
+            "solverVersion": "baseline-t052-alpha-beta-tt-v1",
+            "ttCapacityMiB": 64,
+            "window": {
+              "alpha": -64,
+              "beta": 64
+            }
+          }
+        },
+        {
+          "id": 46,
+          "empties": 24,
+          "expectedScore": -8,
+          "maxNodes": 5000000,
+          "correct": null,
+          "run": {
+            "abortReason": "node_limit",
+            "board": "---XXX----OOOX----OOOXX--OOOOXXX--OOOOXX--OXOXXX--XXOO---XXXX-O-",
+            "bound": "incomplete",
+            "completed": false,
+            "elapsedUs": 1880682,
+            "empties": 24,
+            "nodeDefinitionVersion": "logical-negamax-invocation-v1",
+            "nodes": 5000000,
+            "requestedMaxNodes": 5000000,
+            "requestedTimeMs": null,
+            "score": null,
+            "sideToMove": "black",
+            "solverVersion": "baseline-t052-alpha-beta-tt-v1",
+            "ttCapacityMiB": 64,
+            "window": {
+              "alpha": -64,
+              "beta": 64
+            }
+          }
+        },
+        {
+          "id": 47,
+          "empties": 25,
+          "expectedScore": 4,
+          "maxNodes": 5000000,
+          "correct": null,
+          "run": {
+            "abortReason": "node_limit",
+            "board": "-OOOOO----OOOO---OOOOX--XXXXXX---OXOOX--OOOXOX----OOXX----XXXX--",
+            "bound": "incomplete",
+            "completed": false,
+            "elapsedUs": 1957111,
+            "empties": 25,
+            "nodeDefinitionVersion": "logical-negamax-invocation-v1",
+            "nodes": 5000000,
+            "requestedMaxNodes": 5000000,
+            "requestedTimeMs": null,
+            "score": null,
+            "sideToMove": "white",
+            "solverVersion": "baseline-t052-alpha-beta-tt-v1",
+            "ttCapacityMiB": 64,
+            "window": {
+              "alpha": -64,
+              "beta": 64
+            }
+          }
+        },
+        {
+          "id": 48,
+          "empties": 25,
+          "expectedScore": 28,
+          "maxNodes": 5000000,
+          "correct": null,
+          "run": {
+            "abortReason": "node_limit",
+            "board": "-----X--X-XXX---XXXXOO--XOXOOXX-XOOXXX--XOOXX-----OOOX---XXXXXX-",
+            "bound": "incomplete",
+            "completed": false,
+            "elapsedUs": 1876419,
+            "empties": 25,
+            "nodeDefinitionVersion": "logical-negamax-invocation-v1",
+            "nodes": 5000000,
+            "requestedMaxNodes": 5000000,
+            "requestedTimeMs": null,
+            "score": null,
+            "sideToMove": "white",
+            "solverVersion": "baseline-t052-alpha-beta-tt-v1",
+            "ttCapacityMiB": 64,
+            "window": {
+              "alpha": -64,
+              "beta": 64
+            }
+          }
+        },
+        {
+          "id": 49,
+          "empties": 26,
+          "expectedScore": 16,
+          "maxNodes": 5000000,
+          "correct": null,
+          "run": {
+            "abortReason": "node_limit",
+            "board": "--OX-O----XXOO--OOOOOXX-OOOOOX--OOOXOXX-OOOOXX-----OOX----X-O---",
+            "bound": "incomplete",
+            "completed": false,
+            "elapsedUs": 1972386,
+            "empties": 26,
+            "nodeDefinitionVersion": "logical-negamax-invocation-v1",
+            "nodes": 5000000,
+            "requestedMaxNodes": 5000000,
+            "requestedTimeMs": null,
+            "score": null,
+            "sideToMove": "black",
+            "solverVersion": "baseline-t052-alpha-beta-tt-v1",
+            "ttCapacityMiB": 64,
+            "window": {
+              "alpha": -64,
+              "beta": 64
+            }
+          }
+        }
+      ]
+    },
+    "c2": {
+      "rates": [
+        {
+          "budget": 64000,
+          "windowKind": "fail_high",
+          "completed": 0,
+          "total": 60,
+          "completionRate": 0.0
+        },
+        {
+          "budget": 64000,
+          "windowKind": "fail_low",
+          "completed": 0,
+          "total": 60,
+          "completionRate": 0.0
+        },
+        {
+          "budget": 64000,
+          "windowKind": "full",
+          "completed": 0,
+          "total": 60,
+          "completionRate": 0.0
+        },
+        {
+          "budget": 160000,
+          "windowKind": "fail_high",
+          "completed": 1,
+          "total": 60,
+          "completionRate": 0.016666666666666666
+        },
+        {
+          "budget": 160000,
+          "windowKind": "fail_low",
+          "completed": 0,
+          "total": 60,
+          "completionRate": 0.0
+        },
+        {
+          "budget": 160000,
+          "windowKind": "full",
+          "completed": 0,
+          "total": 60,
+          "completionRate": 0.0
+        },
+        {
+          "budget": 512000,
+          "windowKind": "fail_high",
+          "completed": 5,
+          "total": 60,
+          "completionRate": 0.08333333333333333
+        },
+        {
+          "budget": 512000,
+          "windowKind": "fail_low",
+          "completed": 0,
+          "total": 60,
+          "completionRate": 0.0
+        },
+        {
+          "budget": 512000,
+          "windowKind": "full",
+          "completed": 0,
+          "total": 60,
+          "completionRate": 0.0
+        }
+      ],
+      "E50Exact160k": null,
+      "E50Bound64k": null,
+      "nullE50MeansBelowCorpusMinimum": 18,
+      "rowsCompleted": 540,
+      "rowsExpected": 540
+    },
+    "c3": {
+      "meanOracleRegret": 1.4375,
+      "deterministicRate": 1.0,
+      "wallInsuranceRate": 0.0,
+      "rowsCompleted": 48,
+      "rowsExpected": 48
+    },
+    "speed20To24": {
+      "positionRows": [
+        {
+          "id": "t096-exact-14",
+          "empties": 20,
+          "engineMedianSeconds": 2.444981,
+          "edaxMedianSeconds": 0.062,
+          "ratio": 39.43517741935484
+        },
+        {
+          "id": "t096-exact-15",
+          "empties": 20,
+          "engineMedianSeconds": 1.791467,
+          "edaxMedianSeconds": 0.047,
+          "ratio": 38.11631914893617
+        },
+        {
+          "id": "t096-exact-16",
+          "empties": 20,
+          "engineMedianSeconds": 14.08986,
+          "edaxMedianSeconds": 0.11,
+          "ratio": 128.08963636363637
+        },
+        {
+          "id": "t096-exact-17",
+          "empties": 20,
+          "engineMedianSeconds": 4.736402,
+          "edaxMedianSeconds": 0.109,
+          "ratio": 43.453229357798165
+        },
+        {
+          "id": "t096-exact-18",
+          "empties": 20,
+          "engineMedianSeconds": 7.670338,
+          "edaxMedianSeconds": 0.109,
+          "ratio": 70.37007339449542
+        },
+        {
+          "id": "t096-exact-19",
+          "empties": 20,
+          "engineMedianSeconds": 17.060447,
+          "edaxMedianSeconds": 0.079,
+          "ratio": 215.9550253164557
+        },
+        {
+          "id": "t096-exact-20",
+          "empties": 20,
+          "engineMedianSeconds": 3.785678,
+          "edaxMedianSeconds": 0.046,
+          "ratio": 82.29734782608695
+        },
+        {
+          "id": "t096-exact-21",
+          "empties": 21,
+          "engineMedianSeconds": 24.349268,
+          "edaxMedianSeconds": 0.235,
+          "ratio": 103.61390638297873
+        },
+        {
+          "id": "t096-exact-22",
+          "empties": 21,
+          "engineMedianSeconds": 24.937427,
+          "edaxMedianSeconds": 0.109,
+          "ratio": 228.78373394495412
+        },
+        {
+          "id": "t096-exact-23",
+          "empties": 21,
+          "engineMedianSeconds": 15.243188,
+          "edaxMedianSeconds": 0.078,
+          "ratio": 195.4254871794872
+        },
+        {
+          "id": "t096-exact-24",
+          "empties": 21,
+          "engineMedianSeconds": 22.029304,
+          "edaxMedianSeconds": 0.266,
+          "ratio": 82.81693233082706
+        },
+        {
+          "id": "t096-exact-25",
+          "empties": 22,
+          "engineMedianSeconds": 33.876354,
+          "edaxMedianSeconds": 0.266,
+          "ratio": 127.35471428571428
+        },
+        {
+          "id": "t096-exact-26",
+          "empties": 22,
+          "engineMedianSeconds": 32.944483,
+          "edaxMedianSeconds": 0.828,
+          "ratio": 39.788022946859904
+        },
+        {
+          "id": "t096-exact-27",
+          "empties": 22,
+          "engineMedianSeconds": 8.854156,
+          "edaxMedianSeconds": 0.14,
+          "ratio": 63.24397142857142
+        },
+        {
+          "id": "t096-exact-28",
+          "empties": 22,
+          "engineMedianSeconds": 32.143286,
+          "edaxMedianSeconds": 0.453,
+          "ratio": 70.95648123620309
+        },
+        {
+          "id": "t096-exact-29",
+          "empties": 22,
+          "engineMedianSeconds": 25.306532,
+          "edaxMedianSeconds": 0.172,
+          "ratio": 147.13100000000003
+        },
+        {
+          "id": "t096-exact-30",
+          "empties": 22,
+          "engineMedianSeconds": 13.338215,
+          "edaxMedianSeconds": 0.25,
+          "ratio": 53.35286
+        },
+        {
+          "id": "t096-exact-31",
+          "empties": 22,
+          "engineMedianSeconds": 26.838496,
+          "edaxMedianSeconds": 0.312,
+          "ratio": 86.0208205128205
+        },
+        {
+          "id": "t096-exact-32",
+          "empties": 22,
+          "engineMedianSeconds": 76.632958,
+          "edaxMedianSeconds": 0.532,
+          "ratio": 144.04691353383458
+        },
+        {
+          "id": "t096-exact-33",
+          "empties": 22,
+          "engineMedianSeconds": 25.542994,
+          "edaxMedianSeconds": 0.375,
+          "ratio": 68.11465066666666
+        },
+        {
+          "id": "t096-exact-34",
+          "empties": 22,
+          "engineMedianSeconds": 57.662397,
+          "edaxMedianSeconds": 0.547,
+          "ratio": 105.41571663619743
+        },
+        {
+          "id": "t096-exact-35",
+          "empties": 23,
+          "engineMedianSeconds": 85.977955,
+          "edaxMedianSeconds": 0.5,
+          "ratio": 171.95591
+        },
+        {
+          "id": "t096-exact-36",
+          "empties": 23,
+          "engineMedianSeconds": 105.243524,
+          "edaxMedianSeconds": 0.906,
+          "ratio": 116.16283002207504
+        },
+        {
+          "id": "t096-exact-37",
+          "empties": 23,
+          "engineMedianSeconds": 281.693262,
+          "edaxMedianSeconds": 1.344,
+          "ratio": 209.59320089285714
+        },
+        {
+          "id": "t096-exact-38",
+          "empties": 23,
+          "engineMedianSeconds": 37.276977,
+          "edaxMedianSeconds": 0.437,
+          "ratio": 85.30200686498857
+        },
+        {
+          "id": "t096-exact-39",
+          "empties": 23,
+          "engineMedianSeconds": 116.851603,
+          "edaxMedianSeconds": 0.687,
+          "ratio": 170.0896695778748
+        },
+        {
+          "id": "t096-exact-40",
+          "empties": 23,
+          "engineMedianSeconds": 146.83659,
+          "edaxMedianSeconds": 0.282,
+          "ratio": 520.6971276595746
+        },
+        {
+          "id": "t096-exact-41",
+          "empties": 24,
+          "engineMedianSeconds": 153.010634,
+          "edaxMedianSeconds": 0.422,
+          "ratio": 362.58444075829385
+        },
+        {
+          "id": "t096-exact-42",
+          "empties": 24,
+          "engineMedianSeconds": 1788.891872,
+          "edaxMedianSeconds": 2.984,
+          "ratio": 599.4945951742627
+        },
+        {
+          "id": "t096-exact-43",
+          "empties": 24,
+          "engineMedianSeconds": 590.543809,
+          "edaxMedianSeconds": 0.672,
+          "ratio": 878.7854300595237
+        },
+        {
+          "id": "t096-exact-44",
+          "empties": 24,
+          "engineMedianSeconds": 174.23244,
+          "edaxMedianSeconds": 0.469,
+          "ratio": 371.4977398720682
+        },
+        {
+          "id": "t096-exact-45",
+          "empties": 24,
+          "engineMedianSeconds": 2057.208907,
+          "edaxMedianSeconds": 4.0,
+          "ratio": 514.30222675
+        },
+        {
+          "id": "t096-exact-46",
+          "empties": 24,
+          "engineMedianSeconds": 352.234323,
+          "edaxMedianSeconds": 1.219,
+          "ratio": 288.95350533223956
+        },
+        {
+          "id": "t096-exact-47",
+          "empties": 24,
+          "engineMedianSeconds": 108.286056,
+          "edaxMedianSeconds": 0.719,
+          "ratio": 150.60647566063977
+        }
+      ],
+      "geometricMeanRatio": 135.67976435309865,
+      "p90Ratio": 514.30222675,
+      "completedPositions": 34,
+      "corpus": "C2 independent positions with 20..24 empties",
+      "completeRepetitionsUsed": [
+        0
+      ],
+      "partialRepetitionsExcluded": [
+        1
+      ],
+      "repetitionCountUsed": 1,
+      "protocol": "native and Edax internal wall time; one warmup; per-position median; T098 2026-07-15 waiver permits completed repetitions (minimum one); partial repetitions are excluded; full warmup+3 alternating-order protocol deferred to T108"
+    }
+  }
+}

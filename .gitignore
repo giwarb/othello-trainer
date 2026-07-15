@@ -40,3 +40,6 @@ out_*.json
 
 # T080: bench/edax-compare でローカルビルドするeval_cli系バイナリ
 bench/edax-compare/*.exe
+
+# T098: resumable per-position raw endgame benchmark checkpoints
+bench/edax-compare/endgame-results/
