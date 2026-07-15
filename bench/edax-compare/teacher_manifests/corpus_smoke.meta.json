@@ -1,0 +1,151 @@
+{
+  "runKey": "{\"defaultEdaxLevel\": 16, \"exactEdaxLevel\": 60, \"exactEmptiesThreshold\": 24, \"highRegretMinLoss\": 4.0, \"numPhaseBins\": 6, \"perGameCap\": 6, \"phaseBinLowerBounds\": [50, 40, 30, 20, 10, 1], \"seed\": 90101, \"selectionStats\": {\"binAllocation\": [156, 156, 156, 156, 156, 155], \"poolAvailableAfterPriorityDedup\": [2390, 14746, 18753, 19093, 19097, 18998], \"prioritySelected\": 65, \"sampledFromPool\": 935, \"targetCount\": 1000, \"totalSelected\": 1000}, \"setName\": \"smoke\", \"targetCount\": 1000, \"years\": \"2015-2024\"}",
+  "meta": {
+    "gitCommit": "5d5bb3d0f6ce762921a1bf972d5a62e4073b3156",
+    "harnessSha256": "6e7e55149e9f058c1937cad9439f770fa515ab15cbc7ddf2914a7ffb30367586",
+    "teacherCandidatesToolSha256": "8bc072fd50c733f19066c5e6846ae6a1e10fbde91cc4b45453de97f9cee903c8",
+    "edaxSha256": "aabb5ac7d3f9a872fc0e7388ab1eee1d23c687f76c28642122524dc318b322b1",
+    "edaxEvalDataSha256": "f8b2299612d9fa4414157e70e932636e33111c2602d0c2fc382a7d90ef21b792",
+    "candidatesPoolSha256": "86250ec7baca79cdc73a5d27f83da657b054a782ec866b8915be4fae5054370c",
+    "highRegretSourceSha256": "bbbccfa21440373fef500c23b0e7ccb17e5efb60637888a749a7adabccf42299",
+    "generatedAt": "2026-07-14T13:42:54+00:00"
+  },
+  "settings": {
+    "setName": "smoke",
+    "targetCount": 1000,
+    "seed": 90101,
+    "years": "2015-2024",
+    "perGameCap": 6,
+    "highRegretMinLoss": 4.0,
+    "exactEmptiesThreshold": 24,
+    "exactEdaxLevel": 60,
+    "defaultEdaxLevel": 16,
+    "numPhaseBins": 6,
+    "phaseBinLowerBounds": [
+      50,
+      40,
+      30,
+      20,
+      10,
+      1
+    ],
+    "selectionStats": {
+      "targetCount": 1000,
+      "prioritySelected": 65,
+      "poolAvailableAfterPriorityDedup": [
+        2390,
+        14746,
+        18753,
+        19093,
+        19097,
+        18998
+      ],
+      "binAllocation": [
+        156,
+        156,
+        156,
+        156,
+        156,
+        155
+      ],
+      "sampledFromPool": 935,
+      "totalSelected": 1000
+    }
+  },
+  "progress": {
+    "done": 1000,
+    "total": 1000,
+    "ratePerSec": 0.5704047592171416,
+    "updatedAt": "2026-07-14T14:10:39+00:00"
+  },
+  "schemaVersion": 2,
+  "corpusStats": {
+    "records": 1000,
+    "sourceCounts": {
+      "engineLoss": 65,
+      "wthor": 935
+    },
+    "phaseCountsWthor": {
+      "0": 156,
+      "1": 156,
+      "2": 156,
+      "3": 156,
+      "4": 156,
+      "5": 155
+    },
+    "children": 8538,
+    "exactChildren": 2690,
+    "exactRate": 0.3150620754275006,
+    "terminalChildren": 21,
+    "averageElapsedMsPerEdaxCall": 211.72854291417167,
+    "errors": 0
+  },
+  "selectionAudit": {
+    "openingKeyPlies": 8,
+    "phaseXcCoverage": {
+      "0": {
+        "total": 156,
+        "xc": 72,
+        "xcCoverage": 0.46153846153846156
+      },
+      "1": {
+        "total": 156,
+        "xc": 133,
+        "xcCoverage": 0.8525641025641025
+      },
+      "2": {
+        "total": 156,
+        "xc": 152,
+        "xcCoverage": 0.9743589743589743
+      },
+      "3": {
+        "total": 156,
+        "xc": 153,
+        "xcCoverage": 0.9807692307692307
+      },
+      "4": {
+        "total": 156,
+        "xc": 153,
+        "xcCoverage": 0.9807692307692307
+      },
+      "5": {
+        "total": 155,
+        "xc": 131,
+        "xcCoverage": 0.8451612903225807
+      }
+    },
+    "openingMatched": 935,
+    "openingUnmatched": 0,
+    "distinctOpeningKeys": 339,
+    "maxOpeningKey": "0000001c3c000000:00000e2000080000:0",
+    "maxOpeningCount": 77,
+    "maxOpeningShareOfWthor": 0.08235294117647059,
+    "acceptanceThresholds": {
+      "minimumXcCoveragePerPhase": 0.5,
+      "maximumSingleOpeningShare": 0.02
+    },
+    "failedXcPhaseBins": [
+      "0"
+    ],
+    "openingShareExceeded": true,
+    "thresholdTriggered": true,
+    "measuredDeviationRuling": {
+      "summary": "measured deviations, accepted by orchestrator ruling 2026-07-15",
+      "status": "accepted",
+      "rulingDate": "2026-07-15",
+      "regenerationOrReselectionRequired": false,
+      "reason": "canonical positions are unique; primary X/C coverage is at least 50% in every phase; smoke bin 0 is development-only; opening concentration reflects the observed human-game distribution"
+    },
+    "requiresOrchestratorDecision": false
+  },
+  "postprocessing": {
+    "operation": "backfill diffFromBest without Edax rerun",
+    "completedAt": "2026-07-15T01:45:23+00:00",
+    "authoritativeFile": "corpus_smoke.jsonl",
+    "shardPolicy": "primary merged file is authoritative; all shard JSONL files were synchronized",
+    "corpusSha256": "ae0205466c8749cde26e36a47b358cd8a76e17ab704378934ac0b4a3ebb3bd8c",
+    "shardSha256": {}
+  },
+  "generationCommand": "python bench/edax-compare/gen_teacher_corpus.py smoke",
+  "finalizationCommand": "python bench/edax-compare/finalize_teacher_corpus.py smoke=train/data/teacher/candidates_smoke_audit.json primary=train/data/teacher/candidates_primary_audit.json"
+}

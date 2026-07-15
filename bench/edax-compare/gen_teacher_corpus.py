@@ -68,14 +68,16 @@ Edaxの探索値に置き換えるための第一段(コーパス生成)。
   "sideToMove": "black" | "white",
   "empties": 53,
   "source": "wthor" | "engineLoss",
-  "phaseBin": 0,                 // sourceが"wthor"の場合のみ(0..5, 空きマス帯6段階)
-  "hasXcLegalMove": false,       // sourceが"wthor"の場合のみ
-  "priorityLoss": null,          // sourceが"engineLoss"の場合、T084弱点分析のloss石数(>=4)
+  "phaseBin": 0,                 // source固有フィールドは非該当時null
+  "hasXcLegalMove": false,
+  "openingKey": "...",          // WTHOR対局の8プライ後D4正準化局面。非該当時null
+  "priorityLoss": null,          // engineLossではT084弱点分析のloss石数(>=4)
   "canonicalKey": [blackU64, whiteU64, moverU8],  // D4正準化キー
   "children": [                  // **その局面の全合法手**(bestだけでなく全候補)
     {
       "move": "d3",
       "value": 4.0,             // sideToMove視点での、その手を打った後の評価値(石差)
+      "diffFromBest": 0.0,      // bestValue - value
       "exact": true,            // true: 完全読み(空き<=EXACT_EMPTIES_THRESHOLDまたは終局)
       "level": 60,              // Edaxへ渡した -l 値(終局子はnull、Edax未呼び出し)
       "edaxDepth": 24,          // Edaxが報告した到達深さ(終局子はnull)
@@ -98,6 +100,7 @@ import argparse
 import functools
 import hashlib
 import json
+import math
 import os
 import random
 import subprocess
@@ -141,6 +144,9 @@ EXACT_EDAX_LEVEL = 60
 DEFAULT_EDAX_LEVEL = 16
 
 DEFAULT_SEED = 90100
+XC_QUOTA_FRACTION = 0.50
+OPENING_MAX_FRACTION = 0.02
+OPENING_KEY_PLIES = 8
 
 CORPUS_SETS = {
     "smoke": {"targetCount": 1_000, "seed": DEFAULT_SEED + 1},
@@ -225,24 +231,22 @@ def _self_test_canonicalize() -> None:
     assert _transform_bits(a1, 5) == a8, "symmetry 5 (up-down flip) sanity check failed: a1 -> a8"
     # 恒等変換は常に不変。
     assert _transform_bits(0x123456789ABCDEF0, 0) == 0x123456789ABCDEF0
-    # canonical_keyは対称な2つの表現から同じキーを返す(180度回転で自己対称な
-    # 初期局面は黒白の対応が変わらないことを確認する)。
-    black0, white0 = parse_obf(
-        "---------------------------OX------XO---------------------------------"[:64]
-    )
-    # (上のOBF文字列はダミーで長さ調整用。実際の初期局面は下で生成する。)
+    # canonical_keyはD4変換した別表現から同じキーを返す。
     board = ["-"] * 64
     board[27] = "O"  # d4
     board[36] = "O"  # e5
     board[28] = "X"  # e4
     board[35] = "X"  # d5
     initial_obf = "".join(board)
-    key_black_to_move = canonical_key_of_position(initial_obf, "black")
-    # 180度回転(symmetry 2)で初期局面は自分自身に写る(石の色ごと位置が
-    # 入れ替わって元の配置と一致するため)。よってどのsymmetryを選んでも
-    # canonical boardは同一になるはず(念のため2回計算し一致を確認)。
-    key_black_to_move_2 = canonical_key_of_position(initial_obf, "black")
-    assert key_black_to_move == key_black_to_move_2
+    black, white = parse_obf(initial_obf)
+    transformed_obf = []
+    tb, tw = _transform_bits(black, 1), _transform_bits(white, 1)
+    for cell in range(64):
+        bit = 1 << cell
+        transformed_obf.append("X" if tb & bit else "O" if tw & bit else "-")
+    assert canonical_key_of_position(initial_obf, "black") == canonical_key_of_position(
+        "".join(transformed_obf), "black"
+    )
 
 
 _self_test_canonicalize()
@@ -382,9 +386,38 @@ def select_positions(pool: dict, priority: list[dict], target_count: int, seed: 
 
     sampled: list[dict] = []
     rng = random.Random(seed)
+    opening_cap = max(1, math.ceil(target_count * OPENING_MAX_FRACTION))
+    opening_counts: dict[str, int] = {}
     for bin_idx, count in enumerate(allocation):
-        bucket = by_bin[bin_idx]
-        chosen = rng.sample(bucket, count) if count < len(bucket) else list(bucket)
+        bucket = list(by_bin[bin_idx])
+        rng.shuffle(bucket)
+        xc = [row for row in bucket if row.get("hasXcLegalMove")]
+        other = [row for row in bucket if not row.get("hasXcLegalMove")]
+        rng.shuffle(xc)
+        rng.shuffle(other)
+        chosen: list[dict] = []
+
+        def take(rows: list[dict], wanted: int) -> None:
+            for row in rows:
+                if len(chosen) >= wanted:
+                    break
+                opening_key = row.get("openingKey")
+                if not opening_key:
+                    raise RuntimeError("candidate missing openingKey; rebuild teacher_candidates output")
+                if opening_counts.get(opening_key, 0) >= opening_cap:
+                    continue
+                chosen.append(row)
+                opening_counts[opening_key] = opening_counts.get(opening_key, 0) + 1
+
+        xc_target = math.ceil(count * XC_QUOTA_FRACTION)
+        take(xc, xc_target)
+        if len(chosen) < xc_target:
+            raise RuntimeError(f"phase bin {bin_idx} cannot satisfy X/C quota {xc_target}/{count}")
+        already = {id(row) for row in chosen}
+        remainder = [row for row in bucket if id(row) not in already]
+        take(remainder, count)
+        if len(chosen) != count:
+            raise RuntimeError(f"phase bin {bin_idx} cannot satisfy opening cap {opening_cap}: {len(chosen)}/{count}")
         for row in chosen:
             sampled.append({**row})
 
@@ -395,6 +428,11 @@ def select_positions(pool: dict, priority: list[dict], target_count: int, seed: 
         "poolAvailableAfterPriorityDedup": bin_populations,
         "binAllocation": allocation,
         "sampledFromPool": len(sampled),
+        "xcQuotaFraction": XC_QUOTA_FRACTION,
+        "openingKeyPlies": OPENING_KEY_PLIES,
+        "openingMaxFraction": OPENING_MAX_FRACTION,
+        "openingMaxCount": opening_cap,
+        "maxOpeningCountSelected": max(opening_counts.values(), default=0),
         "totalSelected": len(selected),
     }
     return selected, stats
@@ -420,13 +458,14 @@ def label_position(index: int, position: dict, children_info: dict) -> dict:
                     "exact": True,
                     "level": None,
                     "edaxDepth": None,
+                    "childEmpties": child_empties,
                     "elapsedNote": "terminal (no Edax call)",
                 }
             )
             continue
 
-        is_exact = child_empties <= EXACT_EMPTIES_THRESHOLD
-        level = EXACT_EDAX_LEVEL if is_exact else DEFAULT_EDAX_LEVEL
+        exact_requested = child_empties <= EXACT_EMPTIES_THRESHOLD
+        level = EXACT_EDAX_LEVEL if exact_requested else DEFAULT_EDAX_LEVEL
         t0 = time.monotonic()
         result = vs_edax.edax_solve(child["childBoard"], child["childSideToMove"], level)
         elapsed_ms = (time.monotonic() - t0) * 1000.0
@@ -434,6 +473,11 @@ def label_position(index: int, position: dict, children_info: dict) -> dict:
             value = result["discDiff"]
         else:
             value = -result["discDiff"]
+        is_exact = exact_requested and result["depth"] >= child_empties
+        if exact_requested and not is_exact:
+            raise RuntimeError(
+                f"Edax exact search incomplete: move={child['move']} depth={result['depth']} empties={child_empties}"
+            )
         child_records.append(
             {
                 "move": child["move"],
@@ -441,11 +485,14 @@ def label_position(index: int, position: dict, children_info: dict) -> dict:
                 "exact": is_exact,
                 "level": level,
                 "edaxDepth": result["depth"],
+                "childEmpties": child_empties,
                 "elapsedMs": round(elapsed_ms, 1),
             }
         )
 
     best = max(child_records, key=lambda c: c["value"])
+    for child in child_records:
+        child["diffFromBest"] = best["value"] - child["value"]
     return {
         "positionId": index,
         "board": board,
@@ -454,6 +501,9 @@ def label_position(index: int, position: dict, children_info: dict) -> dict:
         "source": position["source"],
         "phaseBin": position.get("phaseBin"),
         "hasXcLegalMove": position.get("hasXcLegalMove"),
+        "openingKey": position.get("openingKey"),
+        "year": position.get("year"),
+        "gameIndex": position.get("gameIndex"),
         "priorityLoss": position.get("priorityLoss"),
         "canonicalKey": list(mover_key),
         "children": child_records,
@@ -488,6 +538,7 @@ def build_run_metadata(candidates_path: Path) -> dict:
 
 
 PROVENANCE_IDENTITY_KEYS = (
+    "gitCommit",
     "harnessSha256",
     "teacherCandidatesToolSha256",
     "edaxSha256",
@@ -538,16 +589,23 @@ class TeacherCorpusCheckpoint:
 
         done_ids: set[int] = set()
         malformed = 0
-        with self.jsonl_path.open("r", encoding="utf-8") as fh:
-            for line in fh:
-                line = line.strip()
+        last_valid_offset = 0
+        with self.jsonl_path.open("rb") as fh:
+            while True:
+                line = fh.readline()
                 if not line:
-                    continue
+                    break
                 try:
-                    rec = json.loads(line)
+                    rec = json.loads(line.decode("utf-8"))
                     done_ids.add(rec["positionId"])
-                except (json.JSONDecodeError, KeyError):
-                    malformed += 1  # クラッシュ時の書きかけ最終行を無視(次回再生成)
+                    last_valid_offset = fh.tell()
+                except (UnicodeDecodeError, json.JSONDecodeError, KeyError):
+                    malformed += 1
+                    break
+        if malformed:
+            with self.jsonl_path.open("r+b") as fh:
+                fh.truncate(last_valid_offset)
+            print(f"  [resume] truncated malformed JSONL tail at byte offset {last_valid_offset}")
         self.done_ids = done_ids
         print(f"  [resume] loaded {len(done_ids)} completed position(s) from {self.jsonl_path.name} (malformed lines skipped: {malformed})")
         return True
@@ -654,6 +712,9 @@ def generate(
         "exactEdaxLevel": EXACT_EDAX_LEVEL,
         "defaultEdaxLevel": DEFAULT_EDAX_LEVEL,
         "numPhaseBins": NUM_PHASE_BINS,
+        "xcQuotaFraction": XC_QUOTA_FRACTION,
+        "openingKeyPlies": OPENING_KEY_PLIES,
+        "openingMaxFraction": OPENING_MAX_FRACTION,
         "phaseBinLowerBounds": pool.get("phaseBinLowerBounds"),
         "selectionStats": selection_stats,
     }
@@ -812,8 +873,9 @@ def merge_shards(set_name: str, num_shards: int, target_count: int) -> None:
     for i in range(num_shards):
         shard_jsonl = TEACHER_DATA_DIR / f"corpus_{set_name}_shard{i}of{num_shards}.jsonl"
         shard_meta_path = TEACHER_DATA_DIR / f"corpus_{set_name}_shard{i}of{num_shards}.meta.json"
-        if shard_meta_path.exists():
-            shard_metas.append(json.loads(shard_meta_path.read_text(encoding="utf-8")))
+        if not shard_meta_path.exists():
+            raise RuntimeError(f"expected shard meta {shard_meta_path} not found")
+        shard_metas.append(json.loads(shard_meta_path.read_text(encoding="utf-8")))
         if not shard_jsonl.exists():
             raise RuntimeError(f"expected shard file {shard_jsonl} not found")
         with shard_jsonl.open("r", encoding="utf-8") as fh:
@@ -826,6 +888,22 @@ def merge_shards(set_name: str, num_shards: int, target_count: int) -> None:
                 if pid in merged:
                     raise RuntimeError(f"duplicate positionId={pid} found across shards (shard {i} and an earlier shard)")
                 merged[pid] = rec
+
+    base_meta = shard_metas[0]
+    base_settings = dict(base_meta.get("settings") or {})
+    for i, shard_meta in enumerate(shard_metas):
+        settings = dict(shard_meta.get("settings") or {})
+        expected_index = settings.pop("shardIndex", None)
+        if expected_index != i or settings.get("numShards") != num_shards:
+            raise RuntimeError(f"shard {i} settings identify a different shard/run")
+        comparable_base = dict(base_settings)
+        comparable_base.pop("shardIndex", None)
+        if settings != comparable_base:
+            raise RuntimeError(f"shard {i} settings mismatch")
+        if provenance_identity(shard_meta.get("meta")) != provenance_identity(base_meta.get("meta")):
+            raise RuntimeError(f"shard {i} provenance mismatch")
+        if shard_meta.get("runKey") != json.dumps(shard_meta.get("settings"), sort_keys=True):
+            raise RuntimeError(f"shard {i} runKey mismatch")
 
     expected_ids = set(range(target_count))
     got_ids = set(merged.keys())
@@ -840,7 +918,6 @@ def merge_shards(set_name: str, num_shards: int, target_count: int) -> None:
         for pid in sorted(merged.keys()):
             fh.write(json.dumps(merged[pid], ensure_ascii=False) + "\n")
 
-    base_meta = shard_metas[0] if shard_metas else {}
     merged_settings = dict(base_meta.get("settings") or {})
     merged_settings.pop("numShards", None)
     merged_settings.pop("shardIndex", None)

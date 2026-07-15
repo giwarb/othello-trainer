@@ -5,8 +5,9 @@
 //! Othelloのルール自体をこのファイルで再実装しない)、各対局から
 //!
 //!  - 空きマス帯(6段階、目安の「フェーズ」)ごとに最大1局面
-//!  - 1対局あたり `--per-game-cap`(既定6 = フェーズ数と同数、要件「同一opening・同一対局
-//!    からの過剰抽出を制限」に対応)
+//!  - 1対局あたり `--per-game-cap`(既定6 = フェーズ数と同数)
+//!  - 各対局の8プライ後D4正準化局面を`openingKey`として付与し、Python側で同一opening
+//!    の抽出上限を適用可能にする
 //!
 //! を決定的な擬似乱数(対局ごとに`--seed`から導出したxorshift64、依存クレート追加を
 //! 避けるための自作実装。`eval_cli.rs`の`Rng`と同種だが本ファイル用に独立実装)で選び、
@@ -17,7 +18,7 @@
 //! 計算しない(Edax呼び出し・チェックポイント/resumeは
 //! `bench/edax-compare/gen_teacher_corpus.py` 側の責務)。
 //!
-//! 使い方(2つのサブコマンド):
+//! 使い方(3つのサブコマンド):
 //! ```text
 //! cargo run -p train --release --bin teacher_candidates -- extract \
 //!   --data-dir train/data --years 2015-2024 --seed 90100 --per-game-cap 6 \
@@ -51,7 +52,7 @@ const X_SQUARES: [u8; 4] = [9, 14, 49, 54];
 const C_SQUARES: [u8; 8] = [1, 8, 6, 15, 48, 57, 55, 62];
 
 /// フェーズ境界(空きマス数の下限、6段階)。`empties`がこの配列のどの区間に
-/// 入るかで`phaseBin`(0..6)を決める(値は本タスクの設計判断、README/manifestに明記)。
+/// 入るかで`phaseBin`(0..5)を決める(値は本タスクの設計判断、README/manifestに明記)。
 const PHASE_BIN_LOWER_BOUNDS: [u32; 6] = [50, 40, 30, 20, 10, 1];
 
 fn phase_bin(empties: u32) -> Option<usize> {
@@ -178,6 +179,7 @@ struct CandidateRow {
     game_index: usize,
     phase_bin: usize,
     has_xc_legal_move: bool,
+    opening_key: String,
 }
 
 fn main() -> ExitCode {
@@ -185,6 +187,7 @@ fn main() -> ExitCode {
     let (sub, rest): (&str, &[String]) = match all_args.first().map(String::as_str) {
         Some("extract") => ("extract", &all_args[1..]),
         Some("children") => ("children", &all_args[1..]),
+        Some("canonical") => ("canonical", &all_args[1..]),
         Some(other) if other.starts_with("--") => ("extract", &all_args[..]), // 後方互換
         None => ("extract", &all_args[..]),
         Some(other) => {
@@ -198,8 +201,38 @@ fn main() -> ExitCode {
             cmd_children();
             ExitCode::SUCCESS
         }
+        "canonical" => {
+            cmd_canonical();
+            ExitCode::SUCCESS
+        }
         _ => unreachable!(),
     }
+}
+
+/// 標準入力の局面配列について、Rust正本のD4 canonical keyを返すテスト用API。
+fn cmd_canonical() {
+    let mut input = String::new();
+    io::stdin().read_to_string(&mut input).expect("failed to read stdin");
+    let positions: Value = serde_json::from_str(&input).expect("invalid input JSON");
+    let result: Vec<Value> = positions
+        .as_array()
+        .expect("expected a JSON array")
+        .iter()
+        .map(|pos| {
+            let board = obf_to_board(pos["board"].as_str().expect("position.board missing"));
+            let mover = parse_side(pos["sideToMove"].as_str().expect("position.sideToMove missing"));
+            let sample = Sample {
+                board,
+                mover,
+                outcome: 0.0,
+                last_move_kind: train::train_data::LastMoveKind::Other,
+                vulnerable_xc: false,
+            };
+            let (key, _) = canonicalize(&sample);
+            json!([key.0, key.1, key.2])
+        })
+        .collect();
+    println!("{}", Value::Array(result));
 }
 
 /// T090a: 標準入力のJSON配列 `[{board, sideToMove}, ...]` について、各局面の
@@ -340,6 +373,15 @@ fn cmd_extract(args: &[String]) -> ExitCode {
             };
             total_games_in_year_range += 1;
 
+            // 8プライ後(8手目適用後)の局面をopeningの識別子とする。短い対局は
+            // 最終サンプルへフォールバックする。
+            let opening_sample = &samples[usize::min(7, samples.len() - 1)];
+            let (opening_canonical, _) = canonicalize(opening_sample);
+            let opening_key = format!(
+                "{:016x}:{:016x}:{}",
+                opening_canonical.0, opening_canonical.1, opening_canonical.2
+            );
+
             // フェーズbinごとに、その対局内で合法手が存在する候補局面を集める。
             let mut by_bin: Vec<Vec<&Sample>> = vec![Vec::new(); PHASE_BIN_LOWER_BOUNDS.len()];
             for sample in &samples {
@@ -370,6 +412,7 @@ fn cmd_extract(args: &[String]) -> ExitCode {
                     game_index,
                     phase_bin: bin_idx,
                     has_xc_legal_move: has_xc_legal_move(&pick.board, pick.mover),
+                    opening_key: opening_key.clone(),
                 });
                 picked_for_game += 1;
             }
@@ -409,6 +452,7 @@ fn cmd_extract(args: &[String]) -> ExitCode {
                 "gameIndex": row.game_index,
                 "phaseBin": row.phase_bin,
                 "hasXcLegalMove": row.has_xc_legal_move,
+                "openingKey": row.opening_key,
                 "source": "wthor",
             })
         })
