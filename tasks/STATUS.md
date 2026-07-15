@@ -24,7 +24,7 @@
 
 | ID | タスク | 担当 | 状態 | 試行 |
 |---|---|---|---|---|
-| T105 | 終盤: 増分hash・flip再利用・状態増分更新 | implementer(Sonnetフォールバック) | in_progress(T104完了により実装フェーズへ。baseline=a3a91ef) | 0 |
+| T105 | 終盤: 増分hash・flip再利用・状態増分更新 | implementer(Sonnetフォールバック) | review(NPS1.03倍でゲート未達→基盤整理として採用の裁定、verifier+代替レビュー中) | 0 |
 | T114 | 拡張教師コーパス200k生成(ユーザー裁定2026-07-16: 今すぐ開始) | implementer(Sonnetフォールバック) | in_progress(約10h、checkpoint/resume対応) | 0 |
 
 ## 有効な方針・申し送り(今後のタスクに効くもの)
