@@ -28,6 +28,72 @@ const OUTCOME_ENTRY_BYTES: usize = 8 + 8 + 1 + 4;
 /// (board.black: 8, board.white: 8, mover: 1, outcome: 4, last_move_kind: 1, vulnerable_xc: 1)。
 const TEST_ENTRY_BYTES: usize = 8 + 8 + 1 + 4 + 1 + 1;
 
+/// T109で`train_teacher_mae`列を追加した現行の`metrics.tsv`ヘッダ。
+/// T109以前のrun dir(この列が無い旧ヘッダ)をresumeすると、新しい列数の
+/// データ行が旧ヘッダの下に追記され列がずれてしまう(T109レビュー指摘M1)。
+/// `ensure_metrics_header`でこの定数と既存ヘッダを照合し、不一致なら
+/// resumeを拒否する。
+const METRICS_HEADER: &str = "epoch\tlearning_rate\ttrain_loss\ttrain_teacher_mae\tvalidation_loss\tvalidation_teacher_mae\tvalidation_ranking_mae";
+
+/// T110: `train_distillation`が学習するパターン集合。
+/// `V2`は既存のv2特徴(22インスタンス/6クラス、`engine::patterns::generate_patterns`)、
+/// `V3`はT087で構築したv3特徴(38インスタンス/10クラス、v2 + edge2x + diag567)。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum PatternSet {
+    V2,
+    V3,
+}
+
+/// `--pattern-set`の値をパースする。未指定または`"v2"`は`V2`(無指定時の
+/// 既存動作を変えないための既定値)、`"v3"`は`V3`、それ以外はエラー。
+fn parse_pattern_set(value: Option<String>) -> Result<PatternSet, String> {
+    match value.as_deref() {
+        None | Some("v2") => Ok(PatternSet::V2),
+        Some("v3") => Ok(PatternSet::V3),
+        Some(other) => Err(format!("invalid --pattern-set: {other}")),
+    }
+}
+
+/// 選択されたパターン集合のセル定義を返す。
+fn patterns_for(pattern_set: PatternSet) -> Vec<patterns::PatternCells> {
+    match pattern_set {
+        PatternSet::V2 => patterns::generate_patterns(),
+        PatternSet::V3 => patterns::generate_patterns_for(patterns::PatternConfig::V3),
+    }
+}
+
+/// resume identityに混ぜ込む、pattern-set由来の識別行。
+/// 既定値`V2`では空文字列を返し、無指定時のidentity文字列を従来どおり
+/// 不変に保つ(T109の`train_subset_size`と同じ「既定値では追加しない」流儀)。
+/// `V3`では非空の行を返すことで、pattern-setを取り違えたresume(例:
+/// v3で開始したcheckpoint-dirへ`--pattern-set`無指定でresumeしようとする)を
+/// 既存のidentity不一致チェックで確実に拒否させる。
+fn pattern_set_identity_line(pattern_set: PatternSet) -> String {
+    match pattern_set {
+        PatternSet::V2 => String::new(),
+        PatternSet::V3 => "pattern_set=v3\n".to_string(),
+    }
+}
+
+/// `metrics.tsv`のヘッダを検証・確保する。ファイルが無ければ現行ヘッダで
+/// 新規作成し、既にあれば1行目が現行ヘッダと一致することを確認する
+/// (T109レビュー指摘M1: 旧ヘッダのまま新しい列数の行を追記して列がずれる事故を防ぐ)。
+fn ensure_metrics_header(path: &Path) -> Result<(), String> {
+    if !path.exists() {
+        return atomic_write(path, format!("{METRICS_HEADER}\n").as_bytes());
+    }
+    let existing = fs::read_to_string(path).map_err(|e| e.to_string())?;
+    let header = existing.lines().next().unwrap_or("");
+    if header != METRICS_HEADER {
+        return Err(format!(
+            "metrics.tsv header mismatch in {}: expected \"{METRICS_HEADER}\", found \"{header}\" \
+             (refusing to resume from an incompatible run directory; T109 review finding M1)",
+            path.display()
+        ));
+    }
+    Ok(())
+}
+
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct JsonChild {
@@ -867,6 +933,7 @@ fn run_one(
     identity_base: &str,
     max_epochs: u32,
     l2: f32,
+    pattern_set: PatternSet,
 ) -> Result<(), String> {
     let dir = root.join(format!("{}-seed-{seed}", mix.name));
     fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
@@ -884,7 +951,7 @@ fn run_one(
     }
     atomic_write(&identity_path, identity.as_bytes())?;
 
-    let mut model = Model::new(patterns::generate_patterns());
+    let mut model = Model::new(patterns_for(pattern_set));
     let mut epoch = 0u32;
     let mut learning_rate = DEFAULT_LR;
     let mut best_loss = f64::INFINITY;
@@ -915,12 +982,11 @@ fn run_one(
     }
     let metrics_path = dir.join("metrics.tsv");
     truncate_metrics_after(&metrics_path, epoch)?;
-    if !metrics_path.exists() {
-        // T109: train側のteacher MAEも毎epoch記録する(train_lossは混合損失であり、
-        // 過学習ギャップの直接観測にはvalidation側との比較が別途必要なため)。
-        atomic_write(&metrics_path,
-            b"epoch\tlearning_rate\ttrain_loss\ttrain_teacher_mae\tvalidation_loss\tvalidation_teacher_mae\tvalidation_ranking_mae\n")?;
-    }
+    // T109: train側のteacher MAEも毎epoch記録する(train_lossは混合損失であり、
+    // 過学習ギャップの直接観測にはvalidation側との比較が別途必要なため)。
+    // T110(M1): ヘッダが無ければ現行ヘッダで作成し、あれば現行ヘッダと一致することを
+    // 確認する(不一致なら列ずれを防ぐため明確なエラーで停止する)。
+    ensure_metrics_header(&metrics_path)?;
     while epoch < max_epochs && stale < 5 {
         println!(
             "start mix={} seed={seed} epoch={}/{}",
@@ -1011,6 +1077,7 @@ fn run_all(
     identity: &str,
     max_epochs: u32,
     l2: f32,
+    pattern_set: PatternSet,
 ) -> Result<(), String> {
     for batch in runs.chunks(jobs) {
         thread::scope(|scope| -> Result<(), String> {
@@ -1020,7 +1087,7 @@ fn run_all(
                     scope.spawn(move || {
                         run_one(
                             mix, seed, train, validation, frozen, wthor_2024, root, identity,
-                            max_epochs, l2,
+                            max_epochs, l2, pattern_set,
                         )
                     })
                 })
@@ -1149,6 +1216,14 @@ pub fn run() -> ExitCode {
         }
         None => 42,
     };
+    // T110: 学習するパターン集合(v2/v3)。未指定はv2(既存動作を変えない既定値)。
+    let pattern_set = match parse_pattern_set(arg("--pattern-set")) {
+        Ok(value) => value,
+        Err(error) => {
+            eprintln!("{error}");
+            return ExitCode::FAILURE;
+        }
+    };
     let reference_bytes = match fs::read(&reference_path) {
         Ok(value) => value,
         Err(error) => {
@@ -1215,7 +1290,18 @@ pub fn run() -> ExitCode {
         ),
         None => format!("train_subset_size_target=full\ntrain_full_size={full_train_len}\n"),
     };
-    let manifest = format!("split=fnv1a(canonicalKey)%100:train0-89,validation90-94,frozen95-99\noutcome_policy=canonical averages from WTHOR 2015-2023; keys occurring in 2024 removed with test priority; 2024 reserved for gate c\ntrain={}\nvalidation={}\nfrozen={}\noutcome_matched_train={}\noutcome_matched_validation={}\noutcome_matched_frozen={}\nwthor_2024={}\ncorpus_hash={corpus_hash}\nreference_hash={reference_hash}\nwthor_hash={wthor_hash}\n{subset_manifest_line}",
+    // T110: 学習に使ったパターン集合を記録する(参照モデル`reference`は
+    // pattern_setに関わらず常にpattern_v2.bin/PWV2のまま。engineChoiceの構築と
+    // reference.tsvの比較基準値の算出だけに使い、学習対象モデルの初期化は
+    // pattern_setに関わらず常にゼロ初期化なので、参照重みの役割はv2/v3で変わらない)。
+    let pattern_set_manifest_line = format!(
+        "pattern_set={}\n",
+        match pattern_set {
+            PatternSet::V2 => "v2",
+            PatternSet::V3 => "v3",
+        }
+    );
+    let manifest = format!("split=fnv1a(canonicalKey)%100:train0-89,validation90-94,frozen95-99\noutcome_policy=canonical averages from WTHOR 2015-2023; keys occurring in 2024 removed with test priority; 2024 reserved for gate c\ntrain={}\nvalidation={}\nfrozen={}\noutcome_matched_train={}\noutcome_matched_validation={}\noutcome_matched_frozen={}\nwthor_2024={}\ncorpus_hash={corpus_hash}\nreference_hash={reference_hash}\nwthor_hash={wthor_hash}\n{subset_manifest_line}{pattern_set_manifest_line}",
         train.len(), validation.len(), frozen.len(),
         train.iter().filter(|r| r.outcome.is_some()).count(),
         validation.iter().filter(|r| r.outcome.is_some()).count(),
@@ -1230,15 +1316,15 @@ pub fn run() -> ExitCode {
         reference_frozen.agreement, reference_frozen.regret);
     atomic_write(&root.join("reference.tsv"), reference_row.as_bytes()).unwrap();
     print!("{manifest}");
-    // 引数無し(全量)の場合はidentity文字列を従来どおり不変に保つ(既存動作の
-    // 無引数不変要件)。サブセット指定時のみ、誤って別配置と取り違えて resume
-    // しないよう識別情報を追加する。
+    // 引数無し(全量・v2)の場合はidentity文字列を従来どおり不変に保つ(既存動作の
+    // 無引数不変要件)。サブセット指定時・pattern-set=v3指定時のみ、誤って別配置と
+    // 取り違えて resume しないよう識別情報を追加する。
     let subset_identity = match train_subset_size {
         Some(target) => format!("train_subset_size_target={target}\ntrain_subset_seed={subset_seed}\n"),
         None => String::new(),
     };
-    let identity = format!("corpus_hash={corpus_hash}\nreference_hash={reference_hash}\nwthor_hash={wthor_hash}\ntrain={}\nvalidation={}\nfrozen={}\n{subset_identity}",
-        train.len(), validation.len(), frozen.len());
+    let identity = format!("corpus_hash={corpus_hash}\nreference_hash={reference_hash}\nwthor_hash={wthor_hash}\ntrain={}\nvalidation={}\nfrozen={}\n{subset_identity}{}",
+        train.len(), validation.len(), frozen.len(), pattern_set_identity_line(pattern_set));
     let runs: Vec<_> = mixes
         .into_iter()
         .flat_map(|mix| seeds.iter().map(move |&seed| (mix, seed)))
@@ -1255,6 +1341,7 @@ pub fn run() -> ExitCode {
         &identity,
         max_epochs,
         l2,
+        pattern_set,
     ) {
         eprintln!("{error}");
         return ExitCode::FAILURE;
@@ -1743,5 +1830,87 @@ mod tests {
     fn find_duplicate_seed_detects_repeated_values_only() {
         assert_eq!(find_duplicate_seed(&[1, 2, 3]), None);
         assert_eq!(find_duplicate_seed(&[1, 2, 1]), Some(1));
+    }
+
+    #[test]
+    fn parse_pattern_set_defaults_to_v2_and_rejects_unknown_values() {
+        assert_eq!(parse_pattern_set(None), Ok(PatternSet::V2));
+        assert_eq!(parse_pattern_set(Some("v2".into())), Ok(PatternSet::V2));
+        assert_eq!(parse_pattern_set(Some("v3".into())), Ok(PatternSet::V3));
+        assert!(parse_pattern_set(Some("v4".into())).is_err());
+    }
+
+    #[test]
+    fn patterns_for_v3_has_more_instances_and_classes_than_v2() {
+        let v2 = patterns_for(PatternSet::V2);
+        let v3 = patterns_for(PatternSet::V3);
+        // T087で確定したv2/v3のインスタンス数(22/38)・クラス数(6/10)。
+        assert_eq!(v2.len(), 22);
+        assert_eq!(v3.len(), 38);
+        let v2_classes = patterns::compute_pattern_classes(&v2)
+            .representative_of_class
+            .len();
+        let v3_classes = patterns::compute_pattern_classes(&v3)
+            .representative_of_class
+            .len();
+        assert_eq!(v2_classes, 6);
+        assert_eq!(v3_classes, 10);
+    }
+
+    #[test]
+    fn pattern_set_identity_default_v2_is_empty_but_v3_is_distinct() {
+        // v2(既定値)ではidentity文字列に何も追加しない(無指定時のidentity不変要件)。
+        // v3では非空の行を返し、既存のidentity不一致チェックがpattern-setの
+        // 取り違えresume(例: v3で作ったcheckpoint-dirへ--pattern-set無指定で
+        // resumeしようとする)を確実に拒否できるようにする。
+        assert_eq!(pattern_set_identity_line(PatternSet::V2), "");
+        assert_eq!(pattern_set_identity_line(PatternSet::V3), "pattern_set=v3\n");
+        assert_ne!(
+            pattern_set_identity_line(PatternSet::V2),
+            pattern_set_identity_line(PatternSet::V3)
+        );
+    }
+
+    #[test]
+    fn ensure_metrics_header_creates_current_header_when_file_is_absent() {
+        let dir = env::temp_dir().join(format!("t110-metrics-header-absent-{}", std::process::id()));
+        fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("metrics.tsv");
+        ensure_metrics_header(&path).unwrap();
+        assert_eq!(
+            fs::read_to_string(&path).unwrap(),
+            format!("{METRICS_HEADER}\n")
+        );
+        fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn ensure_metrics_header_accepts_matching_header_without_modifying_file() {
+        let dir = env::temp_dir().join(format!("t110-metrics-header-match-{}", std::process::id()));
+        fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("metrics.tsv");
+        let body = format!("{METRICS_HEADER}\n1\t0.005\t1.0\t2.0\t3.0\t4.0\t5.0\n");
+        fs::write(&path, &body).unwrap();
+        ensure_metrics_header(&path).unwrap();
+        assert_eq!(fs::read_to_string(&path).unwrap(), body);
+        fs::remove_dir_all(&dir).ok();
+    }
+
+    /// T109レビュー指摘M1: T109より前のrun dir(`train_teacher_mae`列が無い旧ヘッダ)を
+    /// resumeしようとすると、明確なエラーで停止し、列がずれた行を黙って追記しない。
+    #[test]
+    fn ensure_metrics_header_rejects_pre_t109_header_without_train_teacher_mae_column() {
+        let dir = env::temp_dir().join(format!("t110-metrics-header-stale-{}", std::process::id()));
+        fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("metrics.tsv");
+        let stale_header =
+            "epoch\tlearning_rate\ttrain_loss\tvalidation_loss\tvalidation_teacher_mae\tvalidation_ranking_mae";
+        fs::write(&path, format!("{stale_header}\n1\t0.005\t1.0\t2.0\t3.0\t4.0\n")).unwrap();
+        let error = ensure_metrics_header(&path).unwrap_err();
+        assert!(
+            error.contains("header mismatch"),
+            "unexpected error message: {error}"
+        );
+        fs::remove_dir_all(&dir).ok();
     }
 }
