@@ -18,7 +18,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 COMPARE = ROOT / "bench" / "edax-compare"
-EVAL_CLI = ROOT / "target" / "release" / "eval_cli.exe"
+EVAL_CLI = Path(os.environ.get("T098_EVAL_CLI", ROOT / "target" / "release" / "eval_cli.exe"))
 EDAX_DIR = COMPARE / "edax-extract"
 EDAX_EXE = EDAX_DIR / "wEdax-x86-64.exe"
 EDAX_EVAL = EDAX_DIR / "data" / "eval.dat"
@@ -56,7 +56,7 @@ def sha256(path: Path) -> str:
 def atomic_json(path: Path, value: dict) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     temp = path.with_name(f"{path.name}.{os.getpid()}.tmp")
-    temp.write_text(json.dumps(value, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    temp.write_text(json.dumps(value, indent=2, ensure_ascii=False) + "\n", encoding="utf-8", newline="\n")
     os.replace(temp, path)
 
 
@@ -132,10 +132,17 @@ def parse_edax_output(output: str, positions: list[dict]) -> list[dict]:
         elapsed = int(row.group(3)) * 60.0 + float(row.group(4))
         parsed.append({
             "id": position["id"],
+            "depth": int(row.group(1)),
             "score": int(row.group(2)),
             "elapsedSeconds": elapsed,
             "nodes": int(row.group(5)),
         })
+        empties = position.get("empties")
+        if empties is not None and int(row.group(1)) < empties:
+            raise RuntimeError(
+                f"Edax did not reach an exact depth for {position['id']}: "
+                f"depth={row.group(1)} empties={empties}"
+            )
     return parsed
 
 
@@ -158,6 +165,11 @@ def edax_batch(positions: list[dict]) -> list[dict]:
             "-book-usage", "off", "-vv",
         ]
         result = subprocess.run(command, cwd=EDAX_DIR, text=True, capture_output=True)
+        if result.returncode != 0:
+            raise RuntimeError(
+                f"Edax batch failed ({result.returncode})\n"
+                f"stdout={result.stdout}\nstderr={result.stderr}"
+            )
         return parse_edax_output(result.stdout, positions)
     finally:
         path.unlink(missing_ok=True)
@@ -218,7 +230,7 @@ def checkpoint_identity(weights: Path) -> dict:
     }
 
 
-def create_manifest(path: Path, batch_size: int, stop_after: int | None) -> None:
+def create_manifest(path: Path, batch_size: int, stop_after: int | None, refresh: bool) -> None:
     ensure_tools(edax=True)
     source = read_json(T096)
     source_positions = source["positions"]
@@ -228,7 +240,9 @@ def create_manifest(path: Path, batch_size: int, stop_after: int | None) -> None
         existing = read_json(path)
         existing_rows = {row["id"]: row for row in existing.get("positions", [])}
         verification = existing.get("signConventionVerification", verification)
-    pending = [position for position in source_positions if position["id"] not in existing_rows]
+    pending = list(source_positions) if refresh else [
+        position for position in source_positions if position["id"] not in existing_rows
+    ]
     processed = 0
     while pending:
         allowed = batch_size
@@ -238,9 +252,17 @@ def create_manifest(path: Path, batch_size: int, stop_after: int | None) -> None
             break
         batch = pending[:allowed]
         for result, position in zip(edax_batch(batch), batch):
+            previous = existing_rows.get(position["id"])
+            if previous is not None and previous.get("exactScore") != result["score"]:
+                raise RuntimeError(
+                    f"Edax truth changed for {position['id']}: "
+                    f"old={previous.get('exactScore')} new={result['score']}"
+                )
             row = dict(position)
             row["exactScore"] = result["score"]
             row["scorePerspective"] = "side_to_move"
+            row["edaxDepth"] = result["depth"]
+            row["edaxNodes"] = result["nodes"]
             existing_rows[row["id"]] = row
             processed += 1
             document = {
@@ -264,7 +286,9 @@ def create_manifest(path: Path, batch_size: int, stop_after: int | None) -> None
             }
             atomic_json(path, document)
             print(f"[manifest] saved {len(existing_rows)}/{len(source_positions)} {row['id']}", flush=True)
-        pending = [position for position in source_positions if position["id"] not in existing_rows]
+        pending = pending[len(batch):] if refresh else [
+            position for position in source_positions if position["id"] not in existing_rows
+        ]
     if len(existing_rows) == len(source_positions):
         print(f"manifest complete: {len(existing_rows)} positions", flush=True)
 
@@ -480,6 +504,32 @@ def percentile90(values: list[float]) -> float | None:
     return ordered[math.ceil(0.9 * len(ordered)) - 1]
 
 
+def numeric_distribution(values: list[int]) -> dict:
+    return {
+        "count": len(values),
+        "median": statistics.median(values) if values else None,
+        "p90": percentile90(values),
+    }
+
+
+def validate_complete(checkpoint: Checkpoint) -> None:
+    sections = checkpoint.value.get("sections", {})
+    expected = {
+        "c1": {job["key"] for job in c1_jobs(5_000_000)},
+        "c2": {job["key"] for job in c2_jobs()},
+        "c3": {position["id"] for position in read_json(C3_POSITIONS)["positions"]},
+    }
+    for section, expected_keys in expected.items():
+        actual_keys = set(sections.get(section, {}))
+        if actual_keys != expected_keys:
+            missing = sorted(expected_keys - actual_keys)
+            extra = sorted(actual_keys - expected_keys)
+            raise RuntimeError(
+                f"incomplete {section} checkpoint: expected={len(expected_keys)} "
+                f"actual={len(actual_keys)} missing={missing[:5]} extra={extra[:5]}"
+            )
+
+
 def e50(rows: list[dict], budget: int, exact: bool) -> int | None:
     relevant = [row for row in rows if row["budget"] == budget]
     by_position = {}
@@ -512,6 +562,7 @@ def aggregate(checkpoint: Checkpoint) -> dict:
     speed = list(sections.get("speed", {}).values())
 
     c2_rates = []
+    c2_node_groups = []
     for budget in (64000, 160000, 512000):
         for window in ("fail_high", "fail_low", "full"):
             group = [row for row in c2 if row["budget"] == budget and row["windowKind"] == window]
@@ -519,6 +570,24 @@ def aggregate(checkpoint: Checkpoint) -> dict:
                 "budget": budget, "windowKind": window, "completed": sum(row["run"]["completed"] for row in group),
                 "total": len(group), "completionRate": completion_rate(group),
             })
+            for empties in sorted({row["empties"] for row in group}):
+                subgroup = [row for row in group if row["empties"] == empties]
+                nodes = [row["run"]["nodes"] for row in subgroup]
+                c2_node_groups.append({
+                    "empties": empties,
+                    "budget": budget,
+                    "windowKind": window,
+                    "nodes": numeric_distribution(nodes),
+                    "positions": [
+                        {
+                            "id": row["id"],
+                            "nodes": row["run"]["nodes"],
+                            "completed": row["run"]["completed"],
+                            "bound": row["run"]["bound"],
+                        }
+                        for row in sorted(subgroup, key=lambda value: value["id"])
+                    ],
+                })
 
     expected_speed_ids = {position["id"] for position in speed_positions()}
     speed_ids_by_run = {}
@@ -560,6 +629,35 @@ def aggregate(checkpoint: Checkpoint) -> dict:
     mean_regret = sum(row["oracleRegret"] for row in c3) / len(c3) if c3 else None
     deterministic_rate = sum(row["deterministic"] for row in c3) / len(c3) if c3 else None
     wall_rate = sum(row["wallInsuranceFired"] for row in c3) / len(c3) if c3 else None
+    c3_runs = [row["run1"] for row in c3]
+    c3_telemetry = {
+        "depth": numeric_distribution([row["depth"] for row in c3_runs]),
+        "lastCompletedDepth": numeric_distribution([row["lastCompletedDepth"] for row in c3_runs]),
+        "exactRootAttempts": sum(row["exactRootAttempts"] for row in c3_runs),
+        "exactRootCompleted": sum(bool(row["exactRootCompleted"]) for row in c3_runs),
+        "exactLeafAttempts": sum(row["exactLeafAttempts"] for row in c3_runs),
+        "exactLeafCompleted": sum(row["exactLeafCompleted"] for row in c3_runs),
+        "exactBoundProofCompleted": sum(row["exactBoundProofCompleted"] for row in c3_runs),
+        "exactAbortedByQuota": sum(row["exactAbortedByQuota"] for row in c3_runs),
+        "nodeLimitHit": sum(bool(row["nodeLimitHit"]) for row in c3_runs),
+        "wallLimitHit": sum(bool(row["wallLimitHit"]) for row in c3_runs),
+        "rows": [
+            {
+                "id": source["id"],
+                "depth": run["depth"],
+                "lastCompletedDepth": run["lastCompletedDepth"],
+                "exactRootAttempts": run["exactRootAttempts"],
+                "exactRootCompleted": run["exactRootCompleted"],
+                "exactLeafAttempts": run["exactLeafAttempts"],
+                "exactLeafCompleted": run["exactLeafCompleted"],
+                "exactBoundProofCompleted": run["exactBoundProofCompleted"],
+                "exactAbortedByQuota": run["exactAbortedByQuota"],
+                "nodeLimitHit": run["nodeLimitHit"],
+                "wallLimitHit": run["wallLimitHit"],
+            }
+            for source, run in zip(c3, c3_runs)
+        ],
+    }
     minimum_c2_empties = min((row["empties"] for row in c2), default=None)
     return {
         "c1": {
@@ -568,6 +666,7 @@ def aggregate(checkpoint: Checkpoint) -> dict:
         },
         "c2": {
             "rates": c2_rates,
+            "nodeDistributions": c2_node_groups,
             "E50Exact160k": e50(c2, 160000, True),
             "E50Bound64k": e50(c2, 64000, False),
             "nullE50MeansBelowCorpusMinimum": minimum_c2_empties,
@@ -576,6 +675,7 @@ def aggregate(checkpoint: Checkpoint) -> dict:
         "c3": {
             "meanOracleRegret": mean_regret, "deterministicRate": deterministic_rate,
             "wallInsuranceRate": wall_rate, "rowsCompleted": len(c3), "rowsExpected": 48,
+            "telemetry": c3_telemetry,
         },
         "speed20To24": {
             "positionRows": speed_rows,
@@ -585,6 +685,12 @@ def aggregate(checkpoint: Checkpoint) -> dict:
             "completeRepetitionsUsed": complete_repetitions,
             "partialRepetitionsExcluded": partial_repetitions,
             "repetitionCountUsed": len(complete_repetitions),
+            "informative": True,
+            "measurementHarnessSha256": "14457ef473db9f608a29b50db4ef594e7f46bcbaadb37bc086fa4c0a01f2b883",
+            "note": (
+                "Informative pre-commit-harness timing retained by redo ruling; "
+                "the formal warmup plus three alternating-order repetitions run is deferred to T108."
+            ),
             "protocol": (
                 "native and Edax internal wall time; one warmup; per-position median; "
                 "T098 2026-07-15 waiver permits completed repetitions (minimum one); "
@@ -594,7 +700,9 @@ def aggregate(checkpoint: Checkpoint) -> dict:
     }
 
 
-def write_report(checkpoint: Checkpoint, output: Path) -> None:
+def write_report(checkpoint: Checkpoint, output: Path, allow_partial: bool) -> None:
+    if not allow_partial:
+        validate_complete(checkpoint)
     manifest = read_json(POSITIONS)
     report = {
         "schemaVersion": 1,
@@ -632,6 +740,7 @@ def parse_args() -> argparse.Namespace:
     manifest.add_argument("--output", type=Path, default=POSITIONS)
     manifest.add_argument("--batch-size", type=int, default=10)
     manifest.add_argument("--stop-after", type=int)
+    manifest.add_argument("--refresh", action="store_true", help="regenerate and compare all Edax truths")
 
     verify = subparsers.add_parser("verify-sign", help="cross-check Edax side-to-move scores with native full-window solves")
     verify.add_argument("--manifest", type=Path, default=POSITIONS)
@@ -649,6 +758,7 @@ def parse_args() -> argparse.Namespace:
     report.add_argument("--checkpoint", type=Path, default=DEFAULT_CHECKPOINT)
     report.add_argument("--weights", type=Path, default=DEFAULT_WEIGHTS)
     report.add_argument("--output", type=Path, default=DEFAULT_REPORT)
+    report.add_argument("--allow-partial", action="store_true")
     return parser.parse_args()
 
 
@@ -657,7 +767,7 @@ def main() -> None:
     if args.command == "manifest":
         if args.batch_size <= 0:
             raise ValueError("--batch-size must be positive")
-        create_manifest(args.output, args.batch_size, args.stop_after)
+        create_manifest(args.output, args.batch_size, args.stop_after, args.refresh)
         return
     if args.command == "verify-sign":
         verify_manifest_sign(args.manifest, args.count)
@@ -667,13 +777,9 @@ def main() -> None:
     if not POSITIONS.exists() or len(read_json(POSITIONS).get("positions", [])) != 60:
         raise RuntimeError("endgame_positions.json is incomplete; run the manifest command first")
     identity = checkpoint_identity(args.weights)
-    checkpoint = Checkpoint(
-        args.checkpoint,
-        identity,
-        allow_harness_mismatch=args.command == "report",
-    )
+    checkpoint = Checkpoint(args.checkpoint, identity)
     if args.command == "report":
-        write_report(checkpoint, args.output)
+        write_report(checkpoint, args.output, args.allow_partial)
         return
 
     suites = ("c1", "c2", "c3", "speed") if args.suite == "all" else (args.suite,)

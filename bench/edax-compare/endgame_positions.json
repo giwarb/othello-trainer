@@ -30,7 +30,9 @@
       "gameIndex": 948,
       "auditFilteredIndex": 4452,
       "exactScore": 28,
-      "scorePerspective": "side_to_move"
+      "scorePerspective": "side_to_move",
+      "edaxDepth": 18,
+      "edaxNodes": 677188
     },
     {
       "id": "t096-exact-02",
@@ -47,7 +49,9 @@
       "gameIndex": 2458,
       "auditFilteredIndex": 14683,
       "exactScore": 42,
-      "scorePerspective": "side_to_move"
+      "scorePerspective": "side_to_move",
+      "edaxDepth": 18,
+      "edaxNodes": 972566
     },
     {
       "id": "t096-exact-03",
@@ -64,7 +68,9 @@
       "gameIndex": 226,
       "auditFilteredIndex": 3786,
       "exactScore": 12,
-      "scorePerspective": "side_to_move"
+      "scorePerspective": "side_to_move",
+      "edaxDepth": 19,
+      "edaxNodes": 818400
     },
     {
       "id": "t096-exact-04",
@@ -81,7 +87,9 @@
       "gameIndex": 582,
       "auditFilteredIndex": 4108,
       "exactScore": 8,
-      "scorePerspective": "side_to_move"
+      "scorePerspective": "side_to_move",
+      "edaxDepth": 19,
+      "edaxNodes": 1435569
     },
     {
       "id": "t096-exact-05",
@@ -98,7 +106,9 @@
       "gameIndex": 2176,
       "auditFilteredIndex": 5590,
       "exactScore": -24,
-      "scorePerspective": "side_to_move"
+      "scorePerspective": "side_to_move",
+      "edaxDepth": 19,
+      "edaxNodes": 1458138
     },
     {
       "id": "t096-exact-06",
@@ -115,7 +125,9 @@
       "gameIndex": 429,
       "auditFilteredIndex": 8401,
       "exactScore": -10,
-      "scorePerspective": "side_to_move"
+      "scorePerspective": "side_to_move",
+      "edaxDepth": 19,
+      "edaxNodes": 666934
     },
     {
       "id": "t096-exact-07",
@@ -132,7 +144,9 @@
       "gameIndex": 191,
       "auditFilteredIndex": 11455,
       "exactScore": 10,
-      "scorePerspective": "side_to_move"
+      "scorePerspective": "side_to_move",
+      "edaxDepth": 19,
+      "edaxNodes": 845683
     },
     {
       "id": "t096-exact-08",
@@ -149,7 +163,9 @@
       "gameIndex": 24,
       "auditFilteredIndex": 12535,
       "exactScore": 16,
-      "scorePerspective": "side_to_move"
+      "scorePerspective": "side_to_move",
+      "edaxDepth": 19,
+      "edaxNodes": 832593
     },
     {
       "id": "t096-exact-09",
@@ -166,7 +182,9 @@
       "gameIndex": 548,
       "auditFilteredIndex": 13004,
       "exactScore": 10,
-      "scorePerspective": "side_to_move"
+      "scorePerspective": "side_to_move",
+      "edaxDepth": 19,
+      "edaxNodes": 2810704
     },
     {
       "id": "t096-exact-10",
@@ -183,7 +201,9 @@
       "gameIndex": 1165,
       "auditFilteredIndex": 13548,
       "exactScore": 32,
-      "scorePerspective": "side_to_move"
+      "scorePerspective": "side_to_move",
+      "edaxDepth": 19,
+      "edaxNodes": 2206536
     },
     {
       "id": "t096-exact-11",
@@ -200,7 +220,9 @@
       "gameIndex": 408,
       "auditFilteredIndex": 15067,
       "exactScore": 4,
-      "scorePerspective": "side_to_move"
+      "scorePerspective": "side_to_move",
+      "edaxDepth": 19,
+      "edaxNodes": 2164524
     },
     {
       "id": "t096-exact-12",
@@ -217,7 +239,9 @@
       "gameIndex": 648,
       "auditFilteredIndex": 15292,
       "exactScore": 12,
-      "scorePerspective": "side_to_move"
+      "scorePerspective": "side_to_move",
+      "edaxDepth": 19,
+      "edaxNodes": 678149
     },
     {
       "id": "t096-exact-13",
@@ -234,7 +258,9 @@
       "gameIndex": 2520,
       "auditFilteredIndex": 16972,
       "exactScore": 10,
-      "scorePerspective": "side_to_move"
+      "scorePerspective": "side_to_move",
+      "edaxDepth": 19,
+      "edaxNodes": 2402510
     },
     {
       "id": "t096-exact-14",
@@ -251,7 +277,9 @@
       "gameIndex": 357,
       "auditFilteredIndex": 335,
       "exactScore": 20,
-      "scorePerspective": "side_to_move"
+      "scorePerspective": "side_to_move",
+      "edaxDepth": 20,
+      "edaxNodes": 1748432
     },
     {
       "id": "t096-exact-15",
@@ -268,7 +296,9 @@
       "gameIndex": 1815,
       "auditFilteredIndex": 7450,
       "exactScore": -60,
-      "scorePerspective": "side_to_move"
+      "scorePerspective": "side_to_move",
+      "edaxDepth": 20,
+      "edaxNodes": 1283119
     },
     {
       "id": "t096-exact-16",
@@ -285,7 +315,9 @@
       "gameIndex": 2157,
       "auditFilteredIndex": 7756,
       "exactScore": -24,
-      "scorePerspective": "side_to_move"
+      "scorePerspective": "side_to_move",
+      "edaxDepth": 20,
+      "edaxNodes": 4641548
     },
     {
       "id": "t096-exact-17",
@@ -302,7 +334,9 @@
       "gameIndex": 224,
       "auditFilteredIndex": 11485,
       "exactScore": 4,
-      "scorePerspective": "side_to_move"
+      "scorePerspective": "side_to_move",
+      "edaxDepth": 20,
+      "edaxNodes": 4906158
     },
     {
       "id": "t096-exact-18",
@@ -319,7 +353,9 @@
       "gameIndex": 714,
       "auditFilteredIndex": 13158,
       "exactScore": 26,
-      "scorePerspective": "side_to_move"
+      "scorePerspective": "side_to_move",
+      "edaxDepth": 20,
+      "edaxNodes": 3289660
     },
     {
       "id": "t096-exact-19",
@@ -336,7 +372,9 @@
       "gameIndex": 1911,
       "auditFilteredIndex": 14193,
       "exactScore": -42,
-      "scorePerspective": "side_to_move"
+      "scorePerspective": "side_to_move",
+      "edaxDepth": 20,
+      "edaxNodes": 2545949
     },
     {
       "id": "t096-exact-20",
@@ -353,7 +391,9 @@
       "gameIndex": 2867,
       "auditFilteredIndex": 17287,
       "exactScore": -8,
-      "scorePerspective": "side_to_move"
+      "scorePerspective": "side_to_move",
+      "edaxDepth": 20,
+      "edaxNodes": 1498034
     },
     {
       "id": "t096-exact-21",
@@ -370,7 +410,9 @@
       "gameIndex": 651,
       "auditFilteredIndex": 606,
       "exactScore": 16,
-      "scorePerspective": "side_to_move"
+      "scorePerspective": "side_to_move",
+      "edaxDepth": 21,
+      "edaxNodes": 7434603
     },
     {
       "id": "t096-exact-22",
@@ -387,7 +429,9 @@
       "gameIndex": 959,
       "auditFilteredIndex": 875,
       "exactScore": -2,
-      "scorePerspective": "side_to_move"
+      "scorePerspective": "side_to_move",
+      "edaxDepth": 21,
+      "edaxNodes": 4284400
     },
     {
       "id": "t096-exact-23",
@@ -404,7 +448,9 @@
       "gameIndex": 1526,
       "auditFilteredIndex": 7206,
       "exactScore": -32,
-      "scorePerspective": "side_to_move"
+      "scorePerspective": "side_to_move",
+      "edaxDepth": 21,
+      "edaxNodes": 1998312
     },
     {
       "id": "t096-exact-24",
@@ -421,7 +467,9 @@
       "gameIndex": 456,
       "auditFilteredIndex": 12909,
       "exactScore": 50,
-      "scorePerspective": "side_to_move"
+      "scorePerspective": "side_to_move",
+      "edaxDepth": 21,
+      "edaxNodes": 8480488
     },
     {
       "id": "t096-exact-25",
@@ -438,7 +486,9 @@
       "gameIndex": 899,
       "auditFilteredIndex": 6644,
       "exactScore": -8,
-      "scorePerspective": "side_to_move"
+      "scorePerspective": "side_to_move",
+      "edaxDepth": 22,
+      "edaxNodes": 8396029
     },
     {
       "id": "t096-exact-26",
@@ -455,7 +505,9 @@
       "gameIndex": 983,
       "auditFilteredIndex": 6734,
       "exactScore": -2,
-      "scorePerspective": "side_to_move"
+      "scorePerspective": "side_to_move",
+      "edaxDepth": 22,
+      "edaxNodes": 30723041
     },
     {
       "id": "t096-exact-27",
@@ -472,7 +524,9 @@
       "gameIndex": 2005,
       "auditFilteredIndex": 7620,
       "exactScore": 16,
-      "scorePerspective": "side_to_move"
+      "scorePerspective": "side_to_move",
+      "edaxDepth": 22,
+      "edaxNodes": 4689174
     },
     {
       "id": "t096-exact-28",
@@ -489,7 +543,9 @@
       "gameIndex": 770,
       "auditFilteredIndex": 11987,
       "exactScore": 22,
-      "scorePerspective": "side_to_move"
+      "scorePerspective": "side_to_move",
+      "edaxDepth": 22,
+      "edaxNodes": 13377672
     },
     {
       "id": "t096-exact-29",
@@ -506,7 +562,9 @@
       "gameIndex": 1323,
       "auditFilteredIndex": 13667,
       "exactScore": 38,
-      "scorePerspective": "side_to_move"
+      "scorePerspective": "side_to_move",
+      "edaxDepth": 22,
+      "edaxNodes": 5154713
     },
     {
       "id": "t096-exact-30",
@@ -523,7 +581,9 @@
       "gameIndex": 1614,
       "auditFilteredIndex": 13923,
       "exactScore": -20,
-      "scorePerspective": "side_to_move"
+      "scorePerspective": "side_to_move",
+      "edaxDepth": 22,
+      "edaxNodes": 8369068
     },
     {
       "id": "t096-exact-31",
@@ -540,7 +600,9 @@
       "gameIndex": 809,
       "auditFilteredIndex": 15432,
       "exactScore": 24,
-      "scorePerspective": "side_to_move"
+      "scorePerspective": "side_to_move",
+      "edaxDepth": 22,
+      "edaxNodes": 8867747
     },
     {
       "id": "t096-exact-32",
@@ -557,7 +619,9 @@
       "gameIndex": 1604,
       "auditFilteredIndex": 16160,
       "exactScore": 20,
-      "scorePerspective": "side_to_move"
+      "scorePerspective": "side_to_move",
+      "edaxDepth": 22,
+      "edaxNodes": 15164376
     },
     {
       "id": "t096-exact-33",
@@ -574,7 +638,9 @@
       "gameIndex": 2622,
       "auditFilteredIndex": 17066,
       "exactScore": -42,
-      "scorePerspective": "side_to_move"
+      "scorePerspective": "side_to_move",
+      "edaxDepth": 22,
+      "edaxNodes": 13547703
     },
     {
       "id": "t096-exact-34",
@@ -591,7 +657,9 @@
       "gameIndex": 2852,
       "auditFilteredIndex": 17273,
       "exactScore": -24,
-      "scorePerspective": "side_to_move"
+      "scorePerspective": "side_to_move",
+      "edaxDepth": 22,
+      "edaxNodes": 19628836
     },
     {
       "id": "t096-exact-35",
@@ -608,7 +676,9 @@
       "gameIndex": 572,
       "auditFilteredIndex": 537,
       "exactScore": 2,
-      "scorePerspective": "side_to_move"
+      "scorePerspective": "side_to_move",
+      "edaxDepth": 23,
+      "edaxNodes": 17937715
     },
     {
       "id": "t096-exact-36",
@@ -625,7 +695,9 @@
       "gameIndex": 2195,
       "auditFilteredIndex": 5609,
       "exactScore": 22,
-      "scorePerspective": "side_to_move"
+      "scorePerspective": "side_to_move",
+      "edaxDepth": 23,
+      "edaxNodes": 28847461
     },
     {
       "id": "t096-exact-37",
@@ -642,7 +714,9 @@
       "gameIndex": 165,
       "auditFilteredIndex": 8174,
       "exactScore": 16,
-      "scorePerspective": "side_to_move"
+      "scorePerspective": "side_to_move",
+      "edaxDepth": 23,
+      "edaxNodes": 44205082
     },
     {
       "id": "t096-exact-38",
@@ -659,7 +733,9 @@
       "gameIndex": 419,
       "auditFilteredIndex": 15076,
       "exactScore": 4,
-      "scorePerspective": "side_to_move"
+      "scorePerspective": "side_to_move",
+      "edaxDepth": 23,
+      "edaxNodes": 14783317
     },
     {
       "id": "t096-exact-39",
@@ -676,7 +752,9 @@
       "gameIndex": 1025,
       "auditFilteredIndex": 15627,
       "exactScore": 4,
-      "scorePerspective": "side_to_move"
+      "scorePerspective": "side_to_move",
+      "edaxDepth": 23,
+      "edaxNodes": 27430806
     },
     {
       "id": "t096-exact-40",
@@ -693,7 +771,9 @@
       "gameIndex": 1207,
       "auditFilteredIndex": 15799,
       "exactScore": 30,
-      "scorePerspective": "side_to_move"
+      "scorePerspective": "side_to_move",
+      "edaxDepth": 23,
+      "edaxNodes": 8319816
     },
     {
       "id": "t096-exact-41",
@@ -710,7 +790,9 @@
       "gameIndex": 859,
       "auditFilteredIndex": 4374,
       "exactScore": 16,
-      "scorePerspective": "side_to_move"
+      "scorePerspective": "side_to_move",
+      "edaxDepth": 24,
+      "edaxNodes": 15438181
     },
     {
       "id": "t096-exact-42",
@@ -727,7 +809,9 @@
       "gameIndex": 2254,
       "auditFilteredIndex": 7846,
       "exactScore": 24,
-      "scorePerspective": "side_to_move"
+      "scorePerspective": "side_to_move",
+      "edaxDepth": 24,
+      "edaxNodes": 122654667
     },
     {
       "id": "t096-exact-43",
@@ -744,7 +828,9 @@
       "gameIndex": 1156,
       "auditFilteredIndex": 9056,
       "exactScore": -10,
-      "scorePerspective": "side_to_move"
+      "scorePerspective": "side_to_move",
+      "edaxDepth": 24,
+      "edaxNodes": 22559526
     },
     {
       "id": "t096-exact-44",
@@ -761,7 +847,9 @@
       "gameIndex": 268,
       "auditFilteredIndex": 10083,
       "exactScore": -18,
-      "scorePerspective": "side_to_move"
+      "scorePerspective": "side_to_move",
+      "edaxDepth": 24,
+      "edaxNodes": 16129232
     },
     {
       "id": "t096-exact-45",
@@ -778,7 +866,9 @@
       "gameIndex": 397,
       "auditFilteredIndex": 10206,
       "exactScore": 50,
-      "scorePerspective": "side_to_move"
+      "scorePerspective": "side_to_move",
+      "edaxDepth": 24,
+      "edaxNodes": 120025774
     },
     {
       "id": "t096-exact-46",
@@ -795,7 +885,9 @@
       "gameIndex": 5,
       "auditFilteredIndex": 10662,
       "exactScore": -12,
-      "scorePerspective": "side_to_move"
+      "scorePerspective": "side_to_move",
+      "edaxDepth": 24,
+      "edaxNodes": 47169329
     },
     {
       "id": "t096-exact-47",
@@ -812,7 +904,9 @@
       "gameIndex": 1170,
       "auditFilteredIndex": 13552,
       "exactScore": -46,
-      "scorePerspective": "side_to_move"
+      "scorePerspective": "side_to_move",
+      "edaxDepth": 24,
+      "edaxNodes": 27121819
     },
     {
       "id": "t096-exact-48",
@@ -829,7 +923,9 @@
       "gameIndex": 69,
       "auditFilteredIndex": 1811,
       "exactScore": 32,
-      "scorePerspective": "side_to_move"
+      "scorePerspective": "side_to_move",
+      "edaxDepth": 25,
+      "edaxNodes": 153569815
     },
     {
       "id": "t096-exact-49",
@@ -846,7 +942,9 @@
       "gameIndex": 568,
       "auditFilteredIndex": 6372,
       "exactScore": 4,
-      "scorePerspective": "side_to_move"
+      "scorePerspective": "side_to_move",
+      "edaxDepth": 25,
+      "edaxNodes": 38784575
     },
     {
       "id": "t096-exact-50",
@@ -863,7 +961,9 @@
       "gameIndex": 1629,
       "auditFilteredIndex": 7300,
       "exactScore": 10,
-      "scorePerspective": "side_to_move"
+      "scorePerspective": "side_to_move",
+      "edaxDepth": 25,
+      "edaxNodes": 86862291
     },
     {
       "id": "t096-exact-51",
@@ -880,7 +980,9 @@
       "gameIndex": 1508,
       "auditFilteredIndex": 9379,
       "exactScore": 32,
-      "scorePerspective": "side_to_move"
+      "scorePerspective": "side_to_move",
+      "edaxDepth": 25,
+      "edaxNodes": 453607459
     },
     {
       "id": "t096-exact-52",
@@ -897,7 +999,9 @@
       "gameIndex": 1598,
       "auditFilteredIndex": 9466,
       "exactScore": 10,
-      "scorePerspective": "side_to_move"
+      "scorePerspective": "side_to_move",
+      "edaxDepth": 25,
+      "edaxNodes": 106277478
     },
     {
       "id": "t096-exact-53",
@@ -914,7 +1018,9 @@
       "gameIndex": 171,
       "auditFilteredIndex": 12655,
       "exactScore": -22,
-      "scorePerspective": "side_to_move"
+      "scorePerspective": "side_to_move",
+      "edaxDepth": 25,
+      "edaxNodes": 104443061
     },
     {
       "id": "t096-exact-54",
@@ -931,7 +1037,9 @@
       "gameIndex": 958,
       "auditFilteredIndex": 15562,
       "exactScore": -40,
-      "scorePerspective": "side_to_move"
+      "scorePerspective": "side_to_move",
+      "edaxDepth": 25,
+      "edaxNodes": 48996649
     },
     {
       "id": "t096-exact-55",
@@ -948,7 +1056,9 @@
       "gameIndex": 1526,
       "auditFilteredIndex": 3136,
       "exactScore": 20,
-      "scorePerspective": "side_to_move"
+      "scorePerspective": "side_to_move",
+      "edaxDepth": 26,
+      "edaxNodes": 275129245
     },
     {
       "id": "t096-exact-56",
@@ -965,7 +1075,9 @@
       "gameIndex": 2016,
       "auditFilteredIndex": 7628,
       "exactScore": -14,
-      "scorePerspective": "side_to_move"
+      "scorePerspective": "side_to_move",
+      "edaxDepth": 26,
+      "edaxNodes": 427279762
     },
     {
       "id": "t096-exact-57",
@@ -982,7 +1094,9 @@
       "gameIndex": 117,
       "auditFilteredIndex": 11382,
       "exactScore": 16,
-      "scorePerspective": "side_to_move"
+      "scorePerspective": "side_to_move",
+      "edaxDepth": 26,
+      "edaxNodes": 720295815
     },
     {
       "id": "t096-exact-58",
@@ -999,7 +1113,9 @@
       "gameIndex": 1388,
       "auditFilteredIndex": 13731,
       "exactScore": 2,
-      "scorePerspective": "side_to_move"
+      "scorePerspective": "side_to_move",
+      "edaxDepth": 26,
+      "edaxNodes": 456170911
     },
     {
       "id": "t096-exact-59",
@@ -1016,7 +1132,9 @@
       "gameIndex": 444,
       "auditFilteredIndex": 15103,
       "exactScore": 6,
-      "scorePerspective": "side_to_move"
+      "scorePerspective": "side_to_move",
+      "edaxDepth": 26,
+      "edaxNodes": 97543326
     },
     {
       "id": "t096-exact-60",
@@ -1033,7 +1151,9 @@
       "gameIndex": 800,
       "auditFilteredIndex": 15422,
       "exactScore": 38,
-      "scorePerspective": "side_to_move"
+      "scorePerspective": "side_to_move",
+      "edaxDepth": 26,
+      "edaxNodes": 319809299
     }
   ],
   "signConventionVerification": {

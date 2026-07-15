@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "title": "T098 endgame solver baseline",
-  "generatedAt": "2026-07-15T10:48:55+00:00",
+  "generatedAt": "2026-07-15T11:32:10+00:00",
   "status": "baseline",
   "contract": {
     "C1": "FFO #40-49 full window; #45-49 may use a recorded node cap",
@@ -11,21 +11,21 @@
     "E50Exact": "largest empties where >=50% complete both proofs with summed nodes <= budget"
   },
   "provenance": {
-    "harnessSha256": "14457ef473db9f608a29b50db4ef594e7f46bcbaadb37bc086fa4c0a01f2b883",
-    "evalCliSha256": "dc82a4e06ce2f2d961cbcaddda3322bf22211c00a16a5a80971693e2526005e5",
-    "positionsSha256": "99c9d0e15de5d3b488f695119c8a51dff17e0d31e05fd895514db606e39586c7",
+    "harnessSha256": "f384cbb6979032e3edc806b34fa5cbf36d25c82c95c34b0b95b9439cee327428",
+    "evalCliSha256": "64ea9d402c88a645000f0b76ba7a089524fa825732395df60dff47d7a9a9a340",
+    "positionsSha256": "85cf6d3bb22540386b034c642b2ae3e03b95980283627ee93cf85bb473a85d22",
     "ffoSha256": "ba0a453750811e571237d1b0b13b6c4e5f2f948a81e66b803aab7b8cfcda1e72",
     "c3PositionsSha256": "778140e43f52b8c70c75e3c721be441404260899d4d2dc668e9b781368a0459e",
     "weightsSha256": "b916c29e4f84692610a65b75c1692132628de5ba2b27b71bf2e8b94426b76c2a",
     "solverVersion": "baseline-t052-alpha-beta-tt-v1",
     "nodeDefinitionVersion": "logical-negamax-invocation-v1",
     "ttMiB": 64,
-    "reportHarnessSha256": "6cd15982cadca3683fc2079f3b0e8f7d8bfb4f68ae9cce363ae54ee7d6b9156c",
+    "reportHarnessSha256": "f384cbb6979032e3edc806b34fa5cbf36d25c82c95c34b0b95b9439cee327428",
     "platform": "Windows-10-10.0.26200-SP0",
     "processor": "AMD64 Family 25 Model 80 Stepping 0, AuthenticAMD",
     "edaxSha256": "aabb5ac7d3f9a872fc0e7388ab1eee1d23c687f76c28642122524dc318b322b1",
     "edaxEvalSha256": "f8b2299612d9fa4414157e70e932636e33111c2602d0c2fc382a7d90ef21b792",
-    "manifestSha256": "99c9d0e15de5d3b488f695119c8a51dff17e0d31e05fd895514db606e39586c7"
+    "manifestSha256": "85cf6d3bb22540386b034c642b2ae3e03b95980283627ee93cf85bb473a85d22"
   },
   "signConventionVerification": {
     "nativeFullWindow": [
@@ -72,7 +72,7 @@
             "board": "O--OOOOX-OOOOOOXOOXXOOOXOOXOOOXXOOOOOOXX---OOOOX----O--X--------",
             "bound": "exact",
             "completed": true,
-            "elapsedUs": 15938616,
+            "elapsedUs": 19254326,
             "empties": 20,
             "nodeDefinitionVersion": "logical-negamax-invocation-v1",
             "nodes": 42811434,
@@ -99,7 +99,7 @@
             "board": "-OOOOO----OOOOX--OOOOOO-XXXXXOO--XXOOX--OOXOXX----OXXO---OOO--O-",
             "bound": "exact",
             "completed": true,
-            "elapsedUs": 77911723,
+            "elapsedUs": 94590945,
             "empties": 22,
             "nodeDefinitionVersion": "logical-negamax-invocation-v1",
             "nodes": 197077282,
@@ -126,7 +126,7 @@
             "board": "--OOO-------XX-OOOOOOXOO-OOOOXOOX-OOOXXO---OOXOO---OOOXO--OOOO--",
             "bound": "exact",
             "completed": true,
-            "elapsedUs": 103905116,
+            "elapsedUs": 118499745,
             "empties": 22,
             "nodeDefinitionVersion": "logical-negamax-invocation-v1",
             "nodes": 283343173,
@@ -153,7 +153,7 @@
             "board": "--XXXXX---XXXX---OOOXX---OOXXXX--OOXXXO-OOOOXOO----XOX----XXXXX-",
             "bound": "exact",
             "completed": true,
-            "elapsedUs": 177454565,
+            "elapsedUs": 199353913,
             "empties": 23,
             "nodeDefinitionVersion": "logical-negamax-invocation-v1",
             "nodes": 396462965,
@@ -180,7 +180,7 @@
             "board": "--O-X-O---O-XO-O-OOXXXOOOOOOXXXOOOOOXX--XXOOXO----XXXX-----XXX--",
             "bound": "exact",
             "completed": true,
-            "elapsedUs": 168996485,
+            "elapsedUs": 197291281,
             "empties": 23,
             "nodeDefinitionVersion": "logical-negamax-invocation-v1",
             "nodes": 423278742,
@@ -207,7 +207,7 @@
             "board": "---XXXX-X-XXXO--XXOXOO--XXXOXO--XXOXXO---OXXXOO-O-OOOO------OO--",
             "bound": "incomplete",
             "completed": false,
-            "elapsedUs": 1937174,
+            "elapsedUs": 2267458,
             "empties": 24,
             "nodeDefinitionVersion": "logical-negamax-invocation-v1",
             "nodes": 5000000,
@@ -234,7 +234,7 @@
             "board": "---XXX----OOOX----OOOXX--OOOOXXX--OOOOXX--OXOXXX--XXOO---XXXX-O-",
             "bound": "incomplete",
             "completed": false,
-            "elapsedUs": 1880682,
+            "elapsedUs": 2342740,
             "empties": 24,
             "nodeDefinitionVersion": "logical-negamax-invocation-v1",
             "nodes": 5000000,
@@ -261,7 +261,7 @@
             "board": "-OOOOO----OOOO---OOOOX--XXXXXX---OXOOX--OOOXOX----OOXX----XXXX--",
             "bound": "incomplete",
             "completed": false,
-            "elapsedUs": 1957111,
+            "elapsedUs": 2297572,
             "empties": 25,
             "nodeDefinitionVersion": "logical-negamax-invocation-v1",
             "nodes": 5000000,
@@ -288,7 +288,7 @@
             "board": "-----X--X-XXX---XXXXOO--XOXOOXX-XOOXXX--XOOXX-----OOOX---XXXXXX-",
             "bound": "incomplete",
             "completed": false,
-            "elapsedUs": 1876419,
+            "elapsedUs": 2181807,
             "empties": 25,
             "nodeDefinitionVersion": "logical-negamax-invocation-v1",
             "nodes": 5000000,
@@ -315,7 +315,7 @@
             "board": "--OX-O----XXOO--OOOOOXX-OOOOOX--OOOXOXX-OOOOXX-----OOX----X-O---",
             "bound": "incomplete",
             "completed": false,
-            "elapsedUs": 1972386,
+            "elapsedUs": 2327631,
             "empties": 26,
             "nodeDefinitionVersion": "logical-negamax-invocation-v1",
             "nodes": 5000000,
@@ -399,6 +399,4220 @@
           "completionRate": 0.0
         }
       ],
+      "nodeDistributions": [
+        {
+          "empties": 18,
+          "budget": 64000,
+          "windowKind": "fail_high",
+          "nodes": {
+            "count": 2,
+            "median": 64000.0,
+            "p90": 64000
+          },
+          "positions": [
+            {
+              "id": "t096-exact-01",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-02",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            }
+          ]
+        },
+        {
+          "empties": 19,
+          "budget": 64000,
+          "windowKind": "fail_high",
+          "nodes": {
+            "count": 11,
+            "median": 64000,
+            "p90": 64000
+          },
+          "positions": [
+            {
+              "id": "t096-exact-03",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-04",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-05",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-06",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-07",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-08",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-09",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-10",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-11",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-12",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-13",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            }
+          ]
+        },
+        {
+          "empties": 20,
+          "budget": 64000,
+          "windowKind": "fail_high",
+          "nodes": {
+            "count": 7,
+            "median": 64000,
+            "p90": 64000
+          },
+          "positions": [
+            {
+              "id": "t096-exact-14",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-15",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-16",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-17",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-18",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-19",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-20",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            }
+          ]
+        },
+        {
+          "empties": 21,
+          "budget": 64000,
+          "windowKind": "fail_high",
+          "nodes": {
+            "count": 4,
+            "median": 64000.0,
+            "p90": 64000
+          },
+          "positions": [
+            {
+              "id": "t096-exact-21",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-22",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-23",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-24",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            }
+          ]
+        },
+        {
+          "empties": 22,
+          "budget": 64000,
+          "windowKind": "fail_high",
+          "nodes": {
+            "count": 10,
+            "median": 64000.0,
+            "p90": 64000
+          },
+          "positions": [
+            {
+              "id": "t096-exact-25",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-26",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-27",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-28",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-29",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-30",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-31",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-32",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-33",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-34",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            }
+          ]
+        },
+        {
+          "empties": 23,
+          "budget": 64000,
+          "windowKind": "fail_high",
+          "nodes": {
+            "count": 6,
+            "median": 64000.0,
+            "p90": 64000
+          },
+          "positions": [
+            {
+              "id": "t096-exact-35",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-36",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-37",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-38",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-39",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-40",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            }
+          ]
+        },
+        {
+          "empties": 24,
+          "budget": 64000,
+          "windowKind": "fail_high",
+          "nodes": {
+            "count": 7,
+            "median": 64000,
+            "p90": 64000
+          },
+          "positions": [
+            {
+              "id": "t096-exact-41",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-42",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-43",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-44",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-45",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-46",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-47",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            }
+          ]
+        },
+        {
+          "empties": 25,
+          "budget": 64000,
+          "windowKind": "fail_high",
+          "nodes": {
+            "count": 7,
+            "median": 64000,
+            "p90": 64000
+          },
+          "positions": [
+            {
+              "id": "t096-exact-48",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-49",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-50",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-51",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-52",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-53",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-54",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            }
+          ]
+        },
+        {
+          "empties": 26,
+          "budget": 64000,
+          "windowKind": "fail_high",
+          "nodes": {
+            "count": 6,
+            "median": 64000.0,
+            "p90": 64000
+          },
+          "positions": [
+            {
+              "id": "t096-exact-55",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-56",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-57",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-58",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-59",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-60",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            }
+          ]
+        },
+        {
+          "empties": 18,
+          "budget": 64000,
+          "windowKind": "fail_low",
+          "nodes": {
+            "count": 2,
+            "median": 64000.0,
+            "p90": 64000
+          },
+          "positions": [
+            {
+              "id": "t096-exact-01",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-02",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            }
+          ]
+        },
+        {
+          "empties": 19,
+          "budget": 64000,
+          "windowKind": "fail_low",
+          "nodes": {
+            "count": 11,
+            "median": 64000,
+            "p90": 64000
+          },
+          "positions": [
+            {
+              "id": "t096-exact-03",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-04",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-05",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-06",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-07",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-08",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-09",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-10",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-11",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-12",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-13",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            }
+          ]
+        },
+        {
+          "empties": 20,
+          "budget": 64000,
+          "windowKind": "fail_low",
+          "nodes": {
+            "count": 7,
+            "median": 64000,
+            "p90": 64000
+          },
+          "positions": [
+            {
+              "id": "t096-exact-14",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-15",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-16",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-17",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-18",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-19",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-20",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            }
+          ]
+        },
+        {
+          "empties": 21,
+          "budget": 64000,
+          "windowKind": "fail_low",
+          "nodes": {
+            "count": 4,
+            "median": 64000.0,
+            "p90": 64000
+          },
+          "positions": [
+            {
+              "id": "t096-exact-21",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-22",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-23",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-24",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            }
+          ]
+        },
+        {
+          "empties": 22,
+          "budget": 64000,
+          "windowKind": "fail_low",
+          "nodes": {
+            "count": 10,
+            "median": 64000.0,
+            "p90": 64000
+          },
+          "positions": [
+            {
+              "id": "t096-exact-25",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-26",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-27",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-28",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-29",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-30",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-31",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-32",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-33",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-34",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            }
+          ]
+        },
+        {
+          "empties": 23,
+          "budget": 64000,
+          "windowKind": "fail_low",
+          "nodes": {
+            "count": 6,
+            "median": 64000.0,
+            "p90": 64000
+          },
+          "positions": [
+            {
+              "id": "t096-exact-35",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-36",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-37",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-38",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-39",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-40",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            }
+          ]
+        },
+        {
+          "empties": 24,
+          "budget": 64000,
+          "windowKind": "fail_low",
+          "nodes": {
+            "count": 7,
+            "median": 64000,
+            "p90": 64000
+          },
+          "positions": [
+            {
+              "id": "t096-exact-41",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-42",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-43",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-44",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-45",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-46",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-47",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            }
+          ]
+        },
+        {
+          "empties": 25,
+          "budget": 64000,
+          "windowKind": "fail_low",
+          "nodes": {
+            "count": 7,
+            "median": 64000,
+            "p90": 64000
+          },
+          "positions": [
+            {
+              "id": "t096-exact-48",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-49",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-50",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-51",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-52",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-53",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-54",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            }
+          ]
+        },
+        {
+          "empties": 26,
+          "budget": 64000,
+          "windowKind": "fail_low",
+          "nodes": {
+            "count": 6,
+            "median": 64000.0,
+            "p90": 64000
+          },
+          "positions": [
+            {
+              "id": "t096-exact-55",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-56",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-57",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-58",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-59",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-60",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            }
+          ]
+        },
+        {
+          "empties": 18,
+          "budget": 64000,
+          "windowKind": "full",
+          "nodes": {
+            "count": 2,
+            "median": 64000.0,
+            "p90": 64000
+          },
+          "positions": [
+            {
+              "id": "t096-exact-01",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-02",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            }
+          ]
+        },
+        {
+          "empties": 19,
+          "budget": 64000,
+          "windowKind": "full",
+          "nodes": {
+            "count": 11,
+            "median": 64000,
+            "p90": 64000
+          },
+          "positions": [
+            {
+              "id": "t096-exact-03",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-04",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-05",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-06",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-07",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-08",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-09",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-10",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-11",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-12",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-13",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            }
+          ]
+        },
+        {
+          "empties": 20,
+          "budget": 64000,
+          "windowKind": "full",
+          "nodes": {
+            "count": 7,
+            "median": 64000,
+            "p90": 64000
+          },
+          "positions": [
+            {
+              "id": "t096-exact-14",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-15",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-16",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-17",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-18",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-19",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-20",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            }
+          ]
+        },
+        {
+          "empties": 21,
+          "budget": 64000,
+          "windowKind": "full",
+          "nodes": {
+            "count": 4,
+            "median": 64000.0,
+            "p90": 64000
+          },
+          "positions": [
+            {
+              "id": "t096-exact-21",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-22",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-23",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-24",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            }
+          ]
+        },
+        {
+          "empties": 22,
+          "budget": 64000,
+          "windowKind": "full",
+          "nodes": {
+            "count": 10,
+            "median": 64000.0,
+            "p90": 64000
+          },
+          "positions": [
+            {
+              "id": "t096-exact-25",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-26",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-27",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-28",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-29",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-30",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-31",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-32",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-33",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-34",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            }
+          ]
+        },
+        {
+          "empties": 23,
+          "budget": 64000,
+          "windowKind": "full",
+          "nodes": {
+            "count": 6,
+            "median": 64000.0,
+            "p90": 64000
+          },
+          "positions": [
+            {
+              "id": "t096-exact-35",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-36",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-37",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-38",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-39",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-40",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            }
+          ]
+        },
+        {
+          "empties": 24,
+          "budget": 64000,
+          "windowKind": "full",
+          "nodes": {
+            "count": 7,
+            "median": 64000,
+            "p90": 64000
+          },
+          "positions": [
+            {
+              "id": "t096-exact-41",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-42",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-43",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-44",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-45",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-46",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-47",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            }
+          ]
+        },
+        {
+          "empties": 25,
+          "budget": 64000,
+          "windowKind": "full",
+          "nodes": {
+            "count": 7,
+            "median": 64000,
+            "p90": 64000
+          },
+          "positions": [
+            {
+              "id": "t096-exact-48",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-49",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-50",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-51",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-52",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-53",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-54",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            }
+          ]
+        },
+        {
+          "empties": 26,
+          "budget": 64000,
+          "windowKind": "full",
+          "nodes": {
+            "count": 6,
+            "median": 64000.0,
+            "p90": 64000
+          },
+          "positions": [
+            {
+              "id": "t096-exact-55",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-56",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-57",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-58",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-59",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-60",
+              "nodes": 64000,
+              "completed": false,
+              "bound": "incomplete"
+            }
+          ]
+        },
+        {
+          "empties": 18,
+          "budget": 160000,
+          "windowKind": "fail_high",
+          "nodes": {
+            "count": 2,
+            "median": 159263.0,
+            "p90": 160000
+          },
+          "positions": [
+            {
+              "id": "t096-exact-01",
+              "nodes": 158526,
+              "completed": true,
+              "bound": "lower"
+            },
+            {
+              "id": "t096-exact-02",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            }
+          ]
+        },
+        {
+          "empties": 19,
+          "budget": 160000,
+          "windowKind": "fail_high",
+          "nodes": {
+            "count": 11,
+            "median": 160000,
+            "p90": 160000
+          },
+          "positions": [
+            {
+              "id": "t096-exact-03",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-04",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-05",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-06",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-07",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-08",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-09",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-10",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-11",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-12",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-13",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            }
+          ]
+        },
+        {
+          "empties": 20,
+          "budget": 160000,
+          "windowKind": "fail_high",
+          "nodes": {
+            "count": 7,
+            "median": 160000,
+            "p90": 160000
+          },
+          "positions": [
+            {
+              "id": "t096-exact-14",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-15",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-16",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-17",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-18",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-19",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-20",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            }
+          ]
+        },
+        {
+          "empties": 21,
+          "budget": 160000,
+          "windowKind": "fail_high",
+          "nodes": {
+            "count": 4,
+            "median": 160000.0,
+            "p90": 160000
+          },
+          "positions": [
+            {
+              "id": "t096-exact-21",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-22",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-23",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-24",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            }
+          ]
+        },
+        {
+          "empties": 22,
+          "budget": 160000,
+          "windowKind": "fail_high",
+          "nodes": {
+            "count": 10,
+            "median": 160000.0,
+            "p90": 160000
+          },
+          "positions": [
+            {
+              "id": "t096-exact-25",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-26",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-27",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-28",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-29",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-30",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-31",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-32",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-33",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-34",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            }
+          ]
+        },
+        {
+          "empties": 23,
+          "budget": 160000,
+          "windowKind": "fail_high",
+          "nodes": {
+            "count": 6,
+            "median": 160000.0,
+            "p90": 160000
+          },
+          "positions": [
+            {
+              "id": "t096-exact-35",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-36",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-37",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-38",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-39",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-40",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            }
+          ]
+        },
+        {
+          "empties": 24,
+          "budget": 160000,
+          "windowKind": "fail_high",
+          "nodes": {
+            "count": 7,
+            "median": 160000,
+            "p90": 160000
+          },
+          "positions": [
+            {
+              "id": "t096-exact-41",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-42",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-43",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-44",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-45",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-46",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-47",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            }
+          ]
+        },
+        {
+          "empties": 25,
+          "budget": 160000,
+          "windowKind": "fail_high",
+          "nodes": {
+            "count": 7,
+            "median": 160000,
+            "p90": 160000
+          },
+          "positions": [
+            {
+              "id": "t096-exact-48",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-49",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-50",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-51",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-52",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-53",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-54",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            }
+          ]
+        },
+        {
+          "empties": 26,
+          "budget": 160000,
+          "windowKind": "fail_high",
+          "nodes": {
+            "count": 6,
+            "median": 160000.0,
+            "p90": 160000
+          },
+          "positions": [
+            {
+              "id": "t096-exact-55",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-56",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-57",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-58",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-59",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-60",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            }
+          ]
+        },
+        {
+          "empties": 18,
+          "budget": 160000,
+          "windowKind": "fail_low",
+          "nodes": {
+            "count": 2,
+            "median": 160000.0,
+            "p90": 160000
+          },
+          "positions": [
+            {
+              "id": "t096-exact-01",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-02",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            }
+          ]
+        },
+        {
+          "empties": 19,
+          "budget": 160000,
+          "windowKind": "fail_low",
+          "nodes": {
+            "count": 11,
+            "median": 160000,
+            "p90": 160000
+          },
+          "positions": [
+            {
+              "id": "t096-exact-03",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-04",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-05",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-06",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-07",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-08",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-09",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-10",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-11",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-12",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-13",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            }
+          ]
+        },
+        {
+          "empties": 20,
+          "budget": 160000,
+          "windowKind": "fail_low",
+          "nodes": {
+            "count": 7,
+            "median": 160000,
+            "p90": 160000
+          },
+          "positions": [
+            {
+              "id": "t096-exact-14",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-15",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-16",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-17",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-18",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-19",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-20",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            }
+          ]
+        },
+        {
+          "empties": 21,
+          "budget": 160000,
+          "windowKind": "fail_low",
+          "nodes": {
+            "count": 4,
+            "median": 160000.0,
+            "p90": 160000
+          },
+          "positions": [
+            {
+              "id": "t096-exact-21",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-22",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-23",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-24",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            }
+          ]
+        },
+        {
+          "empties": 22,
+          "budget": 160000,
+          "windowKind": "fail_low",
+          "nodes": {
+            "count": 10,
+            "median": 160000.0,
+            "p90": 160000
+          },
+          "positions": [
+            {
+              "id": "t096-exact-25",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-26",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-27",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-28",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-29",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-30",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-31",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-32",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-33",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-34",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            }
+          ]
+        },
+        {
+          "empties": 23,
+          "budget": 160000,
+          "windowKind": "fail_low",
+          "nodes": {
+            "count": 6,
+            "median": 160000.0,
+            "p90": 160000
+          },
+          "positions": [
+            {
+              "id": "t096-exact-35",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-36",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-37",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-38",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-39",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-40",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            }
+          ]
+        },
+        {
+          "empties": 24,
+          "budget": 160000,
+          "windowKind": "fail_low",
+          "nodes": {
+            "count": 7,
+            "median": 160000,
+            "p90": 160000
+          },
+          "positions": [
+            {
+              "id": "t096-exact-41",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-42",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-43",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-44",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-45",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-46",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-47",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            }
+          ]
+        },
+        {
+          "empties": 25,
+          "budget": 160000,
+          "windowKind": "fail_low",
+          "nodes": {
+            "count": 7,
+            "median": 160000,
+            "p90": 160000
+          },
+          "positions": [
+            {
+              "id": "t096-exact-48",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-49",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-50",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-51",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-52",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-53",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-54",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            }
+          ]
+        },
+        {
+          "empties": 26,
+          "budget": 160000,
+          "windowKind": "fail_low",
+          "nodes": {
+            "count": 6,
+            "median": 160000.0,
+            "p90": 160000
+          },
+          "positions": [
+            {
+              "id": "t096-exact-55",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-56",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-57",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-58",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-59",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-60",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            }
+          ]
+        },
+        {
+          "empties": 18,
+          "budget": 160000,
+          "windowKind": "full",
+          "nodes": {
+            "count": 2,
+            "median": 160000.0,
+            "p90": 160000
+          },
+          "positions": [
+            {
+              "id": "t096-exact-01",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-02",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            }
+          ]
+        },
+        {
+          "empties": 19,
+          "budget": 160000,
+          "windowKind": "full",
+          "nodes": {
+            "count": 11,
+            "median": 160000,
+            "p90": 160000
+          },
+          "positions": [
+            {
+              "id": "t096-exact-03",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-04",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-05",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-06",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-07",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-08",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-09",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-10",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-11",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-12",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-13",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            }
+          ]
+        },
+        {
+          "empties": 20,
+          "budget": 160000,
+          "windowKind": "full",
+          "nodes": {
+            "count": 7,
+            "median": 160000,
+            "p90": 160000
+          },
+          "positions": [
+            {
+              "id": "t096-exact-14",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-15",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-16",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-17",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-18",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-19",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-20",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            }
+          ]
+        },
+        {
+          "empties": 21,
+          "budget": 160000,
+          "windowKind": "full",
+          "nodes": {
+            "count": 4,
+            "median": 160000.0,
+            "p90": 160000
+          },
+          "positions": [
+            {
+              "id": "t096-exact-21",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-22",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-23",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-24",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            }
+          ]
+        },
+        {
+          "empties": 22,
+          "budget": 160000,
+          "windowKind": "full",
+          "nodes": {
+            "count": 10,
+            "median": 160000.0,
+            "p90": 160000
+          },
+          "positions": [
+            {
+              "id": "t096-exact-25",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-26",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-27",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-28",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-29",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-30",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-31",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-32",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-33",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-34",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            }
+          ]
+        },
+        {
+          "empties": 23,
+          "budget": 160000,
+          "windowKind": "full",
+          "nodes": {
+            "count": 6,
+            "median": 160000.0,
+            "p90": 160000
+          },
+          "positions": [
+            {
+              "id": "t096-exact-35",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-36",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-37",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-38",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-39",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-40",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            }
+          ]
+        },
+        {
+          "empties": 24,
+          "budget": 160000,
+          "windowKind": "full",
+          "nodes": {
+            "count": 7,
+            "median": 160000,
+            "p90": 160000
+          },
+          "positions": [
+            {
+              "id": "t096-exact-41",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-42",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-43",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-44",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-45",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-46",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-47",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            }
+          ]
+        },
+        {
+          "empties": 25,
+          "budget": 160000,
+          "windowKind": "full",
+          "nodes": {
+            "count": 7,
+            "median": 160000,
+            "p90": 160000
+          },
+          "positions": [
+            {
+              "id": "t096-exact-48",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-49",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-50",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-51",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-52",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-53",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-54",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            }
+          ]
+        },
+        {
+          "empties": 26,
+          "budget": 160000,
+          "windowKind": "full",
+          "nodes": {
+            "count": 6,
+            "median": 160000.0,
+            "p90": 160000
+          },
+          "positions": [
+            {
+              "id": "t096-exact-55",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-56",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-57",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-58",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-59",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-60",
+              "nodes": 160000,
+              "completed": false,
+              "bound": "incomplete"
+            }
+          ]
+        },
+        {
+          "empties": 18,
+          "budget": 512000,
+          "windowKind": "fail_high",
+          "nodes": {
+            "count": 2,
+            "median": 319819.5,
+            "p90": 481113
+          },
+          "positions": [
+            {
+              "id": "t096-exact-01",
+              "nodes": 158526,
+              "completed": true,
+              "bound": "lower"
+            },
+            {
+              "id": "t096-exact-02",
+              "nodes": 481113,
+              "completed": true,
+              "bound": "lower"
+            }
+          ]
+        },
+        {
+          "empties": 19,
+          "budget": 512000,
+          "windowKind": "fail_high",
+          "nodes": {
+            "count": 11,
+            "median": 512000,
+            "p90": 512000
+          },
+          "positions": [
+            {
+              "id": "t096-exact-03",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-04",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-05",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-06",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-07",
+              "nodes": 357995,
+              "completed": true,
+              "bound": "lower"
+            },
+            {
+              "id": "t096-exact-08",
+              "nodes": 333249,
+              "completed": true,
+              "bound": "lower"
+            },
+            {
+              "id": "t096-exact-09",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-10",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-11",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-12",
+              "nodes": 270063,
+              "completed": true,
+              "bound": "lower"
+            },
+            {
+              "id": "t096-exact-13",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            }
+          ]
+        },
+        {
+          "empties": 20,
+          "budget": 512000,
+          "windowKind": "fail_high",
+          "nodes": {
+            "count": 7,
+            "median": 512000,
+            "p90": 512000
+          },
+          "positions": [
+            {
+              "id": "t096-exact-14",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-15",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-16",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-17",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-18",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-19",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-20",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            }
+          ]
+        },
+        {
+          "empties": 21,
+          "budget": 512000,
+          "windowKind": "fail_high",
+          "nodes": {
+            "count": 4,
+            "median": 512000.0,
+            "p90": 512000
+          },
+          "positions": [
+            {
+              "id": "t096-exact-21",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-22",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-23",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-24",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            }
+          ]
+        },
+        {
+          "empties": 22,
+          "budget": 512000,
+          "windowKind": "fail_high",
+          "nodes": {
+            "count": 10,
+            "median": 512000.0,
+            "p90": 512000
+          },
+          "positions": [
+            {
+              "id": "t096-exact-25",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-26",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-27",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-28",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-29",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-30",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-31",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-32",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-33",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-34",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            }
+          ]
+        },
+        {
+          "empties": 23,
+          "budget": 512000,
+          "windowKind": "fail_high",
+          "nodes": {
+            "count": 6,
+            "median": 512000.0,
+            "p90": 512000
+          },
+          "positions": [
+            {
+              "id": "t096-exact-35",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-36",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-37",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-38",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-39",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-40",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            }
+          ]
+        },
+        {
+          "empties": 24,
+          "budget": 512000,
+          "windowKind": "fail_high",
+          "nodes": {
+            "count": 7,
+            "median": 512000,
+            "p90": 512000
+          },
+          "positions": [
+            {
+              "id": "t096-exact-41",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-42",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-43",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-44",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-45",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-46",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-47",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            }
+          ]
+        },
+        {
+          "empties": 25,
+          "budget": 512000,
+          "windowKind": "fail_high",
+          "nodes": {
+            "count": 7,
+            "median": 512000,
+            "p90": 512000
+          },
+          "positions": [
+            {
+              "id": "t096-exact-48",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-49",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-50",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-51",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-52",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-53",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-54",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            }
+          ]
+        },
+        {
+          "empties": 26,
+          "budget": 512000,
+          "windowKind": "fail_high",
+          "nodes": {
+            "count": 6,
+            "median": 512000.0,
+            "p90": 512000
+          },
+          "positions": [
+            {
+              "id": "t096-exact-55",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-56",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-57",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-58",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-59",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-60",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            }
+          ]
+        },
+        {
+          "empties": 18,
+          "budget": 512000,
+          "windowKind": "fail_low",
+          "nodes": {
+            "count": 2,
+            "median": 512000.0,
+            "p90": 512000
+          },
+          "positions": [
+            {
+              "id": "t096-exact-01",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-02",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            }
+          ]
+        },
+        {
+          "empties": 19,
+          "budget": 512000,
+          "windowKind": "fail_low",
+          "nodes": {
+            "count": 11,
+            "median": 512000,
+            "p90": 512000
+          },
+          "positions": [
+            {
+              "id": "t096-exact-03",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-04",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-05",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-06",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-07",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-08",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-09",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-10",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-11",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-12",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-13",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            }
+          ]
+        },
+        {
+          "empties": 20,
+          "budget": 512000,
+          "windowKind": "fail_low",
+          "nodes": {
+            "count": 7,
+            "median": 512000,
+            "p90": 512000
+          },
+          "positions": [
+            {
+              "id": "t096-exact-14",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-15",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-16",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-17",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-18",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-19",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-20",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            }
+          ]
+        },
+        {
+          "empties": 21,
+          "budget": 512000,
+          "windowKind": "fail_low",
+          "nodes": {
+            "count": 4,
+            "median": 512000.0,
+            "p90": 512000
+          },
+          "positions": [
+            {
+              "id": "t096-exact-21",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-22",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-23",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-24",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            }
+          ]
+        },
+        {
+          "empties": 22,
+          "budget": 512000,
+          "windowKind": "fail_low",
+          "nodes": {
+            "count": 10,
+            "median": 512000.0,
+            "p90": 512000
+          },
+          "positions": [
+            {
+              "id": "t096-exact-25",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-26",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-27",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-28",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-29",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-30",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-31",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-32",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-33",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-34",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            }
+          ]
+        },
+        {
+          "empties": 23,
+          "budget": 512000,
+          "windowKind": "fail_low",
+          "nodes": {
+            "count": 6,
+            "median": 512000.0,
+            "p90": 512000
+          },
+          "positions": [
+            {
+              "id": "t096-exact-35",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-36",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-37",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-38",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-39",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-40",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            }
+          ]
+        },
+        {
+          "empties": 24,
+          "budget": 512000,
+          "windowKind": "fail_low",
+          "nodes": {
+            "count": 7,
+            "median": 512000,
+            "p90": 512000
+          },
+          "positions": [
+            {
+              "id": "t096-exact-41",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-42",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-43",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-44",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-45",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-46",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-47",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            }
+          ]
+        },
+        {
+          "empties": 25,
+          "budget": 512000,
+          "windowKind": "fail_low",
+          "nodes": {
+            "count": 7,
+            "median": 512000,
+            "p90": 512000
+          },
+          "positions": [
+            {
+              "id": "t096-exact-48",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-49",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-50",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-51",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-52",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-53",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-54",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            }
+          ]
+        },
+        {
+          "empties": 26,
+          "budget": 512000,
+          "windowKind": "fail_low",
+          "nodes": {
+            "count": 6,
+            "median": 512000.0,
+            "p90": 512000
+          },
+          "positions": [
+            {
+              "id": "t096-exact-55",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-56",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-57",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-58",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-59",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-60",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            }
+          ]
+        },
+        {
+          "empties": 18,
+          "budget": 512000,
+          "windowKind": "full",
+          "nodes": {
+            "count": 2,
+            "median": 512000.0,
+            "p90": 512000
+          },
+          "positions": [
+            {
+              "id": "t096-exact-01",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-02",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            }
+          ]
+        },
+        {
+          "empties": 19,
+          "budget": 512000,
+          "windowKind": "full",
+          "nodes": {
+            "count": 11,
+            "median": 512000,
+            "p90": 512000
+          },
+          "positions": [
+            {
+              "id": "t096-exact-03",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-04",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-05",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-06",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-07",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-08",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-09",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-10",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-11",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-12",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-13",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            }
+          ]
+        },
+        {
+          "empties": 20,
+          "budget": 512000,
+          "windowKind": "full",
+          "nodes": {
+            "count": 7,
+            "median": 512000,
+            "p90": 512000
+          },
+          "positions": [
+            {
+              "id": "t096-exact-14",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-15",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-16",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-17",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-18",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-19",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-20",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            }
+          ]
+        },
+        {
+          "empties": 21,
+          "budget": 512000,
+          "windowKind": "full",
+          "nodes": {
+            "count": 4,
+            "median": 512000.0,
+            "p90": 512000
+          },
+          "positions": [
+            {
+              "id": "t096-exact-21",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-22",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-23",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-24",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            }
+          ]
+        },
+        {
+          "empties": 22,
+          "budget": 512000,
+          "windowKind": "full",
+          "nodes": {
+            "count": 10,
+            "median": 512000.0,
+            "p90": 512000
+          },
+          "positions": [
+            {
+              "id": "t096-exact-25",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-26",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-27",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-28",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-29",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-30",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-31",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-32",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-33",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-34",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            }
+          ]
+        },
+        {
+          "empties": 23,
+          "budget": 512000,
+          "windowKind": "full",
+          "nodes": {
+            "count": 6,
+            "median": 512000.0,
+            "p90": 512000
+          },
+          "positions": [
+            {
+              "id": "t096-exact-35",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-36",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-37",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-38",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-39",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-40",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            }
+          ]
+        },
+        {
+          "empties": 24,
+          "budget": 512000,
+          "windowKind": "full",
+          "nodes": {
+            "count": 7,
+            "median": 512000,
+            "p90": 512000
+          },
+          "positions": [
+            {
+              "id": "t096-exact-41",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-42",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-43",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-44",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-45",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-46",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-47",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            }
+          ]
+        },
+        {
+          "empties": 25,
+          "budget": 512000,
+          "windowKind": "full",
+          "nodes": {
+            "count": 7,
+            "median": 512000,
+            "p90": 512000
+          },
+          "positions": [
+            {
+              "id": "t096-exact-48",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-49",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-50",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-51",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-52",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-53",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-54",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            }
+          ]
+        },
+        {
+          "empties": 26,
+          "budget": 512000,
+          "windowKind": "full",
+          "nodes": {
+            "count": 6,
+            "median": 512000.0,
+            "p90": 512000
+          },
+          "positions": [
+            {
+              "id": "t096-exact-55",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-56",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-57",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-58",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-59",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            },
+            {
+              "id": "t096-exact-60",
+              "nodes": 512000,
+              "completed": false,
+              "bound": "incomplete"
+            }
+          ]
+        }
+      ],
       "E50Exact160k": null,
       "E50Bound64k": null,
       "nullE50MeansBelowCorpusMinimum": 18,
@@ -410,7 +4624,653 @@
       "deterministicRate": 1.0,
       "wallInsuranceRate": 0.0,
       "rowsCompleted": 48,
-      "rowsExpected": 48
+      "rowsExpected": 48,
+      "telemetry": {
+        "depth": {
+          "count": 48,
+          "median": 9.0,
+          "p90": 10
+        },
+        "lastCompletedDepth": {
+          "count": 48,
+          "median": 9.0,
+          "p90": 10
+        },
+        "exactRootAttempts": 8,
+        "exactRootCompleted": 4,
+        "exactLeafAttempts": 276,
+        "exactLeafCompleted": 245,
+        "exactBoundProofCompleted": 245,
+        "exactAbortedByQuota": 35,
+        "nodeLimitHit": 26,
+        "wallLimitHit": 0,
+        "rows": [
+          {
+            "id": "exact-13-1",
+            "depth": 13,
+            "lastCompletedDepth": 1,
+            "exactRootAttempts": 1,
+            "exactRootCompleted": true,
+            "exactLeafAttempts": 0,
+            "exactLeafCompleted": 0,
+            "exactBoundProofCompleted": 0,
+            "exactAbortedByQuota": 0,
+            "nodeLimitHit": false,
+            "wallLimitHit": false
+          },
+          {
+            "id": "exact-13-2",
+            "depth": 10,
+            "lastCompletedDepth": 10,
+            "exactRootAttempts": 1,
+            "exactRootCompleted": false,
+            "exactLeafAttempts": 0,
+            "exactLeafCompleted": 0,
+            "exactBoundProofCompleted": 0,
+            "exactAbortedByQuota": 1,
+            "nodeLimitHit": false,
+            "wallLimitHit": false
+          },
+          {
+            "id": "exact-13-3",
+            "depth": 13,
+            "lastCompletedDepth": 1,
+            "exactRootAttempts": 1,
+            "exactRootCompleted": true,
+            "exactLeafAttempts": 0,
+            "exactLeafCompleted": 0,
+            "exactBoundProofCompleted": 0,
+            "exactAbortedByQuota": 0,
+            "nodeLimitHit": false,
+            "wallLimitHit": false
+          },
+          {
+            "id": "exact-13-4",
+            "depth": 13,
+            "lastCompletedDepth": 1,
+            "exactRootAttempts": 1,
+            "exactRootCompleted": true,
+            "exactLeafAttempts": 0,
+            "exactLeafCompleted": 0,
+            "exactBoundProofCompleted": 0,
+            "exactAbortedByQuota": 0,
+            "nodeLimitHit": false,
+            "wallLimitHit": false
+          },
+          {
+            "id": "exact-14-1",
+            "depth": 10,
+            "lastCompletedDepth": 10,
+            "exactRootAttempts": 1,
+            "exactRootCompleted": false,
+            "exactLeafAttempts": 0,
+            "exactLeafCompleted": 0,
+            "exactBoundProofCompleted": 0,
+            "exactAbortedByQuota": 1,
+            "nodeLimitHit": false,
+            "wallLimitHit": false
+          },
+          {
+            "id": "exact-14-2",
+            "depth": 14,
+            "lastCompletedDepth": 1,
+            "exactRootAttempts": 1,
+            "exactRootCompleted": true,
+            "exactLeafAttempts": 0,
+            "exactLeafCompleted": 0,
+            "exactBoundProofCompleted": 0,
+            "exactAbortedByQuota": 0,
+            "nodeLimitHit": false,
+            "wallLimitHit": false
+          },
+          {
+            "id": "exact-14-3",
+            "depth": 10,
+            "lastCompletedDepth": 10,
+            "exactRootAttempts": 1,
+            "exactRootCompleted": false,
+            "exactLeafAttempts": 0,
+            "exactLeafCompleted": 0,
+            "exactBoundProofCompleted": 0,
+            "exactAbortedByQuota": 1,
+            "nodeLimitHit": false,
+            "wallLimitHit": false
+          },
+          {
+            "id": "exact-14-4",
+            "depth": 10,
+            "lastCompletedDepth": 10,
+            "exactRootAttempts": 1,
+            "exactRootCompleted": false,
+            "exactLeafAttempts": 0,
+            "exactLeafCompleted": 0,
+            "exactBoundProofCompleted": 0,
+            "exactAbortedByQuota": 1,
+            "nodeLimitHit": false,
+            "wallLimitHit": false
+          },
+          {
+            "id": "exact-15-1",
+            "depth": 10,
+            "lastCompletedDepth": 10,
+            "exactRootAttempts": 0,
+            "exactRootCompleted": false,
+            "exactLeafAttempts": 1,
+            "exactLeafCompleted": 0,
+            "exactBoundProofCompleted": 0,
+            "exactAbortedByQuota": 1,
+            "nodeLimitHit": false,
+            "wallLimitHit": false
+          },
+          {
+            "id": "exact-15-2",
+            "depth": 10,
+            "lastCompletedDepth": 10,
+            "exactRootAttempts": 0,
+            "exactRootCompleted": false,
+            "exactLeafAttempts": 23,
+            "exactLeafCompleted": 22,
+            "exactBoundProofCompleted": 22,
+            "exactAbortedByQuota": 1,
+            "nodeLimitHit": false,
+            "wallLimitHit": false
+          },
+          {
+            "id": "exact-15-3",
+            "depth": 10,
+            "lastCompletedDepth": 10,
+            "exactRootAttempts": 0,
+            "exactRootCompleted": false,
+            "exactLeafAttempts": 6,
+            "exactLeafCompleted": 5,
+            "exactBoundProofCompleted": 5,
+            "exactAbortedByQuota": 1,
+            "nodeLimitHit": false,
+            "wallLimitHit": false
+          },
+          {
+            "id": "exact-15-4",
+            "depth": 10,
+            "lastCompletedDepth": 10,
+            "exactRootAttempts": 0,
+            "exactRootCompleted": false,
+            "exactLeafAttempts": 24,
+            "exactLeafCompleted": 24,
+            "exactBoundProofCompleted": 24,
+            "exactAbortedByQuota": 0,
+            "nodeLimitHit": false,
+            "wallLimitHit": false
+          },
+          {
+            "id": "exact-16-1",
+            "depth": 9,
+            "lastCompletedDepth": 9,
+            "exactRootAttempts": 0,
+            "exactRootCompleted": false,
+            "exactLeafAttempts": 1,
+            "exactLeafCompleted": 0,
+            "exactBoundProofCompleted": 0,
+            "exactAbortedByQuota": 1,
+            "nodeLimitHit": true,
+            "wallLimitHit": false
+          },
+          {
+            "id": "exact-16-2",
+            "depth": 9,
+            "lastCompletedDepth": 9,
+            "exactRootAttempts": 0,
+            "exactRootCompleted": false,
+            "exactLeafAttempts": 1,
+            "exactLeafCompleted": 0,
+            "exactBoundProofCompleted": 0,
+            "exactAbortedByQuota": 1,
+            "nodeLimitHit": true,
+            "wallLimitHit": false
+          },
+          {
+            "id": "exact-16-3",
+            "depth": 10,
+            "lastCompletedDepth": 10,
+            "exactRootAttempts": 0,
+            "exactRootCompleted": false,
+            "exactLeafAttempts": 6,
+            "exactLeafCompleted": 5,
+            "exactBoundProofCompleted": 5,
+            "exactAbortedByQuota": 1,
+            "nodeLimitHit": false,
+            "wallLimitHit": false
+          },
+          {
+            "id": "exact-16-4",
+            "depth": 9,
+            "lastCompletedDepth": 9,
+            "exactRootAttempts": 0,
+            "exactRootCompleted": false,
+            "exactLeafAttempts": 2,
+            "exactLeafCompleted": 1,
+            "exactBoundProofCompleted": 1,
+            "exactAbortedByQuota": 1,
+            "nodeLimitHit": true,
+            "wallLimitHit": false
+          },
+          {
+            "id": "exact-17-1",
+            "depth": 10,
+            "lastCompletedDepth": 10,
+            "exactRootAttempts": 0,
+            "exactRootCompleted": false,
+            "exactLeafAttempts": 6,
+            "exactLeafCompleted": 5,
+            "exactBoundProofCompleted": 5,
+            "exactAbortedByQuota": 1,
+            "nodeLimitHit": false,
+            "wallLimitHit": false
+          },
+          {
+            "id": "exact-17-2",
+            "depth": 8,
+            "lastCompletedDepth": 8,
+            "exactRootAttempts": 0,
+            "exactRootCompleted": false,
+            "exactLeafAttempts": 3,
+            "exactLeafCompleted": 2,
+            "exactBoundProofCompleted": 2,
+            "exactAbortedByQuota": 1,
+            "nodeLimitHit": true,
+            "wallLimitHit": false
+          },
+          {
+            "id": "exact-17-3",
+            "depth": 8,
+            "lastCompletedDepth": 8,
+            "exactRootAttempts": 0,
+            "exactRootCompleted": false,
+            "exactLeafAttempts": 2,
+            "exactLeafCompleted": 1,
+            "exactBoundProofCompleted": 1,
+            "exactAbortedByQuota": 1,
+            "nodeLimitHit": true,
+            "wallLimitHit": false
+          },
+          {
+            "id": "exact-17-4",
+            "depth": 10,
+            "lastCompletedDepth": 10,
+            "exactRootAttempts": 0,
+            "exactRootCompleted": false,
+            "exactLeafAttempts": 2,
+            "exactLeafCompleted": 1,
+            "exactBoundProofCompleted": 1,
+            "exactAbortedByQuota": 1,
+            "nodeLimitHit": false,
+            "wallLimitHit": false
+          },
+          {
+            "id": "exact-18-1",
+            "depth": 8,
+            "lastCompletedDepth": 8,
+            "exactRootAttempts": 0,
+            "exactRootCompleted": false,
+            "exactLeafAttempts": 1,
+            "exactLeafCompleted": 0,
+            "exactBoundProofCompleted": 0,
+            "exactAbortedByQuota": 1,
+            "nodeLimitHit": true,
+            "wallLimitHit": false
+          },
+          {
+            "id": "exact-18-2",
+            "depth": 9,
+            "lastCompletedDepth": 9,
+            "exactRootAttempts": 0,
+            "exactRootCompleted": false,
+            "exactLeafAttempts": 2,
+            "exactLeafCompleted": 1,
+            "exactBoundProofCompleted": 1,
+            "exactAbortedByQuota": 1,
+            "nodeLimitHit": true,
+            "wallLimitHit": false
+          },
+          {
+            "id": "exact-18-3",
+            "depth": 9,
+            "lastCompletedDepth": 9,
+            "exactRootAttempts": 0,
+            "exactRootCompleted": false,
+            "exactLeafAttempts": 3,
+            "exactLeafCompleted": 2,
+            "exactBoundProofCompleted": 2,
+            "exactAbortedByQuota": 1,
+            "nodeLimitHit": true,
+            "wallLimitHit": false
+          },
+          {
+            "id": "exact-18-4",
+            "depth": 10,
+            "lastCompletedDepth": 10,
+            "exactRootAttempts": 0,
+            "exactRootCompleted": false,
+            "exactLeafAttempts": 4,
+            "exactLeafCompleted": 3,
+            "exactBoundProofCompleted": 3,
+            "exactAbortedByQuota": 1,
+            "nodeLimitHit": false,
+            "wallLimitHit": false
+          },
+          {
+            "id": "t084-game-1-ply-27",
+            "depth": 8,
+            "lastCompletedDepth": 8,
+            "exactRootAttempts": 0,
+            "exactRootCompleted": false,
+            "exactLeafAttempts": 0,
+            "exactLeafCompleted": 0,
+            "exactBoundProofCompleted": 0,
+            "exactAbortedByQuota": 0,
+            "nodeLimitHit": true,
+            "wallLimitHit": false
+          },
+          {
+            "id": "t084-game-1-ply-29",
+            "depth": 8,
+            "lastCompletedDepth": 8,
+            "exactRootAttempts": 0,
+            "exactRootCompleted": false,
+            "exactLeafAttempts": 17,
+            "exactLeafCompleted": 16,
+            "exactBoundProofCompleted": 16,
+            "exactAbortedByQuota": 1,
+            "nodeLimitHit": true,
+            "wallLimitHit": false
+          },
+          {
+            "id": "t084-game-1-ply-31",
+            "depth": 8,
+            "lastCompletedDepth": 8,
+            "exactRootAttempts": 0,
+            "exactRootCompleted": false,
+            "exactLeafAttempts": 1,
+            "exactLeafCompleted": 0,
+            "exactBoundProofCompleted": 0,
+            "exactAbortedByQuota": 1,
+            "nodeLimitHit": true,
+            "wallLimitHit": false
+          },
+          {
+            "id": "t084-game-2-ply-28",
+            "depth": 8,
+            "lastCompletedDepth": 8,
+            "exactRootAttempts": 0,
+            "exactRootCompleted": false,
+            "exactLeafAttempts": 4,
+            "exactLeafCompleted": 3,
+            "exactBoundProofCompleted": 3,
+            "exactAbortedByQuota": 1,
+            "nodeLimitHit": true,
+            "wallLimitHit": false
+          },
+          {
+            "id": "t084-game-2-ply-30",
+            "depth": 9,
+            "lastCompletedDepth": 9,
+            "exactRootAttempts": 0,
+            "exactRootCompleted": false,
+            "exactLeafAttempts": 9,
+            "exactLeafCompleted": 8,
+            "exactBoundProofCompleted": 8,
+            "exactAbortedByQuota": 1,
+            "nodeLimitHit": true,
+            "wallLimitHit": false
+          },
+          {
+            "id": "t084-game-2-ply-32",
+            "depth": 9,
+            "lastCompletedDepth": 9,
+            "exactRootAttempts": 0,
+            "exactRootCompleted": false,
+            "exactLeafAttempts": 1,
+            "exactLeafCompleted": 0,
+            "exactBoundProofCompleted": 0,
+            "exactAbortedByQuota": 1,
+            "nodeLimitHit": true,
+            "wallLimitHit": false
+          },
+          {
+            "id": "t084-game-3-ply-27",
+            "depth": 8,
+            "lastCompletedDepth": 8,
+            "exactRootAttempts": 0,
+            "exactRootCompleted": false,
+            "exactLeafAttempts": 0,
+            "exactLeafCompleted": 0,
+            "exactBoundProofCompleted": 0,
+            "exactAbortedByQuota": 0,
+            "nodeLimitHit": true,
+            "wallLimitHit": false
+          },
+          {
+            "id": "t084-game-3-ply-29",
+            "depth": 8,
+            "lastCompletedDepth": 8,
+            "exactRootAttempts": 0,
+            "exactRootCompleted": false,
+            "exactLeafAttempts": 11,
+            "exactLeafCompleted": 10,
+            "exactBoundProofCompleted": 10,
+            "exactAbortedByQuota": 1,
+            "nodeLimitHit": true,
+            "wallLimitHit": false
+          },
+          {
+            "id": "t084-game-3-ply-31",
+            "depth": 10,
+            "lastCompletedDepth": 10,
+            "exactRootAttempts": 0,
+            "exactRootCompleted": false,
+            "exactLeafAttempts": 12,
+            "exactLeafCompleted": 11,
+            "exactBoundProofCompleted": 11,
+            "exactAbortedByQuota": 1,
+            "nodeLimitHit": false,
+            "wallLimitHit": false
+          },
+          {
+            "id": "t084-game-4-ply-28",
+            "depth": 9,
+            "lastCompletedDepth": 9,
+            "exactRootAttempts": 0,
+            "exactRootCompleted": false,
+            "exactLeafAttempts": 23,
+            "exactLeafCompleted": 22,
+            "exactBoundProofCompleted": 22,
+            "exactAbortedByQuota": 1,
+            "nodeLimitHit": true,
+            "wallLimitHit": false
+          },
+          {
+            "id": "t084-game-4-ply-30",
+            "depth": 9,
+            "lastCompletedDepth": 9,
+            "exactRootAttempts": 0,
+            "exactRootCompleted": false,
+            "exactLeafAttempts": 1,
+            "exactLeafCompleted": 0,
+            "exactBoundProofCompleted": 0,
+            "exactAbortedByQuota": 1,
+            "nodeLimitHit": true,
+            "wallLimitHit": false
+          },
+          {
+            "id": "t084-game-4-ply-32",
+            "depth": 10,
+            "lastCompletedDepth": 10,
+            "exactRootAttempts": 0,
+            "exactRootCompleted": false,
+            "exactLeafAttempts": 1,
+            "exactLeafCompleted": 0,
+            "exactBoundProofCompleted": 0,
+            "exactAbortedByQuota": 1,
+            "nodeLimitHit": false,
+            "wallLimitHit": false
+          },
+          {
+            "id": "t084-game-5-ply-25",
+            "depth": 10,
+            "lastCompletedDepth": 10,
+            "exactRootAttempts": 0,
+            "exactRootCompleted": false,
+            "exactLeafAttempts": 5,
+            "exactLeafCompleted": 4,
+            "exactBoundProofCompleted": 4,
+            "exactAbortedByQuota": 1,
+            "nodeLimitHit": false,
+            "wallLimitHit": false
+          },
+          {
+            "id": "t084-game-5-ply-27",
+            "depth": 10,
+            "lastCompletedDepth": 10,
+            "exactRootAttempts": 0,
+            "exactRootCompleted": false,
+            "exactLeafAttempts": 6,
+            "exactLeafCompleted": 5,
+            "exactBoundProofCompleted": 5,
+            "exactAbortedByQuota": 1,
+            "nodeLimitHit": false,
+            "wallLimitHit": false
+          },
+          {
+            "id": "t084-game-5-ply-29",
+            "depth": 10,
+            "lastCompletedDepth": 10,
+            "exactRootAttempts": 0,
+            "exactRootCompleted": false,
+            "exactLeafAttempts": 12,
+            "exactLeafCompleted": 11,
+            "exactBoundProofCompleted": 11,
+            "exactAbortedByQuota": 1,
+            "nodeLimitHit": false,
+            "wallLimitHit": false
+          },
+          {
+            "id": "t084-game-21-ply-27",
+            "depth": 9,
+            "lastCompletedDepth": 9,
+            "exactRootAttempts": 0,
+            "exactRootCompleted": false,
+            "exactLeafAttempts": 42,
+            "exactLeafCompleted": 41,
+            "exactBoundProofCompleted": 41,
+            "exactAbortedByQuota": 1,
+            "nodeLimitHit": true,
+            "wallLimitHit": false
+          },
+          {
+            "id": "t084-game-21-ply-29",
+            "depth": 8,
+            "lastCompletedDepth": 8,
+            "exactRootAttempts": 0,
+            "exactRootCompleted": false,
+            "exactLeafAttempts": 11,
+            "exactLeafCompleted": 10,
+            "exactBoundProofCompleted": 10,
+            "exactAbortedByQuota": 1,
+            "nodeLimitHit": true,
+            "wallLimitHit": false
+          },
+          {
+            "id": "t084-game-21-ply-31",
+            "depth": 10,
+            "lastCompletedDepth": 10,
+            "exactRootAttempts": 0,
+            "exactRootCompleted": false,
+            "exactLeafAttempts": 33,
+            "exactLeafCompleted": 32,
+            "exactBoundProofCompleted": 32,
+            "exactAbortedByQuota": 1,
+            "nodeLimitHit": false,
+            "wallLimitHit": false
+          },
+          {
+            "id": "exact-25-1",
+            "depth": 9,
+            "lastCompletedDepth": 9,
+            "exactRootAttempts": 0,
+            "exactRootCompleted": false,
+            "exactLeafAttempts": 0,
+            "exactLeafCompleted": 0,
+            "exactBoundProofCompleted": 0,
+            "exactAbortedByQuota": 0,
+            "nodeLimitHit": true,
+            "wallLimitHit": false
+          },
+          {
+            "id": "exact-26-1",
+            "depth": 8,
+            "lastCompletedDepth": 8,
+            "exactRootAttempts": 0,
+            "exactRootCompleted": false,
+            "exactLeafAttempts": 0,
+            "exactLeafCompleted": 0,
+            "exactBoundProofCompleted": 0,
+            "exactAbortedByQuota": 0,
+            "nodeLimitHit": true,
+            "wallLimitHit": false
+          },
+          {
+            "id": "exact-27-1",
+            "depth": 9,
+            "lastCompletedDepth": 9,
+            "exactRootAttempts": 0,
+            "exactRootCompleted": false,
+            "exactLeafAttempts": 0,
+            "exactLeafCompleted": 0,
+            "exactBoundProofCompleted": 0,
+            "exactAbortedByQuota": 0,
+            "nodeLimitHit": true,
+            "wallLimitHit": false
+          },
+          {
+            "id": "exact-28-1",
+            "depth": 8,
+            "lastCompletedDepth": 8,
+            "exactRootAttempts": 0,
+            "exactRootCompleted": false,
+            "exactLeafAttempts": 0,
+            "exactLeafCompleted": 0,
+            "exactBoundProofCompleted": 0,
+            "exactAbortedByQuota": 0,
+            "nodeLimitHit": true,
+            "wallLimitHit": false
+          },
+          {
+            "id": "exact-29-1",
+            "depth": 8,
+            "lastCompletedDepth": 8,
+            "exactRootAttempts": 0,
+            "exactRootCompleted": false,
+            "exactLeafAttempts": 0,
+            "exactLeafCompleted": 0,
+            "exactBoundProofCompleted": 0,
+            "exactAbortedByQuota": 0,
+            "nodeLimitHit": true,
+            "wallLimitHit": false
+          },
+          {
+            "id": "exact-30-1",
+            "depth": 7,
+            "lastCompletedDepth": 7,
+            "exactRootAttempts": 0,
+            "exactRootCompleted": false,
+            "exactLeafAttempts": 0,
+            "exactLeafCompleted": 0,
+            "exactBoundProofCompleted": 0,
+            "exactAbortedByQuota": 0,
+            "nodeLimitHit": true,
+            "wallLimitHit": false
+          }
+        ]
+      }
     },
     "speed20To24": {
       "positionRows": [
@@ -664,6 +5524,9 @@
         1
       ],
       "repetitionCountUsed": 1,
+      "informative": true,
+      "measurementHarnessSha256": "14457ef473db9f608a29b50db4ef594e7f46bcbaadb37bc086fa4c0a01f2b883",
+      "note": "Informative pre-commit-harness timing retained by redo ruling; the formal warmup plus three alternating-order repetitions run is deferred to T108.",
       "protocol": "native and Edax internal wall time; one warmup; per-position median; T098 2026-07-15 waiver permits completed repetitions (minimum one); partial repetitions are excluded; full warmup+3 alternating-order protocol deferred to T108"
     }
   }

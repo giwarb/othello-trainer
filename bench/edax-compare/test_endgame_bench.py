@@ -22,11 +22,18 @@ class EndgameBenchTests(unittest.TestCase):
  0@73%   -2        0:00.001            12
    20    -6        1:02.125          9000
 """
-        positions = [{"id": "a"}, {"id": "b"}]
+        positions = [{"id": "a", "empties": 18}, {"id": "b", "empties": 20}]
         rows = bench.parse_edax_output(output, positions)
-        self.assertEqual(rows[0], {"id": "a", "score": 28, "elapsedSeconds": 0.016, "nodes": 677188})
+        self.assertEqual(rows[0], {"id": "a", "depth": 18, "score": 28, "elapsedSeconds": 0.016, "nodes": 677188})
         self.assertEqual(rows[1]["score"], -6)
         self.assertEqual(rows[1]["elapsedSeconds"], 62.125)
+
+    def test_parse_edax_batch_rejects_non_exact_final_depth(self):
+        output = """*** problem # 1 ***
+ 17   +28        0:00.016        677188
+"""
+        with self.assertRaisesRegex(RuntimeError, "did not reach an exact depth"):
+            bench.parse_edax_output(output, [{"id": "a", "empties": 18}])
 
     def test_atomic_checkpoint_resume_skips_completed_jobs_and_is_stable(self):
         jobs = [{"key": str(index), "value": index} for index in range(5)]
@@ -106,6 +113,13 @@ class EndgameBenchTests(unittest.TestCase):
         for position in document["positions"]:
             self.assertIsInstance(position["exactScore"], int)
             self.assertEqual(position["scorePerspective"], "side_to_move")
+            self.assertGreaterEqual(position["edaxDepth"], position["empties"])
+            self.assertGreater(position["edaxNodes"], 0)
+
+    def test_report_rejects_incomplete_checkpoint(self):
+        checkpoint = type("Fixture", (), {"value": {"sections": {}}})()
+        with self.assertRaisesRegex(RuntimeError, "incomplete c1 checkpoint"):
+            bench.validate_complete(checkpoint)
 
 
 if __name__ == "__main__":

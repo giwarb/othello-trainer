@@ -105,7 +105,7 @@ fn main() {
         "budget-regression" => cmd_budget_regression(&args[2..]),
         _ => {
             eprintln!(
-                "usage:\n  eval_cli gen --category NAME --min-empties N --max-empties M --count C --seed S\n  eval_cli eval --depth N --exact-from-empties M [--pattern-weights PATH]   (JSON配列を標準入力から読む)\n  eval_cli moves --depth N --exact-from-empties M [--pattern-weights PATH]  (単一局面のJSONオブジェクトを標準入力から読み、全合法手のスコアを返す)\n  eval_cli best --depth N [--time-ms T] [--max-nodes N] --exact-from-empties M [--exact-quota-percent 25|40|60|75] [--pattern-weights PATH]  (T084/T085: single-root探索で最善手1つとテレメトリを返す)\n  eval_cli budget-regression --depth N --max-nodes N --exact-from-empties M [--exact-quota-percent 25|40|60|75] [--pattern-weights PATH]  (同一局面群を2回探索して決定性を検証)"
+                "usage:\n  eval_cli gen --category NAME --min-empties N --max-empties M --count C --seed S\n  eval_cli eval --depth N --exact-from-empties M [--pattern-weights PATH]   (JSON配列を標準入力から読む)\n  eval_cli moves --depth N --exact-from-empties M [--pattern-weights PATH]  (単一局面のJSONオブジェクトを標準入力から読み、全合法手のスコアを返す)\n  eval_cli best --depth N [--time-ms T] [--max-nodes N] --exact-from-empties M [--exact-quota-percent 25|40|60|75] [--pattern-weights PATH]  (T084/T085: single-root探索で最善手1つとテレメトリを返す)\n  eval_cli solve [--alpha A] [--beta B] [--max-nodes N] [--time-ms T] [--tt-mb M]  (solve one endgame position with a full or custom window)\n  eval_cli budget-regression --depth N --max-nodes N --exact-from-empties M [--exact-quota-percent 25|40|60|75] [--pattern-weights PATH]  (同一局面群を2回探索して決定性を検証)"
             );
             std::process::exit(2);
         }
@@ -638,8 +638,10 @@ fn cmd_moves(args: &[String]) {
 fn cmd_solve(args: &[String]) {
     let alpha = get_arg_i32(args, "--alpha", -64);
     let beta = get_arg_i32(args, "--beta", 64);
-    assert!((-64..=64).contains(&alpha), "--alpha must be in -64..64");
-    assert!((-64..=64).contains(&beta), "--beta must be in -64..64");
+    // The terminal score itself is in -64..=64, but the standard proof
+    // windows for the two endpoint scores are [-65,-64] and [64,65].
+    assert!((-65..=65).contains(&alpha), "--alpha must be in -65..65");
+    assert!((-65..=65).contains(&beta), "--beta must be in -65..65");
     assert!(alpha < beta, "--alpha must be less than --beta");
     let max_nodes = get_arg(args, "--max-nodes").map(|value| {
         let parsed = value.parse::<u64>().expect("invalid --max-nodes");
