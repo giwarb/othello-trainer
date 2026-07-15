@@ -1,7 +1,7 @@
 ---
 id: T096
 title: oracle regret測定の頑健化(18→48+局面)とT090b蒸留候補の再判定
-status: todo # todo | in_progress | review | done | blocked
+status: in_progress # todo | in_progress | review | done | blocked
 assignee: codex(gpt-5.6-sol)
 attempts: 0
 ---

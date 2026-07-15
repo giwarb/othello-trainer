@@ -1,7 +1,7 @@
 ---
 id: T095
 title: 蒸留学習トレーナーの高速化(6run並列化・WTHORキャッシュ・重複計算排除)
-status: review # todo | in_progress | review | done | blocked
+status: done # todo | in_progress | review | done | blocked
 assignee: codex(gpt-5.6-sol)
 attempts: 0
 ---
@@ -60,3 +60,18 @@ attempts: 0
 - 実行コマンドと結果: `cargo check -p train` 成功。`cargo test -p train` は38 passed。`cargo test -p engine` は178 passed / 既定ignored 2。`cargo test -p engine --release --test ffo_bench -- --nocapture` はFFO #40〜#44の5局面が期待score一致（1 passed / heavy 1 ignored、513.32秒）。release trainerのsmoke/primary比較実行はいずれもexit 0。
 - 任意項目4は見送り: 必須3項で61.4%短縮を達成しており、canonicalizeのbit trick化は広範な一致検証を要する追加リスクのため、数値不変を優先して今回は変更しなかった。
 - 一時成果物: `train/data/t095/` の比較checkpointはSHA確認後に削除。実運用キャッシュのみgitignore領域に保持。コミットはサンドボックス制約により未実施（オーケストレーター代行予定）。
+
+### 2026-07-15 — verifier検証(独立再実行)
+
+判定: **合格**。コミット6aedde8(`train/src/t090_distillation.rs`のみ変更)を対象に、コード修正なしで受け入れ基準を1つずつ独立実行した。
+
+- `cargo test -p train`: 38 passed / 0 failed(`optimized_train_step_is_bit_identical_to_legacy_calculation`・`outcome_cache_round_trips_and_rejects_wrong_key`含む)。
+- `cargo test -p engine`: 178 passed / 0 failed / 2 ignored(既知のFFO fast/heavy ignore、engine無変更につき想定どおり)。
+- smoke等価性(`--corpus train/data/teacher/corpus_smoke.jsonl --max-epochs 1 --reference-weights train/weights/pattern_v2.bin`、checkpoint-dirはscratchpad配下): `--jobs 1`(直列)と既定(`distillation_jobs=6`、並列)を実行し、6run全てのfinal.bin SHA-256が一致。値もCodex作業ログ記載の6ハッシュ(`baseline-seed-1=a9f60406...`ほか)と完全一致した。「修正前」との3者比較は本再検証(直列/並列)とCodex作業ログ記載値の照合により確認(git checkoutでの旧コード再実行は実施せず、指示どおり省略)。
+- キャッシュ検証: `train/data/t090-wthor-outcomes-v1-b6e39360424d3b91.bin`を一旦`.bak`にリネームして初回実行(cache miss)→20.192秒でcache_built、2回目実行(cache hit)→0.663秒でcache_hit(96.7%短縮、Codex報告の96.9%短縮と整合)。両実行の6run final.bin SHA-256は完全一致。再構築されたキャッシュファイルは元の`.bak`とSHA-256完全一致(内容同一)を確認後、`.bak`を削除して元のキャッシュファイルのみ残した。
+- primary高速化実測(release、既定`--max-epochs 60`・early stopping、専有状態は保証せず概略確認): 直列(`--jobs 1`)70.281秒 → 既定並列(`distillation_jobs=6`)33.964秒、**51.7%短縮**(Codex報告の61.4%より低いが、環境負荷混入の可能性があり指示どおり概略確認扱い。並列が直列より明確に速いことは確認できた)。6run全てのfinal.bin SHA-256は直列・並列で完全一致(early stopping込みでも決定性維持を確認)。
+- `cargo test -p engine --release --test ffo_bench -- --nocapture`: #40〜#44 全問 score=expected 一致(1 passed / 1 ignored(heavy)、563.52秒)。
+- コミット範囲確認: `git show --stat 6aedde8` で変更ファイルが`train/src/t090_distillation.rs`のみであることを確認。
+- `git status --short`: 検証セッション終了時点で出力なし(残骸なし)。scratchpad配下の一時checkpoint・キャッシュ`.bak`は検証後にクリーンアップ済み(キャッシュ本体はgitignore領域に正常に残置)。
+
+以上により受け入れ基準7項目すべてパス。
