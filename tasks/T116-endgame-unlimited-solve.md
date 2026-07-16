@@ -212,3 +212,51 @@ GitHub Actions「Rust Tests」ワークフロー(push時に自動実行、後述
 
 以上により受け入れ基準の「Pages公開URLで終盤までCPU対局を進め、終盤で
 数秒の思考後に着手が返り対局が正常に終局することを確認」を満たした。
+
+### 2026-07-16 検証(verifier)
+
+対象コミット `0452815` を独立に再検証した(コード修正なし、`tasks/`作業ログ追記のみ)。
+
+- `git show --stat 0452815`: 変更は `app/src/app.tsx`(+35/-8)・
+  `app/src/app.test.ts`(+58/-6)の2ファイルのみ、engine/配下無変更を確認。
+- `git show 0452815 -- app/src/app.tsx`: `ENDGAME_UNLIMITED_EMPTIES_THRESHOLD = 20`
+  定数(T107 P75根拠コメント付き)と`cpuMoveLimitForLevel(level, board)`の
+  `level === 'strong' && countEmpty(board) <= 20`分岐、`maxNodes`/`timeMs`
+  なしの`ENDGAME_UNLIMITED_LIMIT`を確認。空き21以上・weak/normalの分岐は
+  `LEVELS[level].cpuLimit ?? LEVELS[level].limit`のまま無変更。
+- `app/src/app.test.ts`の空き21境界テスト(`keeps the current node-budget
+  cpuLimit unchanged one move above the threshold`)は
+  `{depth:12, timeMs:1500, maxNodes:160000, exactFromEmpties:16}`という
+  旧cpuLimitの全フィールドに対する`toEqual`完全一致アサーションであり、
+  真に旧経路を固定する実効的なテストであることを確認(要件4合格)。
+- `cd app && npm test -- --run`: **524 tests passed(64 files)**、失敗0。
+  見込み件数と一致。
+- `cd app && npx tsc --noEmit`: エラーなし(exit 0)。
+- oracle regretスポット再検証(5局面、`target/release/eval_cli.exe best
+  --depth 20 --exact-from-empties 20 --pattern-weights
+  train/weights/pattern_v2.bin`、maxNodes/timeMsなし、実装者と同一パラメータ):
+  `t096_oracle_positions.json`から empties18×2(t096-exact-01, -02)・
+  empties19×1(t096-exact-03)・empties20×2(t096-exact-14, **t096-exact-19=
+  ワーストケース**)を選び、`endgame-results/t107-policy-calibration.json`の
+  `oracle.bestValue`と突き合わせた。結果:
+  - t096-exact-01: discDiff=28.0 (oracle 28.0) MATCH, nodes=2,342,686, 0.306s
+  - t096-exact-02: discDiff=42.0 (oracle 42.0) MATCH, nodes=3,377,475, 0.487s
+  - t096-exact-03: discDiff=12.0 (oracle 12.0) MATCH, nodes=3,171,101, 0.446s
+  - t096-exact-14: discDiff=20.0 (oracle 20.0) MATCH, nodes=6,484,737, 0.777s
+  - t096-exact-19(worst): move=d8, discDiff=-42.0 (oracle -42.0) **MATCH**,
+    nodes=45,773,466, 3.505s(実装者実測4.281秒と近い範囲。T114並行稼働下の
+    揺れとして許容範囲)。
+  5局面全てregret=0で実装者の全20局面reguret=0報告と整合。
+- `gh run list --commit 0452815...`: 「Deploy to GitHub Pages」success
+  (run 29486222351, 1m2s)・「Rust Tests」success(run 29486222287, 1m55s)を
+  確認。
+- Pages公開URL: `curl -s -o /dev/null -w "%{http_code}"
+  https://giwarb.github.io/othello-trainer/` → `200`。Deployワークフローが
+  当該コミットで成功済みのため、対局モードでの1局通し確認は実装者の
+  Pages実機確認(終局まで進行・スコア黒43/白21)と合わせて重複回避のため
+  省略(タスク指示どおり)。
+- `git status --short`: `bench/edax-compare/{gen_teacher_corpus.py,
+  test_teacher_corpus.py, verify_teacher_corpus.py}`のみ(T114 WIP、対象外
+  として指示どおり除外)。T116由来の残差分・未追跡ファイルなし。
+
+**判定: 合格**。受け入れ基準9項目すべて満たしていることを確認した。
