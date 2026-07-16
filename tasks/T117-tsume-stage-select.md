@@ -1,9 +1,9 @@
 ---
 id: T117
 title: 詰めオセロ: ステージクリア型UI+localStorageクリア記録
-status: review # todo | in_progress | review | redo | done | blocked
+status: redo # todo | in_progress | review | redo | done | blocked
 assignee: implementer(Sonnet)
-attempts: 0
+attempts: 1
 ---
 
 # T117: 詰めオセロ: ステージクリア型UI+localStorageクリア記録
@@ -52,7 +52,71 @@ attempts: 0
 
 ## フィードバック(やり直し時にオーケストレーターが記入)
 
+### 2026-07-17 redo #1(verifier合格 / codex-review不合格: ブロッカー1件)
+
+レポート: tasks/review/T117-tsume-stage-select-codex-review.md
+
+1. **[重大・必須] localStorage記録の喪失レース**: `saveAttempt`が`recordAttempt`/`getAllAttempts`(IndexedDB)をawaitした**後**に`recordStageAttempt`を呼んでいるため、結果画面表示直後のリロード/離脱・IndexedDB遅延で記録が書かれないまま失われる(受け入れ基準「リロードしても記録が残る」を通常操作で破れる)。**修正: 挑戦結果確定時に最初のawaitより前で同期的に`recordStageAttempt`を実行する**(結果画面表示前)。記録の日時も挑戦確定時刻になること。回帰テスト: 「IndexedDB保存が未完了(pending)でもlocalStorage記録が既に書かれている」ことをテストで固定する。
+2. **[中・今回対応] 破損値検証の甘さ**: スキーマの意味的制約(カウントが非負整数、lastResultが'clear'|'fail'、日時が文字列等)を満たさない値のフォールバックが不完全(レビュー(b)節)。バリデーションを補強しテスト追加。
+3. **[軽微・今回対応] PlayMode.cssに追加した日本語コメントが文字化けしている**。正しいUTF-8で修正(エンコーディング事故。他の追加コメントに同様の問題がないかも確認)。
+4. [軽微・対応不要・申し送り] ステージ一覧のUI統合テストは今回必須にしない。
+
+修正後: `npm test`/`tsc`グリーン→パス明示コミット(`(T117)`)→push→Actions成功確認。Pages再確認は変更点(記録タイミング)に絞った軽い確認でよい(全面再走不要)。完了報告に修正内容と回帰テストの説明を含めること。
+
+なし(verifier合格)。
+
 ## 作業ログ(担当エージェントが追記)
+
+- 2026-07-17 verifier検証(implementerと独立、コード修正なし)
+  - `git show --stat a93abf2`: 変更は`app/src/tsume/PlayMode.css`・`PlayMode.tsx`・
+    `stageProgress.test.ts`・`stageProgress.ts`の4ファイルのみ。一致。
+  - `npm test -- --run`(app): 66 test files / 541 tests 全件パス。
+    `npx tsc --noEmit`(app): エラーなし(出力なし=成功)。
+  - `stageProgress.test.ts`(199行)を通読: `loadStageProgress`/`saveStageProgress`
+    の往復・壊れたJSON/形不正値のフォールバック、`recordStageAttempt`の
+    初回クリア/初回失敗/firstClearedAt保持/clearCount増加/別ID独立性/
+    now省略時の現在時刻使用、`stageStatus`の3状態導出+現存しないIDでも
+    例外にならないこと、を検証。いずれも本物の`stageProgress.ts`の関数を
+    `FakeStorage`(Mapベース)経由で呼び出しており、自己参照(モジュール内で
+    定義したものをそのままテストするような自己言及)テストではない。
+    要件6の必須ケース(更新・読み出し・破損値フォールバック・未知ID無視)を
+    実質的に満たしている。
+  - 要件3(取りこぼし確認): `PlayMode.tsx`の`saveAttempt`(261-284行)は
+    `finishClear`/`finishFail`から出題経路(`SelectionKind`:
+    difficulty/random/daily/stage)を問わず常に呼ばれ、内部で無条件に
+    `recordStageAttempt(localStorage, s.puzzle.id, ...)`を呼んでいる
+    ことをコード上で確認。ランダム/デイリー経由でもステージ記録が
+    更新される実装になっている。
+  - GitHub Actions: `gh run list`でコミット`a93abf2`の
+    「Deploy to GitHub Pages」(run 29538043552)が`success`であることを確認。
+  - Pages実機スポット確認(Playwright、headless chromium、implementerとは
+    独立の新規ブラウザセッション、viewport 1280x1400):
+    1. 詰めオセロ→「ステージ一覧」で`.tsume-stage-grid__cell`が182件
+       表示されることを確認。
+    2. `puzzles.json`をfetchし`tsume-72`が45番目であることを確認(implementer
+       記録と一致)。初期状態は`--unattempted`/`localStorage`は`null`。
+    3. 実装者の作業ログに記載されたPV(`a7,a2,a5,b1,a1,b2`)を自力で
+       canvasクリック再現(1280x1400ビューポートでcanvas全体が可視範囲に
+       入るよう調整。最初1280x720で試した際は盤面下部がビューポート外に
+       出て`page.mouse.click`が空振りする問題があったため修正)し、
+       「正解!」の結果画面に到達、PVの正しさも独立に再確認できた。
+    4. 「ステージ一覧へ戻る」ボタン(要件4)の存在・押下後、45番セルが
+       `--cleared`(title「クリア済み」)に変わることを確認。
+    5. `localStorage['othello-trainer:tsume-stage-progress']`に
+       `tsume-72`のレコード(`firstClearedAt`/`lastClearedAt`/`clearCount:1`/
+       `failCount:0`/`lastAttemptAt`/`lastResult:'clear'`)が要件3の
+       スキーマどおり保存されていることを確認。
+    6. `page.reload()`後も45番セルが`--cleared`のまま、`localStorage`の
+       内容も保持されていることを確認(要件3の永続性)。
+    7. 参考として375x812のモバイル幅でもグリッド182件表示・横スクロール
+       発生なし(`scrollWidth - innerWidth === 0`)を確認。
+    8. 全シナリオでコンソール/ページエラー0件。
+  - `git status --short`: T117由来の差分・未追跡ファイルなし。残るのは
+    `bench/edax-compare/`配下のT114 WIP 5ファイルのみ(対象外・未変更)。
+  - 使用した一時ファイル(scratchpad、コミット対象外):
+    `pw/verify_t117_*.mjs`・`pw/check_board.mjs`・`pw/check_json.mjs`・
+    `pw/verify_t117_mobile.mjs`(すべてscratchpad配下、リポジトリ非配置)。
+  - 判定: 合格。
 
 - 2026-07-17 実装(implementer、T118と同じセッション。T118のPlayMode.tsx変更の上に積んだ)
   - `app/src/tsume/stageProgress.ts`(新規): ステージ挑戦記録モジュール。
