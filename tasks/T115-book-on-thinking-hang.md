@@ -1,7 +1,7 @@
 ---
 id: T115
 title: 定石ブックON時に「思考中...」表示が解消しない事象の調査・修正
-status: todo # todo | in_progress | review | redo | done | blocked
+status: done # todo | in_progress | review | redo | done | blocked
 assignee: implementer(Sonnet)
 attempts: 0
 ---
@@ -125,3 +125,14 @@ T107のverifierがGitHub Pages本番環境で以下を観測した(2026-07-16、
 
 **仕様どおりにできなかった点・判断に迷った点**:
 - なし。ただし判断の記録として: コンポーネントレベルのテストがこのリポジトリに1件も存在しなかった(既存はロジック単体テストのみ、`environment: 'node'`)ため、`jsdom`の新規追加と`vitest.config.ts`の`include`拡張が必要になった。影響範囲を最小化するため、デフォルトenvironmentは変更せず対象テストファイルのみ`@vitest-environment jsdom`プラグマで切り替える設計にした。既存63ファイルのテストは無変更・全件パス継続を確認済み。
+
+### 2026-07-16 verifier検証記録
+
+- `npm test -- --run`(app、コミットc2bb69eのワーキングツリー): **64ファイル520件全件パス**(作業ログの報告と一致)。
+- コミット内容確認: `git show --stat c2bb69e` で `app/src/app.tsx` `app/src/app.playmode.test.tsx` `app/package.json` `app/package-lock.json` `app/vitest.config.ts` の5ファイルのみであることを確認。
+- 回帰テストの実効性の独立確認: `app/src/app.playmode.test.tsx` を読み、`selectCpuBookMoveCalls.length`(`selectCpuBookMove`呼び出し回数)を直接検証していること(表示テキストの`思考中`チェックだけの自己参照テストでないこと)を確認。さらに`git show 7e9b121:app/src/app.tsx`を一時的に`app/src/app.tsx`へ上書きし(`git status`で単一ファイルの変更のみであることを確認済みの上で実施)、`npm test -- --run app.playmode.test.tsx`を実行 → **修正前コードに対して`expect(selectCpuBookMoveCalls.length).toBe(1)`が`2`で失敗することを実機再現**(regression-catching であることを独立実証)。直後に`git checkout -- app/src/app.tsx`で復元し、`git status --short app/src/app.tsx`が空(差分なし)であることを確認、再度`npm test -- --run`を実行し64ファイル520件全件パスに戻ることを確認。
+- GitHub Actions: `gh run list --workflow="Deploy to GitHub Pages"`で、コミットc2bb69e(コミットメッセージ一致)に対応するrun 29484450644が`completed / success`であることを確認。
+- 本番Pages実機確認(Playwright、chromium、`playwright install`済みブラウザキャッシュ利用): `https://giwarb.github.io/othello-trainer/`で対局モード→定石ブックON(既定チェック済み)→黒d3クリックを実行し、書籍応手適用後に「手番: 黒」表示となり「思考中」が一切現れないことを確認(初回試行でelapsedMs一桁〜10ms台、実質即時解消)。加えてCPU強さ「強い」でのd3、「普通」でのc4、「強い」でのf5の3ケースについて、クリック後5秒間・20ms間隔で状態文字列を継続トレースし、いずれも「あなたは黒番です。 手番: 黒」のまま変化なし(「思考中」の出現ゼロ)であることを確認。コンソール/ページエラーもゼロ。
+  - 途中、早期break方式のポーリングスクリプトで「手番: 白」という1フレームの読み取りが数回発生したが、打ち切らずに5秒間フルトレースする方式に切り替えて再検証した結果、いずれのケースも状態は終始「手番: 黒」で安定しており、「思考中」も一度も出現しなかった。これは実際の停留状態ではなく、クリック直後の一瞬のレンダリング過渡状態をポーリングスクリプト側が早期終了条件で拾ってしまったテストスクリプト側のアーティファクトと判断する(報告されているバグの症状=「思考中」が数秒〜分単位で解消しないことと合致しない)。
+- `git status --short`: `bench/edax-compare/`配下3ファイル(T114 WIP、対象外)と本ファイル(`tasks/T115-*.md`、作業ログ追記によるもの)以外に差分・未追跡ファイルなし。T115由来のコード差分残留なし。
+- 総合判定: 合格。
