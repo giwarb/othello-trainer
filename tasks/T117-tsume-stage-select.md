@@ -1,7 +1,7 @@
 ---
 id: T117
 title: 詰めオセロ: ステージクリア型UI+localStorageクリア記録
-status: todo # todo | in_progress | review | redo | done | blocked
+status: in_progress # todo | in_progress | review | redo | done | blocked
 assignee: implementer(Sonnet)
 attempts: 0
 ---

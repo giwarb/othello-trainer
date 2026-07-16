@@ -1,7 +1,7 @@
 ---
 id: T118
 title: 詰めオセロ: 終局時に最終盤面を残したまま結果を表示する
-status: review # todo | in_progress | review | redo | done | blocked
+status: done # todo | in_progress | review | redo | done | blocked
 assignee: implementer(Sonnet)
 attempts: 1
 ---
