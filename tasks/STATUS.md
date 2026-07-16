@@ -6,7 +6,7 @@
 
 ## 現在地
 
-**【中断中 2026-07-16 9:25頃 — ユーザー指示によるPC停止。再開手順】** T107(exactポリシー再校正)の校正グリッド実行途中で中断。状態: (1) T107のWIPコード(eval_cli.rsのquota50許可+校正スクリプト2本)はWIPコミットで保全済み。(2) 校正checkpointは `bench/edax-compare/endgame-results/t107-policy-calibration.json`(グリッド途中、oracle空き23-26は未完)と `t107-estimated-min-exact-nodes.json`(P75テーブル、空き22-24未完)にローカル保存(gitignore領域、resume対応)。(3) **再開方法**: 新しいimplementerに tasks/T107-exact-policy-recalibration.md を渡し、「作業ログの『バックグラウンド実行中』節にある3コマンド(oracle / estimate_min_exact_nodes / grid)を同じ引数で再実行すればcheckpointから自動resumeする。完了後は選定→実装→検証へ」と指示する。(4) 並行セッションのT114(200kコーパス生成)も中断しているはず — そちらのセッションの再開はT114タスクファイルの手順に従う。
+**【再開済み 2026-07-16 ユーザー指示】** PC停止で中断していた2タスクをともに再開。(1) **T114**: 生成プロセスをオーケストレーターが同一コマンドで再起動(detached、シャードcheckpointから自動resume、再開時点29,770行保存済み)。ログ: `logs/t114-gen-resume.log`。残り約17万件・約7時間見込み。完走後のverify・manifest・コミットは改めてimplementerに委譲する。(2) **T107**: 新implementerへ再委譲済み(作業ログの3コマンドをcheckpointからresume→選定→実装→検証)。T114と並行稼働のため、wall保険発動率の最終確認だけは専有ウィンドウをオーケストレーターが調整する(その段階でT114生成をkill→計測後に同一コマンドでresume)。bench/edax-compare の3ファイル(gen/verify/test)の未コミット変更はT114ワーカーのWIPなので破棄・コミットしないこと。
 
 **エンジン強化を再開(2026-07-15 ユーザー指示)**: 方針は「大きい実験(200kコーパス・v3×蒸留)の前に、学習パイプラインのボトルネックを先に潰す」。explorer調査2本完了:
 - ①教師生成: 律速は**子局面ごとのEdaxプロセス起動42.3万回**(固定約164ms/回、8並列時は競合で実効2.3〜2.6倍に劣化)→ **T094(局面単位バッチ化)をCodexに委譲中**。
