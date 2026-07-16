@@ -6,7 +6,7 @@
 
 ## 現在地
 
-**【再開済み 2026-07-16 ユーザー指示】** PC停止で中断していた2タスクをともに再開。(1) **T114**: 生成プロセスをオーケストレーターが同一コマンドで再起動(detached、シャードcheckpointから自動resume、再開時点29,770行保存済み)。ログ: `logs/t114-gen-resume.log`。残り約17万件・約7時間見込み。完走後のverify・manifest・コミットは改めてimplementerに委譲する。(2) **T107**: 新implementerへ再委譲済み(作業ログの3コマンドをcheckpointからresume→選定→実装→検証)。T114と並行稼働のため、wall保険発動率の最終確認だけは専有ウィンドウをオーケストレーターが調整する(その段階でT114生成をkill→計測後に同一コマンドでresume)。bench/edax-compare の3ファイル(gen/verify/test)の未コミット変更はT114ワーカーのWIPなので破棄・コミットしないこと。
+**【再開済み 2026-07-16、ただしT114でresume事故発生】** (1) **T114**: 生成を再起動(PID 3832、ログ `logs/t114-gen-resume.log`)したが、**provenance identityに`gitCommit`(HEAD)が含まれるため、停止中のtasksコミットでidentity不一致→全8シャードが`start_fresh()`で切り詰め、29,008件が消失しゼロから再生成中**(事故詳細と根本原因はT114作業ログ 11:30節)。現行ペース約6.5局面/s、ETA約8.3時間(〜19:40頃)。**resume堅牢化(gitCommitをidentityから除外・不一致時は切り詰めでなくエラー停止・`--adopt-provenance`移行フラグ)を別implementerへ委譲済み** — この修正が入るまで生成プロセスを絶対に停止しないこと(現行checkpointのmetaは旧HEAD記録のため、停止=再全損)。修正完了後はkill→adopt-provenanceでresume可能になり、T107の専有ウィンドウ調整が解禁される。(2) **T107**: implementerへ再委譲済み、校正resume進行中(oracle 44/60完了・gridを別checkpointファイルに分離して再走中。ワーカーがoracle/grid同時実行のcheckpoint共有レース(サイレント上書き)を検出し、gridを`t107-policy-calibration-grid.json`へ分離済み)。wall保険発動率の最終確認はT114のresume堅牢化完了後に専有ウィンドウを調整する。bench/edax-compare の gen/verify/test 3ファイルの未コミット変更はT114のWIP(堅牢化差分含む)なので破棄・コミットしないこと。
 
 **エンジン強化を再開(2026-07-15 ユーザー指示)**: 方針は「大きい実験(200kコーパス・v3×蒸留)の前に、学習パイプラインのボトルネックを先に潰す」。explorer調査2本完了:
 - ①教師生成: 律速は**子局面ごとのEdaxプロセス起動42.3万回**(固定約164ms/回、8並列時は競合で実効2.3〜2.6倍に劣化)→ **T094(局面単位バッチ化)をCodexに委譲中**。

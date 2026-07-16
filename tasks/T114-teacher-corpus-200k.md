@@ -178,3 +178,18 @@ selected 200000 position(s): {targetCount: 200000, prioritySelected: 65,
 **副次的に発見した実装上の注意点(規模問題とは独立、後続実装時に反映すること)**:
 - `TeacherCorpusCheckpoint._write_meta`および`merge_shards`の出力に`schemaVersion: 2`が含まれていない(T090aでは`finalize_teacher_corpus.py`という別スクリプトが事後的に付与していたが、そのスクリプトは`smoke`/`primary`固定・8シャード固定でハードコードされており新setには使えない)。`verify_teacher_corpus.py`は`schemaVersion != 2`でエラーにするため、**このままでは新規生成したコーパスの検証が必ず失敗する**。`gen_teacher_corpus.py`の`_write_meta`/`merge_shards`側で直接`schemaVersion: 2`を書くよう修正が必要(diffFromBest/openingKeyは既にlabel_position/extractが生成時点で正しく付与しているため、finalize相当の後処理は本来不要なはず)。
 - t096オラクル除外は`select_positions()`に`excluded_keys`引数を追加し、優先層・WTHOR層それぞれで`canonical_key_of_position(...) in excluded_keys`を除外する形で実装可能(t096の`canonicalKey`フィールドをそのまま集合化するだけでD4対称形も一括除外できる)。既存smoke/primaryのresume可能性を壊さないよう、この除外ロジックはCORPUS_SETS設定に`excludeT096Oracle`のようなフラグを持たせ、フラグがfalse(smoke/primary)のときは`settings`/`selectionStats`の出力形が一切変わらない(=runKeyが変わらない)ように条件分岐すること(`excluded_keys`が空集合なら追加statsフィールド自体を出力しない、等)。`PROVENANCE_IDENTITY_KEYS`やグローバルな`meta`にオラクルSHA256を追加すると、smoke/primaryの`provenance_identity`比較が変わり誤って`start_fresh()`(=既存50,000件JSONLの空文字上書き)を誘発しかねないため、**グローバルなprovenance/meta構造は一切変更しないこと**。
+
+### 2026-07-16 11:30頃 — オーケストレーター: resume失敗事故の記録と追加指示(resume堅牢化)
+
+**事故**: 再開手順どおり同一コマンドで生成を再起動(11:10、PID 3832)したところ、**全8シャードが provenance mismatch で既存checkpointを拒否し`start_fresh()`で切り詰め、29,008局面(約1.2時間分のEdax計算)が消失、ゼロから再生成が始まった**(各シャードログに `[resume] ... provenance mismatch, refusing checkpoint (starting fresh)` を確認)。
+
+**根本原因**: `PROVENANCE_IDENTITY_KEYS`に`gitCommit`(`vs_edax.git_commit_hash()`=HEAD)が含まれている。前回の生成起動時のHEADは`37c69b1`だったが、PC停止の前後でオーケストレーターがtasksコミット(bf07d2e〜5f1db7a)を積んだためHEADが変わり、identity不一致→切り詰めが発動した。**挙動に影響しない無関係コミットでresumeが全損する**設計であり、T096の既知問題(`compare_pattern_v3.py`のHEAD依存identity、STATUS.md申し送り)と同型+切り詰めまで発動する分さらに危険。
+
+**さらに重大な帰結**: 現在走っている再生成のシャードmetaは`gitCommit: 5f1db7a`を記録しているが、HEADは既に進んでいる(1d15bb4〜)。**修正しない限り、現行の生成は一度でも停止したら次回起動時に再び全損する**。STATUS.mdの「T107専有ウィンドウのためにT114をkill→同一コマンドでresume」という調整はこのままでは成立しない。
+
+**追加指示(resume堅牢化、生成プロセスは止めずに実施)**:
+1. `PROVENANCE_IDENTITY_KEYS`から`gitCommit`を除外する(`meta`への情報記録としては残してよい。identity比較にだけ使わない)。実効的な挙動を決めるSHA群(harness/teacher_candidates/edax/evalData/highRegretSource等)は維持。
+2. **不一致時の`start_fresh()`(切り詰め)を廃止し、明確なエラーメッセージ(どのキーがどう不一致か)で異常終了させる**。runKey不一致も同様にエラー停止にする。意図的なゼロから再生成は新設の明示フラグ(例: `--start-fresh`)でのみ許可する。
+3. **`--adopt-provenance`(名称は任意)フラグを新設**: identity不一致でも既存checkpointを正としてresumeし、metaのidentityを現環境の値で更新して続行する(何を採用したかをログに出す)。用途: 今走っている生成(旧harnessSha256+gitCommit 5f1db7aのmeta)を、修正後スクリプトで将来kill→resumeするための移行経路。**注意: 本修正自体が`harnessSha256`を変えるため、このフラグがないと修正後スクリプトでは現行checkpointをresumeできない。**
+4. テスト追加(`test_teacher_corpus.py`): 不一致時に切り詰めが起きないこと(jsonl内容が保存されること)・エラー停止すること・adoptフラグでresumeできること。既存テストは全件パス維持。
+5. **実行中の生成プロセス(PID 3832、シャード8本)には一切触れない**(スクリプトはメモリにロード済みなのでディスク上の編集は安全)。コミットもまだしない(既存WIP 3ファイルと一緒にタスク完了時にまとめてコミット)。
