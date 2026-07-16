@@ -1,7 +1,7 @@
 ---
 id: T119
 title: 中盤練習: 定石DB終端の番号付き問題集+ステージクリア型UI+設定別★記録
-status: redo # todo | in_progress | review | redo | done | blocked
+status: review # todo | in_progress | review | redo | done | blocked
 assignee: implementer(Sonnet)
 attempts: 1
 ---
@@ -207,3 +207,110 @@ attempts: 1
     得るが、`pickJosekiEndPosition`は`lines`から選ぶため`isLeaf`かつ
     重複除去済みの`stagePool`とは選ばれ方が異なり、「たまたま一致したときだけ
     記録される」という利用者にとって分かりにくい挙動になるのを避けた)。
+
+- 2026-07-17 redo #1対応(implementer、codex-review重大指摘1件+中2件+軽微1件)
+  - レポート: `tasks/review/T119-midgame-stage-select-codex-review.md`。
+  - **[必須] ステージ順・出典名の修正**: `app/src/midgame/stagePool.ts`の
+    `buildMidgameStagePool`を全面書き換え。旧実装は`JosekiDb.nodes`を
+    `isLeaf===true`でフィルタしハッシュ辞書順にソートしていたが、
+    `JosekiDb.lines`を**定義順**に走査し、各ラインの終端(`moveSeq`を初期局面
+    から再生した局面)のハッシュを求め、**初出順**でステージ順を決める実装に
+    変更(`josekiDb.nodes`は一切参照しなくなった)。`josekiNames`も、旧実装が
+    `JosekiNode.names`(通過する全ライン名)を使っていた誤りを修正し、
+    各ラインごとに「そのラインの終端」に対してのみ名前を追加する方式にした
+    (長いラインの通過点を兼ねる短いラインの終端で、無関係な名前が混入
+    しなくなった)。
+    - **既存localStorage記録への影響確認(オーケストレーター指示どおり)**:
+      新旧アルゴリズムで「重複除去後の終端局面の集合」(=ステージキーの
+      集合)が完全に一致することを実データで検証した
+      (`node --experimental-strip-types`でのワンライナー検証:
+      旧`isLeaf`ノードキー集合と新アルゴリズムの出力キー集合をソートして
+      比較し完全一致、いずれも111件)。理由: `isLeaf===true`の定義
+      (「いずれかの定石ラインの最終局面であれば`true`」)は、まさに
+      「各ラインの終端ハッシュの集合」と数学的に同値であり、`buildDb.ts`が
+      各ラインの終端に対して`isLeaf=true`をセットする実装になっているため。
+      **したがって本修正による並び順・出典名の変更は、既存の
+      `localStorage`進捗記録(キー=局面ハッシュ)を一切破壊しない**
+      (キーは変わらず、`stageNumber`(表示用の並び順)とその局面に
+      紐づく`josekiNames`だけが変わる)。実機でも、修正前の実装が使っていた
+      キーと同じ計算方法(ラインのmoveSeq再生によるhashBoard)で作った
+      localStorageレコードが、修正後のステージ一覧で正しく★表示される
+      ことを確認済み(下記Pages確認参照)。
+    - `stagePool.test.ts`: 「仕様と逆の挙動(ライン順反転でも番号不変)を
+      固定していたテスト」を削除し、(a)ライン順を反転すると列挙順も追従して
+      変わること(ステージの集合自体は不変)、(b)`JosekiDb.lines`の初出順から
+      独立に計算した期待値とステージ順序が一致すること、(c)`josekiNames`に
+      通過するだけのラインの名前が含まれないこと、の3テストを新規追加
+      (10件→14件)。
+  - **[中] staleセッションの記録ガード**: `app/src/midgame/PracticeMode.tsx`
+    に`sessionGenerationRef`(セッション世代カウンタ)を追加。
+    `resetSessionTo`(新セッション開始)・`backToSettings`・`goToStageSelect`
+    (いずれも離脱・切り替え)でインクリメントし、`checkEnd`・
+    `handleModeFailure`・`handlePlayerMove`は非同期処理(`requestAnalyzeAll`/
+    `requestAnalyze`)の`await`前に世代を捕まえ、`await`から戻った時点で
+    `sessionGenerationRef.current`と一致する場合のみ結果確定
+    (`setPhase('result')`・`setResultInfo`)・記録
+    (`recordStageAttemptNow`)・★付与(`setJustEarnedStar`)を行うよう修正
+    (一致しなければ何もせず抜ける)。相手着手の`useEffect`は既存の
+    `cancelled`フラグで`checkEnd`呼び出し自体をガード済みだったため、
+    `checkEnd`呼び出し時点の`sessionGenerationRef.current`をそのまま渡す形
+    にした。
+    - **回帰テスト**(新規`app/src/midgame/PracticeMode.staleSession.test.tsx`、
+      1件): 初期局面から空きマス24(完全読み判定の閾値)まで進む決定的な
+      36手の合成ライン(パスが発生しないことを事前にスクリプトで確認済み)を
+      唯一のラインとする`JosekiDb`を構築し、ステージ開始直後(`resetSessionTo`
+      が同期的に呼ぶ`checkEnd`の`requestAnalyzeAll`が意図的に解決しない
+      Promiseで止まっている間)に「やめる」を押して設定画面へ戻り、その後で
+      古い判定をクリア相当の評価値で解決させても`localStorage`に記録が
+      書き込まれず結果画面にも遷移しないことを検証。**本テストが実際に
+      退行を検出できることを、修正前のコード(`git stash`で一時的に
+      `PracticeMode.tsx`をredo前相当に戻して再実行)に対して確認済み**:
+      修正前は`expect(localStorage.getItem(...)).toBeNull()`が
+      `AssertionError`(実際に記録が書き込まれてしまう)で失敗し、修正を
+      戻すと合格することを確認した。
+  - **[中] 相関バリデーションの補強**: `app/src/midgame/stageProgress.ts`の
+    `isValidEntry`が「`firstClearedAt`/`lastClearedAt`が**両方**`null`」の
+    場合しか弾けておらず、`clearCount > 0`なのに片方だけ`null`という破損
+    データが有効値として通ってしまっていた問題を修正
+    (`||`条件に変更、両方非nullを要求)。`stageProgress.test.ts`に
+    片方だけnullの2ケース(firstClearedAtのみnull/lastClearedAtのみnull)の
+    テストを追加(31件→33件)。
+  - **[軽微] `parseStageKey`の例外仕様と実装の不一致解消**:
+    不正な16進文字列を`BigInt()`に直接渡すと`SyntaxError`が送出され
+    ドキュメント上の例外仕様(`RangeError`のみ)と食い違っていた問題を修正。
+    16進文字のみで構成されているかを正規表現(`HEX_PART_REGEX`)で事前検証し、
+    さらに64bit範囲・黒白ビットの重複も検証するようにし、あらゆる不正入力に
+    対して`RangeError`だけを投げるよう修正。`stagePool.test.ts`に3テスト
+    (不正な16進文字・64bit範囲超過・黒白ビット重複)を追加。
+  - 検証結果:
+    - `npm test -- --run`(app): 70 test files / 596 tests 全件パス
+      (redo #1前589件に、`stagePool.test.ts`+4件、`stageProgress.test.ts`
+      +2件、`PracticeMode.staleSession.test.tsx`新規1件=+7件で596件)。
+    - `npx tsc --noEmit`(app): エラーなし。
+    - コミット: `798d577`(`app/src/midgame/PracticeMode.tsx`・
+      `PracticeMode.staleSession.test.tsx`(新規)・`stagePool.ts`・
+      `stagePool.test.ts`・`stageProgress.ts`・`stageProgress.test.ts`の
+      6ファイルのみ、パス明示add)、`git push origin main`済み
+      (`deea127..798d577`)。
+    - GitHub Actions「Deploy to GitHub Pages」run 370(commit `798d577`、
+      run id 29541903639): `gh run view`で`{"conclusion":"success",
+      "status":"completed"}`を確認(`gh run list`はAPI一時障害(HTTP 503)で
+      使えなかったため、個別run IDの`gh run view`ポーリングと、ブラウザでの
+      Actionsページ直接確認を併用)。
+    - Pages公開URLでの軽い再確認(オーケストレーター指示どおり「定義順の
+      番号・出典名・★表示」に絞る、Playwright headless chromium、
+      `verify_t119_redo1_light.mjs`): 実データで定義順1番目のライン
+      (`bookgen/joseki-research.json`の`lines[0].name === '虎'`)を
+      ローカルで確認したうえで、Pages上のステージ一覧の**ステージ#1**が
+      実際に「虎」であることを確認(定義順の反映を実機で確認)。全111マスの
+      うち、`title`属性に「他N件」が10件を超える(=無関係な名前が大量混入)
+      セルが1件も無いことを確認(出典名修正の反映)。あわせて、
+      `stagePool.ts`と同一のアルゴリズム(「虎」ラインの`moveSeq`を初期局面
+      から再生してhashBoardを計算)で求めたキーに対して★2/3のダミー進捗を
+      `localStorage`へ事前投入し、ステージ#1(虎)セルが正しく`★★☆`・
+      緑背景(`--cleared`)で表示されることを確認(★表示・記録キー整合性の
+      実機確認、スクリーンショット`T119-redo1-stage-list.png`)。
+      コンソールエラー0件。
+  - `git status --short`: 本タスク由来の差分・未追跡ファイルは残っていない。
+    T114関連(`bench/edax-compare/`・`train/data/teacher/`)には一切触れて
+    いない(別ワーカーが仕上げ中との申し送りどおり)。
