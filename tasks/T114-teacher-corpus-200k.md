@@ -193,3 +193,38 @@ selected 200000 position(s): {targetCount: 200000, prioritySelected: 65,
 3. **`--adopt-provenance`(名称は任意)フラグを新設**: identity不一致でも既存checkpointを正としてresumeし、metaのidentityを現環境の値で更新して続行する(何を採用したかをログに出す)。用途: 今走っている生成(旧harnessSha256+gitCommit 5f1db7aのmeta)を、修正後スクリプトで将来kill→resumeするための移行経路。**注意: 本修正自体が`harnessSha256`を変えるため、このフラグがないと修正後スクリプトでは現行checkpointをresumeできない。**
 4. テスト追加(`test_teacher_corpus.py`): 不一致時に切り詰めが起きないこと(jsonl内容が保存されること)・エラー停止すること・adoptフラグでresumeできること。既存テストは全件パス維持。
 5. **実行中の生成プロセス(PID 3832、シャード8本)には一切触れない**(スクリプトはメモリにロード済みなのでディスク上の編集は安全)。コミットもまだしない(既存WIP 3ファイルと一緒にタスク完了時にまとめてコミット)。
+
+### 2026-07-16 12:0x頃 — Sonnet実装ワーカー: 追加指示1〜5(resume堅牢化)を実施
+
+**対象**: `bench/edax-compare/gen_teacher_corpus.py`(resume/identity判定ロジック)、`bench/edax-compare/test_teacher_corpus.py`(テスト追加)のみ。既存WIP(T114のコード実装、schemaVersion付与・t096除外フィルタ・CORPUS_SETS拡張)に積み増す形で実施し、破棄・巻き戻しは行っていない。実行中の生成プロセス(PID 3832、シャード8本、`corpus_expanded200k_shard*of8.jsonl`)には一切触れていない(着手前・完了後の両方でファイル更新が継続していることを`Get-Process`/`Get-ChildItem`で確認済み)。`train/data/teacher/`配下のデータファイルは変更していない。
+
+**実施内容(追加指示1〜5、番号対応)**:
+
+1. `PROVENANCE_IDENTITY_KEYS`タプルから`gitCommit`を削除(harnessSha256/teacherCandidatesToolSha256/edaxSha256/edaxEvalDataSha256/candidatesPoolSha256/highRegretSourceSha256の6キーのみ残す)。`build_run_metadata()`は変更していないため、`meta.gitCommit`自体は引き続き記録される(identity比較にだけ使わなくなる)。
+2. `TeacherCorpusCheckpoint.try_resume()`を書き換え、runKey不一致・provenance identity不一致のいずれも、既定では`start_fresh()`を誘発する`return False`ではなく`RuntimeError`(不一致キー・saved/current値を明記したメッセージ)で例外送出するようにした。呼び出し元の`if not checkpoint.try_resume(): checkpoint.start_fresh()`という既存パターンは変えず、例外はそのまま呼び出し元へ伝播してプロセスを異常終了させる。
+3. `TeacherCorpusCheckpoint.__init__`にキーワード専用引数`adopt_provenance: bool = False`と`start_fresh_allowed: bool = False`を追加(いずれも既定False、破壊的変更なし)。
+   - `start_fresh_allowed=True`のとき: 不一致(runKey・provenanceいずれも)で例外を投げず、旧来どおり`return False`してcaller側の`start_fresh()`(切り詰め)を許可する。
+   - `adopt_provenance=True`のとき: provenance identity不一致に限り(runKey不一致には効かない、設計判断は追加指示3の「意図的な再生成は`--start-fresh`」という記述と、runKeyは生成設定そのものでありSHA不一致より踏み込んだ差異のため区別すべきという判断による)、不一致キーと旧→新の値をログ出力したうえで`return True`し、既存jsonlをそのまま採用してresumeを継続する。`self.meta`はコンストラクタに渡された値(=現環境の値)のままなので、以降の`write_progress()`/`_write_meta()`が書くmetaは自動的に現環境のidentityに更新される。
+4. `generate()`・`run_shard_orchestrator()`・`main()`(argparse)に`--start-fresh`/`--adopt-provenance`の2フラグを追加し、shard workerへも`run_shard_orchestrator`のcmd構築部で伝播するようにした。2フラグは`main()`内で相互排他チェック(両方指定でSystemExit)。docstringの実行例セクションにも用途を追記。
+5. テスト追加(`test_teacher_corpus.py`、既存の`test_resume_truncates_malformed_tail_and_rejects_provenance`を分割・置換する形で計7件):
+   - `test_resume_truncates_malformed_tail`(既存の破損tail切り詰め挙動を維持することの確認、identity/runKeyは一致させたまま)
+   - `test_resume_ignores_gitcommit_change`(gitCommitのみ変化ではresumeが拒否されないことの確認=追加指示1の直接検証)
+   - `test_resume_raises_on_provenance_mismatch_without_flags`(フラグなしでprovenance不一致時にRuntimeErrorかつjsonl内容が一切変更されないことの確認)
+   - `test_resume_raises_on_run_key_mismatch_without_flags`(同、runKey不一致版)
+   - `test_resume_start_fresh_flag_allows_truncation_on_mismatch`(`start_fresh_allowed=True`で従来どおりFalseを返し、caller側`start_fresh()`で切り詰められることの確認)
+   - `test_resume_adopt_provenance_flag_resumes_despite_mismatch`(`adopt_provenance=True`でTrueを返し、jsonl保持・done_ids読み込み・`checkpoint.meta`が現環境値のままであることの確認)
+   - `test_resume_adopt_provenance_does_not_override_run_key_mismatch`(adopt_provenanceがrunKey不一致には効かずRuntimeErrorのままであることの確認)
+
+**実行結果**:
+- `python -m py_compile bench/edax-compare/gen_teacher_corpus.py bench/edax-compare/test_teacher_corpus.py`: 成功。
+- `python bench/edax-compare/test_teacher_corpus.py`: `Ran 20 tests ... OK`(既存13件+新規7件、全件パス)。
+- `python -m pytest bench/edax-compare/ -q`: `27 passed`(verify_teacher_corpus.py側の既存WIPテスト含め全件パス、回帰なし)。
+- `git status --short`: `bench/edax-compare/gen_teacher_corpus.py` / `test_teacher_corpus.py` / `verify_teacher_corpus.py`(既存WIP、今回未変更)の3件のみ。`train/data/`配下・`tasks/`配下に変更なし(本追記を除く)。
+
+**確認事項**: 実行中の生成プロセス(PID 3832)は着手前・完了後とも生存確認済み(`Get-Process -Id 3832`)、シャードjsonl/metaのタイムスタンプも継続更新中であることを確認した。コミットは行っていない(オーケストレーターがタスク完了時に全WIPをまとめてコミットする方針のため)。
+
+**再開コマンド例(adopt-provenanceでの移行)**: 現行の生成(旧harnessSha256のmetaでresume中)を将来killしてから、修正後スクリプトでresumeする場合:
+```
+python bench/edax-compare/gen_teacher_corpus.py expanded200k --years 2000-2024 --num-shards 8 --adopt-provenance
+```
+(本修正自体が`harnessSha256`を変えるため、このフラグなしでは次回resumeが必ずprovenance mismatchでRuntimeErrorになる。`--adopt-provenance`は各shard起動コマンドへ`run_shard_orchestrator`経由で自動伝播される。)
