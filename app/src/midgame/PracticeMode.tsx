@@ -275,6 +275,30 @@ export function PracticeMode() {
    */
   const failRequestIdRef = useRef(0)
 
+  /**
+   * セッション世代カウンタ(T119 redo #1: codex-review指摘(b)1)。
+   *
+   * `checkEnd`(完全読みの`requestAnalyzeAll`)・`handleModeFailure`
+   * (比較PV取得の`requestAnalyze`)はいずれも非同期処理を挟んでから
+   * `setPhase('result')`・`setResultInfo`・ステージ挑戦記録
+   * (`recordStageAttemptNow`)を行う。この非同期処理が進行中に「やめる」
+   * (`backToSettings`)やステージ一覧へ戻る(`goToStageSelect`)、あるいは
+   * 新しいセッション開始(`resetSessionTo`)でユーザーが画面を離れると、
+   * 古い(既に離脱済みの)判定が完了した時点でそのまま結果確定・記録・★付与
+   * まで実行してしまい、無関係な画面状態やステージの進捗を書き換えてしまう
+   * 不具合があった(`failRequestIdRef`と同種の問題だが、こちらは
+   * `localStorage`の永続データにも波及するため深刻)。
+   *
+   * `resetSessionTo`(新しいセッション開始)・`backToSettings`・
+   * `goToStageSelect`(いずれもセッションからの離脱・切り替え)でこの値を
+   * インクリメントする。非同期処理を開始する側(`checkEnd`・
+   * `handlePlayerMove`・相手着手の`useEffect`)は開始時点の値を`generation`
+   * として捕まえ、`await`から戻ってきた際に`sessionGenerationRef.current`と
+   * 一致するか(=まだ同じセッションが有効か)を確認してから結果確定・記録の
+   * 副作用を実行する。
+   */
+  const sessionGenerationRef = useRef(0)
+
   /** 失敗時の説明UI用の状態を初期化する(新しい試行の開始時、要件2〜4)。 */
   function resetFailExplanation(): void {
     failRequestIdRef.current += 1
@@ -371,16 +395,23 @@ export function PracticeMode() {
    *
    * `stageKey`(T119): このセッションがステージ一覧経由なら対応する安定キー、
    * そうでなければ`null`(`session.stageKey`をそのまま渡す。要件4)。
+   *
+   * `generation`(T119 redo #1): 呼び出し元が`sessionGenerationRef.current`を
+   * 捕まえて渡す。`requestAnalyzeAll`の`await`から戻った時点でこの値が
+   * `sessionGenerationRef.current`と一致しなければ、その間にセッションが
+   * 切り替わった(離脱・新規開始)とみなし、結果確定・記録を一切行わずに
+   * 抜ける(codex-review指摘(b)1)。
    */
   async function checkEnd(
     board: BoardState,
     sideToMove: Side,
     humanSide: Side,
     stageKey: string | null,
+    generation: number,
   ): Promise<boolean> {
     const mover = resolveMover(board, sideToMove)
     if (mover === null) {
-      finishByFinalScore(board, humanSide, stageKey)
+      finishByFinalScore(board, humanSide, stageKey, generation)
       return true
     }
     if (countEmpty(board) > 24) return false
@@ -390,10 +421,14 @@ export function PracticeMode() {
     setFinalizing(true)
     try {
       const allMoves = await getEngine().requestAnalyzeAll(board, mover, MIDGAME_ANALYZE_LIMIT)
+      if (sessionGenerationRef.current !== generation) {
+        // このawait中にセッションが切り替わった(要件4系の副作用は行わない)。
+        return false
+      }
       if (allMoves.length === 0) {
         // `resolveMover`が`mover`に合法手ありと判定したにもかかわらず`allMoves`が
         // 空、という通常は起こらないはずの不整合に対する防御的フォールバック。
-        finishByFinalScore(board, humanSide, stageKey)
+        finishByFinalScore(board, humanSide, stageKey, generation)
         return true
       }
       const best = allMoves.reduce((a, b) => (b.discDiff > a.discDiff ? b : a))
@@ -432,7 +467,15 @@ export function PracticeMode() {
     }
   }
 
-  function finishByFinalScore(board: BoardState, humanSide: Side, stageKey: string | null): void {
+  /**
+   * `generation`(T119 redo #1): `checkEnd`から呼ばれる場合(`await`後の
+   * 分岐)・`checkEnd`自体の冒頭(`mover === null`、同期的な呼び出し)の
+   * いずれの経路でも、`sessionGenerationRef.current`と一致する場合のみ
+   * 結果を確定する。呼び出し元がその時点で既に古い場合(セッションが
+   * 切り替わった後に呼ばれた場合)はここで弾く(codex-review指摘(b)1)。
+   */
+  function finishByFinalScore(board: BoardState, humanSide: Side, stageKey: string | null, generation: number): void {
+    if (sessionGenerationRef.current !== generation) return
     const humanDiscs = countDiscs(board, humanSide)
     const oppDiscs = countDiscs(board, opposite(humanSide))
     const margin = humanDiscs - oppDiscs
@@ -496,7 +539,11 @@ export function PracticeMode() {
         const board = applyMove(s.board, s.sideToMove, square)
         const nextSide = resolveNextSideOrFallback(board, opposite(s.sideToMove))
         setSession({ ...s, board, sideToMove: nextSide, lastMove: square })
-        await checkEnd(board, nextSide, s.humanSide, s.stageKey)
+        // この時点で`cancelled`がfalseということは、離脱・切り替えはまだ
+        // 起きていない=`sessionGenerationRef.current`は現在有効な世代
+        // (T119 redo #1)。`checkEnd`内部の`await`中に離脱された場合は
+        // `checkEnd`自身の世代チェックで弾かれる。
+        await checkEnd(board, nextSide, s.humanSide, s.stageKey, sessionGenerationRef.current)
       } catch (error) {
         console.error('相手の着手取得に失敗しました', error)
       } finally {
@@ -622,13 +669,20 @@ export function PracticeMode() {
    * 判定モードによる失敗(要件4・8)。比較PVを取得して結果画面に表示する。
    * この関数は必ず失敗確定を意味する(呼び出し元の`judgement.correct === false`
    * のときのみ呼ばれる)ため、ステージ挑戦記録は関数の**先頭**(比較PV取得の
-   * `await`より前)で同期的に行う(T117 redo #1の教訓)。
+   * `await`より前、呼び出し元が直前に検証した`generation`がまだ有効な
+   * 同期的タイミング)で行う(T117 redo #1の教訓)。
+   *
+   * `generation`(T119 redo #1): 比較PV取得の`await`を挟んだ後、
+   * `setPhase('result')`等を確定する前に`sessionGenerationRef.current`と
+   * 突き合わせ、その間に離脱・切り替えがあれば結果画面への遷移を行わない
+   * (codex-review指摘(b)1)。
    */
   async function handleModeFailure(
     s: SessionState,
     square: number,
     playedNotation: string,
     judgement: JudgeMidgameMoveResult,
+    generation: number,
   ): Promise<void> {
     recordStageAttemptNow(s.stageKey, 'fail')
     setJustEarnedStar(false)
@@ -655,6 +709,8 @@ export function PracticeMode() {
     } catch (error) {
       console.error('比較PV取得のための解析に失敗しました', error)
     }
+
+    if (sessionGenerationRef.current !== generation) return // T119 redo #1: 離脱済みなら結果画面へ遷移しない
 
     setEvalBarValue(judgement.playedDiscDiff ?? judgement.bestDiscDiff ?? 0)
     setShowEvalBar(true)
@@ -706,9 +762,13 @@ export function PracticeMode() {
     if (s.sideToMove !== s.humanSide) return
     if (!legalMoves(s.board, s.sideToMove).includes(square)) return
 
+    // T119 redo #1: この時点(`getAnalyzedMoves`のawait前)での世代を捕まえ、
+    // await後に一致するか確認してから結果確定・記録を行う(codex-review指摘(b)1)。
+    const generation = sessionGenerationRef.current
     setAnalyzing(true)
     try {
       const allMoves = await getAnalyzedMoves(s.board, s.sideToMove)
+      if (sessionGenerationRef.current !== generation) return // 離脱済み
       const playedNotation = squareToNotation(square)
       const judgement = judgeMidgameMove({
         mode: judgeMode,
@@ -718,7 +778,7 @@ export function PracticeMode() {
       })
 
       if (!judgement.correct) {
-        await handleModeFailure(s, square, playedNotation, judgement)
+        await handleModeFailure(s, square, playedNotation, judgement, generation)
         return
       }
 
@@ -732,7 +792,7 @@ export function PracticeMode() {
         previousSign: judgement.nextSign,
         stageKey: s.stageKey,
       })
-      await checkEnd(board, nextSide, s.humanSide, s.stageKey)
+      await checkEnd(board, nextSide, s.humanSide, s.stageKey, generation)
     } catch (error) {
       console.error('着手判定のための解析に失敗しました', error)
     } finally {
@@ -750,8 +810,15 @@ export function PracticeMode() {
    * `stage`(T119要件4): ステージ一覧経由の開始なら対応する`MidgameStage`を渡す。
    * `activeStage`(表示用state)と`session.stageKey`(記録処理が実際に読む値)の
    * 両方をここで同時に設定するため、両者が食い違うことはない。
+   *
+   * T119 redo #1: 新しいセッションを開始するたびに`sessionGenerationRef`を
+   * インクリメントする。これにより、直前のセッションで進行中だった
+   * 非同期の判定(`checkEnd`・`handleModeFailure`)が後から完了しても、
+   * 古い世代とみなされて結果確定・記録を行わなくなる(codex-review指摘(b)1)。
    */
   function resetSessionTo(start: StartPosition, stage: MidgameStage | null = null): void {
+    sessionGenerationRef.current += 1
+    const generation = sessionGenerationRef.current
     setStartInfo(start)
     setActiveStage(stage)
     setJustEarnedStar(false)
@@ -772,7 +839,7 @@ export function PracticeMode() {
     setFinalizing(false)
     resetFailExplanation()
     setPhase('playing')
-    void checkEnd(start.board, sideToMove, start.sideToMove, stage?.key ?? null)
+    void checkEnd(start.board, sideToMove, start.sideToMove, stage?.key ?? null, generation)
   }
 
   /**
@@ -810,7 +877,12 @@ export function PracticeMode() {
     resetSessionTo(startInfo, activeStage)
   }
 
+  /**
+   * T119 redo #1: セッションから離脱するので`sessionGenerationRef`を
+   * インクリメントする(`resetSessionTo`と同じ理由、codex-review指摘(b)1)。
+   */
   function backToSettings(): void {
+    sessionGenerationRef.current += 1
     setPhase('settings')
     setSession(null)
     setStartInfo(null)
@@ -824,8 +896,12 @@ export function PracticeMode() {
     resetFailExplanation()
   }
 
-  /** ステージ一覧画面を開く(T119要件2)。設定画面・結果画面の両方から呼ばれる。 */
+  /**
+   * ステージ一覧画面を開く(T119要件2)。設定画面・結果画面の両方から呼ばれる。
+   * T119 redo #1: `backToSettings`と同じ理由でセッション世代をインクリメントする。
+   */
   function goToStageSelect(): void {
+    sessionGenerationRef.current += 1
     setPhase('stageSelect')
     setSession(null)
     setStartInfo(null)

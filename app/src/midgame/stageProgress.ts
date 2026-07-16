@@ -92,7 +92,11 @@ function isNonNegativeInteger(value: unknown): value is number {
  * まで検証する(T117 redo #1のcodex-review指摘(b)を最初から反映):
  * - `clearCount === 0`なのにクリア日時(`firstClearedAt`/`lastClearedAt`)が
  *   設定されている場合は不正。
- * - `clearCount > 0`なのに`firstClearedAt`/`lastClearedAt`が両方`null`の場合は不正。
+ * - `clearCount > 0`なのに`firstClearedAt`/`lastClearedAt`の**どちらか一方でも**
+ *   `null`の場合は不正(クリア済みならスキーマ上どちらの日時も必須。
+ *   redo #1: codex-review指摘(b)2で、修正前は「両方`null`」の場合しか
+ *   弾けておらず、片方だけ`null`の破損データが有効値として通ってしまう
+ *   欠陥があった)。
  * - `lastResult === 'clear'`なのに`clearCount === 0`の場合は不正
  *   (直近の結果がクリアなら、クリア回数は最低1回あるはず)。
  */
@@ -115,7 +119,7 @@ function isValidEntry(value: unknown): value is StageProgressEntry {
   const lastResult = v.lastResult as StageAttemptResult
 
   if (clearCount === 0 && (firstClearedAt !== null || lastClearedAt !== null)) return false
-  if (clearCount > 0 && firstClearedAt === null && lastClearedAt === null) return false
+  if (clearCount > 0 && (firstClearedAt === null || lastClearedAt === null)) return false
   if (lastResult === 'clear' && clearCount === 0) return false
 
   return true

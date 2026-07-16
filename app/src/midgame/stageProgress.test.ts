@@ -200,6 +200,47 @@ describe('loadStageProgress / saveStageProgress', () => {
       expect(loadStageProgress(storage)).toEqual({})
     })
 
+    /**
+     * redo #1(codex-review指摘(b)2): 修正前は「両方null」の場合しか弾けて
+     * おらず、片方だけnullの破損データ(スキーマ上はクリア済みなら両方の
+     * 日時が必須)が有効値として読み込まれてしまっていた。
+     */
+    it('clearCount>0なのにfirstClearedAtだけnullの場合は不正', () => {
+      const storage = new FakeStorage()
+      storage.setItem(
+        MIDGAME_STAGE_PROGRESS_STORAGE_KEY,
+        JSON.stringify({
+          [STAGE]: {
+            strict: entryWith({
+              clearCount: 1,
+              lastResult: 'clear',
+              firstClearedAt: null,
+              lastClearedAt: '2026-07-17T00:00:00.000Z',
+            }),
+          },
+        }),
+      )
+      expect(loadStageProgress(storage)).toEqual({})
+    })
+
+    it('clearCount>0なのにlastClearedAtだけnullの場合は不正', () => {
+      const storage = new FakeStorage()
+      storage.setItem(
+        MIDGAME_STAGE_PROGRESS_STORAGE_KEY,
+        JSON.stringify({
+          [STAGE]: {
+            strict: entryWith({
+              clearCount: 1,
+              lastResult: 'clear',
+              firstClearedAt: '2026-07-17T00:00:00.000Z',
+              lastClearedAt: null,
+            }),
+          },
+        }),
+      )
+      expect(loadStageProgress(storage)).toEqual({})
+    })
+
     it("lastResult==='clear'なのにclearCount===0の場合は不正", () => {
       const storage = new FakeStorage()
       storage.setItem(

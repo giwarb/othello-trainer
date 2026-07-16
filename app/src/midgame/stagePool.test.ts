@@ -45,26 +45,60 @@ describe('buildMidgameStagePool', () => {
     expect(first.map((s) => s.key)).toEqual(second.map((s) => s.key))
   })
 
-  it('別々に構築した同一内容のJosekiDbからも同じ順序で列挙される(Map挿入順に依存しないことの確認)', () => {
+  /**
+   * redo #1(codex-review指摘(a)1): 修正前の実装はハッシュ辞書順でソートして
+   * いたため、ライン順序を反転させても列挙結果が変わらない(=仕様「定石DBの
+   * 定義順」と逆の挙動)ことをテストで固定してしまっていた。正しい仕様は
+   * 「`JosekiDb.lines`の定義順に追従する」ことなので、ライン順序を変えれば
+   * 列挙順序も追従して変わることを検証する(ステージの**集合**(キーの集合)
+   * 自体は変わらないことも合わせて確認する)。
+   */
+  it('ライン順序を変えると列挙順序も追従する(定石DBの定義順に従うこと、要件1)', () => {
     const rawLines = loadRealRawLines()
-    const dbA = buildJosekiDb(rawLines)
-    // ライン順を変えて構築する(Mapへのノード挿入順が変わるはず)。
-    const dbB = buildJosekiDb([...rawLines].reverse())
+    const dbForward = buildJosekiDb(rawLines)
+    const dbReversed = buildJosekiDb([...rawLines].reverse())
 
-    const stagesA = buildMidgameStagePool(dbA)
-    const stagesB = buildMidgameStagePool(dbB)
+    const stagesForward = buildMidgameStagePool(dbForward)
+    const stagesReversed = buildMidgameStagePool(dbReversed)
 
-    expect(stagesA.map((s) => s.key)).toEqual(stagesB.map((s) => s.key))
+    // ステージの集合(重複除去後の終端局面のキー集合)自体は順序によらず同じ
+    // (`localStorage`の記録キーに影響しないことの確認、作業ログにも記載)。
+    expect(new Set(stagesForward.map((s) => s.key))).toEqual(new Set(stagesReversed.map((s) => s.key)))
+    expect(stagesForward).toHaveLength(stagesReversed.length)
+
+    // しかし並び順(定義順)は逆になっているはずなので、通常は先頭ステージが
+    // 入れ替わる(実データで確認済み)。
+    expect(stagesForward.map((s) => s.key)).not.toEqual(stagesReversed.map((s) => s.key))
+    expect(stagesForward[0]!.key).not.toBe(stagesReversed[0]!.key)
   })
 
-  it('キーが辞書順にソートされている(決定的な順序、要件1)', () => {
+  /**
+   * redo #1(codex-review指摘(a)1): 「定義順」を、実装の内部詳細を再現するの
+   * ではなく仕様の定義そのもの(`JosekiDb.lines`を順に見て、各ラインの終端の
+   * 初出順)から独立に計算した期待値と突き合わせることで検証する。
+   */
+  it('ステージ順序は定石DBの定義順(JosekiDb.linesの初出順)と一致する(要件1)', () => {
     const rawLines = loadRealRawLines()
     const db = buildJosekiDb(rawLines)
     const stages = buildMidgameStagePool(db)
 
-    const keys = stages.map((s) => s.key)
-    const sorted = [...keys].sort()
-    expect(keys).toEqual(sorted)
+    const expectedOrderKeys: string[] = []
+    const seen = new Set<string>()
+    for (const line of db.lines) {
+      let board = initialBoard()
+      let side: Side = 'black'
+      for (const move of line.moveSeq) {
+        board = applyMove(board, side, move)
+        side = opposite(side)
+      }
+      const key = hashBoard(board, side)
+      if (!seen.has(key)) {
+        seen.add(key)
+        expectedOrderKeys.push(key)
+      }
+    }
+
+    expect(stages.map((s) => s.key)).toEqual(expectedOrderKeys)
   })
 
   it('stageNumberは1始まりの連番で、配列の並び順と一致する', () => {
@@ -87,6 +121,34 @@ describe('buildMidgameStagePool', () => {
 
     expect(stages).toHaveLength(1)
     expect(stages[0]!.josekiNames).toEqual(['定石A', '定石B'])
+  })
+
+  /**
+   * redo #1(codex-review指摘(a)2): `josekiNames`には、その局面を**終端とする**
+   * ラインの名前だけが入るべきで、途中で通過するだけの(より長い)ラインの
+   * 名前が混入してはならない。「短いライン」の終端(f5,f6を打った局面)を
+   * 「長いライン」が経由してさらに先(e6,f4)まで進む構成で検証する。
+   */
+  it('josekiNamesには、その局面を終端とするラインの名前のみが含まれる(通過するだけのラインは含まれない、要件1)', () => {
+    const rawLines: RawJosekiLine[] = [
+      makeLine('短いライン', ['f5', 'f6']),
+      makeLine('長いライン', ['f5', 'f6', 'e6', 'f4']),
+    ]
+    const db = buildJosekiDb(rawLines)
+    const stages = buildMidgameStagePool(db)
+
+    // 「短いライン」の終端(2手目)と「長いライン」の終端(4手目)は異なる局面
+    // なので、2ステージになる。
+    expect(stages).toHaveLength(2)
+
+    const shortStage = stages.find((s) => s.josekiNames.includes('短いライン'))
+    expect(shortStage).toBeDefined()
+    // 「長いライン」はこの局面を通過するだけ(終端ではない)なので含まれない。
+    expect(shortStage!.josekiNames).toEqual(['短いライン'])
+
+    const longStage = stages.find((s) => s.josekiNames.includes('長いライン'))
+    expect(longStage).toBeDefined()
+    expect(longStage!.josekiNames).toEqual(['長いライン'])
   })
 
   it('異なる終端局面を持つラインはそれぞれ別ステージになる', () => {
@@ -137,5 +199,26 @@ describe('parseStageKey', () => {
     expect(() => parseStageKey('invalid')).toThrow(RangeError)
     expect(() => parseStageKey('abc_def_purple')).toThrow(RangeError)
     expect(() => parseStageKey('abc_def')).toThrow(RangeError)
+  })
+
+  /**
+   * redo #1(codex-review指摘(c)1): 16進数部分が不正な文字列の場合、修正前は
+   * `BigInt()`が`SyntaxError`を投げてしまい、本関数のドキュメント上の例外仕様
+   * (`RangeError`のみ)と食い違っていた。あらゆる不正入力に対して`RangeError`
+   * だけが投げられることを検証する。
+   */
+  it('16進数として不正な文字を含む場合もSyntaxErrorではなくRangeErrorを投げる', () => {
+    expect(() => parseStageKey('ghij_klmn_black')).toThrow(RangeError)
+    expect(() => parseStageKey('0xz1_0x2_black')).toThrow(RangeError)
+    expect(() => parseStageKey('_1_black')).toThrow(RangeError)
+  })
+
+  it('64bit範囲を超える値はRangeErrorを投げる', () => {
+    // 65bit分の1(2^64)は64bitに収まらない。
+    expect(() => parseStageKey('10000000000000000_0_black')).toThrow(RangeError)
+  })
+
+  it('黒白のビットが重複している場合はRangeErrorを投げる', () => {
+    expect(() => parseStageKey('1_1_black')).toThrow(RangeError)
   })
 })
