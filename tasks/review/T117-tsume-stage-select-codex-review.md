@@ -1,72 +1,56 @@
 # 最終レビューレポート — T117
 
-## (a) 重大（done を止めるブロッカー）
+## (a) 重大（doneを止めるブロッカー）
 
-### 1. localStorageへの記録がIndexedDB処理の後に遅延され、結果確定直後のリロードで記録を失う
+なし。
 
-[PlayMode.tsx](C:/Users/yoshi/work/othello-trainer/app/src/tsume/PlayMode.tsx:261) の `saveAttempt` は、先に `recordAttempt` と `getAllAttempts` を `await` し、その完了後に初めて `recordStageAttempt` を呼び出しています。
+前回指摘した localStorage 記録の喪失レースは解消されています。[PlayMode.tsx](C:/Users/yoshi/work/othello-trainer/app/src/tsume/PlayMode.tsx:307) の `finishClear` と [PlayMode.tsx](C:/Users/yoshi/work/othello-trainer/app/src/tsume/PlayMode.tsx:314) の `finishFail` は、最初の `await` より前に同期的な記録処理を実行しています。
 
-一方、[PlayMode.tsx](C:/Users/yoshi/work/othello-trainer/app/src/tsume/PlayMode.tsx:293) の `finishClear` / `finishFail` は、結果画面へ遷移してから `saveAttempt` を待ちます。このため以下の競合が成立します。
-
-1. クリアまたは失敗が確定する。
-2. 結果画面が即座に表示される。
-3. IndexedDBへの保存・全件再読込が進行する。
-4. ユーザーがすぐに一覧へ戻る、またはページをリロードする。
-5. リロードによって実行中の処理が打ち切られ、localStorageへ結果が書かれない。
-
-IndexedDBが遅い、ハングする、ページを即座に閉じる、といった場合にも同じ欠落が起きます。また、保存される日時も挑戦確定時刻ではなくIndexedDB処理完了後の時刻になります。
-
-これは要件3の「出題経路を問わず挑戦結果を記録」と、受け入れ基準の「ページをリロードしても記録が残っている」を通常操作で破れるためブロッカーです。同期的なlocalStorage更新は、結果画面を表示する前、または少なくとも最初の `await` より前に行う必要があります。
+IndexedDB の `recordAttempt` を未解決にしたまま、clear/fail 両方の localStorage 更新を確認する回帰テストも追加されており、前回不具合を直接固定できています。
 
 ## (b) 中（次タスクで対応すべき）
 
-### 1. 破損値の検証がスキーマの意味的制約を満たしていない
+### 1. 日時バリデーションは厳密なISO文字列検証になっていない
 
-[stageProgress.ts](C:/Users/yoshi/work/othello-trainer/app/src/tsume/stageProgress.ts:58) の `isValidEntry` は、回数について有限な数値であることしか検証していません。そのため、負数や小数の `clearCount` / `failCount` が有効値として読み込まれます。また、日時フィールドは任意の文字列を許容します。
+[stageProgress.ts](C:/Users/yoshi/work/othello-trainer/app/src/tsume/stageProgress.ts:65) の `isValidIsoDateTimeString` は `Date.parse` が解釈できるかだけを判定しています。そのため、例えば `July 17, 2026` や `2026/07/17` のような非ISO形式も有効になります。
 
-例えば次の値は現在の実装では有効扱いになります。
+アプリ自身が書き込む値は `toISOString()` なので通常動作への影響はありませんが、保存スキーマが「ISO文字列」と明記されている以上、将来のデータ利用前に厳密な形式検証へ寄せるのが望まれます。
 
-```json
-{
-  "tsume-1": {
-    "firstClearedAt": "not-a-date",
-    "lastClearedAt": null,
-    "clearCount": -1,
-    "failCount": 0.5,
-    "lastAttemptAt": "",
-    "lastResult": "clear"
-  }
-}
-```
+また、次のようなフィールド間の不整合も現在は通ります。
 
-これは「ISO文字列・数値」という保存スキーマおよび「壊れた値は既定値フォールバック」という要件に対して不十分です。少なくとも回数を非負整数、日時を有効なISO日時として検証し、そのテストを追加するのが妥当です。
+- `clearCount === 0` なのにクリア日時が存在する
+- `clearCount > 0` なのにクリア日時が両方 `null`
+- `lastResult === 'clear'` なのに `clearCount === 0`
+
+次タスクでバリデーションを触る際は、ISO形式とこれらの相関制約をまとめてテストするとよいでしょう。
 
 ## (c) 軽微（記録のみ）
 
-### 1. CSSに追加された日本語コメントが文字化けしている
+### 1. 指定範囲には `tasks/` の管理コミットも含まれる
 
-[PlayMode.css](C:/Users/yoshi/work/othello-trainer/app/src/tsume/PlayMode.css:179) 以降の追加コメントが `ã‚¹ãƒ†...` のような文字化け状態です。実行時の表示や動作には影響しませんが、AGENTS.mdのUTF-8運用規律に反し、保守性を下げています。
+`git log 9a57e04..804c463` には、アプリ実装コミットのほかに `tasks/` の記録・レビューレポートを保存する3コミットが含まれています。受け入れ基準の「tasks/はコミットしない」を範囲全体へ字義どおり適用すると乖離します。
 
-### 2. ステージ一覧のUI統合テストがない
+ただし、アプリ実装コミット `a93abf2` と修正コミット `804c463` 自体は対象パスに限定されており、これはオーケストレーターによるタスク管理上の別コミットと判断します。製品コード上の問題ではありません。
 
-`stageProgress` の単体テストは、更新、往復、JSON破損、状態導出、未知IDを含む15件があり、要件6の主要部分は満たしています。一方、ステージセルのクリック、結果画面から一覧へ戻った際のマーク反映、全出題経路からの記録を自動検証するテストはありません。
+### 2. ステージ画面の統合テストは引き続き限定的
 
-公開環境での手動確認記録はありますが、今回指摘した保存タイミングの競合を防ぐ回帰テストも含め、今後はUIまたは関数境界のテストが望まれます。
+追加テストは保存タイミングの退行検出として有効ですが、182セル表示、セル選択、一覧へ戻った際の表示更新、次ステージ遷移は自動テストされていません。公開環境での独立した実機確認記録があるため、本タスクのブロッカーとはしません。
 
 ## 検証結果
 
-- `git log 9a57e04..a93abf2`: 対象コミットは `a93abf2` の1件。
-- `git diff 9a57e04..a93abf2`: 変更は指定された4ファイルのみ。
-- `puzzles.json`: 182問、ID重複なし。
-- `git diff --check`: 問題なし。
-- `npx tsc --noEmit`: 成功。
-- `npm test -- --run`: レビュー環境のプロセス起動制限による `spawn EPERM` でVitest自体を開始できず、独立再実行はできませんでした。コード上のテスト失敗ではありません。
-- 現在の作業ツリーにはT114由来として説明された `bench/edax-compare/` の変更・未追跡ファイルがありますが、レビュー対象コミットには含まれていません。
+- `git log 9a57e04..804c463`、`git diff 9a57e04..804c463` を確認
+- アプリ差分は `PlayMode.tsx`、`PlayMode.css`、stageProgress本体・単体テスト、保存タイミング回帰テスト
+- `npx tsc --noEmit`: 成功
+- `git diff --check 9a57e04..804c463 -- app`: 問題なし
+- `npm test -- --run`: レビュー環境のプロセス起動制限による `spawn EPERM` でVitest開始前に失敗。コード起因のテスト失敗ではない
+- 作業ログ上の独立検証結果: 67ファイル・548テスト成功、GitHub Actions成功、Pagesで即時保存・リロード後保持を確認済み
+- CSSの日本語コメントはUTF-8で正常に読め、前回の文字化け指摘は表示系のアーティファクトと確認
+- 現在の作業ツリーにT117由来の差分なし。残存変更は対象外の `bench/edax-compare/` 配下のみ
 
 ## (d) 総合判定
 
-**不合格**
+**合格**
 
-ステージ一覧、既存導線の維持、3状態表示、Puzzle.id単位の保存スキーマ、次ステージへの遷移、ID変更リスクのコメント、単体テストは概ね仕様に沿っています。
+ステージ一覧、既存導線の維持、全出題経路からのlocalStorage更新、3状態表示、結果画面からの導線、ID安定性の注記、単体テストという主要要件を満たしています。
 
-しかし、localStorage更新をIndexedDBの非同期処理後に置いたことで、結果画面表示直後のリロードや離脱により記録が欠落します。永続化は本タスクの中心要件であり、受け入れ基準のリロード保持を直接破るため、修正後の再レビューが必要です。
+前回のブロッカーだった保存タイミングは正しく修正され、IndexedDBが未完了でもlocalStorageへ記録済みであることを回帰テストで固定できています。残る指摘は保存値バリデーションの将来的な厳密化であり、通常利用時の正しさや今回のdoneを妨げるものではありません。
