@@ -1,7 +1,7 @@
 ---
 id: T117
 title: 詰めオセロ: ステージクリア型UI+localStorageクリア記録
-status: in_progress # todo | in_progress | review | redo | done | blocked
+status: review # todo | in_progress | review | redo | done | blocked
 assignee: implementer(Sonnet)
 attempts: 0
 ---
@@ -53,3 +53,83 @@ attempts: 0
 ## フィードバック(やり直し時にオーケストレーターが記入)
 
 ## 作業ログ(担当エージェントが追記)
+
+- 2026-07-17 実装(implementer、T118と同じセッション。T118のPlayMode.tsx変更の上に積んだ)
+  - `app/src/tsume/stageProgress.ts`(新規): ステージ挑戦記録モジュール。
+    `StorageLike`インターフェース(`app/src/blunder/storage.ts`等と同じ規約)、
+    キー`othello-trainer:tsume-stage-progress`、`Puzzle.id`をキーに
+    `firstClearedAt`/`lastClearedAt`/`clearCount`/`failCount`/`lastAttemptAt`/
+    `lastResult('clear'|'fail')`を記録する`recordStageAttempt`、状態導出
+    `stageStatus`(`'unattempted'|'attempted'|'cleared'`、一度クリアすれば
+    以後失敗を挟んでも`cleared`のまま)を実装。破損JSON・形不正時は空レコード
+    にフォールバック(例外を投げない)。要件5(ID安定性)はコード内コメントで
+    注記、実装上は「現存しないIDのレコードは単に参照されない」設計とした
+    (能動的な削除・移行処理は行わない)。
+  - `app/src/tsume/stageProgress.test.ts`(新規): 15件。読み込み/保存の往復、
+    壊れたJSON・形不正値のフォールバック、初回クリア/失敗の記録内容、
+    firstClearedAt/lastClearedAtの更新規則、クリア後の失敗でも実績が
+    失われないこと、別IDの独立性、`now`省略時の現在時刻使用、
+    `stageStatus`の3状態導出、現存しないIDのレコードがあってもエラーに
+    ならないことを検証。
+  - `app/src/tsume/PlayMode.tsx`:
+    - `Phase`に`'stageSelect'`、`SelectionKind`に`'stage'`(+`Selection.stageIndex`)
+      を追加。`pickPuzzle`は`kind:'stage'`のとき重み付き抽選を経由せず
+      `pool[stageIndex]`をそのまま返す(範囲外なら`RangeError`)。
+    - `stageProgress` stateを起動時に`localStorage`から読み込み、
+      `saveAttempt`(IndexedDB記録と同じ関数、出題経路を問わず常に呼ばれる)
+      内で`recordStageAttempt`も呼んで更新することで、要件3
+      (ステージ経由に限らず全経路の結果を記録)を満たした。
+    - 設定画面に「ステージ一覧」ボタンを追加(`goToStageSelect`)。
+      ステージ一覧画面(`phase==='stageSelect'`)は全問題を`pool`配列順の
+      通し番号でグリッド表示し、各セルに番号・難易度・状態(色分け+
+      クリア済みは✓マーク)を表示、クリックで`startPractice({kind:'stage',
+      stageIndex})`。
+    - 結果画面(clear/fail両方)に、`lastSelection?.kind==='stage'`のときのみ
+      「ステージ一覧へ戻る」ボタンを追加(要件4)。「次の問題」はステージ経由の
+      場合、次の番号のステージへ自動的に進む(最終ステージならステージ一覧へ
+      戻る)よう`nextPuzzle`を拡張。
+  - `app/src/tsume/PlayMode.css`: `.tsume-stage-select`/`.tsume-stage-grid`
+    (`repeat(auto-fill, minmax(3.4rem,1fr))`、375px幅では`minmax(2.8rem,1fr)`に
+    縮小)/`.tsume-stage-grid__cell`(未挑戦=`--color-bg-tertiary`系、
+    挑戦済み未クリア=固定の薄黄色、クリア済み=固定の薄緑色+✓、既存の
+    `.tsume-result--clear`等と同じ「固定背景+固定濃色文字ペア」方針)を追加。
+
+- 検証結果
+  - `npm test -- --run`(app): 66 test files / 541 tests 全件パス
+    (既存526件+stageProgress新規15件)。
+  - `npx tsc --noEmit`(app): エラーなし。
+  - コミット: `a93abf2`(`app/src/tsume/PlayMode.css`・`PlayMode.tsx`・
+    `stageProgress.ts`・`stageProgress.test.ts`の4ファイルのみ)、
+    `git push origin main`済み(`9a57e04..a93abf2`)。
+  - GitHub Actions「Deploy to GitHub Pages」(run 29538043552): 成功。
+  - Pages公開URL(`https://giwarb.github.io/othello-trainer/`)で
+    Playwright(headless chromium、T118のin-app Browser pane Canvas rAF
+    停止問題を踏まえて採用)により実機確認:
+    1. 詰めオセロ→「ステージ一覧」で182問のグリッド(`.tsume-stage-grid__cell`
+       182件)が表示されることを確認。
+    2. `puzzles.json`をページ上から`fetch`して`tsume-72`(完全読みPVが
+       一意な問題、T118検証時に使った特定手法を流用)のステージ番号(45番)を
+       特定し、クリック前は`--unattempted`であることを確認。
+    3. 開始後、事前計算済みPV(`a7,a2,a5,b1,a1,b2`、相手番で終局するケース)
+       どおりに着手し「正解!」結果画面に到達、「ステージ一覧へ戻る」ボタンの
+       存在を確認して押下。
+    4. 一覧に戻ると45番セルが`--cleared`(緑背景+✓)に変わっていることを確認
+       (スクリーンショット`T117-stage-list-after-clear.png`、scratchpad保存)。
+    5. `page.reload()`でページを再読み込みし、詰めオセロ→ステージ一覧を
+       開き直しても45番セルが`--cleared`のままであることを確認
+       (スクリーンショット`T117-stage-list-after-reload.png`)。`localStorage`の
+       生値も直接読み出し、`clearCount:1`等が正しく記録されていることを確認。
+    6. モバイル幅(375x812)でステージ一覧を表示し、横スクロールが発生しない
+       こと(`document.documentElement.scrollWidth - window.innerWidth === 0`)
+       を確認(スクリーンショット`T117-stage-list-mobile-375.png`、7列で
+       折り返し表示)。
+    7. ブラウザコンソールエラー: 全シナリオで0件。
+  - 使用した一時ファイル(scratchpad、リポジトリ非配置、コミット対象外):
+    `pw/verify_t117_stage_select.mjs`、`pw/check_mobile.mjs`、
+    `T117-stage-list-after-clear.png`・`T117-stage-list-after-reload.png`・
+    `T117-stage-list-mobile-375.png`。T118から引き続き使っている
+    `pw/`配下の一時npmプロジェクト(`playwright`)も同様にリポジトリ外。
+  - `git status --short`: 本タスク由来の差分・未追跡ファイルは残っていない
+    (`app/`配下は本タスクの4ファイルのみでコミット・push済み)。T114 WIP
+    5ファイル(`bench/edax-compare/`配下)は対象外・未変更のまま。
+    `train/data/teacher/`・T114生成プロセスには一切触れていない。
