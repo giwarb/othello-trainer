@@ -6,7 +6,7 @@
 
 ## 現在地
 
-**【再開済み 2026-07-16、ただしT114でresume事故発生】** (1) **T114**: 生成を再起動(PID 3832、ログ `logs/t114-gen-resume.log`)したが、**provenance identityに`gitCommit`(HEAD)が含まれるため、停止中のtasksコミットでidentity不一致→全8シャードが`start_fresh()`で切り詰め、29,008件が消失しゼロから再生成中**(事故詳細と根本原因はT114作業ログ 11:30節)。現行ペース約6.5局面/s、ETA約8.3時間(〜19:40頃)。**resume堅牢化は実装完了**(gitCommitをidentityから除外・不一致時は切り詰めでなくエラー停止・`--start-fresh`/`--adopt-provenance`フラグ新設。テスト20+27件パス、WIPとして未コミット=T114完了時にまとめてコミット)。**生成のkill→resumeが解禁**: 現行生成(旧harnessSha256のmeta)を止めた後の再開コマンドは `python bench/edax-compare/gen_teacher_corpus.py expanded200k --years 2000-2024 --num-shards 8 --adopt-provenance`(修正でharnessSha256が変わったためこのフラグが必須)。T107の専有ウィンドウ調整が可能になった。(2) **T107**: grid校正4400件完了・実装フェーズ(search.rs/app.tsx/cache.tsに差分)。**ユーザー裁定(16時頃): wall保険発動5%基準はwaive・専有ウィンドウ不要・oracleは56/60で打ち切り確定**(詳細はT107フィードバック節)。実質目標「空き20以下が数秒で解ける」はオーケストレーター実測で達成確認済み(空き20全幅完全読み1.17秒、T114並走の競合条件下)。ワーカーは選定確定→仕上げ→検証→push/Pages確認へ。bench/edax-compare の gen/verify/test 3ファイルの未コミット変更はT114のWIP(堅牢化差分含む)なので破棄・コミットしないこと。
+**【再開済み 2026-07-16、ただしT114でresume事故発生】** (1) **T114**: 生成を再起動(PID 3832、ログ `logs/t114-gen-resume.log`)したが、**provenance identityに`gitCommit`(HEAD)が含まれるため、停止中のtasksコミットでidentity不一致→全8シャードが`start_fresh()`で切り詰め、29,008件が消失しゼロから再生成中**(事故詳細と根本原因はT114作業ログ 11:30節)。現行ペース約6.5局面/s、ETA約8.3時間(〜19:40頃)。**resume堅牢化は実装完了**(gitCommitをidentityから除外・不一致時は切り詰めでなくエラー停止・`--start-fresh`/`--adopt-provenance`フラグ新設。テスト20+27件パス、WIPとして未コミット=T114完了時にまとめてコミット)。**生成のkill→resumeが解禁**: 現行生成(旧harnessSha256のmeta)を止めた後の再開コマンドは `python bench/edax-compare/gen_teacher_corpus.py expanded200k --years 2000-2024 --num-shards 8 --adopt-provenance`(修正でharnessSha256が変わったためこのフラグが必須)。T107の専有ウィンドウ調整が可能になった。(2) **T107**: 実装・デプロイ完了(コミット7e9b121: quota 40→60%のみ変更、regret 1.3636→1.2727石。Actions成功・Pages実対局確認済み)。wall保険とE50>=23の2ゲートは裁定でwaive(フィードバック節参照)。現在verifier+Claude代替レビューを並列実行中、両合格でdone。残りはT108(最終ゲート計測、E50はゲートに使わない申し送りあり)。bench/edax-compare の gen/verify/test 3ファイルの未コミット変更はT114のWIP(堅牢化差分含む)なので破棄・コミットしないこと。
 
 **エンジン強化を再開(2026-07-15 ユーザー指示)**: 方針は「大きい実験(200kコーパス・v3×蒸留)の前に、学習パイプラインのボトルネックを先に潰す」。explorer調査2本完了:
 - ①教師生成: 律速は**子局面ごとのEdaxプロセス起動42.3万回**(固定約164ms/回、8並列時は競合で実効2.3〜2.6倍に劣化)→ **T094(局面単位バッチ化)をCodexに委譲中**。
@@ -26,7 +26,7 @@
 
 | ID | タスク | 担当 | 状態 | 試行 |
 |---|---|---|---|---|
-| T107 | exactポリシー再校正(quota×empties×予算の共同校正、予算引き上げ検討込み) | implementer(Sonnetフォールバック) | in_progress | 0 |
+| T107 | exactポリシー再校正(quota×empties×予算の共同校正、予算引き上げ検討込み) | implementer(Sonnetフォールバック) | review(実装完了7e9b121・Pages確認済み。verifier+Claude代替レビュー並列実行中) | 0 |
 | T114 | 拡張教師コーパス200k生成(ユーザー裁定2026-07-16: 今すぐ開始) | implementer(Sonnetフォールバック) | in_progress(**PCシャットダウンで中断中: 29,008/200,000保存済み・損失ゼロ。再開手順はT114作業ログ末尾**。年範囲2000-2024拡張・oracle除外済み) | 0 |
 
 ## 有効な方針・申し送り(今後のタスクに効くもの)
