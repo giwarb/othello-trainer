@@ -244,11 +244,27 @@ pub struct SearchResult {
     pub aspiration_fail_high: u32,
 }
 
-const EXACT_POLICY_VERSION: &str = "t085a-v2";
-// 空き19〜24固定18局面で25/40/60/75%を比較し、static-only=0の同率後、
-// oracle regret最小(25/40%=1.667石)かつexact完走数が多い40%を採用。
-// 生データ: bench/edax-compare/t085_exact_quota_comparison.json
-const EXACT_QUOTA_PERCENT: u8 = 40;
+const EXACT_POLICY_VERSION: &str = "t107-v3";
+// T107(新終盤ソルバー: T099〜T105採用施策確定後の再校正): T096の60局面
+// 頑健oracleのうちempties18〜23の44局面(24〜26の16局面はoracle自体が
+// 数分〜数時間かかる無制限完全読みのため未計測、選定はこの44局面で確定)で
+// quota{25,40,50,60,75}% x exact_from_empties{16,18,20,22,24} x
+// max_nodes{160000,240000,320000,480000}(depth=12・time-ms=1500、本番と同条件)
+// の100通りを総当たりし、設計レポート§5の辞書式優先順位
+// (static-onlyゼロ→決定性100%→wall保険5%以下→oracle regret最小→…)で
+// 比較した。exact_from_emptiesは全候補で結果が完全に同一だった(空き15以上の
+// P75推定ノード数が本予算域を大きく上回り、rootでもleafでも
+// `estimated_min_exact_nodes`のゲートを通らないため。詳細はこの下の
+// `estimated_min_exact_nodes`のコメント参照)。budgetは現行160000のまま
+// (240000以上は今回のサンプルでは悪化: ノイズの可能性ありだが選定基準どおり
+// 実測に従う)。quota=60%が44局面平均oracle regret最小(1.2727石、現行40%の
+// 1.3636石を下回り、目標1.25石に近い)。決定性はT096 60局面全件で100%一致
+// (mismatches=0)を別途確認済み。wall保険発動率はこのgrid実測でも0%だったが、
+// T114生成と並行実行下の測定のため、専有ウィンドウでの最終確認を別途行う。
+// 生データ: bench/edax-compare/endgame-results/t107-policy-calibration.json
+// (oracle)・t107-policy-calibration-grid.json(grid・determinism)・
+// t107-report.md(集計表)
+const EXACT_QUOTA_PERCENT: u8 = 60;
 
 #[derive(Default)]
 struct ExactStats {
@@ -263,10 +279,27 @@ struct ExactStats {
 }
 
 fn estimated_min_exact_nodes(empties: u32) -> u64 {
-    // T085固定生成コーパス(各空き数4局面、seed=85100+empties)を
-    // `eval_cli best --depth 1 --exact-from-empties E`で無制限完全読みし、
-    // nearest-rank p75を採取した初期表。0..14は設計方針どおり原則試行、
-    // 19以上は本タスクの既定ではexactへ無理に上げない。
+    // T107で新ソルバー(T099〜T105採用後)向けに再測定した表。
+    // `bench/edax-compare/estimate_min_exact_nodes.py`(各空き数4局面、
+    // seed=85100+empties)で`eval_cli best --depth 1 --exact-from-empties 30`
+    // により無制限完全読みし、nearest-rank p75を採取している(手法自体は
+    // T085を踏襲)。0..14は元の表と同じく設計方針どおり「原則試行」を維持し
+    // P75=1で常にゲートを通す(この範囲は測定はしたが、意図的にゲートしない
+    // 設計。実測値は 10=7,919 / 11=20,244 / 12=40,451 / 13=78,471 /
+    // 14=118,952 だったが、いずれもこの範囲は常に試みるべきという元の
+    // 設計判断を覆すほどの根拠にはならないと判断し、置き換えなかった。
+    // 実際、置き換えるとT085aの`leaf_exact_quota_abort_continues_
+    // midgame_iteration_without_tt_domain_leak`テストが前提とする
+    // 「空き14の子で一部がquota-abortする」シナリオ自体が発生しなくなる
+    // ことを確認した)。15..24は実測値で更新: 15=238,263 / 16=2,310,760 /
+    // 17=5,148,109 / 18=6,996,232 / 19=31,313,088 / 20=18,547,224 /
+    // 21=129,764,316 / 22=532,374,714 / 23=1,871,985,825 / 24=3,300,401,823。
+    // 空き15以上は本番のノード予算(160,000)・quota(60%、上のコメント参照)の
+    // どちらの組み合わせでもこのP75を満たせないため、実質的にexactは空き14
+    // 以下でのみ試行される(T107校正時にexact_from_empties{16,18,20,22,24}の
+    // 違いが結果に一切現れなかった理由もこれ)。値そのものは正確に保つ
+    // (将来ノード予算を大きく引き上げた場合に正しく機能させるため)。
+    // 生データ: bench/edax-compare/endgame-results/t107-estimated-min-exact-nodes.json
     const P75: [u64; 25] = [
         1,
         1,
@@ -283,16 +316,16 @@ fn estimated_min_exact_nodes(empties: u32) -> u64 {
         1,
         1,
         1,
-        221_386,
-        2_502_148,
-        4_238_332,
-        8_202_484,
-        u64::MAX,
-        u64::MAX,
-        u64::MAX,
-        u64::MAX,
-        u64::MAX,
-        u64::MAX,
+        238_263,
+        2_310_760,
+        5_148_109,
+        6_996_232,
+        31_313_088,
+        18_547_224,
+        129_764_316,
+        532_374_714,
+        1_871_985_825,
+        3_300_401_823,
     ];
     P75.get(empties as usize).copied().unwrap_or(u64::MAX)
 }
@@ -3410,6 +3443,18 @@ mod tests {
         // ノード数・NPS・正しさの主判定はT104のFFOベンチ比較(タスクの
         // 受け入れ基準)で別途検証しており、本テストはTTドメイン分離という
         // 元々の目的に沿って実測値へ期待値を更新する。
+        //
+        // T107(exactポリシー再校正)注記: `EXACT_QUOTA_PERCENT`を40%から
+        // 60%へ、`estimated_min_exact_nodes`の空き15以上のP75推定値を新
+        // ソルバー実測へ更新した(空き0〜14は元の設計どおり「原則試行」を
+        // 維持、変更していない)。共有quotaの絶対量が増えたことで、この
+        // 局面(空き14の子)では4回の試行のうち3子が完走・1子がquota-abort
+        // する状態に変化した(`exact_leaf_attempts==4`,
+        // `exact_leaf_completed==3`, `exact_aborted_by_quota==1`)。
+        // 試行回数・完走数自体はT103時点の値(4・3・1)と偶然一致しているが、
+        // 実際に消費されるノード配分・完走する子の集合はP75テーブル更新の
+        // 影響で異なりうる(このテストが検証するのはTTドメイン分離の安全性
+        // であり、具体的な子の集合の一致ではない)。
         // これも探索が改善した結果であり
         // (完走した子については、静的評価による近似ではなく証明済みの
         // 石差を得ている)、T089aの絶対条件である「探索結果(best move/
@@ -3439,12 +3484,12 @@ mod tests {
         let mut tt = TranspositionTable::new(16);
         let result = search_with_eval_with_node_limit(&board, side, &limit, &mut tt, None, 240_000);
 
-        assert_eq!(result.exact_leaf_attempts, 2);
+        assert_eq!(result.exact_leaf_attempts, 4);
         assert_eq!(result.exact_aborted_by_quota, 1);
-        assert_eq!(result.exact_leaf_completed, 1);
+        assert_eq!(result.exact_leaf_completed, 3);
         assert!(
             result.exact_completed,
-            "three of the four leaf-exact attempts should complete under the T103 PVS solver"
+            "at least one of the four leaf-exact attempts should complete"
         );
         assert_eq!(result.last_completed_depth, 2);
         assert_eq!(result.fallback_reason, Some(AbortReason::ExactQuota));
@@ -3497,8 +3542,17 @@ mod tests {
             }
         }
         assert!(midgame_children > 0);
+        // T107: quota引き上げ後は`exact_leaf_completed==3`だが、そのうち
+        // ルート直下の子(ply1、このループが数える範囲)としてExactドメインに
+        // 格納されているのは実測で2つ(残り1つはより深いply、あるいは
+        // ルート直下の子として再訪されずTTに残らなかった)。
+        // `exact_leaf_completed`の総数と1対1に対応するとは限らない点は
+        // 元のコメントどおり変わっていない。本アサーションの主眼は
+        // 「aborted/unattemptedな局面がExactドメインへ漏れていないこと」
+        // であり、これは`exact_children < exact_leaf_completed`かつ
+        // `exact_children`が0でないことで確認できる。
         assert_eq!(
-            exact_children, 1,
+            exact_children, 2,
             "only children with a genuinely completed leaf-exact solve should be stored under \
              TTDomain::Exact; aborted/unattempted children must not leak into the Exact domain"
         );

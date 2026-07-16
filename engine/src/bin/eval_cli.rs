@@ -743,7 +743,10 @@ fn cmd_best(args: &[String]) {
         assert!(parsed > 0, "--max-nodes must be greater than zero");
         parsed
     });
-    let exact_quota_percent = get_arg_u32(args, "--exact-quota-percent", Some(40)) as u8;
+    // T107: 既定値は本番の`search::EXACT_QUOTA_PERCENT`(60%)に合わせる。
+    // `--exact-quota-percent`未指定で呼ぶ既存ツール(`endgame_bench.py`等)が
+    // 採用ポリシーと乖離した値で測定してしまうのを防ぐ。
+    let exact_quota_percent = get_arg_u32(args, "--exact-quota-percent", Some(60)) as u8;
     let tt_mb = get_arg_usize(args, "--tt-mb", 16);
     assert!(tt_mb > 0, "--tt-mb must be greater than zero");
     assert!(
@@ -880,7 +883,9 @@ fn cmd_budget_regression(args: &[String]) {
         .expect("invalid --max-nodes");
     let time_ms = get_arg(args, "--time-ms").map(|v| v.parse::<u64>().expect("invalid --time-ms"));
     let exact_from_empties = get_arg_u32(args, "--exact-from-empties", Some(18)) as u8;
-    let exact_quota_percent = get_arg_u32(args, "--exact-quota-percent", Some(40)) as u8;
+    // T107: 既定値を本番の`search::EXACT_QUOTA_PERCENT`(60%)に合わせる
+    // (`cmd_best`と同じ理由)。
+    let exact_quota_percent = get_arg_u32(args, "--exact-quota-percent", Some(60)) as u8;
     assert!(
         matches!(exact_quota_percent, 25 | 40 | 50 | 60 | 75),
         "--exact-quota-percent must be one of 25, 40, 50, 60, 75"

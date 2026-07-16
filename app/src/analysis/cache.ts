@@ -57,8 +57,16 @@ function defaultIndexedDb(): IDBFactory {
  * 超える異常値になっていた不具合の修正)。エンジンの評価値そのものが変わる
  * 変更のため、ユーザーのブラウザに残っている異常値入りの古いキャッシュを
  * 無効化する必要があり、バージョンを1つ上げる(1 -> 2)。
+ *
+ * T107: `engine/src/search.rs`の`EXACT_QUOTA_PERCENT`をexactポリシー
+ * 再校正により40%から60%へ変更した。この定数は`exactFromEmpties`/
+ * `maxNodes`と異なり`AnalyzeLimit`(→`analysisLimitTag()`)に露出しておらず、
+ * 上記タグだけではキャッシュキーが変わらない。quota変更は同じ局面・同じ
+ * `limit`でもexact完全読みに回るノード配分が変わり得るため、着手・評価値が
+ * 変わりうる。ユーザーのブラウザに残っている40%時代のキャッシュを
+ * 無効化する必要があり、バージョンを1つ上げる(2 -> 3)。
  */
-export const ANALYSIS_ENGINE_VERSION = 2
+export const ANALYSIS_ENGINE_VERSION = 3
 
 /** 探索条件をキャッシュキー用の安定したタグへ変換する。 */
 export function analysisLimitTag(limit: AnalyzeLimit): string {

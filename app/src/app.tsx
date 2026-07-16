@@ -149,6 +149,14 @@ export const LEVELS: Record<LevelKey, LevelPreset> = {
   strong: {
     label: '強い (depth12)',
     limit: { depth: 12, exactFromEmpties: 16 },
+    // T107(exactポリシー再校正): maxNodes/exactFromEmpties/timeMsは校正グリッド
+    // (quota{25,40,50,60,75}% x exactFromEmpties{16,18,20,22,24} x
+    // maxNodes{160000,240000,320000,480000})でも現行値(160000/16/1500)が
+    // 最良(oracle regret最小)のまま据え置かれ、変更不要と判定した
+    // (詳細: engine/src/search.rsのEXACT_QUOTA_PERCENTコメント、
+    // tasks/T107-exact-policy-recalibration.mdの作業ログ)。quota自体は
+    // このAnalyzeLimitには露出しておらず、engine側のEXACT_QUOTA_PERCENT
+    // 定数(40%→60%へ更新)でのみ変更される。
     cpuLimit: { depth: 12, timeMs: 1500, maxNodes: 160000, exactFromEmpties: 16 },
   },
 }
