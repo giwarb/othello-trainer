@@ -228,3 +228,21 @@ selected 200000 position(s): {targetCount: 200000, prioritySelected: 65,
 python bench/edax-compare/gen_teacher_corpus.py expanded200k --years 2000-2024 --num-shards 8 --adopt-provenance
 ```
 (本修正自体が`harnessSha256`を変えるため、このフラグなしでは次回resumeが必ずprovenance mismatchでRuntimeErrorになる。`--adopt-provenance`は各shard起動コマンドへ`run_shard_orchestrator`経由で自動伝播される。)
+
+### 2026-07-16 20:4x — ユーザー裁定: 完全読みラインを空き24→20へ変更、影響レコードを捨てて取り直し
+
+**経緯**: 空き20-29帯(exact帯)で生成ペースが約0.7局面/sまで低下し、完走ETAが7/17昼にずれ込んだ。ユーザー裁定:「空き21以上はEdax推定値(level 16)でもよかった。**既にやってしまった空き21-24(の完全読みぶん)はいったん捨てて、まだ評価していないもの+今捨てたものを新方針で評価しなおす**」。= コーパス全体を閾値20の均一ポリシーにする(混在させない)。
+
+**オーケストレーターが生成プロセスツリーを20:40頃停止済み**(taskkill /T、orchestrator+シャード8+Edax全滅を確認)。シャードcheckpoint(合計約94,000レコード)は無傷。
+
+**移行仕様(担当ワーカーへの指示)**:
+1. **バックアップ最優先**: 移行に手を付ける前に、`train/data/teacher/corpus_expanded200k_shard*.jsonl`と`.meta.json`全16ファイルをバックアップディレクトリ(例: `train/data/teacher/backup-t114-migration/`、gitignore領域)へコピーする。
+2. **閾値のset別化**: `gen_teacher_corpus.py`の`EXACT_EMPTIES_THRESHOLD`(現在グローバル定数24、L181)を、**expanded200kのみ20**になるようCORPUS_SETS設定へ持ち上げる(smoke/primaryは24のまま、既存setのrunKey/settings/挙動を一切変えないこと — 既存の`excludeT096Oracle`フラグと同じ流儀)。L568/581の子局面判定とL904のrunKey出力が新しいset別値を参照するようにする。
+3. **影響レコードの破棄(移行スクリプト)**: 保存済みレコードのうち、**子局面のexactラベルが新方針と食い違うもの=いずれかの子が exact==true かつ その子の空き数が21以上のレコード**(親の空き数22〜25に相当)をシャードjsonlから除去する。判定はレコード内の実データ(children各エントリのexactフラグと空き数)に基づいて行い、親empties範囲だけの推定で消さないこと。除去件数・親empties分布をログと作業ログに記録する。
+4. **metaの更新**: 各シャードのmeta(runKey/settings)を新ポリシー(exactEmptiesThreshold: 20)の値に書き換え、provenance identityも現環境の値へ更新する(移行スクリプトが行う。これによりrunKey不一致エラーを回避して正規の形でresumeできる)。schemaVersion等その他の構造は変えない。
+5. **テスト**: (a)閾値のset別化でsmoke/primaryのrunKeyが不変であること、(b)移行スクリプトが「影響レコードのみ」を除去すること(残すべきレコードを消さない対照ケース含む)、(c)移行後のmetaで新スクリプトがresumeでき、除去されたpositionIdが再計算対象になること。既存テスト全件パス維持。
+6. **再開**: 移行後、`python bench/edax-compare/gen_teacher_corpus.py expanded200k --years 2000-2024 --num-shards 8 --adopt-provenance` で生成を再起動し、(a)残存レコードがスキップされる(start freshにならない)こと、(b)最初の新checkpointが書かれること、(c)除去したpositionIdが新方針(空き21-24の子はlevel 16)で再ラベルされることをログで確認してからバックグラウンドに移す。進捗観測は従来どおり。
+7. **manifest/検証への申し送り**: 完走後のmanifestに「exactEmptiesThreshold=20(T090a primaryの24から変更、2026-07-16ユーザー裁定)」「移行の経緯(24で生成→影響レコード破棄→20で再ラベル)」を明記する。verify_teacher_corpus.pyが閾値24を前提にしている箇所(exact率チェック等)があればexpanded200k向けに追従させる。
+8. コミットはまだしない(既存WIP+今回の変更をT114完了時にまとめて)。プロセス起動以外の長時間待ちはしない(生成の完走を待たずに、再開確認まで済んだら完了報告してよい)。
+
+**期待効果**: 空き21-24の子局面のEdax完全読み(1件数秒〜)がlevel 16(ミリ秒級)になり、残り区間のETAが大幅短縮(明朝完走見込み)。空き20以下の子は従来どおり完全読み(高速帯)。
