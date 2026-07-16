@@ -1,7 +1,7 @@
 ---
 id: T116
 title: 対局CPU(強)の終盤完全読み分離(空き20以下は予算無制限のexact)
-status: todo # todo | in_progress | review | redo | done | blocked
+status: done # todo | in_progress | review | redo | done | blocked
 assignee: implementer(Sonnet, Codex上限フォールバック)
 attempts: 0
 ---
