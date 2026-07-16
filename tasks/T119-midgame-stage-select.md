@@ -1,7 +1,7 @@
 ---
 id: T119
 title: 中盤練習: 定石DB終端の番号付き問題集+ステージクリア型UI+設定別★記録
-status: todo # todo | in_progress | review | redo | done | blocked
+status: in_progress # todo | in_progress | review | redo | done | blocked
 assignee: implementer(Sonnet)
 attempts: 0
 ---
