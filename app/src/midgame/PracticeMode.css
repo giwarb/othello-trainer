@@ -39,8 +39,128 @@
   text-align: left;
 }
 
+.midgame-settings__buttons {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
 .midgame-generating {
   padding: 1rem;
+}
+
+/* ステージ一覧画面(T119要件2)。`app/src/tsume/PlayMode.css`の
+   `.tsume-stage-select`系と同じデザイン方針(グリッド+3状態の固定配色)を、
+   モジュール間のCSS読み込み順に依存しないよう本ファイル内に複製している
+   (タスク仕様「コピーに近い再利用でも可」を採用)。 */
+.midgame-stage-select {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.75rem;
+  width: 100%;
+  max-width: 640px;
+  box-sizing: border-box;
+  padding: 0 0.5rem;
+}
+
+.midgame-stage-select__mode {
+  font-size: 0.85rem;
+  color: var(--color-text-secondary);
+}
+
+.midgame-stage-select__legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+  margin: 0;
+}
+
+.midgame-stage-legend__mark {
+  font-size: 0.7rem;
+}
+
+.midgame-stage-legend__mark--cleared {
+  color: #16a34a;
+}
+
+.midgame-stage-legend__mark--attempted {
+  color: #d97706;
+}
+
+.midgame-stage-legend__mark--unattempted {
+  color: var(--color-border);
+}
+
+.midgame-stage-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(5.5rem, 1fr));
+  gap: 0.4rem;
+  width: 100%;
+}
+
+.midgame-stage-grid__cell {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.15rem;
+  min-height: 4.5rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.4rem;
+  cursor: pointer;
+  padding: 0.35rem 0.3rem;
+  box-sizing: border-box;
+  background: var(--color-bg-tertiary);
+  color: var(--color-text);
+  text-align: center;
+}
+
+.midgame-stage-grid__cell:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+/* 固定の明るい背景色のため、文字色も固定の濃色にペアで指定する(既存の`.midgame-result`と同じ方針、T068)。 */
+.midgame-stage-grid__cell--cleared {
+  background: #dcfce7;
+  color: #14532d;
+  border-color: #86efac;
+}
+
+.midgame-stage-grid__cell--attempted {
+  background: #fef3c7;
+  color: #92400e;
+  border-color: #fcd34d;
+}
+
+.midgame-stage-grid__number {
+  font-weight: bold;
+  font-size: 0.9rem;
+}
+
+.midgame-stage-grid__name {
+  font-size: 0.65rem;
+  opacity: 0.85;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+.midgame-stage-grid__stars {
+  font-size: 0.75rem;
+  letter-spacing: 0.05em;
+}
+
+.midgame-result__star-earned {
+  font-weight: bold;
+  color: #b45309;
 }
 
 .midgame-practice {
@@ -170,5 +290,10 @@
   .midgame-result {
     padding: 0.75rem;
     font-size: 0.9rem;
+  }
+
+  .midgame-stage-grid {
+    grid-template-columns: repeat(auto-fill, minmax(4.5rem, 1fr));
+    gap: 0.3rem;
   }
 }

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'preact/hooks'
+import { useEffect, useMemo, useRef, useState } from 'preact/hooks'
 import { AttributionWaterfall } from '../analysis/AttributionWaterfall.tsx'
 import { buildAttribution, replayContinuationSteps } from '../analysis/attribution.ts'
 import { BoardOverlay } from '../analysis/BoardOverlay.tsx'
@@ -46,6 +46,14 @@ import { loadJudgeMode, saveJudgeMode } from './judgeModeStorage.ts'
 import { pickOpponentMove } from './pickOpponentMove.ts'
 import { addPoolEntry } from './pool.ts'
 import { resolveMover, resolveNextSideOrFallback } from './resolveMover.ts'
+import { buildMidgameStagePool, type MidgameStage } from './stagePool.ts'
+import {
+  loadStageProgress,
+  recordStageAttempt,
+  stageStarCount,
+  stageStatus,
+  type StageProgress,
+} from './stageProgress.ts'
 import type { JudgeMode, OpponentStrength, StartPositionSource } from './types.ts'
 import './PracticeMode.css'
 
@@ -72,7 +80,8 @@ const OPPONENT_MOVE_DELAY_MS = 350
 /** クリア条件: 手番に依らずプレイヤー視点の石差がこの値以上ならクリア(要件6)。 */
 const CLEAR_MARGIN = 2
 
-type Phase = 'settings' | 'generating' | 'playing' | 'result'
+/** `'stageSelect'`はステージ一覧画面(T119要件2)。 */
+type Phase = 'settings' | 'stageSelect' | 'generating' | 'playing' | 'result'
 
 interface SessionState {
   readonly board: BoardState
@@ -82,6 +91,19 @@ interface SessionState {
   readonly lastMove: number | null
   /** 逆転禁止モード用に持ち回す、直近の非ゼロ評価符号。 */
   readonly previousSign: EvalSign
+  /**
+   * この局面がステージ一覧経由で開始された場合、そのステージの安定キー
+   * (`stagePool.ts`の`MidgameStage.key`)。ランダム練習(定石終端ランダム・
+   * 自己対局ランダム)経由なら`null`(要件4「ステージ経由でないランダム練習は
+   * 記録対象外」)。
+   *
+   * `activeStage`(コンポーネントstate)と役割が重なるように見えるが、
+   * こちらは`SessionState`の一部として`checkEnd`/`finishByFinalScore`/
+   * `handleModeFailure`に**値渡し**されるため、`recordStageAttemptNow`の
+   * 呼び出しが「呼び出し時点で最新のstate」に依存しない(T117 redo #1で
+   * 判明したのと同種の、非同期処理中のstate古さ問題を最初から避ける設計)。
+   */
+  readonly stageKey: string | null
 }
 
 interface ComparePv {
@@ -175,6 +197,19 @@ export function PracticeMode() {
   const [startInfo, setStartInfo] = useState<StartPosition | null>(null)
   const [session, setSession] = useState<SessionState | null>(null)
   const [resultInfo, setResultInfo] = useState<ResultInfo | null>(null)
+
+  // --- ステージ一覧(T119) ---
+  /** 定石DBが読み込まれ次第、決定的な順序で1回だけ列挙する(`josekiDb`が変わらない限り再計算しない)。 */
+  const stagePool = useMemo<MidgameStage[] | null>(
+    () => (josekiDb ? buildMidgameStagePool(josekiDb) : null),
+    [josekiDb],
+  )
+  /** ステージ挑戦記録(判定モード別、要件3)。起動時に`localStorage`から1回読み込む。 */
+  const [stageProgress, setStageProgress] = useState<StageProgress>(() => loadStageProgress(localStorage))
+  /** 現在の(または直前の)セッションが開始されたステージ。ランダム練習中は`null`。 */
+  const [activeStage, setActiveStage] = useState<MidgameStage | null>(null)
+  /** 直前のクリアで新たに★を獲得した(このステージ×判定モードの初クリア)場合`true`(要件5)。 */
+  const [justEarnedStar, setJustEarnedStar] = useState(false)
 
   const [showEvalBar, setShowEvalBar] = useState(false)
   const [evalBarValue, setEvalBarValue] = useState<number | null>(null)
@@ -294,6 +329,34 @@ export function PracticeMode() {
   }, [])
 
   /**
+   * ステージ挑戦記録(要件3・4)を**同期的に**更新する(T117 redo #1の教訓を
+   * 最初から反映: IndexedDB書き込み(`registerFailure`)や結果画面表示より
+   * 前、いずれの`await`よりも前に呼ぶこと)。`stageKey`が`null`(ステージ経由
+   * でないランダム練習)なら何もしない(要件4)。
+   *
+   * 戻り値: このクリアで新たに★を獲得したか(このステージ×現在の判定モードの
+   * 初クリアだったか、要件5「★獲得!」表示に使う)。`kind === 'fail'`のときは
+   * 常に`false`。
+   */
+  function recordStageAttemptNow(stageKey: string | null, kind: 'clear' | 'fail'): boolean {
+    if (!stageKey) return false
+    try {
+      // stateの`stageProgress`(前回レンダー時点のスナップショット)ではなく
+      // `localStorage`から直接読み直す。`checkEnd`等は`session`に格納された
+      // `stageKey`を経由するため実害は薄いが、「初クリア判定」は正確性が
+      // 重要なため、より確実な情報源(永続化ストレージそのもの)を使う。
+      const before = loadStageProgress(localStorage)[stageKey]?.[judgeMode]
+      const alreadyCleared = (before?.clearCount ?? 0) > 0
+      const nextProgress = recordStageAttempt(localStorage, stageKey, judgeMode, kind)
+      setStageProgress(nextProgress)
+      return kind === 'clear' && !alreadyCleared
+    } catch (error) {
+      console.error('ステージ挑戦記録の保存に失敗しました', error)
+      return false
+    }
+  }
+
+  /**
    * 終了判定(要件6)。
    * - `resolveMover`で実際に手番を持つ側を解決する。`sideToMove`に合法手が無くても
    *   相手側に合法手があれば単なるパスであり真の終局ではない(`game/gameLoop.ts`の
@@ -305,11 +368,19 @@ export function PracticeMode() {
    *   プレイヤー視点の評価を求め、+2石以上ならクリア、そうでなければ失敗とする。
    * - それ以外(まだ空き24超)は何もしない(`false`を返す)。
    * 戻り値は「この呼び出しでゲームが終了したか」。
+   *
+   * `stageKey`(T119): このセッションがステージ一覧経由なら対応する安定キー、
+   * そうでなければ`null`(`session.stageKey`をそのまま渡す。要件4)。
    */
-  async function checkEnd(board: BoardState, sideToMove: Side, humanSide: Side): Promise<boolean> {
+  async function checkEnd(
+    board: BoardState,
+    sideToMove: Side,
+    humanSide: Side,
+    stageKey: string | null,
+  ): Promise<boolean> {
     const mover = resolveMover(board, sideToMove)
     if (mover === null) {
-      finishByFinalScore(board, humanSide)
+      finishByFinalScore(board, humanSide, stageKey)
       return true
     }
     if (countEmpty(board) > 24) return false
@@ -322,7 +393,7 @@ export function PracticeMode() {
       if (allMoves.length === 0) {
         // `resolveMover`が`mover`に合法手ありと判定したにもかかわらず`allMoves`が
         // 空、という通常は起こらないはずの不整合に対する防御的フォールバック。
-        finishByFinalScore(board, humanSide)
+        finishByFinalScore(board, humanSide, stageKey)
         return true
       }
       const best = allMoves.reduce((a, b) => (b.discDiff > a.discDiff ? b : a))
@@ -330,12 +401,16 @@ export function PracticeMode() {
       setEvalBarValue(humanEval)
 
       if (humanEval >= CLEAR_MARGIN) {
+        const earnedStar = recordStageAttemptNow(stageKey, 'clear')
+        setJustEarnedStar(earnedStar)
         setShowEvalBar(false)
         setPhase('result')
         setResultInfo({ kind: 'clear', margin: humanEval })
         return true
       }
 
+      recordStageAttemptNow(stageKey, 'fail')
+      setJustEarnedStar(false)
       setShowEvalBar(true)
       setPhase('result')
       setResultInfo({
@@ -357,17 +432,22 @@ export function PracticeMode() {
     }
   }
 
-  function finishByFinalScore(board: BoardState, humanSide: Side): void {
+  function finishByFinalScore(board: BoardState, humanSide: Side, stageKey: string | null): void {
     const humanDiscs = countDiscs(board, humanSide)
     const oppDiscs = countDiscs(board, opposite(humanSide))
     const margin = humanDiscs - oppDiscs
     setEvalBarValue(margin)
-    setPhase('result')
     if (margin >= CLEAR_MARGIN) {
+      const earnedStar = recordStageAttemptNow(stageKey, 'clear')
+      setJustEarnedStar(earnedStar)
       setShowEvalBar(false)
+      setPhase('result')
       setResultInfo({ kind: 'clear', margin })
     } else {
+      recordStageAttemptNow(stageKey, 'fail')
+      setJustEarnedStar(false)
       setShowEvalBar(true)
+      setPhase('result')
       setResultInfo({
         kind: 'fail',
         reasonKind: margin < 0 ? 'reversed' : 'insufficientMargin',
@@ -416,7 +496,7 @@ export function PracticeMode() {
         const board = applyMove(s.board, s.sideToMove, square)
         const nextSide = resolveNextSideOrFallback(board, opposite(s.sideToMove))
         setSession({ ...s, board, sideToMove: nextSide, lastMove: square })
-        await checkEnd(board, nextSide, s.humanSide)
+        await checkEnd(board, nextSide, s.humanSide, s.stageKey)
       } catch (error) {
         console.error('相手の着手取得に失敗しました', error)
       } finally {
@@ -538,13 +618,20 @@ export function PracticeMode() {
     }
   }
 
-  /** 判定モードによる失敗(要件4・8)。比較PVを取得して結果画面に表示する。 */
+  /**
+   * 判定モードによる失敗(要件4・8)。比較PVを取得して結果画面に表示する。
+   * この関数は必ず失敗確定を意味する(呼び出し元の`judgement.correct === false`
+   * のときのみ呼ばれる)ため、ステージ挑戦記録は関数の**先頭**(比較PV取得の
+   * `await`より前)で同期的に行う(T117 redo #1の教訓)。
+   */
   async function handleModeFailure(
     s: SessionState,
     square: number,
     playedNotation: string,
     judgement: JudgeMidgameMoveResult,
   ): Promise<void> {
+    recordStageAttemptNow(s.stageKey, 'fail')
+    setJustEarnedStar(false)
     const opponentSide = opposite(s.sideToMove)
     const boardAfterPlayed = applyMove(s.board, s.sideToMove, square)
     let comparePv: ComparePv | null = null
@@ -643,8 +730,9 @@ export function PracticeMode() {
         humanSide: s.humanSide,
         lastMove: square,
         previousSign: judgement.nextSign,
+        stageKey: s.stageKey,
       })
-      await checkEnd(board, nextSide, s.humanSide)
+      await checkEnd(board, nextSide, s.humanSide, s.stageKey)
     } catch (error) {
       console.error('着手判定のための解析に失敗しました', error)
     } finally {
@@ -658,9 +746,15 @@ export function PracticeMode() {
    * で実際の手番側を解決してから`session`に反映し、`checkEnd`で終局判定まで行う
    * (T055、対局・詰めオセロ各モードと同じく「着手/開始適用と終局判定を同期させる」
    * 方針を開始時にも適用する)。
+   *
+   * `stage`(T119要件4): ステージ一覧経由の開始なら対応する`MidgameStage`を渡す。
+   * `activeStage`(表示用state)と`session.stageKey`(記録処理が実際に読む値)の
+   * 両方をここで同時に設定するため、両者が食い違うことはない。
    */
-  function resetSessionTo(start: StartPosition): void {
+  function resetSessionTo(start: StartPosition, stage: MidgameStage | null = null): void {
     setStartInfo(start)
+    setActiveStage(stage)
+    setJustEarnedStar(false)
     const sideToMove = resolveNextSideOrFallback(start.board, start.sideToMove)
     setSession({
       board: start.board,
@@ -668,6 +762,7 @@ export function PracticeMode() {
       humanSide: start.sideToMove,
       lastMove: null,
       previousSign: 0,
+      stageKey: stage?.key ?? null,
     })
     setResultInfo(null)
     setShowEvalBar(false)
@@ -677,10 +772,14 @@ export function PracticeMode() {
     setFinalizing(false)
     resetFailExplanation()
     setPhase('playing')
-    void checkEnd(start.board, sideToMove, start.sideToMove)
+    void checkEnd(start.board, sideToMove, start.sideToMove, stage?.key ?? null)
   }
 
-  /** 設定画面で「開始」を押したときの処理(要件1・2)。 */
+  /**
+   * 設定画面で「開始」を押したときの処理(要件1・2、ランダム練習)。
+   * ステージ経由でない(=要件4「ランダム練習は記録対象外」)ため、
+   * `resetSessionTo`に`stage`を渡さない(既定の`null`のまま)。
+   */
   async function startPractice(): Promise<void> {
     if (!josekiDb) return
     setStarting(true)
@@ -699,10 +798,16 @@ export function PracticeMode() {
     }
   }
 
-  /** 結果画面の「ここからやり直す」ボタン(要件8): 同じ開始局面から再挑戦する。 */
+  /** ステージ一覧のセルをクリックしたときの処理(T119要件2)。 */
+  function startStagePractice(stage: MidgameStage): void {
+    setStartError(null)
+    resetSessionTo({ board: stage.board, sideToMove: stage.sideToMove }, stage)
+  }
+
+  /** 結果画面の「ここからやり直す」ボタン(要件8): 同じ開始局面から再挑戦する。ステージ経由なら`activeStage`を引き継ぐ。 */
   function retryFromStart(): void {
     if (!startInfo) return
-    resetSessionTo(startInfo)
+    resetSessionTo(startInfo, activeStage)
   }
 
   function backToSettings(): void {
@@ -715,7 +820,41 @@ export function PracticeMode() {
     setOpponentThinking(false)
     setAnalyzing(false)
     setFinalizing(false)
+    setActiveStage(null)
     resetFailExplanation()
+  }
+
+  /** ステージ一覧画面を開く(T119要件2)。設定画面・結果画面の両方から呼ばれる。 */
+  function goToStageSelect(): void {
+    setPhase('stageSelect')
+    setSession(null)
+    setStartInfo(null)
+    setResultInfo(null)
+    setShowEvalBar(false)
+    setEvalBarValue(null)
+    setOpponentThinking(false)
+    setAnalyzing(false)
+    setFinalizing(false)
+    resetFailExplanation()
+  }
+
+  /**
+   * 結果画面の「次のステージへ」ボタン(T119要件5)。`stagePool`内で
+   * `activeStage`の次の番号のステージへ進む(最終ステージ、または
+   * `stagePool`未読み込みならステージ一覧へ戻る)。
+   */
+  function nextStage(): void {
+    if (!activeStage || !stagePool) {
+      goToStageSelect()
+      return
+    }
+    const currentIndex = stagePool.findIndex((stage) => stage.key === activeStage.key)
+    const next = currentIndex >= 0 ? stagePool[currentIndex + 1] : undefined
+    if (next) {
+      startStagePractice(next)
+      return
+    }
+    goToStageSelect()
   }
 
   /** 判定モードのラジオボタン変更(要件2): 状態を更新し`localStorage`へ永続化する。 */
@@ -809,10 +948,64 @@ export function PracticeMode() {
             ))}
           </fieldset>
 
-          <button type="button" disabled={!josekiDb || starting} onClick={() => void startPractice()}>
-            開始
-          </button>
+          <div class="midgame-settings__buttons">
+            <button type="button" disabled={!josekiDb || starting} onClick={() => void startPractice()}>
+              開始
+            </button>
+            <button type="button" disabled={!stagePool || starting} onClick={goToStageSelect}>
+              ステージ一覧
+            </button>
+          </div>
           {!josekiDb && !josekiDbError && <p class="notice">定石DBを読み込み中...</p>}
+        </section>
+      )}
+
+      {phase === 'stageSelect' && (
+        <section class="midgame-stage-select">
+          <p>ステージ一覧: 挑戦したいステージを選んでください(全{stagePool?.length ?? 0}問)</p>
+          <p class="midgame-stage-select__mode">
+            現在の判定モード: {JUDGE_MODE_OPTIONS.find((o) => o.value === judgeMode)?.label ?? judgeMode}
+            (「設定に戻る」から変更できます。判定モードごとに★は別々に記録されます)
+          </p>
+          <p class="midgame-stage-select__legend">
+            <span class="midgame-stage-legend__mark midgame-stage-legend__mark--cleared">■</span>
+            ★1つ以上(いずれかの判定モードでクリア済み)
+            <span class="midgame-stage-legend__mark midgame-stage-legend__mark--attempted">■</span>
+            挑戦済み未クリア
+            <span class="midgame-stage-legend__mark midgame-stage-legend__mark--unattempted">■</span>
+            未挑戦
+          </p>
+
+          <div class="midgame-stage-grid">
+            {stagePool?.map((stage) => {
+              const status = stageStatus(stageProgress, stage.key)
+              const stars = stageStarCount(stageProgress, stage.key)
+              const primaryName = stage.josekiNames[0] ?? '(名称未設定)'
+              const nameLabel =
+                stage.josekiNames.length > 1 ? `${primaryName} 他${stage.josekiNames.length - 1}件` : primaryName
+              return (
+                <button
+                  type="button"
+                  key={stage.key}
+                  class={`midgame-stage-grid__cell midgame-stage-grid__cell--${status}`}
+                  disabled={starting}
+                  onClick={() => startStagePractice(stage)}
+                  title={`第${stage.stageNumber}問: ${nameLabel}(★${stars}/${JUDGE_MODE_OPTIONS.length})`}
+                >
+                  <span class="midgame-stage-grid__number">{stage.stageNumber}</span>
+                  <span class="midgame-stage-grid__name">{primaryName}</span>
+                  <span class="midgame-stage-grid__stars" aria-hidden="true">
+                    {'★'.repeat(stars)}
+                    {'☆'.repeat(Math.max(0, JUDGE_MODE_OPTIONS.length - stars))}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+
+          <button type="button" class="midgame-practice__quit" onClick={backToSettings}>
+            設定に戻る
+          </button>
         </section>
       )}
 
@@ -869,10 +1062,21 @@ export function PracticeMode() {
         <section class="midgame-result midgame-result--clear">
           <h2>クリア!</h2>
           <p>石差 {formatDiscDiff(resultInfo.margin)} で優勢を確定できました。</p>
+          {justEarnedStar && <p class="midgame-result__star-earned">★ 新しい★を獲得しました!</p>}
           <div class="midgame-result__buttons">
             <button type="button" onClick={retryFromStart}>
               もう一度(同じ局面)
             </button>
+            {activeStage && (
+              <>
+                <button type="button" onClick={nextStage}>
+                  次のステージへ
+                </button>
+                <button type="button" onClick={goToStageSelect}>
+                  ステージ一覧へ戻る
+                </button>
+              </>
+            )}
             <button type="button" onClick={backToSettings}>
               設定に戻る
             </button>
@@ -998,6 +1202,16 @@ export function PracticeMode() {
             <button type="button" onClick={retryFromStart}>
               ここからやり直す
             </button>
+            {activeStage && (
+              <>
+                <button type="button" onClick={nextStage}>
+                  次のステージへ
+                </button>
+                <button type="button" onClick={goToStageSelect}>
+                  ステージ一覧へ戻る
+                </button>
+              </>
+            )}
             <button type="button" onClick={backToSettings}>
               設定に戻る
             </button>
