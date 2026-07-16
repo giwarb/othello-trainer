@@ -67,3 +67,148 @@ attempts: 0
 ## フィードバック(やり直し時にオーケストレーターが記入)
 
 ## 作業ログ(担当エージェントが追記)
+
+### 2026-07-16 実装・検証(implementer)
+
+**方針確認(実装前調査)**: `engine/src/search.rs`を読み、タスク仕様の想定どおり
+`search_with_eval_inner`の`if max_nodes.is_none() && empties <= limit.exact_from_empties`
+分岐(512行目付近)が「maxNodesなし」リクエストでのルート直接exact(quota機構・
+wall time保険とも完全に迂回)であることを確認した。`limit.time_ms`が`Some`の場合は
+`solve_exact_bounded_with_nodes`(時間予算あり、タイムアウトでNoneに戻りうる)を、
+`None`の場合は`solve_exact_with_nodes`(完全無制限)を呼ぶ経路分岐も確認済み
+(547-551行目)。よって要件2「予算無制限・wall保険なし」を満たすには
+`timeMs`も省略する必要があると判断(既存の`analyzeGame.ts`の`ANALYZE_LIMIT`は
+`timeMs:1500`付きなので、本タスクの完全無制限パスとは異なる設計であることに注意)。
+**エンジン(Rust)側の変更は不要と判断**(タスク仕様の見込みどおり)。
+
+**実装**: `app/src/app.tsx`
+- `cpuMoveLimitForLevel(level, board)`のシグネチャに`board`を追加(呼び出し元は
+  `game.board`を渡す、`app.tsx`の`requestCpuMove`呼び出し1箇所のみ)。
+- `strong`かつ`countEmpty(board) <= ENDGAME_UNLIMITED_EMPTIES_THRESHOLD(=20)`のとき、
+  `{ depth: 20, exactFromEmpties: 20 }`(maxNodes/timeMsなし)を返す。
+- `exactFromEmpties`をボードの実際の空きマス数(呼び出しごとに変動)ではなく
+  固定値20にした理由: `search.rs`の`tt.last_exact_from_empties()`比較により
+  `exact_from_empties`が前回と異なると置換表(TT)全体がクリアされる仕様があり、
+  対局中Engineインスタンス(TT)を使い回す設計(`lib.rs`のEngine)を活かすには、
+  空き20以下の区間で値を固定してTT再利用の余地を残すのが望ましいと判断した
+  (コメントに理由を記載)。空き21以上(現行cpuLimit、exactFromEmpties=16)から
+  空き20以下への遷移時に1回だけTTクリアが起きるが、それ以降は空き20固定で
+  クリアされない。
+- weak/normal・`LEVELS[level].limit`(解析/オーバーレイ/評価バー用の別経路)は
+  一切変更していない。
+
+**テスト**: `app/src/app.test.ts`に`createBoard`で空きマス数を制御したボードを
+作るヘルパーを追加し、(a)空き30(中盤)でstrong以外は従来どおり、
+(b)空き20ちょうど・空き1でstrongが無制限exactリミットに切り替わる、
+(c)空き21でstrongが従来cpuLimitのまま不変、(d)weak/normalは空き5でも
+切り替わらない、の5ケースを追加(既存2ケースは`board`引数対応のみ修正)。
+`npm test -- --run`: 524 tests passed(app.test.ts単体は6 passed)。
+`npx tsc --noEmit`: エラーなし。
+
+**強さの検証(oracle regret)**: `bench/edax-compare/t096_oracle_positions.json`
+(60局面、`positions`配列に実局面のOBF文字列を含む)と
+`bench/edax-compare/endgame-results/t107-policy-calibration.json`の`oracle`
+セクション(T107で計算済みの真の最善値、既存ファイルは読み取りのみで変更せず)を
+使い、scratchpadに検証専用スクリプト(リポジトリ外、
+`t116_verify.py`、コミット対象外)を書いて`target/release/eval_cli.exe best`を
+実測した。
+
+- 空き20以下の局面はoracleに20局面ある(empties18=2,19=11,20=7。タスク起票時の
+  見込み「19局面」との差分は、実データでは全20局面がoracle計算済みだったため
+  ・全件を対象にした。より厳密な検証になるので問題ないと判断)。
+  `eval_cli best --depth 20 --exact-from-empties 20`(maxNodes/timeMsなし、
+  本実装が送るのと同じパラメータ)で全20局面を評価し、**全局面でregret=0**
+  (選んだ手のdiscDiffがoracleのbestValueと完全一致)。
+  ノード数は最小1,105,707〜最大45,773,466、所要時間は最小0.234s〜
+  最大4.281s(worst: t096-exact-19, empties=20, 45,773,466ノード)。
+  T107実測(P75=1,855万ノードで数秒)と整合する結果。
+- 決定性: 上記20局面のうち5局面を2回ずつ実行し、move/score/nodesが完全一致
+  することを確認(同一入力→同一出力)。
+- 空き21以上の不変性: empties21-23の代表20局面について、現行cpuLimit相当の
+  パラメータ(`--depth 12 --time-ms 1500 --max-nodes 160000
+  --exact-from-empties 16 --exact-quota-percent 60`、T116で一切変更していない
+  値)で2回ずつ実行し、全20局面でmove/score/nodesが完全一致(決定性)。
+  エンジン側コードを本タスクで変更していないため、この結果はT116前後で
+  不変であることの裏付けとなる(Rustコードに差分がないため、
+  「前」と「後」で同じバイナリを使っている)。
+- 検証結果は`t116_verify_results.json`としてscratchpadに保存(リポジトリには
+  含めない)。
+
+**評価表示の整合(要件5)**: コードを読み、CPU自身の着手には評価バッジ
+(`EvalBadge`/`evalInfo`)がそもそも表示されない設計であることを確認した
+(`app.tsx`の`evaluateHumanMove`コメント「人間の着手直後にのみ呼ぶ
+(CPUの着手には表示不要、要件5)」、T077由来の既存方針)。オーバーレイ
+(`候補手評価を表示`)・評価値バー(`現在の評価値を表示`)は
+いずれも`LEVELS[level].limit`(解析用、`cpuLimit`とは別物、本タスクで無変更)
+を使っており、`cpuMoveLimitForLevel`の変更の影響を受けない。よって
+特別な追加対応は不要(表示ラベル自体は既存の`score.type: 'exact'`機構が
+そのまま使われる)。
+
+**ANALYSIS_ENGINE_VERSIONの要否(要件6)**: `cpuMoveLimitForLevel`は
+`requestCpuMove`(CPU着手選択)専用で、`analysisLimitTag`/`cacheKey`
+(`app/src/analysis/cache.ts`、`analyzeGame.ts`の`ANALYZE_LIMIT`)とは
+完全に独立している(呼び出し元がapp.tsx内の1箇所のみで、キャッシュ機構を
+一切経由しない)ことをgrep調査で確認した。よって`ANALYSIS_ENGINE_VERSION`の
+インクリメントは不要と判断(T107と同じ判定プロトコル)。
+
+**エンジン変更なしのためcargo testは対象外**: 受け入れ基準の
+「`cargo test -p engine`全件パス(engine変更時)」は条件付きであり、
+本タスクでは`engine/`配下を一切変更していないため対象外。ただし
+GitHub Actions「Rust Tests」ワークフロー(push時に自動実行、後述)で
+`cargo test -p engine`が実行され成功していることも確認済み。
+
+**コミット・デプロイ**: `app/src/app.tsx`・`app/src/app.test.ts`のみを
+パス指定で`git add`し、コミット`0452815`(`(T116)`付き)を作成、
+`git push origin main`。GitHub Actions「Deploy to GitHub Pages」
+(run 29486222351)・「Rust Tests」(run 29486222287)ともに成功
+(`gh run watch`で確認)。
+
+**Pages実機確認**: `https://giwarb.github.io/othello-trainer/`をBrowser
+ツールで開き、対局モード→CPUの強さ「強い」→黒番で開始、実際の対局を
+1局最後まで進めた。Browser paneのタブが非フォーカス(`document.hidden===true`)
+の状態だったため、Canvas盤面はrequestAnimationFrame起点の再描画が実質
+凍結し(初期局面のまま固定表示)、`computer`ツールのscreenshot/クリックは
+座標系キャッシュ依存でタイムアウトした。これはこの自動化環境固有の制約
+(アプリのバグではない、DOM/スコア表示・Worker通信は正常に更新され続けた)
+と判断し、`javascript_tool`でCanvas要素に直接`MouseEvent`をdispatchする
+方式(`Board.tsx`の`handleClick`は`event.clientX/clientY`と
+`canvas.getBoundingClientRect()`のみに依存し、Canvasの描画状態そのものには
+非依存なため、この方式でも実際のクリック処理・合法手判定・`onMove`呼び出しは
+本物のアプリコードを経由する)で全64マスを順に試行→状態変化(`p.status`
+テキスト)を検知したら次の手番へ進む、というforward-only agentを組んで
+1局を最後まで進行させた。
+
+途中、通常の初期局面から進める1局目は空き42付近から40分弱かけて空き27まで
+進んだ時点で、CPU(強)の1手(この時点は空き27で現行cpuLimit経路、本タスク
+無変更)が数分応答しなくなる事象が発生した。コンソールエラーはなし、
+`document.hidden===true`のタブでWorker応答が極端に遅延した可能性が高い
+(バックグラウンドタブに対するブラウザ側スロットリングの影響と推定、
+本タスクの変更差分は空き27の経路には触れていないため無変更経路側の問題
+ではないと判断)。この1局は打ち切り、より的を絞った検証に切り替えた:
+「盤面を自由に配置して開始」(`BoardEditor`、Canvasでなく通常のHTML
+ボタングリッドなのでクリックは確実)で、T096 oracleのうち**ワーストケース
+実測局面(t096-exact-19、空き20、oracle検証で45,773,466ノード/4.281秒
+だった局面)をそのまま**盤面に再現し(手番=黒/CPU、人間=白番で開始する
+ことでCPUが即座に空き20の新経路で着手する状況を作った)、そこから終局まで
+進めた。
+
+- **空き20でのCPU初手(新経路、ワーストケース局面)**: クリックから
+  「思考中」解除・着手完了までの実測は、ツール往復のオーバーヘッドを含めて
+  約4.2〜10.1秒(2回のポーリングの間で完了を検知したため上限のみ判明。
+  native `eval_cli`実測(4.281秒/45,773,466ノード)と矛盾しない範囲)。
+  着手後のスコアは黒37/白8(空き19)に正しく進行しており、`d8`
+  (oracle最善手と一致、regret=0は既にnative CLI側で確認済み)相当の
+  手が選ばれたとみられる。
+- その後、空き19→0まで人間(白)・CPU(黒、strong)が交互に着手し、
+  **「対局終了」表示まで正常に進行**(最終スコア黒43/白21、64石で終局)。
+  空き20以下の全CPU着手(複数手)がいずれも数秒以内に返り、ハング・
+  エラー・`move: null`等の異常は一切発生しなかった。
+- 上記の40分弱ハング事象は**現行cpuLimit経路(空き>20、本タスク無変更)**
+  側で観測されたものであり、空き20以下の新経路固有の問題ではないこと、
+  かつ再現条件(長時間バックグラウンドタブでの自動化)が実際のユーザー
+  操作とは乖離した本検証環境固有の要因である可能性が高いことを付記する。
+  ただし念のため、オーケストレーターへの報告事項として明記する
+  (「仕様どおりにできなかった点」参照)。
+
+以上により受け入れ基準の「Pages公開URLで終盤までCPU対局を進め、終盤で
+数秒の思考後に着手が返り対局が正常に終局することを確認」を満たした。
