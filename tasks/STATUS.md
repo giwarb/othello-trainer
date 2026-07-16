@@ -27,7 +27,7 @@
 | ID | タスク | 担当 | 状態 | 試行 |
 |---|---|---|---|---|
 | T114 | 拡張教師コーパス200k生成(ユーザー裁定2026-07-16: 今すぐ開始) | implementer(Sonnetフォールバック) | in_progress(生成中、resume事故から回復済み・今夜完走見込み。完走後にverify/manifest/コミットを委譲) | 0 |
-| T115 | 定石ブックON時「思考中...」ハング調査・修正(T107 verifierの本番観測) | implementer(Sonnet) | in_progress | 0 |
+| T115 | 定石ブックON時「思考中...」ハング調査・修正(T107 verifierの本番観測) | implementer(Sonnet) | review(100%再現の実バグ→修正済みc2bb69e・本番確認済み。verifier+代替レビュー並列実行中) | 0 |
 
 ## 有効な方針・申し送り(今後のタスクに効くもの)
 
