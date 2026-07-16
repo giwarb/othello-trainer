@@ -1,7 +1,7 @@
 ---
 id: T117
 title: 詰めオセロ: ステージクリア型UI+localStorageクリア記録
-status: redo # todo | in_progress | review | redo | done | blocked
+status: review # todo | in_progress | review | redo | done | blocked
 assignee: implementer(Sonnet)
 attempts: 1
 ---
@@ -197,3 +197,61 @@ attempts: 1
     (`app/`配下は本タスクの4ファイルのみでコミット・push済み)。T114 WIP
     5ファイル(`bench/edax-compare/`配下)は対象外・未変更のまま。
     `train/data/teacher/`・T114生成プロセスには一切触れていない。
+
+- 2026-07-17 redo #1対応(implementer、codex-review重大指摘1件+中1件+軽微1件)
+  - レポート: `tasks/review/T117-tsume-stage-select-codex-review.md`。
+  - **[必須] localStorage記録の喪失レース修正**: `app/src/tsume/PlayMode.tsx`
+    の`saveAttempt`は`recordAttempt`/`getAllAttempts`(IndexedDB)を`await`
+    した**後**に`recordStageAttempt`(`localStorage`書き込み)を呼んでいたため、
+    結果画面表示直後のリロード・離脱やIndexedDB遅延で記録が失われるレースが
+    あった。修正: 新関数`recordStageProgressNow(s, correct)`を追加し、
+    `finishClear`/`finishFail`の**最初のawaitより前**(`setPhase('result')`より
+    前)で同期的に呼ぶよう変更(`localStorage.setItem`自体は同期API)。
+    `saveAttempt`からは`recordStageAttempt`呼び出しを除去し、IndexedDB記録
+    専任に戻した。
+    - **回帰テスト**(新規`app/src/tsume/PlayMode.stageProgressTiming.test.tsx`、
+      2件): `tsume/stats.ts`の`recordAttempt`を「意図的に解決しない
+      `Promise`」に差し替えるモックで、IndexedDB保存が未解決(pending)の
+      ままでも`localStorage`にステージ記録(`clearCount`/`failCount`/
+      `lastResult`)が既に書き込まれていることを検証(クリア・失敗の両ケース)。
+      **本テストが実際に退行を検出できることを、修正前のコード
+      (`git stash`で一時的に`PlayMode.tsx`をa93abf2相当に戻して再実行)に
+      対して確認済み**: 修正前は`expect(raw).not.toBeNull()`が
+      `AssertionError: expected null not to be null`で2件とも失敗し、
+      修正を戻すと2件とも合格することを確認した。
+  - **[中] 破損値バリデーションの意味的制約を強化**: `app/src/tsume/stageProgress.ts`
+    の`isValidEntry`が「型は合っているが意味的に不正な値」(`clearCount: -1`、
+    `failCount: 0.5`、`lastAttemptAt: ""`、`firstClearedAt: "not-a-date"`等)を
+    有効値として通していた問題を修正。`isNonNegativeInteger`(非負整数)・
+    `isValidIsoDateTimeString`(`Date.parse`で解釈可能な非空文字列)の
+    2ヘルパーを追加し、回数フィールド・日時フィールドそれぞれに適用。
+    `stageProgress.test.ts`にレビュー指摘の具体例(負数・小数・不正日時・
+    空文字列・複合ケース)5件のテストを追加(15件→20件)。
+  - **[軽微] PlayMode.cssの日本語コメント文字化け指摘**: working tree・
+    コミット済みblob(`a93abf2`)の両方をPython経由でバイト単位で検証
+    (UTF-8として正常デコード可能、BOM無し、レビュー指摘の文字化けバイト列
+    `ã‚¹ãƒ†`は検索してもファイル中に存在しない、CRLF等の行末混在も無し)。
+    レビューが引用した行番号(179行目)も実際にはCSSプロパティ行であり
+    コメント行ではなかった。**ファイル自体には問題が無いと判断し、
+    コード変更は行っていない**(レビューツール側の表示・読み取り時の
+    アーティファクトと推定)。
+  - 検証結果:
+    - `npm test -- --run`(app): 67 test files / 548 tests 全件パス
+      (redo前541件+バリデーション5件+タイミング回帰2件)。
+    - `npx tsc --noEmit`(app): エラーなし。
+    - コミット: `804c463`(`app/src/tsume/PlayMode.tsx`・`stageProgress.ts`・
+      `stageProgress.test.ts`・`PlayMode.stageProgressTiming.test.tsx`の
+      4ファイルのみ、パス明示add)、`git push origin main`済み
+      (`74ca0d4..804c463`)。`PlayMode.css`は変更なし(上記理由)。
+    - GitHub Actions「Deploy to GitHub Pages」run 361(commit `804c463`、
+      run id 29539342077): `gh run list`がAPI一時障害(HTTP 503、複数回
+      リトライしても解消せず)で使えなかったため、ブラウザでActionsページを
+      直接確認し「completed successfully」であることを確認。
+    - Pages公開URLでの軽量再確認(オーケストレーター指示どおり記録タイミングに
+      絞った確認、Playwright headless chromium): `tsume-72`(45番ステージ)を
+      クリアし、**結果画面が表示された直後(追加の待機を挟まず)**に
+      `localStorage['othello-trainer:tsume-stage-progress']`へ
+      `clearCount:1`/`lastResult:'clear'`の記録が既に存在することを確認。
+      あわせて`page.reload()`後も記録が残ることも再確認。コンソールエラー0件。
+  - `git status --short`: 本タスク由来の差分・未追跡ファイルは残っていない。
+    T114 WIP 5ファイル(`bench/edax-compare/`配下)は対象外・未変更のまま。
