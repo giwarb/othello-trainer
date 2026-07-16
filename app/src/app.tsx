@@ -18,6 +18,7 @@ import type { AnalyzeLimit, MoveEvalJson } from './engine/types.ts'
 import { createGame, createGameFromPosition, playMove, requestCpuMove, type GameState } from './game/gameLoop.ts'
 import {
   countDiscs,
+  countEmpty,
   initialBoard,
   notationToSquare,
   squareToNotation,
@@ -161,7 +162,37 @@ export const LEVELS: Record<LevelKey, LevelPreset> = {
   },
 }
 
-export function cpuMoveLimitForLevel(level: LevelKey): AnalyzeLimit {
+// T116(対局CPU「強い」の終盤完全読み分離、ユーザー裁定2026-07-16夜):
+// 中盤探索と完全読みはノード単価が全く違う(中盤は評価関数計算込みで重く、
+// 完全読みは軽く毎秒500万ノード級)のに、従来は`cpuLimit`の単一予算
+// (160kノード)を両方で共有しており、実時間ではタダ同然の完全読みが
+// 「高い予算超過」扱いされ空き14までしか読み切れていなかった。空き20以下は
+// maxNodes/timeMsを一切課さず、`search.rs`の`max_nodes.is_none() &&
+// empties <= exact_from_empties`分岐(ルート直接exact、クオータ機構も
+// wall time保険も一切発火しない)に完全に委ねる。
+//
+// 閾値は空き20固定(T107校正のP75実測: 空き20=1,855万ノード≒数秒、
+// 空き21=1.3億ノード≒数十秒。`tasks/T107-exact-policy-recalibration.md`
+// 作業ログ参照)。
+export const ENDGAME_UNLIMITED_EMPTIES_THRESHOLD = 20
+
+// `exactFromEmpties`を盤面の実際の空き数(呼び出しごとに変動)ではなく
+// この固定閾値にしているのは、対局中Engineインスタンス(TT)を使い回す際、
+// `exactFromEmpties`が前回の呼び出しと異なると置換表全体がクリアされる
+// 仕様(`search.rs`のTTスケール混同防止コメント参照)があるため。空き20
+// 以下の間、着手のたびに違う値を渡すと毎回TTがクリアされて完全読みの
+// 高速化余地を捨ててしまうので、この区間では常に同じ値を使い続ける。
+// `depth`はこの経路(ルート直接exact)では反復深化に入る前に返るため
+// 参照されないが、プロトコル上必須フィールドのため同じ値を入れておく。
+const ENDGAME_UNLIMITED_LIMIT: AnalyzeLimit = {
+  depth: ENDGAME_UNLIMITED_EMPTIES_THRESHOLD,
+  exactFromEmpties: ENDGAME_UNLIMITED_EMPTIES_THRESHOLD,
+}
+
+export function cpuMoveLimitForLevel(level: LevelKey, board: BoardState): AnalyzeLimit {
+  if (level === 'strong' && countEmpty(board) <= ENDGAME_UNLIMITED_EMPTIES_THRESHOLD) {
+    return ENDGAME_UNLIMITED_LIMIT
+  }
   return LEVELS[level].cpuLimit ?? LEVELS[level].limit
 }
 
@@ -312,7 +343,7 @@ function PlayMode() {
         ? selectCpuBookMove(josekiDb, game.board, game.sideToMove, firstMove)
         : null
 
-    requestCpuMove(game, getEngine(), cpuMoveLimitForLevel(level), bookMove)
+    requestCpuMove(game, getEngine(), cpuMoveLimitForLevel(level, game.board), bookMove)
       .then((next) => {
         if (!cancelled) {
           setGame(next)
