@@ -52,15 +52,48 @@ Edaxの探索値に置き換えるための第一段(コーパス生成)。
         # (`corpus_primary_shard{I}of{N}.jsonl`)へ書き込ませる。全シャード完了後、
         # 標準の`corpus_primary.jsonl`へマージする。
 
+    # T114追記(200,000局面への拡張): `primary`(2015-2024、pool約93k)は200kには
+    # 届かないため、`expanded200k`setは`--years`で年範囲をWTHOR公式サイト提供分
+    # まで拡張して呼び出す(候補プールの「1対局×1bin=1候補」という選定哲学自体は
+    # 不変。対局数を増やして母集団を広げるだけ。オーケストレーター裁定 2026-07-16)。
+    # `expanded200k`はCORPUS_SETSで`excludeT096Oracle=True`が設定されており、
+    # t096 oracle 60局面(D4対称形込み)を選定段階で自動的に除外する
+    # (smoke/primaryにはこのフラグが無く、除外ロジック自体が完全にno-opのため
+    # 既存2setのsettings/runKey/resume挙動は不変)。
+    python bench/edax-compare/gen_teacher_corpus.py expanded200k --years 2000-2024 --num-shards 8
+
+    # T114追記(resume堅牢化、2026-07-16): resume時のrunKey/provenance不一致は
+    # 既定でRuntimeErrorとなり停止する(不一致時に既存checkpointを黙って切り詰める
+    # 事故が実際に発生したため)。無関係コミットでのHEAD変化はもう不一致要因にならない
+    # (`gitCommit`はPROVENANCE_IDENTITY_KEYSから除外済み、meta記録としては残る)。
+    #   --adopt-provenance : provenance(harness/tool/edax等のSHA-256)不一致でも
+    #       既存checkpointのJSONLをそのまま採用してresumeし、metaのidentityだけ
+    #       現環境の値へ更新する(runKey不一致には効かない)。
+    #   --start-fresh       : runKey/provenanceいずれの不一致でも既存checkpointを
+    #       意図的に破棄し、ゼロから再生成する(旧来の暗黙のstart_fresh相当)。
+    python bench/edax-compare/gen_teacher_corpus.py expanded200k --years 2000-2024 --num-shards 8 --adopt-provenance
+
 前提: `cargo build --release -p train --bin teacher_candidates` でビルド済み、
 `bench/edax-compare/edax-extract/`にEdaxが展開済み(`download-edax.ps1`)。
 
-# 出力スキーマ(`train/data/teacher/corpus_{smoke,primary}.jsonl`、1行1局面のJSON)
+# 出力スキーマ(`train/data/teacher/corpus_{smoke,primary,expanded200k}.jsonl`、1行1局面のJSON)
 
 `train/data/`配下は`.gitignore`で除外されコミットされないため(WTHOR生データと同じ
 再配布可否不明の理由、および本コーパス自体も生成物でサイズが大きいため)、本コーパスの
 フォーマット仕様はこのdocstringを正本とする(`train/data/teacher/README.md`にも同内容の
 説明を書いているが、そのファイル自体は上記gitignoreの対象でコミットされない)。
+
+meta(`corpus_{set}.meta.json`)は`schemaVersion: 2`を直接出力する(T090aでは
+別スクリプト`finalize_teacher_corpus.py`が事後的に付与していたが、`diffFromBest`/
+`openingKey`は生成時点(`label_position`/`teacher_candidates extract`)で既に
+正しく付与されているため、T114以降の新規生成setはfinalizeを経由せず`schemaVersion: 2`
+を最初から書く)。
+
+`excludeT096Oracle`(CORPUS_SETSのset別フラグ)が有効なsetでは、`bench/edax-compare/
+t096_oracle_positions.json`の60局面(D4正準化済み`canonicalKey`)と一致する候補を
+選定段階(`select_positions`)で除外し、settingsに`t096OracleSha256`を記録する。
+smoke/primaryはこのフラグが無く、除外ロジック自体が完全にno-op(既存2setの
+settings/runKey/resume挙動は不変)。
 
 meta/manifestの`settings`には`edaxTasksPerProcess: 1`と
 `elapsedMsPolicy: "batch-averaged"`を記録する。これらが無い既存コーパスは、
@@ -127,6 +160,9 @@ TEACHER_CANDIDATES_TOOL = ROOT / "target" / "release" / "teacher_candidates.exe"
 TEACHER_DATA_DIR = ROOT / "train" / "data" / "teacher"
 CANDIDATES_PATH = TEACHER_DATA_DIR / "candidates.json"
 VS_EDAX_RESULTS_PATH = COMPARE_DIR / "vs_edax_results.json"
+# T114: t096独立oracle(60局面)の非混入を選定段階で保証するための除外ソース。
+# `excludeT096Oracle`が有効なCORPUS_SETSエントリでのみ読み込む(smoke/primaryは無効のまま)。
+T096_ORACLE_POSITIONS_PATH = COMPARE_DIR / "t096_oracle_positions.json"
 
 # --- 設計判断(仕様に明記が無いためこのタスクで決定、manifestにも記録する) ---
 
@@ -142,6 +178,11 @@ HIGH_REGRET_MIN_LOSS = 4.0
 # この帯でEdaxの完全読みが実用時間で完走することを確認済みのため、
 # 少し安全側に24を採用する(design report §9の「目安: Edaxが即時exactを返す帯」
 # に対応する具体値としてこのタスクで決定)。
+# T114移行(2026-07-16 20:4xユーザー裁定): この値は全setの既定値。expanded200kの
+# 生成ペースが空き20-29帯で低下しETAが遅延したため、expanded200kに限り
+# `CORPUS_SETS["expanded200k"]["exactEmptiesThreshold"]`で20へ上書きする
+# (smoke/primaryはこの値のままでsettings/runKeyとも不変。既存の`excludeT096Oracle`
+# フラグと同じ「set別に上書き可、既定値はグローバル定数のまま」という流儀)。
 EXACT_EMPTIES_THRESHOLD = 24
 # 完全読みを強制するレベル(空き<=24なら`-l 60 >= 空き数`となり常に完全読みになる。
 # `compare_pattern_v3.py`のoracle実装と同じ値を踏襲)。
@@ -157,6 +198,25 @@ OPENING_KEY_PLIES = 8
 CORPUS_SETS = {
     "smoke": {"targetCount": 1_000, "seed": DEFAULT_SEED + 1},
     "primary": {"targetCount": 50_000, "seed": DEFAULT_SEED + 2},
+    # T114: 200,000局面への拡張。primaryとは独立の新規抽出(別seed)とし、
+    # 既存primaryの選定結果に対する明示的なcross-set重複除去は行わない
+    # (smoke/primary自体も互いにこの重複除去を行っていない既存の設計を踏襲、
+    # 理由はタスク作業ログに記録)。年範囲は`--years 2000-2024`をCLIで明示的に
+    # 指定して起動する(候補プールがprimaryと同じ2015-2024だと母集団が
+    # 約93,000にしかならず200,000に届かないため、オーケストレーター裁定で
+    # WTHOR公式サイトの2000-2014分を追加ダウンロードし年範囲を拡張した)。
+    # T114移行(2026-07-16 20:4xユーザー裁定): 生成ペース低下(空き20-29帯)による
+    # ETA遅延のため、完全読みライン(EXACT_EMPTIES_THRESHOLD)をexpanded200kに限り
+    # 24→20へ引き下げる。24で既に完全読み(level=60)ラベル済みの空き21-24局面は
+    # `migrate_t114_exact_threshold_20.py`で破棄済み・20方針で再ラベルされる
+    # (作業ログ参照)。smoke/primaryはこのキーが無いため`EXACT_EMPTIES_THRESHOLD`
+    # (24)のまま=settings/runKey不変。
+    "expanded200k": {
+        "targetCount": 200_000,
+        "seed": DEFAULT_SEED + 3,
+        "excludeT096Oracle": True,
+        "exactEmptiesThreshold": 20,
+    },
 }
 
 
@@ -339,6 +399,23 @@ def load_high_regret_positions(path: Path, min_loss: float) -> list[dict]:
     return deduped
 
 
+# --- T114: t096独立oracleの除外(選定段階でのオラクル非混入保証) ---
+
+
+def load_oracle_excluded_keys(path: Path) -> tuple[set[tuple[int, int, int]], str | None]:
+    """`t096_oracle_positions.json`の各局面は既にD4正準化済みの`canonicalKey`を
+    持つ(`select_t096_oracle_positions.py`が`teacher_candidates canonical`
+    (Rust `train::experiment::canonicalize`)で計算したもの、本ファイルの
+    `canonical_key_of_position`と同一アルゴリズムであることは
+    `test_python_rust_d4_agree`で確認済み)。そのためD4対称形の展開は不要で、
+    このキー集合との一致チェックだけで対称形込みの除外ができる。"""
+    if not path.exists():
+        raise RuntimeError(f"t096 oracle positions file not found: {path} (required for oracle exclusion)")
+    doc = json.loads(path.read_text(encoding="utf-8"))
+    keys = {tuple(p["canonicalKey"]) for p in doc["positions"]}
+    return keys, sha256_of_file(path)
+
+
 # --- 層化サンプリング ---
 
 
@@ -373,7 +450,31 @@ def allocate_bin_targets(bin_populations: list[int], remaining_target: int) -> l
     return allocated
 
 
-def select_positions(pool: dict, priority: list[dict], target_count: int, seed: int) -> tuple[list[dict], dict]:
+def select_positions(
+    pool: dict,
+    priority: list[dict],
+    target_count: int,
+    seed: int,
+    excluded_keys: set[tuple[int, int, int]] | None = None,
+) -> tuple[list[dict], dict]:
+    """`excluded_keys`(T114: t096 oracleのcanonicalKey集合)が空集合の場合、
+    以下の除外分岐は一切実行されず(`if key in excluded_keys`は空集合に対して
+    常にFalse)、統計にも`oracleExclusion`キーを追加しない。そのためsmoke/primary
+    (`excluded_keys`を渡さない呼び出し)は本変更前と完全に同じ`selection_stats`
+    を返し、`settings`/`runKey`も不変(既存checkpointのresumeを壊さない)。"""
+    excluded_keys = excluded_keys or set()
+
+    priority_oracle_excluded = 0
+    if excluded_keys:
+        filtered_priority = []
+        for p in priority:
+            key = canonical_key_of_position(p["board"], p["sideToMove"])
+            if key in excluded_keys:
+                priority_oracle_excluded += 1
+                continue
+            filtered_priority.append(p)
+        priority = filtered_priority
+
     priority_keys = {canonical_key_of_position(p["board"], p["sideToMove"]) for p in priority}
     priority_selected = priority[:target_count]  # 通常69件程度なので事実上全件
 
@@ -381,8 +482,12 @@ def select_positions(pool: dict, priority: list[dict], target_count: int, seed: 
 
     pool_positions = pool["positions"]
     by_bin: list[list[dict]] = [[] for _ in range(NUM_PHASE_BINS)]
+    pool_oracle_excluded = 0
     for row in pool_positions:
         key = canonical_key_of_position(row["board"], row["sideToMove"])
+        if excluded_keys and key in excluded_keys:
+            pool_oracle_excluded += 1
+            continue  # T114: t096 oracle局面(D4対称形込み)を選定段階で除外
         if key in priority_keys:
             continue  # 優先層と重複するものは除外(cross-source dedup)
         by_bin[row["phaseBin"]].append(row)
@@ -441,13 +546,29 @@ def select_positions(pool: dict, priority: list[dict], target_count: int, seed: 
         "maxOpeningCountSelected": max(opening_counts.values(), default=0),
         "totalSelected": len(selected),
     }
+    if excluded_keys:
+        stats["oracleExclusion"] = {
+            "excludedKeyCount": len(excluded_keys),
+            "priorityPositionsExcluded": priority_oracle_excluded,
+            "poolPositionsExcluded": pool_oracle_excluded,
+        }
     return selected, stats
 
 
 # --- 教師値の付与(Edax呼び出し) ---
 
 
-def label_position(index: int, position: dict, children_info: dict) -> dict:
+def label_position(
+    index: int,
+    position: dict,
+    children_info: dict,
+    exact_empties_threshold: int = EXACT_EMPTIES_THRESHOLD,
+) -> dict:
+    """`exact_empties_threshold`(T114移行: set別に上書き可能、既定は
+    `EXACT_EMPTIES_THRESHOLD`=24)以下の空き数を持つ非終局子局面を完全読み
+    (`EXACT_EDAX_LEVEL`=60)、それ以外を`DEFAULT_EDAX_LEVEL`=16で解く。
+    `select_positions`の`excluded_keys`と同じ「引数追加、既定値で旧挙動を
+    完全に保つ」流儀。"""
     board = position["board"]
     side = position["sideToMove"]
     mover_key = canonical_key_of_position(board, side)
@@ -470,7 +591,7 @@ def label_position(index: int, position: dict, children_info: dict) -> dict:
             }
             continue
 
-        exact_requested = child_empties <= EXACT_EMPTIES_THRESHOLD
+        exact_requested = child_empties <= exact_empties_threshold
         level = EXACT_EDAX_LEVEL if exact_requested else DEFAULT_EDAX_LEVEL
         batches.setdefault(level, []).append((child_index, child))
 
@@ -483,7 +604,7 @@ def label_position(index: int, position: dict, children_info: dict) -> dict:
         assert len(results) == len(batch), "Edax batch result count mismatch"
         for (child_index, child), result in zip(batch, results):
             child_empties = child["childEmpties"]
-            exact_requested = child_empties <= EXACT_EMPTIES_THRESHOLD
+            exact_requested = child_empties <= exact_empties_threshold
             value = result["discDiff"] if child["childSideToMove"] == side else -result["discDiff"]
             is_exact = exact_requested and result["depth"] >= child_empties
             if exact_requested and not is_exact:
@@ -550,7 +671,13 @@ def build_run_metadata(candidates_path: Path) -> dict:
 
 
 PROVENANCE_IDENTITY_KEYS = (
-    "gitCommit",
+    # T114 (resume堅牢化): `gitCommit`は意図的に除外する。挙動に影響しない
+    # 無関係コミット(タスクファイル更新等)でHEADが進むだけでresumeが全損する
+    # 事故が実際に発生したため(2026-07-16作業ログ参照)。`gitCommit`自体は
+    # `build_run_metadata`により引き続き`meta`へ記録され、provenance情報としては
+    # 残るが、identity比較(=resume可否の判定)には使わない。実効的な挙動を
+    # 決めるSHA群(harness/teacher_candidates/edax/evalData/pool/highRegretSource)
+    # のみをidentityとする。
     "harnessSha256",
     "teacherCandidatesToolSha256",
     "edaxSha256",
@@ -573,18 +700,40 @@ class TeacherCorpusCheckpoint:
     「provenance不一致なら拒否」「resumeで完了済みをスキップ」という原則は
     そのまま踏襲する。"""
 
-    def __init__(self, jsonl_path: Path, meta_path: Path, run_key: str, settings: dict, meta: dict):
+    def __init__(
+        self,
+        jsonl_path: Path,
+        meta_path: Path,
+        run_key: str,
+        settings: dict,
+        meta: dict,
+        *,
+        adopt_provenance: bool = False,
+        start_fresh_allowed: bool = False,
+    ):
         self.jsonl_path = jsonl_path
         self.meta_path = meta_path
         self.run_key = run_key
         self.settings = settings
         self.meta = meta
+        # T114 (resume堅牢化): 不一致検出時の既定挙動は「エラーで停止」(下記try_resume参照)。
+        # 以下の2フラグはその既定を明示的に上書きするための脱出口で、どちらも既定False
+        # (=何も指定しなければ従来の暗黙のstart_fresh切り詰めは二度と起きない)。
+        self.adopt_provenance = adopt_provenance
+        self.start_fresh_allowed = start_fresh_allowed
         self.done_ids: set[int] = set()
         self._fh = None
         self._start_time = time.monotonic()
         self._done_since_start = 0
 
     def try_resume(self) -> bool:
+        """`False`を返すのは「まだcheckpointが存在しない(=通常の初回起動)」場合、
+        または`--start-fresh`が明示指定された場合のみ。それ以外の不一致
+        (runKey・provenance identity)は、データを黙って切り詰める事故(T114の
+        resume失敗事故、2026-07-16)を防ぐため`RuntimeError`で即座に停止する。
+        `--adopt-provenance`はprovenance identity不一致のときだけ、既存checkpointを
+        正として採用し`True`を返す(runKey不一致には効かない: 対象コーパスの
+        設定自体が変わっている場合はより慎重な扱いが必要なため)。"""
         if not self.meta_path.exists() or not self.jsonl_path.exists():
             return False
         try:
@@ -592,12 +741,56 @@ class TeacherCorpusCheckpoint:
         except (json.JSONDecodeError, OSError) as exc:
             print(f"  [resume] {self.meta_path.name} could not be parsed ({exc}), starting fresh")
             return False
+
         if saved_meta_doc.get("runKey") != self.run_key:
-            print(f"  [resume] {self.meta_path.name} runKey mismatch, refusing checkpoint (starting fresh)")
-            return False
-        if provenance_identity(saved_meta_doc.get("meta")) != provenance_identity(self.meta):
-            print(f"  [resume] {self.meta_path.name} provenance mismatch, refusing checkpoint (starting fresh)")
-            return False
+            if self.start_fresh_allowed:
+                print(
+                    f"  [resume] {self.meta_path.name} runKey mismatch, --start-fresh specified: "
+                    "discarding checkpoint and regenerating from scratch"
+                )
+                return False
+            raise RuntimeError(
+                f"{self.meta_path.name}: runKey mismatch against existing checkpoint "
+                f"({self.jsonl_path.name}). Refusing to resume (and refusing to silently discard the "
+                "existing checkpoint) because the recorded generation settings differ.\n"
+                f"  saved runKey:   {saved_meta_doc.get('runKey')!r}\n"
+                f"  current runKey: {self.run_key!r}\n"
+                "Pass --start-fresh if this is an intentional regeneration from scratch."
+            )
+
+        saved_identity = provenance_identity(saved_meta_doc.get("meta"))
+        current_identity = provenance_identity(self.meta)
+        if saved_identity != current_identity:
+            mismatched = {
+                key: (saved_identity.get(key), current_identity.get(key))
+                for key in PROVENANCE_IDENTITY_KEYS
+                if saved_identity.get(key) != current_identity.get(key)
+            }
+            if self.adopt_provenance:
+                print(
+                    f"  [resume] {self.meta_path.name} provenance mismatch, --adopt-provenance specified: "
+                    f"adopting existing checkpoint as-is and updating recorded identity to the current "
+                    f"environment (changed key(s): {sorted(mismatched.keys())})"
+                )
+                for key, (old, new) in mismatched.items():
+                    print(f"    {key}: {old!r} -> {new!r}")
+            elif self.start_fresh_allowed:
+                print(
+                    f"  [resume] {self.meta_path.name} provenance mismatch, --start-fresh specified: "
+                    "discarding checkpoint and regenerating from scratch"
+                )
+                return False
+            else:
+                detail = "\n".join(f"  {key}: saved={old!r} current={new!r}" for key, (old, new) in mismatched.items())
+                raise RuntimeError(
+                    f"{self.meta_path.name}: provenance identity mismatch against existing checkpoint "
+                    f"({self.jsonl_path.name}) on key(s) {sorted(mismatched.keys())}. Refusing to resume "
+                    "(and refusing to silently discard the existing checkpoint).\n"
+                    f"{detail}\n"
+                    "Pass --adopt-provenance to resume anyway (existing checkpoint wins, recorded identity "
+                    "is updated to the current environment), or --start-fresh to intentionally regenerate "
+                    "from scratch."
+                )
 
         done_ids: set[int] = set()
         malformed = 0
@@ -653,6 +846,11 @@ class TeacherCorpusCheckpoint:
 
     def _write_meta(self, done_count: int, total: int | None = None, rate_per_sec: float | None = None) -> None:
         doc = {
+            # T114: 以前はT090aの`finalize_teacher_corpus.py`が事後的に付与していたが、
+            # 生成時点で既にdiffFromBest/openingKeyとも正しく付与されているため、
+            # T114以降の新規setはfinalizeを経由せずここで直接書く
+            # (`verify_teacher_corpus.py`はschemaVersion==2を必須としている)。
+            "schemaVersion": 2,
             "runKey": self.run_key,
             "meta": self.meta,
             "settings": self.settings,
@@ -682,6 +880,8 @@ def generate(
     num_shards: int = 1,
     shard_index: int = 0,
     skip_extract: bool = False,
+    adopt_provenance: bool = False,
+    start_fresh: bool = False,
 ) -> None:
     """コーパス生成本体。`num_shards<=1`(既定)なら従来どおり全件を単一プロセスで逐次処理する
     (runKey・チェックポイントファイル名とも旧来のまま、後方互換)。`num_shards>1`のときは
@@ -692,6 +892,8 @@ def generate(
     cfg = CORPUS_SETS[set_name]
     target_count = cfg["targetCount"]
     seed = cfg["seed"]
+    # T114移行: set別に完全読みラインを上書き可能(既定はグローバル定数のまま)。
+    exact_empties_threshold = cfg.get("exactEmptiesThreshold", EXACT_EMPTIES_THRESHOLD)
     tag = f"{set_name}" if num_shards <= 1 else f"{set_name} shard {shard_index}/{num_shards}"
 
     TEACHER_DATA_DIR.mkdir(parents=True, exist_ok=True)
@@ -708,8 +910,15 @@ def generate(
     print(f"[{tag}] step 2/4: loading high-regret positions (loss>={HIGH_REGRET_MIN_LOSS}) ...")
     priority = load_high_regret_positions(VS_EDAX_RESULTS_PATH, HIGH_REGRET_MIN_LOSS)
 
+    exclude_oracle = bool(cfg.get("excludeT096Oracle"))
+    oracle_keys: set[tuple[int, int, int]] = set()
+    oracle_sha256: str | None = None
+    if exclude_oracle:
+        oracle_keys, oracle_sha256 = load_oracle_excluded_keys(T096_ORACLE_POSITIONS_PATH)
+        print(f"  t096 oracle exclusion enabled: {len(oracle_keys)} canonical key(s) to exclude (sha256={oracle_sha256})")
+
     print(f"[{tag}] step 3/4: stratified sampling to target={target_count} ...")
-    selected, selection_stats = select_positions(pool, priority, target_count, seed)
+    selected, selection_stats = select_positions(pool, priority, target_count, seed, excluded_keys=oracle_keys)
     print(f"  selected {len(selected)} position(s): {selection_stats}")
 
     meta = build_run_metadata(CANDIDATES_PATH)
@@ -720,7 +929,7 @@ def generate(
         "years": years,
         "perGameCap": per_game_cap,
         "highRegretMinLoss": HIGH_REGRET_MIN_LOSS,
-        "exactEmptiesThreshold": EXACT_EMPTIES_THRESHOLD,
+        "exactEmptiesThreshold": exact_empties_threshold,
         "exactEdaxLevel": EXACT_EDAX_LEVEL,
         "defaultEdaxLevel": DEFAULT_EDAX_LEVEL,
         "edaxTasksPerProcess": vs_edax.EDAX_BATCH_TASKS,
@@ -732,6 +941,10 @@ def generate(
         "phaseBinLowerBounds": pool.get("phaseBinLowerBounds"),
         "selectionStats": selection_stats,
     }
+    if exclude_oracle:
+        # `excludeT096Oracle`が無効なset(smoke/primary)ではこのキー自体を追加しない
+        # (settings/runKeyを完全に不変に保つため、条件分岐を`exclude_oracle`にゲートしている)。
+        settings["t096OracleSha256"] = oracle_sha256
     # シャード無し(num_shards<=1)の場合はシャード識別キーだけを追加しない。
     # edaxTasksPerProcess/elapsedMsPolicyの追加により旧世代checkpointとはrunKeyが異なり、
     # 決定性・計時方針が異なるコーパスへの誤resumeを防ぐ。
@@ -751,7 +964,15 @@ def generate(
         print(f"[{tag}] --dry-run: skipping Edax labeling. Selection stats: {selection_stats}")
         return
 
-    checkpoint = TeacherCorpusCheckpoint(jsonl_path, meta_path, run_key, settings, meta)
+    checkpoint = TeacherCorpusCheckpoint(
+        jsonl_path,
+        meta_path,
+        run_key,
+        settings,
+        meta,
+        adopt_provenance=adopt_provenance,
+        start_fresh_allowed=start_fresh,
+    )
     if not checkpoint.try_resume():
         checkpoint.start_fresh()
 
@@ -773,7 +994,7 @@ def generate(
         position = selected[idx]
         children_info = children_by_global_index[idx]
         try:
-            record = label_position(idx, position, children_info)
+            record = label_position(idx, position, children_info, exact_empties_threshold=exact_empties_threshold)
         except Exception as exc:  # noqa: BLE001
             error_count += 1
             print(f"  ERROR at positionId={idx} board={position['board']} side={position['sideToMove']}: {exc}")
@@ -799,7 +1020,15 @@ def generate(
 #     オーケストレーター裁定 2026-07-14: 規模50,000を維持しシャード並列化で続行) ---
 
 
-def run_shard_orchestrator(set_name: str, num_shards: int, per_game_cap: int, years: str, poll_interval_s: float = 15.0) -> None:
+def run_shard_orchestrator(
+    set_name: str,
+    num_shards: int,
+    per_game_cap: int,
+    years: str,
+    poll_interval_s: float = 15.0,
+    adopt_provenance: bool = False,
+    start_fresh: bool = False,
+) -> None:
     cfg = CORPUS_SETS[set_name]
     target_count = cfg["targetCount"]
 
@@ -833,6 +1062,10 @@ def run_shard_orchestrator(set_name: str, num_shards: int, per_game_cap: int, ye
             "--per-game-cap",
             str(per_game_cap),
         ]
+        if start_fresh:
+            cmd.append("--start-fresh")
+        if adopt_provenance:
+            cmd.append("--adopt-provenance")
         print(f"  spawning shard {shard_index}/{num_shards}: {' '.join(cmd)} (log: {log_path})")
         proc = subprocess.Popen(cmd, stdout=log_fh, stderr=subprocess.STDOUT, cwd=str(ROOT))
         procs.append(proc)
@@ -937,6 +1170,7 @@ def merge_shards(set_name: str, num_shards: int, target_count: int) -> None:
     merged_settings.pop("numShards", None)
     merged_settings.pop("shardIndex", None)
     merged_doc = {
+        "schemaVersion": 2,  # T114: マージ済みmetaにも直接付与(verify_teacher_corpus.pyの必須要件)
         "runKey": None,  # マージ済みファイルはシャード実行のrunKeyをそのまま引き継がない(参考情報のみ)
         "meta": base_meta.get("meta"),
         "settings": merged_settings,
@@ -976,7 +1210,25 @@ def main() -> None:
         help="Internal: reuse the existing candidates.json instead of re-running the (non-atomic) Rust extractor. "
         "Used by shard workers to avoid concurrent writers to the same file.",
     )
+    parser.add_argument(
+        "--start-fresh",
+        action="store_true",
+        help="T114: intentionally discard an existing checkpoint on runKey/provenance mismatch and regenerate "
+        "from scratch. Without this flag (the default), a mismatch stops the run with an error instead of "
+        "silently truncating the checkpoint (see resume失敗事故, 2026-07-16作業ログ).",
+    )
+    parser.add_argument(
+        "--adopt-provenance",
+        action="store_true",
+        help="T114: resume from an existing checkpoint even if its provenance identity (harness/tool/edax "
+        "SHA-256 etc.) differs from the current environment; the existing checkpoint's JSONL content is "
+        "kept as-is and its recorded identity is updated to the current environment. Does not override a "
+        "runKey (settings) mismatch -- use --start-fresh for that. Mutually exclusive with --start-fresh.",
+    )
     args = parser.parse_args()
+
+    if args.start_fresh and args.adopt_provenance:
+        raise SystemExit("--start-fresh and --adopt-provenance are mutually exclusive")
 
     if args.shard_index is not None:
         if args.num_shards <= 1:
@@ -989,13 +1241,30 @@ def main() -> None:
             num_shards=args.num_shards,
             shard_index=args.shard_index,
             skip_extract=args.skip_extract,
+            adopt_provenance=args.adopt_provenance,
+            start_fresh=args.start_fresh,
         )
     elif args.num_shards > 1:
         if args.dry_run:
             raise SystemExit("--dry-run is not supported together with --num-shards (orchestrator mode)")
-        run_shard_orchestrator(args.set_name, args.num_shards, args.per_game_cap, args.years)
+        run_shard_orchestrator(
+            args.set_name,
+            args.num_shards,
+            args.per_game_cap,
+            args.years,
+            adopt_provenance=args.adopt_provenance,
+            start_fresh=args.start_fresh,
+        )
     else:
-        generate(args.set_name, args.dry_run, args.years, args.per_game_cap, skip_extract=args.skip_extract)
+        generate(
+            args.set_name,
+            args.dry_run,
+            args.years,
+            args.per_game_cap,
+            skip_extract=args.skip_extract,
+            adopt_provenance=args.adopt_provenance,
+            start_fresh=args.start_fresh,
+        )
 
 
 if __name__ == "__main__":

@@ -1,0 +1,146 @@
+{
+  "schemaVersion": 2,
+  "runKey": null,
+  "meta": {
+    "gitCommit": "923d08870509a2bd203bf1417d9dc973e6aefa25",
+    "harnessSha256": "0a343f4ba007e1320c24f6c1f250025322bd58a8da07eccc0e1f694d99d54597",
+    "teacherCandidatesToolSha256": "abbedb8c1ef2cef67bd6e382b71ba35c3022ca8896a12e77d518551ac31fd906",
+    "edaxSha256": "aabb5ac7d3f9a872fc0e7388ab1eee1d23c687f76c28642122524dc318b322b1",
+    "edaxEvalDataSha256": "f8b2299612d9fa4414157e70e932636e33111c2602d0c2fc382a7d90ef21b792",
+    "candidatesPoolSha256": "7f486e57edea479e4b3b642bfdb4c10fadfc473b3aab2648478e48e996abd01e",
+    "highRegretSourceSha256": "bbbccfa21440373fef500c23b0e7ccb17e5efb60637888a749a7adabccf42299",
+    "generatedAt": "2026-07-16T12:36:13+00:00"
+  },
+  "settings": {
+    "setName": "expanded200k",
+    "targetCount": 200000,
+    "seed": 90103,
+    "years": "2000-2024",
+    "perGameCap": 6,
+    "highRegretMinLoss": 4.0,
+    "exactEmptiesThreshold": 20,
+    "exactEdaxLevel": 60,
+    "defaultEdaxLevel": 16,
+    "edaxTasksPerProcess": 1,
+    "elapsedMsPolicy": "batch-averaged",
+    "numPhaseBins": 6,
+    "xcQuotaFraction": 0.5,
+    "openingKeyPlies": 8,
+    "openingMaxFraction": 0.02,
+    "phaseBinLowerBounds": [50, 40, 30, 20, 10, 1],
+    "selectionStats": {
+      "targetCount": 200000,
+      "prioritySelected": 65,
+      "poolAvailableAfterPriorityDedup": [4635, 44584, 69901, 73788, 73938, 73682],
+      "binAllocation": [4635, 39061, 39061, 39060, 39059, 39059],
+      "sampledFromPool": 199935,
+      "xcQuotaFraction": 0.5,
+      "openingKeyPlies": 8,
+      "openingMaxFraction": 0.02,
+      "openingMaxCount": 4000,
+      "maxOpeningCountSelected": 4000,
+      "totalSelected": 200000,
+      "oracleExclusion": {
+        "excludedKeyCount": 60,
+        "priorityPositionsExcluded": 0,
+        "poolPositionsExcluded": 3
+      }
+    },
+    "t096OracleSha256": "eec09e7a3c194a71cbb60f25ce13e1887204bbbc4a9ba052cb19c61507786356"
+  },
+  "mergedFromShards": 8,
+  "progress": {
+    "done": 200000,
+    "total": 200000,
+    "ratePerSec": null,
+    "updatedAt": "2026-07-16T22:51:46+00:00"
+  },
+  "corpusStats": {
+    "records": 200000,
+    "sourceCounts": {
+      "engineLoss": 65,
+      "wthor": 199935
+    },
+    "phaseCountsWthor": {
+      "0": 4635,
+      "1": 39061,
+      "2": 39061,
+      "3": 39060,
+      "4": 39059,
+      "5": 39059
+    },
+    "children": 1701508,
+    "exactChildren": 455809,
+    "exactRate": 0.26788531114752323,
+    "terminalChildren": 4505,
+    "averageElapsedMsPerEdaxCall": 273.0934995399775,
+    "errors": 0,
+    "note": "exactRate(0.268)はprimary(0.346, threshold=24)より低い。これはT114移行(2026-07-16)で完全読みライン(exactEmptiesThreshold)を24から20へ引き下げたことによる想定どおりの変化であり、コーパスの不整合ではない(下記migrationセクション参照)。"
+  },
+  "selectionAudit": {
+    "openingKeyPlies": 8,
+    "phaseXcCoverage": {
+      "0": {"total": 4635, "xc": 2482, "xcCoverage": 0.5354908306364617},
+      "1": {"total": 39061, "xc": 34692, "xcCoverage": 0.8881493049333095},
+      "2": {"total": 39061, "xc": 38464, "xcCoverage": 0.9847162131025832},
+      "3": {"total": 39060, "xc": 38696, "xcCoverage": 0.9906810035842294},
+      "4": {"total": 39059, "xc": 38034, "xcCoverage": 0.9737576486853222},
+      "5": {"total": 39059, "xc": 33704, "xcCoverage": 0.862899715814537}
+    },
+    "openingMatched": 199935,
+    "openingUnmatched": 0,
+    "distinctOpeningKeys": 2924,
+    "maxOpeningKey": "0000001c3c000000:00000e2000080000:0",
+    "maxOpeningCount": 4000,
+    "maxOpeningShareOfWthor": 0.020006502113186785,
+    "acceptanceThresholds": {
+      "minimumXcCoveragePerPhase": 0.5,
+      "maximumSingleOpeningShare": 0.02
+    },
+    "failedXcPhaseBins": [],
+    "note": "maxOpeningShareOfWthor(0.0200065)はopeningMaxFraction上限0.02をわずかに超えるが、これはselect_positionsのopening_cap丸め(math.ceil(target_count * OPENING_MAX_FRACTION)=4000がwthor母集団199,935に対する比率としてわずかに0.02を上回るため)であり、primary(0.10207)のような大きな逸脱ではない。"
+  },
+  "oracleNonContamination": {
+    "verifiedAt": "2026-07-16",
+    "oracleKeyCount": 60,
+    "oraclePositionsPath": "bench/edax-compare/t096_oracle_positions.json",
+    "contaminatedRecordsFound": 0,
+    "method": "各レコードのcanonicalKeyとt096_oracle_positions.jsonの60キー(D4正準化済み、対称形込み)を全件突合。選定段階(select_positions)でpool側3件が事前除外され(oracleExclusion参照)、完成コーパスへの混入はverify_teacher_corpus.py(ORACLE_KEYSチェック)と独立の全件突合スクリプトの両方で0件を確認。"
+  },
+  "migration": {
+    "summary": "完全読みライン(EXACT_EMPTIES_THRESHOLD)をexpanded200kに限り24から20へ変更(T090a primaryは24のまま不変)。ユーザー裁定2026-07-16 20:4x: 空き20-29帯での生成ペース低下(約0.7局面/s)によるETA遅延を受け、「空き21以上はEdax推定値(level 16)でもよかった」との判断で、既に完全読み(-l 60)済みだった空き21-24帯を破棄し20方針で均一に再ラベルした。",
+    "reason": "空き20-29帯のEdax完全読み(-l 60)が想定より遅く、完走ETAが7/17昼へ後ずれしたため。",
+    "oldExactEmptiesThreshold": 24,
+    "newExactEmptiesThreshold": 20,
+    "affectedRecordDefinition": "レコード内のいずれかの子局面が exact==true かつ level is not None(終局子は閾値ポリシー対象外のため除外) かつ childEmpties >= 21 であるレコード(親局面のempties 22〜25に相当)。1子局面のみの差し替えはせず、該当レコード全体を破棄して全子局面を再ラベルした。",
+    "migrationScript": "bench/edax-compare/migrate_t114_exact_threshold_20.py",
+    "backupPath": "train/data/teacher/backup-t114-migration/ (train/data/配下でgitignore、検証合格後にオーケストレーター判断で削除)",
+    "preMigrationTotalRecords": 95178,
+    "recordsRemoved": 4943,
+    "recordsRemovedPerShard": {
+      "shard0of8": 629,
+      "shard1of8": 583,
+      "shard2of8": 582,
+      "shard3of8": 670,
+      "shard4of8": 613,
+      "shard5of8": 636,
+      "shard6of8": 597,
+      "shard7of8": 633
+    },
+    "recordsKeptAfterMigration": 90235,
+    "removedParentEmptiesRange": "22-25 (empties=22が最多、24/25も一定数、想定どおりの分布)",
+    "resumeIncident": {
+      "description": "2026-07-16 11:10頃、無関係なtasksコミット(HEAD更新)のみが原因でPROVENANCE_IDENTITY_KEYSの`gitCommit`比較が不一致となり、全8シャードでresumeが拒否されstart_fresh()が発動、29,008局面(約1.2時間分のEdax計算)が消失する事故が発生した。",
+      "rootCause": "`PROVENANCE_IDENTITY_KEYS`に`gitCommit`(HEAD)が含まれており、挙動に影響しない無関係コミットでもresumeが全損する設計だった。",
+      "hardening": "gen_teacher_corpus.pyのresumeロジックを堅牢化(同日実施、T114作業ログ参照): (1) gitCommitをPROVENANCE_IDENTITY_KEYSから除外(meta記録としては残す)、(2) 不一致時のstart_fresh()切り詰めを廃止し明示的なRuntimeErrorで停止するよう変更、(3) 意図的な再生成用の`--start-fresh`と、provenance不一致でも既存checkpointを正として採用しidentityを現環境へ更新してresumeする`--adopt-provenance`を新設。",
+      "recoveryNote": "本閾値移行(24→20)自体もharnessSha256を変えるため、移行後の再開コマンドで`--adopt-provenance`を使用した(下記generationCommand参照)。全8シャードでruntKey一致・provenance採用によるresume成功をログで確認済み(RuntimeError/start_fresh発動なし)。"
+    }
+  },
+  "generationCommand": "python bench/edax-compare/gen_teacher_corpus.py expanded200k --years 2000-2024 --num-shards 8 (初回2026-07-16 11:10、PC電源都合による中断・resumeを経て、T114閾値移行後 python bench/edax-compare/gen_teacher_corpus.py expanded200k --years 2000-2024 --num-shards 8 --adopt-provenance で20:5x頃再開・22:51完走)",
+  "verification": {
+    "verifiedAt": "2026-07-16",
+    "command": "python bench/edax-compare/verify_teacher_corpus.py expanded200k",
+    "result": "200000 record(s) verified, 0 error(s), exit code 0",
+    "note": "verify_teacher_corpus.pyのexactEmptiesThreshold判定は各コーパスのmeta.settings.exactEmptiesThresholdを参照するよう修正済み(T114移行の一部、primaryは引き続き24を参照)。"
+  }
+}

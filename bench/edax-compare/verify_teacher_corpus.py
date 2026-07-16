@@ -20,6 +20,22 @@ TEACHER_DATA_DIR = ROOT / "train" / "data" / "teacher"
 TOOL = ROOT / "target" / "release" / "teacher_candidates.exe"
 BATCH_SIZE = 500
 EXACT_EMPTIES_THRESHOLD = 24
+# T114: t096独立oracle(60局面)の非混入を全setで機械検証する(混入すると
+# 独立評価指標が自己参照になるため)。各局面は既にD4正準化済みcanonicalKeyを
+# 持つので、対称形の展開は不要(このキーとの一致チェックだけで足りる)。
+T096_ORACLE_POSITIONS_PATH = ROOT / "bench" / "edax-compare" / "t096_oracle_positions.json"
+
+
+def load_oracle_keys() -> set[tuple[int, int, int]]:
+    if not T096_ORACLE_POSITIONS_PATH.exists():
+        raise RuntimeError(
+            f"{T096_ORACLE_POSITIONS_PATH} not found; oracle non-contamination check cannot be skipped silently"
+        )
+    doc = json.loads(T096_ORACLE_POSITIONS_PATH.read_text(encoding="utf-8"))
+    return {tuple(p["canonicalKey"]) for p in doc["positions"]}
+
+
+ORACLE_KEYS = load_oracle_keys()
 REQUIRED_RECORD_FIELDS = {
     "positionId",
     "board",
@@ -140,6 +156,12 @@ def verify_one(set_name: str) -> tuple[int, int]:
     except (OSError, json.JSONDecodeError) as exc:
         report(set_name, f"ERROR: malformed meta: {exc}")
         return 0, 1
+    # T114移行(2026-07-16 20:4x): expanded200kはexactEmptiesThreshold=20(primary等は
+    # 24のまま)。グローバル定数への決め打ちではなく、そのコーパス自身が記録した
+    # `settings.exactEmptiesThreshold`を正として使う(gen_teacher_corpus.pyの
+    # CORPUS_SETS上書きと自己整合させ、set名のハードコード分岐を増やさないため)。
+    # フィールドが無い旧世代コーパスは既定値(24)にフォールバックする。
+    exact_empties_threshold = (meta_doc.get("settings") or {}).get("exactEmptiesThreshold", EXACT_EMPTIES_THRESHOLD)
     expected_total = (meta_doc.get("progress") or {}).get("total")
     expected_done = (meta_doc.get("progress") or {}).get("done")
     if meta_doc.get("schemaVersion") != 2:
@@ -243,7 +265,7 @@ def verify_one(set_name: str) -> tuple[int, int]:
                             raise ValueError(f"terminal move={child['move']} must be exact with level=null")
                         if child.get("edaxDepth") is not None:
                             raise ValueError(f"terminal move={child['move']} requires edaxDepth=null")
-                    elif actual["childEmpties"] <= EXACT_EMPTIES_THRESHOLD:
+                    elif actual["childEmpties"] <= exact_empties_threshold:
                         if child.get("exact") is not True or child.get("level") != 60:
                             raise ValueError(
                                 f"move={child['move']} empties={actual['childEmpties']} requires exact=true/level=60"
@@ -283,6 +305,13 @@ def verify_one(set_name: str) -> tuple[int, int]:
                     errors += 1
                 else:
                     seen_canonical[key] = pos_id
+                if key in ORACLE_KEYS:
+                    report(
+                        set_name,
+                        f"positionId={pos_id}: canonicalKey matches a t096 independent-oracle position "
+                        "(oracle contamination)",
+                    )
+                    errors += 1
 
     print(f"[{set_name}] verified {len(records)} record(s), {errors} error(s)")
     return len(records), errors
@@ -290,7 +319,7 @@ def verify_one(set_name: str) -> tuple[int, int]:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("set_names", nargs="+", choices=["smoke", "primary"])
+    parser.add_argument("set_names", nargs="+", choices=["smoke", "primary", "expanded200k"])
     args = parser.parse_args()
     total_records = total_errors = 0
     for set_name in args.set_names:
