@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'preact/hooks'
+import { useEffect, useRef, useState } from 'preact/hooks'
 import './app.css'
 import { AnalysisMode } from './analysis/AnalysisMode.tsx'
 import { loadClassifyThresholds } from './analysis/thresholdSettings.ts'
@@ -223,7 +223,13 @@ function PlayMode() {
   const [thinking, setThinking] = useState(false)
   const [josekiDb, setJosekiDb] = useState<JosekiDb | null>(null)
   const [josekiDbReady, setJosekiDbReady] = useState(false)
-  const [firstMoveSquare, setFirstMoveSquare] = useState<number | null>(null)
+  // 対局中に実際に指された初手(定石DBルックアップの正規化基準、T093)。
+  // レンダー結果に影響しない値であり、`useState`にすると「セットするたびに
+  // 再レンダー→CPU着手effectの依存配列変化で再実行」という副作用が生じる
+  // (T115: 定石ブックONの初手直後、この再実行が書籍応手の即時解決と競合し、
+  // 「思考中」表示が解除されなくなる不具合の原因だった)。値の変化そのものを
+  // 検知して再描画する必要はないため`useRef`で保持する。
+  const firstMoveSquareRef = useRef<number | null>(null)
   const [openingBookEnabled, setOpeningBookEnabled] = useState<boolean>(() =>
     loadOpeningBookEnabled(localStorage),
   )
@@ -281,11 +287,13 @@ function PlayMode() {
   // 決めるには実際の初手が必要(app/src/joseki/lookup.ts参照)。人間・CPU
   // どちらが初手を指した場合でも(白番を選んで開始した場合はCPUが先に
   // 黒番で指す)、対局中の最初の着手を捉えられるよう`game`全体を見る。
+  // `firstMoveSquareRef`はrefのため書き込みが再レンダーを起こさず、
+  // 依存配列にも含める必要がない(T115、上のコメント参照)。
   useEffect(() => {
-    if (firstMoveSquare === null && game.lastMove !== null) {
-      setFirstMoveSquare(game.lastMove)
+    if (firstMoveSquareRef.current === null && game.lastMove !== null) {
+      firstMoveSquareRef.current = game.lastMove
     }
-  }, [game, firstMoveSquare])
+  }, [game])
 
   // CPUの手番になったら、ブックONかつ現局面に後続定石手があれば探索せず即時適用し、
   // DB外・終端・ロード失敗・ブックOFFなら従来のエンジン探索へフォールバックする。
@@ -297,8 +305,8 @@ function PlayMode() {
     setThinking(true)
 
     // CPUが黒で初手を指す場合は任意の合法初手を正規化基準にできるためf5を使う。
-    // 人間の初手直後でstate反映前の場合は`game.lastMove`が実際の初手となる。
-    const firstMove = firstMoveSquare ?? game.lastMove ?? notationToSquare('f5')
+    // 人間の初手直後でref反映前の場合は`game.lastMove`が実際の初手となる。
+    const firstMove = firstMoveSquareRef.current ?? game.lastMove ?? notationToSquare('f5')
     const bookMove =
       openingBookEnabled && josekiDb
         ? selectCpuBookMove(josekiDb, game.board, game.sideToMove, firstMove)
@@ -322,8 +330,19 @@ function PlayMode() {
     return () => {
       cancelled = true
     }
-    // 依存する設定・DB・初手情報の変更は、そのCPU手番の選択に反映する。
-  }, [game, level, openingBookEnabled, josekiDb, josekiDbReady, firstMoveSquare])
+    // 依存する設定・DBの変更は、そのCPU手番の選択に反映する
+    // (`firstMoveSquareRef`はrefなので依存配列に含めない。T115参照)。
+  }, [game, level, openingBookEnabled, josekiDb, josekiDbReady])
+
+  // `game.phase`が`'cpu'`でなくなったら「思考中」表示を必ず解除する(T115)。
+  // 上のCPU着手effect自身の`.finally`によるリセットが本来のパスだが、
+  // 定石応手のような即時解決パスでは、同一クリックから連鎖的に発生する
+  // 他のeffect再実行(cleanupによる`cancelled`フラグ競合)でその`.finally`が
+  // 握りつぶされることがあった。`game.phase`だけを見るこの安全網により、
+  // 内部の競合状況によらず「思考中」表示が確実に解除される。
+  useEffect(() => {
+    if (game.phase !== 'cpu') setThinking(false)
+  }, [game.phase])
 
   // 盤面セル評価オーバーレイ(T039)。人間の手番になった時点で、表示ONの場合のみ
   // 現局面(着手前)の全合法手の評価をまとめて取得する。`evaluateHumanMove`
@@ -469,10 +488,10 @@ function PlayMode() {
     const preBoard = game.board
     const preSide = game.sideToMove
     // まだ対局の初手が記録されていなければ、この着手自体が初手である
-    // (人間が黒番で開始した場合。firstMoveSquare の記録用useEffectがまだ
+    // (人間が黒番で開始した場合。firstMoveSquareRef の記録用useEffectがまだ
     // 反映されていないタイミングでも、正しい定石ルックアップができるように
     // ここで直接フォールバックする)。
-    const firstMove = firstMoveSquare ?? square
+    const firstMove = firstMoveSquareRef.current ?? square
 
     setGame((prev) => playMove(prev, square))
     void evaluateHumanMove(preBoard, preSide, square, firstMove)
@@ -481,7 +500,7 @@ function PlayMode() {
   /** 新しい対局に切り替える直前の共通リセット処理(表示中の直前対局の情報をクリアする)。 */
   function prepareNewGame() {
     setThinking(false)
-    setFirstMoveSquare(null)
+    firstMoveSquareRef.current = null
     setEvalInfo(null)
     setEditorOpen(false)
   }
