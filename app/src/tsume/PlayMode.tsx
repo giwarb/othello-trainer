@@ -61,6 +61,11 @@ interface Session {
 interface ClearResultInfo {
   readonly kind: 'clear'
   readonly puzzle: Puzzle
+  /** 終局時(最終手適用後)の盤面(T118: 結果画面でも最終盤面を表示し続けるため)。 */
+  readonly board: BoardState
+  readonly sideToMove: Side
+  /** 終局を成立させた最終手のマス(相手の最終手・人間の最終手のいずれもありうる)。 */
+  readonly lastMove: number | null
 }
 
 interface FailResultInfo {
@@ -237,9 +242,16 @@ export function PlayMode() {
     }
   }
 
+  /**
+   * `s`(呼び出し側が着手適用済みの最終`Session`を渡す)の時点の盤面・最終手を
+   * `ClearResultInfo`にそのまま持たせる(T118)。以前は`puzzle`しか保持しておらず、
+   * 相手番・人間番いずれの終局経路でも最終手適用後の盤面が結果画面に表示されない
+   * 不具合があった(`session.board`自体は着手適用済みの`s`を経由して`setSession`
+   * されないまま結果表示に遷移していたため画面上に残らなかった)。
+   */
   async function finishClear(s: Session): Promise<void> {
     setPhase('result')
-    setResultInfo({ kind: 'clear', puzzle: s.puzzle })
+    setResultInfo({ kind: 'clear', puzzle: s.puzzle, board: s.board, sideToMove: s.sideToMove, lastMove: s.lastMove })
     await saveAttempt(s, true)
   }
 
@@ -556,6 +568,11 @@ export function PlayMode() {
             最善を維持したまま解ききりました(目標: {formatDiscDiff(resultInfo.puzzle.bestDiscDiff)}、
             {outcomeLabel(resultInfo.puzzle.outcome)})。
           </p>
+
+          <div class="board-container tsume-result__board">
+            <Board board={resultInfo.board} sideToMove={resultInfo.sideToMove} lastMove={resultInfo.lastMove} />
+          </div>
+
           <div class="tsume-result__buttons">
             <button type="button" disabled={starting} onClick={() => void nextPuzzle()}>
               次の問題
