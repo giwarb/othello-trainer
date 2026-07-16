@@ -1,7 +1,7 @@
 ---
 id: T114
 title: 拡張教師コーパス200k生成(teacher-only蒸留の本命データ)
-status: in_progress # todo | in_progress | review | done | blocked
+status: done # todo | in_progress | review | done | blocked
 assignee: implementer(Sonnet, Codex上限フォールバック)
 attempts: 0
 ---
