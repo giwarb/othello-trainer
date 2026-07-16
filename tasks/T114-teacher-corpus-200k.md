@@ -169,6 +169,12 @@ selected 200000 position(s): {targetCount: 200000, prioritySelected: 65,
 
 次: 本生成(`--num-shards 8`)を起動し、最初のcheckpointが実際に書かれることを確認してからバックグラウンド化する。
 
+### 2026-07-16 09:0x — オーケストレーター: 計画中断の記録(ユーザーのPCシャットダウン)
+
+- ユーザー指示によりPCをシャットダウンするため、生成プロセス(PID 23988)をオーケストレーターが停止した。**保存済み: 29,008 / 200,000局面(14.5%)**。シャードcheckpointは局面単位で追記済みのため損失ゼロ。
+- **再開手順(次セッション)**: 同一コマンドの再実行でシャードcheckpointから自動resumeされる(未完了分のみ計算)。起動コマンドは本作業ログの起動記録どおり: `python bench/edax-compare/gen_teacher_corpus.py expanded200k --years 2000-2024 --num-shards 8`(detached起動、進捗はシャードjsonl行数で観測)。再開前に `git log` で bench/edax-compare の3ファイル(gen/verify/test)の未コミット変更が作業ツリーに残っていることを確認すること(ワーカーのコード変更はタスク完了時にまとめてコミットする方針のため、**変更を破棄・stashしないこと**)。
+- 残作業: 生成の完走(残り約17万件、実測ペース毎分約390件で約7.5時間)→ verify全件・oracle非混入検証・manifest整備・コード/manifestコミット → 後続の teacher-only 200k学習タスク起票。
+
 **副次的に発見した実装上の注意点(規模問題とは独立、後続実装時に反映すること)**:
 - `TeacherCorpusCheckpoint._write_meta`および`merge_shards`の出力に`schemaVersion: 2`が含まれていない(T090aでは`finalize_teacher_corpus.py`という別スクリプトが事後的に付与していたが、そのスクリプトは`smoke`/`primary`固定・8シャード固定でハードコードされており新setには使えない)。`verify_teacher_corpus.py`は`schemaVersion != 2`でエラーにするため、**このままでは新規生成したコーパスの検証が必ず失敗する**。`gen_teacher_corpus.py`の`_write_meta`/`merge_shards`側で直接`schemaVersion: 2`を書くよう修正が必要(diffFromBest/openingKeyは既にlabel_position/extractが生成時点で正しく付与しているため、finalize相当の後処理は本来不要なはず)。
 - t096オラクル除外は`select_positions()`に`excluded_keys`引数を追加し、優先層・WTHOR層それぞれで`canonical_key_of_position(...) in excluded_keys`を除外する形で実装可能(t096の`canonicalKey`フィールドをそのまま集合化するだけでD4対称形も一括除外できる)。既存smoke/primaryのresume可能性を壊さないよう、この除外ロジックはCORPUS_SETS設定に`excludeT096Oracle`のようなフラグを持たせ、フラグがfalse(smoke/primary)のときは`settings`/`selectionStats`の出力形が一切変わらない(=runKeyが変わらない)ように条件分岐すること(`excluded_keys`が空集合なら追加statsフィールド自体を出力しない、等)。`PROVENANCE_IDENTITY_KEYS`やグローバルな`meta`にオラクルSHA256を追加すると、smoke/primaryの`provenance_identity`比較が変わり誤って`start_fresh()`(=既存50,000件JSONLの空文字上書き)を誘発しかねないため、**グローバルなprovenance/meta構造は一切変更しないこと**。
