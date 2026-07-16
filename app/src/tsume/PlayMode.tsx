@@ -24,6 +24,12 @@ import { todaysPuzzle } from './dailyPuzzle.ts'
 import { judgePuzzleMove } from './judgePuzzleMove.ts'
 import { loadPuzzles } from './loadPuzzles.ts'
 import {
+  loadStageProgress,
+  recordStageAttempt,
+  stageStatus,
+  type StageProgress,
+} from './stageProgress.ts'
+import {
   computeOverallStats,
   computeTagAccuracy,
   getAllAttempts,
@@ -37,14 +43,21 @@ import './PlayMode.css'
 /** 相手(エンジン)が着手するまでの見せかけの「考慮時間」(ミリ秒、他モードと同じ演出)。 */
 const OPPONENT_MOVE_DELAY_MS = 350
 
-type Phase = 'settings' | 'playing' | 'result'
+/** `'stageSelect'`はステージ一覧画面(T117要件1)。 */
+type Phase = 'settings' | 'stageSelect' | 'playing' | 'result'
 
-/** 出題の選び方(要件1・6)。 */
-type SelectionKind = 'difficulty' | 'random' | 'daily'
+/**
+ * 出題の選び方(要件1・6、T117で`'stage'`を追加)。
+ * `'stage'`はステージ一覧から番号を指定して選ぶ経路(`stageIndex`が`pool`内の
+ * 0-indexedな位置、要件1「配列順の通し番号(1〜182)」の内部表現)。
+ */
+type SelectionKind = 'difficulty' | 'random' | 'daily' | 'stage'
 
 interface Selection {
   readonly kind: SelectionKind
   readonly level?: DifficultyLevel
+  /** `kind === 'stage'`のときのみ使う、`pool`内の0-indexedな位置。 */
+  readonly stageIndex?: number
 }
 
 interface Session {
@@ -105,7 +118,13 @@ function puzzleAnalyzeLimit(puzzle: Puzzle): AnalyzeLimit {
   return { depth: puzzle.empties, exactFromEmpties: puzzle.empties }
 }
 
-/** `selection` と現在の成績(`tagAccuracy`)から `pool` の中から1問選ぶ(要件1・5・6)。 */
+/**
+ * `selection` と現在の成績(`tagAccuracy`)から `pool` の中から1問選ぶ(要件1・5・6)。
+ * `kind === 'stage'`(T117)は重み付き抽選を経由せず、`stageIndex`が指す問題を
+ * そのまま返す(ステージ一覧は「この番号の問題を選ぶ」という決定的な操作)。
+ *
+ * @throws {RangeError} `kind === 'stage'`で`stageIndex`が`pool`の範囲外の場合。
+ */
 function pickPuzzle(
   selection: Selection,
   pool: readonly Puzzle[],
@@ -113,6 +132,13 @@ function pickPuzzle(
 ): Puzzle {
   if (selection.kind === 'daily') {
     return todaysPuzzle(pool)
+  }
+  if (selection.kind === 'stage') {
+    const puzzle = selection.stageIndex !== undefined ? pool[selection.stageIndex] : undefined
+    if (!puzzle) {
+      throw new RangeError(`pickPuzzle: stageIndex out of range: ${selection.stageIndex}`)
+    }
+    return puzzle
   }
   const filtered =
     selection.kind === 'difficulty' ? pool.filter((p) => p.difficulty === selection.level) : pool
@@ -158,6 +184,8 @@ export function PlayMode() {
   const [moveEvalOverlayEnabled, setMoveEvalOverlayEnabled] = useState<boolean>(() =>
     loadMoveEvalOverlayEnabled(localStorage),
   )
+  /** ステージ一覧のクリア済みマーク表示用(T117要件1・3)。`localStorage`から起動時に1回読み込む。 */
+  const [stageProgress, setStageProgress] = useState<StageProgress>(() => loadStageProgress(localStorage))
   const [classifyThresholds] = useState<ClassifyThresholds>(() => loadClassifyThresholds(localStorage))
   const [overlayMoves, setOverlayMoves] = useState<MoveEvalJson[] | null>(null)
 
@@ -223,7 +251,13 @@ export function PlayMode() {
     setPhase('playing')
   }
 
-  /** 挑戦結果(正誤・経過時間・タグ)をIndexedDBに記録し、成績state(`attempts`)を更新する(要件5)。 */
+  /**
+   * 挑戦結果(正誤・経過時間・タグ)をIndexedDBに記録し、成績state(`attempts`)を
+   * 更新する(要件5)。あわせて`localStorage`のステージ挑戦記録(T117要件3)も
+   * 更新する — こちらは出題経路(ステージ一覧・難易度別・ランダム・デイリー)を
+   * 問わず、`Puzzle.id`が同じであれば常に更新する(将来の復習モードで
+   * 取りこぼさないため)。
+   */
   async function saveAttempt(s: Session, correct: boolean): Promise<void> {
     const record: PuzzleAttemptRecord = {
       id: `tsume-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
@@ -239,6 +273,13 @@ export function PlayMode() {
       setAttempts(all)
     } catch (error) {
       console.error('成績の記録に失敗しました', error)
+    }
+
+    try {
+      const nextProgress = recordStageAttempt(localStorage, s.puzzle.id, correct ? 'clear' : 'fail')
+      setStageProgress(nextProgress)
+    } catch (error) {
+      console.error('ステージ挑戦記録の保存に失敗しました', error)
     }
   }
 
@@ -436,10 +477,24 @@ export function PlayMode() {
     }
   }
 
-  /** 結果画面の「次の問題」ボタン(要件5): 直前と同じ選び方で次の1問を選ぶ。 */
+  /**
+   * 結果画面の「次の問題」ボタン(要件5)。
+   * ステージ経由(T117要件4)の場合は、`pool`内で次の番号のステージへ進む
+   * (最終ステージなら次が無いのでステージ一覧へ戻る)。それ以外(難易度別・
+   * ランダム・デイリー)は従来どおり直前と同じ選び方で次の1問を選ぶ。
+   */
   async function nextPuzzle(): Promise<void> {
     if (!lastSelection) {
       backToSettings()
+      return
+    }
+    if (lastSelection.kind === 'stage') {
+      const nextIndex = (lastSelection.stageIndex ?? -1) + 1
+      if (pool && nextIndex < pool.length) {
+        await startPractice({ kind: 'stage', stageIndex: nextIndex })
+        return
+      }
+      goToStageSelect()
       return
     }
     await startPractice(lastSelection)
@@ -447,6 +502,19 @@ export function PlayMode() {
 
   function backToSettings(): void {
     setPhase('settings')
+    setSession(null)
+    setResultInfo(null)
+    setOpponentThinking(false)
+    setAnalyzing(false)
+  }
+
+  /**
+   * ステージ一覧画面を開く(要件1)。設定画面の「ステージ一覧」ボタン、および
+   * 結果画面の「ステージ一覧へ戻る」ボタン(T117要件4、ステージ経由のときのみ
+   * 表示)の両方から呼ばれる。
+   */
+  function goToStageSelect(): void {
+    setPhase('stageSelect')
     setSession(null)
     setResultInfo(null)
     setOpponentThinking(false)
@@ -511,7 +579,55 @@ export function PlayMode() {
             </button>
           </div>
 
+          <div class="tsume-settings__buttons">
+            <button type="button" disabled={!pool || starting} onClick={goToStageSelect}>
+              ステージ一覧
+            </button>
+          </div>
+
           {!pool && !poolError && <p class="notice">問題データを読み込み中...</p>}
+        </section>
+      )}
+
+      {phase === 'stageSelect' && (
+        <section class="tsume-stage-select">
+          <p>ステージ一覧: 挑戦したい問題を選んでください(全{pool?.length ?? 0}問)</p>
+          <p class="tsume-stage-select__legend">
+            <span class="tsume-stage-legend__mark tsume-stage-legend__mark--cleared">■</span>
+            クリア済み
+            <span class="tsume-stage-legend__mark tsume-stage-legend__mark--attempted">■</span>
+            挑戦済み未クリア
+            <span class="tsume-stage-legend__mark tsume-stage-legend__mark--unattempted">■</span>
+            未挑戦
+          </p>
+
+          <div class="tsume-stage-grid">
+            {pool?.map((puzzle, index) => {
+              const status = stageStatus(stageProgress, puzzle.id)
+              return (
+                <button
+                  type="button"
+                  key={puzzle.id}
+                  class={`tsume-stage-grid__cell tsume-stage-grid__cell--${status}`}
+                  disabled={starting}
+                  onClick={() => void startPractice({ kind: 'stage', stageIndex: index })}
+                  title={`第${index + 1}問(難易度${puzzle.difficulty})${status === 'cleared' ? ' クリア済み' : status === 'attempted' ? ' 挑戦済み未クリア' : ' 未挑戦'}`}
+                >
+                  <span class="tsume-stage-grid__number">{index + 1}</span>
+                  <span class="tsume-stage-grid__difficulty">D{puzzle.difficulty}</span>
+                  {status === 'cleared' && (
+                    <span class="tsume-stage-grid__check" aria-hidden="true">
+                      ✓
+                    </span>
+                  )}
+                </button>
+              )
+            })}
+          </div>
+
+          <button type="button" class="tsume-practice__quit" onClick={backToSettings}>
+            設定に戻る
+          </button>
         </section>
       )}
 
@@ -577,6 +693,11 @@ export function PlayMode() {
             <button type="button" disabled={starting} onClick={() => void nextPuzzle()}>
               次の問題
             </button>
+            {lastSelection?.kind === 'stage' && (
+              <button type="button" onClick={goToStageSelect}>
+                ステージ一覧へ戻る
+              </button>
+            )}
             <button type="button" onClick={backToSettings}>
               設定に戻る
             </button>
@@ -629,6 +750,11 @@ export function PlayMode() {
             <button type="button" disabled={starting} onClick={() => void nextPuzzle()}>
               次の問題
             </button>
+            {lastSelection?.kind === 'stage' && (
+              <button type="button" onClick={goToStageSelect}>
+                ステージ一覧へ戻る
+              </button>
+            )}
             <button type="button" onClick={backToSettings}>
               設定に戻る
             </button>

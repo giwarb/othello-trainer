@@ -168,6 +168,105 @@
   margin-top: 0.4rem;
 }
 
+/* ステージ一覧画面(T117要件1)。 */
+.tsume-stage-select {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.75rem;
+  width: 100%;
+  max-width: 640px;
+  box-sizing: border-box;
+  padding: 0 0.5rem;
+}
+
+.tsume-stage-select__legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+  margin: 0;
+}
+
+.tsume-stage-legend__mark {
+  font-size: 0.7rem;
+}
+
+/* 固定の明るい背景色のマス(下記セル配色)と対応させるため、凡例も同じ固定色を使う(T068と同じ方針)。 */
+.tsume-stage-legend__mark--cleared {
+  color: #16a34a;
+}
+
+.tsume-stage-legend__mark--attempted {
+  color: #d97706;
+}
+
+.tsume-stage-legend__mark--unattempted {
+  color: var(--color-border);
+}
+
+.tsume-stage-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(3.4rem, 1fr));
+  gap: 0.4rem;
+  width: 100%;
+}
+
+.tsume-stage-grid__cell {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.1rem;
+  aspect-ratio: 1;
+  border: 1px solid var(--color-border);
+  border-radius: 0.4rem;
+  cursor: pointer;
+  padding: 0.2rem;
+  box-sizing: border-box;
+  background: var(--color-bg-tertiary);
+  color: var(--color-text);
+}
+
+.tsume-stage-grid__cell:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+/* 固定の明るい背景色のため、文字色も固定の濃色にペアで指定する(既存の`.tsume-result`と同じ方針、T068)。 */
+.tsume-stage-grid__cell--cleared {
+  background: #dcfce7;
+  color: #14532d;
+  border-color: #86efac;
+}
+
+.tsume-stage-grid__cell--attempted {
+  background: #fef3c7;
+  color: #92400e;
+  border-color: #fcd34d;
+}
+
+.tsume-stage-grid__number {
+  font-weight: bold;
+  font-size: 0.95rem;
+}
+
+.tsume-stage-grid__difficulty {
+  font-size: 0.65rem;
+  opacity: 0.75;
+}
+
+.tsume-stage-grid__check {
+  position: absolute;
+  top: 0.1rem;
+  right: 0.2rem;
+  font-size: 0.75rem;
+  font-weight: bold;
+}
+
 /* 狭い画面幅(スマートフォン想定、375px程度)ではボタン・文字を少し縮めて縦積みにする。 */
 @media (max-width: 400px) {
   .tsume-settings__buttons {
@@ -184,5 +283,10 @@
   .tsume-result {
     padding: 0.75rem;
     font-size: 0.9rem;
+  }
+
+  .tsume-stage-grid {
+    grid-template-columns: repeat(auto-fill, minmax(2.8rem, 1fr));
+    gap: 0.3rem;
   }
 }
