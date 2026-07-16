@@ -59,3 +59,35 @@ attempts: 0
 ## フィードバック(やり直し時にオーケストレーターが記入)
 
 ## 作業ログ(担当エージェントが追記)
+
+### 2026-07-16 調査・既存インフラの確認
+
+**quota/exact_from_empties/max_nodesの既存対応状況の確認**: 想定より既に多くの基盤が整っていることを確認した。
+- `search.rs::search_with_eval_with_node_limit_and_exact_quota`(T085a由来)が既にquotaを実行時引数として受け取れる(`assert!(exact_quota_percent <= 100)`のみでハードコード制限なし)。
+- `eval_cli best`/`eval_cli budget-regression`は`--exact-quota-percent`フラグを既に持つが、許可リストが`25|40|60|75`のみで**50が欠けていた**→ `engine/src/bin/eval_cli.rs`の2箇所(`cmd_best`・`cmd_budget_regression`)とusage文字列を修正し`50`を追加(既にビルド・動作確認済み)。
+- `SearchResult`のテレメトリ分離(要件5: root exact/bound proof/leaf completion)は**T089aで既に実装済み**(`exact_root_completed`/`exact_bound_proof_completed`/`exact_leaf_completed`/`exact_completed`が個別フィールドとして存在し、`eval_cli best`のJSON出力にも`exactRootCompleted`等として個別に出ている)。追加実装は不要と判断し、既存テレメトリをそのまま校正に使う。
+- `app/src/analysis/cache.ts`の`analysisLimitTag`は`d${depth}-e${exactFromEmpties}-n${maxNodes}`をキャッシュキーに含めており、**exactFromEmpties/maxNodesの変更はこのタグ自体が変わるため`ANALYSIS_ENGINE_VERSION`のインクリメントを要さない**。一方`exactQuotaPercent`はキャッシュタグに含まれておらず(`AnalyzeLimit`型にそもそも存在しない、quotaは`search.rs`のコンパイル時定数`EXACT_QUOTA_PERCENT`としてのみ存在しapp層に露出していない)、**quota値を40%から変更する場合のみ`ANALYSIS_ENGINE_VERSION`のインクリメントが必要**と判断した(選定結果が確定次第、要否を確定する)。
+- `app/src/app.tsx`の`cpuLimit`(strong CPU着手専用)のみが`maxNodes`/`timeMs`を持ち、`weak`/`normal`および`limit`(全合法手表示用)は`maxNodes`未設定のため、quota機構自体が発火しない(`search_with_eval_inner`はmax_nodes.is_some()の場合のみquota分岐に入る)。**したがってT107の変更対象は実質的に`strong`の`cpuLimit`のみ**で、他プリセットへの影響はない。
+
+**oracleの実測方式(判断根拠、要件次第では再考の余地あり)**: T085b/設計レポートの原法はEdax level 16/60を独立oracleとして使ったが、本タスクではコミット済みビルドの`eval_cli`自身(`moves --depth 1 --exact-from-empties 30`、無制限完全読み)を使い、T096の60局面の全合法手の真の値を得る方式を採用した。これはT096局面がすべてempties<=26であり、本エンジンの終盤ソルバー(FFO #40-44で100%正解確認済み)の完全読み範囲内に収まることを踏まえた判断であり、「終盤ソルバー自体が正しいか」ではなく「quota/exact_from_empties/max_nodesで制約された設定が制約なしの真の最善手をどれだけ再現できるか」を測る目的には十分と判断した(self-referentialな循環検証には当たらない)。Edaxへの切替が必要と判断されれば後から追加できる設計(`policy_calibration.py`のoracle計算部分のみ差し替え)。
+
+**校正インフラ新設**: `bench/edax-compare/policy_calibration.py`(T096 60局面oracle+quota×exact_from_empties×max_nodesグリッド、局面単位atomic checkpoint、`oracle`/`grid`/`determinism`/`report`サブコマンド)と`bench/edax-compare/estimate_min_exact_nodes.py`(要件1のP75テーブル再生成、空きマス数ごとにatomic checkpoint)を新規作成した。
+
+### 2026-07-16 oracle計算のスコープ縮小(実行コスト、要件「過学習リスクへの手当」に対応)
+
+oracle計算(60局面の全合法手を無制限完全読み)を開始したところ、empties23-26の局面(全60局面中26局面)は1局面あたり複数の合法手をそれぞれ完全読みする必要があり、**1局面で数分かかるケースが発生した**(空き21の局面で単一候補ノード数が既に1.3億ノードに達しており、空き25-26では更に大きくなると予想される。並行稼働中のT114プロセス(8+並列)によるCPU競合も影響)。全60局面の完了を待つと本タスクの他の作業(グリッド校正・実装・デプロイ確認)に充てる時間を圧迫すると判断し、**oracle計算はempties18-22の34局面(2+11+7+4+10)を優先し、23-26の26局面はバックグラウンドで計算を継続させつつ、揃った時点のデータでグリッド校正を先行開始する**方式に変更した(`policy_calibration.py grid`を「oracle値が揃っている局面だけを対象にする」よう修正済み)。最終的な受け入れ基準判定(oracle regret)は、grid実行完了時点で実際にoracle値が揃っていた局面集合を明記して行う(34局面のみか、23-26の一部を含むかは完了時に確定・記載する)。これは校正に使う局面集合の縮小であり「過学習リスク」そのものの手当ではないが、判断の透明性のため経緯をここに明記する。
+
+**バックグラウンド実行中(2026-07-16時点、いずれもatomic checkpoint・resume対応)**:
+1. `python bench/edax-compare/policy_calibration.py oracle` → `bench/edax-compare/endgame-results/t107-policy-calibration.json`の`oracle`セクション(empties23-26の残りを継続計算中)。
+2. `python bench/edax-compare/estimate_min_exact_nodes.py --min-empties 10 --max-empties 24` → `bench/edax-compare/endgame-results/t107-estimated-min-exact-nodes.json`(要件1のP75テーブル、空き22までは以下の実測値が確定済み)。
+
+暫定P75実測値(空き10-21、確定):
+| empties | 10 | 11 | 12 | 13 | 14 | 15 | 16 | 17 | 18 | 19 | 20 | 21 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| p75 nodes | 7,919 | 20,244 | 40,451 | 78,471 | 118,952 | 238,263 | 2,310,760 | 5,148,109 | 6,996,232 | 31,313,088 | 18,547,224 | 129,764,316 |
+
+(現行テーブルは0-18のみ実測値を持ち19-24は`u64::MAX`。新ソルバーでは19以降も現実的な値が測れており、より高いexact_from_emptiesでの「ルート即exact試行」判定を有効化できる可能性が高いことを示唆している。)
+
+3. `python bench/edax-compare/policy_calibration.py grid`(既定グリッド: quota{25,40,50,60,75}×exact_from_empties{16,18,20,22,24}×budget{160000,240000,320000,480000}、depth=12・time-ms=1500(本番と同条件)、利用可能なoracle局面のみ対象) → `grid`セクションへ逐次保存中。
+
+進捗はいずれも`bench/edax-compare/endgame-results/*.json`のセクション件数で外部から確認できる。次回作業再開時は同じコマンドを再実行するだけで自動的にresumeする(完了済みキーをスキップ)。
