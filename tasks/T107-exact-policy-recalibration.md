@@ -1,7 +1,7 @@
 ---
 id: T107
 title: exactポリシー再校正(新ソルバーの速度を実戦の強さへ変換)
-status: in_progress # todo | in_progress | review | redo | done | blocked
+status: done # todo | in_progress | review | redo | done | blocked
 assignee: implementer(Sonnet, Codex上限フォールバック)
 attempts: 0
 ---
