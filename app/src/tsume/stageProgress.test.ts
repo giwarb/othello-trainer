@@ -65,6 +65,104 @@ describe('loadStageProgress / saveStageProgress', () => {
     storage.setItem(TSUME_STAGE_PROGRESS_STORAGE_KEY, JSON.stringify(null))
     expect(loadStageProgress(storage)).toEqual({})
   })
+
+  /**
+   * redo #1(codex-review指摘b): 型だけ合っていても意味的制約(回数は非負整数、
+   * 日時は解釈可能な文字列)を満たさない値はフォールバックすること。
+   * 以前は`clearCount: -1`や`failCount: 0.5`、`lastAttemptAt: ""`のような値も
+   * 「有限な数値/文字列」というだけで有効値として通ってしまっていた
+   * (レビューレポート`tasks/review/T117-tsume-stage-select-codex-review.md`の
+   * (b)節に挙げられた具体例と同一のケースを検証する)。
+   */
+  it('回数が負の整数の場合は空のレコードを返す(clearCount: -1)', () => {
+    const storage = new FakeStorage()
+    storage.setItem(
+      TSUME_STAGE_PROGRESS_STORAGE_KEY,
+      JSON.stringify({
+        'tsume-1': {
+          firstClearedAt: '2026-07-17T00:00:00.000Z',
+          lastClearedAt: '2026-07-17T00:00:00.000Z',
+          clearCount: -1,
+          failCount: 0,
+          lastAttemptAt: '2026-07-17T00:00:00.000Z',
+          lastResult: 'clear',
+        },
+      }),
+    )
+    expect(loadStageProgress(storage)).toEqual({})
+  })
+
+  it('回数が非整数(小数)の場合は空のレコードを返す(failCount: 0.5)', () => {
+    const storage = new FakeStorage()
+    storage.setItem(
+      TSUME_STAGE_PROGRESS_STORAGE_KEY,
+      JSON.stringify({
+        'tsume-1': {
+          firstClearedAt: null,
+          lastClearedAt: null,
+          clearCount: 0,
+          failCount: 0.5,
+          lastAttemptAt: '2026-07-17T00:00:00.000Z',
+          lastResult: 'fail',
+        },
+      }),
+    )
+    expect(loadStageProgress(storage)).toEqual({})
+  })
+
+  it('日時として解釈できない文字列("not-a-date")の場合は空のレコードを返す', () => {
+    const storage = new FakeStorage()
+    storage.setItem(
+      TSUME_STAGE_PROGRESS_STORAGE_KEY,
+      JSON.stringify({
+        'tsume-1': {
+          firstClearedAt: 'not-a-date',
+          lastClearedAt: null,
+          clearCount: 1,
+          failCount: 0,
+          lastAttemptAt: '2026-07-17T00:00:00.000Z',
+          lastResult: 'clear',
+        },
+      }),
+    )
+    expect(loadStageProgress(storage)).toEqual({})
+  })
+
+  it('lastAttemptAtが空文字列の場合は空のレコードを返す', () => {
+    const storage = new FakeStorage()
+    storage.setItem(
+      TSUME_STAGE_PROGRESS_STORAGE_KEY,
+      JSON.stringify({
+        'tsume-1': {
+          firstClearedAt: null,
+          lastClearedAt: null,
+          clearCount: 0,
+          failCount: 1,
+          lastAttemptAt: '',
+          lastResult: 'fail',
+        },
+      }),
+    )
+    expect(loadStageProgress(storage)).toEqual({})
+  })
+
+  it('レビュー指摘の複合ケース(不正な値が複数同時に混じる)でも空のレコードを返す', () => {
+    const storage = new FakeStorage()
+    storage.setItem(
+      TSUME_STAGE_PROGRESS_STORAGE_KEY,
+      JSON.stringify({
+        'tsume-1': {
+          firstClearedAt: 'not-a-date',
+          lastClearedAt: null,
+          clearCount: -1,
+          failCount: 0.5,
+          lastAttemptAt: '',
+          lastResult: 'clear',
+        },
+      }),
+    )
+    expect(loadStageProgress(storage)).toEqual({})
+  })
 })
 
 describe('recordStageAttempt', () => {

@@ -55,17 +55,37 @@ export type StageProgress = Readonly<Record<string, StageProgressEntry>>
 
 const EMPTY_PROGRESS: StageProgress = {}
 
+/**
+ * `value`が空でない、`Date.parse`で解釈可能な日時文字列かどうかを検証する
+ * (ISO 8601文字列を主に想定するが、`Date.parse`が受理する範囲で判定する
+ * 実用上十分な検証。redo #1: codex-review指摘bで、空文字列や`"not-a-date"`
+ * のような文字列が日時として誤って有効値扱いされていた問題への対応)。
+ */
+function isValidIsoDateTimeString(value: unknown): value is string {
+  return typeof value === 'string' && value.length > 0 && !Number.isNaN(Date.parse(value))
+}
+
+/** 回数(`clearCount`/`failCount`)として妥当な非負整数かどうかを検証する。 */
+function isNonNegativeInteger(value: unknown): value is number {
+  return typeof value === 'number' && Number.isInteger(value) && value >= 0
+}
+
+/**
+ * `value`が`StageProgressEntry`として妥当かどうかを検証する。
+ * redo #1(codex-review指摘b): 単に型が合っているだけでなく、スキーマの
+ * 意味的制約(回数は非負整数、日時は解釈可能な文字列)まで検証する
+ * (以前は`clearCount: -1`や`failCount: 0.5`、`lastAttemptAt: ""`のような
+ * 値も「有限な数値/文字列」というだけで有効値として通ってしまっていた)。
+ */
 function isValidEntry(value: unknown): value is StageProgressEntry {
   if (typeof value !== 'object' || value === null) return false
   const v = value as Record<string, unknown>
   return (
-    (v.firstClearedAt === null || typeof v.firstClearedAt === 'string') &&
-    (v.lastClearedAt === null || typeof v.lastClearedAt === 'string') &&
-    typeof v.clearCount === 'number' &&
-    Number.isFinite(v.clearCount) &&
-    typeof v.failCount === 'number' &&
-    Number.isFinite(v.failCount) &&
-    typeof v.lastAttemptAt === 'string' &&
+    (v.firstClearedAt === null || isValidIsoDateTimeString(v.firstClearedAt)) &&
+    (v.lastClearedAt === null || isValidIsoDateTimeString(v.lastClearedAt)) &&
+    isNonNegativeInteger(v.clearCount) &&
+    isNonNegativeInteger(v.failCount) &&
+    isValidIsoDateTimeString(v.lastAttemptAt) &&
     (v.lastResult === 'clear' || v.lastResult === 'fail')
   )
 }

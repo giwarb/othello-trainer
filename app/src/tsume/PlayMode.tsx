@@ -252,12 +252,33 @@ export function PlayMode() {
   }
 
   /**
-   * 挑戦結果(正誤・経過時間・タグ)をIndexedDBに記録し、成績state(`attempts`)を
-   * 更新する(要件5)。あわせて`localStorage`のステージ挑戦記録(T117要件3)も
-   * 更新する — こちらは出題経路(ステージ一覧・難易度別・ランダム・デイリー)を
-   * 問わず、`Puzzle.id`が同じであれば常に更新する(将来の復習モードで
-   * 取りこぼさないため)。
+   * `localStorage`のステージ挑戦記録(T117要件3)を**同期的に**更新する
+   * (redo #1: codex-review指摘の必須修正)。
+   *
+   * 以前は`saveAttempt`内でIndexedDBの`recordAttempt`/`getAllAttempts`を
+   * `await`した**後**にこの記録を行っていたため、結果画面表示直後に
+   * ユーザーがページをリロード・離脱したり、IndexedDBの処理が遅延・停止
+   * したりすると、`localStorage`への記録が書かれないまま失われるレースが
+   * あった(受け入れ基準「リロードしても記録が残っている」を通常操作で
+   * 破りうる不具合)。`localStorage.setItem`自体は同期APIなので、
+   * `finishClear`/`finishFail`の**最初のawaitより前**(結果画面への遷移
+   * `setPhase('result')`より前)でこの関数を呼び、挑戦結果確定と同じ
+   * イベントループティック内で書き込みを完了させる。
+   *
+   * 出題経路(ステージ一覧・難易度別・ランダム・デイリー)を問わず、
+   * `Puzzle.id`が同じであれば常に更新する(将来の復習モードで取りこぼさない
+   * ため、要件3)。
    */
+  function recordStageProgressNow(s: Session, correct: boolean): void {
+    try {
+      const nextProgress = recordStageAttempt(localStorage, s.puzzle.id, correct ? 'clear' : 'fail')
+      setStageProgress(nextProgress)
+    } catch (error) {
+      console.error('ステージ挑戦記録の保存に失敗しました', error)
+    }
+  }
+
+  /** 挑戦結果(正誤・経過時間・タグ)をIndexedDBに記録し、成績state(`attempts`)を更新する(要件5)。 */
   async function saveAttempt(s: Session, correct: boolean): Promise<void> {
     const record: PuzzleAttemptRecord = {
       id: `tsume-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
@@ -274,13 +295,6 @@ export function PlayMode() {
     } catch (error) {
       console.error('成績の記録に失敗しました', error)
     }
-
-    try {
-      const nextProgress = recordStageAttempt(localStorage, s.puzzle.id, correct ? 'clear' : 'fail')
-      setStageProgress(nextProgress)
-    } catch (error) {
-      console.error('ステージ挑戦記録の保存に失敗しました', error)
-    }
   }
 
   /**
@@ -291,6 +305,7 @@ export function PlayMode() {
    * されないまま結果表示に遷移していたため画面上に残らなかった)。
    */
   async function finishClear(s: Session): Promise<void> {
+    recordStageProgressNow(s, true)
     setPhase('result')
     setResultInfo({ kind: 'clear', puzzle: s.puzzle, board: s.board, sideToMove: s.sideToMove, lastMove: s.lastMove })
     await saveAttempt(s, true)
@@ -303,6 +318,7 @@ export function PlayMode() {
     allMoves: readonly MoveEvalJson[],
     bestMove: string | null,
   ): Promise<void> {
+    recordStageProgressNow(s, false)
     setPhase('result')
     setResultInfo({
       kind: 'fail',
