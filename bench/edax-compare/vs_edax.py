@@ -100,6 +100,7 @@ DEFAULT_NODE_BUDGETS = [160_000, 200_000, 240_000, 300_000]
 # 「同一予算での直接比較」(T084要件3)が成り立つ。
 DEFAULT_ENGINE_DEPTH = 10
 DEFAULT_ENGINE_EXACT_FROM_EMPTIES = 18
+DEFAULT_ENGINE_EXACT_QUOTA_PERCENT = 60
 # `--exact-from-empties`は探索木のあらゆるノードに適用されるため、これを
 # 時間無制限で使うと空きマス20〜28付近の局面で組合せ爆発的に遅くなることを
 # T082で実機確認した。本リポジトリの既存ルール(`*_ANALYZE_LIMIT`が
@@ -406,12 +407,19 @@ def engine_best(
     weights: Path | None,
     time_ms: int | None = None,
     max_nodes: int | None = None,
+    exact_quota_percent: int = DEFAULT_ENGINE_EXACT_QUOTA_PERCENT,
+    tt_mb: int = 16,
 ) -> dict:
     """T084: `eval_cli best`(single-root探索、`search_with_eval`)を呼び、
     最善手とテレメトリ一式(depth/nodes/elapsedMs/nps/timedOut/exact.*)を
     含むJSONオブジェクトをそのまま返す。"""
     input_json = json.dumps({"board": board, "side_to_move": side})
-    cmd = [str(EVAL_CLI), "best", "--depth", str(depth), "--exact-from-empties", str(exact_from_empties)]
+    cmd = [
+        str(EVAL_CLI), "best", "--depth", str(depth),
+        "--exact-from-empties", str(exact_from_empties),
+        "--exact-quota-percent", str(exact_quota_percent),
+        "--tt-mb", str(tt_mb),
+    ]
     if weights is not None:
         cmd += ["--pattern-weights", str(weights)]
     if time_ms is not None:
@@ -658,6 +666,9 @@ def play_game(
     engine_exact_from_empties: int,
     engine_time_ms: int | None,
     engine_max_nodes: int | None,
+    engine_exact_quota_percent: int,
+    unlimited_exact_empties: int | None,
+    engine_tt_mb: int,
     weights: Path,
     edax_level: int,
     start_board: str,
@@ -698,14 +709,27 @@ def play_game(
         engine_telemetry: dict | None = None
         if side == engine_side:
             if engine_mode == "single-root":
+                empties = board.count("-")
+                use_unlimited_exact = (
+                    unlimited_exact_empties is not None
+                    and empties <= unlimited_exact_empties
+                )
+                actual_depth = unlimited_exact_empties if use_unlimited_exact else engine_depth
+                actual_exact_from = (
+                    unlimited_exact_empties if use_unlimited_exact else engine_exact_from_empties
+                )
+                actual_time_ms = None if use_unlimited_exact else engine_time_ms
+                actual_max_nodes = None if use_unlimited_exact else engine_max_nodes
                 r = engine_best(
                     board,
                     side,
-                    engine_depth,
-                    engine_exact_from_empties,
+                    actual_depth,
+                    actual_exact_from,
                     weights,
-                    time_ms=engine_time_ms,
-                    max_nodes=engine_max_nodes,
+                    time_ms=actual_time_ms,
+                    max_nodes=actual_max_nodes,
+                    exact_quota_percent=engine_exact_quota_percent,
+                    tt_mb=engine_tt_mb,
                 )
                 mv = r.get("move")
                 if mv is None:
@@ -716,6 +740,14 @@ def play_game(
                         )
                     break
                 engine_telemetry = {
+                    "policy": "unlimited-exact" if use_unlimited_exact else "budgeted",
+                    "rootEmpties": empties,
+                    "depthLimit": actual_depth,
+                    "exactFromEmpties": actual_exact_from,
+                    "timeMsLimit": actual_time_ms,
+                    "maxNodesLimit": actual_max_nodes,
+                    "exactQuotaPercent": engine_exact_quota_percent,
+                    "ttMiB": engine_tt_mb,
                     "discDiff": r["score"]["discDiff"],
                     "scoreType": r["score"]["type"],
                     "depth": r["depth"],
@@ -1648,6 +1680,9 @@ def run_smoke(args: argparse.Namespace) -> None:
         engine_exact_from_empties=args.engine_exact_from_empties,
         engine_time_ms=args.engine_time_ms,
         engine_max_nodes=args.engine_max_nodes,
+        engine_exact_quota_percent=args.engine_exact_quota_percent,
+        unlimited_exact_empties=args.unlimited_exact_empties,
+        engine_tt_mb=args.engine_tt_mb,
         weights=args.weights,
         edax_level=edax_level,
         start_board=start_board,
@@ -1702,6 +1737,13 @@ def main() -> None:
     ap.add_argument("--engine-depth", type=int, default=DEFAULT_ENGINE_DEPTH)
     ap.add_argument("--engine-exact-from-empties", type=int, default=DEFAULT_ENGINE_EXACT_FROM_EMPTIES)
     ap.add_argument(
+        "--engine-exact-quota-percent",
+        type=int,
+        default=DEFAULT_ENGINE_EXACT_QUOTA_PERCENT,
+        choices=(25, 40, 50, 60, 75),
+    )
+    ap.add_argument("--engine-tt-mb", type=int, default=16)
+    ap.add_argument(
         "--engine-time-ms",
         type=int,
         default=DEFAULT_ENGINE_TIME_MS,
@@ -1713,6 +1755,15 @@ def main() -> None:
         type=int,
         default=None,
         help="single-root着手選択の決定論的ノード数予算。省略時はノード数無制限",
+    )
+    ap.add_argument(
+        "--unlimited-exact-empties",
+        type=int,
+        default=None,
+        help=(
+            "single-root only: at or below this root empties count, use depth/exact-from-empties "
+            "equal to the threshold and omit max-nodes/time-ms (T116 production policy)"
+        ),
     )
     ap.add_argument(
         "--node-check-max-nodes",
@@ -1749,6 +1800,10 @@ def main() -> None:
     args.engine_time_ms = engine_time_ms
     if args.engine_max_nodes is not None and args.engine_max_nodes <= 0:
         ap.error("--engine-max-nodes must be greater than zero")
+    if args.unlimited_exact_empties is not None and args.unlimited_exact_empties <= 0:
+        ap.error("--unlimited-exact-empties must be greater than zero")
+    if args.engine_tt_mb <= 0:
+        ap.error("--engine-tt-mb must be greater than zero")
     if args.node_check_max_nodes <= 0:
         ap.error("--node-check-max-nodes must be greater than zero")
     if not args.node_budgets or any(value <= 0 for value in args.node_budgets):
@@ -1789,6 +1844,9 @@ def main() -> None:
         "engine_exact_from_empties": args.engine_exact_from_empties,
         "engine_time_ms": args.engine_time_ms,
         "engine_max_nodes": args.engine_max_nodes,
+        "engine_exact_quota_percent": args.engine_exact_quota_percent,
+        "unlimited_exact_empties": args.unlimited_exact_empties,
+        "engine_tt_mb": args.engine_tt_mb,
         "weights": rel_to_root(args.weights),
         "openings_path": rel_to_root(args.openings),
         "openings_sha256": sha256_of_file(args.openings),
@@ -1864,6 +1922,9 @@ def main() -> None:
                         engine_exact_from_empties=args.engine_exact_from_empties,
                         engine_time_ms=args.engine_time_ms,
                         engine_max_nodes=args.engine_max_nodes,
+                        engine_exact_quota_percent=args.engine_exact_quota_percent,
+                        unlimited_exact_empties=args.unlimited_exact_empties,
+                        engine_tt_mb=args.engine_tt_mb,
                         weights=args.weights,
                         edax_level=level,
                         start_board=start["board"],

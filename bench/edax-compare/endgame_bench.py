@@ -423,11 +423,16 @@ def speed_positions() -> list[dict]:
     ]
 
 
-def run_speed(checkpoint: Checkpoint, repetitions: int, stop_after: int | None) -> None:
+def speed_section(max_nodes: int | None) -> str:
+    return "speed_unlimited" if max_nodes is None else f"speed_{max_nodes}"
+
+
+def run_speed(checkpoint: Checkpoint, repetitions: int, stop_after: int | None, max_nodes: int | None) -> None:
     if repetitions < 1:
         raise ValueError("speed measurement requires at least one repetition")
     ensure_tools(edax=True)
     positions = speed_positions()
+    section = speed_section(max_nodes)
     if not positions:
         raise RuntimeError("no speed positions in empties 20..24")
     warmup = checkpoint.section("speed_warmup")
@@ -447,18 +452,19 @@ def run_speed(checkpoint: Checkpoint, repetitions: int, stop_after: int | None) 
             nonlocal processed
             for position in ordered:
                 key = f"engine:{repetition}:{position['id']}"
-                if key in checkpoint.section("speed"):
-                    print(f"[speed] resume skip {key}", flush=True)
+                if key in checkpoint.section(section):
+                    print(f"[{section}] resume skip {key}", flush=True)
                     continue
-                result = solve_engine(position, -64, 64, None)
-                if result["score"] != position["exactScore"]:
+                result = solve_engine(position, -64, 64, max_nodes)
+                if result["completed"] and result["score"] != position["exactScore"]:
                     raise RuntimeError(f"native speed score mismatch for {position['id']}")
-                checkpoint.put("speed", key, {
+                checkpoint.put(section, key, {
                     "implementation": "engine", "repetition": repetition,
-                    "id": position["id"], "empties": position["empties"], "run": result,
+                    "id": position["id"], "empties": position["empties"],
+                    "maxNodes": max_nodes, "run": result,
                 })
                 processed += 1
-                print(f"[speed] saved {key}", flush=True)
+                print(f"[{section}] saved {key}", flush=True)
                 if stop_after is not None and processed >= stop_after:
                     return False
             return True
@@ -467,7 +473,7 @@ def run_speed(checkpoint: Checkpoint, repetitions: int, stop_after: int | None) 
             nonlocal processed
             pending = [
                 position for position in ordered
-                if f"edax:{repetition}:{position['id']}" not in checkpoint.section("speed")
+                if f"edax:{repetition}:{position['id']}" not in checkpoint.section(section)
             ]
             if not pending:
                 return True
@@ -476,12 +482,13 @@ def run_speed(checkpoint: Checkpoint, repetitions: int, stop_after: int | None) 
                 if result["score"] != position["exactScore"]:
                     raise RuntimeError(f"Edax speed score mismatch for {position['id']}")
                 key = f"edax:{repetition}:{position['id']}"
-                checkpoint.put("speed", key, {
+                checkpoint.put(section, key, {
                     "implementation": "edax", "repetition": repetition,
-                    "id": position["id"], "empties": position["empties"], "run": result,
+                    "id": position["id"], "empties": position["empties"],
+                    "maxNodes": max_nodes, "run": result,
                 })
                 processed += 1
-                print(f"[speed] saved {key}", flush=True)
+                print(f"[{section}] saved {key}", flush=True)
                 if stop_after is not None and processed >= stop_after:
                     return False
             return True
@@ -554,12 +561,68 @@ def e50(rows: list[dict], budget: int, exact: bool) -> int | None:
     return max(eligible) if eligible else None
 
 
+def aggregate_speed(checkpoint: Checkpoint, max_nodes: int | None) -> dict:
+    speed = list(
+        checkpoint.value.get("sections", {}).get(speed_section(max_nodes), {}).values()
+    )
+    expected_ids = {position["id"] for position in speed_positions()}
+    ids_by_run = {}
+    for row in speed:
+        ids_by_run.setdefault((row["repetition"], row["implementation"]), set()).add(row["id"])
+    repetitions = sorted({row["repetition"] for row in speed})
+    complete = [
+        repetition for repetition in repetitions
+        if ids_by_run.get((repetition, "engine"), set()) == expected_ids
+        and ids_by_run.get((repetition, "edax"), set()) == expected_ids
+    ]
+    accepted = [row for row in speed if row["repetition"] in complete]
+    by_position = {}
+    for row in accepted:
+        by_position.setdefault(row["id"], {}).setdefault(row["implementation"], []).append(row)
+    ratios = []
+    rows = []
+    for position_id, implementations in sorted(by_position.items()):
+        engine_rows = implementations.get("engine", [])
+        edax_rows = implementations.get("edax", [])
+        if not engine_rows or not edax_rows:
+            continue
+        engine_seconds = statistics.median(row["run"]["elapsedUs"] / 1_000_000 for row in engine_rows)
+        edax_seconds = statistics.median(row["run"]["elapsedSeconds"] for row in edax_rows)
+        ratio = engine_seconds / edax_seconds if edax_seconds > 0 else None
+        rows.append({
+            "id": position_id,
+            "empties": engine_rows[0]["empties"],
+            "engineMedianSeconds": engine_seconds,
+            "edaxMedianSeconds": edax_seconds,
+            "ratio": ratio,
+            "engineCompletedRuns": sum(bool(row["run"]["completed"]) for row in engine_rows),
+            "engineRunCount": len(engine_rows),
+        })
+        if ratio is not None and ratio > 0:
+            ratios.append(ratio)
+    return {
+        "maxNodes": max_nodes,
+        "positionRows": rows,
+        "geometricMeanRatio": math.exp(sum(math.log(value) for value in ratios) / len(ratios)) if ratios else None,
+        "medianRatio": statistics.median(ratios) if ratios else None,
+        "p90Ratio": percentile90(ratios),
+        "completedPositions": len(ratios),
+        "completeRepetitionsUsed": complete,
+        "partialRepetitionsExcluded": [value for value in repetitions if value not in complete],
+        "repetitionCountUsed": len(complete),
+        "protocol": (
+            "native and Edax internal wall time; one warmup; three alternating-order repetitions; "
+            "per-position median; ratios summarized by geometric mean, median, and nearest-rank p90"
+        ),
+    }
+
+
 def aggregate(checkpoint: Checkpoint) -> dict:
     sections = checkpoint.value.get("sections", {})
     c1 = list(sections.get("c1", {}).values())
     c2 = list(sections.get("c2", {}).values())
     c3 = list(sections.get("c3", {}).values())
-    speed = list(sections.get("speed", {}).values())
+    speed = list(sections.get(speed_section(None), sections.get("speed", {})).values())
 
     c2_rates = []
     c2_node_groups = []
@@ -659,7 +722,7 @@ def aggregate(checkpoint: Checkpoint) -> dict:
         ],
     }
     minimum_c2_empties = min((row["empties"] for row in c2), default=None)
-    return {
+    result = {
         "c1": {
             "completed": sum(row["run"]["completed"] for row in c1), "total": len(c1),
             "correctCompleted": sum(row["correct"] is True for row in c1), "rows": c1,
@@ -677,27 +740,24 @@ def aggregate(checkpoint: Checkpoint) -> dict:
             "wallInsuranceRate": wall_rate, "rowsCompleted": len(c3), "rowsExpected": 48,
             "telemetry": c3_telemetry,
         },
-        "speed20To24": {
+        "speed20To24Unlimited": {
             "positionRows": speed_rows,
             "geometricMeanRatio": math.exp(sum(math.log(value) for value in ratios) / len(ratios)) if ratios else None,
+            "medianRatio": statistics.median(ratios) if ratios else None,
             "p90Ratio": percentile90(ratios), "completedPositions": len(ratios),
             "corpus": "C2 independent positions with 20..24 empties",
             "completeRepetitionsUsed": complete_repetitions,
             "partialRepetitionsExcluded": partial_repetitions,
             "repetitionCountUsed": len(complete_repetitions),
-            "informative": True,
-            "measurementHarnessSha256": "14457ef473db9f608a29b50db4ef594e7f46bcbaadb37bc086fa4c0a01f2b883",
-            "note": (
-                "Informative pre-commit-harness timing retained by redo ruling; "
-                "the formal warmup plus three alternating-order repetitions run is deferred to T108."
-            ),
             "protocol": (
-                "native and Edax internal wall time; one warmup; per-position median; "
-                "T098 2026-07-15 waiver permits completed repetitions (minimum one); "
-                "partial repetitions are excluded; full warmup+3 alternating-order protocol deferred to T108"
+                "native and Edax internal wall time; one warmup; three alternating-order repetitions; "
+                "per-position median; ratios summarized by geometric mean, median, and nearest-rank p90"
             ),
         },
+        "speed20To24Budget160k": aggregate_speed(checkpoint, 160000),
     }
+    result["speed20To24"] = result["speed20To24Unlimited"]
+    return result
 
 
 def write_report(checkpoint: Checkpoint, output: Path, allow_partial: bool) -> None:
@@ -747,7 +807,11 @@ def parse_args() -> argparse.Namespace:
     verify.add_argument("--count", type=int, default=3)
 
     benchmark = subparsers.add_parser("run", help="run/resume one or more benchmark suites")
-    benchmark.add_argument("--suite", choices=("c1", "c2", "c3", "speed", "all"), default="all")
+    benchmark.add_argument(
+        "--suite",
+        choices=("c1", "c2", "c3", "speed", "speed-unlimited", "speed-160k", "all"),
+        default="all",
+    )
     benchmark.add_argument("--checkpoint", type=Path, default=DEFAULT_CHECKPOINT)
     benchmark.add_argument("--weights", type=Path, default=DEFAULT_WEIGHTS)
     benchmark.add_argument("--heavy-cap", type=int, default=5_000_000)
@@ -773,7 +837,10 @@ def main() -> None:
         verify_manifest_sign(args.manifest, args.count)
         return
 
-    ensure_tools(edax=args.command == "run" and args.suite in ("speed", "all"))
+    ensure_tools(
+        edax=args.command == "run"
+        and args.suite in ("speed", "speed-unlimited", "speed-160k", "all")
+    )
     if not POSITIONS.exists() or len(read_json(POSITIONS).get("positions", [])) != 60:
         raise RuntimeError("endgame_positions.json is incomplete; run the manifest command first")
     identity = checkpoint_identity(args.weights)
@@ -782,7 +849,13 @@ def main() -> None:
         write_report(checkpoint, args.output, args.allow_partial)
         return
 
-    suites = ("c1", "c2", "c3", "speed") if args.suite == "all" else (args.suite,)
+    suites = (
+        ("c1", "c2", "c3", "speed-unlimited", "speed-160k")
+        if args.suite == "all"
+        else (args.suite,)
+    )
+    if suites == ("speed",):
+        suites = ("speed-unlimited", "speed-160k")
     for suite in suites:
         if suite == "c1":
             run_c1(checkpoint, args.heavy_cap, args.stop_after)
@@ -790,8 +863,10 @@ def main() -> None:
             run_c2(checkpoint, args.stop_after)
         elif suite == "c3":
             run_c3(checkpoint, args.weights, args.stop_after)
+        elif suite == "speed-unlimited":
+            run_speed(checkpoint, args.repetitions, args.stop_after, None)
         else:
-            run_speed(checkpoint, args.repetitions, args.stop_after)
+            run_speed(checkpoint, args.repetitions, args.stop_after, 160000)
 
 
 if __name__ == "__main__":
