@@ -242,6 +242,12 @@ CORPUS_SETS = {
         "baseSet": "expanded200k",
         # T127h microbench (未生成各30親): 8=1.195x, 16=1.213x, 32=1.292x、値不一致0。
         "edaxParentsPerProcess": 32,
+        # T127i A/B(exact/level16帯とも値・決定性が全件一致、残件加重1.1524倍高速、
+        # bench/edax-compare/t127i_edax_v3_ab_report.md参照)を受けたv3バイナリ乗り換え。
+        # T127j: 乗り換え準備コードのみ(このコミット自体は実行中プロセスには影響しない)。
+        # 実際の切替(生成停止→migrate_t127j_v3_binary.py→plan再生成→再開)は
+        # オーケストレーターが tasks/T127j-v3-binary-switch.md の手順で行う。
+        "edaxExe": "wEdax-x86-64-v3.exe",
     },
 }
 
@@ -987,8 +993,14 @@ def prepare_expanded1m_selection_plan(years: str, per_game_cap: int, per_bin_cap
 def label_positions_across_parents(
     parents: list[tuple[int, dict, dict]],
     exact_empties_threshold: int = EXACT_EMPTIES_THRESHOLD,
+    edax_exe: Path | None = None,
 ) -> list[dict]:
-    """Label multiple parents with at most one Edax process per requested level."""
+    """Label multiple parents with at most one Edax process per requested level.
+
+    `edax_exe`は未指定(None)なら従来どおりのEdaxバイナリを使う(T127j: v3
+    バイナリ乗り換え向けの加算引数。未指定時は`vs_edax.edax_solve_batch`へ
+    一切渡さないため、コマンド列・挙動は完全に不変)。
+    """
     states = []
     batches: dict[int, list[tuple[int, int, dict]]] = {}
     for parent_index, (index, position, children_info) in enumerate(parents):
@@ -1015,9 +1027,11 @@ def label_positions_across_parents(
 
     for level, batch in batches.items():
         t0 = time.monotonic()
+        solve_kwargs = {"edax_exe": edax_exe} if edax_exe is not None else {}
         results = vs_edax.edax_solve_batch(
             [{"board": child["childBoard"], "sideToMove": child["childSideToMove"]} for _, _, child in batch],
             level,
+            **solve_kwargs,
         )
         elapsed_ms = (time.monotonic() - t0) * 1000.0 / len(batch)
         assert len(results) == len(batch), "Edax batch result count mismatch"
@@ -1074,10 +1088,13 @@ def label_position(
     position: dict,
     children_info: dict,
     exact_empties_threshold: int = EXACT_EMPTIES_THRESHOLD,
+    edax_exe: Path | None = None,
 ) -> dict:
     """Label one parent while retaining the legacy one-parent Edax process boundary."""
     return label_positions_across_parents(
-        [(index, position, children_info)], exact_empties_threshold=exact_empties_threshold
+        [(index, position, children_info)],
+        exact_empties_threshold=exact_empties_threshold,
+        edax_exe=edax_exe,
     )[0]
 
 
@@ -1501,7 +1518,10 @@ def _expanded1m_shard_paths(shard_index: int):
 
 
 def _expanded1m_settings_and_meta(
-    shard_index: int, plan_meta: dict, edax_parents_per_process: int | None = None
+    shard_index: int,
+    plan_meta: dict,
+    edax_parents_per_process: int | None = None,
+    edax_exe_name: str | None = None,
 ) -> tuple[dict, dict]:
     provenance = plan_meta["provenance"]
     incremental = provenance["incrementalGeneration"]
@@ -1546,6 +1566,11 @@ def _expanded1m_settings_and_meta(
     if edax_parents_per_process is not None:
         settings["edaxParentsPerProcess"] = edax_parents_per_process
         settings["elapsedMsPolicy"] = "cross-parent-level-batch-averaged"
+    if edax_exe_name is not None:
+        # T127j: v3バイナリ乗り換え。`edaxSha256`(SHAゲート対象)はあくまで
+        # `vs_edax.EDAX_EXE`(既定バイナリ、変更なし)を指し続けるため、実際に
+        # 呼び出すバイナリのハッシュは別キー`edaxExeSha256`に記録する。
+        settings["edaxExe"] = edax_exe_name
     meta = {
         "gitCommit": vs_edax.git_commit_hash(),
         "harnessSha256": current_execution_sha["generatorSha256"],
@@ -1559,6 +1584,8 @@ def _expanded1m_settings_and_meta(
         "incrementalGeneration": incremental,
         "generatedAt": datetime.now(timezone.utc).isoformat(timespec="seconds"),
     }
+    if edax_exe_name is not None:
+        meta["edaxExeSha256"] = sha256_of_file(vs_edax.EDAX_DIR / edax_exe_name)
     return settings, meta
 
 
@@ -1615,12 +1642,18 @@ def import_expanded1m_base_shard(
 
 
 def checkpoint_expanded1m_parent_bundle(
-    parents: list[tuple[int, dict, dict]], checkpoint: TeacherCorpusCheckpoint
+    parents: list[tuple[int, dict, dict]],
+    checkpoint: TeacherCorpusCheckpoint,
+    edax_exe: Path | None = None,
 ) -> bool:
-    """Solve one cross-parent bundle, falling back before any checkpoint append."""
+    """Solve one cross-parent bundle, falling back before any checkpoint append.
+
+    `edax_exe`(T127j)は未指定(None)なら従来どおりのEdaxバイナリを使う。
+    バッチ経路・フォールバック経路のどちらでも同じバイナリで解く。
+    """
     fell_back = False
     try:
-        records = label_positions_across_parents(parents, exact_empties_threshold=20)
+        records = label_positions_across_parents(parents, exact_empties_threshold=20, edax_exe=edax_exe)
     except Exception as exc:  # noqa: BLE001
         fell_back = True
         position_ids = [position_id for position_id, _, _ in parents]
@@ -1629,7 +1662,9 @@ def checkpoint_expanded1m_parent_bundle(
             "falling back to one Edax execution per parent"
         )
         records = [
-            label_position(position_id, position, children_info, exact_empties_threshold=20)
+            label_position(
+                position_id, position, children_info, exact_empties_threshold=20, edax_exe=edax_exe
+            )
             for position_id, position, children_info in parents
         ]
     for record in records:
@@ -1663,9 +1698,11 @@ def generate_expanded1m_shard(shard_index: int) -> None:
     if reused_ids != list(range(shard_index, EXPANDED1M_BASE_COUNT, EXPANDED1M_NUM_SHARDS)):
         raise RuntimeError(f"expanded1m shard {shard_index} reuse IDs are not the required stripe")
 
+    edax_exe_name = CORPUS_SETS["expanded1m"].get("edaxExe")
     settings, meta = _expanded1m_settings_and_meta(
-        shard_index, plan_meta, CORPUS_SETS["expanded1m"]["edaxParentsPerProcess"]
+        shard_index, plan_meta, CORPUS_SETS["expanded1m"]["edaxParentsPerProcess"], edax_exe_name
     )
+    edax_exe_path = (vs_edax.EDAX_DIR / edax_exe_name) if edax_exe_name is not None else None
     run_key = json.dumps(settings, sort_keys=True)
     if not jsonl_path.exists() and not meta_path.exists():
         import_expanded1m_base_shard(shard_index, jsonl_path, meta_path, run_key, settings, meta)
@@ -1702,7 +1739,7 @@ def generate_expanded1m_shard(shard_index: int) -> None:
         ]
         for bundle_start in range(0, len(parents_with_children), parent_bundle_size):
             bundle = parents_with_children[bundle_start : bundle_start + parent_bundle_size]
-            checkpoint_expanded1m_parent_bundle(bundle, checkpoint)
+            checkpoint_expanded1m_parent_bundle(bundle, checkpoint, edax_exe=edax_exe_path)
             progress_i += len(bundle)
             checkpoint.write_progress(125_000)
             print(

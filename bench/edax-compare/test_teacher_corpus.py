@@ -1008,5 +1008,151 @@ class VsEdaxSolveBatchCommandTests(unittest.TestCase):
         self.assertEqual(override_command[3:], default_command[3:])
 
 
+class T127jEdaxExeSwitchTests(unittest.TestCase):
+    """T127j: v3バイナリ乗り換え準備で`label_position`系/`_expanded1m_settings_and_meta`
+    に追加した`edax_exe`引数の配線を検証する(実際のEdax起動・plan/checkpointの
+    読み書きは一切行わない)。低レベルの`_edax_solve_batch`のコマンド列自体は
+    T127iの`VsEdaxSolveBatchCommandTests`で既に固定済み。"""
+
+    def test_edax_solve_batch_forwards_edax_exe_to_low_level_call(self) -> None:
+        captured: dict = {}
+
+        def fake_low_level(positions, level, n_tasks=None, edax_hash_bits=None, edax_exe=None):
+            captured["edax_exe"] = edax_exe
+            captured["n_tasks"] = n_tasks
+            return [{"depth": 1, "discDiff": 0.0, "move": "a1"}]
+
+        override = Path("C:/fake/wEdax-x86-64-v3.exe")
+        with mock.patch.object(gen.vs_edax, "_edax_solve_batch", side_effect=fake_low_level):
+            gen.vs_edax.edax_solve_batch(
+                [{"board": "-" * 64, "sideToMove": "black"}], 16, edax_exe=override
+            )
+        self.assertEqual(captured["edax_exe"], override)
+        self.assertEqual(captured["n_tasks"], gen.vs_edax.EDAX_BATCH_TASKS)
+
+    def test_edax_solve_batch_unspecified_edax_exe_forwards_none(self) -> None:
+        captured: dict = {}
+
+        def fake_low_level(positions, level, n_tasks=None, edax_hash_bits=None, edax_exe=None):
+            captured["edax_exe"] = edax_exe
+            return [{"depth": 1, "discDiff": 0.0, "move": "a1"}]
+
+        with mock.patch.object(gen.vs_edax, "_edax_solve_batch", side_effect=fake_low_level):
+            gen.vs_edax.edax_solve_batch([{"board": "-" * 64, "sideToMove": "black"}], 16)
+        self.assertIsNone(captured["edax_exe"])
+
+    @staticmethod
+    def _one_parent_bundle() -> tuple[dict, dict]:
+        board = "---------------------------OX------XO---------------------------"
+        position = {"board": board, "sideToMove": "black", "source": "wthor"}
+        children_info = {
+            "empties": 22,
+            "moves": [
+                {
+                    "move": "a1",
+                    "childBoard": "A" * 64,
+                    "childSideToMove": "white",
+                    "childEmpties": 21,
+                    "childIsTerminal": False,
+                },
+            ],
+        }
+        return position, children_info
+
+    def test_label_position_omits_edax_exe_kwarg_when_unspecified(self) -> None:
+        """未指定時は`vs_edax.edax_solve_batch`へ`edax_exe`キーワード自体を渡さない。
+        渡っていれば下の固定シグネチャ`solve_batch(positions, level)`はTypeErrorで
+        失敗するはずなので、完走すること自体が証拠になる(既存コーパス生成経路
+        =primary/smoke/expanded200kのコマンド列不変性の裏付け)。"""
+        position, children_info = self._one_parent_bundle()
+
+        def solve_batch(positions: list[dict], level: int) -> list[dict]:
+            return [{"depth": 21, "discDiff": 1.0, "move": "a1"}]
+
+        with mock.patch.object(gen.vs_edax, "edax_solve_batch", side_effect=solve_batch):
+            gen.label_position(0, position, children_info, exact_empties_threshold=20)
+
+    def test_label_position_passes_edax_exe_when_specified(self) -> None:
+        position, children_info = self._one_parent_bundle()
+        captured: dict = {}
+        override = Path("C:/fake/wEdax-x86-64-v3.exe")
+
+        def solve_batch(positions: list[dict], level: int, edax_exe=None) -> list[dict]:
+            captured["edax_exe"] = edax_exe
+            return [{"depth": 21, "discDiff": 1.0, "move": "a1"}]
+
+        with mock.patch.object(gen.vs_edax, "edax_solve_batch", side_effect=solve_batch):
+            gen.label_position(0, position, children_info, exact_empties_threshold=20, edax_exe=override)
+        self.assertEqual(captured["edax_exe"], override)
+
+    def test_checkpoint_bundle_forwards_edax_exe_to_batch_path(self) -> None:
+        parents = [(7, {"positionId": 7}, {}), (15, {"positionId": 15}, {})]
+        records = [{"positionId": 7}, {"positionId": 15}]
+        checkpoint = mock.Mock()
+        override = Path("C:/fake/wEdax-x86-64-v3.exe")
+        with mock.patch.object(gen, "label_positions_across_parents", return_value=records) as batch_call:
+            fell_back = gen.checkpoint_expanded1m_parent_bundle(parents, checkpoint, edax_exe=override)
+        self.assertFalse(fell_back)
+        self.assertEqual(batch_call.call_args.kwargs.get("edax_exe"), override)
+
+    def test_checkpoint_bundle_forwards_edax_exe_to_fallback_path(self) -> None:
+        parents = [(7, {"positionId": 7}, {}), (15, {"positionId": 15}, {})]
+        records = [{"positionId": 7}, {"positionId": 15}]
+        checkpoint = mock.Mock()
+        override = Path("C:/fake/wEdax-x86-64-v3.exe")
+        with mock.patch.object(gen, "label_positions_across_parents", side_effect=RuntimeError("batch failed")):
+            with mock.patch.object(gen, "label_position", side_effect=records) as individual:
+                fell_back = gen.checkpoint_expanded1m_parent_bundle(parents, checkpoint, edax_exe=override)
+        self.assertTrue(fell_back)
+        for call in individual.call_args_list:
+            self.assertEqual(call.kwargs.get("edax_exe"), override)
+
+    @staticmethod
+    def _legacy_plan_meta() -> dict:
+        return {
+            "selectionStats": {},
+            "selectionPlanSha256": "master",
+            "shardPlanSha256": [f"shard-{i}" for i in range(8)],
+            "provenance": {
+                "baseCorpus": {},
+                "incrementalGeneration": {
+                    "generatorSha256": "current",
+                    "teacherCandidatesToolSha256": "current",
+                    "edaxSha256": "current",
+                    "edaxEvalDataSha256": "current",
+                    "candidatePoolSha256": "pool",
+                },
+            },
+        }
+
+    def test_expanded1m_settings_and_meta_records_edax_exe_when_specified(self) -> None:
+        plan_meta = self._legacy_plan_meta()
+        with mock.patch.object(gen.vs_edax, "git_commit_hash", return_value="head"):
+            with mock.patch.object(gen, "sha256_of_file", return_value="current"):
+                settings, meta = gen._expanded1m_settings_and_meta(
+                    0, plan_meta, edax_parents_per_process=32, edax_exe_name="wEdax-x86-64-v3.exe"
+                )
+        self.assertEqual(settings["edaxExe"], "wEdax-x86-64-v3.exe")
+        self.assertEqual(meta["edaxExeSha256"], "current")
+        # SHAゲート対象の`edaxSha256`はあくまで既定バイナリ(`vs_edax.EDAX_EXE`)を
+        # 指し続け、`edaxExe`設定の有無で変わらない。
+        self.assertEqual(meta["edaxSha256"], "current")
+
+    def test_expanded1m_settings_and_meta_omits_edax_exe_when_unspecified(self) -> None:
+        plan_meta = self._legacy_plan_meta()
+        with mock.patch.object(gen.vs_edax, "git_commit_hash", return_value="head"):
+            with mock.patch.object(gen, "sha256_of_file", return_value="current"):
+                settings, meta = gen._expanded1m_settings_and_meta(0, plan_meta)
+        self.assertNotIn("edaxExe", settings)
+        self.assertNotIn("edaxExeSha256", meta)
+
+    def test_corpus_sets_expanded1m_edax_exe_points_at_existing_v3_binary(self) -> None:
+        """CORPUS_SETSの設定値自体(T127j乗り換え準備の本体)を固定する。バイナリ
+        実体の存在確認のみ行い、Edaxは起動しない。"""
+        edax_exe_name = gen.CORPUS_SETS["expanded1m"]["edaxExe"]
+        self.assertEqual(edax_exe_name, "wEdax-x86-64-v3.exe")
+        self.assertTrue((gen.vs_edax.EDAX_DIR / edax_exe_name).exists())
+
+
 if __name__ == "__main__":
     unittest.main()

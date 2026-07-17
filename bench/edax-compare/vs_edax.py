@@ -584,13 +584,17 @@ def _edax_solve_batch(
     return _parse_edax_batch_output(result.stdout, positions, level, result.returncode, result.stderr)
 
 
-def edax_solve_batch(positions: list[dict], level: int) -> list[dict]:
+def edax_solve_batch(positions: list[dict], level: int, edax_exe: Path | None = None) -> list[dict]:
     """教師コーパス用の決定的な1タスク・複数局面バッチ。
 
     Edaxの既定マルチタスク探索は並列負荷下でlevel16の値が揺れるため、外側で
     シャード並列化する教師生成では`-n 1`に固定して再実行間の決定性を保証する。
+
+    `edax_exe`は未指定(None)なら従来どおり`EDAX_EXE`(ベースラインバイナリ)を
+    使う(T127j: v3バイナリ乗り換え向けの加算引数、`_edax_solve_batch`の
+    `edax_exe`をそのまま素通しするだけで他の挙動は変えない)。
     """
-    return _edax_solve_batch(positions, level, n_tasks=EDAX_BATCH_TASKS)
+    return _edax_solve_batch(positions, level, n_tasks=EDAX_BATCH_TASKS, edax_exe=edax_exe)
 
 
 def edax_solve(board: str, side_to_move: str, level: int) -> dict:
