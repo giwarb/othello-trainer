@@ -67,3 +67,29 @@ attempts: 0
 ## フィードバック(やり直し時にオーケストレーターが記入)
 
 ## 作業ログ(担当エージェントが追記)
+
+### 2026-07-17 10:23 JST Codex実装・正式計測
+
+- 実装: `endgame_bench.py`の速度系列を無制限/160kの独立checkpoint sectionへ分離し、両方でwarmup 1回・順序交互3反復・局面中央値・幾何平均/中央値/p90を集計するよう最小拡張した。`vs_edax.py`へquota、空き20以下のT116無制限切替、TT容量を追加し、run keyと各手テレメトリへ記録した。`openings.json`内容SHA-256は既存実装ですでにrun keyへ含まれていたため維持した。engine/appは変更していない。
+- 長時間実行設計: C1/C2/C3/速度は1 jobごと、対局は1局ごとにatomic保存。C2の再実行で540/540 skip、正式対局の再実行で60/60 skipを確認。FFO無制限、速度2系列、対局は別checkpoint/sectionで新旧混入を防止した。生成checkpoint/集計JSONは既存`.gitignore`対象。
+- 事前見積もり: T116の空き20以下で1手数秒、旧無制限速度最重局面約34分を根拠に、60局は数十分〜数時間、無制限速度3反復は約40分と見積もった。実測は正式対局コマンド704.5秒（freshness build/PV sanity/決定性込み）、無制限速度3反復2348.8秒。FFO #45〜49は25.4〜514.8秒/問だった。
+- C2壁時計（空き20〜24、34局面、64MiB TT）: 無制限は幾何平均19.165672倍、中央値17.785699倍、p90 47.570238倍、102/102完走。5倍/2倍ラインとも未達。160k参考は幾何平均0.042896倍、中央値0.039906倍、p90 0.151323倍だが0/102完走なので予算打ち切り時間の参考値のみ。
+- C1: FFO #40〜49を全問full-window完走、正解一致。壁時計は#40から順に2.912, 7.472, 9.176, 25.195, 14.723, 134.770, 72.248, 25.409, 353.086, 514.784秒。
+- C2予算/E50参考: 540/540 job完了。160kはfail-high 1/60、fail-low 0/60、full 0/60。E50_exact(160k)=None、E50_bound(64k)=None（いずれも空き18未満）。裁定どおりゲートには不使用。
+- C3: 48/48完了、平均oracle regret 1.5208、決定性48/48、wall保険0/48。
+- 対Edax level10正式60局（TT64MiB）: 4勝54敗2分、平均石差-21.85。シリーズ開始時-37.2比+15.35、T089a後-25.6比+3.75（過去はquota40%・T116なしのため参考）。budgeted 890手、空き20以下unlimited-exact 556手で後者556/556完走、最長18.513秒。run key SHA-256=`cbb35f4e5b85fbff3ab11f6cf1d0d4fb65bec2af1683511c90a66cb1a29c98c4`。
+- 決定性: C3 48/48、fixed-depth 40/40、node-budget smoke 10/10で同一入力2回一致。
+- 環境/provenance: ベースHEAD `f6c4910a72c1baa949ac0d76136f4bb28521c364`、eval_cli SHA-256=`cd30961a8ed1d86235d1fe12334d851fd9ba105a7e8a10f9cc52129c4869d9cf`。自分の重い計測を並走させず1 taskで実行。正式計測はC1/C2/C3/速度/対局すべて64MiB TT。
+- 実行コマンドと結果:
+  - `cargo build --release -p engine --bin eval_cli` → 成功/fresh。
+  - `python bench/edax-compare/endgame_bench.py run --suite c2 ...` → 540/540、再実行all skip。
+  - `python bench/edax-compare/endgame_bench.py run --suite c3 ...` → 48/48。
+  - `python bench/edax-compare/endgame_bench.py run --suite speed-160k --repetitions 3 ...` → 204/204 records。
+  - `python bench/edax-compare/endgame_bench.py run --suite speed-unlimited --repetitions 3 ...` → 204/204 records。
+  - `python bench/edax-compare/endgame_bench.py run --suite c1 --heavy-cap 10000000000000 ...` → 10/10完走・正解。
+  - `python bench/edax-compare/vs_edax.py --opening-set primary --engine-modes single-root --levels 10 --engine-depth 12 --engine-exact-from-empties 16 --engine-time-ms 1500 --engine-max-nodes 160000 --engine-exact-quota-percent 60 --unlimited-exact-empties 20 --engine-tt-mb 64 --skip-loss-analysis ... --allow-dirty` → 60/60完走、再実行60/60 resume skip。
+  - `python -m unittest bench/edax-compare/test_endgame_bench.py` → 7 tests OK。
+  - `python bench/edax-compare/vs_edax.py --self-test-checkpoint` → provenance mismatch拒否/atomic中断耐性ともPASSED。
+  - `python -m py_compile ...`、T108生データ機械assert、UTF-8レポートassert、`git diff --check` → PASSED。日本語リテラルをPowerShell here-string経由で渡した最初のレポート文字列assertだけシェル側文字コード変換で偽失敗し、ASCIIトークン+`Select-String -Encoding UTF8`で再検証して合格。
+- 成果物: `bench/edax-compare/endgame-results/t108-report.md`。既存`.gitignore`対象なのでコミット時は`git add -f`が必要。
+- コミットハッシュ: Codex環境は`.git`書き込み禁止のため未作成。オーケストレーターが対象3ファイルを`(T108)`でコミットすること。
