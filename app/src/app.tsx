@@ -288,7 +288,7 @@ function PlayMode() {
   const [editorSideToMove, setEditorSideToMove] = useState<Side>('black')
   // エンジンWorkerはアプリ全体で1つのインスタンスを共有する(T054)。
   // モードコンポーネントをまたいで使い回すことで、モード切替のたびに
-  // WASM再初期化・pattern_v2.binの再fetchが発生するコールドスタートを避ける。
+  // WASM再初期化・本番パターン重みの再fetchが発生するコールドスタートを避ける。
   function getEngine(): EngineClient {
     return getSharedEngineClient()
   }

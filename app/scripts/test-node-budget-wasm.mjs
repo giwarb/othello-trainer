@@ -3,7 +3,7 @@ import { Engine, initSync } from '../src/engine/pkg/engine.js'
 
 const wasm = await readFile(new URL('../src/engine/pkg/engine_bg.wasm', import.meta.url))
 initSync({ module: wasm })
-const weights = await readFile(new URL('../public/pattern_v2.bin', import.meta.url))
+const weights = await readFile(new URL('../public/pattern_v3.bin', import.meta.url))
 
 const request = JSON.stringify({
   id: 1,

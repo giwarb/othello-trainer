@@ -6,7 +6,7 @@
  * 言語化トレーニング)がそれぞれ独自に`engineRef`を持ち、マウント時に
  * `new EngineClient()`(＝新規Web Worker)を生成し、アンマウント時に
  * `terminate()`で破棄していた。新しいWorkerは`init()`(wasm-bindgen初期化)→
- * `new Engine()`→`pattern_v2.bin`(約2.7MB)のfetch+パースをゼロからやり直す
+ * `new Engine()`→本番パターン重みのfetch+パースをゼロからやり直す
  * 必要があり、モードタブを切り替えるたびにこのコールドスタート(数百ms〜数秒)が
  * 発生して、ユーザーには「評価値が最初に表示されない」ように見えていた
  * (詳細はtasks/T054-shared-engine-worker.md参照)。

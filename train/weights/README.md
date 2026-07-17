@@ -1,10 +1,13 @@
-# `pattern_v1.bin` / `pattern_v2.bin` / PWV3 フォーマット仕様
+# `pattern_v1.bin` / `pattern_v2.bin` / `pattern_v3.bin` フォーマット仕様
 
 T041で生成した、パターン評価(v1、22パターン、インスタンスごとに独立した
 重み=重み共有なし)の学習済み重みファイルが`pattern_v1.bin`。T044で
 対称変換による重み共有を導入したものが`pattern_v2.bin`(現行の学習出力、
 `train/src/bin/train_patterns.rs`が生成するのはこちら)。`pattern_v1.bin`は
 比較用にそのまま残しており、削除・上書きはしていない。
+
+T122で本番採用したv3×WTHOR重みが`pattern_v3.bin`(PWV3形式)。比較・即時の
+切り戻し用として`pattern_v2.bin`も引き続き残している。
 
 バイナリの入出力ロジック自体はT043で`engine::pattern_eval::PatternWeights::to_bytes`
 / `from_bytes`に一本化した(`train::regression::Model::to_bytes`/`from_bytes`は

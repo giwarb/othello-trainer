@@ -58,15 +58,15 @@ function defaultIndexedDb(): IDBFactory {
  * 変更のため、ユーザーのブラウザに残っている異常値入りの古いキャッシュを
  * 無効化する必要があり、バージョンを1つ上げる(1 -> 2)。
  *
- * T107: `engine/src/search.rs`の`EXACT_QUOTA_PERCENT`をexactポリシー
- * 再校正により40%から60%へ変更した。この定数は`exactFromEmpties`/
- * `maxNodes`と異なり`AnalyzeLimit`(→`analysisLimitTag()`)に露出しておらず、
- * 上記タグだけではキャッシュキーが変わらない。quota変更は同じ局面・同じ
- * `limit`でもexact完全読みに回るノード配分が変わり得るため、着手・評価値が
- * 変わりうる。ユーザーのブラウザに残っている40%時代のキャッシュを
- * 無効化する必要があり、バージョンを1つ上げる(2 -> 3)。
+ * T107ではexactポリシー再校正に合わせて2から3へ上げた。ただし棋譜解析は
+ * `allMoves: true`かつ`maxNodes`なしの経路であり、node budgetを分配するquotaは
+ * 適用されないため、quota変更を解析キャッシュ無効化の根拠とした説明は正確で
+ * なかった(バージョン3という履歴上の値自体はそのまま維持する)。
+ *
+ * T122: 本番パターン重みをv2からv3へ切り替え、同一局面・同一探索条件でも
+ * 評価値が変わるため、古い解析結果を無効化する(3 -> 4)。
  */
-export const ANALYSIS_ENGINE_VERSION = 3
+export const ANALYSIS_ENGINE_VERSION = 4
 
 /** 探索条件をキャッシュキー用の安定したタグへ変換する。 */
 export function analysisLimitTag(limit: AnalyzeLimit): string {
