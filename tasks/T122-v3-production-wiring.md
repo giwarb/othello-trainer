@@ -51,6 +51,12 @@ T121で最終審査に合格した **v3×WTHOR重み**(`train/data/t087/v3-seed-
 
 ## フィードバック(やり直し時にオーケストレーターが記入)
 
+### 2026-07-17 オーケストレーター注記: codex-reviewブロッカーの解消(verifier実機確認完了)
+
+codex-review(初回)の唯一の重大指摘「Pages実機確認とActions成功確認が未完了」は、verifierが独立実施し**全項目合格**で解消済み: Actions両run success(29550780147/29550780149)、Pagesで対局CPU強・評価バー・候補手評価・詰めオセロ・棋譜解析の実機動作、pattern_v3.bin fetch 200(解凍後5,964,708 bytes一致)、コンソールエラー0、3配置のSHA-256完全一致、git statusクリーン。証跡スクリーンショットはverifierレポート参照。
+
+中・軽微指摘の扱い(申し送り): (中)worker.tsのロールバックコメントがANALYSIS_ENGINE_VERSION繰り上げに言及しておらず、コメントだけ見て戻すと解析キャッシュ混在を招く / (軽微)train/weights/README.mdに旧説明の残存 — いずれも挙動に影響しないため、次にworker.ts/READMEを触るタスクで修正(STATUS申し送りに記録)。
+
 ## 作業ログ(担当エージェントが追記)
 
 ### 2026-07-17 11:46 JST — Codex実装ワーカー
