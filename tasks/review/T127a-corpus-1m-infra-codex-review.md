@@ -1,94 +1,72 @@
 # 最終レビューレポート — T127a
 
-## (a) 重大（done を止めるブロッカー）
+対象: `git diff 41bcee7..d0f68da` / `git log 41bcee7..d0f68da`
 
-### 1. expanded1m の resume 時に、実行環境の SHA が検証されない
-
-[gen_teacher_corpus.py](C:/Users/yoshi/work/othello-trainer/bench/edax-compare/gen_teacher_corpus.py:1493) の `_expanded1m_settings_and_meta()` は、generator、`teacher_candidates.exe`、Edax、eval.dat の SHA を現在のファイルから再計算せず、selection plan meta に保存された値をそのまま現在値として checkpoint に渡しています。
-
-具体的には以下です。
-
-- `harnessSha256 = incremental["generatorSha256"]`
-- `teacherCandidatesToolSha256 = incremental["teacherCandidatesToolSha256"]`
-- `edaxSha256 = incremental["edaxSha256"]`
-- `edaxEvalDataSha256 = incremental["edaxEvalDataSha256"]`
-
-一方、実際の children 計算と Edax ラベル生成は現在の実行ファイルを使用します。[generate_expanded1m_shard()](C:/Users/yoshi/work/othello-trainer/bench/edax-compare/gen_teacher_corpus.py:1586) も shard plan の SHA しか検証しておらず、上記実行物の現在 SHA を検証していません。
-
-そのため、selection plan 確定後または生成途中に次のいずれかが変更されても resume が拒否されません。
-
-- `gen_teacher_corpus.py`
-- `teacher_candidates.exe`
-- Edax executable
-- eval.dat
-
-既存 checkpoint と今回構築する「current meta」の双方に古い保存 SHA が入るため、`TeacherCorpusCheckpoint.try_resume()` の provenance identity 比較は一致してしまいます。結果として、異なる generator/tool/Edax によるレコードが同じコーパスへ混在し、meta には古い SHA が記録され続けます。
-
-これは規範設計の以下に直接反します。
-
-- generator/candidate tool/Edax/eval の SHA を provenance と run identity に含める
-- 生成期間中の生成コード・実行バイナリを凍結する
-- provenance 不一致時は厳格に resume を拒否する
-- 約41時間の生成を安全に中断・resumeできること
-
-T127b 本番生成を開始する前に、worker 起動時ごとに現在の generator、teacher tool、Edax、eval.dat の SHA を再計算し、selection plan provenance と照合して不一致なら即時停止させる必要があります。resume の identity に渡す値も保存値ではなく現在の実測値にすべきです。この経路を検証する回帰テストも必要です。
-
-## (b) 中（次タスクで対応すべき）
-
-### 1. K=1互換性と expanded1m 選定の主要制約が自動テストで固定されていない
-
-実装ログには、K=1候補340,531件と既存候補JSONの SHA 完全一致という有力な手動検証があります。しかしコミットされたテストには、次を直接検証するものがありません。
-
-- `--per-bin-cap=1`で従来の乱数消費順と候補列が不変
-- base の phase/XC/opening カウントを含む最終union制約
-- 成功ケースでのwaterfall配分
-- opening capとX/C 50%の同時充足
-- incrementalとbase/oracleのcanonicalKey非重複
-
-追加テストは設定値の確認と空候補でのtarget未達確認が中心で、選定アルゴリズムの正しさを固定できていません。[test_teacher_corpus.py](C:/Users/yoshi/work/othello-trainer/bench/edax-compare/test_teacher_corpus.py:579)
-
-現在の実測結果自体は仕様を満たしていますが、「K=1回帰テストで固定」という受け入れ条件と将来の回帰防止の観点では不足しています。
-
-### 2. expanded1m verifier が固定された1M/base provenanceを独立に検証していない
-
-[verify_teacher_corpus.py](C:/Users/yoshi/work/othello-trainer/bench/edax-compare/verify_teacher_corpus.py:141) はストリーミング化され、prefix の行単位一致も検査しますが、以下をmetaから信頼しています。
-
-- `progress.total`
-- base corpus の期待SHA
-- `baseCorpus` / `incrementalGeneration`の内容
-
-`expanded1m`で総数が必ず1,000,000件であること、base が必ず200,000件で既知の固定SHAであること、selection plan SHAなどのprovenance値が実ファイルと一致することは検証していません。現状は二層provenanceがdictであるかを見るだけです。
-
-T127cで独立検証を拡張する予定ではありますが、T127aの「base 200k prefixの完全一致検証（SHA）とprovenance 2層」の verifier としては検証が弱いため、T127b生成前または遅くともT127cで固定値・実ファイルとの照合を追加すべきです。
-
-### 3. children バッチの返却件数不足を即時検出しない
-
-expanded1m worker は次の処理をしています。
-
-```python
-children_batch = run_children_batch(positions_batch)
-for position, children_info in zip(positions_batch, children_batch):
-```
-
-通常経路にある件数一致 assertion が expanded1m 経路にはありません。[gen_teacher_corpus.py](C:/Users/yoshi/work/othello-trainer/bench/edax-compare/gen_teacher_corpus.py:1636)
-
-children tool が異常終了せず短い配列を返した場合、該当局面は未処理のまま後続バッチへ進み、約41時間後のmerge件数検査まで失敗が判明しない可能性があります。長時間処理の安全性のため、各256件バッチ直後に入力件数との完全一致を検査して即時停止すべきです。
-
-## (c) 軽微（記録のみ）
+## (a) 重大（doneを止めるブロッカー）
 
 該当なし。
 
-## テスト・差分確認
+redo #1の主要ブロッカーだった実行環境SHA検証は修正されています。[gen_teacher_corpus.py](C:/Users/yoshi/work/othello-trainer/bench/edax-compare/gen_teacher_corpus.py:1493)でgenerator、`teacher_candidates.exe`、Edax、eval.datのSHAを実ファイルから再計算し、selection plan記録値との不一致を生成・resume前に拒否しています。
 
-- 対象コミットは `c574b0e` の1件で、変更対象は仕様どおり4ファイルです。
-- `git status --short`は空で、当該タスク由来の未コミット差分・未追跡はありません。
-- `git diff --check 41bcee7..c574b0e`は成功しました。
-- レビュー環境で `python -B bench/edax-compare/test_teacher_corpus.py` を試行しましたが、read-only sandboxによりPythonが一時ディレクトリを作成できず、27件中tempfileを使う16件が環境要因で実行不能でした。コード由来のassert失敗は確認されていません。作業ログ記載の実装時テスト成功結果とは矛盾しません。
+childrenバッチの返却件数も、`zip()`処理前に一致確認されるため、サイレントなレコード欠落は防止されています。
+
+## (b) 中（次タスクで対応すべき）
+
+### 1. redoで必須指定されたK=1の「SHA一致」自動テストが実装されていない
+
+[teacher_candidates.rs](C:/Users/yoshi/work/othello-trainer/train/src/bin/teacher_candidates.rs:525)に追加されたテストが検証するのは、`wanted=1`における乱数呼び出し結果と次のRNG状態だけです。
+
+以下は自動テストされていません。
+
+- 合成WTHOR入力に対して`extract --per-bin-cap 1`を実行すること
+- 既定値省略時と明示的なK=1の出力が一致すること
+- 従来形式のJSONに余分なフィールドが追加されないこと
+- 候補順、JSONシリアライズを含む最終出力SHAが固定値と一致すること
+
+したがって、JSONフィールド、候補順、CLI既定値、シリアライズ形式が将来変化しても、現在のRust単体テストは通過します。
+
+作業ログには実データによるSHA一致が記録されていますが、redo #1は明示的に「K=1互換（SHA一致）を外部実データに依存しない合成fixtureの自動テストで固定」と要求しています。この必須項目は未達です。
+
+### 2. 合成選定テストがwaterfallの具体的なbin配分を固定していない
+
+[test_teacher_corpus.py](C:/Users/yoshi/work/othello-trainer/bench/edax-compare/test_teacher_corpus.py:662)の合成選定テストは、最終件数、XC quota、opening cap、重複・base・oracle除外を確認していますが、`finalBinAllocation`と`incrementalBinAllocation`の具体的な期待配列を検証していません。確認しているのは各配列の合計だけです。
+
+このため、waterfall配分アルゴリズムが別の配分へ回帰しても、件数とquotaが成立する限りテストが通る可能性があります。redo #1で必須指定された「bin配分の自動テスト固定」としては不足しています。
+
+## (c) 軽微（記録のみ）
+
+### 1. コミット範囲全体の`git diff --check`が失敗する
+
+`git diff --check 41bcee7..d0f68da`は、[T127a-corpus-1m-infra.md](C:/Users/yoshi/work/othello-trainer/tasks/T127a-corpus-1m-infra.md:4)の追加行に対して多数のtrailing whitespaceを報告します。実装4ファイルだけに限定した`git diff --check`は成功します。
+
+実行時コードへの影響はありませんが、作業ログの「`git diff --check`: PASS」はレビュー対象範囲全体には当てはまりません。
+
+### 2. verifier強化は妥当
+
+[verify_teacher_corpus.py](C:/Users/yoshi/work/othello-trainer/bench/edax-compare/verify_teacher_corpus.py:87)では次をmanifestの自己申告だけに依存せず検証しています。
+
+- 固定1,000,000件とreuse 200,000件
+- expanded200k本体・manifestの固定SHA
+- 先頭200,000件のバイト一致とprefix SHA
+- candidate pool、master plan、8 shard plan、generator、tool、Edax、eval、oracleの実ファイルSHA
+- `baseCorpus` / `incrementalGeneration`の2層provenance
+
+この修正に新たな正しさ上の問題は確認できませんでした。
+
+### 3. streaming処理は設計に沿っている
+
+mergeはpositionId順のk-way streaming merge、テンポラリファイルへのfsync後のatomic replaceとなっています。verifierも500件単位で処理し、全レコードを保持しません。シャードはmerge後も削除されません。
+
+`git status --short`は空でした。
+
+なお、read-onlyレビュー環境のためテストスイートは再実行せず、作業ログ記載の結果とコード・テスト内容を照合しました。
 
 ## (d) 総合判定
 
 **不合格**
 
-K=4抽出、base 200k包含、親でのselection plan確定、最終unionに対するwaterfall/XC/opening選定、ストリーミングmerge/verifier、probe実測など、主要設計は概ね正しく実装されています。
+redo #1の実行環境SHAブロッカー、children件数検査、verifier独立検証は適切に修正されています。K=4選定、base包含、2層provenance、selection plan、streaming merge/verifierの主要実装にも新たなブロッカーは確認できません。
 
-しかし、expanded1m workerが現在のgenerator/tool/Edax/eval SHAを検証せず、保存済みSHAを現在値としてresume判定へ渡す問題は、本番の長時間生成で異なる生成物を混在させ、provenanceまで誤表示し得ます。T127aの中核である安全な本番生成基盤を損なうため、doneおよびT127b開始を止めるブロッカーです。
+しかし、redo #1で必須指定された自動回帰テストのうち、K=1の出力SHA一致とwaterfallの具体的bin配分が固定されていません。手動probeと実データSHA確認だけでは、要求された将来の回帰防止を満たしません。
+
+合成fixtureによるK=1 extract出力の固定SHAテストと、合成選定fixtureに対するbin配分の期待配列assertを追加したうえで、再レビューが必要です。
