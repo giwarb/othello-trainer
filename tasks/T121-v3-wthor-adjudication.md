@@ -1,7 +1,7 @@
 ---
 id: T121
 title: v3×WTHOR候補の最終審査(対Edax対局による採否判定材料の確定)
-status: in_progress # todo | in_progress | review | redo | done | blocked
+status: done # todo | in_progress | review | redo | done | blocked
 assignee: Codex gpt-5.6-sol(codex-task)
 attempts: 0
 ---
