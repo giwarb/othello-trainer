@@ -6,7 +6,7 @@
 
 ## 現在地
 
-**【2026-07-18朝】** **expanded1m生成が進行中: 約49万/100万(49%)、8シャード健全、重い帯(空き20-29 incremental)で減速中。ETA 7/19夜〜7/20朝**(PID 21948、warm 32親束、ログlogs/t127b-gen2.log)。停止時のresume: `python bench/edax-compare/gen_teacher_corpus.py expanded1m --num-shards 8 --skip-extract --reuse-selection-plan`(Start-Process detached)。ユーザー要望「まだ速くしたい」→T127i A/B完了: **v3バイナリ(AVX2)は値全帯全件一致・残件加重1.152倍(約3.2h短縮)で採用基準クリア、-n 2はlevel16値不一致で不採用**。T127jで乗り換え準備を委譲中、完了次第オーケストレーターが停止→meta移行→plan再生成→再開(T127h方式、レコード全保持)。完走後: T127c検証→T127d学習(v4×1M)→T127e 4M判定。ユーザー裁定待ち: 終盤シリーズ完了扱いの確定(推奨=完了、Edax比19.17倍)。
+**【2026-07-18朝】** **expanded1m生成が進行中: 約49万/100万(49%)、8シャード健全、重い帯(空き20-29 incremental)で減速中。ETA 7/19夜〜7/20朝**(PID 21948、warm 32親束、ログlogs/t127b-gen2.log)。停止時のresume: `python bench/edax-compare/gen_teacher_corpus.py expanded1m --num-shards 8 --skip-extract --reuse-selection-plan`(Start-Process detached)。ユーザー要望「まだ速くしたい」→T127i A/Bで**v3バイナリ(AVX2)採用**(値全帯全件一致・残件加重1.152倍、-n 2はlevel16値不一致で不採用)→**T127jで7/18 07:1x乗り換え完了**(493,703件全保持でresume、plan SHA byte同一、wEdax-x86-64-v3×8稼働、ログlogs/t127b-gen3.log)。i+jのClaude代替レビュー委譲中。完走後: T127c検証→T127d学習(v4×1M)→T127e 4M判定。ユーザー裁定待ち: 終盤シリーズ完了扱いの確定(推奨=完了、Edax比19.17倍)。
 
 **エンジン強化を再開(2026-07-15 ユーザー指示)**: 方針は「大きい実験(200kコーパス・v3×蒸留)の前に、学習パイプラインのボトルネックを先に潰す」。explorer調査2本完了:
 - ①教師生成: 律速は**子局面ごとのEdaxプロセス起動42.3万回**(固定約164ms/回、8並列時は競合で実効2.3〜2.6倍に劣化)→ **T094(局面単位バッチ化)をCodexに委譲中**。
@@ -28,8 +28,8 @@
 |---|---|---|---|---|
 | T127b | expanded1m本番生成(新規80万件) | オーケストレーター管理 | in_progress(**7/17 21:3x 親またぎバッチ方式(32親/束)へ乗り換え成功、PID 21948**。292,679件を全件保持してresume。7/18 04:2x重い帯(空き20-29、incremental bin3)へ突入しペース3万→1万件/hに低下(構造的・異常なし)。**ETA再修正(7/18朝、重い帯の実測5k/h前後を反映): 完走7/19夜〜7/20朝**。当初41h推計は帯構成の平均を誤適用した楽観(bin3=空き20-29の incremental 割当が17.3万件と大きい)。ログlogs/t127b-gen2.log) | 0 |
 | T127c-e | 1M検証(+テスト固定2件FU)→v4学習(500k bridge+1M×3seed)→4M投資判定 | Codex gpt-5.6-sol | todo(生成完走後に順次) | 0 |
-| T127i | Edax v3バイナリ(AVX2)+`-n 2`の値一致+速度A/B | implementer(Sonnet) | review(計測完了 add579d: **v3=値全帯全件一致・残件加重1.152倍→採用**、-n2=level16で67件値不一致→不採用。最終レビューはT127j切替完了後にi+jまとめてClaude代替レビュー) | 0 |
-| T127j | v3バイナリ乗り換え準備(コード+meta移行+planランブック) | implementer(Sonnet) | in_progress(完了後にオーケストレーターが停止→migrate→plan再生成→再開を実施。レコード全保持) | 0 |
+| T127i | Edax v3バイナリ(AVX2)+`-n 2`の値一致+速度A/B | implementer(Sonnet) | review(計測完了 add579d: **v3=値全帯全件一致・残件加重1.152倍→採用**、-n2=level16で67件値不一致→不採用。i+jまとめてClaude代替レビュー中) | 0 |
+| T127j | v3バイナリ乗り換え準備+切替実施 | implementer(Sonnet)+オーケストレーター | review(d689dda、**切替完了7/18 07:1x**: 493,703件全保持・plan SHA byte同一・v3×8稼働。代替レビュー中) | 0 |
 
 ## 有効な方針・申し送り(今後のタスクに効くもの)
 
