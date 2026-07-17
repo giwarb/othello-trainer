@@ -26,7 +26,8 @@
 
 | ID | タスク | 担当 | 状態 | 試行 |
 |---|---|---|---|---|
-| T127b | expanded1m本番生成(新規80万件) | オーケストレーター管理 | in_progress(**7/17 16:4x起動、PID 24956**、base 200k取込済・8シャード稼働。ETA約41h=7/19朝昼。ログlogs/t127b-gen.log、進捗=シャードjsonl行数200k→1M。resumeは同一コマンド+--reuse-selection-plan、SHA照合で保護) | 0 |
+| T127b | expanded1m本番生成(新規80万件) | オーケストレーター管理 | in_progress(**7/17 21:3x 親またぎバッチ方式(32親/束)へ乗り換え成功、PID 21948**。292,679件を全件保持してresume、新ETA約25h=**7/18夜完走見込み**。ログlogs/t127b-gen2.log) | 0 |
+| T127h | 親またぎバッチ化への乗り換え | Sonnetフォールバック(F1=Codex/F2=Sonnet) | review(実装・migration・plan再生成・再起動まで完了。Claude代替レビュー実行中) | 0 |
 | T127c-e | 1M検証(+テスト固定2件FU)→v4学習(500k bridge+1M×3seed)→4M投資判定 | Codex gpt-5.6-sol | todo(生成完走後に順次) | 0 |
 
 ## 有効な方針・申し送り(今後のタスクに効くもの)
