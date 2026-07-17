@@ -1,7 +1,7 @@
 ---
 id: T127h
 title: expanded1m生成の親またぎバッチ化への乗り換え(実装→移行→再開)
-status: in_progress # todo | in_progress | review | redo | done | blocked
+status: done # todo | in_progress | review | redo | done | blocked
 assignee: Codex gpt-5.6-sol(codex-task)
 attempts: 0
 ---
