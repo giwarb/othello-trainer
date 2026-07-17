@@ -1,22 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks'
-import { AttributionWaterfall } from '../analysis/AttributionWaterfall.tsx'
-import { buildAttribution, replayContinuationSteps } from '../analysis/attribution.ts'
-import { BoardOverlay } from '../analysis/BoardOverlay.tsx'
-import '../analysis/BlunderPanel.css'
-import {
-  computeBoardHighlights,
-  detectMotifs,
-  motifHighlightSquares,
-  MOTIF_KIND_LABEL,
-  type BoardHighlights,
-  type MotifContext,
-  type MotifDefinition,
-} from '../analysis/motifs.ts'
-import { buildRefutationResult, type RefutationResult } from '../analysis/refutation.ts'
-import { RefutationView } from '../analysis/RefutationView.tsx'
 import { loadClassifyThresholds } from '../analysis/thresholdSettings.ts'
-import type { AttributionBreakdown, ClassifyThresholds, EvalTerms, FeatureSet } from '../analysis/types.ts'
-import { analyzeWhyBad, computeStableSquares, type WhyBadResult } from '../analysis/whyBad.ts'
+import type { ClassifyThresholds } from '../analysis/types.ts'
 import { Board } from '../components/Board.tsx'
 import { formatDiscDiff } from '../components/EvalBadge.tsx'
 import { MoveEvalOverlay } from '../components/MoveEvalOverlay.tsx'
@@ -39,6 +23,8 @@ import {
 import { loadJosekiDb } from '../joseki/lookup.ts'
 import type { JosekiDb } from '../joseki/types.ts'
 import { loadMoveEvalOverlayEnabled, saveMoveEvalOverlayEnabled } from '../settings/moveEvalOverlaySettings.ts'
+import { ClearBlunderCompare } from './ClearBlunderCompare.tsx'
+import { detectClearBlunderPatterns, type ClearBlunderPattern } from './clearBlunder.ts'
 import { EvalBar } from './EvalBar.tsx'
 import { generateSelfPlayPosition, pickJosekiEndPosition, type StartPosition } from './generateStart.ts'
 import { judgeMidgameMove, type EvalSign, type JudgeMidgameMoveResult, type JudgeMidgameReasonKind } from './judgeMidgameMove.ts'
@@ -128,6 +114,14 @@ interface FailResultInfo {
   readonly preMoveBoard?: BoardState
   readonly preMoveSide?: Side
   readonly comparePv: ComparePv | null
+  /**
+   * T128: 判定モードによる失敗(`handleModeFailure`)で検出された明確な悪化
+   * パターン(要件1・3)。`null`は「特徴量取得に失敗した」等のフォールバック、
+   * または`checkEnd`/`finishByFinalScore`由来の失敗(特定の1手に起因しない、
+   * `preMoveBoard`等が無いケース)で使われる。ゲート自体が「パターン0件=合格
+   * 扱い」なので、この配列が存在する場合は常に1件以上を含む。
+   */
+  readonly clearBlunderPatterns?: readonly ClearBlunderPattern[] | null
 }
 
 type ResultInfo = ClearResultInfo | FailResultInfo
@@ -251,30 +245,6 @@ export function PracticeMode() {
     readonly promise: Promise<MoveEvalJson[]>
   } | null>(null)
 
-  // --- 失敗時の説明UI(T072、`analysis/BlunderPanel.tsx`と同等のロジックを再利用) ---
-  // 特徴量層(モチーフ検出用)・評価内訳waterfall・反証層(回収点)は、判定モードに
-  // よる失敗(`handleModeFailure`、`resultInfo.preMoveBoard`等が揃っているケース)
-  // でのみ計算する。終盤の最終石差不足による失敗(`checkEnd`/`finishByFinalScore`、
-  // 特定の1手に起因しない)では対象の着手が無いため、これらは`null`のままになる
-  // (要件5、描画側で`resultInfo.playedSquare !== undefined`等をガードに使う)。
-  const [failFeatureSet, setFailFeatureSet] = useState<FeatureSet | null>(null)
-  const [failFeatureSetError, setFailFeatureSetError] = useState<string | null>(null)
-  const [failAttribution, setFailAttribution] = useState<AttributionBreakdown | null>(null)
-  const [failAttributionError, setFailAttributionError] = useState<string | null>(null)
-  const [failRefutation, setFailRefutation] = useState<RefutationResult | null>(null)
-  const [failRefutationError, setFailRefutationError] = useState<string | null>(null)
-  /** クリックしたモチーフタグのキー(要件4: もう一度クリック、または他のモチーフをクリックで切り替え)。 */
-  const [activeMotifKey, setActiveMotifKey] = useState<string | null>(null)
-  /** `activeMotifKey`に対応する盤面ハイライトマス集合(`BoardOverlay`の`emphasizedSquares`に渡す)。 */
-  const [motifHighlight, setMotifHighlight] = useState<readonly number[] | null>(null)
-  /**
-   * `loadFailExplanation`の非同期応答が、その後の「やり直し」等で状態がリセット
-   * された後に古い結果を上書きしてしまわないようにするための世代カウンタ
-   * (他の箇所の`cancelled`フラグと同じ目的だが、`handleModeFailure`は
-   * `useEffect`ではなくイベントハンドラから呼ばれるため、`ref`で代用する)。
-   */
-  const failRequestIdRef = useRef(0)
-
   /**
    * セッション世代カウンタ(T119 redo #1: codex-review指摘(b)1)。
    *
@@ -286,8 +256,8 @@ export function PracticeMode() {
    * 新しいセッション開始(`resetSessionTo`)でユーザーが画面を離れると、
    * 古い(既に離脱済みの)判定が完了した時点でそのまま結果確定・記録・★付与
    * まで実行してしまい、無関係な画面状態やステージの進捗を書き換えてしまう
-   * 不具合があった(`failRequestIdRef`と同種の問題だが、こちらは
-   * `localStorage`の永続データにも波及するため深刻)。
+   * 不具合があった(元々は`loadFailExplanation`用の世代カウンタと同種の
+   * 問題だったが、こちらは`localStorage`の永続データにも波及するため深刻)。
    *
    * `resetSessionTo`(新しいセッション開始)・`backToSettings`・
    * `goToStageSelect`(いずれもセッションからの離脱・切り替え)でこの値を
@@ -298,19 +268,6 @@ export function PracticeMode() {
    * 副作用を実行する。
    */
   const sessionGenerationRef = useRef(0)
-
-  /** 失敗時の説明UI用の状態を初期化する(新しい試行の開始時、要件2〜4)。 */
-  function resetFailExplanation(): void {
-    failRequestIdRef.current += 1
-    setFailFeatureSet(null)
-    setFailFeatureSetError(null)
-    setFailAttribution(null)
-    setFailAttributionError(null)
-    setFailRefutation(null)
-    setFailRefutationError(null)
-    setActiveMotifKey(null)
-    setMotifHighlight(null)
-  }
 
   // エンジンWorkerはアプリ全体で1つのインスタンスを共有する(T054)。
   function getEngine(): EngineClient {
@@ -596,81 +553,17 @@ export function PracticeMode() {
   }
 
   /**
-   * 失敗時の説明UI(要件3)用の追加データを取得する。
-   *
-   * `analysis/BlunderPanel.tsx`の悪手分析パネルと同じロジックをそのまま再利用する
-   * (`detectMotifs`・`computeBoardHighlights`・`buildAttribution`・
-   * `buildRefutationResult`はいずれも純粋関数、`requestFeatureSet`/`requestEvalTerms`
-   * はエンジン呼び出しの取得方法までBlunderPanel.tsxと同一)。結果画面の表示自体
-   * (`setPhase('result')`・`setResultInfo`)は`handleModeFailure`側で先に済ませておき、
-   * 本関数はその後ろから発火する追加の非同期読み込みとして扱う(BlunderPanel.tsxの
-   * マウント時`useEffect`に相当する処理を、ここでは「失敗が確定した直後」に1回だけ
-   * 呼び出す形に置き換えたもの)。
-   */
-  async function loadFailExplanation(
-    preMoveBoard: BoardState,
-    preMoveSide: Side,
-    playedNotation: string,
-    bestMove: string | null,
-    yourContinuation: readonly string[],
-    correctContinuation: readonly string[] | null,
-    requestId: number,
-  ): Promise<void> {
-    try {
-      const featureSetResp = await getEngine().requestFeatureSet(preMoveBoard, preMoveSide, playedNotation)
-      if (failRequestIdRef.current !== requestId) return
-      setFailFeatureSet(featureSetResp.features)
-    } catch (error) {
-      console.error('モチーフ検出用の特徴量取得に失敗しました', error)
-      if (failRequestIdRef.current === requestId) setFailFeatureSetError('モチーフ検出用の特徴量取得に失敗しました。')
-    }
-
-    if (!bestMove || !correctContinuation) return
-
-    try {
-      const playedBoards = replayContinuationSteps(preMoveBoard, preMoveSide, yourContinuation)
-      const bestBoards = replayContinuationSteps(preMoveBoard, preMoveSide, correctContinuation)
-      const fetchTermsSequence = (boards: readonly BoardState[]): Promise<EvalTerms[]> =>
-        Promise.all(boards.map((board) => getEngine().requestEvalTerms(board, preMoveSide)))
-      const [playedTermsSequence, bestTermsSequence] = await Promise.all([
-        fetchTermsSequence(playedBoards),
-        fetchTermsSequence(bestBoards),
-      ])
-      if (failRequestIdRef.current !== requestId) return
-
-      setFailAttribution(
-        buildAttribution(
-          playedTermsSequence[playedTermsSequence.length - 1]!,
-          bestTermsSequence[bestTermsSequence.length - 1]!,
-          preMoveSide,
-        ),
-      )
-      setFailRefutation(
-        buildRefutationResult(
-          preMoveBoard,
-          preMoveSide,
-          yourContinuation,
-          correctContinuation,
-          playedTermsSequence,
-          bestTermsSequence,
-          preMoveSide,
-        ),
-      )
-    } catch (error) {
-      console.error('評価内訳分解・反証層の計算に失敗しました', error)
-      if (failRequestIdRef.current === requestId) {
-        setFailAttributionError('評価内訳の取得に失敗しました。')
-        setFailRefutationError('回収点の検出に失敗しました。')
-      }
-    }
-  }
-
-  /**
    * 判定モードによる失敗(要件4・8)。比較PVを取得して結果画面に表示する。
-   * この関数は必ず失敗確定を意味する(呼び出し元の`judgement.correct === false`
-   * のときのみ呼ばれる)ため、ステージ挑戦記録は関数の**先頭**(比較PV取得の
-   * `await`より前、呼び出し元が直前に検証した`generation`がまだ有効な
-   * 同期的タイミング)で行う(T117 redo #1の教訓)。
+   * この関数は必ず失敗確定を意味する(呼び出し元がゲート
+   * (`detectClearBlunderPatterns`、要件2)を通過させた場合のみ呼ばれる)ため、
+   * ステージ挑戦記録は関数の**先頭**(比較PV取得の`await`より前、呼び出し元が
+   * 直前に検証した`generation`がまだ有効な同期的タイミング)で行う
+   * (T117 redo #1の教訓)。
+   *
+   * `clearBlunderPatterns`(T128要件3): 呼び出し元(`handlePlayerMove`)が
+   * ゲート判定のために既に取得済みの`detectClearBlunderPatterns`の結果
+   * (1件以上)をそのまま結果画面の表示用に渡す。特徴量取得に失敗した場合の
+   * フォールバック経路では`null`。
    *
    * `generation`(T119 redo #1): 比較PV取得の`await`を挟んだ後、
    * `setPhase('result')`等を確定する前に`sessionGenerationRef.current`と
@@ -683,6 +576,7 @@ export function PracticeMode() {
     playedNotation: string,
     judgement: JudgeMidgameMoveResult,
     generation: number,
+    clearBlunderPatterns: readonly ClearBlunderPattern[] | null,
   ): Promise<void> {
     recordStageAttemptNow(s.stageKey, 'fail')
     setJustEarnedStar(false)
@@ -715,8 +609,6 @@ export function PracticeMode() {
     setEvalBarValue(judgement.playedDiscDiff ?? judgement.bestDiscDiff ?? 0)
     setShowEvalBar(true)
     setPhase('result')
-    resetFailExplanation()
-    const requestId = failRequestIdRef.current
     setResultInfo({
       kind: 'fail',
       reasonKind: judgement.reasonKind,
@@ -728,17 +620,28 @@ export function PracticeMode() {
       preMoveBoard: s.board,
       preMoveSide: s.sideToMove,
       comparePv,
+      clearBlunderPatterns,
     })
     await registerFailure()
-    void loadFailExplanation(
-      s.board,
-      s.sideToMove,
-      playedNotation,
-      judgement.bestMove,
-      comparePv?.yourContinuation ?? [playedNotation],
-      comparePv?.correctContinuation ?? null,
-      requestId,
-    )
+  }
+
+  /**
+   * 着手を確定して次に進む(要件3・4の「正解」経路と、T128要件2「ゲート通過
+   * (明確な悪化パターンが1件も無い)」経路の両方で使う共通処理)。着手を
+   * 適用してセッションを更新し、`checkEnd`で終局判定まで行う。
+   */
+  async function applyMoveAndContinue(s: SessionState, square: number, nextSign: EvalSign, generation: number): Promise<void> {
+    const board = applyMove(s.board, s.sideToMove, square)
+    const nextSide = resolveNextSideOrFallback(board, opposite(s.sideToMove))
+    setSession({
+      board,
+      sideToMove: nextSide,
+      humanSide: s.humanSide,
+      lastMove: square,
+      previousSign: nextSign,
+      stageKey: s.stageKey,
+    })
+    await checkEnd(board, nextSide, s.humanSide, s.stageKey, generation)
   }
 
   /**
@@ -755,6 +658,15 @@ export function PracticeMode() {
    * ためだけに同じ局面をもう一度エンジンに問い合わせることはしない。これに
    * より、オーバーレイ表示と判定の評価データが常に同一のエンジン呼び出し
    * 結果に基づくことが保証され、両者が矛盾することがなくなる。
+   *
+   * T128要件2(明確な悪化パターン判定のゲート): `judgeMidgameMove`が不合格と
+   * 判定した場合でも、即座に`handleModeFailure`を呼ばず、まず両手
+   * (実際の手・最善手)の`requestFeatureSet`を取得して
+   * `detectClearBlunderPatterns`にかける。明確な悪化パターンが1件も検出
+   * されなければ「深読みしないと説明できない微差」とみなし、合格と同じ経路
+   * (`applyMoveAndContinue`)で対局を続行する(ユーザー裁定)。特徴量取得
+   * 自体に失敗した場合は、従来どおり評価値のみで不合格として扱う
+   * (フォールバック、`clearBlunderPatterns: null`)。
    */
   async function handlePlayerMove(square: number): Promise<void> {
     if (phase !== 'playing' || !session || analyzing) return
@@ -778,21 +690,41 @@ export function PracticeMode() {
       })
 
       if (!judgement.correct) {
-        await handleModeFailure(s, square, playedNotation, judgement, generation)
+        if (judgement.bestMove) {
+          const bestSquare = notationToSquare(judgement.bestMove)
+          try {
+            const [playedFeatureResp, bestFeatureResp] = await Promise.all([
+              getEngine().requestFeatureSet(s.board, s.sideToMove, playedNotation),
+              getEngine().requestFeatureSet(s.board, s.sideToMove, judgement.bestMove),
+            ])
+            if (sessionGenerationRef.current !== generation) return // 離脱済み
+            const patterns = detectClearBlunderPatterns({
+              preMoveBoard: s.board,
+              preMoveSide: s.sideToMove,
+              playedSquare: square,
+              bestSquare,
+              playedFeatures: playedFeatureResp.features,
+              bestFeatures: bestFeatureResp.features,
+            })
+            if (patterns === null) {
+              // 明確な悪化パターンが無い → 合格扱い(要件2、ユーザー裁定)。
+              await applyMoveAndContinue(s, square, judgement.nextSign, generation)
+              return
+            }
+            await handleModeFailure(s, square, playedNotation, judgement, generation, patterns)
+            return
+          } catch (error) {
+            console.error('明確な悪化パターン判定用の特徴量取得に失敗しました', error)
+            // フォールバック: ゲートを適用できないため、従来どおり評価値のみで不合格とする。
+            await handleModeFailure(s, square, playedNotation, judgement, generation, null)
+            return
+          }
+        }
+        await handleModeFailure(s, square, playedNotation, judgement, generation, null)
         return
       }
 
-      const board = applyMove(s.board, s.sideToMove, square)
-      const nextSide = resolveNextSideOrFallback(board, opposite(s.sideToMove))
-      setSession({
-        board,
-        sideToMove: nextSide,
-        humanSide: s.humanSide,
-        lastMove: square,
-        previousSign: judgement.nextSign,
-        stageKey: s.stageKey,
-      })
-      await checkEnd(board, nextSide, s.humanSide, s.stageKey, generation)
+      await applyMoveAndContinue(s, square, judgement.nextSign, generation)
     } catch (error) {
       console.error('着手判定のための解析に失敗しました', error)
     } finally {
@@ -837,7 +769,6 @@ export function PracticeMode() {
     setOpponentThinking(false)
     setAnalyzing(false)
     setFinalizing(false)
-    resetFailExplanation()
     setPhase('playing')
     void checkEnd(start.board, sideToMove, start.sideToMove, stage?.key ?? null, generation)
   }
@@ -893,7 +824,6 @@ export function PracticeMode() {
     setAnalyzing(false)
     setFinalizing(false)
     setActiveStage(null)
-    resetFailExplanation()
   }
 
   /**
@@ -911,7 +841,6 @@ export function PracticeMode() {
     setOpponentThinking(false)
     setAnalyzing(false)
     setFinalizing(false)
-    resetFailExplanation()
   }
 
   /**
@@ -939,33 +868,33 @@ export function PracticeMode() {
     saveJudgeMode(localStorage, mode)
   }
 
-  /** モチーフタグのクリック(要件4): クリックでON、同じタグの再クリックでOFF。 */
-  function handleMotifClick(key: string, ctx: MotifContext): void {
-    if (activeMotifKey === key) {
-      setActiveMotifKey(null)
-      setMotifHighlight(null)
-      return
-    }
-    setActiveMotifKey(key)
-    setMotifHighlight(motifHighlightSquares(key, ctx))
-  }
-
-  // 失敗時の説明UI(要件3〜5)。判定モードによる失敗(`handleModeFailure`が
-  // `preMoveBoard`/`preMoveSide`/`playedSquare`を設定したケース)でのみ算出する。
-  const failMove =
-    resultInfo?.kind === 'fail' && resultInfo.preMoveBoard && resultInfo.preMoveSide && resultInfo.playedSquare !== undefined
-      ? { board: resultInfo.preMoveBoard, side: resultInfo.preMoveSide, square: resultInfo.playedSquare }
+  /**
+   * T128: 失敗画面で「あなたの手のあと」「最善手のあと」を対比表示するための
+   * 派生値(要件3)。判定モードによる失敗(`handleModeFailure`が`preMoveBoard`/
+   * `preMoveSide`/`playedSquare`/`bestSquare`/`clearBlunderPatterns`を設定した
+   * ケース)でのみ算出する。終盤の最終石差不足による失敗
+   * (`checkEnd`/`finishByFinalScore`、特定の1手に起因しない)や、特徴量取得に
+   * 失敗したフォールバック経路では`clearBlunderPatterns`が無い/`null`のため
+   * `null`のままになる。
+   */
+  const clearBlunderCompareInfo =
+    resultInfo?.kind === 'fail' &&
+    resultInfo.preMoveBoard &&
+    resultInfo.preMoveSide &&
+    resultInfo.playedSquare !== undefined &&
+    resultInfo.bestSquare !== undefined &&
+    resultInfo.bestSquare !== null &&
+    resultInfo.clearBlunderPatterns &&
+    resultInfo.clearBlunderPatterns.length > 0
+      ? {
+          opponentSide: opposite(resultInfo.preMoveSide),
+          boardAfterPlayed: applyMove(resultInfo.preMoveBoard, resultInfo.preMoveSide, resultInfo.playedSquare),
+          boardAfterBest: applyMove(resultInfo.preMoveBoard, resultInfo.preMoveSide, resultInfo.bestSquare),
+          playedSquare: resultInfo.playedSquare,
+          bestSquare: resultInfo.bestSquare,
+          patterns: resultInfo.clearBlunderPatterns,
+        }
       : null
-
-  const failMotifContext: MotifContext | null =
-    failMove && failFeatureSet
-      ? { beforeBoard: failMove.board, side: failMove.side, square: failMove.square, features: failFeatureSet }
-      : null
-  const failMotifs: MotifDefinition[] = failMotifContext ? detectMotifs(failMotifContext) : []
-  const failBoardHighlights: BoardHighlights | null = failMotifContext
-    ? computeBoardHighlights(failMotifContext, computeStableSquares)
-    : null
-  const failWhyBad: WhyBadResult | null = failMove ? analyzeWhyBad(failMove.board, failMove.side, failMove.square) : null
 
   return (
     <div class="midgame-practice-mode">
@@ -1174,36 +1103,6 @@ export function PracticeMode() {
           {resultInfo.bestMove && <p>正解手: {resultInfo.bestMove}</p>}
           {resultInfo.margin !== undefined && <p>最終石差: {formatDiscDiff(resultInfo.margin)}</p>}
 
-          {resultInfo.preMoveBoard && resultInfo.preMoveSide && (
-            <div class="board-container midgame-result__board">
-              <Board
-                board={resultInfo.preMoveBoard}
-                sideToMove={resultInfo.preMoveSide}
-                lastMove={resultInfo.playedSquare ?? null}
-              />
-              {resultInfo.bestSquare !== null &&
-                resultInfo.bestSquare !== undefined &&
-                resultInfo.bestSquare !== resultInfo.playedSquare && (
-                  <div class="midgame-highlight-overlay">
-                    <div
-                      class="midgame-highlight-overlay__cell"
-                      style={{
-                        left: `${((resultInfo.bestSquare % 8) / 8) * 100}%`,
-                        top: `${(Math.floor(resultInfo.bestSquare / 8) / 8) * 100}%`,
-                      }}
-                    />
-                  </div>
-                )}
-              {failBoardHighlights && (
-                <BoardOverlay
-                  highlights={failBoardHighlights}
-                  visible={{ frontier: false, stable: false, seed: false, dangerousCorners: false }}
-                  emphasizedSquares={motifHighlight ?? undefined}
-                />
-              )}
-            </div>
-          )}
-
           {resultInfo.comparePv && (
             <div class="midgame-result__compare-pv">
               <p>あなたの手 → 相手の最善進行: {formatContinuation(resultInfo.comparePv.yourContinuation)}</p>
@@ -1213,65 +1112,24 @@ export function PracticeMode() {
             </div>
           )}
 
-          {failMove && (
-            <div class="blunder-panel__section midgame-result__explanation">
-              <h3>なぜ悪いか</h3>
-              {failWhyBad && (
-                <ul class="blunder-panel__why-bad">
-                  {failWhyBad.reasons.map((reason, i) => (
-                    <li key={i}>{reason.text}</li>
-                  ))}
-                </ul>
-              )}
-
-              <h3>モチーフ検出タグ</h3>
-              {failFeatureSetError && <p class="notice notice--error">{failFeatureSetError}</p>}
-              {!failFeatureSet && !failFeatureSetError && <p class="notice">モチーフを検出中...</p>}
-              {failFeatureSet && failMotifs.length === 0 && <p class="notice">該当するモチーフは検出されませんでした。</p>}
-              {failMotifs.length > 0 && (
-                <>
-                  <p class="notice blunder-panel__highlight-hint">
-                    タグをクリックすると、該当する形が上の盤面上でハイライトされます(もう一度クリックすると解除されます)。
-                  </p>
-                  <ul class="blunder-panel__motifs">
-                    {failMotifs.map((motif) => (
-                      <li key={motif.key}>
-                        <button
-                          type="button"
-                          class={`motif-badge motif-badge--${motif.kind} motif-badge--button${
-                            activeMotifKey === motif.key ? ' motif-badge--active' : ''
-                          }`}
-                          aria-pressed={activeMotifKey === motif.key}
-                          onClick={() => failMotifContext && handleMotifClick(motif.key, failMotifContext)}
-                        >
-                          {motif.label}
-                          <span class="motif-badge__kind">({MOTIF_KIND_LABEL[motif.kind]})</span>
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                </>
-              )}
-
-              {resultInfo.bestMove && (
-                <>
-                  <h3>評価内訳(実際の手 vs 正解手の進行)</h3>
-                  {!failAttribution && !failAttributionError && <p class="notice">評価内訳を計算中...</p>}
-                  {failAttributionError && <p class="notice notice--error">{failAttributionError}</p>}
-                  {failAttribution && (
-                    <AttributionWaterfall
-                      breakdown={failAttribution}
-                      title={`${sideLabel(failMove.side)}番から見た評価差の内訳(石差)`}
-                    />
-                  )}
-
-                  <h3>反証層: 回収点(寄与が急変した手)</h3>
-                  {!failRefutation && !failRefutationError && <p class="notice">回収点を検出中...</p>}
-                  {failRefutationError && <p class="notice notice--error">{failRefutationError}</p>}
-                  {failRefutation && <RefutationView refutation={failRefutation} />}
-                </>
-              )}
-            </div>
+          {/*
+            T128要件3: 「あなたの手のあと」「最善手のあと」(いずれも相手番)の
+            盤面2枚を対比表示し、明確な悪化パターンを平易な日本語で説明する
+            (旧: 着手前局面1枚+正解手ハイライト+「なぜ悪いか」+モチーフ検出
+            タグ+評価内訳waterfall+回収点。waterfall・回収点は本番評価
+            (パターン評価v3)ではなく実質未使用の旧3項ヒューリスティックで
+            計算されており数値の信頼性に構造的問題があったため撤去した
+            (T127調査で確定、タスク仕様のスコープ外指定どおり)。
+          */}
+          {clearBlunderCompareInfo && (
+            <ClearBlunderCompare
+              opponentSide={clearBlunderCompareInfo.opponentSide}
+              boardAfterPlayed={clearBlunderCompareInfo.boardAfterPlayed}
+              boardAfterBest={clearBlunderCompareInfo.boardAfterBest}
+              playedSquare={clearBlunderCompareInfo.playedSquare}
+              bestSquare={clearBlunderCompareInfo.bestSquare}
+              patterns={clearBlunderCompareInfo.patterns}
+            />
           )}
 
           <div class="midgame-result__buttons">

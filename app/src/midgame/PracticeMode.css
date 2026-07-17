@@ -214,38 +214,12 @@
   overflow-wrap: break-word;
 }
 
-.midgame-result__board {
-  position: relative;
-  width: 100%;
-  max-width: var(--board-size-md);
-}
-
 .midgame-result__compare-pv {
   display: flex;
   flex-direction: column;
   gap: 0.3rem;
   font-size: 0.9rem;
   font-variant-numeric: tabular-nums;
-}
-
-/**
- * 失敗時の説明UI(T072、`analysis/BlunderPanel.css`の`.blunder-panel__section`等を
- * 再利用)。親の`.midgame-result--fail`が`text-align: center`のため、ここだけ
- * 左寄せに戻す(評価内訳・モチーフタグ・「なぜ悪いか」はいずれも左寄せの方が
- * 読みやすいテキスト・リスト中心のレイアウトのため)。`align-self: stretch`で
- * 親(`align-items: center`)による横幅の縮小を防ぎ、幅いっぱいに広げる。
- */
-.midgame-result__explanation {
-  width: 100%;
-  align-self: stretch;
-  text-align: left;
-  box-sizing: border-box;
-}
-
-/* クリックで選択中のモチーフタグ(要件4)を視覚的に区別する。 */
-.motif-badge--active {
-  outline: 2px solid currentColor;
-  outline-offset: 1px;
 }
 
 .midgame-result__buttons {
@@ -257,22 +231,57 @@
   margin-top: 0.4rem;
 }
 
-/* 正解手ハイライト(要件8)。盤面コンテナ上に8x8グリッドの1マス分を
-   絶対配置で重ね、対象マスに枠線を表示する。Canvas自体には手を入れず、
-   `board-container`(position:relative)を基準に%座標で配置する。 */
-.midgame-highlight-overlay {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
+/**
+ * T128: 失敗時の「1手先対比」表示(`ClearBlunderCompare.tsx`、要件3)。
+ * 「あなたの手のあと」「最善手のあと」の盤面2枚を横並びにし、
+ * `flex-wrap`+下記メディアクエリで狭い画面幅では縦積みに切り替える。
+ */
+.clear-blunder-compare {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  width: 100%;
+  align-self: stretch;
+  text-align: left;
+  box-sizing: border-box;
 }
 
-.midgame-highlight-overlay__cell {
-  position: absolute;
-  width: 12.5%;
-  height: 12.5%;
+.clear-blunder-compare__boards {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.75rem;
+  width: 100%;
+}
+
+.clear-blunder-compare__board-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+  flex: 1 1 200px;
+  max-width: 260px;
   box-sizing: border-box;
-  border: 3px solid #facc15;
-  border-radius: 6px;
+}
+
+.clear-blunder-compare__board-label {
+  margin: 0;
+  font-weight: bold;
+  font-size: 0.85rem;
+  text-align: center;
+}
+
+.clear-blunder-compare__board {
+  position: relative;
+  width: 100%;
+}
+
+.clear-blunder-compare__messages {
+  margin: 0;
+  padding-left: 1.2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
 }
 
 /* 狭い画面幅(スマートフォン想定、375px程度)ではボタン・文字を少し縮めて縦積みにする。 */
@@ -295,5 +304,17 @@
   .midgame-stage-grid {
     grid-template-columns: repeat(auto-fill, minmax(4.5rem, 1fr));
     gap: 0.3rem;
+  }
+
+  /* T128要件「モバイル幅(375px)で盤面2枚が縦積みになる」: 横並びをやめ、
+     それぞれ幅いっぱいに縦積みする。 */
+  .clear-blunder-compare__boards {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .clear-blunder-compare__board-col {
+    max-width: 100%;
+    width: 100%;
   }
 }
