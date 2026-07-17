@@ -947,5 +947,66 @@ class TeacherCorpusTests(unittest.TestCase):
             self.assertTrue(verify.expanded1m_provenance_errors(tampered))
 
 
+class VsEdaxSolveBatchCommandTests(unittest.TestCase):
+    """T127i: `_edax_solve_batch`に追加した`edax_exe`引数の回帰テスト。
+
+    `subprocess.run`をモックしてコマンド列だけを検証する(実際のEdaxは
+    起動しない)。OBF一時ファイルの書き込み先も一時ディレクトリへ差し替え、
+    走行中の`edax-extract`ディレクトリには一切触れない。
+    """
+
+    @staticmethod
+    def _fake_completed_process(positions: list[dict]) -> subprocess.CompletedProcess:
+        blocks = [
+            f"*** problem # {i} ***\n  1  +04         0:00.01          1          100  d3\n"
+            for i in range(1, len(positions) + 1)
+        ]
+        return subprocess.CompletedProcess(args=[], returncode=0, stdout="\n".join(blocks), stderr="")
+
+    def _run_with_captured_command(self, temp_edax_dir: Path, **kwargs) -> list[str]:
+        positions = [{"board": "-" * 64, "sideToMove": "black"}]
+        captured: dict = {}
+
+        def fake_run(command, **run_kwargs):
+            captured["command"] = list(command)
+            return self._fake_completed_process(positions)
+
+        with mock.patch.object(gen.vs_edax, "EDAX_DIR", temp_edax_dir):
+            with mock.patch.object(gen.vs_edax.subprocess, "run", side_effect=fake_run):
+                gen.vs_edax._edax_solve_batch(positions, level=16, n_tasks=1, **kwargs)
+        return captured["command"]
+
+    def test_default_command_unchanged_when_edax_exe_unspecified(self) -> None:
+        """`edax_exe`未指定時、コマンド列は従来どおり`EDAX_EXE`(ベースライン
+        バイナリ)を使い、`-h`も付与されない(既存のedax_hash_bits未指定時と
+        同じ「加算引数は挙動を変えない」契約)。"""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            command = self._run_with_captured_command(Path(temp_dir))
+        self.assertEqual(command[0], str(gen.vs_edax.EDAX_EXE))
+        self.assertNotIn("-h", command)
+        self.assertEqual(command[3], "-l")
+        self.assertEqual(command[4], "16")
+        self.assertEqual(command[5], "-n")
+        self.assertEqual(command[6], "1")
+        self.assertEqual(
+            command[7:],
+            ["-eval-file", str(gen.vs_edax.EDAX_EVAL_DATA), "-book-usage", "off", "-vv"],
+        )
+
+    def test_edax_exe_override_replaces_only_the_binary_path(self) -> None:
+        """`edax_exe`指定時は実行ファイルパスだけが差し替わり、他の引数列は
+        未指定時と同一である(T127i v3バイナリA/B用)。"""
+        override = Path("C:/fake/wEdax-x86-64-v3.exe")
+        with tempfile.TemporaryDirectory() as temp_dir:
+            default_command = self._run_with_captured_command(Path(temp_dir))
+            override_command = self._run_with_captured_command(Path(temp_dir), edax_exe=override)
+        self.assertEqual(override_command[0], str(override))
+        self.assertNotEqual(override_command[0], default_command[0])
+        # 実行ファイルパスとOBF一時ファイルパス(呼び出しごとに一意)を除いた
+        # 引数列は完全一致する。
+        self.assertEqual(override_command[1], default_command[1])
+        self.assertEqual(override_command[3:], default_command[3:])
+
+
 if __name__ == "__main__":
     unittest.main()

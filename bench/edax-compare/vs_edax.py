@@ -530,11 +530,16 @@ def _edax_solve_batch(
     level: int,
     n_tasks: int | None,
     edax_hash_bits: int | None = None,
+    edax_exe: Path | None = None,
 ) -> list[dict]:
     """同一levelの局面群を1つのOBFファイル・1プロセスで順番に解く。
 
     Edaxの`problem # N`がOBFの1-based行番号と完全一致することを検証し、
     欠落・重複・順序ずれがあればバッチ全体を失敗させる。
+
+    `edax_exe`は未指定(None)なら従来どおり`EDAX_EXE`(ベースラインバイナリ)を
+    使う。T127i(v3バイナリA/B)向けの加算引数で、指定時のみコマンド列の
+    実行ファイルパスを差し替える(他の引数列・挙動は変えない)。
     """
     if not positions:
         return []
@@ -543,13 +548,15 @@ def _edax_solve_batch(
         side_char = "X" if position["sideToMove"] == "black" else "O"
         obf_lines.append(f"{position['board']} {side_char};\n")
 
+    resolved_edax_exe = edax_exe if edax_exe is not None else EDAX_EXE
+
     tmp = tempfile.NamedTemporaryFile(dir=EDAX_DIR, prefix="_vs_edax_batch_", suffix=".obf", delete=False)
     tmp_path = Path(tmp.name)
     try:
         tmp.write("".join(obf_lines).encode("ascii"))
         tmp.close()
         command = [
-                str(EDAX_EXE),
+                str(resolved_edax_exe),
                 "-solve",
                 str(tmp_path),
                 "-l",
