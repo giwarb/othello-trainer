@@ -1,7 +1,7 @@
 ---
 id: T125
 title: v4候補の頑健性確認+最終審査(追加seed・対Edax対局)
-status: in_progress # todo | in_progress | review | redo | done | blocked
+status: done # todo | in_progress | review | redo | done | blocked
 assignee: Codex gpt-5.6-sol(codex-task)
 attempts: 0
 ---
