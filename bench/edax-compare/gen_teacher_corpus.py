@@ -240,6 +240,8 @@ CORPUS_SETS = {
         "perGameCap": 24,
         "perBinCap": 4,
         "baseSet": "expanded200k",
+        # T127h microbench (未生成各30親): 8=1.195x, 16=1.213x, 32=1.292x、値不一致0。
+        "edaxParentsPerProcess": 32,
     },
 }
 
@@ -982,51 +984,45 @@ def prepare_expanded1m_selection_plan(years: str, per_game_cap: int, per_bin_cap
 # --- 教師値の付与(Edax呼び出し) ---
 
 
-def label_position(
-    index: int,
-    position: dict,
-    children_info: dict,
+def label_positions_across_parents(
+    parents: list[tuple[int, dict, dict]],
     exact_empties_threshold: int = EXACT_EMPTIES_THRESHOLD,
-) -> dict:
-    """`exact_empties_threshold`(T114移行: set別に上書き可能、既定は
-    `EXACT_EMPTIES_THRESHOLD`=24)以下の空き数を持つ非終局子局面を完全読み
-    (`EXACT_EDAX_LEVEL`=60)、それ以外を`DEFAULT_EDAX_LEVEL`=16で解く。
-    `select_positions`の`excluded_keys`と同じ「引数追加、既定値で旧挙動を
-    完全に保つ」流儀。"""
-    board = position["board"]
-    side = position["sideToMove"]
-    mover_key = canonical_key_of_position(board, side)
-
-    moves = children_info["moves"]
-    child_records: list[dict | None] = [None] * len(moves)
-    batches: dict[int, list[tuple[int, dict]]] = {}
-    for child_index, child in enumerate(moves):
-        child_empties = child["childEmpties"]
-        if child["childIsTerminal"]:
-            value = vs_edax.terminal_value(child["childBoard"], side)
-            child_records[child_index] = {
-                "move": child["move"],
-                "value": value,
-                "exact": True,
-                "level": None,
-                "edaxDepth": None,
-                "childEmpties": child_empties,
-                "elapsedNote": "terminal (no Edax call)",
-            }
-            continue
-
-        exact_requested = child_empties <= exact_empties_threshold
-        level = EXACT_EDAX_LEVEL if exact_requested else DEFAULT_EDAX_LEVEL
-        batches.setdefault(level, []).append((child_index, child))
+) -> list[dict]:
+    """Label multiple parents with at most one Edax process per requested level."""
+    states = []
+    batches: dict[int, list[tuple[int, int, dict]]] = {}
+    for parent_index, (index, position, children_info) in enumerate(parents):
+        side = position["sideToMove"]
+        child_records: list[dict | None] = [None] * len(children_info["moves"])
+        states.append(
+            (index, position, children_info, canonical_key_of_position(position["board"], side), child_records)
+        )
+        for child_index, child in enumerate(children_info["moves"]):
+            child_empties = child["childEmpties"]
+            if child["childIsTerminal"]:
+                child_records[child_index] = {
+                    "move": child["move"],
+                    "value": vs_edax.terminal_value(child["childBoard"], side),
+                    "exact": True,
+                    "level": None,
+                    "edaxDepth": None,
+                    "childEmpties": child_empties,
+                    "elapsedNote": "terminal (no Edax call)",
+                }
+                continue
+            level = EXACT_EDAX_LEVEL if child_empties <= exact_empties_threshold else DEFAULT_EDAX_LEVEL
+            batches.setdefault(level, []).append((parent_index, child_index, child))
 
     for level, batch in batches.items():
         t0 = time.monotonic()
         results = vs_edax.edax_solve_batch(
-            [{"board": child["childBoard"], "sideToMove": child["childSideToMove"]} for _, child in batch], level
+            [{"board": child["childBoard"], "sideToMove": child["childSideToMove"]} for _, _, child in batch],
+            level,
         )
         elapsed_ms = (time.monotonic() - t0) * 1000.0 / len(batch)
         assert len(results) == len(batch), "Edax batch result count mismatch"
-        for (child_index, child), result in zip(batch, results):
+        for (parent_index, child_index, child), result in zip(batch, results):
+            side = parents[parent_index][1]["sideToMove"]
             child_empties = child["childEmpties"]
             exact_requested = child_empties <= exact_empties_threshold
             value = result["discDiff"] if child["childSideToMove"] == side else -result["discDiff"]
@@ -1035,7 +1031,7 @@ def label_position(
                 raise RuntimeError(
                     f"Edax exact search incomplete: move={child['move']} depth={result['depth']} empties={child_empties}"
                 )
-            child_records[child_index] = {
+            states[parent_index][4][child_index] = {
                 "move": child["move"],
                 "value": value,
                 "exact": is_exact,
@@ -1045,33 +1041,47 @@ def label_position(
                 "elapsedMs": round(elapsed_ms, 1),
             }
 
-    assert all(child is not None for child in child_records), "child labeling left an unfilled result"
-    completed_records = [child for child in child_records if child is not None]
-    best = max(completed_records, key=lambda c: c["value"])
-    for child in completed_records:
-        child["diffFromBest"] = best["value"] - child["value"]
-    return {
-        "positionId": index,
-        "board": board,
-        "sideToMove": side,
-        "empties": children_info["empties"],
-        "source": position["source"],
-        "phaseBin": position.get("phaseBin"),
-        "hasXcLegalMove": position.get("hasXcLegalMove"),
-        "openingKey": position.get("openingKey"),
-        "year": position.get("year"),
-        "gameIndex": position.get("gameIndex"),
-        "priorityLoss": position.get("priorityLoss"),
-        "canonicalKey": list(mover_key),
-        "children": completed_records,
-        "bestMove": best["move"],
-        "bestValue": best["value"],
-        "generatedAt": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-    }
+    records = []
+    for index, position, children_info, mover_key, child_records in states:
+        assert all(child is not None for child in child_records), "child labeling left an unfilled result"
+        completed_records = [child for child in child_records if child is not None]
+        best = max(completed_records, key=lambda child: child["value"])
+        for child in completed_records:
+            child["diffFromBest"] = best["value"] - child["value"]
+        records.append({
+            "positionId": index,
+            "board": position["board"],
+            "sideToMove": position["sideToMove"],
+            "empties": children_info["empties"],
+            "source": position["source"],
+            "phaseBin": position.get("phaseBin"),
+            "hasXcLegalMove": position.get("hasXcLegalMove"),
+            "openingKey": position.get("openingKey"),
+            "year": position.get("year"),
+            "gameIndex": position.get("gameIndex"),
+            "priorityLoss": position.get("priorityLoss"),
+            "canonicalKey": list(mover_key),
+            "children": completed_records,
+            "bestMove": best["move"],
+            "bestValue": best["value"],
+            "generatedAt": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        })
+    return records
+
+
+def label_position(
+    index: int,
+    position: dict,
+    children_info: dict,
+    exact_empties_threshold: int = EXACT_EMPTIES_THRESHOLD,
+) -> dict:
+    """Label one parent while retaining the legacy one-parent Edax process boundary."""
+    return label_positions_across_parents(
+        [(index, position, children_info)], exact_empties_threshold=exact_empties_threshold
+    )[0]
 
 
 # --- provenance / checkpoint ---
-
 
 def sha256_of_file(path: Path) -> str | None:
     if not path.exists():
@@ -1490,7 +1500,9 @@ def _expanded1m_shard_paths(shard_index: int):
     )
 
 
-def _expanded1m_settings_and_meta(shard_index: int, plan_meta: dict) -> tuple[dict, dict]:
+def _expanded1m_settings_and_meta(
+    shard_index: int, plan_meta: dict, edax_parents_per_process: int | None = None
+) -> tuple[dict, dict]:
     provenance = plan_meta["provenance"]
     incremental = provenance["incrementalGeneration"]
     current_execution_sha = {
@@ -1531,6 +1543,9 @@ def _expanded1m_settings_and_meta(shard_index: int, plan_meta: dict) -> tuple[di
         "numShards": 8,
         "shardIndex": shard_index,
     }
+    if edax_parents_per_process is not None:
+        settings["edaxParentsPerProcess"] = edax_parents_per_process
+        settings["elapsedMsPolicy"] = "cross-parent-level-batch-averaged"
     meta = {
         "gitCommit": vs_edax.git_commit_hash(),
         "harnessSha256": current_execution_sha["generatorSha256"],
@@ -1599,6 +1614,29 @@ def import_expanded1m_base_shard(
     vs_edax.atomic_write_text(meta_path, json.dumps(doc, indent=2, ensure_ascii=False) + "\n")
 
 
+def checkpoint_expanded1m_parent_bundle(
+    parents: list[tuple[int, dict, dict]], checkpoint: TeacherCorpusCheckpoint
+) -> bool:
+    """Solve one cross-parent bundle, falling back before any checkpoint append."""
+    fell_back = False
+    try:
+        records = label_positions_across_parents(parents, exact_empties_threshold=20)
+    except Exception as exc:  # noqa: BLE001
+        fell_back = True
+        position_ids = [position_id for position_id, _, _ in parents]
+        print(
+            f"  WARNING: expanded1m parent bundle {position_ids} failed ({exc}); "
+            "falling back to one Edax execution per parent"
+        )
+        records = [
+            label_position(position_id, position, children_info, exact_empties_threshold=20)
+            for position_id, position, children_info in parents
+        ]
+    for record in records:
+        checkpoint.append(record)
+    return fell_back
+
+
 def generate_expanded1m_shard(shard_index: int) -> None:
     if not 0 <= shard_index < EXPANDED1M_NUM_SHARDS:
         raise RuntimeError(f"invalid expanded1m shard index {shard_index}")
@@ -1625,7 +1663,9 @@ def generate_expanded1m_shard(shard_index: int) -> None:
     if reused_ids != list(range(shard_index, EXPANDED1M_BASE_COUNT, EXPANDED1M_NUM_SHARDS)):
         raise RuntimeError(f"expanded1m shard {shard_index} reuse IDs are not the required stripe")
 
-    settings, meta = _expanded1m_settings_and_meta(shard_index, plan_meta)
+    settings, meta = _expanded1m_settings_and_meta(
+        shard_index, plan_meta, CORPUS_SETS["expanded1m"]["edaxParentsPerProcess"]
+    )
     run_key = json.dumps(settings, sort_keys=True)
     if not jsonl_path.exists() and not meta_path.exists():
         import_expanded1m_base_shard(shard_index, jsonl_path, meta_path, run_key, settings, meta)
@@ -1655,17 +1695,20 @@ def generate_expanded1m_shard(shard_index: int) -> None:
                 "expanded1m children batch size mismatch: "
                 f"{len(children_batch)} != {len(positions_batch)}"
             )
-        for position, children_info in zip(positions_batch, children_batch):
-            progress_i += 1
-            position_id = position["positionId"]
-            record = label_position(position_id, position, children_info, exact_empties_threshold=20)
-            checkpoint.append(record)
-            if progress_i % 20 == 0 or progress_i == len(todo):
-                checkpoint.write_progress(125_000)
-                print(
-                    f"  [expanded1m shard {shard_index}/8] "
-                    f"{len(checkpoint.done_ids)}/125000 checkpointed"
-                )
+        parent_bundle_size = settings["edaxParentsPerProcess"]
+        parents_with_children = [
+            (position["positionId"], position, children_info)
+            for position, children_info in zip(positions_batch, children_batch)
+        ]
+        for bundle_start in range(0, len(parents_with_children), parent_bundle_size):
+            bundle = parents_with_children[bundle_start : bundle_start + parent_bundle_size]
+            checkpoint_expanded1m_parent_bundle(bundle, checkpoint)
+            progress_i += len(bundle)
+            checkpoint.write_progress(125_000)
+            print(
+                f"  [expanded1m shard {shard_index}/8] "
+                f"{len(checkpoint.done_ids)}/125000 checkpointed"
+            )
     checkpoint.write_progress(125_000)
     checkpoint.close()
     # write_progress is shared with old sets; add the base-import audit field without changing runKey.

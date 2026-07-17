@@ -152,6 +152,66 @@ class TeacherCorpusTests(unittest.TestCase):
         self.assertEqual(record["bestValue"], 5.0)
         self.assertEqual(record["children"][0]["elapsedMs"], record["children"][2]["elapsedMs"])
 
+    def test_cross_parent_batch_matches_cold_values_and_aggregates_by_level(self) -> None:
+        board = "---------------------------OX------XO---------------------------"
+        parents = []
+        for position_id, prefix in ((10, "A"), (11, "B")):
+            position = {"board": board, "sideToMove": "black", "source": "wthor"}
+            children = {
+                "empties": 22,
+                "moves": [
+                    {"move": "a1", "childBoard": prefix * 64, "childSideToMove": "white",
+                     "childEmpties": 21, "childIsTerminal": False},
+                    {"move": "b2", "childBoard": prefix.lower() * 64, "childSideToMove": "white",
+                     "childEmpties": 19, "childIsTerminal": False},
+                ],
+            }
+            parents.append((position_id, position, children))
+
+        calls = []
+
+        def solve_batch(positions: list[dict], level: int) -> list[dict]:
+            calls.append((level, [row["board"] for row in positions]))
+            return [
+                {"depth": 19 if level == 60 else 16,
+                 "discDiff": float(ord(row["board"][0]) % 7), "move": "a1"}
+                for row in positions
+            ]
+
+        with mock.patch.object(gen.vs_edax, "edax_solve_batch", side_effect=solve_batch):
+            cold = [gen.label_position(*parent, exact_empties_threshold=20) for parent in parents]
+            batched = gen.label_positions_across_parents(parents, exact_empties_threshold=20)
+        for records in (cold, batched):
+            for record in records:
+                record.pop("generatedAt")
+                for child in record["children"]:
+                    child.pop("elapsedMs")
+        self.assertEqual(batched, cold)
+        self.assertEqual(calls[-2][0], 16)
+        self.assertEqual(calls[-1][0], 60)
+        self.assertEqual(len(calls[-2][1]), 2)
+        self.assertEqual(len(calls[-1][1]), 2)
+
+    def test_expanded1m_bundle_checkpoints_each_parent_in_plan_order(self) -> None:
+        parents = [(7, {"positionId": 7}, {}), (15, {"positionId": 15}, {})]
+        records = [{"positionId": 7}, {"positionId": 15}]
+        checkpoint = mock.Mock()
+        with mock.patch.object(gen, "label_positions_across_parents", return_value=records):
+            fell_back = gen.checkpoint_expanded1m_parent_bundle(parents, checkpoint)
+        self.assertFalse(fell_back)
+        self.assertEqual(checkpoint.append.call_args_list, [mock.call(records[0]), mock.call(records[1])])
+
+    def test_expanded1m_bundle_falls_back_to_individual_parents_before_checkpoint(self) -> None:
+        parents = [(7, {"positionId": 7}, {}), (15, {"positionId": 15}, {})]
+        records = [{"positionId": 7}, {"positionId": 15}]
+        checkpoint = mock.Mock()
+        with mock.patch.object(gen, "label_positions_across_parents", side_effect=RuntimeError("batch failed")):
+            with mock.patch.object(gen, "label_position", side_effect=records) as individual:
+                fell_back = gen.checkpoint_expanded1m_parent_bundle(parents, checkpoint)
+        self.assertTrue(fell_back)
+        self.assertEqual([call.args[0] for call in individual.call_args_list], [7, 15])
+        self.assertEqual(checkpoint.append.call_args_list, [mock.call(records[0]), mock.call(records[1])])
+
     def test_label_position_respects_explicit_exact_empties_threshold(self) -> None:
         """T114移行(exactEmptiesThreshold 24→20 のexpanded200k版): `label_position`に
         既定(24)と異なる`exact_empties_threshold`を明示的に渡すと、その値で
@@ -598,13 +658,45 @@ class TeacherCorpusTests(unittest.TestCase):
         }
         with mock.patch.object(gen.vs_edax, "git_commit_hash", return_value="head"):
             with mock.patch.object(gen, "sha256_of_file", return_value="current"):
-                settings, meta = gen._expanded1m_settings_and_meta(3, plan_meta)
+                settings, meta = gen._expanded1m_settings_and_meta(
+                    3, plan_meta, gen.CORPUS_SETS["expanded1m"]["edaxParentsPerProcess"]
+                )
         self.assertEqual(settings["selectionPlanSha256"], "master-sha")
         self.assertEqual(settings["shardSelectionPlanSha256"], "shard-3")
         self.assertEqual(settings["perBinCap"], 4)
+        self.assertEqual(settings["edaxParentsPerProcess"], 32)
+        self.assertEqual(settings["elapsedMsPolicy"], "cross-parent-level-batch-averaged")
         self.assertIn("baseCorpus", meta)
         self.assertIn("incrementalGeneration", meta)
         self.assertEqual(meta["harnessSha256"], "current")
+
+    def test_expanded1m_legacy_run_key_is_unchanged_when_parent_batch_field_is_absent(self) -> None:
+        plan_meta = {
+            "selectionStats": {},
+            "selectionPlanSha256": "master",
+            "shardPlanSha256": [f"s{i}" for i in range(8)],
+            "provenance": {
+                "baseCorpus": {},
+                "incrementalGeneration": {
+                    "generatorSha256": "current", "teacherCandidatesToolSha256": "current",
+                    "edaxSha256": "current", "edaxEvalDataSha256": "current",
+                    "candidatePoolSha256": "pool",
+                },
+            },
+        }
+        with mock.patch.object(gen.vs_edax, "git_commit_hash", return_value="head"):
+            with mock.patch.object(gen, "sha256_of_file", return_value="current"):
+                settings, _ = gen._expanded1m_settings_and_meta(0, plan_meta)
+        expected_run_key = (
+            '{"defaultEdaxLevel": 16, "edaxTasksPerProcess": 1, "elapsedMsPolicy": "batch-averaged", '
+            '"exactEdaxLevel": 60, "exactEmptiesThreshold": 20, "numPhaseBins": 6, "numShards": 8, '
+            '"openingKeyPlies": 8, "openingMaxFraction": 0.02, "perBinCap": 4, "perGameCap": 24, '
+            '"seed": 90104, "selectionPlanSha256": "master", "selectionStats": {}, "setName": '
+            '"expanded1m", "shardIndex": 0, "shardSelectionPlanSha256": "s0", "targetCount": '
+            '1000000, "xcQuotaFraction": 0.5, "years": "2000-2024"}'
+        )
+        self.assertNotIn("edaxParentsPerProcess", settings)
+        self.assertEqual(json.dumps(settings, sort_keys=True), expected_run_key)
 
     def test_expanded1m_rejects_execution_sha_changed_since_plan(self) -> None:
         incremental = {
