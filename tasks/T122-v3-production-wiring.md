@@ -52,3 +52,19 @@ T121で最終審査に合格した **v3×WTHOR重み**(`train/data/t087/v3-seed-
 ## フィードバック(やり直し時にオーケストレーターが記入)
 
 ## 作業ログ(担当エージェントが追記)
+
+### 2026-07-17 11:46 JST — Codex実装ワーカー
+
+- 配線: 採用元`train/data/t087/v3-seed-3.bin`を既存v2と同じ流儀で`train/weights/pattern_v3.bin`と`app/public/pattern_v3.bin`へ配置し、Workerの`PATTERN_WEIGHTS_URL`を`pattern_v3.bin`へ切替。3ファイルともPWV3、SHA-256 `d815dd6fbfd3e426ec9f05a3cd0b3d6b5963e518d918bee85301ad83dbc0de92`で一致。v2は2,729,420 bytes、v3は5,964,708 bytes（+3,235,288 bytes、約2.19倍）。v2ファイルは両配置とも残した。
+- WASM対応: 既存`Engine::load_pattern_weights`→`PatternWeights::from_bytes`がPWV3を処理できるため、エンジン／プロトコル拡張は不要。対局CPU・評価バー・棋譜解析・中盤練習等は共有Workerを通るため同じv3を使用する。詰めオセロの完全読み結果は仕様どおり静的評価重みに非依存。
+- キャッシュ: `ANALYSIS_ENGINE_VERSION`を3→4へ更新。T107コメントは、棋譜解析が`allMoves: true`かつ`maxNodes`なしでquota非適用であることを明記する説明へ訂正。Service Workerはビルドごとに`CACHE_VERSION`へ一意値を注入しactivate時に旧Cache Storageを削除する既存機構であること、新規URL`pattern_v3.bin`がcache-firstで200取得後に保存されることを確認。ローカル本番成果物の`dist/sw.js`は`CACHE_VERSION='1784255940829'`へ置換された。
+- v2切り戻し: `app/src/engine/worker.ts`の`PATTERN_WEIGHTS_URL`末尾を`pattern_v3.bin`から`pattern_v2.bin`へ1行戻し、`ANALYSIS_ENGINE_VERSION`を再度1つ上げる。
+- eval一致・決定性: サンプルOBF `-------------------XO-----XOO-----OOO-----O-XO------XX------X---`（黒番）、depth 0で`eval_cli --pattern-weights train/weights/pattern_v3.bin`=`-8.74`、WASM `Engine.load_pattern_weights(app/public/pattern_v3.bin)`=`-8.74`。同一WASMリクエスト2回とも`-8.74`で一致。node-budget本番WASM検証も同一Engineで反復・無関係リクエスト後まで`d6 / 7.26 / depth 9 / 160000 nodes`の決定性を確認。
+- 実行結果:
+  - `cargo test -p engine`: PASS（194 passed、2 ignored。統合テスト4 passed）。
+  - `cargo test -p engine --release --test ffo_bench -- --nocapture`: PASS。FFO #40=38、#41=0、#42=6、#43=-12、#44=-14で全期待値一致（641,077,417 nodes、61.390s）。
+  - `npm test -- --run`: PASS（70 files、596 tests）。サンドボックスがNodeのforkとViteの`net use`子プロセスを拒否するため、実行中のみVitest poolをworker_threadsへ、Viteのネットワークドライブ照会を無効化し、終了後に両ファイルを原状復帰した。同じコマンド・全テストを実行。
+  - `npx tsc --noEmit`: PASS。
+  - 本番ビルド相当（`npx tsc -b`、`npx vite build`、`node scripts/test-node-budget-wasm.mjs`、`node scripts/inject-sw-version.mjs`）: PASS。`dist/pattern_v3.bin`は5,964,708 bytes、採用元と同一SHA。`wasm-pack build`単独再実行はサンドボックス外tempへのアクセス拒否で停止したが、エンジンソースは無変更で、既存生成WASMを使う後続ビルド・WASMロード検証はPASS。
+  - ローカルHTTP: `/`=200、`/pattern_v3.bin`=200、Content-Length=5,964,708。操作可能ブラウザが環境に接続されていなかったため、ローカルUIの対局・解析・詰めオセロ実機操作は未実施。
+- 未実施（オーケストレーター作業）: `.git`書込禁止のためコミットハッシュなし（代行コミット待ち）。mainへのpush、Actions成功確認、公開Pagesでの対局CPU（強）・解析・評価バー・詰めオセロ・v3取得200の実機確認は、コミット／push後に実施が必要。したがって本ワーカー時点ではタスク由来差分は意図的にworktreeへ残っている。
