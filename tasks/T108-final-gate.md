@@ -1,7 +1,7 @@
 ---
 id: T108
 title: 終盤ソルバー強化シリーズ最終ゲート計測(Edax壁時計比・60局対局)
-status: todo # todo | in_progress | review | redo | done | blocked
+status: done # todo | in_progress | review | redo | done | blocked
 assignee: Codex gpt-5.6-sol(codex-task)
 attempts: 0
 ---

@@ -1,7 +1,7 @@
 ---
 id: T120
 title: 200kコーパスでのteacher-only蒸留学習(T113外挿の検証・採否候補の作成)
-status: todo # todo | in_progress | review | redo | done | blocked
+status: in_progress # todo | in_progress | review | redo | done | blocked
 assignee: Codex gpt-5.6-sol(codex-task)
 attempts: 0
 ---
