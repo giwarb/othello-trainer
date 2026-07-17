@@ -91,6 +91,20 @@ impl Rng {
     }
 }
 
+fn select_bucket_indices(rng: &mut Rng, bucket_len: usize, wanted: usize) -> Vec<usize> {
+    let mut seen_indices = HashSet::with_capacity(wanted);
+    let mut picked_indices = Vec::with_capacity(wanted);
+    while picked_indices.len() < wanted {
+        // wanted=1 (the K=1 default) deliberately performs exactly the legacy
+        // single gen_range call. K>1 only adds draws inside this bin.
+        let pick_index = rng.gen_range(bucket_len);
+        if seen_indices.insert(pick_index) {
+            picked_indices.push(pick_index);
+        }
+    }
+    picked_indices
+}
+
 fn board_to_obf(b: &Board) -> String {
     let mut s = String::with_capacity(64);
     for i in 0..64u32 {
@@ -407,17 +421,7 @@ fn cmd_extract(args: &[String]) -> ExitCode {
                     continue;
                 }
                 let wanted = per_bin_cap.min(bucket.len()).min(per_game_cap - picked_for_game);
-                let mut seen_indices = HashSet::with_capacity(wanted);
-                let mut picked_indices = Vec::with_capacity(wanted);
-                while picked_indices.len() < wanted {
-                    // per-bin-cap=1では従来と同じ唯一のgen_range呼び出しとなる。
-                    // K>1では同じbin内だけで追加の重複なし抽出を行う。
-                    let pick_index = game_rng.gen_range(bucket.len());
-                    if seen_indices.insert(pick_index) {
-                        picked_indices.push(pick_index);
-                    }
-                }
-                for pick_index in picked_indices {
+                for pick_index in select_bucket_indices(&mut game_rng, bucket.len(), wanted) {
                     let pick = bucket[pick_index];
                     rows.push(CandidateRow {
                         board: pick.board,
@@ -511,4 +515,34 @@ fn cmd_extract(args: &[String]) -> ExitCode {
     );
 
     ExitCode::SUCCESS
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{select_bucket_indices, Rng};
+
+    #[test]
+    fn per_bin_cap_one_preserves_legacy_draw_and_rng_state() {
+        for bucket_len in [1, 2, 7, 31] {
+            let mut legacy = Rng::new(90_103);
+            let expected = legacy.gen_range(bucket_len);
+            let expected_next = legacy.next_u64();
+
+            let mut current = Rng::new(90_103);
+            assert_eq!(select_bucket_indices(&mut current, bucket_len, 1), vec![expected]);
+            assert_eq!(current.next_u64(), expected_next);
+        }
+    }
+
+    #[test]
+    fn per_bin_cap_extension_is_deterministic_and_without_replacement() {
+        let mut first = Rng::new(90_104);
+        let mut second = Rng::new(90_104);
+        let selected = select_bucket_indices(&mut first, 8, 4);
+        assert_eq!(selected, select_bucket_indices(&mut second, 8, 4));
+        let mut unique = selected.clone();
+        unique.sort_unstable();
+        unique.dedup();
+        assert_eq!(unique.len(), 4);
+    }
 }

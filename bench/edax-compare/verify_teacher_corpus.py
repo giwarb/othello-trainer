@@ -17,6 +17,9 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import vs_edax  # noqa: E402
+
 TEACHER_DATA_DIR = ROOT / "train" / "data" / "teacher"
 TOOL = ROOT / "target" / "release" / "teacher_candidates.exe"
 BATCH_SIZE = 500
@@ -25,6 +28,17 @@ EXACT_EMPTIES_THRESHOLD = 24
 # 独立評価指標が自己参照になるため)。各局面は既にD4正準化済みcanonicalKeyを
 # 持つので、対称形の展開は不要(このキーとの一致チェックだけで足りる)。
 T096_ORACLE_POSITIONS_PATH = ROOT / "bench" / "edax-compare" / "t096_oracle_positions.json"
+EXPANDED1M_GENERATOR_PATH = ROOT / "bench" / "edax-compare" / "gen_teacher_corpus.py"
+EXPANDED1M_BASE_PATH = TEACHER_DATA_DIR / "corpus_expanded200k.jsonl"
+EXPANDED1M_BASE_MANIFEST_PATH = (
+    ROOT / "bench" / "edax-compare" / "teacher_manifests" / "corpus_expanded200k.meta.json"
+)
+EXPANDED1M_CANDIDATE_POOL_PATH = TEACHER_DATA_DIR / "candidates_expanded1m.json"
+EXPANDED1M_SELECTION_PLAN_PATH = TEACHER_DATA_DIR / "corpus_expanded1m_selection_plan.jsonl"
+EXPANDED1M_BASE_COUNT = 200_000
+EXPANDED1M_TOTAL_COUNT = 1_000_000
+EXPANDED1M_BASE_SHA256 = "412477e2da6bacb0d715c7e5d02447d37b6e981237f64f221013a8eb465690e9"
+EXPANDED1M_BASE_MANIFEST_SHA256 = "89c3cd33ec491c0aa55b2c4d0165b0785a5b8f3df08674b5107caffc4b223f4c"
 
 
 def load_oracle_keys() -> set[tuple[int, int, int]]:
@@ -58,6 +72,90 @@ REQUIRED_CHILD_FIELDS = {"move", "value", "diffFromBest", "exact", "level", "eda
 
 def report(set_name: str, message: str) -> None:
     print(f"[{set_name}] {message}", file=sys.stderr)
+
+
+def sha256_of_file(path: Path) -> str | None:
+    if not path.exists():
+        return None
+    digest = hashlib.sha256()
+    with path.open("rb") as fh:
+        for chunk in iter(lambda: fh.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def expanded1m_provenance_errors(meta_doc: dict) -> list[str]:
+    """Validate fixed two-layer provenance against the actual local artifacts."""
+    errors = []
+    provenance = meta_doc.get("provenance") or {}
+    base = provenance.get("baseCorpus")
+    incremental = provenance.get("incrementalGeneration")
+    if not isinstance(base, dict) or not isinstance(incremental, dict):
+        return ["expanded1m requires baseCorpus/incrementalGeneration provenance"]
+
+    base_expected = {
+        "path": "train/data/teacher/corpus_expanded200k.jsonl",
+        "recordCount": EXPANDED1M_BASE_COUNT,
+        "jsonlSha256": EXPANDED1M_BASE_SHA256,
+        "manifestPath": "bench/edax-compare/teacher_manifests/corpus_expanded200k.meta.json",
+        "manifestSha256": EXPANDED1M_BASE_MANIFEST_SHA256,
+    }
+    for key, expected in base_expected.items():
+        if base.get(key) != expected:
+            errors.append(f"baseCorpus.{key}={base.get(key)!r}, expected {expected!r}")
+    actual_base_sha = sha256_of_file(EXPANDED1M_BASE_PATH)
+    if actual_base_sha != EXPANDED1M_BASE_SHA256:
+        errors.append(f"actual expanded200k SHA-256={actual_base_sha!r}, expected {EXPANDED1M_BASE_SHA256!r}")
+    actual_manifest_sha = sha256_of_file(EXPANDED1M_BASE_MANIFEST_PATH)
+    if actual_manifest_sha != EXPANDED1M_BASE_MANIFEST_SHA256:
+        errors.append(
+            f"actual expanded200k manifest SHA-256={actual_manifest_sha!r}, "
+            f"expected {EXPANDED1M_BASE_MANIFEST_SHA256!r}"
+        )
+    elif actual_manifest_sha is not None:
+        try:
+            base_manifest_meta = json.loads(EXPANDED1M_BASE_MANIFEST_PATH.read_text(encoding="utf-8")).get("meta") or {}
+            for key in ("edaxSha256", "edaxEvalDataSha256"):
+                if base.get(key) != base_manifest_meta.get(key):
+                    errors.append(
+                        f"baseCorpus.{key}={base.get(key)!r}, "
+                        f"base manifest has {base_manifest_meta.get(key)!r}"
+                    )
+        except (OSError, json.JSONDecodeError) as exc:
+            errors.append(f"cannot read authenticated expanded200k manifest: {exc}")
+
+    incremental_expected = {
+        "recordCount": EXPANDED1M_TOTAL_COUNT - EXPANDED1M_BASE_COUNT,
+        "candidatePoolPath": "train/data/teacher/candidates_expanded1m.json",
+        "selectionPlanPath": "train/data/teacher/corpus_expanded1m_selection_plan.jsonl",
+    }
+    for key, expected in incremental_expected.items():
+        if incremental.get(key) != expected:
+            errors.append(f"incrementalGeneration.{key}={incremental.get(key)!r}, expected {expected!r}")
+
+    artifact_shas = {
+        "candidatePoolSha256": sha256_of_file(EXPANDED1M_CANDIDATE_POOL_PATH),
+        "selectionPlanSha256": sha256_of_file(EXPANDED1M_SELECTION_PLAN_PATH),
+        "generatorSha256": sha256_of_file(EXPANDED1M_GENERATOR_PATH),
+        "teacherCandidatesToolSha256": sha256_of_file(TOOL),
+        "edaxSha256": sha256_of_file(vs_edax.EDAX_EXE),
+        "edaxEvalDataSha256": sha256_of_file(vs_edax.EDAX_EVAL_DATA),
+        "t096OracleSha256": sha256_of_file(T096_ORACLE_POSITIONS_PATH),
+    }
+    for key, actual in artifact_shas.items():
+        if actual is None or incremental.get(key) != actual:
+            errors.append(f"incrementalGeneration.{key}={incremental.get(key)!r}, actual {actual!r}")
+
+    shard_shas = incremental.get("shardPlanSha256")
+    if not isinstance(shard_shas, list) or len(shard_shas) != 8:
+        errors.append("incrementalGeneration.shardPlanSha256 must contain 8 entries")
+    else:
+        for shard_index, expected_sha in enumerate(shard_shas):
+            path = TEACHER_DATA_DIR / f"corpus_expanded1m_shard{shard_index}of8.plan.jsonl"
+            actual_sha = sha256_of_file(path)
+            if actual_sha is None or expected_sha != actual_sha:
+                errors.append(f"shard {shard_index} selection plan SHA-256={expected_sha!r}, actual {actual_sha!r}")
+    return errors
 
 
 def compute_children(records: list[dict]) -> list[dict]:
@@ -166,11 +264,17 @@ def verify_one(set_name: str) -> tuple[int, int]:
         report(set_name, "ERROR: meta progress.total/done must be integers")
         errors += 1
     if set_name == "expanded1m":
-        provenance = meta_doc.get("provenance") or {}
-        if not isinstance(provenance.get("baseCorpus"), dict) or not isinstance(
-            provenance.get("incrementalGeneration"), dict
-        ):
-            report(set_name, "ERROR: expanded1m requires baseCorpus/incrementalGeneration provenance")
+        if expected_total != EXPANDED1M_TOTAL_COUNT or expected_done != EXPANDED1M_TOTAL_COUNT:
+            report(
+                set_name,
+                f"ERROR: expanded1m meta must declare exactly {EXPANDED1M_TOTAL_COUNT} completed records",
+            )
+            errors += 1
+        if meta_doc.get("reusedRecordCount") != EXPANDED1M_BASE_COUNT:
+            report(set_name, f"ERROR: expanded1m reusedRecordCount must be {EXPANDED1M_BASE_COUNT}")
+            errors += 1
+        for message in expanded1m_provenance_errors(meta_doc):
+            report(set_name, f"ERROR: {message}")
             errors += 1
 
     seen_canonical: dict[tuple, int] = {}
@@ -281,7 +385,7 @@ def verify_one(set_name: str) -> tuple[int, int]:
     base_fh = None
     prefix_hash = None
     if set_name == "expanded1m":
-        base_path = TEACHER_DATA_DIR / "corpus_expanded200k.jsonl"
+        base_path = EXPANDED1M_BASE_PATH
         if not base_path.exists():
             report(set_name, "ERROR: expanded200k base missing; prefix identity cannot be verified")
             errors += 1
@@ -311,7 +415,7 @@ def verify_one(set_name: str) -> tuple[int, int]:
                     f"positionId sequence mismatch at record {record_count}: got {value.get('positionId')}",
                 )
                 errors += 1
-            if base_fh is not None and record_count < 200_000:
+            if base_fh is not None and record_count < EXPANDED1M_BASE_COUNT:
                 base_raw = base_fh.readline()
                 if raw != base_raw:
                     report(set_name, f"positionId={record_count}: expanded200k prefix byte mismatch")
@@ -330,11 +434,14 @@ def verify_one(set_name: str) -> tuple[int, int]:
         errors += verify_batch(batch, record_count - len(batch))
     if base_fh is not None:
         base_fh.close()
-        if record_count >= 200_000 and prefix_hash is not None:
-            expected_sha = ((meta_doc.get("provenance") or {}).get("baseCorpus") or {}).get("jsonlSha256")
-            if prefix_hash.hexdigest() != expected_sha:
+        if record_count >= EXPANDED1M_BASE_COUNT and prefix_hash is not None:
+            if prefix_hash.hexdigest() != EXPANDED1M_BASE_SHA256:
                 report(set_name, "ERROR: expanded200k prefix SHA-256 mismatch")
                 errors += 1
+
+    if set_name == "expanded1m" and record_count != EXPANDED1M_TOTAL_COUNT:
+        report(set_name, f"ERROR: expanded1m must contain exactly {EXPANDED1M_TOTAL_COUNT} records")
+        errors += 1
 
     if expected_total != record_count or expected_done != record_count:
         report(

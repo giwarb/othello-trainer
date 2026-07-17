@@ -1493,6 +1493,22 @@ def _expanded1m_shard_paths(shard_index: int):
 def _expanded1m_settings_and_meta(shard_index: int, plan_meta: dict) -> tuple[dict, dict]:
     provenance = plan_meta["provenance"]
     incremental = provenance["incrementalGeneration"]
+    current_execution_sha = {
+        "generatorSha256": sha256_of_file(Path(__file__)),
+        "teacherCandidatesToolSha256": sha256_of_file(TEACHER_CANDIDATES_TOOL),
+        "edaxSha256": sha256_of_file(vs_edax.EDAX_EXE),
+        "edaxEvalDataSha256": sha256_of_file(vs_edax.EDAX_EVAL_DATA),
+    }
+    mismatches = {
+        key: {"plan": incremental.get(key), "current": current_sha}
+        for key, current_sha in current_execution_sha.items()
+        if incremental.get(key) != current_sha
+    }
+    if mismatches:
+        raise RuntimeError(
+            "expanded1m execution SHA mismatch against fixed selection plan; "
+            f"generation/resume refused: {mismatches}"
+        )
     settings = {
         "setName": "expanded1m",
         "targetCount": 1_000_000,
@@ -1517,10 +1533,10 @@ def _expanded1m_settings_and_meta(shard_index: int, plan_meta: dict) -> tuple[di
     }
     meta = {
         "gitCommit": vs_edax.git_commit_hash(),
-        "harnessSha256": incremental["generatorSha256"],
-        "teacherCandidatesToolSha256": incremental["teacherCandidatesToolSha256"],
-        "edaxSha256": incremental["edaxSha256"],
-        "edaxEvalDataSha256": incremental["edaxEvalDataSha256"],
+        "harnessSha256": current_execution_sha["generatorSha256"],
+        "teacherCandidatesToolSha256": current_execution_sha["teacherCandidatesToolSha256"],
+        "edaxSha256": current_execution_sha["edaxSha256"],
+        "edaxEvalDataSha256": current_execution_sha["edaxEvalDataSha256"],
         "candidatesPoolSha256": incremental["candidatePoolSha256"],
         "highRegretSourceSha256": sha256_of_file(VS_EDAX_RESULTS_PATH),
         "selectionPlanSha256": plan_meta["selectionPlanSha256"],
@@ -1634,6 +1650,11 @@ def generate_expanded1m_shard(shard_index: int) -> None:
     for start in range(0, len(todo), children_batch_size):
         positions_batch = todo[start : start + children_batch_size]
         children_batch = run_children_batch(positions_batch)
+        if len(children_batch) != len(positions_batch):
+            raise RuntimeError(
+                "expanded1m children batch size mismatch: "
+                f"{len(children_batch)} != {len(positions_batch)}"
+            )
         for position, children_info in zip(positions_batch, children_batch):
             progress_i += 1
             position_id = position["positionId"]

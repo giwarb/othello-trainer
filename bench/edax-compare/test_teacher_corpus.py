@@ -587,22 +587,42 @@ class TeacherCorpusTests(unittest.TestCase):
                     "manifestSha256": gen.BASE_MANIFEST_SHA256,
                 },
                 "incrementalGeneration": {
-                    "generatorSha256": "generator",
-                    "teacherCandidatesToolSha256": "tool",
-                    "edaxSha256": "edax",
-                    "edaxEvalDataSha256": "eval",
+                    "generatorSha256": "current",
+                    "teacherCandidatesToolSha256": "current",
+                    "edaxSha256": "current",
+                    "edaxEvalDataSha256": "current",
                     "candidatePoolSha256": "pool",
                     "selectionPlanSha256": "master-sha",
                 },
             },
         }
         with mock.patch.object(gen.vs_edax, "git_commit_hash", return_value="head"):
-            settings, meta = gen._expanded1m_settings_and_meta(3, plan_meta)
+            with mock.patch.object(gen, "sha256_of_file", return_value="current"):
+                settings, meta = gen._expanded1m_settings_and_meta(3, plan_meta)
         self.assertEqual(settings["selectionPlanSha256"], "master-sha")
         self.assertEqual(settings["shardSelectionPlanSha256"], "shard-3")
         self.assertEqual(settings["perBinCap"], 4)
         self.assertIn("baseCorpus", meta)
         self.assertIn("incrementalGeneration", meta)
+        self.assertEqual(meta["harnessSha256"], "current")
+
+    def test_expanded1m_rejects_execution_sha_changed_since_plan(self) -> None:
+        incremental = {
+            "generatorSha256": "planned",
+            "teacherCandidatesToolSha256": "current",
+            "edaxSha256": "current",
+            "edaxEvalDataSha256": "current",
+            "candidatePoolSha256": "pool",
+        }
+        plan_meta = {
+            "selectionStats": {},
+            "selectionPlanSha256": "master",
+            "shardPlanSha256": [f"shard-{i}" for i in range(8)],
+            "provenance": {"baseCorpus": {}, "incrementalGeneration": incremental},
+        }
+        with mock.patch.object(gen, "sha256_of_file", return_value="current"):
+            with self.assertRaisesRegex(RuntimeError, "execution SHA mismatch.*resume refused"):
+                gen._expanded1m_settings_and_meta(0, plan_meta)
 
     def test_streaming_merge_orders_records_and_uses_atomic_temp(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -642,6 +662,67 @@ class TeacherCorpusTests(unittest.TestCase):
                     with self.assertRaisesRegex(RuntimeError, "target unavailable"):
                         gen.select_expanded1m_incremental({"positions": []}, base, set(), 7)
 
+    def test_expanded1m_synthetic_selection_enforces_final_union_constraints(self) -> None:
+        base = {
+            "canonicalKeys": {(998, 0, 0)},
+            "phaseCounts": [1, 1, 0, 0, 0, 0],
+            "phaseXcCounts": [0, 1, 0, 0, 0, 0],
+            "openingCounts": {"shared": 2},
+        }
+        positions = []
+        board_id = 100
+        for phase in range(6):
+            for offset in range(6):
+                positions.append(
+                    {
+                        "board": str(board_id),
+                        "sideToMove": "black",
+                        "phaseBin": phase,
+                        "hasXcLegalMove": offset % 2 == 0,
+                        "openingKey": "shared" if offset < 2 else f"opening-{board_id}",
+                        "year": 2024,
+                        "gameIndex": board_id,
+                    }
+                )
+                board_id += 1
+        positions.extend(
+            [
+                {**positions[0]},
+                {**positions[0], "board": "998"},
+                {**positions[0], "board": "999"},
+            ]
+        )
+
+        with mock.patch.object(gen, "EXPANDED1M_BASE_COUNT", 2):
+            with mock.patch.object(gen, "EXPANDED1M_INCREMENTAL_COUNT", 12):
+                with mock.patch.object(gen, "EXPANDED1M_ENGINE_LOSS_COUNT", 0):
+                    with mock.patch.object(gen, "OPENING_MAX_FRACTION", 0.25):
+                        with mock.patch.object(
+                            gen,
+                            "canonical_key_of_position",
+                            side_effect=lambda board, _side: (int(board), 0, 0),
+                        ):
+                            selected, stats = gen.select_expanded1m_incremental(
+                                {"positions": positions, "totalCandidatesAfterDedup": len(positions)},
+                                base,
+                                {(999, 0, 0)},
+                                17,
+                            )
+
+        self.assertEqual(len(selected), 12)
+        self.assertEqual(sum(stats["finalBinAllocation"]), 14)
+        self.assertEqual(sum(stats["incrementalBinAllocation"]), 12)
+        self.assertEqual(stats["baseExcluded"], 1)
+        self.assertEqual(stats["oracleExcluded"], 1)
+        self.assertEqual(stats["incrementalDuplicateExcluded"], 1)
+        self.assertLessEqual(stats["maxOpeningCountSelected"], stats["openingMaxCount"])
+        for phase, final_count in enumerate(stats["finalBinAllocation"]):
+            self.assertGreaterEqual(stats["finalPhaseXcCounts"][phase], (final_count + 1) // 2)
+        selected_keys = {int(row["board"]) for row in selected}
+        self.assertEqual(len(selected_keys), len(selected))
+        self.assertNotIn(998, selected_keys)
+        self.assertNotIn(999, selected_keys)
+
     def test_base_shard_copy_preserves_record_bytes(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
@@ -657,6 +738,121 @@ class TeacherCorpusTests(unittest.TestCase):
             copied = gen.copy_base_records_for_shard(source, target, 1, 2)
             self.assertEqual(copied, 2)
             self.assertEqual(target.read_bytes(), (lines[1] + lines[3]).encode("utf-8"))
+
+    def test_expanded1m_verifier_uses_fixed_counts_prefix_and_artifact_shas(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            data_dir = root / "teacher"
+            data_dir.mkdir()
+            artifacts = {
+                "manifest": root / "base.meta.json",
+                "candidate": data_dir / "candidates_expanded1m.json",
+                "plan": data_dir / "corpus_expanded1m_selection_plan.jsonl",
+                "generator": root / "gen.py",
+                "tool": root / "teacher_candidates.exe",
+                "oracle": root / "oracle.json",
+                "edax": root / "edax.exe",
+                "eval": root / "eval.dat",
+            }
+            for name, path in artifacts.items():
+                path.write_text(f"{name}\n", encoding="utf-8", newline="\n")
+            artifacts["manifest"].write_text(
+                json.dumps({"meta": {"edaxSha256": "base-edax", "edaxEvalDataSha256": "base-eval"}}),
+                encoding="utf-8",
+            )
+
+            def record(position_id: int) -> dict:
+                return {
+                    "positionId": position_id,
+                    "children": [
+                        {"move": "a1", "value": 0, "diffFromBest": 0, "exact": False, "level": 16}
+                    ],
+                    "bestMove": "a1",
+                    "bestValue": 0,
+                    "canonicalKey": [position_id + 1, 0, 0],
+                }
+
+            base_lines = [json.dumps(record(i), separators=(",", ":")) + "\n" for i in range(2)]
+            base_path = data_dir / "corpus_expanded200k.jsonl"
+            base_path.write_text("".join(base_lines), encoding="utf-8", newline="\n")
+            corpus_path = data_dir / "corpus_expanded1m.jsonl"
+            corpus_path.write_text(
+                "".join(base_lines) + json.dumps(record(2), separators=(",", ":")) + "\n",
+                encoding="utf-8",
+                newline="\n",
+            )
+            shard_shas = []
+            for shard_index in range(8):
+                shard_path = data_dir / f"corpus_expanded1m_shard{shard_index}of8.plan.jsonl"
+                shard_path.write_text(f"{shard_index}\n", encoding="utf-8", newline="\n")
+                shard_shas.append(verify.sha256_of_file(shard_path))
+
+            base_sha = verify.sha256_of_file(base_path)
+            manifest_sha = verify.sha256_of_file(artifacts["manifest"])
+            provenance = {
+                "baseCorpus": {
+                    "path": "train/data/teacher/corpus_expanded200k.jsonl",
+                    "recordCount": 2,
+                    "jsonlSha256": base_sha,
+                    "manifestPath": "bench/edax-compare/teacher_manifests/corpus_expanded200k.meta.json",
+                    "manifestSha256": manifest_sha,
+                    "edaxSha256": "base-edax",
+                    "edaxEvalDataSha256": "base-eval",
+                },
+                "incrementalGeneration": {
+                    "recordCount": 1,
+                    "candidatePoolPath": "train/data/teacher/candidates_expanded1m.json",
+                    "candidatePoolSha256": verify.sha256_of_file(artifacts["candidate"]),
+                    "selectionPlanPath": "train/data/teacher/corpus_expanded1m_selection_plan.jsonl",
+                    "selectionPlanSha256": verify.sha256_of_file(artifacts["plan"]),
+                    "generatorSha256": verify.sha256_of_file(artifacts["generator"]),
+                    "teacherCandidatesToolSha256": verify.sha256_of_file(artifacts["tool"]),
+                    "edaxSha256": verify.sha256_of_file(artifacts["edax"]),
+                    "edaxEvalDataSha256": verify.sha256_of_file(artifacts["eval"]),
+                    "t096OracleSha256": verify.sha256_of_file(artifacts["oracle"]),
+                    "shardPlanSha256": shard_shas,
+                },
+            }
+            meta = {
+                "schemaVersion": 2,
+                "settings": {"exactEmptiesThreshold": 24},
+                "progress": {"done": 3, "total": 3},
+                "reusedRecordCount": 2,
+                "provenance": provenance,
+            }
+            (data_dir / "corpus_expanded1m.meta.json").write_text(json.dumps(meta), encoding="utf-8")
+
+            patches = {
+                "TEACHER_DATA_DIR": data_dir,
+                "TOOL": artifacts["tool"],
+                "T096_ORACLE_POSITIONS_PATH": artifacts["oracle"],
+                "EXPANDED1M_GENERATOR_PATH": artifacts["generator"],
+                "EXPANDED1M_BASE_PATH": base_path,
+                "EXPANDED1M_BASE_MANIFEST_PATH": artifacts["manifest"],
+                "EXPANDED1M_CANDIDATE_POOL_PATH": artifacts["candidate"],
+                "EXPANDED1M_SELECTION_PLAN_PATH": artifacts["plan"],
+                "EXPANDED1M_BASE_COUNT": 2,
+                "EXPANDED1M_TOTAL_COUNT": 3,
+                "EXPANDED1M_BASE_SHA256": base_sha,
+                "EXPANDED1M_BASE_MANIFEST_SHA256": manifest_sha,
+                "ORACLE_KEYS": set(),
+            }
+            legal = lambda records: [
+                {"moves": [{"move": "a1", "childEmpties": 30, "childIsTerminal": False}]} for _ in records
+            ]
+            canonical = lambda records: [rec["canonicalKey"] for rec in records]
+            with mock.patch.multiple(verify, **patches):
+                with mock.patch.object(verify.vs_edax, "EDAX_EXE", artifacts["edax"]):
+                    with mock.patch.object(verify.vs_edax, "EDAX_EVAL_DATA", artifacts["eval"]):
+                        with mock.patch.object(verify, "schema_errors", return_value=[]):
+                            with mock.patch.object(verify, "compute_children", side_effect=legal):
+                                with mock.patch.object(verify, "compute_canonical_keys", side_effect=canonical):
+                                    count, errors = verify.verify_one("expanded1m")
+            self.assertEqual((count, errors), (3, 0))
+
+            tampered = json.loads((data_dir / "corpus_expanded1m.meta.json").read_text(encoding="utf-8"))
+            tampered["provenance"]["incrementalGeneration"]["selectionPlanSha256"] = "tampered"
+            self.assertTrue(verify.expanded1m_provenance_errors(tampered))
 
 
 if __name__ == "__main__":
