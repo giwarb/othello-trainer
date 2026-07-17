@@ -1,9 +1,9 @@
 ---
 id: T127j
 title: expanded1m生成のEdax v3バイナリ(AVX2)乗り換え準備(コード・meta移行・plan再生成の実装)
-status: review # todo | in_progress | review | redo | done | blocked
+status: redo # todo | in_progress | review | redo | done | blocked
 assignee: implementer(Sonnet)
-attempts: 0
+attempts: 1
 ---
 
 # T127j: v3バイナリ乗り換え準備
@@ -50,6 +50,21 @@ T127iのA/B結果(bench/edax-compare/t127i_edax_v3_ab_report.md)で、`wEdax-x86
 - [ ] タスク完了時点で、当該タスク由来の差分・未追跡が`git status --short`に残っていない(生成中ファイル群・scratchpadは対象外)
 
 ## フィードバック(やり直し時にオーケストレーターが記入)
+
+### redo#1(2026-07-18、代替レビュー tasks/review/T127ij-v3-binary-claude-review.md の重大-1)
+
+**問題**: migrateがmetaに書いた方式境界`edaxExeBoundary`は、生成再開後に`TeacherCorpusCheckpoint._write_meta`(gen_teacher_corpus.py L1302-1321)がバンドル毎にmeta docを作り直す際に未知キーとして捨てられ消滅する。**オーケストレーターが実地確認済み: 全8シャードのライブmetaから既に消滅**(`edaxExe`設定自体はsettings経由で毎回書かれるため残っている)。正しい境界値はタスクファイルの「切替実施ログ」にのみ残っている。またmigrate `--apply`を今再実行するとboundaryを現在件数で再計算し誤値を書く(レビュー指摘の罠)。
+
+**修正方針(コード変更は生成に影響しない範囲のみ。gen_teacher_corpus.pyの変更は禁止=走行中)**:
+1. **サイドカーファイル方式**: `bench/edax-compare/teacher_manifests/corpus_expanded1m_method_boundaries.json`(コミット対象=git管理で消えない)を新規作成し、expanded1mの方式境界2件を機械可読で記録する。値はオーケストレーター確定値を使う(自分で再計算しない):
+   - 境界1(T127h warm切替、2026-07-17 21:1x): `{"change": "edaxParentsPerProcess: 1 -> 32 (cross-parent warm batching)", "totalRecordsBefore": 292679, "valuesIdentical": true, "evidence": "t127g_warm_tt_ab_report.md"}`。per-shard件数はtasks/T127h-warm-batch-switch.mdの作業ログに記録があればそれを転記、なければ`"perShard": null, "note": "per-shard counts not preserved; total is exact"`とする(捏造しない)。
+   - 境界2(T127j v3切替、2026-07-18 07:1x): `{"change": "edaxExe: wEdax-x86-64.exe -> wEdax-x86-64-v3.exe", "totalRecordsBefore": 493703, "perShard": {"0": 61760, "1": 61608, "2": 61831, "3": 61655, "4": 61795, "5": 61625, "6": 61670, "7": 61759}, "valuesIdentical": true, "evidence": "t127i_edax_v3_ab_report.md"}`
+   - スキーマ検証テスト(perShard合計=totalRecordsBefore、必須キー存在)を追加。
+2. **migrateスクリプトの再実行ガード**: `migrate_t127j_v3_binary.py`に「metaに`edaxExe`が既にあり`edaxExeBoundary`が無い場合(=切替後の再実行)、boundaryを再計算せずエラーで停止しサイドカーを案内する」ガードを追加+テスト。docstringにも切替後再実行禁止と経緯を明記。
+3. **中-1(resume identityにバイナリ実SHAが入らない)**: 走行中のgen_teacher_corpus.pyは変更禁止のため本redoでは対応しない。T127c持ち越しとしてSTATUSに記録済み(オーケストレーター対応)。
+4. 軽微の同時修正: t127i_edax_v3_ab_report.mdの結論節「時間短縮12.7%」→「11.35%」訂正のみ行う(他の軽微3件はT127c持ち越し)。
+
+受け入れ基準の追加分: サイドカー+テストがpytestでパス、migrate再実行ガードのテスト、変更ファイル(サイドカー・migrate・テスト・レポート訂正)のみパス明示コミット(`(T127j)`)。gen_teacher_corpus.py・vs_edax.py・生成中ファイルは触らない。
 
 ## 作業ログ(担当エージェントが追記)
 

@@ -29,11 +29,12 @@
 | T127b | expanded1m本番生成(新規80万件) | オーケストレーター管理 | in_progress(**7/17 21:3x 親またぎバッチ方式(32親/束)へ乗り換え成功、PID 21948**。292,679件を全件保持してresume。7/18 04:2x重い帯(空き20-29、incremental bin3)へ突入しペース3万→1万件/hに低下(構造的・異常なし)。**ETA再修正(7/18朝、重い帯の実測5k/h前後を反映): 完走7/19夜〜7/20朝**。当初41h推計は帯構成の平均を誤適用した楽観(bin3=空き20-29の incremental 割当が17.3万件と大きい)。ログlogs/t127b-gen2.log) | 0 |
 | T127c-e | 1M検証(+テスト固定2件FU)→v4学習(500k bridge+1M×3seed)→4M投資判定 | Codex gpt-5.6-sol | todo(生成完走後に順次) | 0 |
 | T127i | Edax v3バイナリ(AVX2)+`-n 2`の値一致+速度A/B | implementer(Sonnet) | review(計測完了 add579d: **v3=値全帯全件一致・残件加重1.152倍→採用**、-n2=level16で67件値不一致→不採用。i+jまとめてClaude代替レビュー中) | 0 |
-| T127j | v3バイナリ乗り換え準備+切替実施 | implementer(Sonnet)+オーケストレーター | review(d689dda、**切替完了7/18 07:1x**: 493,703件全保持・plan SHA byte同一・v3×8稼働。代替レビュー中) | 0 |
+| T127j | v3バイナリ乗り換え準備+切替実施 | implementer(Sonnet)+オーケストレーター | redo(切替自体は成功=493,703件全保持・v3×8稼働。代替レビュー重大1件: metaの方式境界edaxExeBoundaryが_write_metaで消滅〔実地確認済み〕→サイドカーjson化+migrate再実行ガードで修正中) | 1 |
 
 ## 有効な方針・申し送り(今後のタスクに効くもの)
 
-- **T127h申し送り(T127cで対応)**: (中)束フォールバック経路が全親成功までcheckpointしない(損失は最大1束=32親に有界、resume再生成で回復)→完走後に修正(generatorSHAゲートに触れるためplan provenance更新とセットで)。(軽微)移行後metaのelapsedMsPolicyが切替前分を遡及誤記述(診断用でラベル値に無関係)/方式境界(切替時点シャード件数)をmanifestに機械可読で記録すること。
+- **T127h申し送り(T127cで対応)**: (中)束フォールバック経路が全親成功までcheckpointしない(損失は最大1束=32親に有界、resume再生成で回復)→完走後に修正(generatorSHAゲートに触れるためplan provenance更新とセットで)。(軽微)移行後metaのelapsedMsPolicyが切替前分を遡及誤記述(診断用でラベル値に無関係)/方式境界はT127j redo#1でサイドカーjson化(teacher_manifests/corpus_expanded1m_method_boundaries.json)、T127cはmanifestへ転記。
+- **T127ijレビュー申し送り(T127cで対応)**: (中)resume identity/runKeyにEdaxバイナリ実SHAが入らずバイナリ差し替えをfail-closed検知できない(緩和: meta.edaxExeSha256は毎起動再記録)→gen_teacher_corpus.py凍結解除後にPROVENANCE_IDENTITY_KEYS拡張とセットで。(軽微)残件加重speedupが件数加重(ETA精度のみ)/ソーススキャンテストの禁止パターン不完全/A/Bハーネス未コミット。
 
 - **Edax生成高速化の調査結果(2026-07-17、explorer、4M判断の材料)**: 現行T094バッチは「1親の兄弟子局面=1プロセス」でTT共有済みだが、①`-h`ハッシュサイズ未指定(C3ベンチに`-h 22`=64MiBの前例あり、追加は低リスク)、②親またぎのプロセス統合は未実装(起動削減+TT温存の余地、ただしresume粒度・runKey互換の再設計要)。**ウォームTTがlevel16教師値を変えないかは未検証** — 4M生成の前に小規模A/B(コールドvsウォームの値一致+pos/s)を別タスクで実施し、T127e判定材料に添える(現行1M生成には適用しない=ラベル一貫性維持)。
 
