@@ -56,3 +56,19 @@ attempts: 0
 ## フィードバック(やり直し時にオーケストレーターが記入)
 
 ## 作業ログ(担当エージェントが追記)
+
+### 2026-07-17 12:52 JST Codex実装・3seed学習・ゲート計測完了
+
+- 前提確認: AGENTS.mdとT123完了（status=done、3seed平均2.0111石）を確認し、開始時git statusは空。現行実装は NUM_STAGES=13、STAGE_EMPTY_DIVISOR=5、stage=min(empty_count/5,12)で、境界は空き0〜4、5〜9、…、55〜59、60の13段だった。v4はパターン形状をv3と同じ38 instance / 10 classに保ち、61段・除数1（stage=empty_count）だけを変更する設計とした。
+- 実装: PWV3の既存num_stages/stage_empty_divisorをPatternWeightsへ保持し、loader・score・SGD・蒸留特徴抽出が重み自身の定義を使うよう拡張。対応定義は従来13/5とv4 61/1に限定し、PWV1/PWV2/従来PWV3は13/5のまま。train_patterns_v3の --configs v4 とtrain_distillationの --pattern-set v4を追加。ロード・評価・境界・v3と同じ形状の基本テストを追加した。
+- WTHOR学習: target/release/train_patterns_v3.exe --configs v4 --seeds 1,2,3 --epochs 20 --output-dir train/data/t124/wthor-v4 を専有1プロセスで実行。3,988,509 train / 442,995 frozen samples、全seed 20 epoch完走。frozen MAEはseed 1/2/3=16.185831/15.725285/15.946311。epochごとに重み+identityをatomic保存し直前世代を保持。完走後に同一コマンドを再実行し、3完成runを結果再計算のみでskipできることを実測した。
+- WTHOR oracle: compare_pattern_v3.pyを各seedフルスクラッチ実行し、regret seed 1/2/3=0.7000/1.6667/0.9667石、平均1.1111、seed sample SD 0.4993。全3回でv2=1.5666666666666667を完全再現してM2ガードPASS。v2差とpaired bootstrap 95% CIはseed 1=-0.8667 [-1.5000,-0.3000]、seed 2=+0.1000 [-0.7333,1.0333]、seed 3=-0.6000 [-1.2667,0.1000]。T111 v3 3seed平均1.4778比で平均-0.3667石、T121選抜seed 1.4000比で平均-0.2889石。
+- 蒸留200k学習: target/release/train_distillation.exe --corpus train/data/teacher/corpus_expanded200k.jsonl --checkpoint-dir train/data/t124/distill200k-v4 --mixes teacher-only --seeds 1,2,3 --pattern-set v4 --reference-weights train/weights/pattern_v2.bin --jobs 1 を実行。T123からの変更はpattern-set v3→v4と出力先のみ。180,110 train / 9,685 validation / 10,205 frozen、best epoch=29/26/29、completed epoch=30/31/29。epochごとにstate・重み・metricsをatomic保存。完走後の同一コマンドでresume epoch=30/31/29を実測した。
+- 蒸留oracle: 3seedすべてregret=2.8666666666666667石、v2差+1.3000、95% CI [0.2000,2.5333]でcandidate_worse。全3回でM2ガードPASS。T123 v3×蒸留200k平均2.0111比で+0.8556石悪化。
+- サイズ/配信: v3 5,964,708 bytesに対しv4 27,986,340 bytes（4.692倍）。Python gzip -9、mtime固定でv3 940,533 bytes、v4 4,299,661 bytes（4.572倍）。raw約22.0MB、gzip約3.36MB増で、アプリ配信コストは無視できない。
+- NPS: target/release/calibrate_mpc.exe bench --depth 8 --pattern-weights PATH、固定opening/midgame 28局面、v3/v4交互3反復。v3平均677,954、v4平均683,772 NPS、比100.86%。速度劣化なし（評価差により探索ノード数自体は異なる専有参考値）。
+- ロード/メモリ: fresh eval_cli processで重みロード+1局面depth 0評価を各20回。中央値v3 52.54ms、v4 83.57ms（1.591倍）。1msポーリング平均peak working setはv3 72.66MiB、v4 100.40MiB、差+27.74MiB。OS cache・プロセス起動込みの専有参考値。
+- 平滑化: 仕様どおり素朴な1石刻みを先に実測。WTHOR平均regretが改善したためT124内では平滑化を追加せず、結果を混ぜなかった。ただしseed 2退行・seed SD 0.4993・蒸留悪化を踏まえ、隣接stage正則化または共有と差分量子化/圧縮を別候補で比較してから採否判断する案を推奨。本番配線・採用裁定・パターン形状変更・コーパス生成は未実施。
+- 検証: cargo test -p engine PASS（197 tests）、cargo test -p train PASS（56 unit + real_data 1）、cargo test -p engine --release --test ffo_bench PASS（fast 1、heavy 1 ignored）、v4 WTHOR/蒸留smoke PASS、python -m json.tool meta PASS、git diff --check PASS、UTF-8化け文字チェックPASS。
+- 成果物: bench/edax-compare/t124_v4_stage_resolution.meta.json、bench/edax-compare/t124_v4_stage_resolution_report.md。重み・checkpoint・oracle生JSONはtrain/data/t124配下（gitignore領域）。
+- コミットハッシュ: 未作成（.git書き込み禁止のためオーケストレーター代行）。コミット対象はengine/src/pattern_eval.rs、train/src/regression.rs、train/src/bin/train_patterns_v3.rs、train/src/t090_distillation.rs、train/weights/README.md、上記メタ・レポートの7ファイル。件名 (T124)。タスクファイルは作業ログ追記のみでコミット対象外。
