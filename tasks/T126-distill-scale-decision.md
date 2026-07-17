@@ -1,7 +1,7 @@
 ---
 id: T126
 title: 蒸留100万規模化の投資判断のための切り分け実験(ラベル要因 vs 量・分布要因)
-status: todo # todo | in_progress | review | redo | done | blocked
+status: done # todo | in_progress | review | redo | done | blocked
 assignee: Codex gpt-5.6-sol(codex-task)
 attempts: 0
 ---
