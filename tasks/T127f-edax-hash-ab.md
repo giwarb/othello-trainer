@@ -47,3 +47,8 @@ attempts: 0
 ## フィードバック(やり直し時にオーケストレーターが記入)
 
 ## 作業ログ(担当エージェントが追記)
+
+- 2026-07-17 Codex: `vs_edax.py::_edax_solve_batch()`へ既定`None`の`edax_hash_bits`を加え、指定時だけ`-h <bits>`をコマンド列へ追加した。既存呼び出しは変更せず、scratchpad一時pytestで未指定時のコマンド列が従来と同一（`-h`なし）であることと、22指定時だけ`-h 22`が入ることを確認（1 passed）。
+- expanded1m selection plan SHA `2f26451299ea000c2ee118ab91330d1cdbc283903b0f23474b882210f2698483`からsnapshot時点の未生成局面を固定seedで決定的にexact/level16各150親選び、hashなし対h22/h24の直結・先後交互ペアと各設定2回の決定性確認を実行。scratchpad `%TEMP%\t127f_edax_hash_ab`へstage単位append+flush+fsync（resume対応）し、生成中plan/checkpointは読み取りのみ。6,149.4秒で全1,200 stage完走。
+- 結果: exact 840子、level16 1,676子のscore/bestMove/diffFromBestはh22/h24とも不一致0・最大差0石。同一設定2回も全件一致。幾何平均speedupはexact h22=0.9899x/h24=0.6409x、level16 h22=0.9986x/h24=0.8301x。残件帯比率でh22=0.9943x（40.23時間）、h24=0.7304x（54.76時間）と推定し、15%以上高速を満たさないため現行続行を推奨。レポート`bench/edax-compare/t127f_edax_hash_ab_report.md`を作成。
+- 検証: `python -m pytest bench/edax-compare/ -q` 46 passed、`git diff --check` PASS。コミットハッシュ: 未作成（`.git`書き込み禁止のためオーケストレーターが代行）。コミット対象は`bench/edax-compare/vs_edax.py`と`bench/edax-compare/t127f_edax_hash_ab_report.md`のみ（タスク作業ログはコミット対象外）。
