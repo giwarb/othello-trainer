@@ -81,3 +81,33 @@ attempts: 0
 ## フィードバック(やり直し時にオーケストレーターが記入)
 
 ## 作業ログ(担当エージェントが追記)
+
+### 2026-07-18 実装完了(implementer)
+
+- **調査**: `PracticeMode.tsx`(旧`handleModeFailure`/`loadFailExplanation`)、`engine/src/explain.rs`(`FeatureSet`の各フィールド意味)、`analysis/motifs.ts`(`detectXUchi`/`detectCUchi`/`frontierSquares`等の既存検出器)、`analysis/whyBad.ts`(`analyzeWhyBad`/`computeStableSquares`)、`components/Board.tsx`、`analysis/BoardOverlay.tsx`を読み、既存資産の再利用範囲を確定。
+- **実装1**: `app/src/midgame/clearBlunder.ts`を新規作成。5種の検出器(`detectOpponentMobility`/`detectCornerGift`/`detectXCDanger`/`detectWallFrontier`/`detectStableLoss`)を`motifs.ts`と同じ「入力から自分で派生値を計算する独立関数」方針で実装し、`detectClearBlunderPatterns`で統合(severity降順・最大2件)。深読み・エンジン呼び出しの追加は行わず、`legalMoves`/`applyMove`(1手先の局面生成のみ)と既存の`FeatureSet`/モチーフ検出器の範囲に限定。
+- **実装2**: `app/src/midgame/clearBlunder.test.ts`を新規作成。各検出器の陽性・陰性、統合関数のnull/複数検出時のsort+2件上限を検証。局面フィクスチャはscratchpad同然の一時ファイル(`app/src/midgame/_scratch_proto*.ts`、`node --experimental-strip-types`で都度実行→削除)で事前に数値を実機確認してから組み込んだ(手計算のビット演算ミスを避けるため)。作業途中でオーケストレーターから「未追跡の一時ファイルが残っている」と指摘を受け、都度削除する運用に修正した(以後は生成→検証→即削除を1コマンドにまとめて対応)。
+- **実装3**: `app/src/midgame/ClearBlunderCompare.tsx`を新規作成(「あなたの手のあと」「最善手のあと」盤面2枚+検出パターンの言語化文、`BoardOverlay`の`emphasizedSquares`でハイライト)。`PracticeMode.css`に対応レイアウト(横並び+375px相当でのメディアクエリ縦積み)を追加。
+- **実装4**: `app/src/midgame/PracticeMode.tsx`を改修。
+  - `handlePlayerMove`に要件2のゲートを追加: `judgeMidgameMove`が不合格でも、両手(実際の手・最善手)の`requestFeatureSet`を待って`detectClearBlunderPatterns`にかけ、`null`(明確パターン0件)なら`applyMoveAndContinue`(新設ヘルパー、正解時と共通化)で合格扱いにする。特徴量取得自体が失敗した場合は従来どおり評価値のみで不合格にフォールバック。
+  - `handleModeFailure`に`clearBlunderPatterns`引数を追加し、`resultInfo`に格納。旧`loadFailExplanation`(特徴量取得→モチーフ検出→評価内訳waterfall→回収点の非同期読み込み)を全廃し、失敗画面から「なぜ悪いか」「モチーフ検出タグ」「評価内訳waterfall」「回収点」を撤去、`ClearBlunderCompare`に置き換えた(タスク仕様どおり、waterfall・回収点は本番評価と別物の旧3項ヒューリスティック由来のため)。
+  - `sessionGenerationRef`世代ガードはゲートの`requestFeatureSet`待機後にも適用し、離脱後の古い結果確定を防止(T119教訓を踏襲)。
+- **実装5**: `app/src/midgame/PracticeMode.clearBlunderGate.test.tsx`(ゲート統合テスト)・`app/src/midgame/ClearBlunderCompare.test.tsx`(失敗画面コンポーネントテスト)を新規作成。
+
+### 受け入れ基準の実行結果
+
+- [x] 検出器5種それぞれに陽性・陰性のユニットテスト → `clearBlunder.test.ts`(14件、全パス)
+- [x] ゲートのテスト: 評価値では不合格だが明確パターンなし→合格扱い、ステージ記録も合格として扱う → `PracticeMode.clearBlunderGate.test.tsx`(1件、パス。`requestFeatureSet`が実際の手・最善手の両方で呼ばれたことをスパイで確認し、`.midgame-result--fail`に遷移しないこと・`localStorage`のステージ記録に`failCount`が書き込まれないことを確認)
+- [x] 失敗画面のコンポーネントテスト(jsdom) → `ClearBlunderCompare.test.tsx`(2件、パス。盤面2枚+言語化文の描画、2件検出時に2件とも表示されることを確認。「2件が上限」自体は`clearBlunder.test.ts`側の統合関数テストで検証)
+- [x] `npm test` 全件パス → `npx vitest run`: `Test Files 73 passed / Tests 613 passed`
+- [x] mainへpush、GitHub Actionsデプロイ成功、本番Pagesで動作確認 → コミット`23253db`をpush、`gh run watch`でDeploy to GitHub Pages成功(`build`/`deploy`とも成功)を確認。Playwright的操作(Claude Browserツール)で `https://giwarb.github.io/othello-trainer/` の中盤練習(判定モード=標準、開始局面ソース=定石終端からランダム)を開始し、候補手評価オーバーレイからX打ちマス(g7、隅h8が空いた状態)を意図的にクリック→失敗画面に「あなたの手のあと」「最善手のあと」の盤面2枚+「隅がまだ空いているのに、その斜め隣(X)に打つと隅を取られやすくなります。」の平易な言語化文が表示されることを確認。旧モチーフタグ・評価内訳waterfall・回収点の文言が画面テキストに存在しないことも確認。コンソールエラー無し(`read_console_messages(onlyErrors:true)`が空)。
+  - 補足: `computer{action:"screenshot"}`がこの環境で継続的にタイムアウトしたため、盤面クリックは`javascript_tool`でcanvasへ`MouseEvent`をディスパッチする代替手段で行った(挙動はBoard.tsxの`handleClick`がそのまま処理するため実クリックと等価)。取得できたスクリーンショット画像は無いが、`get_page_text`によるDOM内容確認で表示内容を直接確認済み。
+- [x] モバイル幅(375px)で盤面2枚が縦積み、レイアウト崩れなし → 本番Pagesの上記失敗画面で`resize_window(375x812)`後、`javascript_tool`で`.clear-blunder-compare__board-col`のBoundingClientRectを取得し、2枚が同じ`left`/`width`(335px、縦に積み上がるレイアウト)で異なる`top`(横並びでなく縦積み)であること、`document.documentElement.scrollWidth === window.innerWidth === 375`(横スクロール発生なし)であることを確認。
+- [x] コミットは変更対象ファイルのみパス明示、`git add .`不使用、`tasks/`はコミットしない → コミット`23253db`(`app: 中盤練習の悪手判定を1手先対比の明確悪化パターンに刷新(T128)`)。`git add app/src/midgame/PracticeMode.css app/src/midgame/PracticeMode.tsx app/src/midgame/ClearBlunderCompare.tsx app/src/midgame/ClearBlunderCompare.test.tsx app/src/midgame/PracticeMode.clearBlunderGate.test.tsx app/src/midgame/clearBlunder.ts app/src/midgame/clearBlunder.test.ts`で個別指定。
+- [x] タスク完了時点で当該タスク由来の差分・未追跡が残っていない → `git status --short`確認済み(下記参照、`_scratch_proto*.ts`等の一時ファイルは全て削除済み)。
+
+### 注意事項・申し送り
+
+- **`npm run typecheck`は`pretypecheck`フックで`wasm:build`(`cargo build --release`相当)を走らせてしまうことに実装中盤で気付いた**(1回だけ実行してしまった。Rustソースは一切変更していないため出力は従来と同一のはずだが、教師コーパス生成中はRustのreleaseビルドを避ける方針に反する)。以後は`npx tsc --noEmit -p tsconfig.app.json`(フックを経由しない直接呼び出し)に切り替えて対応した。`npm test`/`npx vitest run`は`pretest`フックが無いため問題ない。**他タスクでも`npm run typecheck`/`npm run build`/`npm run dev`は教師コーパス生成中は避け、`npx tsc`等の直接呼び出しを使うよう申し送る。**
+- 旧`.midgame-result__board`・`.midgame-highlight-overlay`(正解手マス強調)・`.midgame-result__explanation`・`.motif-badge--active`のCSSは未使用になったため`PracticeMode.css`から削除した。
+- 棋譜解析(`BlunderPanel.tsx`)側は本タスクでは一切変更していない(旧waterfall・回収点表示・モチーフタグ表示はそのまま残っている、意図どおりスコープ外)。
