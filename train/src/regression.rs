@@ -30,7 +30,7 @@
 //! (`engine::pattern_eval::stage_for_empty_count`)。
 
 use engine::bitboard::Board;
-use engine::pattern_eval::{stage_for_empty_count, PatternWeights};
+use engine::pattern_eval::PatternWeights;
 use engine::patterns::{pattern_state_index, PatternCells};
 
 use crate::train_data::Sample;
@@ -84,6 +84,21 @@ impl Model {
         }
     }
 
+    /// ステージ定義を明示して、全重みを0初期化したモデルを作る。
+    pub fn new_with_stage_definition(
+        patterns: Vec<PatternCells>,
+        num_stages: usize,
+        stage_empty_divisor: u32,
+    ) -> Self {
+        Model {
+            weights: PatternWeights::zeroed_with_stage_definition(
+                patterns,
+                num_stages,
+                stage_empty_divisor,
+            ),
+        }
+    }
+
     /// 局面(`board`・`mover`)の予測値(mover視点の最終石差の予測)を返す。
     pub fn predict(&self, board: &Board, mover: engine::bitboard::Side) -> f32 {
         self.weights.score(board, mover)
@@ -96,7 +111,9 @@ impl Model {
     /// 状態インデックス)の組を求め、対応するクラスの重みテーブルを
     /// 読み書きする(`PatternWeights::score`と同じ`aligned_cells`を使う)。
     fn sgd_step(&mut self, sample: &Sample, cfg: &TrainConfig) {
-        let stage = stage_for_empty_count(sample.board.empty_count());
+        let stage = self
+            .weights
+            .stage_for_empty_count(sample.board.empty_count());
 
         let class_of = &self.weights.class_info.class_of;
         let aligned_cells = &self.weights.class_info.aligned_cells;

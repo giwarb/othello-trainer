@@ -135,6 +135,11 @@ aligned cell列を直列化した値のSHA-256。loaderはセル範囲、instanc
 余剰bytes、schema hashを検証する。既存trainerは引き続きPWV2を書き、
 `train_patterns_v3`だけがPWV3を書く。
 
+T124のv4もPWV3を使用する。パターン形状はv3と同一で、ヘッダの
+`num_stages=61`、`stage_empty_divisor=1`だけが異なる。loaderは従来の
+13段/5石刻み(v2/v3)と61段/1石刻み(v4)を識別し、重み自身のステージ定義で
+評価する。従来のPWV1/PWV2と13段PWV3の動作は変更しない。
+
 ## 予測値の計算
 
 局面(`board`, `mover`)に対する予測値(mover視点の最終石差の予測)は、

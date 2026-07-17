@@ -8,7 +8,11 @@ use std::process::ExitCode;
 use std::thread;
 
 use engine::bitboard::{Board, Side};
-use engine::pattern_eval::{stage_for_empty_count, NUM_STAGES};
+#[cfg(test)]
+use engine::pattern_eval::stage_for_empty_count;
+use engine::pattern_eval::{
+    NUM_STAGES, STAGE_EMPTY_DIVISOR, V4_NUM_STAGES, V4_STAGE_EMPTY_DIVISOR,
+};
 use engine::patterns::{self, pattern_state_index};
 use serde::Deserialize;
 
@@ -42,14 +46,16 @@ const METRICS_HEADER: &str = "epoch\tlearning_rate\ttrain_loss\ttrain_teacher_ma
 enum PatternSet {
     V2,
     V3,
+    V4,
 }
 
 /// `--pattern-set`の値をパースする。未指定または`"v2"`は`V2`(無指定時の
-/// 既存動作を変えないための既定値)、`"v3"`は`V3`、それ以外はエラー。
+/// 既存動作を変えないための既定値)、`"v3"`/`"v4"`は対応する集合、それ以外はエラー。
 fn parse_pattern_set(value: Option<String>) -> Result<PatternSet, String> {
     match value.as_deref() {
         None | Some("v2") => Ok(PatternSet::V2),
         Some("v3") => Ok(PatternSet::V3),
+        Some("v4") => Ok(PatternSet::V4),
         Some(other) => Err(format!("invalid --pattern-set: {other}")),
     }
 }
@@ -58,8 +64,22 @@ fn parse_pattern_set(value: Option<String>) -> Result<PatternSet, String> {
 fn patterns_for(pattern_set: PatternSet) -> Vec<patterns::PatternCells> {
     match pattern_set {
         PatternSet::V2 => patterns::generate_patterns(),
-        PatternSet::V3 => patterns::generate_patterns_for(patterns::PatternConfig::V3),
+        PatternSet::V3 | PatternSet::V4 => {
+            patterns::generate_patterns_for(patterns::PatternConfig::V3)
+        }
     }
+}
+
+fn stage_definition_for(pattern_set: PatternSet) -> (usize, u32) {
+    match pattern_set {
+        PatternSet::V2 | PatternSet::V3 => (NUM_STAGES, STAGE_EMPTY_DIVISOR),
+        PatternSet::V4 => (V4_NUM_STAGES, V4_STAGE_EMPTY_DIVISOR),
+    }
+}
+
+fn new_model(pattern_set: PatternSet) -> Model {
+    let (num_stages, stage_empty_divisor) = stage_definition_for(pattern_set);
+    Model::new_with_stage_definition(patterns_for(pattern_set), num_stages, stage_empty_divisor)
 }
 
 /// resume identityに混ぜ込む、pattern-set由来の識別行。
@@ -71,6 +91,7 @@ fn patterns_for(pattern_set: PatternSet) -> Vec<patterns::PatternCells> {
 fn pattern_set_identity_line(pattern_set: PatternSet) -> String {
     match pattern_set {
         PatternSet::V2 => String::new(),
+        PatternSet::V4 => format!("pattern_set=v4{}", char::from(10)),
         PatternSet::V3 => "pattern_set=v3\n".to_string(),
     }
 }
@@ -572,7 +593,7 @@ fn load_corpus(
 type Feature = (usize, usize, usize);
 
 fn features(model: &Model, board: &Board, mover: Side) -> Vec<Feature> {
-    let stage = stage_for_empty_count(board.empty_count());
+    let stage = model.weights.stage_for_empty_count(board.empty_count());
     let info = &model.weights.class_info;
     (0..model.weights.patterns.len())
         .map(|i| {
@@ -815,15 +836,22 @@ fn subset_seed_for_phase(seed: u64, phase: usize) -> u64 {
 /// `target >= records.len()`の場合は全量をそのまま返す(無引数時の既存動作を
 /// 変えないため、この関数自体を呼ばない経路もrun()側に用意している)。
 /// 各フェーズの採用件数はfloor演算のため、合計は`target`よりわずかに
-/// (最大でも`NUM_STAGES`件未満)少なくなり得る。
-fn select_train_subset(records: Vec<DistillRecord>, target: usize, seed: u64) -> Vec<DistillRecord> {
+/// (最大でも選択したpattern-setのステージ数未満)少なくなり得る。
+fn select_train_subset(
+    records: Vec<DistillRecord>,
+    target: usize,
+    seed: u64,
+    pattern_set: PatternSet,
+) -> Vec<DistillRecord> {
     let total = records.len();
     if target >= total {
         return records;
     }
-    let mut by_phase: Vec<Vec<usize>> = vec![Vec::new(); NUM_STAGES];
+    let (num_stages, stage_empty_divisor) = stage_definition_for(pattern_set);
+    let mut by_phase: Vec<Vec<usize>> = vec![Vec::new(); num_stages];
     for (index, record) in records.iter().enumerate() {
-        let phase = stage_for_empty_count(record.board.empty_count());
+        let phase =
+            ((record.board.empty_count() / stage_empty_divisor) as usize).min(num_stages - 1);
         by_phase[phase].push(index);
     }
     let mut selected = Vec::with_capacity(target);
@@ -965,7 +993,7 @@ fn run_one(
     }
     atomic_write(&identity_path, identity.as_bytes())?;
 
-    let mut model = Model::new(patterns_for(pattern_set));
+    let mut model = new_model(pattern_set);
     let mut epoch = 0u32;
     let mut learning_rate = DEFAULT_LR;
     let mut best_loss = f64::INFINITY;
@@ -1290,7 +1318,7 @@ pub fn run() -> ExitCode {
             eprintln!("--train-subset-size must be positive");
             return ExitCode::FAILURE;
         }
-        train = select_train_subset(train, target, subset_seed);
+        train = select_train_subset(train, target, subset_seed, pattern_set);
         if train.is_empty() {
             eprintln!("--train-subset-size produced an empty train split");
             return ExitCode::FAILURE;
@@ -1317,6 +1345,7 @@ pub fn run() -> ExitCode {
         match pattern_set {
             PatternSet::V2 => "v2",
             PatternSet::V3 => "v3",
+            PatternSet::V4 => "v4",
         }
     );
     let manifest = format!("split=fnv1a(canonicalKey)%100:train0-89,validation90-94,frozen95-99\noutcome_policy=canonical averages from WTHOR 2015-2023; keys occurring in 2024 removed with test priority; 2024 reserved for gate c\ntrain={}\nvalidation={}\nfrozen={}\noutcome_matched_train={}\noutcome_matched_validation={}\noutcome_matched_frozen={}\nwthor_2024={}\ncorpus_hash={corpus_hash}\nreference_hash={reference_hash}\nwthor_hash={wthor_hash}\n{subset_manifest_line}{pattern_set_manifest_line}",
@@ -1335,10 +1364,12 @@ pub fn run() -> ExitCode {
     atomic_write(&root.join("reference.tsv"), reference_row.as_bytes()).unwrap();
     print!("{manifest}");
     // 引数無し(全量・v2)の場合はidentity文字列を従来どおり不変に保つ(既存動作の
-    // 無引数不変要件)。サブセット指定時・pattern-set=v3指定時のみ、誤って別配置と
+    // 無引数不変要件)。サブセット指定時・pattern-set=v3/v4指定時のみ、誤って別配置と
     // 取り違えて resume しないよう識別情報を追加する。
     let subset_identity = match train_subset_size {
-        Some(target) => format!("train_subset_size_target={target}\ntrain_subset_seed={subset_seed}\n"),
+        Some(target) => {
+            format!("train_subset_size_target={target}\ntrain_subset_seed={subset_seed}\n")
+        }
         None => String::new(),
     };
     let identity = format!("corpus_hash={corpus_hash}\nreference_hash={reference_hash}\nwthor_hash={wthor_hash}\ntrain={}\nvalidation={}\nfrozen={}\n{subset_identity}{}",
@@ -1770,9 +1801,9 @@ mod tests {
     fn select_train_subset_target_at_or_above_total_returns_all_records_unchanged() {
         let records: Vec<_> = (0..10).map(|i| fixture_record(i, (i % 4) as usize)).collect();
         let total = records.len();
-        let subset = select_train_subset(records.clone(), total, 1);
+        let subset = select_train_subset(records.clone(), total, 1, PatternSet::V2);
         assert_eq!(subset.len(), total);
-        let subset_over = select_train_subset(records, total + 5, 1);
+        let subset_over = select_train_subset(records, total + 5, 1, PatternSet::V2);
         assert_eq!(subset_over.len(), total);
     }
 
@@ -1781,8 +1812,8 @@ mod tests {
         let records: Vec<_> = (0..500)
             .map(|i| fixture_record(i, (i % 13) as usize))
             .collect();
-        let a = select_train_subset(records.clone(), 120, 7);
-        let b = select_train_subset(records, 120, 7);
+        let a = select_train_subset(records.clone(), 120, 7, PatternSet::V2);
+        let b = select_train_subset(records, 120, 7, PatternSet::V2);
         assert_eq!(
             a.iter().map(|r| r.key).collect::<Vec<_>>(),
             b.iter().map(|r| r.key).collect::<Vec<_>>()
@@ -1795,9 +1826,9 @@ mod tests {
             .map(|i| fixture_record(i, (i % 13) as usize))
             .collect();
         let seed = 99;
-        let small = select_train_subset(records.clone(), 90, seed);
-        let medium = select_train_subset(records.clone(), 300, seed);
-        let large = select_train_subset(records, 700, seed);
+        let small = select_train_subset(records.clone(), 90, seed, PatternSet::V2);
+        let medium = select_train_subset(records.clone(), 300, seed, PatternSet::V2);
+        let large = select_train_subset(records, 700, seed, PatternSet::V2);
         let small_keys: HashSet<_> = small.iter().map(|r| r.key).collect();
         let medium_keys: HashSet<_> = medium.iter().map(|r| r.key).collect();
         let large_keys: HashSet<_> = large.iter().map(|r| r.key).collect();
@@ -1822,7 +1853,7 @@ mod tests {
         for i in 400..500u64 {
             records.push(fixture_record(i, 1));
         }
-        let subset = select_train_subset(records, 100, 5);
+        let subset = select_train_subset(records, 100, 5, PatternSet::V2);
         let phase0 = subset
             .iter()
             .filter(|r| stage_for_empty_count(r.board.empty_count()) == 0)
@@ -1905,16 +1936,19 @@ mod tests {
         assert_eq!(parse_pattern_set(None), Ok(PatternSet::V2));
         assert_eq!(parse_pattern_set(Some("v2".into())), Ok(PatternSet::V2));
         assert_eq!(parse_pattern_set(Some("v3".into())), Ok(PatternSet::V3));
-        assert!(parse_pattern_set(Some("v4".into())).is_err());
+        assert_eq!(parse_pattern_set(Some("v4".into())), Ok(PatternSet::V4));
+        assert!(parse_pattern_set(Some("v5".into())).is_err());
     }
 
     #[test]
     fn patterns_for_v3_has_more_instances_and_classes_than_v2() {
         let v2 = patterns_for(PatternSet::V2);
         let v3 = patterns_for(PatternSet::V3);
+        let v4 = patterns_for(PatternSet::V4);
         // T087で確定したv2/v3のインスタンス数(22/38)・クラス数(6/10)。
         assert_eq!(v2.len(), 22);
         assert_eq!(v3.len(), 38);
+        assert_eq!(v4, v3);
         let v2_classes = patterns::compute_pattern_classes(&v2)
             .representative_of_class
             .len();
@@ -1923,6 +1957,10 @@ mod tests {
             .len();
         assert_eq!(v2_classes, 6);
         assert_eq!(v3_classes, 10);
+        assert_eq!(
+            stage_definition_for(PatternSet::V4),
+            (V4_NUM_STAGES, V4_STAGE_EMPTY_DIVISOR)
+        );
     }
 
     #[test]
@@ -1932,10 +1970,17 @@ mod tests {
         // 取り違えresume(例: v3で作ったcheckpoint-dirへ--pattern-set無指定で
         // resumeしようとする)を確実に拒否できるようにする。
         assert_eq!(pattern_set_identity_line(PatternSet::V2), "");
-        assert_eq!(pattern_set_identity_line(PatternSet::V3), "pattern_set=v3\n");
+        assert_eq!(
+            pattern_set_identity_line(PatternSet::V3),
+            "pattern_set=v3\n"
+        );
         assert_ne!(
             pattern_set_identity_line(PatternSet::V2),
             pattern_set_identity_line(PatternSet::V3)
+        );
+        assert_ne!(
+            pattern_set_identity_line(PatternSet::V3),
+            pattern_set_identity_line(PatternSet::V4)
         );
     }
 
@@ -1973,7 +2018,11 @@ mod tests {
         let path = dir.join("metrics.tsv");
         let stale_header =
             "epoch\tlearning_rate\ttrain_loss\tvalidation_loss\tvalidation_teacher_mae\tvalidation_ranking_mae";
-        fs::write(&path, format!("{stale_header}\n1\t0.005\t1.0\t2.0\t3.0\t4.0\n")).unwrap();
+        fs::write(
+            &path,
+            format!("{stale_header}\n1\t0.005\t1.0\t2.0\t3.0\t4.0\n"),
+        )
+        .unwrap();
         let error = ensure_metrics_header(&path).unwrap_err();
         assert!(
             error.contains("header mismatch"),
@@ -1996,7 +2045,8 @@ mod tests {
         let metrics_path = run_dir.join("metrics.tsv");
         let stale_header =
             "epoch\tlearning_rate\ttrain_loss\tvalidation_loss\tvalidation_teacher_mae\tvalidation_ranking_mae";
-        let original = format!("{stale_header}\n1\t0.005\t1.0\t2.0\t3.0\t4.0\n2\t0.005\t0.9\t1.9\t2.9\t3.9\n");
+        let original =
+            format!("{stale_header}\n1\t0.005\t1.0\t2.0\t3.0\t4.0\n2\t0.005\t0.9\t1.9\t2.9\t3.9\n");
         fs::write(&metrics_path, &original).unwrap();
         let before = fs::read(&metrics_path).unwrap();
 

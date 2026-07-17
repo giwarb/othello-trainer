@@ -5,6 +5,9 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
+use engine::pattern_eval::{
+    NUM_STAGES, STAGE_EMPTY_DIVISOR, V4_NUM_STAGES, V4_STAGE_EMPTY_DIVISOR,
+};
 use engine::patterns::{self, PatternConfig};
 use train::regression::{Model, TrainConfig};
 use train::train_data::{self, Sample};
@@ -15,23 +18,40 @@ fn arg_value(name: &str) -> Option<String> {
     args.windows(2).find(|w| w[0] == name).map(|w| w[1].clone())
 }
 
-fn config_name(config: PatternConfig) -> &'static str {
-    match config {
-        PatternConfig::V2 => "v2",
-        PatternConfig::V2Diag567 => "v2-diag567",
-        PatternConfig::V2Edge2x => "v2-edge2x",
-        PatternConfig::V3 => "v3",
-        PatternConfig::V2Corner5x2 => "v2-corner5x2",
+#[derive(Clone, Copy)]
+struct TrainingConfig {
+    pattern_config: PatternConfig,
+    num_stages: usize,
+    stage_empty_divisor: u32,
+    name: &'static str,
+}
+
+fn config_name(config: TrainingConfig) -> &'static str {
+    config.name
+}
+
+fn legacy_config(pattern_config: PatternConfig, name: &'static str) -> TrainingConfig {
+    TrainingConfig {
+        pattern_config,
+        num_stages: NUM_STAGES,
+        stage_empty_divisor: STAGE_EMPTY_DIVISOR,
+        name,
     }
 }
 
-fn parse_config(value: &str) -> PatternConfig {
+fn parse_config(value: &str) -> TrainingConfig {
     match value {
-        "v2" => PatternConfig::V2,
-        "v2-diag567" => PatternConfig::V2Diag567,
-        "v2-edge2x" => PatternConfig::V2Edge2x,
-        "v3" => PatternConfig::V3,
-        "v2-corner5x2" => PatternConfig::V2Corner5x2,
+        "v2" => legacy_config(PatternConfig::V2, "v2"),
+        "v2-diag567" => legacy_config(PatternConfig::V2Diag567, "v2-diag567"),
+        "v2-edge2x" => legacy_config(PatternConfig::V2Edge2x, "v2-edge2x"),
+        "v3" => legacy_config(PatternConfig::V3, "v3"),
+        "v2-corner5x2" => legacy_config(PatternConfig::V2Corner5x2, "v2-corner5x2"),
+        "v4" => TrainingConfig {
+            pattern_config: PatternConfig::V3,
+            num_stages: V4_NUM_STAGES,
+            stage_empty_divisor: V4_STAGE_EMPTY_DIVISOR,
+            name: "v4",
+        },
         _ => panic!("unknown config: {value}"),
     }
 }
@@ -254,7 +274,15 @@ fn main() -> ExitCode {
                     Some(path),
                 )
             } else {
-                (Model::new(patterns::generate_patterns_for(config)), 0, None)
+                (
+                    Model::new_with_stage_definition(
+                        patterns::generate_patterns_for(config.pattern_config),
+                        config.num_stages,
+                        config.stage_empty_divisor,
+                    ),
+                    0,
+                    None,
+                )
             };
             let mut previous = previous;
             for epoch in start_epoch..epochs {

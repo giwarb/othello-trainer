@@ -1,0 +1,47 @@
+{
+  "task": "T124",
+  "generatedAt": "2026-07-17T12:52:00+09:00",
+  "stageDefinitions": {
+    "v2v3": {"numStages": 13, "emptyDivisor": 5, "mapping": "min(empty_count / 5, 12)"},
+    "v4": {"numStages": 61, "emptyDivisor": 1, "mapping": "empty_count"}
+  },
+  "patternShape": {"v4SameAs": "v3", "instances": 38, "classes": 10},
+  "wthor": {
+    "command": "target/release/train_patterns_v3.exe --configs v4 --seeds 1,2,3 --epochs 20 --output-dir train/data/t124/wthor-v4",
+    "trainSamples": 3988509,
+    "frozenSamples": 442995,
+    "seeds": [
+      {"seed": 1, "sha256": "56dccc2403beb3ab90a4f570a6ad9926271e908e68d74d0571ee4158994b2178", "frozenMae": 16.185831, "oracleRegret": 0.7, "v2Difference": -0.8666666666666667, "ci95": [-1.5, -0.3]},
+      {"seed": 2, "sha256": "d1607701269672fe4b9e83994a41e47d33d42b4dc08517b50a85b08adc7d8b76", "frozenMae": 15.725285, "oracleRegret": 1.6666666666666667, "v2Difference": 0.1, "ci95": [-0.7333333333333333, 1.0333333333333334]},
+      {"seed": 3, "sha256": "c372b83366c4006023ae05f3af5b68dda5929aca7ff7308d1b398a89639e383f", "frozenMae": 15.946311, "oracleRegret": 0.9666666666666667, "v2Difference": -0.6, "ci95": [-1.2666666666666666, 0.1]}
+    ],
+    "meanOracleRegret": 1.1111111111111112,
+    "seedSampleSd": 0.4992587097480216,
+    "comparisonV3ThreeSeedMean": 1.4777777777777779,
+    "comparisonV3SelectedSeed": 1.4
+  },
+  "distillation200k": {
+    "command": "target/release/train_distillation.exe --corpus train/data/teacher/corpus_expanded200k.jsonl --checkpoint-dir train/data/t124/distill200k-v4 --mixes teacher-only --seeds 1,2,3 --pattern-set v4 --reference-weights train/weights/pattern_v2.bin --jobs 1",
+    "trainRecords": 180110,
+    "validationRecords": 9685,
+    "frozenRecords": 10205,
+    "seeds": [
+      {"seed": 1, "sha256": "64ec32b09e0fedd35dddc721715de698aa9c2155ec4ac1236c21da1e3611a4c5", "bestEpoch": 29, "completedEpoch": 30, "oracleRegret": 2.8666666666666667},
+      {"seed": 2, "sha256": "805114a7ff0e32fc47b9b46d78f89dc307a19b04e3b319bccc3135940451b2a6", "bestEpoch": 26, "completedEpoch": 31, "oracleRegret": 2.8666666666666667},
+      {"seed": 3, "sha256": "1eb4b81f8e2fcc19e4406f2642ffde9b189a51113b9f5ac9c1a6d4762ecf15d4", "bestEpoch": 29, "completedEpoch": 29, "oracleRegret": 2.8666666666666667}
+    ],
+    "meanOracleRegret": 2.8666666666666667,
+    "comparisonT123V3Mean": 2.011111111111111
+  },
+  "m2Guard": {"expectedV2Regret": 1.5666666666666667, "observedInAllSixRuns": true},
+  "gates": {
+    "rawBytes": {"v3": 5964708, "v4": 27986340, "ratio": 4.691988275033749},
+    "gzip9Bytes": {"v3": 940533, "v4": 4299661, "ratio": 4.5715153003669196},
+    "nps": {"method": "28 fixed opening/midgame positions, depth 8, alternating 3 repetitions", "v3Mean": 677954.3105813301, "v4Mean": 683771.5219767732, "ratio": 1.0085805360400393},
+    "loadAndMemory": {"method": "fresh eval_cli process, one depth-0 evaluation, 20 repetitions", "v3MedianMs": 52.53665, "v4MedianMs": 83.5696, "v4ToV3MedianRatio": 1.5906914506349374, "v3MeanPeakWorkingSetMiB": 72.6599609375, "v4MeanPeakWorkingSetMiB": 100.39609375, "meanPeakDeltaMiB": 27.7361328125}
+  },
+  "smoothing": {
+    "applied": false,
+    "reason": "The required naive one-disc experiment was measured first. WTHOR mean regret improved, so smoothing was not added within T124; distillation degradation and seed variance remain follow-up evidence."
+  }
+}

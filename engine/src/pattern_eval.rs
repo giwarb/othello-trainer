@@ -49,9 +49,19 @@ pub const NUM_STAGES: usize = 13;
 /// ステージ分割の除数(空きマス5個ごとに1ステージ)。
 pub const STAGE_EMPTY_DIVISOR: u32 = 5;
 
+/// v4のステージ数。空きマス数0..60を1石刻みの61段階に分ける。
+pub const V4_NUM_STAGES: usize = 61;
+/// v4のステージ分割の除数(空きマス1個ごとに1ステージ)。
+pub const V4_STAGE_EMPTY_DIVISOR: u32 = 1;
+
 /// 空きマス数からステージ番号(`0 .. NUM_STAGES`)を求める。
 pub fn stage_for_empty_count(empty_count: u32) -> usize {
     ((empty_count / STAGE_EMPTY_DIVISOR) as usize).min(NUM_STAGES - 1)
+}
+
+fn is_supported_stage_definition(num_stages: usize, stage_empty_divisor: u32) -> bool {
+    (num_stages == NUM_STAGES && stage_empty_divisor == STAGE_EMPTY_DIVISOR)
+        || (num_stages == V4_NUM_STAGES && stage_empty_divisor == V4_STAGE_EMPTY_DIVISOR)
 }
 
 /// 1パターン分の重みテーブル(ステージごとに状態数分のf32配列を持つ)。
@@ -80,6 +90,8 @@ pub struct PatternWeights {
     pub patterns: Vec<PatternCells>,
     pub class_info: PatternClassInfo,
     pub class_tables: Vec<PatternWeightTable>,
+    pub num_stages: usize,
+    pub stage_empty_divisor: u32,
 }
 
 fn sha256(input: &[u8]) -> [u8; 32] {
@@ -156,10 +168,15 @@ fn sha256(input: &[u8]) -> [u8; 32] {
     out
 }
 
-fn schema_hash(patterns: &[PatternCells], class_of: &[usize]) -> [u8; 32] {
+fn schema_hash(
+    patterns: &[PatternCells],
+    class_of: &[usize],
+    num_stages: usize,
+    stage_empty_divisor: u32,
+) -> [u8; 32] {
     let mut schema = Vec::new();
-    schema.extend_from_slice(&(NUM_STAGES as u32).to_le_bytes());
-    schema.extend_from_slice(&STAGE_EMPTY_DIVISOR.to_le_bytes());
+    schema.extend_from_slice(&(num_stages as u32).to_le_bytes());
+    schema.extend_from_slice(&stage_empty_divisor.to_le_bytes());
     for (cells, &class_id) in patterns.iter().zip(class_of) {
         schema.extend_from_slice(&(class_id as u16).to_le_bytes());
         schema.push(cells.len() as u8);
@@ -173,6 +190,19 @@ impl PatternWeights {
     /// を行い、全クラスの重みを0初期化したモデルを作る
     /// (`train::regression::Model::new`が学習開始時に使う)。
     pub fn zeroed(patterns: Vec<PatternCells>) -> Self {
+        Self::zeroed_with_stage_definition(patterns, NUM_STAGES, STAGE_EMPTY_DIVISOR)
+    }
+
+    /// 対応するステージ定義を明示して、全重みを0初期化したモデルを作る。
+    pub fn zeroed_with_stage_definition(
+        patterns: Vec<PatternCells>,
+        num_stages: usize,
+        stage_empty_divisor: u32,
+    ) -> Self {
+        assert!(is_supported_stage_definition(
+            num_stages,
+            stage_empty_divisor
+        ));
         let class_info = patterns::compute_pattern_classes(&patterns);
         let class_tables = class_info
             .representative_of_class
@@ -181,7 +211,7 @@ impl PatternWeights {
                 let num_states = patterns::num_states(patterns[rep_idx].len());
                 PatternWeightTable {
                     num_states,
-                    stage_tables: vec![vec![0f32; num_states as usize]; NUM_STAGES],
+                    stage_tables: vec![vec![0f32; num_states as usize]; num_stages],
                 }
             })
             .collect();
@@ -189,7 +219,14 @@ impl PatternWeights {
             patterns,
             class_info,
             class_tables,
+            num_stages,
+            stage_empty_divisor,
         }
+    }
+
+    /// この重みが持つステージ定義で空きマス数をステージ番号へ変換する。
+    pub fn stage_for_empty_count(&self, empty_count: u32) -> usize {
+        ((empty_count / self.stage_empty_divisor) as usize).min(self.num_stages - 1)
     }
 
     /// 局面(`board`・`mover`)の予測値(mover視点の最終石差の予測、素の石差
@@ -197,7 +234,7 @@ impl PatternWeights {
     /// 揃えた実セル列(`class_info.aligned_cells`)で状態インデックスを計算し、
     /// そのインスタンスが属するクラスの重みテーブルを引いて合計する。
     pub fn score(&self, board: &Board, mover: Side) -> f32 {
-        let stage = stage_for_empty_count(board.empty_count());
+        let stage = self.stage_for_empty_count(board.empty_count());
         let mut sum = 0f32;
         for i in 0..self.patterns.len() {
             let class_id = self.class_info.class_of[i];
@@ -230,7 +267,9 @@ impl PatternWeights {
         buf.extend_from_slice(
             &(self.class_info.representative_of_class.len() as u32).to_le_bytes(),
         );
-        buf.extend_from_slice(&(NUM_STAGES as u32).to_le_bytes());
+        assert_eq!(self.num_stages, NUM_STAGES);
+        assert_eq!(self.stage_empty_divisor, STAGE_EMPTY_DIVISOR);
+        buf.extend_from_slice(&(self.num_stages as u32).to_le_bytes());
 
         for (class_id, &rep_idx) in self.class_info.representative_of_class.iter().enumerate() {
             let cell_count = self.patterns[rep_idx].len();
@@ -253,13 +292,15 @@ impl PatternWeights {
         buf.extend_from_slice(b"PWV3");
         buf.extend_from_slice(&3u32.to_le_bytes());
         buf.extend_from_slice(&0u32.to_le_bytes());
-        buf.extend_from_slice(&(NUM_STAGES as u32).to_le_bytes());
-        buf.extend_from_slice(&STAGE_EMPTY_DIVISOR.to_le_bytes());
+        buf.extend_from_slice(&(self.num_stages as u32).to_le_bytes());
+        buf.extend_from_slice(&self.stage_empty_divisor.to_le_bytes());
         buf.extend_from_slice(&(self.patterns.len() as u32).to_le_bytes());
         buf.extend_from_slice(&(self.class_tables.len() as u32).to_le_bytes());
         buf.extend_from_slice(&schema_hash(
             &self.class_info.aligned_cells,
             &self.class_info.class_of,
+            self.num_stages,
+            self.stage_empty_divisor,
         ));
 
         for (i, cells) in self.class_info.aligned_cells.iter().enumerate() {
@@ -329,7 +370,7 @@ impl PatternWeights {
         let _flags = read_u32(&mut pos)?;
         let num_stages = read_u32(&mut pos)?;
         let stage_divisor = read_u32(&mut pos)?;
-        if num_stages as usize != NUM_STAGES || stage_divisor != STAGE_EMPTY_DIVISOR {
+        if !is_supported_stage_definition(num_stages as usize, stage_divisor) {
             return Err("PWV3のステージ定義が一致しません".to_string());
         }
         let num_instances = read_u32(&mut pos)? as usize;
@@ -382,7 +423,13 @@ impl PatternWeights {
             stored_class_of.push(class_id);
         }
 
-        if schema_hash(&pattern_defs, &stored_class_of) != stored_hash {
+        if schema_hash(
+            &pattern_defs,
+            &stored_class_of,
+            num_stages as usize,
+            stage_divisor,
+        ) != stored_hash
+        {
             return Err("PWV3のschema hashが一致しません".to_string());
         }
         let class_info = patterns::compute_pattern_classes(&pattern_defs);
@@ -412,8 +459,8 @@ impl PatternWeights {
                     "PWV3のnum_statesが3^cell_countと一致しません: class={class_id}"
                 ));
             }
-            let mut stage_tables = Vec::with_capacity(NUM_STAGES);
-            for _ in 0..NUM_STAGES {
+            let mut stage_tables = Vec::with_capacity(num_stages as usize);
+            for _ in 0..num_stages {
                 let mut table = Vec::with_capacity(num_states as usize);
                 for _ in 0..num_states {
                     let weight = f32::from_le_bytes(read_bytes(&mut pos, 4)?.try_into().unwrap());
@@ -437,6 +484,8 @@ impl PatternWeights {
             patterns: pattern_defs,
             class_info,
             class_tables,
+            num_stages: num_stages as usize,
+            stage_empty_divisor: stage_divisor,
         })
     }
 
@@ -509,6 +558,8 @@ impl PatternWeights {
             patterns: pattern_defs,
             class_info,
             class_tables,
+            num_stages: NUM_STAGES,
+            stage_empty_divisor: STAGE_EMPTY_DIVISOR,
         })
     }
 
@@ -585,6 +636,8 @@ impl PatternWeights {
             patterns: pattern_defs,
             class_info,
             class_tables,
+            num_stages: NUM_STAGES,
+            stage_empty_divisor: STAGE_EMPTY_DIVISOR,
         })
     }
 }
@@ -719,6 +772,33 @@ mod tests {
         assert_eq!(stage_for_empty_count(4), 0);
         assert_eq!(stage_for_empty_count(5), 1);
         assert_eq!(stage_for_empty_count(60), 12);
+    }
+
+    #[test]
+    fn v4_stage_boundaries_and_pwv3_roundtrip_are_correct() {
+        let patterns = patterns::generate_patterns_for(patterns::PatternConfig::V3);
+        let mut weights = PatternWeights::zeroed_with_stage_definition(
+            patterns,
+            V4_NUM_STAGES,
+            V4_STAGE_EMPTY_DIVISOR,
+        );
+        assert_eq!(weights.stage_for_empty_count(0), 0);
+        assert_eq!(weights.stage_for_empty_count(1), 1);
+        assert_eq!(weights.stage_for_empty_count(59), 59);
+        assert_eq!(weights.stage_for_empty_count(60), 60);
+
+        for table in &mut weights.class_tables {
+            table.stage_tables[60].fill(1.0);
+        }
+        let initial = Board::initial();
+        assert_eq!(weights.score(&initial, Side::Black), 38.0);
+        let after_move = initial.apply_move(Side::Black, 1u64 << 19);
+        assert_eq!(weights.score(&after_move, Side::White), 0.0);
+
+        let restored = PatternWeights::from_bytes(&weights.to_bytes_v3()).unwrap();
+        assert_eq!(restored.num_stages, V4_NUM_STAGES);
+        assert_eq!(restored.stage_empty_divisor, V4_STAGE_EMPTY_DIVISOR);
+        assert_eq!(restored.score(&initial, Side::Black), 38.0);
     }
 
     #[test]
