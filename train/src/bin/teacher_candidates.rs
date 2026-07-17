@@ -4,7 +4,7 @@
 //! 再生し(合法手判定・パス処理は既存の学習パイプラインと完全に同じロジックを再利用する。
 //! Othelloのルール自体をこのファイルで再実装しない)、各対局から
 //!
-//!  - 空きマス帯(6段階、目安の「フェーズ」)ごとに最大1局面
+//!  - 空きマス帯(6段階、目安の「フェーズ」)ごとに最大`--per-bin-cap`局面(既定1)
 //!  - 1対局あたり `--per-game-cap`(既定6 = フェーズ数と同数)
 //!  - 各対局の8プライ後D4正準化局面を`openingKey`として付与し、Python側で同一opening
 //!    の抽出上限を適用可能にする
@@ -314,6 +314,9 @@ fn cmd_extract(args: &[String]) -> ExitCode {
     let per_game_cap: usize = get_arg(&args, "--per-game-cap")
         .map(|v| v.parse().expect("invalid --per-game-cap"))
         .unwrap_or(PHASE_BIN_LOWER_BOUNDS.len());
+    let per_bin_cap: usize = get_arg(&args, "--per-bin-cap")
+        .map(|v| v.parse().expect("invalid --per-bin-cap"))
+        .unwrap_or(1);
     let out_path = get_arg(&args, "--out")
         .unwrap_or_else(|| "train/data/teacher/candidates.json".to_string());
 
@@ -403,18 +406,31 @@ fn cmd_extract(args: &[String]) -> ExitCode {
                 if bucket.is_empty() {
                     continue;
                 }
-                let pick = bucket[game_rng.gen_range(bucket.len())];
-                rows.push(CandidateRow {
-                    board: pick.board,
-                    side_to_move: pick.mover,
-                    empties: pick.board.empty_count(),
-                    year,
-                    game_index,
-                    phase_bin: bin_idx,
-                    has_xc_legal_move: has_xc_legal_move(&pick.board, pick.mover),
-                    opening_key: opening_key.clone(),
-                });
-                picked_for_game += 1;
+                let wanted = per_bin_cap.min(bucket.len()).min(per_game_cap - picked_for_game);
+                let mut seen_indices = HashSet::with_capacity(wanted);
+                let mut picked_indices = Vec::with_capacity(wanted);
+                while picked_indices.len() < wanted {
+                    // per-bin-cap=1では従来と同じ唯一のgen_range呼び出しとなる。
+                    // K>1では同じbin内だけで追加の重複なし抽出を行う。
+                    let pick_index = game_rng.gen_range(bucket.len());
+                    if seen_indices.insert(pick_index) {
+                        picked_indices.push(pick_index);
+                    }
+                }
+                for pick_index in picked_indices {
+                    let pick = bucket[pick_index];
+                    rows.push(CandidateRow {
+                        board: pick.board,
+                        side_to_move: pick.mover,
+                        empties: pick.board.empty_count(),
+                        year,
+                        game_index,
+                        phase_bin: bin_idx,
+                        has_xc_legal_move: has_xc_legal_move(&pick.board, pick.mover),
+                        opening_key: opening_key.clone(),
+                    });
+                    picked_for_game += 1;
+                }
             }
         }
     }
@@ -458,7 +474,7 @@ fn cmd_extract(args: &[String]) -> ExitCode {
         })
         .collect();
 
-    let doc = json!({
+    let mut doc = json!({
         "schemaVersion": 1,
         "tool": "train::bin::teacher_candidates",
         "dataDir": data_dir,
@@ -473,6 +489,11 @@ fn cmd_extract(args: &[String]) -> ExitCode {
         "totalCandidatesAfterDedup": after_dedup,
         "positions": positions,
     });
+
+    // K=1の候補JSONをバイト単位でも後方互換に保つ。新フィールドはK>1だけ記録する。
+    if per_bin_cap != 1 {
+        doc["perBinCap"] = json!(per_bin_cap);
+    }
 
     if let Some(parent) = Path::new(&out_path).parent() {
         if let Err(e) = fs::create_dir_all(parent) {

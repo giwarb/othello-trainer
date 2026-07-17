@@ -136,12 +136,15 @@ Edax既定マルチタスクで1子局面ずつ生成され、level 16ラベル�
 from __future__ import annotations
 
 import argparse
+import ctypes
 import functools
 import hashlib
+import heapq
 import json
 import math
 import os
 import random
+import shutil
 import subprocess
 import sys
 import time
@@ -163,6 +166,17 @@ VS_EDAX_RESULTS_PATH = COMPARE_DIR / "vs_edax_results.json"
 # T114: t096独立oracle(60局面)の非混入を選定段階で保証するための除外ソース。
 # `excludeT096Oracle`が有効なCORPUS_SETSエントリでのみ読み込む(smoke/primaryは無効のまま)。
 T096_ORACLE_POSITIONS_PATH = COMPARE_DIR / "t096_oracle_positions.json"
+EXPANDED1M_CANDIDATES_PATH = TEACHER_DATA_DIR / "candidates_expanded1m.json"
+EXPANDED1M_PLAN_PATH = TEACHER_DATA_DIR / "corpus_expanded1m_selection_plan.jsonl"
+EXPANDED1M_PLAN_META_PATH = TEACHER_DATA_DIR / "corpus_expanded1m_selection_plan.meta.json"
+BASE_CORPUS_PATH = TEACHER_DATA_DIR / "corpus_expanded200k.jsonl"
+BASE_MANIFEST_PATH = COMPARE_DIR / "teacher_manifests" / "corpus_expanded200k.meta.json"
+BASE_CORPUS_SHA256 = "412477e2da6bacb0d715c7e5d02447d37b6e981237f64f221013a8eb465690e9"
+BASE_MANIFEST_SHA256 = "89c3cd33ec491c0aa55b2c4d0165b0785a5b8f3df08674b5107caffc4b223f4c"
+EXPANDED1M_BASE_COUNT = 200_000
+EXPANDED1M_INCREMENTAL_COUNT = 800_000
+EXPANDED1M_ENGINE_LOSS_COUNT = 65
+EXPANDED1M_NUM_SHARDS = 8
 
 # --- 設計判断(仕様に明記が無いためこのタスクで決定、manifestにも記録する) ---
 
@@ -216,6 +230,16 @@ CORPUS_SETS = {
         "seed": DEFAULT_SEED + 3,
         "excludeT096Oracle": True,
         "exactEmptiesThreshold": 20,
+    },
+    "expanded1m": {
+        "targetCount": 1_000_000,
+        "seed": DEFAULT_SEED + 4,
+        "excludeT096Oracle": True,
+        "exactEmptiesThreshold": 20,
+        "years": "2000-2024",
+        "perGameCap": 24,
+        "perBinCap": 4,
+        "baseSet": "expanded200k",
     },
 }
 
@@ -321,7 +345,7 @@ _self_test_canonicalize()
 # --- 候補局面プールの抽出(teacher_candidates.rs extract の実行) ---
 
 
-def run_extract(years: str, seed: int, per_game_cap: int, out_path: Path) -> None:
+def run_extract(years: str, seed: int, per_game_cap: int, out_path: Path, per_bin_cap: int = 1) -> None:
     if not TEACHER_CANDIDATES_TOOL.exists():
         print("Building teacher_candidates (cargo build --release -p train --bin teacher_candidates) ...")
         subprocess.run(
@@ -340,9 +364,10 @@ def run_extract(years: str, seed: int, per_game_cap: int, out_path: Path) -> Non
         str(seed),
         "--per-game-cap",
         str(per_game_cap),
-        "--out",
-        str(out_path),
     ]
+    if per_bin_cap != 1:
+        cmd.extend(["--per-bin-cap", str(per_bin_cap)])
+    cmd.extend(["--out", str(out_path)])
     print(f"  extracting candidate pool: {' '.join(cmd)}")
     result = subprocess.run(cmd, capture_output=True, text=True)
     if result.stderr:
@@ -555,6 +580,405 @@ def select_positions(
     return selected, stats
 
 
+
+
+def measure_expanded1m_hardware_gate() -> dict:
+    TEACHER_DATA_DIR.mkdir(parents=True, exist_ok=True)
+    disk = shutil.disk_usage(TEACHER_DATA_DIR)
+    memory = {"totalBytes": None, "availableBytes": None}
+    if sys.platform == "win32":
+        class MemoryStatusEx(ctypes.Structure):
+            _fields_ = [
+                ("length", ctypes.c_ulong),
+                ("memoryLoad", ctypes.c_ulong),
+                ("totalPhys", ctypes.c_ulonglong),
+                ("availPhys", ctypes.c_ulonglong),
+                ("totalPageFile", ctypes.c_ulonglong),
+                ("availPageFile", ctypes.c_ulonglong),
+                ("totalVirtual", ctypes.c_ulonglong),
+                ("availVirtual", ctypes.c_ulonglong),
+                ("availExtendedVirtual", ctypes.c_ulonglong),
+            ]
+        status = MemoryStatusEx()
+        status.length = ctypes.sizeof(status)
+        if ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(status)):
+            memory = {"totalBytes": status.totalPhys, "availableBytes": status.availPhys}
+    gate = {
+        "measuredAt": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "diskFreeBytes": disk.free,
+        "diskRequiredBytes": 8 * 1024**3,
+        "ramTotalBytes": memory["totalBytes"],
+        "ramAvailableBytes": memory["availableBytes"],
+        "estimatedPeakRamBytes": 6 * 1024**3,
+    }
+    if disk.free < gate["diskRequiredBytes"]:
+        raise RuntimeError(
+            f"expanded1m hardware gate failed: disk free={disk.free} < required={gate['diskRequiredBytes']}"
+        )
+    return gate
+
+# --- T127a: expanded1m nested selection plan / base import ---
+
+
+def _atomic_jsonl_writer(path: Path):
+    """Return (temporary path, text handle); caller fsyncs/closes and os.replace()s."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temp_path = path.with_name(path.name + ".tmp")
+    return temp_path, temp_path.open("w", encoding="utf-8", newline="\n")
+
+
+def validate_expanded1m_base() -> dict:
+    """Validate the immutable expanded200k base before it can seed a new checkpoint."""
+    corpus_sha = sha256_of_file(BASE_CORPUS_PATH)
+    manifest_sha = sha256_of_file(BASE_MANIFEST_PATH)
+    if corpus_sha != BASE_CORPUS_SHA256:
+        raise RuntimeError(f"base corpus SHA-256 mismatch: {corpus_sha} != {BASE_CORPUS_SHA256}")
+    if manifest_sha != BASE_MANIFEST_SHA256:
+        raise RuntimeError(f"base manifest SHA-256 mismatch: {manifest_sha} != {BASE_MANIFEST_SHA256}")
+
+    manifest = json.loads(BASE_MANIFEST_PATH.read_text(encoding="utf-8"))
+    settings = manifest.get("settings") or {}
+    required_settings = {
+        "setName": "expanded200k",
+        "targetCount": EXPANDED1M_BASE_COUNT,
+        "years": "2000-2024",
+        "perGameCap": 6,
+        "exactEmptiesThreshold": 20,
+        "defaultEdaxLevel": DEFAULT_EDAX_LEVEL,
+        "exactEdaxLevel": EXACT_EDAX_LEVEL,
+    }
+    mismatches = {key: (settings.get(key), value) for key, value in required_settings.items() if settings.get(key) != value}
+    if mismatches:
+        raise RuntimeError(f"base manifest settings mismatch: {mismatches}")
+
+    base_meta = manifest.get("meta") or {}
+    current_edax_sha = sha256_of_file(vs_edax.EDAX_EXE)
+    current_eval_sha = sha256_of_file(vs_edax.EDAX_EVAL_DATA)
+    if current_edax_sha != base_meta.get("edaxSha256") or current_eval_sha != base_meta.get("edaxEvalDataSha256"):
+        raise RuntimeError(
+            "base Edax/eval provenance does not match the current generation environment: "
+            f"edax={current_edax_sha}/{base_meta.get('edaxSha256')} "
+            f"eval={current_eval_sha}/{base_meta.get('edaxEvalDataSha256')}"
+        )
+
+    keys: set[tuple[int, int, int]] = set()
+    oracle_keys, _ = load_oracle_excluded_keys(T096_ORACLE_POSITIONS_PATH)
+    phase_counts = [0] * NUM_PHASE_BINS
+    phase_xc_counts = [0] * NUM_PHASE_BINS
+    opening_counts: dict[str, int] = {}
+    source_counts: dict[str, int] = {}
+    with BASE_CORPUS_PATH.open("r", encoding="utf-8") as fh:
+        for expected_id, raw in enumerate(fh):
+            if not raw.strip():
+                raise RuntimeError(f"blank base JSONL line at positionId={expected_id}")
+            record = json.loads(raw)
+            if record.get("positionId") != expected_id:
+                raise RuntimeError(
+                    f"base positionId sequence mismatch at line {expected_id + 1}: {record.get('positionId')}"
+                )
+            key_value = record.get("canonicalKey")
+            if not isinstance(key_value, list) or len(key_value) != 3:
+                raise RuntimeError(f"base positionId={expected_id} has malformed canonicalKey")
+            key = tuple(key_value)
+            if key in keys:
+                raise RuntimeError(f"base canonicalKey duplicate at positionId={expected_id}")
+            if key in oracle_keys:
+                raise RuntimeError(f"base oracle contamination at positionId={expected_id}")
+            keys.add(key)
+            source = record.get("source")
+            source_counts[source] = source_counts.get(source, 0) + 1
+            if source == "wthor":
+                phase = record.get("phaseBin")
+                phase_counts[phase] += 1
+                if record.get("hasXcLegalMove"):
+                    phase_xc_counts[phase] += 1
+                opening_key = record.get("openingKey")
+                opening_counts[opening_key] = opening_counts.get(opening_key, 0) + 1
+        record_count = expected_id + 1 if "expected_id" in locals() else 0
+
+    if record_count != EXPANDED1M_BASE_COUNT:
+        raise RuntimeError(f"base record count mismatch: {record_count} != {EXPANDED1M_BASE_COUNT}")
+    if source_counts != {"engineLoss": 65, "wthor": 199_935}:
+        raise RuntimeError(f"base source counts mismatch: {source_counts}")
+    return {
+        "recordCount": record_count,
+        "canonicalKeys": keys,
+        "phaseCounts": phase_counts,
+        "phaseXcCounts": phase_xc_counts,
+        "openingCounts": opening_counts,
+        "sourceCounts": source_counts,
+        "jsonlSha256": corpus_sha,
+        "manifestSha256": manifest_sha,
+        "edaxSha256": current_edax_sha,
+        "edaxEvalDataSha256": current_eval_sha,
+    }
+
+
+def select_expanded1m_incremental(pool: dict, base: dict, oracle_keys: set[tuple[int, int, int]], seed: int):
+    """Select exactly 800k WTHOR rows while enforcing constraints on the final 1M union."""
+    by_bin: list[list[dict]] = [[] for _ in range(NUM_PHASE_BINS)]
+    pool_oracle_excluded = pool_base_excluded = pool_duplicate_excluded = 0
+    seen_incremental: set[tuple[int, int, int]] = set()
+    base_keys = base["canonicalKeys"]
+    for row in pool["positions"]:
+        key = canonical_key_of_position(row["board"], row["sideToMove"])
+        if key in oracle_keys:
+            pool_oracle_excluded += 1
+            continue
+        if key in base_keys:
+            pool_base_excluded += 1
+            continue
+        if key in seen_incremental:
+            pool_duplicate_excluded += 1
+            continue
+        seen_incremental.add(key)
+        row["_canonicalKey"] = key
+        by_bin[row["phaseBin"]].append(row)
+
+    # opening capをbin選定より先に全候補横断で適用する。bin順にcapを消費すると
+    # 同一openingが多い後半binの実効母集団を過大評価するため、別seedの決定的shuffleで
+    # 各openingの残り枠をbin横断配分してからwaterfall母集団を確定する。
+    raw_incremental_populations = [len(rows) for rows in by_bin]
+    by_opening: dict[str, list[dict]] = {}
+    for bucket in by_bin:
+        for row in bucket:
+            by_opening.setdefault(row["openingKey"], []).append(row)
+    cap_rng = random.Random(seed ^ 0x127A)
+    capped_by_bin: list[list[dict]] = [[] for _ in range(NUM_PHASE_BINS)]
+    opening_cap = math.ceil(
+        (EXPANDED1M_BASE_COUNT + EXPANDED1M_INCREMENTAL_COUNT) * OPENING_MAX_FRACTION
+    )
+    for opening_key, rows in by_opening.items():
+        cap_rng.shuffle(rows)
+        remaining = max(0, opening_cap - base["openingCounts"].get(opening_key, 0))
+        for row in rows[:remaining]:
+            capped_by_bin[row["phaseBin"]].append(row)
+    by_bin = capped_by_bin
+
+    incremental_populations = [len(rows) for rows in by_bin]
+    union_populations = [
+        base["phaseCounts"][phase] + incremental_populations[phase] for phase in range(NUM_PHASE_BINS)
+    ]
+    final_wthor_target = (
+        EXPANDED1M_BASE_COUNT + EXPANDED1M_INCREMENTAL_COUNT - EXPANDED1M_ENGINE_LOSS_COUNT
+    )
+    final_allocation = allocate_bin_targets(union_populations, final_wthor_target)
+    incremental_allocation = [
+        final_allocation[phase] - base["phaseCounts"][phase] for phase in range(NUM_PHASE_BINS)
+    ]
+    if any(count < 0 for count in incremental_allocation):
+        raise RuntimeError(
+            f"base phase counts exceed final waterfall allocation: base={base['phaseCounts']} final={final_allocation}"
+        )
+    if sum(incremental_allocation) != EXPANDED1M_INCREMENTAL_COUNT:
+        raise RuntimeError(
+            "expanded1m target unavailable after base/oracle exclusion: "
+            f"incremental allocation={sum(incremental_allocation)}/{EXPANDED1M_INCREMENTAL_COUNT}, "
+            f"union populations={union_populations}"
+        )
+
+    rng = random.Random(seed)
+    opening_counts = dict(base["openingCounts"])
+    selected: list[dict] = []
+    selected_xc = [0] * NUM_PHASE_BINS
+    for phase, count in enumerate(incremental_allocation):
+        bucket = list(by_bin[phase])
+        rng.shuffle(bucket)
+        xc_needed = max(
+            0,
+            math.ceil(final_allocation[phase] * XC_QUOTA_FRACTION) - base["phaseXcCounts"][phase],
+        )
+        xc = [row for row in bucket if row.get("hasXcLegalMove")]
+        other = [row for row in bucket if not row.get("hasXcLegalMove")]
+        rng.shuffle(xc)
+        rng.shuffle(other)
+        chosen: list[dict] = []
+        chosen_keys: set[tuple[int, int, int]] = set()
+
+        def take(rows: list[dict], wanted: int) -> None:
+            for row in rows:
+                if len(chosen) >= wanted:
+                    break
+                opening_key = row.get("openingKey")
+                if not opening_key:
+                    raise RuntimeError("expanded1m candidate missing openingKey")
+                key = row["_canonicalKey"]
+                if key in chosen_keys or opening_counts.get(opening_key, 0) >= opening_cap:
+                    continue
+                chosen.append(row)
+                chosen_keys.add(key)
+                opening_counts[opening_key] = opening_counts.get(opening_key, 0) + 1
+
+        take(xc, xc_needed)
+        if len(chosen) < xc_needed:
+            raise RuntimeError(f"phase bin {phase} cannot satisfy final-union X/C quota: {len(chosen)}/{xc_needed}")
+        selected_xc[phase] = sum(bool(row.get("hasXcLegalMove")) for row in chosen)
+        remainder = [row for row in bucket if row["_canonicalKey"] not in chosen_keys]
+        take(remainder, count)
+        if len(chosen) != count:
+            raise RuntimeError(
+                f"phase bin {phase} cannot satisfy final-union selection constraints: {len(chosen)}/{count}"
+            )
+        selected_xc[phase] = sum(bool(row.get("hasXcLegalMove")) for row in chosen)
+        selected.extend(chosen)
+
+    if len(selected) != EXPANDED1M_INCREMENTAL_COUNT:
+        raise RuntimeError(f"expanded1m selection produced {len(selected)} incremental rows, expected 800000")
+    final_xc = [base["phaseXcCounts"][i] + selected_xc[i] for i in range(NUM_PHASE_BINS)]
+    for phase in range(NUM_PHASE_BINS):
+        if final_xc[phase] < math.ceil(final_allocation[phase] * XC_QUOTA_FRACTION):
+            raise RuntimeError(f"phase bin {phase} final X/C quota verification failed")
+    selected_keys = {row["_canonicalKey"] for row in selected}
+    if len(selected_keys) != len(selected) or selected_keys & base_keys or selected_keys & oracle_keys:
+        raise RuntimeError("expanded1m incremental canonicalKey uniqueness/non-contamination verification failed")
+
+    year_counts: dict[str, int] = {}
+    selected_per_game: dict[tuple[int, int], int] = {}
+    for row in selected:
+        year_counts[str(row["year"])] = year_counts.get(str(row["year"]), 0) + 1
+        game_key = (row["year"], row["gameIndex"])
+        selected_per_game[game_key] = selected_per_game.get(game_key, 0) + 1
+    per_game_histogram: dict[str, int] = {}
+    for count in selected_per_game.values():
+        per_game_histogram[str(count)] = per_game_histogram.get(str(count), 0) + 1
+
+    stats = {
+        "targetCount": EXPANDED1M_BASE_COUNT + EXPANDED1M_INCREMENTAL_COUNT,
+        "baseRecordCount": EXPANDED1M_BASE_COUNT,
+        "incrementalSelected": len(selected),
+        "basePhaseCounts": base["phaseCounts"],
+        "basePhaseXcCounts": base["phaseXcCounts"],
+        "candidatePoolTotalAfterDedup": pool.get("totalCandidatesAfterDedup"),
+        "rawIncrementalPoolPopulations": raw_incremental_populations,
+        "incrementalPoolPopulations": incremental_populations,
+        "unionPoolPopulations": union_populations,
+        "finalBinAllocation": final_allocation,
+        "incrementalBinAllocation": incremental_allocation,
+        "finalPhaseXcCounts": final_xc,
+        "cappedBins": [i for i, pop in enumerate(union_populations) if final_allocation[i] == pop],
+        "waterfallCount": sum(max(0, final_allocation[i] - math.ceil(final_wthor_target / 6)) for i in range(6)),
+        "openingMaxCount": opening_cap,
+        "maxOpeningCountSelected": max(opening_counts.values(), default=0),
+        "oracleExcluded": pool_oracle_excluded,
+        "baseExcluded": pool_base_excluded,
+        "incrementalDuplicateExcluded": pool_duplicate_excluded,
+        "unselectedCandidates": sum(incremental_populations) - len(selected),
+        "candidateMarginFraction": (sum(incremental_populations) - len(selected)) / len(selected),
+        "incrementalYearCounts": year_counts,
+        "incrementalSelectedPerGameHistogram": per_game_histogram,
+    }
+    selected = [{key: value for key, value in row.items() if key != "_canonicalKey"} for row in selected]
+    return selected, stats
+
+
+def prepare_expanded1m_selection_plan(years: str, per_game_cap: int, per_bin_cap: int, skip_extract: bool = False) -> dict:
+    hardware_gate = measure_expanded1m_hardware_gate()
+    if years != "2000-2024" or per_game_cap != 24 or per_bin_cap != 4:
+        raise RuntimeError("expanded1m requires years=2000-2024, perGameCap=24, perBinCap=4")
+    if skip_extract and EXPANDED1M_CANDIDATES_PATH.exists():
+        print(f"  --skip-extract: reusing existing {EXPANDED1M_CANDIDATES_PATH}")
+    else:
+        run_extract(years, CORPUS_SETS["expanded1m"]["seed"], per_game_cap, EXPANDED1M_CANDIDATES_PATH, per_bin_cap)
+    pool = json.loads(EXPANDED1M_CANDIDATES_PATH.read_text(encoding="utf-8"))
+    if pool.get("perGameCap") != 24 or pool.get("perBinCap") != 4:
+        raise RuntimeError("expanded1m candidate pool has incompatible K/per-game settings")
+
+    base = validate_expanded1m_base()
+    oracle_keys, oracle_sha = load_oracle_excluded_keys(T096_ORACLE_POSITIONS_PATH)
+    selected, stats = select_expanded1m_incremental(pool, base, oracle_keys, CORPUS_SETS["expanded1m"]["seed"])
+
+    master_tmp, master_fh = _atomic_jsonl_writer(EXPANDED1M_PLAN_PATH)
+    shard_paths = [
+        TEACHER_DATA_DIR / f"corpus_expanded1m_shard{i}of{EXPANDED1M_NUM_SHARDS}.plan.jsonl"
+        for i in range(EXPANDED1M_NUM_SHARDS)
+    ]
+    shard_temp_handles = [_atomic_jsonl_writer(path) for path in shard_paths]
+    try:
+        for position_id in range(EXPANDED1M_BASE_COUNT):
+            shard = position_id % EXPANDED1M_NUM_SHARDS
+            shard_temp_handles[shard][1].write(
+                json.dumps({"kind": "reuse", "positionId": position_id}, separators=(",", ":")) + "\n"
+            )
+        for offset, row in enumerate(selected):
+            position_id = EXPANDED1M_BASE_COUNT + offset
+            planned = {**row, "positionId": position_id}
+            line = json.dumps(planned, ensure_ascii=False, separators=(",", ":")) + "\n"
+            master_fh.write(line)
+            shard_temp_handles[position_id % EXPANDED1M_NUM_SHARDS][1].write(line)
+        master_fh.flush()
+        os.fsync(master_fh.fileno())
+        master_fh.close()
+        os.replace(master_tmp, EXPANDED1M_PLAN_PATH)
+        for (temp_path, fh), path in zip(shard_temp_handles, shard_paths):
+            fh.flush()
+            os.fsync(fh.fileno())
+            fh.close()
+            os.replace(temp_path, path)
+    except Exception:
+        master_fh.close()
+        for _, fh in shard_temp_handles:
+            fh.close()
+        raise
+
+    plan_sha = sha256_of_file(EXPANDED1M_PLAN_PATH)
+    shard_shas = [sha256_of_file(path) for path in shard_paths]
+    shard_counts = []
+    shard_reused_counts = []
+    for path in shard_paths:
+        total = reused = 0
+        with path.open("r", encoding="utf-8") as fh:
+            for raw in fh:
+                total += 1
+                if json.loads(raw).get("kind") == "reuse":
+                    reused += 1
+        shard_counts.append(total)
+        shard_reused_counts.append(reused)
+    if shard_counts != [125_000] * 8 or shard_reused_counts != [25_000] * 8:
+        raise RuntimeError(f"expanded1m shard plan count mismatch: total={shard_counts} reused={shard_reused_counts}")
+
+    provenance = {
+        "baseCorpus": {
+            "path": str(BASE_CORPUS_PATH.relative_to(ROOT)),
+            "recordCount": EXPANDED1M_BASE_COUNT,
+            "jsonlSha256": base["jsonlSha256"],
+            "manifestPath": str(BASE_MANIFEST_PATH.relative_to(ROOT)),
+            "manifestSha256": base["manifestSha256"],
+            "edaxSha256": base["edaxSha256"],
+            "edaxEvalDataSha256": base["edaxEvalDataSha256"],
+        },
+        "incrementalGeneration": {
+            "recordCount": EXPANDED1M_INCREMENTAL_COUNT,
+            "candidatePoolPath": str(EXPANDED1M_CANDIDATES_PATH.relative_to(ROOT)),
+            "candidatePoolSha256": sha256_of_file(EXPANDED1M_CANDIDATES_PATH),
+            "selectionPlanPath": str(EXPANDED1M_PLAN_PATH.relative_to(ROOT)),
+            "selectionPlanSha256": plan_sha,
+            "shardPlanSha256": shard_shas,
+            "teacherCandidatesToolSha256": sha256_of_file(TEACHER_CANDIDATES_TOOL),
+            "generatorSha256": sha256_of_file(Path(__file__)),
+            "edaxSha256": sha256_of_file(vs_edax.EDAX_EXE),
+            "edaxEvalDataSha256": sha256_of_file(vs_edax.EDAX_EVAL_DATA),
+            "t096OracleSha256": oracle_sha,
+        },
+    }
+    plan_meta = {
+        "schemaVersion": 1,
+        "setName": "expanded1m",
+        "selectionStats": stats,
+        "selectionPlanSha256": plan_sha,
+        "shardPlanSha256": shard_shas,
+        "shardCounts": shard_counts,
+        "shardReusedRecordCounts": shard_reused_counts,
+        "provenance": provenance,
+        "hardwareGate": hardware_gate,
+    }
+    vs_edax.atomic_write_text(EXPANDED1M_PLAN_META_PATH, json.dumps(plan_meta, indent=2, ensure_ascii=False) + "\n")
+    print(
+        "[expanded1m] selection-only plan complete: "
+        f"1000000 total (200000 base + {len(selected)} incremental), "
+        f"pool={stats['incrementalPoolPopulations']}, margin={stats['candidateMarginFraction']:.3%}"
+    )
+    return plan_meta
+
 # --- 教師値の付与(Edax呼び出し) ---
 
 
@@ -653,7 +1077,9 @@ def sha256_of_file(path: Path) -> str | None:
     if not path.exists():
         return None
     h = hashlib.sha256()
-    h.update(path.read_bytes())
+    with path.open("rb") as fh:
+        for chunk in iter(lambda: fh.read(1024 * 1024), b""):
+            h.update(chunk)
     return h.hexdigest()
 
 
@@ -710,6 +1136,7 @@ class TeacherCorpusCheckpoint:
         *,
         adopt_provenance: bool = False,
         start_fresh_allowed: bool = False,
+        reused_record_count: int | None = None,
     ):
         self.jsonl_path = jsonl_path
         self.meta_path = meta_path
@@ -721,6 +1148,7 @@ class TeacherCorpusCheckpoint:
         # (=何も指定しなければ従来の暗黙のstart_fresh切り詰めは二度と起きない)。
         self.adopt_provenance = adopt_provenance
         self.start_fresh_allowed = start_fresh_allowed
+        self.reused_record_count = reused_record_count
         self.done_ids: set[int] = set()
         self._fh = None
         self._start_time = time.monotonic()
@@ -861,6 +1289,8 @@ class TeacherCorpusCheckpoint:
                 "updatedAt": datetime.now(timezone.utc).isoformat(timespec="seconds"),
             },
         }
+        if self.reused_record_count is not None:
+            doc["reusedRecordCount"] = self.reused_record_count
         vs_edax.atomic_write_text(self.meta_path, json.dumps(doc, indent=2, ensure_ascii=False) + "\n")
 
     def close(self) -> None:
@@ -1016,6 +1446,258 @@ def generate(
     print(f"[{tag}] COMPLETE: {len(checkpoint.done_ids)}/{total} positions written to {jsonl_path}")
 
 
+
+
+
+
+def load_expanded1m_selection_plan() -> dict:
+    """Load an already-fixed plan for resume without re-running parent selection."""
+    if not EXPANDED1M_PLAN_META_PATH.exists():
+        raise RuntimeError("expanded1m selection plan metadata not found")
+    plan_meta = json.loads(EXPANDED1M_PLAN_META_PATH.read_text(encoding="utf-8"))
+    if sha256_of_file(EXPANDED1M_PLAN_PATH) != plan_meta.get("selectionPlanSha256"):
+        raise RuntimeError("expanded1m master selection plan SHA mismatch")
+    if sha256_of_file(BASE_CORPUS_PATH) != BASE_CORPUS_SHA256:
+        raise RuntimeError("expanded1m base corpus changed since plan selection")
+    shard_counts = []
+    reused_counts = []
+    for shard_index in range(8):
+        _, _, path = _expanded1m_shard_paths(shard_index)
+        if sha256_of_file(path) != plan_meta["shardPlanSha256"][shard_index]:
+            raise RuntimeError(f"expanded1m shard {shard_index} plan SHA mismatch")
+        total = reused = 0
+        with path.open("r", encoding="utf-8") as fh:
+            for raw in fh:
+                total += 1
+                if json.loads(raw).get("kind") == "reuse":
+                    reused += 1
+        shard_counts.append(total)
+        reused_counts.append(reused)
+    if shard_counts != [125_000] * 8 or reused_counts != [25_000] * 8:
+        raise RuntimeError(f"expanded1m reused plan count mismatch: total={shard_counts}, reuse={reused_counts}")
+    measure_expanded1m_hardware_gate()
+    print(
+        f"[expanded1m] reusing fixed selection plan sha256={plan_meta['selectionPlanSha256']} "
+        "(parent selection not repeated)"
+    )
+    return plan_meta
+
+def _expanded1m_shard_paths(shard_index: int):
+    return (
+        TEACHER_DATA_DIR / f"corpus_expanded1m_shard{shard_index}of8.jsonl",
+        TEACHER_DATA_DIR / f"corpus_expanded1m_shard{shard_index}of8.meta.json",
+        TEACHER_DATA_DIR / f"corpus_expanded1m_shard{shard_index}of8.plan.jsonl",
+    )
+
+
+def _expanded1m_settings_and_meta(shard_index: int, plan_meta: dict) -> tuple[dict, dict]:
+    provenance = plan_meta["provenance"]
+    incremental = provenance["incrementalGeneration"]
+    settings = {
+        "setName": "expanded1m",
+        "targetCount": 1_000_000,
+        "seed": CORPUS_SETS["expanded1m"]["seed"],
+        "years": "2000-2024",
+        "perGameCap": 24,
+        "perBinCap": 4,
+        "exactEmptiesThreshold": 20,
+        "exactEdaxLevel": EXACT_EDAX_LEVEL,
+        "defaultEdaxLevel": DEFAULT_EDAX_LEVEL,
+        "edaxTasksPerProcess": vs_edax.EDAX_BATCH_TASKS,
+        "elapsedMsPolicy": "batch-averaged",
+        "numPhaseBins": NUM_PHASE_BINS,
+        "xcQuotaFraction": XC_QUOTA_FRACTION,
+        "openingKeyPlies": OPENING_KEY_PLIES,
+        "openingMaxFraction": OPENING_MAX_FRACTION,
+        "selectionStats": plan_meta["selectionStats"],
+        "selectionPlanSha256": plan_meta["selectionPlanSha256"],
+        "shardSelectionPlanSha256": plan_meta["shardPlanSha256"][shard_index],
+        "numShards": 8,
+        "shardIndex": shard_index,
+    }
+    meta = {
+        "gitCommit": vs_edax.git_commit_hash(),
+        "harnessSha256": incremental["generatorSha256"],
+        "teacherCandidatesToolSha256": incremental["teacherCandidatesToolSha256"],
+        "edaxSha256": incremental["edaxSha256"],
+        "edaxEvalDataSha256": incremental["edaxEvalDataSha256"],
+        "candidatesPoolSha256": incremental["candidatePoolSha256"],
+        "highRegretSourceSha256": sha256_of_file(VS_EDAX_RESULTS_PATH),
+        "selectionPlanSha256": plan_meta["selectionPlanSha256"],
+        "baseCorpus": provenance["baseCorpus"],
+        "incrementalGeneration": incremental,
+        "generatedAt": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+    }
+    return settings, meta
+
+
+
+
+def copy_base_records_for_shard(source_path: Path, target_path: Path, shard_index: int, num_shards: int) -> int:
+    """Byte-copy one positionId stripe while validating the base's global sequence."""
+    copied = 0
+    expected_id = 0
+    with source_path.open("rb") as source, target_path.open("wb") as target:
+        for raw in source:
+            if not raw.strip():
+                raise RuntimeError(f"blank base line at positionId={expected_id}")
+            record = json.loads(raw)
+            if record.get("positionId") != expected_id:
+                raise RuntimeError(
+                    f"base positionId sequence mismatch during import: expected={expected_id} "
+                    f"got={record.get('positionId')}"
+                )
+            if expected_id % num_shards == shard_index:
+                target.write(raw)
+                copied += 1
+            expected_id += 1
+        target.flush()
+        os.fsync(target.fileno())
+    return copied
+
+def import_expanded1m_base_shard(
+    shard_index: int, jsonl_path: Path, meta_path: Path, run_key: str, settings: dict, meta: dict
+) -> None:
+    """Create a new expanded1m checkpoint by byte-copying this shard's base records."""
+    validate_expanded1m_base()
+    temp_path = jsonl_path.with_name(jsonl_path.name + ".base-import.tmp")
+    copied = copy_base_records_for_shard(
+        BASE_CORPUS_PATH, temp_path, shard_index, EXPANDED1M_NUM_SHARDS
+    )
+    if copied != 25_000:
+        raise RuntimeError(f"expanded1m shard {shard_index} base import count {copied} != 25000")
+    os.replace(temp_path, jsonl_path)
+    doc = {
+        "schemaVersion": 2,
+        "runKey": run_key,
+        "meta": meta,
+        "settings": settings,
+        "reusedRecordCount": copied,
+        "progress": {
+            "done": copied,
+            "total": 125_000,
+            "ratePerSec": None,
+            "updatedAt": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        },
+    }
+    vs_edax.atomic_write_text(meta_path, json.dumps(doc, indent=2, ensure_ascii=False) + "\n")
+
+
+def generate_expanded1m_shard(shard_index: int) -> None:
+    if not 0 <= shard_index < EXPANDED1M_NUM_SHARDS:
+        raise RuntimeError(f"invalid expanded1m shard index {shard_index}")
+    plan_meta = json.loads(EXPANDED1M_PLAN_META_PATH.read_text(encoding="utf-8"))
+    jsonl_path, meta_path, shard_plan_path = _expanded1m_shard_paths(shard_index)
+    expected_plan_sha = plan_meta["shardPlanSha256"][shard_index]
+    if sha256_of_file(shard_plan_path) != expected_plan_sha:
+        raise RuntimeError(f"expanded1m shard {shard_index} selection plan SHA mismatch")
+
+    incremental_positions: list[dict] = []
+    reused_ids: list[int] = []
+    with shard_plan_path.open("r", encoding="utf-8") as fh:
+        for raw in fh:
+            row = json.loads(raw)
+            if row.get("kind") == "reuse":
+                reused_ids.append(row["positionId"])
+            else:
+                incremental_positions.append(row)
+    if len(reused_ids) != 25_000 or len(incremental_positions) != 100_000:
+        raise RuntimeError(
+            f"expanded1m shard {shard_index} plan count mismatch: reuse={len(reused_ids)} "
+            f"incremental={len(incremental_positions)}"
+        )
+    if reused_ids != list(range(shard_index, EXPANDED1M_BASE_COUNT, EXPANDED1M_NUM_SHARDS)):
+        raise RuntimeError(f"expanded1m shard {shard_index} reuse IDs are not the required stripe")
+
+    settings, meta = _expanded1m_settings_and_meta(shard_index, plan_meta)
+    run_key = json.dumps(settings, sort_keys=True)
+    if not jsonl_path.exists() and not meta_path.exists():
+        import_expanded1m_base_shard(shard_index, jsonl_path, meta_path, run_key, settings, meta)
+    elif not jsonl_path.exists() or not meta_path.exists():
+        raise RuntimeError(f"expanded1m shard {shard_index} has an incomplete checkpoint pair")
+
+    checkpoint = TeacherCorpusCheckpoint(
+        jsonl_path, meta_path, run_key, settings, meta, reused_record_count=25_000
+    )
+    if not checkpoint.try_resume():
+        raise RuntimeError("expanded1m base import must never fall through to start_fresh")
+
+    todo = [row for row in incremental_positions if not checkpoint.is_done(row["positionId"])]
+    print(
+        f"[expanded1m shard {shard_index}/8] base reuse=25000, "
+        f"incremental done={100000 - len(todo)}, remaining={len(todo)}"
+    )
+    # children情報も100k件を一括保持せず、小バッチで生成して即checkpointする。
+    # 8ワーカー同時実行時のピークRAMを抑え、各レコードのappend+fsyncは従来どおり維持する。
+    children_batch_size = 256
+    progress_i = 0
+    for start in range(0, len(todo), children_batch_size):
+        positions_batch = todo[start : start + children_batch_size]
+        children_batch = run_children_batch(positions_batch)
+        for position, children_info in zip(positions_batch, children_batch):
+            progress_i += 1
+            position_id = position["positionId"]
+            record = label_position(position_id, position, children_info, exact_empties_threshold=20)
+            checkpoint.append(record)
+            if progress_i % 20 == 0 or progress_i == len(todo):
+                checkpoint.write_progress(125_000)
+                print(
+                    f"  [expanded1m shard {shard_index}/8] "
+                    f"{len(checkpoint.done_ids)}/125000 checkpointed"
+                )
+    checkpoint.write_progress(125_000)
+    checkpoint.close()
+    # write_progress is shared with old sets; add the base-import audit field without changing runKey.
+    completed_meta = json.loads(meta_path.read_text(encoding="utf-8"))
+    completed_meta["reusedRecordCount"] = 25_000
+    vs_edax.atomic_write_text(meta_path, json.dumps(completed_meta, indent=2, ensure_ascii=False) + "\n")
+
+
+def run_expanded1m_orchestrator() -> None:
+    logs_dir = TEACHER_DATA_DIR / "logs"
+    logs_dir.mkdir(parents=True, exist_ok=True)
+    procs = []
+    log_files = []
+    script_path = str(Path(__file__).resolve())
+    for shard_index in range(8):
+        log_path = logs_dir / f"expanded1m_shard{shard_index}of8.log"
+        log_fh = open(log_path, "w", encoding="utf-8")
+        log_files.append(log_fh)
+        cmd = [
+            sys.executable,
+            script_path,
+            "expanded1m",
+            "--num-shards",
+            "8",
+            "--shard-index",
+            str(shard_index),
+        ]
+        print(f"  spawning expanded1m shard {shard_index}/8 (log: {log_path})")
+        procs.append(subprocess.Popen(cmd, stdout=log_fh, stderr=subprocess.STDOUT, cwd=str(ROOT)))
+    while True:
+        time.sleep(15)
+        status = []
+        done_total = 0
+        for shard_index, proc in enumerate(procs):
+            _, meta_path, _ = _expanded1m_shard_paths(shard_index)
+            done = 0
+            if meta_path.exists():
+                try:
+                    done = (json.loads(meta_path.read_text(encoding="utf-8")).get("progress") or {}).get("done", 0)
+                except (OSError, json.JSONDecodeError):
+                    pass
+            done_total += done
+            status.append(f"s{shard_index}={done}({'run' if proc.poll() is None else proc.returncode})")
+        print(f"[expanded1m] {done_total}/1000000 | {' '.join(status)}")
+        if all(proc.poll() is not None for proc in procs):
+            break
+    for fh in log_files:
+        fh.close()
+    failed = [(i, proc.returncode) for i, proc in enumerate(procs) if proc.returncode != 0]
+    if failed:
+        raise RuntimeError(f"expanded1m shard failure(s): {failed}")
+    merge_shards("expanded1m", 8, 1_000_000)
+
 # --- シャード並列オーケストレーション(primary所要時間が8時間見積もりを超えたため追加。
 #     オーケストレーター裁定 2026-07-14: 規模50,000を維持しシャード並列化で続行) ---
 
@@ -1114,28 +1796,16 @@ def run_shard_orchestrator(
 
 
 def merge_shards(set_name: str, num_shards: int, target_count: int) -> None:
-    """全シャードのJSONLを`positionId`でマージし、標準の`corpus_{set}.jsonl`へ書き出す
-    (`verify_teacher_corpus.py`は非シャード時と同じファイル名を読むため)。"""
-    merged: dict[int, dict] = {}
+    """Stream a positionId-ordered k-way merge and atomically publish the result."""
     shard_metas = []
+    shard_paths = []
     for i in range(num_shards):
         shard_jsonl = TEACHER_DATA_DIR / f"corpus_{set_name}_shard{i}of{num_shards}.jsonl"
         shard_meta_path = TEACHER_DATA_DIR / f"corpus_{set_name}_shard{i}of{num_shards}.meta.json"
-        if not shard_meta_path.exists():
-            raise RuntimeError(f"expected shard meta {shard_meta_path} not found")
+        if not shard_meta_path.exists() or not shard_jsonl.exists():
+            raise RuntimeError(f"expected shard pair for shard {i} not found")
         shard_metas.append(json.loads(shard_meta_path.read_text(encoding="utf-8")))
-        if not shard_jsonl.exists():
-            raise RuntimeError(f"expected shard file {shard_jsonl} not found")
-        with shard_jsonl.open("r", encoding="utf-8") as fh:
-            for line in fh:
-                line = line.strip()
-                if not line:
-                    continue
-                rec = json.loads(line)
-                pid = rec["positionId"]
-                if pid in merged:
-                    raise RuntimeError(f"duplicate positionId={pid} found across shards (shard {i} and an earlier shard)")
-                merged[pid] = rec
+        shard_paths.append(shard_jsonl)
 
     base_meta = shard_metas[0]
     base_settings = dict(base_meta.get("settings") or {})
@@ -1146,6 +1816,9 @@ def merge_shards(set_name: str, num_shards: int, target_count: int) -> None:
             raise RuntimeError(f"shard {i} settings identify a different shard/run")
         comparable_base = dict(base_settings)
         comparable_base.pop("shardIndex", None)
+        # Shard selection plan SHA is intentionally shard-specific.
+        settings.pop("shardSelectionPlanSha256", None)
+        comparable_base.pop("shardSelectionPlanSha256", None)
         if settings != comparable_base:
             raise RuntimeError(f"shard {i} settings mismatch")
         if provenance_identity(shard_meta.get("meta")) != provenance_identity(base_meta.get("meta")):
@@ -1153,45 +1826,81 @@ def merge_shards(set_name: str, num_shards: int, target_count: int) -> None:
         if shard_meta.get("runKey") != json.dumps(shard_meta.get("settings"), sort_keys=True):
             raise RuntimeError(f"shard {i} runKey mismatch")
 
-    expected_ids = set(range(target_count))
-    got_ids = set(merged.keys())
-    missing = expected_ids - got_ids
-    extra = got_ids - expected_ids
-    if missing or extra:
-        raise RuntimeError(f"shard merge id mismatch: missing={len(missing)} extra={len(extra)} (expected exactly {target_count} ids)")
-
     merged_jsonl_path = TEACHER_DATA_DIR / f"corpus_{set_name}.jsonl"
     merged_meta_path = TEACHER_DATA_DIR / f"corpus_{set_name}.meta.json"
-    with merged_jsonl_path.open("w", encoding="utf-8", newline="\n") as fh:
-        for pid in sorted(merged.keys()):
-            fh.write(json.dumps(merged[pid], ensure_ascii=False) + "\n")
+    temp_path = merged_jsonl_path.with_name(merged_jsonl_path.name + ".merge.tmp")
+    handles = [path.open("r", encoding="utf-8") for path in shard_paths]
+    heap: list[tuple[int, int, str]] = []
+    try:
+        for shard_index, fh in enumerate(handles):
+            raw = fh.readline()
+            if raw:
+                record = json.loads(raw)
+                heapq.heappush(heap, (record["positionId"], shard_index, raw))
+        merged_count = 0
+        with temp_path.open("w", encoding="utf-8", newline="\n") as out:
+            while heap:
+                position_id, shard_index, raw = heapq.heappop(heap)
+                if position_id != merged_count:
+                    raise RuntimeError(
+                        f"shard merge id mismatch at output {merged_count}: got positionId={position_id}"
+                    )
+                out.write(raw if raw.endswith("\n") else raw + "\n")
+                merged_count += 1
+                next_raw = handles[shard_index].readline()
+                if next_raw:
+                    next_record = json.loads(next_raw)
+                    next_id = next_record["positionId"]
+                    if next_id <= position_id:
+                        raise RuntimeError(
+                            f"shard {shard_index} is not strictly positionId-sorted: {position_id} then {next_id}"
+                        )
+                    heapq.heappush(heap, (next_id, shard_index, next_raw))
+            out.flush()
+            os.fsync(out.fileno())
+        if merged_count != target_count:
+            raise RuntimeError(f"shard merge count mismatch: {merged_count} != {target_count}")
+        os.replace(temp_path, merged_jsonl_path)
+    finally:
+        for fh in handles:
+            fh.close()
+        if temp_path.exists():
+            temp_path.unlink()
 
     merged_settings = dict(base_meta.get("settings") or {})
     merged_settings.pop("numShards", None)
     merged_settings.pop("shardIndex", None)
+    merged_settings.pop("shardSelectionPlanSha256", None)
     merged_doc = {
-        "schemaVersion": 2,  # T114: マージ済みmetaにも直接付与(verify_teacher_corpus.pyの必須要件)
-        "runKey": None,  # マージ済みファイルはシャード実行のrunKeyをそのまま引き継がない(参考情報のみ)
+        "schemaVersion": 2,
+        "runKey": None,
         "meta": base_meta.get("meta"),
         "settings": merged_settings,
         "mergedFromShards": num_shards,
         "progress": {
-            "done": len(merged),
+            "done": merged_count,
             "total": target_count,
             "ratePerSec": None,
             "updatedAt": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         },
     }
+    if set_name == "expanded1m":
+        merged_doc["reusedRecordCount"] = EXPANDED1M_BASE_COUNT
+        merged_doc["provenance"] = {
+            "baseCorpus": (base_meta.get("meta") or {}).get("baseCorpus"),
+            "incrementalGeneration": (base_meta.get("meta") or {}).get("incrementalGeneration"),
+        }
     vs_edax.atomic_write_text(merged_meta_path, json.dumps(merged_doc, indent=2, ensure_ascii=False) + "\n")
-    print(f"[{set_name}] merge: {len(merged)}/{target_count} position(s) merged into {merged_jsonl_path}")
+    print(f"[{set_name}] merge: {merged_count}/{target_count} position(s) merged into {merged_jsonl_path}")
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("set_name", choices=sorted(CORPUS_SETS.keys()))
     parser.add_argument("--dry-run", action="store_true", help="Selection only, no Edax calls, no checkpoint file written")
-    parser.add_argument("--years", default="2015-2024")
-    parser.add_argument("--per-game-cap", type=int, default=NUM_PHASE_BINS)
+    parser.add_argument("--years", default=None)
+    parser.add_argument("--per-game-cap", type=int, default=None)
+    parser.add_argument("--per-bin-cap", type=int, default=None)
     parser.add_argument(
         "--num-shards",
         type=int,
@@ -1209,6 +1918,11 @@ def main() -> None:
         action="store_true",
         help="Internal: reuse the existing candidates.json instead of re-running the (non-atomic) Rust extractor. "
         "Used by shard workers to avoid concurrent writers to the same file.",
+    )
+    parser.add_argument(
+        "--reuse-selection-plan",
+        action="store_true",
+        help="expanded1m only: reuse and SHA-verify the already-fixed parent/shard plans for resume.",
     )
     parser.add_argument(
         "--start-fresh",
@@ -1230,14 +1944,43 @@ def main() -> None:
     if args.start_fresh and args.adopt_provenance:
         raise SystemExit("--start-fresh and --adopt-provenance are mutually exclusive")
 
+    cfg = CORPUS_SETS[args.set_name]
+    years = args.years or cfg.get("years", "2015-2024")
+    per_game_cap = args.per_game_cap if args.per_game_cap is not None else cfg.get("perGameCap", NUM_PHASE_BINS)
+    per_bin_cap = args.per_bin_cap if args.per_bin_cap is not None else cfg.get("perBinCap", 1)
+
+    if args.set_name == "expanded1m":
+        if args.adopt_provenance:
+            raise SystemExit("expanded1m base import must not use --adopt-provenance")
+        if args.start_fresh:
+            raise SystemExit("expanded1m checkpoints are initialized only by verified base import; --start-fresh is forbidden")
+        if args.num_shards != EXPANDED1M_NUM_SHARDS:
+            raise SystemExit("expanded1m requires --num-shards 8")
+        if args.shard_index is not None:
+            generate_expanded1m_shard(args.shard_index)
+            return
+        if args.reuse_selection_plan:
+            load_expanded1m_selection_plan()
+        else:
+            prepare_expanded1m_selection_plan(years, per_game_cap, per_bin_cap, skip_extract=args.skip_extract)
+        if args.dry_run:
+            return
+        run_expanded1m_orchestrator()
+        return
+
+    if args.reuse_selection_plan:
+        raise SystemExit("--reuse-selection-plan is only valid for expanded1m")
+    if per_bin_cap != 1:
+        raise SystemExit("--per-bin-cap other than 1 is reserved for expanded1m")
+
     if args.shard_index is not None:
         if args.num_shards <= 1:
             raise SystemExit("--shard-index requires --num-shards > 1")
         generate(
             args.set_name,
             args.dry_run,
-            args.years,
-            args.per_game_cap,
+            years,
+            per_game_cap,
             num_shards=args.num_shards,
             shard_index=args.shard_index,
             skip_extract=args.skip_extract,
@@ -1250,8 +1993,8 @@ def main() -> None:
         run_shard_orchestrator(
             args.set_name,
             args.num_shards,
-            args.per_game_cap,
-            args.years,
+            per_game_cap,
+            years,
             adopt_provenance=args.adopt_provenance,
             start_fresh=args.start_fresh,
         )
@@ -1259,8 +2002,8 @@ def main() -> None:
         generate(
             args.set_name,
             args.dry_run,
-            args.years,
-            args.per_game_cap,
+            years,
+            per_game_cap,
             skip_extract=args.skip_extract,
             adopt_provenance=args.adopt_provenance,
             start_fresh=args.start_fresh,

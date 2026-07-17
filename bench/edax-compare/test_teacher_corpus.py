@@ -565,5 +565,99 @@ class TeacherCorpusTests(unittest.TestCase):
             self.assertEqual(raised.exception.code, 0)
 
 
+    def test_expanded1m_config_is_k4_and_nested(self) -> None:
+        cfg = gen.CORPUS_SETS["expanded1m"]
+        self.assertEqual(cfg["targetCount"], 1_000_000)
+        self.assertEqual(cfg["years"], "2000-2024")
+        self.assertEqual(cfg["perBinCap"], 4)
+        self.assertEqual(cfg["perGameCap"], 24)
+        self.assertEqual(cfg["baseSet"], "expanded200k")
+        self.assertNotIn("perBinCap", gen.CORPUS_SETS["smoke"])
+        self.assertNotIn("perBinCap", gen.CORPUS_SETS["primary"])
+        self.assertNotIn("perBinCap", gen.CORPUS_SETS["expanded200k"])
+
+    def test_expanded1m_run_settings_include_plan_sha_and_two_layer_provenance(self) -> None:
+        plan_meta = {
+            "selectionStats": {"incrementalSelected": 800_000},
+            "selectionPlanSha256": "master-sha",
+            "shardPlanSha256": [f"shard-{i}" for i in range(8)],
+            "provenance": {
+                "baseCorpus": {
+                    "jsonlSha256": gen.BASE_CORPUS_SHA256,
+                    "manifestSha256": gen.BASE_MANIFEST_SHA256,
+                },
+                "incrementalGeneration": {
+                    "generatorSha256": "generator",
+                    "teacherCandidatesToolSha256": "tool",
+                    "edaxSha256": "edax",
+                    "edaxEvalDataSha256": "eval",
+                    "candidatePoolSha256": "pool",
+                    "selectionPlanSha256": "master-sha",
+                },
+            },
+        }
+        with mock.patch.object(gen.vs_edax, "git_commit_hash", return_value="head"):
+            settings, meta = gen._expanded1m_settings_and_meta(3, plan_meta)
+        self.assertEqual(settings["selectionPlanSha256"], "master-sha")
+        self.assertEqual(settings["shardSelectionPlanSha256"], "shard-3")
+        self.assertEqual(settings["perBinCap"], 4)
+        self.assertIn("baseCorpus", meta)
+        self.assertIn("incrementalGeneration", meta)
+
+    def test_streaming_merge_orders_records_and_uses_atomic_temp(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            data_dir = Path(temp_dir)
+            common = {key: f"value-{key}" for key in gen.PROVENANCE_IDENTITY_KEYS}
+            for shard_index, ids in enumerate(([0, 2], [1, 3])):
+                settings = {"setName": "test", "targetCount": 4, "numShards": 2, "shardIndex": shard_index}
+                meta = {
+                    "runKey": json.dumps(settings, sort_keys=True),
+                    "meta": dict(common),
+                    "settings": settings,
+                }
+                (data_dir / f"corpus_test_shard{shard_index}of2.meta.json").write_text(
+                    json.dumps(meta), encoding="utf-8"
+                )
+                lines = [json.dumps({"positionId": position_id}, separators=(",", ":")) + "\n" for position_id in ids]
+                (data_dir / f"corpus_test_shard{shard_index}of2.jsonl").write_text(
+                    "".join(lines), encoding="utf-8", newline="\n"
+                )
+            with mock.patch.object(gen, "TEACHER_DATA_DIR", data_dir):
+                gen.merge_shards("test", 2, 4)
+            merged = (data_dir / "corpus_test.jsonl").read_text(encoding="utf-8").splitlines()
+            self.assertEqual([json.loads(line)["positionId"] for line in merged], [0, 1, 2, 3])
+            self.assertFalse((data_dir / "corpus_test.jsonl.merge.tmp").exists())
+
+
+    def test_expanded1m_target_shortfall_is_immediate_error(self) -> None:
+        base = {
+            "canonicalKeys": set(),
+            "phaseCounts": [0] * 6,
+            "phaseXcCounts": [0] * 6,
+            "openingCounts": {},
+        }
+        with mock.patch.object(gen, "EXPANDED1M_BASE_COUNT", 0):
+            with mock.patch.object(gen, "EXPANDED1M_INCREMENTAL_COUNT", 4):
+                with mock.patch.object(gen, "EXPANDED1M_ENGINE_LOSS_COUNT", 0):
+                    with self.assertRaisesRegex(RuntimeError, "target unavailable"):
+                        gen.select_expanded1m_incremental({"positions": []}, base, set(), 7)
+
+    def test_base_shard_copy_preserves_record_bytes(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            source = root / "base.jsonl"
+            target = root / "shard.jsonl"
+            lines = [
+                '{"positionId":0, "payload":"a"}\n',
+                '{"positionId":1,"payload":"b"}\n',
+                '{"positionId":2, "payload":"c"}\n',
+                '{"positionId":3,"payload":"d"}\n',
+            ]
+            source.write_text("".join(lines), encoding="utf-8", newline="\n")
+            copied = gen.copy_base_records_for_shard(source, target, 1, 2)
+            self.assertEqual(copied, 2)
+            self.assertEqual(target.read_bytes(), (lines[1] + lines[3]).encode("utf-8"))
+
+
 if __name__ == "__main__":
     unittest.main()

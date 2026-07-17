@@ -10,6 +10,7 @@ positionId、D4重複、best/diff、exact深さも検証し、欠落ファイル
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import subprocess
 import sys
@@ -141,27 +142,21 @@ def verify_one(set_name: str) -> tuple[int, int]:
     jsonl_path = TEACHER_DATA_DIR / f"corpus_{set_name}.jsonl"
     meta_path = TEACHER_DATA_DIR / f"corpus_{set_name}.meta.json"
     errors = 0
-    if not jsonl_path.exists():
-        report(set_name, f"ERROR: {jsonl_path} not found")
-        return 0, 1
-    if not meta_path.exists():
-        report(set_name, f"ERROR: {meta_path} not found")
+    if not jsonl_path.exists() or not meta_path.exists():
+        report(set_name, f"ERROR: corpus/meta pair not found: {jsonl_path}, {meta_path}")
         return 0, 1
     if not TOOL.exists():
         report(set_name, f"ERROR: {TOOL} not found; build teacher_candidates first")
         return 0, 1
-
     try:
         meta_doc = json.loads(meta_path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
         report(set_name, f"ERROR: malformed meta: {exc}")
         return 0, 1
-    # T114移行(2026-07-16 20:4x): expanded200kはexactEmptiesThreshold=20(primary等は
-    # 24のまま)。グローバル定数への決め打ちではなく、そのコーパス自身が記録した
-    # `settings.exactEmptiesThreshold`を正として使う(gen_teacher_corpus.pyの
-    # CORPUS_SETS上書きと自己整合させ、set名のハードコード分岐を増やさないため)。
-    # フィールドが無い旧世代コーパスは既定値(24)にフォールバックする。
-    exact_empties_threshold = (meta_doc.get("settings") or {}).get("exactEmptiesThreshold", EXACT_EMPTIES_THRESHOLD)
+
+    exact_empties_threshold = (meta_doc.get("settings") or {}).get(
+        "exactEmptiesThreshold", EXACT_EMPTIES_THRESHOLD
+    )
     expected_total = (meta_doc.get("progress") or {}).get("total")
     expected_done = (meta_doc.get("progress") or {}).get("done")
     if meta_doc.get("schemaVersion") != 2:
@@ -170,76 +165,46 @@ def verify_one(set_name: str) -> tuple[int, int]:
     if not isinstance(expected_total, int) or not isinstance(expected_done, int):
         report(set_name, "ERROR: meta progress.total/done must be integers")
         errors += 1
-
-    records: list[dict] = []
-    with jsonl_path.open("r", encoding="utf-8") as fh:
-        for line_no, raw in enumerate(fh, start=1):
-            if not raw.strip():
-                report(set_name, f"line {line_no}: malformed blank JSONL line")
-                errors += 1
-                continue
-            try:
-                value = json.loads(raw)
-            except json.JSONDecodeError as exc:
-                report(set_name, f"line {line_no}: malformed JSON ({exc})")
-                errors += 1
-                continue
-            if not isinstance(value, dict):
-                report(set_name, f"line {line_no}: record is not an object")
-                errors += 1
-                continue
-            records.append(value)
-
-    if expected_total != len(records) or expected_done != len(records):
-        report(
-            set_name,
-            f"meta count mismatch: records={len(records)} progress.done={expected_done} progress.total={expected_total}",
-        )
-        errors += 1
-
-    ids = [rec.get("positionId") for rec in records]
-    expected_ids = list(range(expected_total)) if isinstance(expected_total, int) and expected_total >= 0 else []
-    if ids != expected_ids:
-        missing = sorted(set(expected_ids) - {pid for pid in ids if isinstance(pid, int)})
-        duplicates = len(ids) - len(set(map(str, ids)))
-        report(set_name, f"positionId sequence mismatch: missing={len(missing)} duplicates={duplicates}")
-        errors += 1
-
-    for rec in records:
-        for message in schema_errors(rec):
-            report(set_name, f"positionId={rec.get('positionId')}: {message}")
+    if set_name == "expanded1m":
+        provenance = meta_doc.get("provenance") or {}
+        if not isinstance(provenance.get("baseCorpus"), dict) or not isinstance(
+            provenance.get("incrementalGeneration"), dict
+        ):
+            report(set_name, "ERROR: expanded1m requires baseCorpus/incrementalGeneration provenance")
             errors += 1
 
     seen_canonical: dict[tuple, int] = {}
-    for start in range(0, len(records), BATCH_SIZE):
-        batch = records[start : start + BATCH_SIZE]
-        try:
-            legal_info = compute_children(batch)
-            canonical_keys = compute_canonical_keys(batch)
-        except Exception as exc:  # noqa: BLE001
-            report(set_name, f"ERROR: board recomputation failed at record {start}: {exc}")
-            return len(records), errors + 1
+    record_count = 0
+    batch: list[dict] = []
 
-        for rec, info, recomputed_key in zip(batch, legal_info, canonical_keys):
+    def verify_batch(records: list[dict], start_index: int) -> int:
+        batch_errors = 0
+        try:
+            legal_info = compute_children(records)
+            canonical_keys = compute_canonical_keys(records)
+        except Exception as exc:  # noqa: BLE001
+            report(set_name, f"ERROR: board recomputation failed at record {start_index}: {exc}")
+            return 1
+        for rec, info, recomputed_key in zip(records, legal_info, canonical_keys):
             pos_id = rec.get("positionId")
             children = rec.get("children")
             if not isinstance(children, list) or not children:
                 report(set_name, f"positionId={pos_id}: children must be a non-empty list")
-                errors += 1
+                batch_errors += 1
                 continue
             try:
                 corpus_moves = [child["move"] for child in children]
                 legal_moves = [child["move"] for child in info["moves"]]
             except (KeyError, TypeError) as exc:
                 report(set_name, f"positionId={pos_id}: malformed children: {exc}")
-                errors += 1
+                batch_errors += 1
                 continue
             if len(corpus_moves) != len(set(corpus_moves)) or set(corpus_moves) != set(legal_moves):
                 report(
                     set_name,
                     f"positionId={pos_id}: legal move mismatch corpus={sorted(corpus_moves)} board={sorted(legal_moves)}",
                 )
-                errors += 1
+                batch_errors += 1
 
             by_move = {child["move"]: child for child in info["moves"]}
             try:
@@ -247,7 +212,9 @@ def verify_one(set_name: str) -> tuple[int, int]:
                 if rec.get("bestValue") != max_value:
                     raise ValueError(f"bestValue={rec.get('bestValue')} max={max_value}")
                 best_move = rec.get("bestMove")
-                if best_move not in corpus_moves or next(c["value"] for c in children if c["move"] == best_move) != max_value:
+                if best_move not in corpus_moves or next(
+                    child["value"] for child in children if child["move"] == best_move
+                ) != max_value:
                     raise ValueError(f"bestMove={best_move} is not maximal")
                 for child in children:
                     expected_diff = max_value - child["value"]
@@ -274,7 +241,8 @@ def verify_one(set_name: str) -> tuple[int, int]:
                             raise ValueError(f"exact move={child['move']} requires integer edaxDepth")
                         if child["edaxDepth"] < actual["childEmpties"]:
                             raise ValueError(
-                                f"exact move={child['move']} depth={child['edaxDepth']} < empties={actual['childEmpties']}"
+                                f"exact move={child['move']} depth={child['edaxDepth']} "
+                                f"< empties={actual['childEmpties']}"
                             )
                     elif child.get("exact") is not False or child.get("level") != 16:
                         raise ValueError(
@@ -282,7 +250,7 @@ def verify_one(set_name: str) -> tuple[int, int]:
                         )
             except (KeyError, TypeError, ValueError, StopIteration) as exc:
                 report(set_name, f"positionId={pos_id}: {exc}")
-                errors += 1
+                batch_errors += 1
 
             key_value = rec.get("canonicalKey")
             if (
@@ -291,35 +259,96 @@ def verify_one(set_name: str) -> tuple[int, int]:
                 or any(not isinstance(value, int) or isinstance(value, bool) for value in key_value)
             ):
                 report(set_name, f"positionId={pos_id}: malformed canonicalKey")
-                errors += 1
+                batch_errors += 1
             else:
                 if key_value != recomputed_key:
                     report(
                         set_name,
                         f"positionId={pos_id}: canonicalKey mismatch stored={key_value} board={recomputed_key}",
                     )
-                    errors += 1
+                    batch_errors += 1
                 key = tuple(recomputed_key)
                 if key in seen_canonical:
                     report(set_name, f"positionId={pos_id}: recomputed D4 key duplicates {seen_canonical[key]}")
-                    errors += 1
+                    batch_errors += 1
                 else:
                     seen_canonical[key] = pos_id
                 if key in ORACLE_KEYS:
-                    report(
-                        set_name,
-                        f"positionId={pos_id}: canonicalKey matches a t096 independent-oracle position "
-                        "(oracle contamination)",
-                    )
-                    errors += 1
+                    report(set_name, f"positionId={pos_id}: canonicalKey matches a t096 independent-oracle position")
+                    batch_errors += 1
+        return batch_errors
 
-    print(f"[{set_name}] verified {len(records)} record(s), {errors} error(s)")
-    return len(records), errors
+    base_fh = None
+    prefix_hash = None
+    if set_name == "expanded1m":
+        base_path = TEACHER_DATA_DIR / "corpus_expanded200k.jsonl"
+        if not base_path.exists():
+            report(set_name, "ERROR: expanded200k base missing; prefix identity cannot be verified")
+            errors += 1
+        else:
+            base_fh = base_path.open("r", encoding="utf-8", newline="")
+            prefix_hash = hashlib.sha256()
+
+    with jsonl_path.open("r", encoding="utf-8", newline="") as fh:
+        for line_no, raw in enumerate(fh, start=1):
+            if not raw.strip():
+                report(set_name, f"line {line_no}: malformed blank JSONL line")
+                errors += 1
+                continue
+            try:
+                value = json.loads(raw)
+            except json.JSONDecodeError as exc:
+                report(set_name, f"line {line_no}: malformed JSON ({exc})")
+                errors += 1
+                continue
+            if not isinstance(value, dict):
+                report(set_name, f"line {line_no}: record is not an object")
+                errors += 1
+                continue
+            if value.get("positionId") != record_count:
+                report(
+                    set_name,
+                    f"positionId sequence mismatch at record {record_count}: got {value.get('positionId')}",
+                )
+                errors += 1
+            if base_fh is not None and record_count < 200_000:
+                base_raw = base_fh.readline()
+                if raw != base_raw:
+                    report(set_name, f"positionId={record_count}: expanded200k prefix byte mismatch")
+                    errors += 1
+                if prefix_hash is not None:
+                    prefix_hash.update(raw.encode("utf-8"))
+            for message in schema_errors(value):
+                report(set_name, f"positionId={value.get('positionId')}: {message}")
+                errors += 1
+            batch.append(value)
+            record_count += 1
+            if len(batch) >= BATCH_SIZE:
+                errors += verify_batch(batch, record_count - len(batch))
+                batch.clear()
+    if batch:
+        errors += verify_batch(batch, record_count - len(batch))
+    if base_fh is not None:
+        base_fh.close()
+        if record_count >= 200_000 and prefix_hash is not None:
+            expected_sha = ((meta_doc.get("provenance") or {}).get("baseCorpus") or {}).get("jsonlSha256")
+            if prefix_hash.hexdigest() != expected_sha:
+                report(set_name, "ERROR: expanded200k prefix SHA-256 mismatch")
+                errors += 1
+
+    if expected_total != record_count or expected_done != record_count:
+        report(
+            set_name,
+            f"meta count mismatch: records={record_count} progress.done={expected_done} progress.total={expected_total}",
+        )
+        errors += 1
+    print(f"[{set_name}] verified {record_count} record(s), {errors} error(s)")
+    return record_count, errors
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("set_names", nargs="+", choices=["smoke", "primary", "expanded200k"])
+    parser.add_argument("set_names", nargs="+", choices=["smoke", "primary", "expanded200k", "expanded1m"])
     args = parser.parse_args()
     total_records = total_errors = 0
     for set_name in args.set_names:
