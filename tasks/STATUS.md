@@ -26,10 +26,13 @@
 
 | ID | タスク | 担当 | 状態 | 試行 |
 |---|---|---|---|---|
-| T127a | 1Mコーパス基盤(K=4拡張・入れ子選定・スケール堅牢化) | Codex gpt-5.6-sol | in_progress | 0 |
-| T127b-e | 1M生成(41h)→検証→v4学習(+500k bridge)→4M投資判定 | Codex gpt-5.6-sol | todo(直列、aの完了から順次) | 0 |
+| T127b | expanded1m本番生成(新規80万件) | オーケストレーター管理 | in_progress(**7/17 16:4x起動、PID 24956**、base 200k取込済・8シャード稼働。ETA約41h=7/19朝昼。ログlogs/t127b-gen.log、進捗=シャードjsonl行数200k→1M。resumeは同一コマンド+--reuse-selection-plan、SHA照合で保護) | 0 |
+| T127c-e | 1M検証(+テスト固定2件FU)→v4学習(500k bridge+1M×3seed)→4M投資判定 | Codex gpt-5.6-sol | todo(生成完走後に順次) | 0 |
 
 ## 有効な方針・申し送り(今後のタスクに効くもの)
+
+- **T127b生成中(〜7/19昼)の並行作業ルール(design/T127-corpus-1m-report.md §6)**: 重い計測(NPS/FFO/対局)・学習・Edax大量呼び出し・teacher_candidates.exeを上書きしうるreleaseビルド・生成関連ファイル変更は禁止(必要なら生成を停止→作業→resume)。app/限定の軽作業・調査・docsは並行可。**redo#1のSHA厳格照合により、生成関連スクリプトを変更するとresume拒否になる**(意図した保護)。
+- **T127a申し送り(再レビュー中2件、T127cで対応)**: K=1のend-to-end SHA固定テスト(合成WTHOR入力)とwaterfall配分期待配列の固定テストを、生成完走後(コード凍結解除後)に追加する。
 
 - **T114申し送り(codex-review中2件)**: (1)meta欠損・JSONパース失敗時は依然checkpointを暗黙破棄する経路が残る(identity/runKey不一致はエラー化済み、破損時のみ)。(2)expanded200kの年指定ミス・候補プール不足をラベリング開始前に検出しない。次にgen_teacher_corpus.pyを触るタスクで対応。軽微: manifestのopening比率表現の不整合。
 - **T122申し送り**: (中)worker.tsのロールバックコメントがANALYSIS_ENGINE_VERSION繰り上げ必須に言及していない(コメントだけ見て戻すと解析キャッシュ混在) / (軽微)train/weights/README.mdに旧説明残存 — 次にworker.ts/READMEを触るタスクで修正。
