@@ -341,6 +341,63 @@ class MigrateShardTests(unittest.TestCase):
             self.assertNotIn(forbidden, source, f"unexpected write/delete pattern found: {forbidden!r}")
 
 
+class PostSwitchRerunGuardTests(unittest.TestCase):
+    """redo#1(2026-07-18): 切替後(settings.edaxExeは付いているが、生成再開で
+    TeacherCorpusCheckpoint._write_metaがedaxExeBoundaryを捨てた後)の再実行を
+    検出し、境界を再計算せず拒否することを固定する。"""
+
+    @staticmethod
+    def _simulate_post_switch_boundary_loss(env, shard_index: int) -> dict:
+        """このシャードのmetaを「切替は完了したがedaxExeBoundaryが失われた」
+        状態に書き換える(実地で観測された`_write_meta`の挙動の再現)。"""
+        meta_doc = json.loads(env.meta_paths[shard_index].read_text(encoding="utf-8"))
+        meta_doc["settings"]["edaxExe"] = gen.CORPUS_SETS["expanded1m"]["edaxExe"]
+        meta_doc["settings"]["edaxParentsPerProcess"] = 32
+        meta_doc.pop("edaxExeBoundary", None)
+        env.meta_paths[shard_index].write_text(
+            json.dumps(meta_doc, indent=2) + "\n", encoding="utf-8", newline="\n"
+        )
+        return meta_doc
+
+    def test_refuses_dry_run_when_boundary_already_lost(self) -> None:
+        with _patched_toy_env() as env:
+            meta_before = self._simulate_post_switch_boundary_loss(env, 0)
+            plan_meta = _plan_meta(TOY_NUM_SHARDS)
+            with self.assertRaisesRegex(RuntimeError, "edaxExeBoundary"):
+                migrate.migrate_shard(0, plan_meta, apply=False)
+            self.assertEqual(
+                json.loads(env.meta_paths[0].read_text(encoding="utf-8")), meta_before
+            )
+
+    def test_refuses_apply_when_boundary_already_lost(self) -> None:
+        with _patched_toy_env() as env:
+            meta_before = self._simulate_post_switch_boundary_loss(env, 0)
+            jsonl_before = env.jsonl_paths[0].read_bytes()
+            plan_meta = _plan_meta(TOY_NUM_SHARDS)
+            with self.assertRaisesRegex(RuntimeError, "corpus_expanded1m_method_boundaries.json"):
+                migrate.migrate_shard(0, plan_meta, apply=True)
+            # ガードが書き込みより前に発火し、meta/jsonlとも一切変更されていない。
+            self.assertEqual(
+                json.loads(env.meta_paths[0].read_text(encoding="utf-8")), meta_before
+            )
+            self.assertEqual(env.jsonl_paths[0].read_bytes(), jsonl_before)
+
+    def test_does_not_refuse_when_boundary_present(self) -> None:
+        """通常の冪等再実行(edaxExeBoundaryが既にある=本スクリプト自身が書いた
+        直後の状態)ではガードは発火しない。"""
+        with _patched_toy_env() as env:
+            plan_meta = _plan_meta(TOY_NUM_SHARDS)
+            first = migrate.migrate_shard(0, plan_meta, apply=True)
+            second = migrate.migrate_shard(0, plan_meta, apply=True)  # 例外にならない
+            self.assertEqual(first["newRunKey"], second["newRunKey"])
+
+    def test_does_not_refuse_before_any_switch(self) -> None:
+        """切替前(settings.edaxExeが無い=通常の初回実行)ではガードは発火しない。"""
+        with _patched_toy_env():
+            plan_meta = _plan_meta(TOY_NUM_SHARDS)
+            migrate.migrate_shard(0, plan_meta, apply=False)  # 例外にならない
+
+
 class BackupShardFilesTests(unittest.TestCase):
     def test_copies_all_files_then_skips_on_rerun(self) -> None:
         with _patched_toy_env() as env:
@@ -375,6 +432,81 @@ class BackupShardFilesTests(unittest.TestCase):
             copied = migrate.backup_shard_files(force=True)
             self.assertEqual(len(copied), TOY_NUM_SHARDS * 2)
             self.assertEqual(only_one.read_bytes(), env.jsonl_paths[0].read_bytes())
+
+
+class MethodBoundariesSidecarSchemaTests(unittest.TestCase):
+    """redo#1(2026-07-18)対応: `teacher_manifests/corpus_expanded1m_method_boundaries.json`
+    (T127h/T127jの方式境界を`_write_meta`の消失から守るサイドカー、コミット対象)の
+    スキーマを固定する。このファイル自体はテスト対象コードではなく静的データなので、
+    本テストは書き換えを一切行わず読み取り専用で検証する。"""
+
+    SIDECAR_PATH = HERE / "teacher_manifests" / "corpus_expanded1m_method_boundaries.json"
+    REQUIRED_BOUNDARY_KEYS = {"sequence", "change", "totalRecordsBefore", "perShard", "valuesIdentical", "evidence"}
+
+    def _load(self) -> dict:
+        self.assertTrue(self.SIDECAR_PATH.exists(), f"sidecar not found: {self.SIDECAR_PATH}")
+        return json.loads(self.SIDECAR_PATH.read_text(encoding="utf-8"))
+
+    def test_top_level_shape(self) -> None:
+        doc = self._load()
+        self.assertEqual(doc["corpus"], "expanded1m")
+        self.assertIsInstance(doc["boundaries"], list)
+        self.assertGreaterEqual(len(doc["boundaries"]), 2)
+
+    def test_each_boundary_has_required_keys(self) -> None:
+        doc = self._load()
+        for boundary in doc["boundaries"]:
+            missing = self.REQUIRED_BOUNDARY_KEYS - boundary.keys()
+            self.assertFalse(missing, f"boundary {boundary.get('sequence')} missing keys: {missing}")
+            self.assertTrue(boundary["valuesIdentical"] is True)
+            self.assertIsInstance(boundary["evidence"], str)
+            self.assertTrue(boundary["evidence"])
+
+    def test_per_shard_sums_match_total_when_present(self) -> None:
+        """`perShard`が捏造されていないことの最低限のチェック:
+        指定されていれば合計が`totalRecordsBefore`と一致すること
+        (`null`+`note`で「記録なし」を明示する側は対象外)。"""
+        doc = self._load()
+        for boundary in doc["boundaries"]:
+            per_shard = boundary["perShard"]
+            if per_shard is None:
+                self.assertIn("note", boundary, f"boundary {boundary['sequence']}: perShard=null needs a note")
+                continue
+            self.assertEqual(
+                sum(per_shard.values()),
+                boundary["totalRecordsBefore"],
+                f"boundary {boundary['sequence']}: perShard does not sum to totalRecordsBefore",
+            )
+
+    def test_boundary_sequence_2_matches_orchestrator_confirmed_v3_switch_values(self) -> None:
+        """T127jのredo#1フィードバックに書かれたオーケストレーター確定値
+        (総件数493,703・シャード別内訳)をそのまま固定する(再計算しない)。"""
+        doc = self._load()
+        boundary = next(b for b in doc["boundaries"] if b["sequence"] == 2)
+        self.assertEqual(boundary["change"], "edaxExe: wEdax-x86-64.exe -> wEdax-x86-64-v3.exe")
+        self.assertEqual(boundary["totalRecordsBefore"], 493_703)
+        self.assertEqual(
+            boundary["perShard"],
+            {
+                "0": 61760,
+                "1": 61608,
+                "2": 61831,
+                "3": 61655,
+                "4": 61795,
+                "5": 61625,
+                "6": 61670,
+                "7": 61759,
+            },
+        )
+        self.assertEqual(boundary["evidence"], "t127i_edax_v3_ab_report.md")
+
+    def test_boundary_sequence_1_matches_t127h_worklog_total(self) -> None:
+        """T127h切替時点の合計292,679件(tasks/T127h-warm-batch-switch.mdの作業ログの
+        シャード別レコード数表)を固定する。"""
+        doc = self._load()
+        boundary = next(b for b in doc["boundaries"] if b["sequence"] == 1)
+        self.assertEqual(boundary["totalRecordsBefore"], 292_679)
+        self.assertEqual(boundary["evidence"], "t127g_warm_tt_ab_report.md")
 
 
 if __name__ == "__main__":

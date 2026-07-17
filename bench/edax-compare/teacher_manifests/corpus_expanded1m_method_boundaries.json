@@ -1,0 +1,45 @@
+{
+  "schemaVersion": 1,
+  "corpus": "expanded1m",
+  "note": "T127j redo#1(2026-07-18、代替レビューtasks/review/T127ij-v3-binary-claude-review.mdの重大-1指摘)への対応。migrate_t127j_v3_binary.pyがcorpus_expanded1m_shard*of8.meta.jsonへ書いたedaxExeBoundaryは、生成再開後にTeacherCorpusCheckpoint._write_meta(gen_teacher_corpus.py)がチェックポイント書き込みのたびにmeta docを作り直す際、未知のトップレベルキーとして毎回捨てられ、全8シャードのライブmetaから消滅した(edaxExe設定自体はsettings経由で残るため切替自体は無傷・成功、レコード493,703件も無傷)。このサイドカーファイルはgit管理下でchekpoint書き込みの影響を受けないため、方式境界の正しい値をここに固定して保存する。値はオーケストレーターが実地ログ(tasks/T127h-warm-batch-switch.mdの作業ログ、tasks/T127j-v3-binary-switch.mdの『切替実施ログ』節)から確定した値であり、実装ワーカーによる再計算は行っていない。最終manifestへの転記はT127c(expanded1m完走時)が行う。",
+  "boundaries": [
+    {
+      "sequence": 1,
+      "change": "edaxParentsPerProcess: 1 -> 32 (cross-parent warm batching)",
+      "changedAt": "2026-07-17 21:1x (JST、正確な分は未記録)",
+      "totalRecordsBefore": 292679,
+      "perShard": {
+        "0": 36672,
+        "1": 36520,
+        "2": 36583,
+        "3": 36631,
+        "4": 36547,
+        "5": 36601,
+        "6": 36518,
+        "7": 36607
+      },
+      "perShardSource": "tasks/T127h-warm-batch-switch.md の作業ログ(2026-07-17 20:5x JST、Claudeフェーズ2実施分)のシャード別レコード数表を転記(total列)。base(reuse)25,000+incrementalの内訳も同表に記載。",
+      "valuesIdentical": true,
+      "evidence": "t127g_warm_tt_ab_report.md"
+    },
+    {
+      "sequence": 2,
+      "change": "edaxExe: wEdax-x86-64.exe -> wEdax-x86-64-v3.exe",
+      "changedAt": "2026-07-18 07:1x (JST、正確な分は未記録)",
+      "totalRecordsBefore": 493703,
+      "perShard": {
+        "0": 61760,
+        "1": 61608,
+        "2": 61831,
+        "3": 61655,
+        "4": 61795,
+        "5": 61625,
+        "6": 61670,
+        "7": 61759
+      },
+      "perShardSource": "tasks/T127j-v3-binary-switch.md の『切替実施ログ』節(オーケストレーター実施、①生成停止時点のシャード別件数)を転記。",
+      "valuesIdentical": true,
+      "evidence": "t127i_edax_v3_ab_report.md"
+    }
+  ]
+}
