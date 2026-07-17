@@ -1,0 +1,59 @@
+{
+  "schemaVersion": 1,
+  "task": "T120",
+  "generatedAt": "2026-07-17T10:41:09+09:00",
+  "gitCommit": "a9ac46f80d21321eb5c360308e0348428e3b72a1",
+  "gitTree": "bfc6994eab031771e5fbe531d0771f8152079b86",
+  "training": {
+    "corpus": "train/data/teacher/corpus_expanded200k.jsonl",
+    "corpusSha256": "412477e2da6bacb0d715c7e5d02447d37b6e981237f64f221013a8eb465690e9",
+    "corpusRecords": 200000,
+    "exactEmptiesThreshold": 20,
+    "split": {"train": 180110, "validation": 9685, "frozen": 10205},
+    "mix": "teacher-only",
+    "patternSet": "v2",
+    "seeds": [1, 2, 3],
+    "maxEpochs": 60,
+    "l2": 0.00001,
+    "jobs": 1,
+    "checkpointDir": "train/data/t120/expanded200k",
+    "resume": "epoch-unit atomic weights/state; rerun same command",
+    "bestEpochs": [34, 37, 35],
+    "weightsSha256": [
+      "f2f88c115d612d0a596eb7c580558ac107e15a600f7988377797b5ace76d19f1",
+      "e657a26b233497dfea2dfc85165e8e903aa2f541c44c2a85d6478c2f146235f8",
+      "63c950cae188c2140a4d8e5080f0409b879c8b49d5355aee6d20dfb6790344f7"
+    ]
+  },
+  "oracleEvaluation": {
+    "corpus": "bench/edax-compare/t096_oracle_positions.json",
+    "positions": 60,
+    "depth": 8,
+    "evalCliSha256": "cd30961a8ed1d86235d1fe12334d851fd9ba105a7e8a10f9cc52129c4869d9cf",
+    "v2Sha256": "b916c29e4f84692610a65b75c1692132628de5ba2b27b71bf2e8b94426b76c2a",
+    "bootstrap": {"seed": 96002, "samples": 100000},
+    "candidateMeanRegret": [2.466666666666667, 2.3666666666666667, 2.3333333333333335],
+    "v2MeanRegret": [1.5666666666666667, 1.5666666666666667, 1.5666666666666667],
+    "pairedDifferenceCi95": [
+      [-0.16666666666666666, 2.1],
+      [-0.3, 2.0],
+      [-0.26666666666666666, 1.9333333333333333]
+    ],
+    "seedMeanRegret": 2.388888888888889,
+    "seedSampleSd": 0.06938886664887109,
+    "seedRange": [2.3333333333333335, 2.466666666666667],
+    "seedAveragedDifferenceVsV2": 0.8222222222222223,
+    "seedAveragedPairedCi95": [-0.23333333333333334, 2.0]
+  },
+  "t113Comparison": {
+    "predictionAt200000": 1.9195959250465817,
+    "predictionAtActualTrain180110": 1.9778446561247156,
+    "observedSeedMean": 2.388888888888889,
+    "residualAt200000": 0.4692929638423071,
+    "residualAt180110": 0.41104423276417323,
+    "fourPointR2": 0.9714339118507755,
+    "fivePointSlopePerLog10": -1.011278518344765,
+    "fivePointR2": 0.9515305083977078
+  },
+  "report": "bench/edax-compare/t120_teacher_only_200k_report.md"
+}
