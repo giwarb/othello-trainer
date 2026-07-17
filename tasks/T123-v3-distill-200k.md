@@ -1,7 +1,7 @@
 ---
 id: T123
 title: v3特徴×200k蒸留(teacher-only)実験
-status: in_progress # todo | in_progress | review | redo | done | blocked
+status: done # todo | in_progress | review | redo | done | blocked
 assignee: Codex gpt-5.6-sol(codex-task)
 attempts: 0
 ---

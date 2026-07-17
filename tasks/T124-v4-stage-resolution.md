@@ -1,7 +1,7 @@
 ---
 id: T124
 title: v4特徴実験(ステージ分割を5石刻み→1石刻みへ細分化)
-status: todo # todo | in_progress | review | redo | done | blocked
+status: in_progress # todo | in_progress | review | redo | done | blocked
 assignee: Codex gpt-5.6-sol(codex-task)
 attempts: 0
 ---
