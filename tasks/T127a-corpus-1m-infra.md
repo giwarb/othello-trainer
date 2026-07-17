@@ -98,3 +98,32 @@ attempts: 1
   - `python bench/edax-compare/test_teacher_corpus.py`: PASS（27 tests）。
   - `git diff --check`: PASS。
 - コミット: 未実施（環境の`.git`書込み禁止）。オーケストレーターが変更対象4ファイルを`(T127a)`でコミットする。
+
+### 2026-07-17 15:47 JST — Codex 実装ワーカー（redo #1）
+
+- 実施内容:
+  - expanded1m shard起動/resume時に、generator・`teacher_candidates.exe`・Edax・eval.datのSHA-256を実ファイルから毎回再計算し、selection plan記録値と照合。不一致時は生成開始前に明示エラーで拒否し、checkpoint identityにも保存値でなく実測値を渡すよう修正。
+  - expanded1m children 256件batchの入力件数と返却件数を直後に比較し、不足・過剰時はzip処理前に即時エラーとした。
+  - K=1が旧実装と同じ1回の乱数呼出し・同じ次RNG状態を保つRust単体テスト、およびK>1の決定性・重複なしテストを追加。
+  - 外部実データに依存しない合成fixtureで、baseを含む最終件数、waterfall bin配分、X/C 50%、opening累積cap、base/oracle/重複canonicalKey除外を自動テスト化。
+  - expanded1m verifierを固定1,000,000件・reuse 200,000件・既知base JSONL/manifest SHA・先頭200kバイト/SHA一致・2層provenanceへ強化。candidate pool、master/8 shard selection plan、generator、candidate tool、Edax、eval、oracleの各SHAを実ファイルから独立照合する合成fixtureテストを追加。
+- SHA/resume回帰:
+  - planと現在generator SHAの不一致で`expanded1m execution SHA mismatch ... generation/resume refused`となるテストを追加。現在planでの実測照合成功。
+  - 現在SHA: generator=`cf5b9815d2991d52f6992ce751c65b4cccd4b3aa5042341eff836bf9f24b5ab5`、teacher_candidates=`5013cf984db7b2bde27d5861f848c86656420329261d3d6e8fd3c1347a7d5ca2`、Edax=`aabb5ac7d3f9a872fc0e7388ab1eee1d23c687f76c28642122524dc318b322b1`、eval.dat=`f8b2299612d9fa4414157e70e932636e33111c2602d0c2fc382a7d90ef21b792`。
+- K=1回帰:
+  - `cargo build --release -p train --bin teacher_candidates`: PASS。
+  - `target/release/teacher_candidates.exe extract --data-dir C:\Users\yoshi\work\othello-trainer\train\data --years 2000-2024 --seed 90103 --per-game-cap 6 --per-bin-cap 1 ...`: 340,531件。既存`candidates.json`とSHA-256 `7f486e57edea479e4b3b642bfdb4c10fadfc473b3aab2648478e48e996abd01e`で完全一致。一時出力は削除済み。
+- selection-only probe再実行:
+  - `python bench/edax-compare/gen_teacher_corpus.py expanded1m --dry-run --num-shards 8 --skip-extract`: PASS（193.1秒、終了コード0）。ちょうどbase 200,000 + incremental 800,000 = 1,000,000件。
+  - 候補プール1,306,421件。base/oracle除外後raw bin母集団=`[7,087, 123,994, 248,446, 277,472, 279,561, 276,646]`、opening cap適用後=`[7,045, 103,005, 171,458, 180,832, 180,826, 177,660]`。
+  - 最終bin配分=`[11,680, 142,066, 210,519, 211,891, 211,890, 211,889]`、incremental配分=`[7,045, 103,005, 171,458, 172,831, 172,831, 172,830]`。base除外93,188、oracle除外27、incremental重複0、未選択20,826、余裕率2.603%。K=5へ自動変更せず停止方針を維持。
+  - selection plan SHA-256は従来と同じ`2f26451299ea000c2ee118ab91330d1cdbc283903b0f23474b882210f2698483`。`--reuse-selection-plan`によるmaster/8 shard plan SHA・各125,000件（reuse各25,000件）検証もPASS。
+- ハードウェア再実測（plan meta、2026-07-17 15:42:37 JST）:
+  - Cドライブ空き152,631,750,656 bytes（約142.14 GiB）、必須8 GiB以上: PASS。
+  - 物理RAM 16,480,571,392 bytes（約15.35 GiB）、available 6,237,220,864 bytes（約5.81 GiB）、見積peak 6 GiB。親probeは完走し、workerはchildren 256件batch・各100k plan保持設計。
+- 受け入れテスト:
+  - `cargo test -p train`: PASS（unit 56 + teacher_candidates 2 + subset 3 + real_data 1、失敗0）。
+  - `python -m pytest bench/edax-compare/ -q`: PASS（46 passed）。
+  - `python bench/edax-compare/test_teacher_corpus.py`: PASS（30 tests）。
+  - `git diff --check`: PASS。
+- コミット: 未実施（環境の`.git`書込み禁止）。オーケストレーターが変更対象4ファイルを`(T127a)`でコミットする。`tasks/`はコミット対象外。
