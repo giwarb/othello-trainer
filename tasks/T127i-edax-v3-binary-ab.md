@@ -59,3 +59,9 @@ attempts: 0
 ## フィードバック(やり直し時にオーケストレーターが記入)
 
 ## 作業ログ(担当エージェントが追記)
+
+- 2026-07-18: T127f/T127gレポートとvs_edax.py `_edax_solve_batch` / `edax_hash_bits` 実装を確認。加算引数方式で `_edax_solve_batch(..., edax_exe: Path | None = None)` を追加(未指定時は従来の`EDAX_EXE`を使用、他の引数列は不変)。`-n 2`検証は既存の`n_tasks`パラメータがそのまま任意の値を受け付けるため、新規パラメータ追加は不要と判断(vs_edax.py本体への追加変更なし)。
+- 同上: `bench/edax-compare/test_teacher_corpus.py`に`VsEdaxSolveBatchCommandTests`を追加し、(1)`edax_exe`未指定時にコマンド列が従来と同一(バイナリパスが`EDAX_EXE`、`-h`なし)であること、(2)指定時は実行ファイルパスのみ差し替わり残りの引数列が完全一致することを検証。`subprocess.run`をモックし、OBF一時ファイルの書き込み先も`EDAX_DIR`を一時ディレクトリへ差し替えて実行中の`edax-extract/`には一切触れないようにした。`python -m pytest bench/edax-compare/ -q` 68件全パス確認。
+- 同上: A/B計測ハーネスをscratchpad(`t127i_ab_harness.py`、resultsは`t127i_scratch/`配下)に作成。selection plan全件+8shard checkpointを読み取り専用でスキャンし未生成局面を抽出、固定seed`t127i-edax-v3-ab-v1`のSHA256順位でexact帯/level16帯それぞれ親4件×18組を選択(現行warm方式のedaxParentsPerProcess=32に倣い、帯内で親を束ねて1 Edaxプロセスで処理)。base/v3/base-n2の3アーム×2repを組ごとにローテーション順で交互実行し、`results.jsonl`にappend+flush+fsync(resume対応、既存の(band,groupIndex,rep,arm)はスキップ)。
+- 2親×2組の縮小パラメータ(別scratchディレクトリ)でスモークテストを実施し、正常動作を確認。この時点で`base-n2`(level16帯)がbaseと1件score不一致(-28 vs -26)を検出済み(-n2の非決定性リスクが実データで再現)。base/v3は同一arm2回の決定性も一致を確認。スモーク用ファイルは本番scratchと別ディレクトリに分離済み(resumeキー汚染防止)。
+- 続けてGROUPS_PER_BAND=18(親4件×18組×2帯)で本実行を開始。
