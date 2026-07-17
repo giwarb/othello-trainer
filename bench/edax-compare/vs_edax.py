@@ -525,7 +525,12 @@ def _parse_edax_batch_output(out: str, positions: list[dict], level: int, return
     return parsed
 
 
-def _edax_solve_batch(positions: list[dict], level: int, n_tasks: int | None) -> list[dict]:
+def _edax_solve_batch(
+    positions: list[dict],
+    level: int,
+    n_tasks: int | None,
+    edax_hash_bits: int | None = None,
+) -> list[dict]:
     """同一levelの局面群を1つのOBFファイル・1プロセスで順番に解く。
 
     Edaxの`problem # N`がOBFの1-based行番号と完全一致することを検証し、
@@ -552,6 +557,8 @@ def _edax_solve_batch(positions: list[dict], level: int, n_tasks: int | None) ->
             ]
         if n_tasks is not None:
             command += ["-n", str(n_tasks)]
+        if edax_hash_bits is not None:
+            command += ["-h", str(edax_hash_bits)]
         command += [
                 "-eval-file",
                 str(EDAX_EVAL_DATA),
