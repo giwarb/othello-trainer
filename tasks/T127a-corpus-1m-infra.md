@@ -1,7 +1,7 @@
 ---
 id: T127a
 title: 1Mコーパス基盤(K拡張・入れ子選定・スケール堅牢化)
-status: redo # todo | in_progress | review | redo | done | blocked
+status: done # todo | in_progress | review | redo | done | blocked
 assignee: Codex gpt-5.6-sol(codex-task)
 attempts: 1
 ---
@@ -65,6 +65,11 @@ attempts: 1
 修正後: 3スイート全パス+K=1回帰SHA一致+probe再実行(plan SHAが変わる場合は新SHAを記録)まで確認して完了報告。既存probe結果のselection planは、修正でplan形式が変わらない限り再利用してよい(変わる場合は再生成し新SHA記録)。
 
 ## 作業ログ(担当エージェントが追記)
+
+### 2026-07-17 オーケストレーター裁定: 再レビュー残指摘2件は生成後フォローアップへ
+
+再レビュー(2回目)の残指摘: (1)K=1のend-to-end SHA固定テスト(合成WTHOR入力)が無い、(2)合成選定テストがwaterfall配分の期待配列を固定していない。verifierはredo修正4点の実効性を合格判定。**裁定: T127aはdoneとし、2件は生成完了後のフォローアップ(T127cに含める)へ回す**。理由: ①今回の生成の安全性には影響しない(K=1出力SHAは実データで2回一致確認済み・waterfall配分もprobe2回一致・生成中は生成コード凍結)、②redo#1で導入したSHA厳格照合により、生成中にテスト追加コミットで生成スクリプトを変更するとresumeが拒否される(修正自体が41時間ジョブのリスクになる)。
+
 
 
 ### 2026-07-17 15:08 JST — Codex 実装ワーカー
