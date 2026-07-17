@@ -44,3 +44,17 @@ T127gで「複数親を1プロセスに束ねる」方式が**値全一致・加
 ## フィードバック(やり直し時にオーケストレーターが記入)
 
 ## 作業ログ(担当エージェントが追記)
+
+### 2026-07-17 20:16 JST — Codex（フェーズ1完了）
+
+- 実施内容: `gen_teacher_corpus.py` の expanded1m worker に親またぎ level 別バッチを追加。plan 順に最大32親を束ね、束全体の結果確定後に親ごとに `append` + `fsync` する。束処理が失敗した場合は、当該束を親単位の `label_position` へフォールバックしてから親順に checkpoint する。新方式の settings/runKey に `edaxParentsPerProcess: 32` と `elapsedMsPolicy: cross-parent-level-batch-averaged` を追加し、引数なし（フィールドなし）の旧方式 runKey は完全一致スナップショットテストで固定した。
+- マイクロベンチ: 走行中 checkpoint 289,589件時点の未生成サンプルをサイズごとに30親（計90親）読み取りスナップショットし、同じ親の cold（親別）/warm（親またぎ）を束ごとにペア比較。8親は cold 44.893秒 / warm 37.579秒 = 1.1946x、16親は 39.345秒 / 32.438秒 = 1.2129x、32親は 35.952秒 / 27.829秒 = 1.2919x。全サイズとも比較30親・値不一致0。最速の32親を採用した。ベンチは `%TEMP%/t127h_microbench` に親/束単位で逐次 fsync し、生成中の plan/checkpoint は読み取りのみ、生成プロセスは停止・変更していない。
+- 追加テスト: 親またぎで exact/level16 が各最大1 Edax 呼び出しに集約され cold と値一致すること、親単位 checkpoint の plan 順維持、束失敗時の親別 fallback、旧 runKey 不変、新 settings/runKey の束サイズ記録。
+- 実行コマンドと結果:
+  - `python -m pytest bench/edax-compare/ -q` → 50 passed (3.47s)
+  - `python bench/edax-compare/test_teacher_corpus.py` → Ran 34 tests, OK (2.557s)
+  - 最終コメント整形後 `python -m pytest bench/edax-compare/test_teacher_corpus.py -q` → 34 passed (2.65s)
+  - `python -m py_compile bench/edax-compare/gen_teacher_corpus.py` → 成功
+  - `git diff --check` → 成功（警告なし）
+- フェーズ境界: 仕様 §5 に従いフェーズ1で停止。migration（バックアップ+検証+meta書き換えのみ）は未着手で、オーケストレーターによる生成停止後の指示待ち。
+- コミットハッシュ: 未コミット（`.git` 書き込み禁止のためオーケストレーター代行待ち）。
