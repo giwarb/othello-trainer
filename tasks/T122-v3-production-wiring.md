@@ -1,7 +1,7 @@
 ---
 id: T122
 title: v3×WTHOR重みの本番配線(評価関数の世代交代)
-status: in_progress # todo | in_progress | review | redo | done | blocked
+status: done # todo | in_progress | review | redo | done | blocked
 assignee: Codex gpt-5.6-sol(codex-task)
 attempts: 0
 ---
