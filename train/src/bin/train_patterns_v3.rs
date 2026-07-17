@@ -103,6 +103,57 @@ fn load_games(files: &[PathBuf], max_games: Option<usize>) -> Result<Vec<Vec<Sam
     Ok(games)
 }
 
+fn shuffle_indices(count: usize, seed: u64) -> Vec<usize> {
+    let mut order: Vec<_> = (0..count).collect();
+    let mut state = seed.max(1);
+    for i in (1..count).rev() {
+        state ^= state << 13;
+        state ^= state >> 7;
+        state ^= state << 17;
+        order.swap(i, state as usize % (i + 1));
+    }
+    order
+}
+
+fn subset_seed_for_phase(seed: u64, phase: usize) -> u64 {
+    let mut hash = 0xcbf29ce484222325u64;
+    for byte in seed.to_le_bytes().into_iter().chain([phase as u8]) {
+        hash ^= byte as u64;
+        hash = hash.wrapping_mul(0x100000001b3);
+    }
+    hash
+}
+
+/// T126: deterministic nested stratified subset of the WTHOR train split.
+/// This follows T109: each v4 empty-count phase takes the prefix of one
+/// seed-fixed shuffle, with floor(target * phase_count / total) samples.
+fn select_train_subset(samples: Vec<Sample>, target: usize, seed: u64) -> Vec<Sample> {
+    let total = samples.len();
+    if target >= total {
+        return samples;
+    }
+    let mut by_phase: Vec<Vec<usize>> = vec![Vec::new(); V4_NUM_STAGES];
+    for (index, sample) in samples.iter().enumerate() {
+        let phase = (sample.board.empty_count() as usize).min(V4_NUM_STAGES - 1);
+        by_phase[phase].push(index);
+    }
+    let mut selected = Vec::with_capacity(target);
+    for (phase, group) in by_phase.iter().enumerate() {
+        if group.is_empty() {
+            continue;
+        }
+        let order = shuffle_indices(group.len(), subset_seed_for_phase(seed, phase));
+        let cutpoint = ((target as u128 * group.len() as u128) / total as u128) as usize;
+        selected.extend(order[..cutpoint].iter().map(|&local| group[local]));
+    }
+    selected.sort_unstable();
+    let mut slots: Vec<Option<Sample>> = samples.into_iter().map(Some).collect();
+    selected
+        .into_iter()
+        .map(|index| slots[index].take().expect("subset index selected twice"))
+        .collect()
+}
+
 #[cfg(windows)]
 fn replace_file(temp: &Path, destination: &Path) -> Result<(), String> {
     use std::os::windows::ffi::OsStrExt;
@@ -202,6 +253,12 @@ fn main() -> ExitCode {
         .map(|v| v.parse().unwrap())
         .collect();
     let max_games = arg_value("--max-games").map(|v| v.parse().unwrap());
+    let train_subset_size = arg_value("--train-subset-size").map(|v| v.parse::<usize>().unwrap());
+    let subset_seed = arg_value("--subset-seed").map_or(42, |v| v.parse::<u64>().unwrap());
+    if train_subset_size == Some(0) {
+        eprintln!("--train-subset-size must be positive");
+        return ExitCode::FAILURE;
+    }
     let output_dir =
         PathBuf::from(arg_value("--output-dir").unwrap_or_else(|| "train/data/t087".to_string()));
     let files = data_files();
@@ -227,15 +284,23 @@ fn main() -> ExitCode {
         .max(1)
         .min(games.len() - 1);
     let split = games.len() - holdout_games;
-    let train_samples: Vec<_> = games[..split].iter().flatten().cloned().collect();
+    let full_train_samples: Vec<_> = games[..split].iter().flatten().cloned().collect();
+    let full_train_sample_count = full_train_samples.len();
+    let train_samples = match train_subset_size {
+        Some(target) => select_train_subset(full_train_samples, target, subset_seed),
+        None => full_train_samples,
+    };
     let frozen_samples: Vec<_> = games[split..].iter().flatten().cloned().collect();
     println!(
-        "dataset games={} train_games={} frozen_games={} train_samples={} frozen_samples={}",
+        "dataset games={} train_games={} frozen_games={} train_samples={} full_train_samples={} frozen_samples={} subset_target={:?} subset_seed={}",
         games.len(),
         split,
         holdout_games,
         train_samples.len(),
-        frozen_samples.len()
+        full_train_sample_count,
+        frozen_samples.len(),
+        train_subset_size,
+        subset_seed,
     );
     fs::create_dir_all(&output_dir).unwrap();
 
@@ -247,8 +312,15 @@ fn main() -> ExitCode {
                 ..TrainConfig::default()
             };
             let identity = format!(
-                "schema=2\ndata_hash={data_hash}\nconfig={name}\nseed={seed}\nepochs={epochs}\nmax_games={max_games:?}\nlearning_rate={}\nl2={}\nloss={:?}\n",
-                cfg.learning_rate, cfg.l2, cfg.loss);
+                "schema=2\ndata_hash={data_hash}\nconfig={name}\nseed={seed}\nepochs={epochs}\nmax_games={max_games:?}\nlearning_rate={}\nl2={}\nloss={:?}\n{}",
+                cfg.learning_rate,
+                cfg.l2,
+                cfg.loss,
+                train_subset_size.map_or_else(String::new, |target| format!(
+                    "train_subset_size_target={target}\ntrain_subset_size_actual={}\ntrain_subset_seed={subset_seed}\nfull_train_samples={full_train_sample_count}\n",
+                    train_samples.len()
+                ))
+            );
             let run_dir = output_dir.join(format!("{name}-seed-{seed}"));
             fs::create_dir_all(&run_dir).unwrap();
             let final_path = output_dir.join(format!("{name}-seed-{seed}.bin"));
@@ -327,4 +399,77 @@ fn main() -> ExitCode {
         }
     }
     ExitCode::SUCCESS
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use engine::bitboard::{Board, Side};
+    use std::collections::HashSet;
+    use train::train_data::LastMoveKind;
+
+    fn fixture_sample(index: usize, empties: usize) -> Sample {
+        let filled = 64 - empties;
+        let black = if filled == 64 {
+            u64::MAX
+        } else {
+            (1u64 << filled) - 1
+        };
+        Sample {
+            board: Board { black, white: 0 },
+            mover: Side::Black,
+            outcome: index as f32,
+            last_move_kind: LastMoveKind::Other,
+            vulnerable_xc: false,
+        }
+    }
+
+    fn ids(samples: &[Sample]) -> HashSet<usize> {
+        samples
+            .iter()
+            .map(|sample| sample.outcome as usize)
+            .collect()
+    }
+
+    #[test]
+    fn wthor_subset_is_deterministic_and_nested() {
+        let samples: Vec<_> = (0..1000)
+            .map(|index| fixture_sample(index, 4 + index % 57))
+            .collect();
+        let small = select_train_subset(samples.clone(), 180, 42);
+        let again = select_train_subset(samples.clone(), 180, 42);
+        let large = select_train_subset(samples, 500, 42);
+        assert_eq!(ids(&small), ids(&again));
+        assert!(ids(&small).is_subset(&ids(&large)));
+        assert!(small.len() <= 180 && small.len() + V4_NUM_STAGES > 180);
+    }
+
+    #[test]
+    fn wthor_subset_preserves_phase_proportions_by_floor() {
+        let samples: Vec<_> = (0..500)
+            .map(|index| fixture_sample(index, if index < 400 { 20 } else { 40 }))
+            .collect();
+        let subset = select_train_subset(samples, 100, 7);
+        assert_eq!(
+            subset
+                .iter()
+                .filter(|s| s.board.empty_count() == 20)
+                .count(),
+            80
+        );
+        assert_eq!(
+            subset
+                .iter()
+                .filter(|s| s.board.empty_count() == 40)
+                .count(),
+            20
+        );
+    }
+
+    #[test]
+    fn wthor_subset_at_or_above_total_preserves_all_samples() {
+        let samples: Vec<_> = (0..10).map(|index| fixture_sample(index, 20)).collect();
+        assert_eq!(select_train_subset(samples.clone(), 10, 1).len(), 10);
+        assert_eq!(select_train_subset(samples, 20, 1).len(), 10);
+    }
 }

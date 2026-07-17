@@ -1,0 +1,60 @@
+{
+  "task": "T126",
+  "generatedAt": "2026-07-17T13:53:35+09:00",
+  "provenance": {
+    "gitCommit": "71a160fb11412ac7930919e77e33b7a128cfdbe3",
+    "gitTree": "8b5dd9fee9bbbef54a45c2ed65dc025abf6762c1",
+    "oracleCorpusSha256": "eec09e7a3c194a71cbb60f25ce13e1887204bbbc4a9ba052cb19c61507786356",
+    "distillationCorpusSha256": "412477e2da6bacb0d715c7e5d02447d37b6e981237f64f221013a8eb465690e9",
+    "v2WeightsSha256": "b916c29e4f84692610a65b75c1692132628de5ba2b27b71bf2e8b94426b76c2a",
+    "evalCliSha256": "6ba26dc5f895f23a5b51e7299c47163e10f678bb282f0d12326f11ee4236b2b8",
+    "edaxSha256": "aabb5ac7d3f9a872fc0e7388ab1eee1d23c687f76c28642122524dc318b322b1",
+    "edaxEvalSha256": "f8b2299612d9fa4414157e70e932636e33111c2602d0c2fc382a7d90ef21b792"
+  },
+  "wthor180k": {
+    "command": "target/release/train_patterns_v3.exe --configs v4 --seeds 1,2,3 --epochs 20 --output-dir train/data/t126/wthor-v4-180k --train-subset-size 180110 --subset-seed 42",
+    "subsetMethod": "T109-style nested stratified sampling; fixed shuffle per v4 empty-count phase and floor(target * phase_count / total)",
+    "subsetSeed": 42,
+    "targetTrainSamples": 180110,
+    "actualTrainSamples": 180077,
+    "fullTrainSamples": 3988509,
+    "frozenSamples": 442995,
+    "seeds": [
+      {"seed": 1, "sha256": "ee62ddfe8eaafbf6301a2f213e8c4ee2dedf75e82abdf63b80e70cc058759111", "frozenMae": 17.944658, "oracleRegret": 3.966666666666667, "v2Difference": 2.4, "ci95": [0.9, 4.1]},
+      {"seed": 2, "sha256": "1b4c008f1e3df61ad9ce16544b5269a5fcb457016b1ee47bee2c4b3c9029d314", "frozenMae": 17.892121, "oracleRegret": 3.6666666666666665, "v2Difference": 2.1, "ci95": [0.6666666666666666, 3.7666666666666666]},
+      {"seed": 3, "sha256": "e29a45354739a195f9932a0e98a8456e276900330a7bdfd897676ef05a8c722d", "frozenMae": 17.915659, "oracleRegret": 3.8333333333333335, "v2Difference": 2.2666666666666666, "ci95": [0.8, 3.966666666666667]}
+    ],
+    "meanOracleRegret": 3.8222222222222224,
+    "seedSampleSd": 0.1503083250940966
+  },
+  "distillationLearningCurve": {
+    "corpus": "train/data/teacher/corpus_expanded200k.jsonl",
+    "subsetSeed": 42,
+    "patternSet": "v4",
+    "mix": "teacher-only",
+    "seed": 1,
+    "points": [
+      {"targetTrainSamples": 45000, "actualTrainSamples": 44965, "bestEpoch": 39, "completedEpoch": 40, "sha256": "e7ed52fc351b60f84898ec49182e89192db8ba76bd61cac5a44814a40c9079f9", "oracleRegret": 4.766666666666667, "v2Difference": 3.2, "ci95": [1.5666666666666667, 4.966666666666667]},
+      {"targetTrainSamples": 90000, "actualTrainSamples": 89966, "bestEpoch": 37, "completedEpoch": 37, "sha256": "9db16e4595dd5c241856f6656da0e6d11428e8bd255829bcece68f7f082657fd", "oracleRegret": 3.6333333333333333, "v2Difference": 2.066666666666667, "ci95": [0.6333333333333333, 3.7]},
+      {"targetTrainSamples": 180000, "actualTrainSamples": 179957, "bestEpoch": 26, "completedEpoch": 31, "sha256": "a44ec109549893215aa90b3d533f2ef32aa547e8da0f212fc84c63b706c1d1b1", "oracleRegret": 2.7666666666666666, "v2Difference": 1.2, "ci95": [0.06666666666666667, 2.433333333333333]}
+    ],
+    "extrapolations": {
+      "inverseSqrt": {"fitR2": 0.9995138756328154, "oneMillion": 1.6331144288578967, "fourMillion": 1.210055219309575},
+      "fittedPowerLaw": {"exponent": 0.38702312310924714, "oneMillion": 1.4000330865030013, "fourMillion": 0.7979432235951802},
+      "planningRanges": {"oneMillion": [1.4, 1.63], "fourMillion": [0.8, 1.21]}
+    }
+  },
+  "comparison": {
+    "distillation180kObservedT124": 2.8666666666666667,
+    "distillation180kNestedT126": 2.7666666666666666,
+    "wthor180kMeanT126": 3.8222222222222224,
+    "wthorFullMeanT124": 1.1111111111111112,
+    "v2M2Expected": 1.5666666666666667,
+    "v2M2ReproducedInAllSixOracleRuns": true
+  },
+  "decision": {
+    "interpretation": "quantity dominates at 180k; distillation labels/distribution are favorable rather than the cause of the deficit",
+    "recommendation": "generate one million distilled positions as a staged investment, then remeasure before committing to four million",
+    "oneMillionProceedGate": "remeasure the same oracle; continue to four million only if the observed point sustains a credible path below the existing v4 WTHOR regret 1.111"
+  }
+}
