@@ -1,7 +1,7 @@
 ---
 id: T127i
 title: Edax v3バイナリ(AVX2)+スレッド数の値一致+速度A/B(1M生成さらなる高速化の判定材料)
-status: in_progress # todo | in_progress | review | redo | done | blocked
+status: done # todo | in_progress | review | redo | done | blocked
 assignee: implementer(Sonnet)
 attempts: 0
 ---

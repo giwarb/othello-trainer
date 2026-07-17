@@ -1,7 +1,7 @@
 ---
 id: T127j
 title: expanded1m生成のEdax v3バイナリ(AVX2)乗り換え準備(コード・meta移行・plan再生成の実装)
-status: redo # todo | in_progress | review | redo | done | blocked
+status: done # todo | in_progress | review | redo | done | blocked
 assignee: implementer(Sonnet)
 attempts: 1
 ---
@@ -150,6 +150,33 @@ T127iのA/B結果(bench/edax-compare/t127i_edax_v3_ab_report.md)で、`wEdax-x86
 2. 新規生成レコードのmetaが新方式(`edaxParentsPerProcess=32`・`edaxExe=wEdax-x86-64-v3.exe`)で書かれていること(`corpus_expanded1m_shard*of8.meta.json`の`settings`)。
 3. `logs/expanded1m_shard*of8.log`にエラー行(`WARNING`超の`ERROR`/`Traceback`)が無いこと(err.log 0行相当)。
 4. 数分後、値の抜き取り一致確認として、直近生成分のchildrenの`value`が異常値でないこと(T127iで値全一致を確認済みのため基本的には不要だが、実運用初回のみ簡易サニティとして数レコード目視する)。
+
+---
+
+### 2026-07-18 — Claude(implementer、redo#1対応)
+
+**実施内容**(gen_teacher_corpus.py・vs_edax.py・生成中ファイルは一切変更していない。生成プロセス9個は開始から終了まで稼働継続・未接触を`tasklist`で確認済み)
+
+1. **サイドカー新規作成** `bench/edax-compare/teacher_manifests/corpus_expanded1m_method_boundaries.json`: `schemaVersion: 1`、`boundaries`配列に2件。
+   - 境界1(T127h warm切替): `totalRecordsBefore: 292679`、`valuesIdentical: true`、`evidence: "t127g_warm_tt_ab_report.md"`。`perShard`はフィードバックの「T127h作業ログに記録があれば転記」の指示どおり、`tasks/T127h-warm-batch-switch.md`の作業ログ(2026-07-17 20:5x、Claudeフェーズ2実施分のシャード別レコード数表)から実在する値を転記(合計292,679と一致確認済み。捏造していない)。
+   - 境界2(T127j v3切替): フィードバック記載のオーケストレーター確定値をそのまま使用(`totalRecordsBefore: 493703`、`perShard`の8シャード内訳。合計一致確認済み)。
+   - スキーマ検証テストを`test_migrate_t127j_v3_binary.py`に`MethodBoundariesSidecarSchemaTests`(5件)として追加: 必須キー存在、`perShard`合計=`totalRecordsBefore`、境界1・境界2の値固定(再計算防止)。
+2. **migrate_t127j_v3_binary.pyに再実行ガードを追加**: `refuse_post_switch_rerun()`を新設し、`migrate_shard()`の冒頭(既存meta読み込み直後、新settings計算より前)で呼ぶ。`settings.edaxExe`が既にあり`edaxExeBoundary`トップレベルキーが無い場合(=切替後に生成が再開しboundaryが消失した状態)を検出すると、dry-run/`--apply`いずれでも境界を再計算せず即座に`RuntimeError`(サイドカーのパスを案内するメッセージ)で拒否する。モジュールdocstringにも「redo#1で判明した既知の罠: 切替後の再実行は絶対に行わないこと」節を追加し経緯を明記。
+   - テスト`PostSwitchRerunGuardTests`(4件)を追加: dry-run/`--apply`双方での拒否・meta/jsonl不変性の確認、境界が既にある場合(通常の冪等再実行)はガードが発火しないこと、切替前(edaxExe未設定)でもガードが発火しないこと。
+3. **t127i_edax_v3_ab_report.mdの訂正**: 結論節の「exact 1.128x(時間短縮12.7%)」と「v3バイナリ単独(1.128x、12.7%)」の2箇所を、本文の速度表(exact 1.1281x/11.35%)と整合する「11.35%」へ訂正(値は変更していない、表記ミスの訂正のみ)。他の軽微指摘(中-1含む)はフィードバックどおり本redoの対象外(T127c/STATUS持ち越し)。
+
+**受け入れ基準の実行結果**
+
+- `python -m pytest bench/edax-compare/ -q` → **104 passed**(前回95+今回追加9=104。内訳: `test_migrate_t127j_v3_binary.py`にPostSwitchRerunGuardTests 4件+MethodBoundariesSidecarSchemaTests 5件)
+- `python -m py_compile bench/edax-compare/migrate_t127j_v3_binary.py bench/edax-compare/test_migrate_t127j_v3_binary.py` → 成功
+- `python bench/edax-compare/migrate_t127j_v3_binary.py --help` → 正常終了(実データへは未実行、`--apply`も含め本redo中は一度も実行していない)
+- `git diff --stat HEAD -- bench/edax-compare/gen_teacher_corpus.py bench/edax-compare/vs_edax.py` → 差分なし(空)
+- `git status --short train/data/teacher/` → 差分なし(空)
+- `tasklist //FI "IMAGENAME eq python3.11.exe"` → 作業前後とも9プロセス変わらず稼働継続
+
+**コミット**: `57e9223`(`bench: T127j redo#1対応(方式境界サイドカー・migrate再実行ガード・報告書訂正)(T127j)`)。対象4ファイル(`migrate_t127j_v3_binary.py`・`test_migrate_t127j_v3_binary.py`・`teacher_manifests/corpus_expanded1m_method_boundaries.json`・`t127i_edax_v3_ab_report.md`)のみパス明示で`git add`。`tasks/`はコミットしていない(オーケストレーター担当)。
+
+**訂正**: コミットメッセージ本文に「テスト13件追加(全117件パス)」と書いたが誤り。正しくは**テスト9件追加、全104件パス**(内訳は上記のとおり)。コミット内容(diff)自体は正しく、影響するのはメッセージの数値表記のみ。amendはリポジトリ運用ルール(常に新規コミット、amendは指示があるときのみ)により行っていない。
 
 ---
 
