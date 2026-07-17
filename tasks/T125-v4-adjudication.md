@@ -46,3 +46,16 @@ T124で有望と判明した**v4(ステージ1石刻み)×WTHOR**(3seed regret 0
 ## フィードバック(やり直し時にオーケストレーターが記入)
 
 ## 作業ログ(担当エージェントが追記)
+
+### 2026-07-17 13:31 JST Codex 追加3seed・oracle・対Edax最終審査完了
+
+- 開始時確認: AGENTS.md、README.md、T124/T121資産をUTF-8で確認し、`git status --short`は空。追加seed結果を見る前に、6seed中央値（第3・第4値の平均）へ最も近いseed、同距離なら低regret、さらに同値なら低seed番号、という候補規準を`bench/edax-compare/endgame-results/t125-report.md`へ事前登録した。
+- 追加学習: `target/release/train_patterns_v3.exe --configs v4 --seeds 4,5,6 --epochs 20 --output-dir train/data/t124/wthor-v4`を専有1プロセスで実行。3,988,509 train / 442,995 frozen samples、全seed 20 epoch完走、frozen MAE=16.203516 / 16.178727 / 16.139380。各epochの重み・identityをatomic保存。完走後の同一コマンド再実行でepoch再計算なしの完成run skipを確認した。
+- oracle: seed 4/5/6を`compare_pattern_v3.py`でT096 60局面へ採点し、regret=1.0333 / 0.8333 / 1.4333。既存seed 1/2/3=0.7000 / 1.6667 / 0.9667と合わせ、6seed平均1.1056、標本SD 0.3702、range 0.7000–1.6667、中央値1.0000。全6ファイルでv2=1.5666666666666667を完全再現しM2 PASS。局面単位atomic checkpointを使用し、連続実行の外側タイムアウト後も保存済み結果を保持してseed 6を独立完走した。
+- 候補選定: 事前規準により中央値から同距離のseed 3/4のうち低regret側seed 3を選定。regret=0.9666666667、27,986,340 bytes、SHA-256=`c372b83366c4006023ae05f3af5b68dda5929aca7ff7308d1b398a89639e383f`。
+- 対Edax: T121と同じprimary 30 opening×先後、single-root、level10、depth12、ef16、1500ms、160k、quota60%、空き20以下無制限、TT64MiBを専有1プロセスで実行し60/60完走。v4は4勝2分54敗、平均-24.0167、中央値-24。run key SHA-256=`dc135276e7adbf025499215ef322ab28e6b031f6bd88472a00ba39d62998fedb`。完走後の同一コマンド再実行で`loaded 60 already-completed`と60/60 resume-skipを確認。fixed-depth 40/40、node-budget 10/10の決定性もPASS。
+- paired比較: opening先後2局平均を単位に100,000標本bootstrap。v4-v3=-2.7833石、95% CI [-7.8000,+2.2500]、改善/同値/悪化=11/1/18。v4-v2=-2.1667石、95% CI [-6.7000,+2.2500]、14/1/15。T121 v3-v2の既報+0.6167、[-3.8667,+4.9500]も同じ集計器で完全再現。勝敗遷移と全opening表をレポートへ記録した。
+- 推奨案: oracleは6seedで改善傾向だが、実戦点推定はv3/v2双方より悪く、CIは0を跨ぎ、v3比gzip約+3.36MB（約+3.4MB）でもあるため、現時点ではv3維持・素のv4採用見送りを推奨。最終裁定、本番配線、平滑化・正則化、コーパス生成、蒸留は未実施。
+- checkpoint検証: `python bench/edax-compare/vs_edax.py --self-test-checkpoint`でprovenance不一致拒否とatomic中断時保持をPASS。学習はepoch、oracleは局面、対局は1局単位でatomic保存・resume対応。
+- 最終検証: inline Python acceptance検証PASS（6seed/M2/SHA/60局/WDL/平均/run key/同一プロトコル設定/fixed-depth/node-budget）、`git diff --check` PASS、UTF-8 replacement文字なし、`git check-ignore -v`でT125 report/results/raw-reportが`.gitignore:45`対象であることを確認。コード変更がないため`cargo test -p train` / `cargo test -p engine`はT125では非該当（T124実装時に両方PASS済み）。
+- 成果物: `bench/edax-compare/endgame-results/t125-report.md`。コミット時はignore配下のため`git add -f bench/edax-compare/endgame-results/t125-report.md`が必要。生results/raw-report、追加重み・oracleはignore領域で非コミット。コミットハッシュは環境制約により未作成（開始HEAD `ed22fd27b9df684f013baff6379d307a5202d7d9`、オーケストレーター代行、件名 `(T125)`）。タスクファイルは本作業ログ追記のみでコミット対象外。
