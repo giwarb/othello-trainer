@@ -1,9 +1,9 @@
 ---
 id: T127a
 title: 1Mコーパス基盤(K拡張・入れ子選定・スケール堅牢化)
-status: in_progress # todo | in_progress | review | redo | done | blocked
+status: redo # todo | in_progress | review | redo | done | blocked
 assignee: Codex gpt-5.6-sol(codex-task)
-attempts: 0
+attempts: 1
 ---
 
 # T127a: 1Mコーパス基盤の実装
@@ -52,6 +52,17 @@ attempts: 0
 - 年範囲拡張・全局面方式(レポートで却下済み)
 
 ## フィードバック(やり直し時にオーケストレーターが記入)
+
+### 2026-07-17 redo #1(codex-review・verifierが同一ブロッカーを独立検出)
+
+レポート: tasks/review/T127a-corpus-1m-infra-codex-review.md(必読)。主要実装(K=4・base包含・selection plan・streaming)は両検証とも「正しく機能」と確認済み。以下のみ修正:
+
+1. **[重大・必須] expanded1mのresume時に実行環境SHAが検証されない**: `_expanded1m_settings_and_meta()`(gen_teacher_corpus.py:1493-1531)が selection plan metaの保存値(`incremental["generatorSha256"]`等)をそのまま「現在値」として使うため、plan確定後に gen_teacher_corpus.py / teacher_candidates.exe / Edax本体 / eval.dat が変わってもresumeが拒否されない。**修正: 通常経路(1089行)と同様に `harnessSha256`/`teacherCandidatesToolSha256`/`edaxSha256`/`edaxEvalDataSha256` を毎回実ファイルから再計算して現在値とし、さらにplan記録値との一致を検証(不一致は明確なエラーで停止)**。回帰テスト: 「planと現在ファイルのSHA不一致でresume/起動が拒否される」ことをテストで固定。
+2. **[中・必須] 自動テストによる制約固定**(review (b)1): K=1互換(SHA一致)とexpanded1m選定の主要制約(1M件・base prefix・bin配分・XC/opening累積判定)を、外部実データに依存しない合成フィクスチャの自動テストで固定する(現状は手動probe頼み)。
+3. **[中・必須] verifierの独立検証**(review (b)2): verify_teacher_corpus.pyがexpanded1mの固定1M件数・base 200k prefixのSHA/バイト一致・2層provenanceを**manifestの自己申告でなく実データから**検証するようにする。
+4. **[中・必須] childrenバッチ返却件数の即時検証**(review (b)3): `zip(positions_batch, children_batch)`(1636-1637行)に長さ一致assertを入れ、不足時は即時エラー(サイレントなレコード欠落を防ぐ)。
+
+修正後: 3スイート全パス+K=1回帰SHA一致+probe再実行(plan SHAが変わる場合は新SHAを記録)まで確認して完了報告。既存probe結果のselection planは、修正でplan形式が変わらない限り再利用してよい(変わる場合は再生成し新SHA記録)。
 
 ## 作業ログ(担当エージェントが追記)
 
