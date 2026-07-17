@@ -43,6 +43,15 @@ T127gで「複数親を1プロセスに束ねる」方式が**値全一致・加
 
 ## フィードバック(やり直し時にオーケストレーターが記入)
 
+### 2026-07-17 20:2x — オーケストレーター: フェーズ2実行指示
+
+フェーズ1は受領・コミット済み(68dbfa6)。**生成ツリーは20:2x頃に停止済み**(taskkill /T、停止時点292,580件=base 200,000+新規92,580、全シャード健全終了・全レコード保持)。プロセスは全滅済みで触る対象なし。**フェーズ2(仕様§6-7)を実行せよ**:
+
+1. migrationスクリプトで全シャードmeta/jsonlをバックアップ(train/data/teacher/backup-t127h-migration/等)→既存レコード数(シャード別)・base SHA検証→metaのrunKey/settingsを新方式(`edaxParentsPerProcess: 32`+`elapsedMsPolicy: cross-parent-level-batch-averaged`)へ書き換え+provenance現在値(修正後generator SHA等)化。**削除・切り詰め経路禁止、不整合はエラー停止**。
+2. 移行後、`python bench/edax-compare/gen_teacher_corpus.py expanded1m --num-shards 8 --skip-extract --reuse-selection-plan --dry-run` 相当で「既存292,580件が全件ロードされ、resumeがSHA照合込みで成立する」ことを確認(本起動はしない=オーケストレーターが行う)。
+3. manifest用の方式境界記録(切替時点の各シャード件数、T127f/gの値一致証跡参照)を作業ログに残す。
+4. migrationスクリプト(コミット対象なら)と作業ログを報告。完了レポートに「オーケストレーターが実行すべき再起動コマンド」を明記。
+
 ## 作業ログ(担当エージェントが追記)
 
 ### 2026-07-17 20:16 JST — Codex（フェーズ1完了）
