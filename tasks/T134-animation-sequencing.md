@@ -1,9 +1,9 @@
 ---
 id: T134
 title: 対局: 石返しアニメーションの直列化(自分の返しが終わってからCPUの着手を見せる)
-status: todo # T133完了後に着手(app.tsx競合のため直列)
+status: redo # 表示ラグ中クリックの入力整合バグ(中)の修正
 assignee: implementer(Sonnet)
-attempts: 0
+attempts: 1
 ---
 
 # T134: アニメーション直列化
@@ -39,6 +39,12 @@ attempts: 0
 - [ ] 当該タスク由来の差分・未追跡が`git status --short`に残っていない
 
 ## フィードバック(やり直し時にオーケストレーターが記入)
+
+### redo#1(2026-07-18、代替レビュー中1件=verifierも独立裏取り。tasks/review/T134-animation-claude-review.md)
+
+**問題**: Boardのクリックガードは`displayGame`(表示中の旧局面)基準、`handleMove`のガードは`game.phase !== 'human'`(内部の新局面)基準で、両ゲートが別の局面を見ている。CPU応手がgame確定済み・表示未反映の窓(ブック応手で最大約470ms)に「旧局面でCPU色に合法∧新局面で人間に合法」のマスをクリックすると両ゲートを通過し、**見えていない局面への着手が確定する**(誤着手・取り消し不可)。
+
+**修正**: `handleMove`冒頭に表示未追いつき時のガード(例: `displayGame !== game`なら無視)を追加し、app.tsx 608-611行付近の「理論上は起こらない想定」コメント(前提が誤り)を実態に合わせて修正。回帰テスト1件を追加: 表示ラグ窓内のクリックが無視されること(fake timersでFLIP+GAP経過前にクリック→game/moveHistoryが変化しない→経過後のクリックは通常どおり着手される)。2人対戦モード(phase常時'human')でも同ガードが誤って通常操作を阻害しないことのテスト(または既存テストのパス確認)も含める。修正のみの最小差分でよい(コミットは`(T134)`)。
 
 ## 作業ログ(担当エージェントが追記)
 
@@ -78,3 +84,15 @@ attempts: 0
 ### 2026-07-18 コミット前確認
 
 - `git status --short`: 変更・未追跡は本タスクの変更対象ファイルのみ(`app/src/app.tsx` `app/src/components/Board.tsx` `app/src/game/displayQueue.ts`〈新規〉 `app/src/game/displayQueue.test.ts`〈新規〉 `app/src/app.playmode.test.tsx` `app/src/app.playmode.cpuHistory.test.tsx` `app/src/app.playmode.review.test.tsx` `app/src/app.playmode.animationSequencing.test.tsx`〈新規〉)。`tasks/`はSTATUS.md等の並行作業分がオーケストレーター側で既にコミット済み(`d26ca39`)になっており、本タスクの作業ログ追記のみが残る想定どおり。`bench/`・`train/data/teacher/`には一切触れていない。
+
+### 2026-07-18 verifier検証(対象コミット b155747)
+
+- 受け入れ基準1(直列化テスト): コード読解で確認。`displayQueue.ts`のキュー実装(アイドル即時反映/クールダウン中は待機/連続pushは順番に1つずつ)は妥当。`displayQueue.test.ts`5件・`app.playmode.animationSequencing.test.tsx`2件が該当仕様を検証しており、実行結果も後述のとおり全パス。合格。
+- 受け入れ基準2: `npx vitest run`(`app/`直下、`wasm:build`を踏む`npm test`ではなく直接`vitest run`起動のため禁止のwasmビルドは走らない)を2回実行、いずれも**87ファイル/721件 全パス**(フレークなし)。`npx tsc --noEmit -p tsconfig.app.json`(`app/`内で直接、`typecheck`スクリプトの`pretypecheck`=wasm:build経由は使わず)・リポジトリルートから`npx --prefix app tsc --noEmit -p app/tsconfig.app.json`の両方でエラー0件を確認。合格。
+- 受け入れ基準3(Pages実機): `git merge-base --is-ancestor b155747 origin/main`で該当コミットがpush済みであることを確認、`gh run list`で対応する「Deploy to GitHub Pages」run(29632057996)が`completed success`であることを確認。Playwright(`chromium.launch`、`npx -p playwright node <script>`)で本番URL(`https://giwarb.github.io/othello-trainer/`)に対し (a) 定石ブックON(既定)で黒番人間としてd3着手→スクリーンショット連写: t+0〜150msでd3の石が返る自分のアニメーションが完了(d4が黒化)、その間CPU(白)のe3は未反映、t+450ms前後でe3が白石として反映されd4隣接石が反転(直列化どおり自分の返し完了→CPU応手の順)。ブック応手が非常に速いため「手番:白」表示が一時「(思考中...)」抜きで最大数百ms出る瞬間はあったが(内部`thinking`は`game.phase`基準で即解除される設計、既存レビュー観点2で許容判定済み)、最終的に「手番: 黒」に正しく復帰しハングなし。 (b) 定石ブックOFFに切り替えて同様に着手→エンジン探索(約1秒)の間「手番: 白(思考中...)」が継続表示され、探索完了と同時に「手番: 黒」に復帰、ハングなし。両ケースともコンソールエラー0件(`page.on('console'/'pageerror')`で捕捉)。合格。
+- 受け入れ基準4: `git show b155747 --stat`で変更ファイルが`app/src/app.tsx``app/src/components/Board.tsx``app/src/game/displayQueue.ts`(新規)`app/src/game/displayQueue.test.ts`(新規)`app/src/app.playmode.test.tsx``app/src/app.playmode.cpuHistory.test.tsx``app/src/app.playmode.review.test.tsx``app/src/app.playmode.animationSequencing.test.tsx`(新規)の8件のみであることを確認(スコープ外ファイル混入なし)。コミットメッセージ`app: 対局モードの石返しアニメーションを直列化(自分の返し完了→間→CPU応手)(T134)`はプレフィックス・`(T134)`表記とも規約準拠。`app/src/app.tsx``app/src/components/Board.tsx`内に`console.log`/`debugger`等のデバッグ残骸なし(grep確認)。合格。
+- 受け入れ基準5: `git status --short`は本タスク検証時点で本作業ログ追記対象の`tasks/T134-animation-sequencing.md`のみ変更、他に本タスク由来の差分・未追跡ファイルなし(コード側は完全クリーン)。合格。
+- T115回帰(`app.playmode.test.tsx`)の実質性: `DISPLAY_GAP_MS: 0`追記は既存の`FLIP_ANIMATION_MS: 0`と同じ意図(直列化の待ち時間を0にしてテストを高速化)であり、当該テストの本質的な回帰検出(`selectCpuBookMoveCalls.length === 1`によるCPU着手effectの二重発火検出)には無関係。実タイマー(`setTimeout(resolve, 0)`を20ラウンド)でflushする設計のため、delay=0でもキューのクールダウンタイマーは十分な余裕で解決し、空洞化やハングは無い。コード読解で妥当性確認済み(実際に空洞化していない)。
+- regression-catchingの主張(`<Board board={game.board} .../>`に戻すとテストが落ちる)は、`animationSequencing.test.tsx`のアサーション(「50ms未満の時点でd3のまま」)がdisplayGame経由でしか成立しない設計であることをコード読解で確認(`game`直結だとCPUの応手確定と同時に`board`propが即e3へ切り替わり同アサーションに反する)。ロジック上妥当と判断(コード修正禁止のため実機での再現実験はしていない)。
+- **既存レビュー(`tasks/review/T134-animation-claude-review.md`、独立エージェントによる読み取り専用最終レビュー、コミット時点で既に存在)を確認・裏取りした**: 総合判定「合格(done可)」だが**中程度の実在バグ1件**を指摘している。`Board.tsx`のクリックガード(`legalMoves(board, sideToMove)`、`displayGame`基準)と`app.tsx`の`handleMove`ガード(`game.phase !== 'human'`、`game`基準)が異なる局面を見ているため、CPU応手が`game`として確定済みだが表示(`displayGame`)にまだ反映されていない窓(ブック応手時最大470ms)で、「旧局面でCPU色に合法 かつ 新局面で人間に合法」なマスをクリックすると、ユーザーがまだ見ていない局面に対して着手が確定してしまう経路が存在する(`app/src/app.tsx`589-611行・`app/src/components/Board.tsx`252行を実読し、レビューの指摘どおりであることを確認)。クラッシュ・ハング・状態破壊は無く、成立には複数条件が重なる必要があるため本タスクの受け入れ基準(直列化そのもの・T115回帰・ビルド・デプロイ)はいずれも満たしているが、**別タスクとしての追修正(`handleMove`冒頭に`displayGame !== game`ガード追加、1〜2行)を推奨**。他は軽微指摘(アンマウント時タイマー未クリーンアップ等)のみで実害なし。
+- 使用したPlaywright検証スクリプト・スクリーンショットはscratchpadに保存(リポジトリ非汚染)。
