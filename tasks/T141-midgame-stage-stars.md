@@ -1,7 +1,7 @@
 ---
 id: T141
 title: 中盤練習: ステージクリア型への全面改訂(3往復・評価値常時表示・★1〜3判定)
-status: in_progress
+status: done # verifier/代替レビュー/ビジュアルQA全合格(2026-07-19)
 assignee: implementer(Sonnet)
 attempts: 0
 ---
@@ -143,3 +143,56 @@ attempts: 0
      タスク仕様に丸め方の指定が無かったため放置したが、気になる場合は要調整。
   4. `computer{action:"screenshot"}`が本セッションで機能せず、画像スクショは保存できて
      いない(上記参照)。
+
+### 2026-07-19 verifier検証結果(判定: 合格)
+
+- 対象コミット: `632eae0`。検証時点の現HEAD: `09085d8`(tasksのみのコミットが
+  後続、`git diff --stat 632eae0..HEAD -- . ':!tasks'`が空でありapp配下への
+  追加変更なしを確認)。
+- `npx vitest run`(app/直下、リポジトリ全体): **95 test files / 771 tests 全パス**
+  (implementerの主張どおり)。
+- `npx tsc --noEmit -p tsconfig.app.json`(app/直下): エラーなし(exit 0)。
+- スコープ: `git diff --name-only 590c396..632eae0` → `app/src/midgame/*`
+  (`stageStarJudge.ts`新規・`stageProgress.ts`全面書き換え・`PracticeMode.tsx`
+  全面書き換え・関連テスト群・旧テスト削除)・`app/src/app.home.progress.test.tsx`・
+  `app/src/home/modeProgress.ts`(コメントのみ)の計20ファイル。bench/・train/・
+  tasks/への混入なし。T140の変更ファイルとの重複なし(領域分離OK)。
+- GitHub Actions: `gh run list`で`632eae0`の`Deploy to GitHub Pages`・
+  `Rust Tests`いずれも`conclusion: success`を確認。
+- `git status --short`: 差分・未追跡なし(クリーン)。
+- (6)★判定純関数: `stageStarJudge.ts`を読解。`allBest(3手全て打てて全てisBest)→3`
+  →`lossTotal<1→2`→`lossTotal<5→1`→`0`の優先順位で、要件4の文言(3手すべて最善→★3、
+  損失<1→★★、損失<5→★、損失≥5→★0)と一致。`stageStarJudge.test.ts`(12件)で
+  境界値(損失ちょうど5→★0、ちょうど1→★1、4.99/0.99の際どいケース、3手未満で
+  終了した場合の損失ベースへのフォールバック、損失0だが3手そろわない/最善で
+  ない場合は★★に留まる、負の損失は0に丸め)を確認。指示にあった「0だが非最善→★★」
+  の意味論も、`0手(セッション開始直後に終局)`テスト(startEval=endEval=10、
+  moveOutcomes=[]で★2)で担保されている。
+- (7)記録移行: `stageProgress.ts`を読解。新旧キー分離
+  (`othello-trainer:midgame-stage-stars`/`othello-trainer:midgame-stage-progress`)、
+  移行済みマーカーキー(`-migrated`)による一度きり実行、旧記録はいずれのモードでも
+  `clearCount>0`なら`bestStars:1`としてシード・新記録に既存エントリがあれば
+  上書きしない、旧データ自体は一切書き換えない実装を確認。
+  `stageProgress.test.ts`の「旧記録(判定モード別)からの移行」describe(5件)で
+  シード内容・旧データ不変(`storage.getItem(...)`が移行前後で同一参照)・
+  二度目以降は再シードされない(bestStarsの巻き戻り防止)・旧記録なし/壊れたJSON
+  でも例外を投げない・新記録優先、をすべて確認。T114教訓(データ消失への敏感さ)に
+  沿った保守的な実装。
+- (8)途中終局の打ち切り判定: `PracticeMode.flow.test.tsx`の
+  「途中で終局(打てる手なし)した場合、打てたぶんの手数(1手)で★判定を確定する」を
+  確認。人工的に構成した真の終局直前局面(`board`直値)で唯一の合法手を打つと
+  即終局し、`moveItems.length===1`(3手未満で打ち切り)・記録の`attempts===1`が
+  正しく反映されることをテストコードで確認。
+- (9)フィルタ・グリッド★・ホーム実績行: `PracticeMode.reviewFilter.test.tsx`で
+  新語彙(すべて/未挑戦/失敗あり/未クリア(★0)/クリア済み(★1+))がタスク仕様の
+  文言と完全一致し、`failCount`(累積失敗経験)を使った「失敗あり」の判定が
+  意図どおり(★1でクリア済みでも過去に★0があれば該当)動作することを確認。
+  グリッド★0〜3表示のテストも存在。`home/modeProgress.ts`はコメント更新のみで
+  `stageStatus`(`bestStars>=1`→cleared)への無改造追従を確認、
+  `app.home.progress.test.tsx`で実績行の反映も確認。
+- `failCount`フィールドの追加(タスク仕様スキーマにない拡張)は実装ログどおり
+  復習フィルタ「失敗あり」語彙(要件6で存置)を成立させるための必要な拡張と判断、
+  スキーマの意味(★・挑戦回数・直近結果・日時)を損なわないため問題視しない。
+- ビジュアルQA(本番Pagesでのステージ選択→3往復→★反映)はオーケストレーターが
+  別途合格済みとの前提のため、本検証では実施していない(依頼文の指示どおり)。
+- 結論: 受け入れ基準8項目すべて満たす。不合格要素なし。

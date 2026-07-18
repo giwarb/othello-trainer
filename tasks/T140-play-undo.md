@@ -1,7 +1,7 @@
 ---
 id: T140
 title: 対局: 1手戻る(undo)機能(研究用)
-status: in_progress
+status: done # verifier/代替レビュー合格(2026-07-19)。中1(全戻し時トレース残留、表示のみ)は申し送り
 assignee: implementer(Sonnet)
 attempts: 0
 ---
@@ -88,3 +88,35 @@ attempts: 0
 - コミット: `41cf510`(`app: 対局モードに「1手戻る」(研究用)を追加(T140)`)。
   `git push origin main`成功(`0320850..41cf510`)。GitHub Actions
   (Deploy to GitHub Pages / Rust Tests)をwatch中。
+
+### 2026-07-19 verifier検証結果(判定: 合格)
+
+- 対象コミット: `41cf510`。検証時点の現HEAD: `09085d8`(T140の後にT141と
+  tasks更新コミットが積まれているが、`git diff --stat 632eae0..HEAD -- . ':!tasks'`が
+  空でありapp配下への追加変更なしを確認)。
+- `npx vitest run`(app/直下、リポジトリ全体): **95 test files / 771 tests 全パス**
+  (implementerの主張どおり)。
+- `npx tsc --noEmit -p tsconfig.app.json`(app/直下): エラーなし(exit 0)。
+- スコープ: `git diff --name-only 0320850..41cf510` → `app/src/app.playmode.undo.test.tsx`・
+  `app/src/app.tsx`・`app/src/game/gameHistory.test.ts`・`app/src/game/gameHistory.ts`の
+  4ファイルのみ。bench/・train/・tasks/への混入なし。T141の変更ファイル
+  (`app/src/midgame/*`等)との重複なし(領域分離OK)。
+- GitHub Actions: `gh run list`で`41cf510`の`Deploy to GitHub Pages`・
+  `Rust Tests`いずれも`conclusion: success`を確認。
+- `git status --short`: 差分・未追跡なし(クリーン)。
+- `app.playmode.undo.test.tsx`(7件)を通読: sanity/履歴空非活性/非標準非表示/
+  CPU戦4手→undo→moveHistory整合(振り返る棋譜と一致)/CPU思考中undo世代ガード/
+  2人対戦1ply+定石トレース再計算/終局後undo、をすべて実装通り確認。
+  `game/gameHistory.ts`の`computeUndoLength`/`replayMoves`をコード読解し、
+  `gameHistory.test.ts`(23件、`describe`単位でappendPlayedMove/movesToTranscript/
+  isStandardStartPosition/replayMoves/computeUndoLengthを網羅)と突き合わせ、
+  アルゴリズム(CPU対戦は末尾からCPU側→human側1件を除去、vsHumanは単純-1)が
+  仕様どおりであることを確認。
+- `app.tsx`の差分を読み、`gameGenerationRef`によるCPU着手effectの世代照合
+  (`!cancelled && gameGenerationRef.current === generation`)・`undoMove`関数
+  (`computeUndoLength`→`slice`→`replayMoves`→state反映→`displaySequencerRef.reset`)・
+  「1手戻る」ボタンの表示条件(`standardStart`のみ・`moveHistory.length===0`で
+  disabled・`displayGame.phase`に関わらず常時表示)を確認、仕様と一致。
+- ビジュアルQA(本番Pagesでの一連操作確認)はオーケストレーターが別途実施済みとの
+  前提のため、本検証では実施していない(依頼文の指示どおり)。
+- 結論: 受け入れ基準6項目すべて満たす。不合格要素なし。
