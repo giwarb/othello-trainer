@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'preact/hooks'
+import { useEffect, useRef, useState } from 'preact/hooks'
 import { loadClassifyThresholds } from '../analysis/thresholdSettings.ts'
 import type { ClassifyThresholds } from '../analysis/types.ts'
 import { Board } from '../components/Board.tsx'
@@ -18,12 +18,12 @@ import {
 } from '../game/othello.ts'
 import { loadMoveEvalOverlayEnabled, saveMoveEvalOverlayEnabled } from '../settings/moveEvalOverlaySettings.ts'
 import { getAllSrsStates, recordSrsResults } from './db.ts'
+import { computeDueLines, dueSummaryHeadline, previewDueLineNames, selectPracticeTargetLine } from './dueLines.ts'
 import { judgeMove } from './judgeMove.ts'
 import { loadJosekiDb, lookupJosekiNode, type JosekiBookMoveView } from './lookup.ts'
 import { pickBookMove, preferMovesTowardTarget } from './pickBookMove.ts'
 import { advanceClearState } from './practiceSession.ts'
-import { isDue } from './srs.ts'
-import type { JosekiDb } from './types.ts'
+import type { JosekiDb, JosekiLine } from './types.ts'
 import './PracticeMode.css'
 
 /** 定石練習モードのエンジン解析に使う探索条件(固定。難易度選択は本タスクのスコープ外)。 */
@@ -49,6 +49,12 @@ interface PracticeState {
    * なった時点で初めてクリアとする(`practiceSession.ts` 参照)。
    */
   readonly clearedLineNames: readonly string[]
+  /**
+   * 「復習を始める」ボタン(due限定出題)で開始したが、当時dueが0件だったため
+   * 通常出題(全ライン)にフォールバックしたセッションかどうか(要件3のSRS
+   * 見える化・T131)。`playing`画面でその旨を表示するために使う。
+   */
+  readonly reviewFallback: boolean
 }
 
 interface ClearResultInfo {
@@ -151,6 +157,16 @@ export function PracticeMode() {
   )
   const [classifyThresholds] = useState<ClassifyThresholds>(() => loadClassifyThresholds(localStorage))
   const [overlayMoves, setOverlayMoves] = useState<MoveEvalJson[] | null>(null)
+  // SRS復習キューの見える化(T131)。`null`はまだ読み込めていない(due件数不明)ことを表す。
+  const [dueLines, setDueLines] = useState<JosekiLine[] | null>(null)
+  // 直前に「復習を始める」(due限定)セッションを終えて戻ってきた結果、dueが0件に
+  // なったかどうか(要件4)。true の間は「今日の復習はありません」の代わりに
+  // 「今日の復習完了!」を表示する。
+  const [justCompletedReview, setJustCompletedReview] = useState(false)
+  // 直近に開始したセッションが「復習を始める」ボタン由来(かつ実際にdueから出題できた、
+  // フォールバックではない)かどうかを、再レンダーを起こさず追跡するためのref。
+  // colorSelect画面に戻ったタイミングでdueを再計算する effect が参照する。
+  const dueOnlySessionActiveRef = useRef(false)
   // エンジンWorkerはアプリ全体で1つのインスタンスを共有する(T054)。
   function getEngine(): EngineClient {
     return getSharedEngineClient()
@@ -172,6 +188,44 @@ export function PracticeMode() {
       cancelled = true
     }
   }, [])
+
+  // SRS復習キューの見える化(T131要件1・4)。色選択画面(colorSelect)に居る間に
+  // 定石DBが読み込まれたら、または(練習を1回終えて)colorSelect画面に戻ってきたら、
+  // IndexedDBのSRS状態を読み直してdueラインを再計算する。直前のセッションが
+  // 「復習を始める」由来(due限定・フォールバックではない)で、その結果dueが0件に
+  // なっていれば「今日の復習完了!」を出す(要件4)。
+  useEffect(() => {
+    if (!josekiDb || phase !== 'colorSelect') return
+    let cancelled = false
+    void (async () => {
+      const due = await refreshDueLines(josekiDb)
+      if (cancelled) return
+      if (dueOnlySessionActiveRef.current && due.length === 0) {
+        setJustCompletedReview(true)
+      } else if (due.length > 0) {
+        setJustCompletedReview(false)
+      }
+      dueOnlySessionActiveRef.current = false
+    })()
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line
+  }, [josekiDb, phase])
+
+  /** IndexedDBのSRS状態を読み込み、`dueLines`を再計算して`state`に反映する。 */
+  async function refreshDueLines(db: JosekiDb): Promise<JosekiLine[]> {
+    try {
+      const allStates = await getAllSrsStates()
+      const due = computeDueLines(db.lines, allStates)
+      setDueLines(due)
+      return due
+    } catch (error) {
+      console.error('SRS復習キューの読み込みに失敗しました', error)
+      setDueLines(null)
+      return []
+    }
+  }
 
   // 相手(定石DB側)の手番になったら、bookMovesからweight比例のランダム抽選で着手する。
   useEffect(() => {
@@ -279,6 +333,7 @@ export function PracticeMode() {
       lastMove: square,
       moveHistory,
       clearedLineNames,
+      reviewFallback: state.reviewFallback,
     })
 
     if (ended) {
@@ -334,23 +389,33 @@ export function PracticeMode() {
    * ランダムに1つを選ぶ(要件6)。該当が無ければ全ラインからランダムに選ぶ。
    * 選んだライン(`targetLineId`)は、ゲームオーバー時のSRS記録先として使うほか、
    * 相手の着手選択でそのラインを優先するバイアスにも使う(要件5)。
+   *
+   * `options.dueOnly`が真の場合(「復習を始める」ボタン、T131要件3)は、
+   * `selectPracticeTargetLine`でdueラインのみに限定して選ぶ。dueが0件だった
+   * 場合は全ライン(`josekiDb.lines`)にフォールバックし、そのセッションの
+   * `reviewFallback`を真にして「playing」画面でその旨を表示する。
    */
-  async function startPractice(choice: Side | 'random'): Promise<void> {
+  async function startPractice(choice: Side | 'random', options?: { dueOnly?: boolean }): Promise<void> {
     if (!josekiDb) return
+    const dueOnly = options?.dueOnly ?? false
     const humanSide = choice === 'random' ? pickRandomSide() : choice
 
     let target = josekiDb.lines[Math.floor(Math.random() * josekiDb.lines.length)] ?? null
+    let reviewFallback = false
     try {
       const allStates = await getAllSrsStates()
-      const stateMap = new Map(allStates.map((s) => [s.lineId, s]))
-      const now = new Date()
-      const dueLines = josekiDb.lines.filter((line) => isDue(stateMap.get(line.id), now))
-      const pool = dueLines.length > 0 ? dueLines : josekiDb.lines
-      target = pool[Math.floor(Math.random() * pool.length)] ?? target
+      const due = computeDueLines(josekiDb.lines, allStates)
+      setDueLines(due)
+      const selected = selectPracticeTargetLine(josekiDb.lines, due, dueOnly)
+      target = selected.target ?? target
+      reviewFallback = selected.usedFallback
+      dueOnlySessionActiveRef.current = dueOnly && !selected.usedFallback
     } catch (error) {
       console.error('SRS状態の読み込みに失敗しました。出題ラインはランダムに選びます', error)
+      dueOnlySessionActiveRef.current = false
     }
     setTargetLineId(target?.id ?? null)
+    setJustCompletedReview(false)
 
     setState({
       board: initialBoard(),
@@ -360,6 +425,7 @@ export function PracticeMode() {
       lastMove: null,
       moveHistory: [],
       clearedLineNames: [],
+      reviewFallback,
     })
     setResultInfo(null)
     setPhase('playing')
@@ -380,6 +446,34 @@ export function PracticeMode() {
       {phase === 'colorSelect' && (
         <section class="joseki-color-select">
           <p>定石練習モード: 手番の色を選んでください</p>
+          {dueLines !== null && (
+            <div class="joseki-due-summary">
+              <p class="joseki-due-summary__headline">{dueSummaryHeadline(dueLines.length, justCompletedReview)}</p>
+              {dueLines.length > 0 &&
+                (() => {
+                  const { shown, remaining } = previewDueLineNames(dueLines)
+                  return (
+                    <details class="joseki-due-summary__list">
+                      <summary>復習対象のラインを見る({dueLines.length}件)</summary>
+                      <ul>
+                        {shown.map((name) => (
+                          <li key={name}>{name}</li>
+                        ))}
+                      </ul>
+                      {remaining > 0 && <p class="joseki-due-summary__remaining">他{remaining}本</p>}
+                    </details>
+                  )
+                })()}
+              <button
+                type="button"
+                class="joseki-due-summary__review-button"
+                disabled={!josekiDb}
+                onClick={() => void startPractice('random', { dueOnly: true })}
+              >
+                復習を始める
+              </button>
+            </div>
+          )}
           <div class="joseki-color-select__buttons">
             <button type="button" disabled={!josekiDb} onClick={() => void startPractice('black')}>
               黒番で開始
@@ -402,6 +496,11 @@ export function PracticeMode() {
             {opponentThinking ? '(相手考慮中...)' : ''}
             {analyzing ? '(判定中...)' : ''}
           </p>
+          {state.reviewFallback && (
+            <p class="notice joseki-practice__review-fallback">
+              本日の復習はないため、通常の出題です。
+            </p>
+          )}
           <label class="move-eval-overlay-toggle">
             <input
               type="checkbox"
