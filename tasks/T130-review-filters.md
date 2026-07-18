@@ -1,7 +1,7 @@
 ---
 id: T130
 title: 詰めオセロ/中盤練習: ステージグリッドの復習フィルタ(未クリア・失敗ありで絞る)
-status: todo # T129完了後に着手(PracticeMode.tsxが競合するため直列)
+status: done # verifier/代替レビュー両合格(2026-07-18)
 assignee: implementer(Sonnet)
 attempts: 0
 ---

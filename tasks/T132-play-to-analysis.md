@@ -1,7 +1,7 @@
 ---
 id: T132
 title: 対局→棋譜解析の連携(終局後に「この対局を振り返る」)
-status: todo # T131完了後に委譲(並行push衝突を避けるため)
+status: done # verifier/代替レビュー両合格(2026-07-18)。中2件はT133追加要件へ
 assignee: implementer(Sonnet)
 attempts: 0
 ---
@@ -54,3 +54,20 @@ attempts: 0
   - 終局後「この対局を棋譜解析で振り返る」ボタンが表示されることを確認。押下 → `棋譜解析`タブがアクティブになり(`mode-nav__tab--active`相当の`aria-current="page"`)、テキスト入力を経由せず自動的に解析が開始され、60手全てを解析完了(`解析完了: 60手`、movelist行数60、評価グラフ描画あり)。
   - ビューポートを375px幅に変更し、解析結果画面・対局モーム画面いずれも`document.documentElement.scrollWidth <= clientWidth`(横スクロール無し)を確認。
 - 判断に迷った点: (1) 「履歴→棋譜文字列変換のユニットテスト」は`gameHistory.ts`の純粋関数群として実装・テストした(GameStateの遷移比較を含む設計。パス自動処理の正しさ自体は既存`gameLoop.test.ts`が担保する前提)。(2) 「遷移のコンポーネントテスト」は実際に60手打ち切って終局させるのは非実用的なため、`playMove`のみをモックして統合コード(履歴記録・ボタン表示条件・モード遷移・自動解析開始)だけを検証する設計にした。実際の60手フル対局での終局→ボタン→解析完了は本作業ログのPages実機確認で別途担保している。(3) ボタンのラベル文言はタスク仕様の要件1に記載された文言「この対局を棋譜解析で振り返る」をそのまま採用した。
+
+## 検証ログ(verifier、2026-07-18)
+
+対象コミット: `c0ba489`(app: 対局終了後に棋譜解析へワンタップで振り返れる導線を追加(T132))。
+
+- `git show --stat c0ba489`: 変更ファイルは `app/src/analysis/AnalysisMode.tsx` `app/src/app.css` `app/src/app.playmode.review.test.tsx` `app/src/app.tsx` `app/src/game/gameHistory.test.ts` `app/src/game/gameHistory.ts` の6件のみ。想定と一致。
+- 受け入れ基準1(履歴→棋譜文字列変換ユニットテスト): `app/src/game/gameHistory.test.ts` を確認。通常対局・非合法手クリック・パス含み対局(`buildIsolatedPocketsBoard`)・短い対局・イミュータビリティ・`isStandardStartPosition`の各ケースを網羅。PASS。
+- 受け入れ基準2(遷移のコンポーネントテスト): `app/src/app.playmode.review.test.tsx` を確認・実行。`playMove`をモックしてボタン押下→`AnalysisMode`遷移→`initialTranscript`自動解析完了までを検証。PASS。
+- 受け入れ基準3: `cd app && npx vitest run` → 83 test files / 711 tests 全PASS。`npx tsc --noEmit -p tsconfig.app.json` → エラーなし。両方PASS。
+- 受け入れ基準4(Pages実機確認): Browser MCP等の実機操作ツールがverifier環境で利用不可のため、タスク指示の代替条件(コミット差分+コンポーネントテスト+Actions成功+デプロイ済みバンドルへの文言含有確認)で代替。`gh run view 29628901781`で対象コミットの「Deploy to GitHub Pages」ワークフローが成功(build/deploy共に✓)していることを確認。`curl https://giwarb.github.io/othello-trainer/` → 現行バンドル`assets/index-B6DyzM-w.js`を特定し、`grep -c "この対局を棋譜解析で振り返る"` → 1件ヒット(デプロイ済みバンドルに新ボタン文言が含まれることを確認)。実装ワーカーの作業ログには60手フルCPU対局での実機確認(黒5-白59終局→ボタン→解析完了・375px横スクロール無し)が記載されているが、verifier側では再現確認していない(代替確認のみ)。
+- 受け入れ基準5(コミット): 対象6ファイルのみ、メッセージ`app: 対局終了後に棋譜解析へワンタップで振り返れる導線を追加(T132)`で規約通り。PASS。
+- 受け入れ基準6(git status --short 残差分なし): `git status --short` → 出力なし(クリーン)。PASS。
+- コード確認(a) パス含み対局の棋譜変換規約整合: `gameHistory.ts`の`appendPlayedMove`は`lastMove`が変化した場合のみ着手を記録(パスでは`lastMove`が変わらないため記録されない)。`parseTranscript.ts`のコメント・`analyzeGame.ts`の`replayGame`(`resolveMover`で合法手の有無から自動的にパスを再現)の規約と一致することをコード上確認。`gameHistory.test.ts`の「パス含み対局」テストで`movesToTranscript`結果に白パスが一切現れないことも確認済み。整合。
+- コード確認(b) 非標準初期局面でボタンが出ない条件: `app.tsx`で`startFromEditor`時のみ`setStandardStart(isStandardStartPosition(editorBoard, editorSideToMove))`を呼び、それ以外(`startNewGame`/`startVsHumanGame`)は`standardStart=true`固定。ボタン表示条件`game.phase === 'over' && standardStart && moveHistory.length > 0`と合わせ、盤面自由配置エディタから非標準局面で開始した場合のみボタンが出ない設計になっていることをコード上確認。整合。
+- コード確認(c) AnalysisModeのinitialTranscript二重発火防止: `AnalysisMode.tsx`の`useEffect`は依存配列`[initialTranscript]`のみで、値が`null`/未指定なら即return。`onInitialTranscriptConsumed`呼び出しで親(`App`)が`pendingReviewTranscript`を`null`に戻すため、次回のeffect再実行時は先頭のガードで何もしない。同一トランスクリプト値での再発火は親側の`setMode('analysis')`と同時に新しい非nullの値をセットする経路でのみ起こり、それは意図した新規遷移であるため妥当。整合。
+
+判定: **合格**。5項目の受け入れ基準・コミット対象ファイル・コード確認(a)(b)(c)すべて満たしていることを確認した。

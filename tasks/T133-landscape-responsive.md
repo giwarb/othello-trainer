@@ -32,6 +32,11 @@ attempts: 0
 - 縦持ち(現行)のレイアウト・既存の375px縦向け対応を壊さないこと(回帰確認必須)。
 - 教師コーパス生成走行中: bench/・train/data/teacher/に触れない、`npm run typecheck`禁止(`npx tsc --noEmit -p app/tsconfig.app.json`直接)、Rust/wasmビルド禁止。一時ファイルはscratchpadへ。
 
+## 追加要件(T132代替レビュー中指摘の修正、tasks/review/T130-T132-learning-features-claude-review.md)
+
+1. **振り返り自動解析の定石DB整合**: `AnalysisMode.tsx`の`initialTranscript`自動解析がマウント直後に走るため常に`josekiDb=null`で解析され、手動貼り付け経路と異なり定石内悪手除外・定石表示が効かない(定石手が悪手表示されうる)。josekiDbのロード完了を待ってから自動解析を開始する(または手動経路と同じ前提条件に揃える)よう修正し、テストを追加。
+2. **CPU着手経路の履歴記録テスト**: `app.playmode.review.test.tsx`は2人対戦のみ。CPU対局(CPU着手effect経由)でも履歴が正しく記録されることのコンポーネントテストを1件追加。
+
 ## 受け入れ基準
 
 - [ ] Playwright(またはBrowser MCP)で本番Pagesを viewport **844x390** と **640x360** で操作し、少なくとも: (a)中盤練習の失敗画面で言語化文がスクロールなしで可視 (b)詰めオセロの結果画面で最終盤面+結果が同時可視 (c)対局モードで盤全体+操作が同時可視 (d)全対象画面で横スクロールなし、を確認(スクリーンショットまたはDOM計測を作業ログに記録)
