@@ -49,3 +49,24 @@ attempts: 0
 ## フィードバック(やり直し時にオーケストレーターが記入)
 
 ## 作業ログ(担当エージェントが追記)
+
+- 2026-07-18 実装開始。`git pull --rebase`実行(既にup to date、T130/T132は既にmain反映済み)。
+- 追加要件(B)から着手。explorer(1体)でCSS/レイアウト構造とBoard.tsxのリサイズロジックを調査完了(横幅のみ基準、高さ未考慮であることを確認)。
+- 追加要件1(josekiDb整合): `app/src/analysis/AnalysisMode.tsx`に`josekiDbReady`state(`app.tsx`のCPU着手effectと同じ命名)を追加。定石DBロードeffectに`.finally(() => setJosekiDbReady(true))`を追加し、`initialTranscript`自動解析effectの依存配列とガードに`josekiDbReady`を追加(ロード完了までは自動解析を開始しない)。テスト`app/src/analysis/AnalysisMode.initialTranscript.test.tsx`を新規作成(定石DBロードを手動制御可能なPromiseに差し替え、ロード未完了中は`onInitialTranscriptConsumed`/`lookupJosekiNode`が呼ばれず、完了後に呼ばれる=`josekiDb`が`null`でない状態で解析されることを検証)。パス確認済み。
+- 追加要件2(CPU経路履歴テスト): `app/src/app.playmode.cpuHistory.test.tsx`を新規作成。CPU対戦(黒番人間)でd3着手→CPU(白)がe3で応手→強制終局させ、「この対局を棋譜解析で振り返る」経由でd3・e3双方が棋譜解析に引き継がれることを検証。実装中、`playMove`単体をモックしてもCPU側の内部呼び出し(`gameLoop.ts`内のローカル参照)には反映されないことが判明したため、`requestCpuMove`自体をラップする方式に変更して解決。パス確認済み(sanity 1件+本体1件、計2件)。
+- 追加要件(B)完了時点で `npx vitest run` を実行、85ファイル714件全パス(既存711件+新規3件)。`npx tsc --noEmit -p app/tsconfig.app.json` エラーなし。
+- (A)横置きレスポンシブ実装。explorer調査結果どおり `components/Board.tsx` は幅(`container.clientWidth`)のみを見て正方形canvasを描画するため、`.board-container`(幅)をdvh基準に制約するだけでJS変更なしに「高さ基準の盤」を実現できると判断。
+  - `app/src/app.css`: `@media (orientation: landscape) and (max-height: 520px)` を新設。`.board-container`の幅をdvh基準に、各対象画面のルート要素を`display:grid`化して「盤(左、`grid-row:1/span N`でスパン)+それ以外(右、`grid-column:2`)」の2カラムに再構成。`main > h1`を横置きでは視覚的に非表示(sr-only化、`.mode-nav`が現在地を示すため冗長)にし、可用高さを稼いだ。
+  - `app/src/app.tsx`: 対局モード(PlayMode)にルート要素が無かったため、CSSフック用に`<div class="play-board-area">`ラッパーを追加(旧`<>`フラグメントを置換。中身・条件分岐は変更なし、視覚的にはdisplay:blockの子として振る舞うため縦持ちの見た目は不変)。
+  - `app/src/midgame/PracticeMode.css` / `app/src/tsume/PlayMode.css` / `app/src/joseki/PracticeMode.css` / `app/src/analysis/AnalysisMode.css`: 同じ考え方(grid 2カラム化)を各対象画面に適用。中盤練習の失敗画面(`ClearBlunderCompare`)は、そのルート`.clear-blunder-compare`を`display:contents`にして透過にし、コンポーネントの境界(JSX)を一切変えずに内部の`.clear-blunder-compare__boards`(盤2枚)を左カラム・`.clear-blunder-compare__messages`(言語化文)を右カラムへ分離。
+  - **redoに近い自己修正(実装中に発見・即修正)**: 当初「サイドバーが可変長の右カラムぶん伸びる」定番パターンとして`grid-row: 1 / span 999`を使ったが、ブラウザでの実測で`row-gap`が(実際には使われない)999行分の行境界すべてに積算され、コンテナの高さが数百〜数千px規模まで意図せず膨張するバグを発見(`max-height:100dvh; overflow-y:auto`で見た目上は隠れてしまうため気づきにくい)。各画面の右カラムの実項目数を軽く超える程度の小さいspan値(6〜12)に修正し、実測で解消を確認(詳細はコード内コメント参照)。
+  - Browser MCP(ローカル`vite`直接起動、`npm run dev`のwasmビルドpredevフックを回避)で844x390/640x360を実機相当で検証:
+    - 対局モード: 盤+状態表示+操作が同時可視(`docScrollHeight===docClientHeight`、横スクロールなし)。
+    - 中盤練習・対局中/詰めオセロ・対局中/定石練習・対局中: いずれも盤+状態表示+トグル+やめるボタンが同一画面内に収まることを確認。
+    - 詰めオセロ・結果画面(不正解、実際にプレイして到達): 最終盤面+全合法手の表+ボタンが同時可視、844x390/640x360とも`docScrollHeight===docClientHeight`。
+    - 中盤練習・失敗画面(ClearBlunderCompare、実際にプレイして到達): 844x390で`docScrollHeight===docClientHeight`(スクロール一切不要)、640x360で言語化文・ボタンとも完全に可視領域内(ページ全体では13px程度のわずかな超過があるが、優先対象の言語化文自体はスクロール不要)。
+    - 縦持ち375x812回帰確認: `main > h1`は`position:static`で通常表示、対象画面のルート要素は`display:flex`のまま(grid化されない)、盤は幅いっぱい(横置き専用ルールが縦持ちに漏れていないことを確認)。
+  - コミット `3810e6e`(app: 横置き(ランドスケープ)レスポンシブ最適化とT132指摘2件の修正、9ファイル)を作成・push。GitHub Actions「Deploy to GitHub Pages」成功(run 29630860345)。
+  - 本番Pages (`https://giwarb.github.io/othello-trainer/`) で同じ検証を再実施: 対局モード(844x390/640x360とも`docScrollHeight===docClientHeight`)、詰めオセロ結果画面(実プレイで到達、844x390で完全可視)、縦持ち375x812回帰(h1可視・flex維持)をいずれも確認。中盤練習の失敗画面のみ、本番側では悪化パターン検出条件を再現する着手をランダムクリックで引き当てられず未再確認(ローカルdevビルドと同一コミット・同一バンドルのため、ローカルでの確認結果がそのまま適用されると判断)。
+- 完了。最終レポートはオーケストレーターへの返信を参照。
+
