@@ -1,7 +1,7 @@
 ---
 id: T133
 title: 全モードの横置き(ランドスケープ)レスポンシブ最適化
-status: todo # T130/T132完了後に着手(同一ファイル群のため直列)
+status: done # verifier/代替レビュー両合格(2026-07-18)。中2件はT135/T136へ
 assignee: implementer(Sonnet)
 attempts: 0
 ---
