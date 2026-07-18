@@ -1,7 +1,8 @@
 ---
 id: T137
 title: UX強化3: 設定・一覧・ホーム画面の磨き込み(CTA強調・進捗の見える化)
-status: in_progress # T136完了(done)を受けて委譲
+status: redo # 代替レビュー中3件の仕上げ(シリーズ最終弾のため持ち越さず修正)
+attempts: 1
 assignee: implementer(Sonnet)
 attempts: 0
 ---
@@ -47,6 +48,15 @@ attempts: 0
 
 ## フィードバック(やり直し時にオーケストレーターが記入)
 
+### redo#1(2026-07-18、代替レビュー中3件+軽微1件。tasks/review/T137-ui-setup-claude-review.md。シリーズ最終弾のため持ち越さずここで仕上げる)
+
+1. (中1)チップのキーボードフォーカスリングが不可視(sr-only側にリングが描かれる)→ `:has(input:focus-visible)`等でlabel側に可視リングを付ける+キーボード操作の確認。
+2. (中2)ホームの実績行が初回取得のみで、モードでクリアしてホームに戻っても数値が古い → モード復帰時(mode変化でhomeに戻ったとき)に再取得する。テスト1件(クリア→ホーム復帰→数値更新)。
+3. (中3)PlayerBadgeのaria-labelがrole=genericのdivに付与されARIA仕様上prohibited(SRで無視されうる、T136申し送り5の意図未達)→ `role="group"`付与または`.sr-only`スパン方式へ変更。既存テストを実態に追従。
+4. (軽微)「クリアx/y」表記のスペース有無をホーム/設定/一覧で統一する。
+
+最小差分・`npx vitest run`全パス・push→Actions成功→本番で中2の再現確認(モードでクリア→ホームの数値更新)まで。コミットは`(T137)`。
+
 ## 作業ログ(担当エージェントが追記)
 
 ### 2026-07-18 implementer(Sonnet)実装完了
@@ -88,3 +98,14 @@ attempts: 0
 **判断に迷った点**
 
 - 詰めオセロの「今日の1問」実績: 要件4の文言例「クリアx/182・今日の1問」だけでは「今日の1問」が何を示すか曖昧だったため、「今日の1問(デイリー)を既にクリア済みかどうか」(済み/未挑戦)を表示する設計にした(定石の「今日の復習」と同様、当日のアクションを促すゲーミフィケーション要素として一貫させる意図)。
+
+### 2026-07-18 verifier検証(対象コミット 0196d7e)
+
+- `npx vitest run`(app/): 95ファイル/754件 全パス。
+- `npx tsc --noEmit -p tsconfig.app.json`(app/直下で実行、指示文の`app/tsconfig.app.json`はリポジトリルート基準のパスではnpxが node_modules を見つけられず動作しないため、app/直下+相対パスで実行しエラー0件を確認。指示コマンドの意図と等価)。
+- 追加要件1〜5をコード確認: `--board-label-band: 1.35rem`化(index.css)/`--app-header-height`トークンが11箇所(5ファイル)で参照されマジックナンバー残存なし/`play-setup`の`.card`重複解消(app.tsx、CSS側は元々.card相当を直接指定済みで視覚差なし)/2人対戦投了非表示の専用テスト(app.playmode.stateSeparation.test.tsx)/PlayerBadgeのaria-label実装+専用テスト、いずれも確認。
+- 進捗集計ロジック: `tsume/difficultyStats.ts`は難易度ごとにpoolをフィルタし空きマス最小/最大とクリア数(`stageStatus`ベース、Puzzle単位1レコード)を算出。`midgame/PracticeMode.tsx`の「クリア」定義は既存の★ロジック(`stageStatus`=いずれかの判定モードでクリア済み)をそのまま流用しており判定モード別記録との整合が取れている。`home/modeProgress.ts`はマウント時に3モード独立try/catchで取得し、失敗時はconsole.errorのみでstateを更新しない(`TitleScreen.tsx`は`card.progress`が`undefined`なら行自体を描画しないため表示は壊れない)。0件時の表示は`app.home.progress.test.tsx`で実データ相当のシナリオ(クリア0件)を確認済み。ただし**取得失敗時(reject)の専用テストは無く**、コードレビューでの論理確認に留まる(try/catchの構造上は安全)。
+- Playwright(chromium, viewport 375x812)で本番Pages(`https://giwarb.github.io/othello-trainer/`)を確認: ホーム進捗行(定石「今日の復習112本」/中盤「クリア0/111」/詰め「クリア0/182・今日の1問未挑戦」、対局・棋譜解析は非表示で正常)、詰め難易度カード5枚(空きマス数帯+クリア数)、中盤チップ(3グループ、`--active`修飾、開始ボタン`btn-primary`高さ56px)、苦手パターン空状態(📊アイコン+説明文)、両モードのステージ一覧サマリ+進捗バー(aria-valuenow/valuemax)を全てDOMで確認。
+- GitHub Actions: 対象コミット0196d7eの`Deploy to GitHub Pages`・`Rust Tests`とも`success`。
+- `git status --short`: クリーン(コミット範囲は0196d7eのみでapp/配下、bench/・train/への差分なし)。
+- 判定: 合格。
