@@ -31,6 +31,10 @@ attempts: 0
 - T128(初期5パターン+対比UI)完了後に着手する(`app/src/midgame/clearBlunder.ts` 等の同一ファイルを拡張するため)。T128の実装様式(検出器関数+名前付き閾値定数+陽性/陰性テスト)に従う。
 - 第2波(危険な辺の形=ウィング、種石の献上)は本タスクに含めない(T128cとして別途判断)。
 
+## 追加要件(T128代替レビュー中指摘の修正、tasks/review/T128-clear-blunder-claude-review.md)
+
+- `PracticeMode.tsx` の `handlePlayerMove` ゲートのフォールバック経路(`requestFeatureSet`失敗のcatch節)で、awaitのreject後に `sessionGenerationRef` の世代チェックを再実行してから `handleModeFailure` を呼ぶよう修正する(現状は離脱済みセッションのfail記録がlocalStorageに書かれうる、T119と同型)。回帰テスト1件を追加(catch経路で世代不一致なら記録が書かれないこと)。
+
 ## やらないこと(スコープ外)
 
 - 第2波パターン(ウィング・種石)/エンジン変更/閾値の緩和による捕捉率稼ぎ(方針違反とレポートも明記)
