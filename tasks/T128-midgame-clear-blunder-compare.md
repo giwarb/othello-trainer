@@ -1,7 +1,7 @@
 ---
 id: T128
 title: 中盤練習: 1手先の盤面対比による「明確な悪手」判定と平易な言語化
-status: in_progress # todo | in_progress | review | redo | done | blocked
+status: done # todo | in_progress | review | redo | done | blocked
 assignee: implementer(Sonnet)
 attempts: 0
 ---
