@@ -17,6 +17,17 @@ const WHITE_COLOR = '#f5f5f5'
  */
 export const FLIP_ANIMATION_MS = 220
 
+/**
+ * 対局モード(`app.tsx`の`PlayMode`)で、自分の着手の反転アニメーションが
+ * 完了してからCPUの応手を盤面に反映するまでに置く「間」(ms、T134)。
+ * `FLIP_ANIMATION_MS`と合わせて使うことで「自分の返しが完全に終わる→短い間→
+ * CPUの着手を見せる」という直列化を実現する(`PlayMode`の`displaySequencer`参照)。
+ * `FLIP_ANIMATION_MS`と同じくこのファイルからexportしているのは、`app.tsx`の
+ * テストが`vi.mock('./components/Board.tsx', ...)`で両定数をまとめて0に
+ * 差し替えられるようにするため。
+ */
+export const DISPLAY_GAP_MS = 250
+
 const NO_DIFF: BoardDiff = { isSingleMove: false, placed: [], flipped: [] }
 
 export interface BoardProps {

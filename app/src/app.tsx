@@ -8,13 +8,14 @@ import { isBlunder } from './blunder/isBlunder.ts'
 import { DEFAULT_BLUNDER_CONFIG, type BlunderConfig, type EvalSource } from './blunder/types.ts'
 import { BoardEditor, type BoardEditorResult } from './components/BoardEditor.tsx'
 import { EvalBadge, formatDiscDiff } from './components/EvalBadge.tsx'
-import { Board, FLIP_ANIMATION_MS } from './components/Board.tsx'
+import { Board, DISPLAY_GAP_MS, FLIP_ANIMATION_MS } from './components/Board.tsx'
 import { MoveEvalOverlay } from './components/MoveEvalOverlay.tsx'
 import { ResultCelebration } from './components/ResultCelebration.tsx'
 import { celebrationKindFor, type CelebrationKind } from './components/resultCelebrationLogic.ts'
 import type { EngineClient } from './engine/client.ts'
 import { getSharedEngineClient } from './engine/sharedClient.ts'
 import type { AnalyzeLimit, MoveEvalJson } from './engine/types.ts'
+import { createDisplaySequencer, type DisplaySequencer } from './game/displayQueue.ts'
 import { appendPlayedMove, isStandardStartPosition, movesToTranscript } from './game/gameHistory.ts'
 import { createGame, createGameFromPosition, playMove, requestCpuMove, type GameState } from './game/gameLoop.ts'
 import {
@@ -282,6 +283,23 @@ interface PlayModeProps {
 function PlayMode({ onReviewGame }: PlayModeProps) {
   const [level, setLevel] = useState<LevelKey>('normal')
   const [game, setGame] = useState<GameState>(() => createGame('black'))
+  // `<Board>`・手番表示・スコア等、盤面まわりの「実際に見せる」状態(T134)。
+  // `game`(内部の対局状態)は着手が確定し次第すぐ更新するが、こちらは
+  // `displaySequencerRef`経由でしか更新しない。自分の着手は(アイドル中なら)
+  // 即座に反映され、CPUの応手は直前の反転アニメーションが終わって短い間を
+  // 置いてから反映される(要件: 自分の返しアニメーション完了→CPUの着手を見せる)。
+  // 初期値は`game`と同じ(対局開始直後はアニメーション待ちが無いため即座に一致する)。
+  const [displayGame, setDisplayGame] = useState<GameState>(() => game)
+  // `displaySequencerRef`はコンポーネントのライフタイム中1つのインスタンスを使い回す
+  // (`useRef`の遅延初期化イディオム)。`setDisplayGame`はPreactが安定した参照を
+  // 保証するため、`onApply`としてクロージャに一度だけ捕まえてよい。
+  const displaySequencerRef = useRef<DisplaySequencer<GameState> | null>(null)
+  if (displaySequencerRef.current === null) {
+    displaySequencerRef.current = createDisplaySequencer<GameState>(
+      (state) => setDisplayGame(state),
+      FLIP_ANIMATION_MS + DISPLAY_GAP_MS,
+    )
+  }
   const [thinking, setThinking] = useState(false)
   const [josekiDb, setJosekiDb] = useState<JosekiDb | null>(null)
   const [josekiDbReady, setJosekiDbReady] = useState(false)
@@ -390,6 +408,9 @@ function PlayMode({ onReviewGame }: PlayModeProps) {
           // 何もしない)。
           setMoveHistory((h) => appendPlayedMove(h, game, next))
           setGame(next)
+          // T134: CPUの着手はここで確定するが、盤面への反映(表示)は
+          // `displaySequencerRef`に委ね、直前のアニメーション完了+間まで待たせる。
+          displaySequencerRef.current?.push(next)
         }
       })
       .catch((error: unknown) => {
@@ -424,15 +445,21 @@ function PlayMode({ onReviewGame }: PlayModeProps) {
   // 状態を分けている(将来的に1回のリクエストへ統合する余地はあるが、本タスクの
   // スコープ外・作業ログ参照)。CPUの手番中は取得せず、直前(人間手番時)の結果を
   // クリアする。
+  //
+  // `game`ではなく`displayGame`を見る(T134)。このオーバーレイは`<Board>`の
+  // 各マスに重ねて描画するため、盤面がまだCPUの応手を表示していない
+  // (直列化の待ち時間中の)タイミングで先に「人間の手番の合法手評価」を
+  // 出してしまうと、まだ画面上に残っている前の局面のマスと数値がずれて見える。
+  // `displayGame`が人間の手番に追いつくのを待つことでこれを避ける。
   useEffect(() => {
-    if (game.phase !== 'human' || !moveEvalOverlayEnabled) {
+    if (displayGame.phase !== 'human' || !moveEvalOverlayEnabled) {
       setOverlayMoves(null)
       return
     }
 
     let cancelled = false
     getEngine()
-      .requestAnalyzeAll(game.board, game.sideToMove, LEVELS[level].limit)
+      .requestAnalyzeAll(displayGame.board, displayGame.sideToMove, LEVELS[level].limit)
       .then((moves) => {
         if (!cancelled) setOverlayMoves(moves)
       })
@@ -444,7 +471,7 @@ function PlayMode({ onReviewGame }: PlayModeProps) {
       cancelled = true
     }
     // eslint disabled equivalent: CPU思考エフェクトと同様、levelは取得開始時点の値でよい。
-  }, [game, moveEvalOverlayEnabled, level])
+  }, [displayGame, moveEvalOverlayEnabled, level])
 
   // 現在の評価値バー(T077要件2・3)。表示ONの間、`game`が変わるたび
   // (人間・CPU・2人対戦いずれの着手後も、また新規対局開始時も)直前の着手後の
@@ -489,18 +516,21 @@ function PlayMode({ onReviewGame }: PlayModeProps) {
 
   // 対局が終了したら、Board.tsxの最後の一手の反転アニメーション
   // (FLIP_ANIMATION_MS)が終わるタイミングで勝敗演出を表示する(T067要件3)。
-  // `game.phase`のみを依存配列にしているのは、evalInfo/overlayMoves等の
-  // 更新のたびに再スケジュールされないようにするため(それらは`game.phase`と
+  // `game.phase`ではなく`displayGame.phase`を見る(T134)。CPUの最後の一手が
+  // 直列化キューで表示されるまでの待ち時間中は、まだ盤面上に最後の一手の
+  // アニメーションすら始まっていないため、そのタイミングを起点にする。
+  // `displayGame.phase`のみを依存配列にしているのは、evalInfo/overlayMoves等の
+  // 更新のたびに再スケジュールされないようにするため(それらは`displayGame.phase`と
   // 無関係に変化しうる)。
   useEffect(() => {
-    if (game.phase !== 'over') {
+    if (displayGame.phase !== 'over') {
       setCelebrationVisible(false)
       return
     }
     setCelebrationVisible(false)
     const timer = window.setTimeout(() => setCelebrationVisible(true), FLIP_ANIMATION_MS)
     return () => window.clearTimeout(timer)
-  }, [game.phase])
+  }, [displayGame.phase])
 
   /** オーバーレイ表示ON/OFFを切り替え、`localStorage`へ永続化する(T039、要件4)。 */
   function handleToggleMoveEvalOverlay(enabled: boolean) {
@@ -575,6 +605,11 @@ function PlayMode({ onReviewGame }: PlayModeProps) {
     const nextState = playMove(game, square)
     setMoveHistory((h) => appendPlayedMove(h, game, nextState))
     setGame(nextState)
+    // T134: 自分の着手は(表示側がアイドル中である限り)即座に反映される。
+    // アイドルでない場合(理論上は起こらない想定、Board側の合法手ガードで
+    // 常に人間の手番かつ表示が追いついた状態でのみクリックできるはず)でも、
+    // キューに積まれるだけで安全に順番待ちする。
+    displaySequencerRef.current?.push(nextState)
     void evaluateHumanMove(preBoard, preSide, square, firstMove)
   }
 
@@ -591,14 +626,21 @@ function PlayMode({ onReviewGame }: PlayModeProps) {
     const humanSide = choice === 'random' ? pickRandomSide() : choice
     prepareNewGame()
     setStandardStart(true)
-    setGame(createGame(humanSide))
+    const next = createGame(humanSide)
+    setGame(next)
+    // T134: 新規対局開始は、前の対局の表示待ちキュー・タイマーを一切引き継がず
+    // 即座に初期局面を表示する(`reset`。`push`だと前対局の残り待ち時間の
+    // 影響を受けてしまう)。
+    displaySequencerRef.current?.reset(next)
   }
 
   /** 2人対戦モード(T077要件1)で、標準の初期局面から開始する。 */
   function startVsHumanGame() {
     prepareNewGame()
     setStandardStart(true)
-    setGame(createGame('black', { vsHuman: true }))
+    const next = createGame('black', { vsHuman: true })
+    setGame(next)
+    displaySequencerRef.current?.reset(next)
   }
 
   /** 「盤面を自由に配置して開始」導線(T077要件4)。編集用の盤面を標準初期局面にリセットして開く。 */
@@ -628,11 +670,15 @@ function PlayMode({ onReviewGame }: PlayModeProps) {
     // 一致する場合のみ「振り返る」ボタンを有効にする。
     setStandardStart(isStandardStartPosition(editorBoard, editorSideToMove))
     if (choice === 'vsHuman') {
-      setGame(createGameFromPosition(editorBoard, editorSideToMove, 'black', { vsHuman: true }))
+      const next = createGameFromPosition(editorBoard, editorSideToMove, 'black', { vsHuman: true })
+      setGame(next)
+      displaySequencerRef.current?.reset(next)
       return
     }
     const humanSide = choice === 'random' ? pickRandomSide() : choice
-    setGame(createGameFromPosition(editorBoard, editorSideToMove, humanSide))
+    const next = createGameFromPosition(editorBoard, editorSideToMove, humanSide)
+    setGame(next)
+    displaySequencerRef.current?.reset(next)
   }
 
   /**
@@ -648,8 +694,10 @@ function PlayMode({ onReviewGame }: PlayModeProps) {
     return celebrationKindFor(state.result, state.humanSide)
   }
 
-  const blackCount = countDiscs(game.board, 'black')
-  const whiteCount = countDiscs(game.board, 'white')
+  // T134: スコア表示は「実際に見せている」盤面(`displayGame`)を基準にする
+  // (`game`基準だと、CPUの応手が表示に反映される前に石数だけ先に進んでしまう)。
+  const blackCount = countDiscs(displayGame.board, 'black')
+  const whiteCount = countDiscs(displayGame.board, 'white')
 
   return (
     <>
@@ -750,14 +798,17 @@ function PlayMode({ onReviewGame }: PlayModeProps) {
           勝敗演出)を右カラムに配置する。 */}
       {!editorOpen && (
         <div class="play-board-area">
+          {/* T134: 手番表示は`displayGame`(実際に見せている状態)基準。`game`基準だと
+              CPUの応手が盤面へ反映される前に「手番: 黒」等の文言だけ先に進んでしまい、
+              盤面と文言の間で新たな不整合が生じるため。 */}
           <p class="status">
             {game.vsHuman ? '2人対戦モードです。' : `あなたは${sideLabel(game.humanSide)}番です。`}
-            {game.phase === 'over'
+            {displayGame.phase === 'over'
               ? ' 対局終了。'
-              : ` 手番: ${sideLabel(game.sideToMove)}${thinking ? '(思考中...)' : ''}`}
+              : ` 手番: ${sideLabel(displayGame.sideToMove)}${thinking ? '(思考中...)' : ''}`}
           </p>
 
-          {game.passMessage && <p class="notice">{game.passMessage}</p>}
+          {displayGame.passMessage && <p class="notice">{displayGame.passMessage}</p>}
 
           {evalBarEnabled && evalBarValue !== null && (
             <div class="play-eval-bar">
@@ -768,11 +819,20 @@ function PlayMode({ onReviewGame }: PlayModeProps) {
             </div>
           )}
 
+          {/* T134: `<Board>`には`displayGame`(実際に見せている状態)を渡す。これにより
+              盤面上の合法手ヒント・クリック可否も表示中の状態を基準に判定され、
+              CPUの応手がまだ画面に反映されていない間に人間の着手を先取りして
+              受け付けてしまうことがない。 */}
           <div class="board-container board-with-move-eval-overlay">
-            <Board board={game.board} sideToMove={game.sideToMove} lastMove={game.lastMove} onMove={handleMove} />
+            <Board
+              board={displayGame.board}
+              sideToMove={displayGame.sideToMove}
+              lastMove={displayGame.lastMove}
+              onMove={handleMove}
+            />
             <MoveEvalOverlay
               allMoves={overlayMoves}
-              mover={game.sideToMove}
+              mover={displayGame.sideToMove}
               thresholds={classifyThresholds}
               visible={moveEvalOverlayEnabled}
             />
@@ -791,7 +851,7 @@ function PlayMode({ onReviewGame }: PlayModeProps) {
 
           {/* T132: 終局後、標準初期局面からの対局かつ実際に着手が記録されている場合のみ、
               棋譜解析モードへワンタップで遷移できるボタンを出す(要件1・4)。 */}
-          {game.phase === 'over' && standardStart && moveHistory.length > 0 && (
+          {displayGame.phase === 'over' && standardStart && moveHistory.length > 0 && (
             <div class="review-game">
               <button type="button" onClick={() => onReviewGame(movesToTranscript(moveHistory))}>
                 この対局を棋譜解析で振り返る
@@ -799,10 +859,10 @@ function PlayMode({ onReviewGame }: PlayModeProps) {
             </div>
           )}
 
-          {game.phase === 'over' && celebrationVisible && game.result && (
+          {displayGame.phase === 'over' && celebrationVisible && displayGame.result && (
             <ResultCelebration
-              kind={celebrationKindForGame(game)}
-              message={game.result === 'draw' ? '引き分けです。' : `${sideLabel(game.result)}の勝ちです。`}
+              kind={celebrationKindForGame(displayGame)}
+              message={displayGame.result === 'draw' ? '引き分けです。' : `${sideLabel(displayGame.result)}の勝ちです。`}
             />
           )}
         </div>

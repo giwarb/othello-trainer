@@ -55,6 +55,10 @@ vi.mock('./components/Board.tsx', () => ({
     </button>
   ),
   FLIP_ANIMATION_MS: 0,
+  // T134: 自分の着手→アニメ完了+間 の後にCPUの応手を表示する直列化の「間」。
+  // 実時間で待つとテストが遅く不安定になるため0にする(詳細は
+  // `app/src/game/displayQueue.ts`・`app.playmode.test.tsx`のコメント参照)。
+  DISPLAY_GAP_MS: 0,
 }))
 
 vi.mock('./engine/sharedClient.ts', () => {
