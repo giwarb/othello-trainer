@@ -1,10 +1,9 @@
 ---
 id: T135
 title: UX強化1: コンパクトヘッダとデザイン言語の統一(共通シェル)
-status: redo # オーケストレーターのビジュアルQAによる差し戻し(デザイン階層)
-attempts: 1
+status: done # redo#1(ビジュアルQA差し戻し)含めverifier/代替レビュー合格(2026-07-18)
 assignee: implementer(Sonnet)
-attempts: 0
+attempts: 1
 ---
 
 # T135: 共通シェル刷新
