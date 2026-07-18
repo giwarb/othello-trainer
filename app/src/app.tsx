@@ -15,6 +15,7 @@ import { celebrationKindFor, type CelebrationKind } from './components/resultCel
 import type { EngineClient } from './engine/client.ts'
 import { getSharedEngineClient } from './engine/sharedClient.ts'
 import type { AnalyzeLimit, MoveEvalJson } from './engine/types.ts'
+import { appendPlayedMove, isStandardStartPosition, movesToTranscript } from './game/gameHistory.ts'
 import { createGame, createGameFromPosition, playMove, requestCpuMove, type GameState } from './game/gameLoop.ts'
 import {
   countDiscs,
@@ -89,6 +90,18 @@ const MODE_CARDS = NAV_VISIBLE_MODES.map((key) => ({
 export function App() {
   const [mode, setMode] = useState<AppMode | null>(null)
 
+  // T132: 対局モードの「この対局を振り返る」ボタンから棋譜解析モードへ渡す
+  // 標準トランスクリプト文字列。モード間の受け渡しはURLやDBを経由せず、
+  // このAppコンポーネントのstateを経由するだけでよい(タスク要件2)。
+  // `AnalysisMode`側が消費し終えたら`onInitialTranscriptConsumed`でnullに戻し、
+  // 同じ値で二度自動解析が走らないようにする(`AnalysisMode.tsx`のコメント参照)。
+  const [pendingReviewTranscript, setPendingReviewTranscript] = useState<string | null>(null)
+
+  function handleReviewGame(transcript: string): void {
+    setPendingReviewTranscript(transcript)
+    setMode('analysis')
+  }
+
   if (mode === null) {
     return (
       <main class="home-main">
@@ -123,11 +136,16 @@ export function App() {
         ))}
       </nav>
 
-      {mode === 'play' && <PlayMode />}
+      {mode === 'play' && <PlayMode onReviewGame={handleReviewGame} />}
       {mode === 'joseki' && <PracticeMode />}
       {mode === 'midgame' && <MidgamePracticeMode />}
       {mode === 'tsume' && <TsumePlayMode />}
-      {mode === 'analysis' && <AnalysisMode />}
+      {mode === 'analysis' && (
+        <AnalysisMode
+          initialTranscript={pendingReviewTranscript}
+          onInitialTranscriptConsumed={() => setPendingReviewTranscript(null)}
+        />
+      )}
       {mode === 'verbalize' && <VerbalizeMode />}
     </main>
   )
@@ -239,6 +257,12 @@ interface EvalInfo {
   reason: string | null
 }
 
+/** `PlayMode`のprops(T132)。 */
+interface PlayModeProps {
+  /** 終局後「この対局を振り返る」ボタンが押されたときに、棋譜文字列を渡して呼ばれる。 */
+  onReviewGame: (transcript: string) => void
+}
+
 /**
  * 対局モード本体(T013/T019)。
  *
@@ -247,8 +271,15 @@ interface EvalInfo {
  *   人間のクリックによる着手を受け付ける(要件1)。
  * - 現在の評価値バー(`midgame/EvalBar.tsx`を転用)の表示切替(要件2・3)。
  * - 盤面自由配置エディタ(`BoardEditor`)からの対局開始(要件4・5)。
+ *
+ * T132で以下を追加した:
+ * - 実際に打たれた着手を`moveHistory`に積み上げ(`gameHistory.ts`の
+ *   `appendPlayedMove`、パスは記録しない)、終局後に棋譜解析モードへ
+ *   ワンタップで遷移できる「この対局を振り返る」ボタン(要件1・2・3)。
+ * - 開始局面が標準初期局面かどうかを`standardStart`で追跡し、盤面自由配置
+ *   エディタから非標準局面で開始した対局ではボタンを表示しない(要件4)。
  */
-function PlayMode() {
+function PlayMode({ onReviewGame }: PlayModeProps) {
   const [level, setLevel] = useState<LevelKey>('normal')
   const [game, setGame] = useState<GameState>(() => createGame('black'))
   const [thinking, setThinking] = useState(false)
@@ -261,6 +292,14 @@ function PlayMode() {
   // 「思考中」表示が解除されなくなる不具合の原因だった)。値の変化そのものを
   // 検知して再描画する必要はないため`useRef`で保持する。
   const firstMoveSquareRef = useRef<number | null>(null)
+  // 実際に打たれた着手の記法列(T132)。パスは含まない(`gameHistory.ts`の
+  // `appendPlayedMove`参照)。終局後「この対局を振り返る」ボタンの棋譜文字列の
+  // 元データになる。表示に使う(ボタンの活性・非表示判定)ため`useState`にする。
+  const [moveHistory, setMoveHistory] = useState<string[]>([])
+  // 現在の対局が標準初期局面(黒番)から始まったかどうか(T132要件4)。
+  // 盤面自由配置エディタから開始した対局のうち、実際には標準局面のまま
+  // 開始した場合は`true`になる(`gameHistory.ts`の`isStandardStartPosition`)。
+  const [standardStart, setStandardStart] = useState(true)
   const [openingBookEnabled, setOpeningBookEnabled] = useState<boolean>(() =>
     loadOpeningBookEnabled(localStorage),
   )
@@ -346,6 +385,10 @@ function PlayMode() {
     requestCpuMove(game, getEngine(), cpuMoveLimitForLevel(level, game.board), bookMove)
       .then((next) => {
         if (!cancelled) {
+          // T132: CPUの着手(書籍応手・探索応手いずれも)が実際に成立した場合のみ
+          // 履歴へ追記する(`appendPlayedMove`は`lastMove`が変化していなければ
+          // 何もしない)。
+          setMoveHistory((h) => appendPlayedMove(h, game, next))
           setGame(next)
         }
       })
@@ -524,7 +567,14 @@ function PlayMode() {
     // ここで直接フォールバックする)。
     const firstMove = firstMoveSquareRef.current ?? square
 
-    setGame((prev) => playMove(prev, square))
+    // T132: `game`から直接次状態を計算する(この関数のクロージャは呼び出し時点で
+    // 常に最新の`game`を指す。人間のクリックは同期処理なので、既存の`preBoard`/
+    // `preSide`と同様に直接参照して問題ない)。関数型`setGame`更新の内側で
+    // 履歴追記のような副作用を行うと、React 18 Strict Modeの二重呼び出しで
+    // 履歴が二重に積まれる恐れがあるため、`setGame`の外で一度だけ計算する。
+    const nextState = playMove(game, square)
+    setMoveHistory((h) => appendPlayedMove(h, game, nextState))
+    setGame(nextState)
     void evaluateHumanMove(preBoard, preSide, square, firstMove)
   }
 
@@ -534,17 +584,20 @@ function PlayMode() {
     firstMoveSquareRef.current = null
     setEvalInfo(null)
     setEditorOpen(false)
+    setMoveHistory([])
   }
 
   function startNewGame(choice: Side | 'random') {
     const humanSide = choice === 'random' ? pickRandomSide() : choice
     prepareNewGame()
+    setStandardStart(true)
     setGame(createGame(humanSide))
   }
 
   /** 2人対戦モード(T077要件1)で、標準の初期局面から開始する。 */
   function startVsHumanGame() {
     prepareNewGame()
+    setStandardStart(true)
     setGame(createGame('black', { vsHuman: true }))
   }
 
@@ -571,6 +624,9 @@ function PlayMode() {
    */
   function startFromEditor(choice: Side | 'random' | 'vsHuman') {
     prepareNewGame()
+    // T132要件4: エディタで組み立てた局面が(結果的に)標準初期局面・黒番と
+    // 一致する場合のみ「振り返る」ボタンを有効にする。
+    setStandardStart(isStandardStartPosition(editorBoard, editorSideToMove))
     if (choice === 'vsHuman') {
       setGame(createGameFromPosition(editorBoard, editorSideToMove, 'black', { vsHuman: true }))
       return
@@ -726,6 +782,16 @@ function PlayMode() {
           <p class="score">
             黒: {blackCount} / 白: {whiteCount}
           </p>
+
+          {/* T132: 終局後、標準初期局面からの対局かつ実際に着手が記録されている場合のみ、
+              棋譜解析モードへワンタップで遷移できるボタンを出す(要件1・4)。 */}
+          {game.phase === 'over' && standardStart && moveHistory.length > 0 && (
+            <div class="review-game">
+              <button type="button" onClick={() => onReviewGame(movesToTranscript(moveHistory))}>
+                この対局を棋譜解析で振り返る
+              </button>
+            </div>
+          )}
 
           {game.phase === 'over' && celebrationVisible && game.result && (
             <ResultCelebration

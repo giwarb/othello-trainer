@@ -127,6 +127,15 @@ main {
   overflow-wrap: break-word;
 }
 
+/* T132: 終局後の「この対局を棋譜解析で振り返る」ボタン。.controls__rowと同様、
+   flex-wrapで375px幅でも崩れないようにする。 */
+.review-game {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin: 0.5rem 0;
+}
+
 .settings {
   margin-top: 1.5rem;
   padding: 0 0.5rem;

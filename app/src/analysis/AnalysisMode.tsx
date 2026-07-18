@@ -168,8 +168,23 @@ function buildBoardTrack(results: readonly MoveAnalysis[]): BoardTrackEntry[] {
  *
  * レスポンシブ対応: `AnalysisMode.css`で375px幅程度でも崩れないよう
  * `flex-wrap`・縦積みレイアウトを使う。
+ *
+ * T132: 対局モード(`app.tsx`のPlayMode)の「この対局を棋譜解析で振り返る」
+ * ボタンからの受け口として、`initialTranscript`(標準トランスクリプト文字列)を
+ * 任意で受け取る。指定された場合、マウント時に「テキストで入力」タブへ
+ * プリフィルした上で自動的に解析を開始する(要件2)。呼び出し元(`App`)は
+ * このpropを1回きりの遷移トリガーとして扱う想定のため、消費し終えたら
+ * `onInitialTranscriptConsumed`を呼んで呼び出し元の保持値をクリアしてもらう
+ * (`AnalysisMode`自体が再マウントされるまで同じ値で再度自動解析が走らないように
+ * するための呼び出し元との取り決め。詳細は`app.tsx`の`pendingReviewTranscript`
+ * 参照)。
  */
-export function AnalysisMode() {
+export interface AnalysisModeProps {
+  readonly initialTranscript?: string | null
+  readonly onInitialTranscriptConsumed?: () => void
+}
+
+export function AnalysisMode({ initialTranscript, onInitialTranscriptConsumed }: AnalysisModeProps = {}) {
   const [phase, setPhase] = useState<Phase>('input')
   const [inputTab, setInputTab] = useState<InputTab>('transcript')
   const [transcriptText, setTranscriptText] = useState('')
@@ -299,6 +314,26 @@ export function AnalysisMode() {
       setInputError(error instanceof Error ? error.message : String(error))
     }
   }
+
+  // T132: 対局モードからの「この対局を振り返る」導線。`initialTranscript`が
+  // 渡された場合、「テキストで入力」タブへプリフィルした上で自動的に解析を
+  // 開始する(`handleTranscriptSubmit`と同じ経路)。依存配列を`[initialTranscript]`
+  // のみにしているのは、`initialTranscript`が新しい値になった時だけ発火させる
+  // ためで、`onInitialTranscriptConsumed`(呼び出し元が毎レンダー新しい関数を
+  // 渡しうる)を含めると意図せず再発火してしまう。
+  useEffect(() => {
+    if (!initialTranscript) return
+    setTranscriptText(initialTranscript)
+    setInputTab('transcript')
+    try {
+      const moves = parseTranscript(initialTranscript)
+      void startAnalysis(moves)
+    } catch (error) {
+      setInputError(error instanceof Error ? error.message : String(error))
+    }
+    onInitialTranscriptConsumed?.()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialTranscript])
 
   function handleManualMove(square: number): void {
     if (!manualReplay.positions) return
