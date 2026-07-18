@@ -1,7 +1,7 @@
 ---
 id: T138
 title: 対局: 評価値表示の新仕様(定石内は0・常時表示・盤面評価=合法手最大)+定石トレース表示
-status: in_progress
+status: done # verifier/代替レビュー/ビジュアルQA全合格(2026-07-18)。中2件はオーケストレーター裁定で容認+申し送り
 assignee: implementer(Sonnet)
 attempts: 0
 ---
