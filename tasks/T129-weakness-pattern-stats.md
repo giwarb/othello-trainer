@@ -50,4 +50,6 @@ attempts: 0
   - `app/src/midgame/PracticeMode.css`: `.midgame-pattern-stats`系のスタイルと375px向けメディアクエリ追加。
   - テスト: `app/src/midgame/patternStats.test.ts`(新規、パターン統計モジュールの単体テスト。往復保存=リロード後保持・全パターン加算・累積・リセット・降順ソート・バリデーション)、`app/src/midgame/clearBlunder.test.ts`に`detectAllClearBlunderPatterns`が表示上限を超えて全件返すことの回帰テストを追加、`app/src/midgame/PracticeMode.patternStats.test.tsx`(新規、コンポーネントテスト: 失敗で全検出パターン(3件、表示は2件)が加算/ゲート合格時は非加算/世代ガード(離脱後は書かれない)/設定画面での降順上位5件表示・0件表示・リセット動作)。
   - 検証: `npx vitest run`(app配下)666件全パス。`npx tsc --noEmit -p tsconfig.app.json`エラーなし。
-  - コミット `8931951`(`app:` プレフィックス、T129のみ)。push後、GitHub Actionsの完了待ち・Pages実機確認を実施中(続きは次の追記で報告)。
+  - コミット `8931951`(`app:` プレフィックス、T129のみ)。push後、GitHub Actions「Deploy to GitHub Pages」(run 29628274367)が成功したことを確認(`gh run watch`)。
+  - Pages実機確認(`https://giwarb.github.io/othello-trainer/`、Claude Browser MCP): 中盤練習「ステージ一覧」→第1問(虎)→厳格モードでg7(ロス36石、X打ち)に着手→失敗画面に「隅がまだ空いているのに、その斜め隣(X)に打つと隅を取られやすくなります。」と表示され、`localStorage['othello-trainer:midgame-pattern-stats']`に`{"x-c-danger":{"failCount":1,"lastAt":...}}`が書き込まれることを確認。設定画面に「苦手パターン」として「X打ち・C打ち: 1回」が表示されることを確認。ページを再読み込み(URL再ナビゲーション)しても表示が保持される(リロード後も保持)ことを確認。ビューポート375x812でも横スクロール(`scrollWidth > clientWidth`)が発生しないことを確認。「記録をリセット」→確認(「本当にリセットしますか?」はい/いいえ)→「はい」で「まだ記録がありません」に戻り、`localStorage`が`{}`になることを確認。
+  - 以上ですべての受け入れ基準を満たした。
