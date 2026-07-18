@@ -588,6 +588,18 @@ function PlayMode({ onReviewGame }: PlayModeProps) {
 
   function handleMove(square: number) {
     if (game.phase !== 'human') return
+    // T134 redo#1: `<Board>`のクリックガード(`legalMoves(board, sideToMove)`)は
+    // props経由で渡す`displayGame`(表示中の局面)基準で判定される一方、この
+    // 関数自身の上のガードは`game`(内部の最新局面)基準だった。CPUの応手が
+    // `game`としては確定済みだが表示(`displayGame`)にまだ反映されていない
+    // 直列化の待ち窓(ブック応手で最大`FLIP_ANIMATION_MS + DISPLAY_GAP_MS`
+    // ≒470ms)に、「表示中の旧局面でCPU色に合法 かつ 内部の新局面で人間に
+    // 合法」なマスをクリックすると、両ガードを通過してユーザーがまだ見て
+    // いない局面に対する着手が確定してしまう不具合があった(redo#1、
+    // `tasks/review/T134-animation-claude-review.md`指摘)。`displayGame`が
+    // `game`に追いついていない(直列化キューが処理中)間はクリックを無視する
+    // ことでこれを防ぐ。
+    if (displayGame !== game) return
 
     const preBoard = game.board
     const preSide = game.sideToMove
@@ -605,10 +617,9 @@ function PlayMode({ onReviewGame }: PlayModeProps) {
     const nextState = playMove(game, square)
     setMoveHistory((h) => appendPlayedMove(h, game, nextState))
     setGame(nextState)
-    // T134: 自分の着手は(表示側がアイドル中である限り)即座に反映される。
-    // アイドルでない場合(理論上は起こらない想定、Board側の合法手ガードで
-    // 常に人間の手番かつ表示が追いついた状態でのみクリックできるはず)でも、
-    // キューに積まれるだけで安全に順番待ちする。
+    // T134 redo#1: 上の`displayGame !== game`ガードにより、この行に到達する
+    // 時点では表示は必ず追いついている(=直列化キューはアイドル中)ため、
+    // このpushは常に即座に反映される(待ちが発生するのはCPUの応手のpushのみ)。
     displaySequencerRef.current?.push(nextState)
     void evaluateHumanMove(preBoard, preSide, square, firstMove)
   }
