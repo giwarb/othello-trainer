@@ -26,10 +26,36 @@
 import { analyzeWhyBad, computeStableSquares } from '../analysis/whyBad.ts'
 import { detectCUchi, detectXUchi, frontierSquares, type MotifContext } from '../analysis/motifs.ts'
 import type { FeatureSet } from '../analysis/types.ts'
-import { applyMove, legalMoves, notationToSquare, opposite, squareToNotation, type Board, type Side } from '../game/othello.ts'
+import {
+  applyMove,
+  cellAt,
+  countEmpty,
+  legalMoves,
+  notationToSquare,
+  opposite,
+  squareToNotation,
+  type Board,
+  type Side,
+} from '../game/othello.ts'
 
-/** 検出しうる明確な悪化パターンの種別(要件1の表と対応)。 */
-export type ClearBlunderPatternId = 'opponent-mobility' | 'corner-gift' | 'x-c-danger' | 'wall-frontier' | 'stable-loss'
+/**
+ * 検出しうる明確な悪化パターンの種別(要件1の表と対応)。
+ *
+ * T128b(`tasks/T128b-clear-patterns-wave2.md`、設計諮問レポート
+ * `tasks/design/T128-clear-patterns-report.md`の第1波推奨4件をオーケストレーター
+ * 裁定により採用)で`missed-corner`/`opponent-pass-missed`/
+ * `own-mobility-collapse`/`mass-flip`の4種を追加した。
+ */
+export type ClearBlunderPatternId =
+  | 'opponent-mobility'
+  | 'corner-gift'
+  | 'x-c-danger'
+  | 'wall-frontier'
+  | 'stable-loss'
+  | 'missed-corner'
+  | 'opponent-pass-missed'
+  | 'own-mobility-collapse'
+  | 'mass-flip'
 
 /**
  * 検出された1件の明確な悪化パターン。`message`は専門用語を使わない平易な
@@ -245,6 +271,166 @@ export function detectStableLoss(input: ClearBlunderInput): ClearBlunderPattern 
 }
 
 // ---------------------------------------------------------------------
+// missed-corner: 最善手が隅なのに取らなかった(T128b①)
+// ---------------------------------------------------------------------
+
+/**
+ * 重要度: `corner-gift`(10、相手に隅を取られる)に次ぐ「隅系」として、
+ * オーケストレーター裁定(`tasks/T128b-clear-patterns-wave2.md`)により
+ * `corner-gift`の次点(`opponent-pass-missed`より上位)に置く。設計レポート
+ * (`tasks/design/T128-clear-patterns-report.md`)の生の提案値(8)は
+ * `opponent-pass-missed`(9)より低かったが、裁定「優先順位は隅の取り逃し>
+ * パス取り逃し」を反映し、本パターンを`opponent-pass-missed`より高くした。
+ */
+export const MISSED_CORNER_SEVERITY = 9
+
+/**
+ * 「最善手が隅で、実際の手は隅ではない」ことを直接判定する(閾値不要。
+ * 設計レポート§(a)①参照: エンジンが「隅が最善」と言っている事実そのものが
+ * 根拠であり、「隅=常に良い」という一般論を機械的に適用しているわけではない
+ * ため誤検出リスクが無い)。
+ */
+export function detectMissedCorner(input: ClearBlunderInput): ClearBlunderPattern | null {
+  if (!CORNER_SQUARES.includes(input.bestSquare) || CORNER_SQUARES.includes(input.playedSquare)) return null
+  const corner = input.bestSquare
+  return {
+    id: 'missed-corner',
+    message: `隅(${squareToNotation(corner)})を取れるのに取りませんでした。隅は一度取るとひっくり返されない、いちばん強いマスです。`,
+    severity: MISSED_CORNER_SEVERITY,
+    // 「あなたの手のあと」盤面でも「最善手のあと」盤面でも同じ隅マスをハイライトし、
+    // 一方は空きのまま・もう一方は取られている、という対比を見せる(設計レポート参照)。
+    playedHighlightSquares: [corner],
+    bestHighlightSquares: [corner],
+  }
+}
+
+// ---------------------------------------------------------------------
+// opponent-pass-missed: 最善手なら相手の合法手が0(パス)だった(T128b②)
+// ---------------------------------------------------------------------
+
+/**
+ * 重要度: パス強制は隅級のテンポ利得だが、`missed-corner`(9、裁定により
+ * 隅系を最上位に寄せる)より下位に置く(設計レポートの生の提案値は9で
+ * `missed-corner`と同値だったが、オーケストレーター裁定の優先順位
+ * 「隅の取り逃し>パス取り逃し」を反映し1段下げた)。既存`x-c-danger`(6)
+ * よりは上位(パス強制の確実性は危険手より重いと判断)。
+ */
+export const OPPONENT_PASS_MISSED_SEVERITY = 8
+
+/**
+ * 「最善手の後は相手の合法手が0(パス)だが、実際の手の後は相手に合法手が
+ * ある」ことを判定する(閾値不要)。既存`opponent-mobility`は差3以上でしか
+ * 発火しないため、「2→0」のような小差のパス逃しを取りこぼす穴があった
+ * (設計レポート§(a)②)。独立した検出器にすることで、メッセージ・severityを
+ * `opponent-mobility`と分離する。
+ */
+export function detectOpponentPassMissed(input: ClearBlunderInput): ClearBlunderPattern | null {
+  const opponentSide = opponentSideOf(input)
+  const playedOppMoves = legalMoves(boardAfterPlayed(input), opponentSide)
+  const bestOppMoves = legalMoves(boardAfterBest(input), opponentSide)
+  if (bestOppMoves.length !== 0 || playedOppMoves.length === 0) return null
+  return {
+    id: 'opponent-pass-missed',
+    message: `最善手なら相手は打てる場所がなくパスでした。続けてあなたの番になれたのに、この手だと相手は${playedOppMoves.length}か所に打てます。`,
+    severity: OPPONENT_PASS_MISSED_SEVERITY,
+    playedHighlightSquares: playedOppMoves,
+    bestHighlightSquares: [],
+  }
+}
+
+// ---------------------------------------------------------------------
+// own-mobility-collapse: 自分の打てる場所の激減(T128b③)
+// ---------------------------------------------------------------------
+
+/**
+ * 差の閾値3: 既存`OPPONENT_MOBILITY_THRESHOLD`(相手側の差、同じく3)と対称に
+ * 揃えた実装者判断(設計レポート§(a)③)。
+ */
+export const OWN_MOBILITY_COLLAPSE_DIFF_THRESHOLD = 3
+
+/**
+ * 着手後の自分の絶対手数の上限4: 「10→7」のような、まだ余裕がある減少では
+ * 発火させず、「一目で苦しいと分かる」場面(打てる場所が片手で数えられる
+ * 程度)に絞るための追加条件(設計レポート§(a)③、`OPPONENT_MOBILITY_THRESHOLD`
+ * には無い本パターン固有の条件)。
+ */
+export const OWN_MOBILITY_COLLAPSE_MAX_ABS = 4
+
+/**
+ * `FeatureSet.moverMobilityAfter`(着手後局面で、着手した側が次に手番が
+ * 回ってきたときに持つ合法手の数。既存フィールド、設計レポートが指摘する
+ * 「エンジンから既に取得済みの値」)を両手について比較する。着手直後は
+ * 相手番であり、相手の応手を経ないと実際の手数は変わりうる近似だが、
+ * 既存`opponent-mobility`と同水準の近似であり許容する(設計レポート§(a)③の
+ * 「正直さの注意点」参照)。
+ */
+export function detectOwnMobilityCollapse(input: ClearBlunderInput): ClearBlunderPattern | null {
+  const playedOwn = input.playedFeatures.moverMobilityAfter
+  const bestOwn = input.bestFeatures.moverMobilityAfter
+  const diff = bestOwn - playedOwn
+  if (diff < OWN_MOBILITY_COLLAPSE_DIFF_THRESHOLD || playedOwn > OWN_MOBILITY_COLLAPSE_MAX_ABS) return null
+  const message =
+    playedOwn === 0
+      ? `この手の後、あなたが打てる場所がなくなり、パスになるおそれがあります。最善手なら${bestOwn}か所ありました。`
+      : `この手の後、あなたが打てる場所は${playedOwn}か所しかありません。最善手なら${bestOwn}か所ありました。`
+  return {
+    id: 'own-mobility-collapse',
+    message,
+    severity: diff,
+    playedHighlightSquares: legalMoves(boardAfterPlayed(input), input.preMoveSide),
+    bestHighlightSquares: legalMoves(boardAfterBest(input), input.preMoveSide),
+  }
+}
+
+// ---------------------------------------------------------------------
+// mass-flip: 石の取りすぎ(大量返し、T128b④)
+// ---------------------------------------------------------------------
+
+/**
+ * 着手前後で`side`の石になった(=`before`では相手の石だった)マス番号一覧を
+ * 返す(新しく置いた着手マス自体は`before`で空きだったため対象外、自然に
+ * 除外される)。
+ */
+function flippedSquares(before: Board, after: Board, side: Side): number[] {
+  const opp = opposite(side)
+  const result: number[] = []
+  for (let sq = 0; sq < 64; sq++) {
+    if (cellAt(before, sq) === opp && cellAt(after, sq) === side) result.push(sq)
+  }
+  return result
+}
+
+/**
+ * 差の閾値4: 序中盤の最善手のフリップ数は1〜3個が典型(中割り志向)なので、
+ * 差4以上なら「取りすぎ」と一目で言える規模とした実装者判断
+ * (設計レポート§(a)④)。
+ */
+export const MASS_FLIP_DIFF_THRESHOLD = 4
+
+/**
+ * 着手前局面の空きマス数がこれ未満なら判定しない(適用範囲のガード)。
+ * 終盤に近づくほど多く返すのが正しい局面が増えるため、序中盤(中盤練習の
+ * 手数帯)に限定する安全弁。オーケストレーター裁定によりレポート提案値
+ * (16)をそのまま採用した(設計レポート§(a)④・確認事項1)。
+ */
+export const MASS_FLIP_MIN_EMPTY = 16
+
+export function detectMassFlip(input: ClearBlunderInput): ClearBlunderPattern | null {
+  if (countEmpty(input.preMoveBoard) < MASS_FLIP_MIN_EMPTY) return null
+  const playedFlips = flippedSquares(input.preMoveBoard, boardAfterPlayed(input), input.preMoveSide)
+  const bestFlips = flippedSquares(input.preMoveBoard, boardAfterBest(input), input.preMoveSide)
+  const diff = playedFlips.length - bestFlips.length
+  if (diff < MASS_FLIP_DIFF_THRESHOLD) return null
+  return {
+    id: 'mass-flip',
+    message: `この手は一度に${playedFlips.length}個も返しています(最善手は${bestFlips.length}個)。序盤・中盤で石をたくさん返すと、あとで相手に返され放題の形になりやすいです。`,
+    severity: diff,
+    playedHighlightSquares: playedFlips,
+    bestHighlightSquares: bestFlips,
+  }
+}
+
+// ---------------------------------------------------------------------
 // 統合エントリポイント
 // ---------------------------------------------------------------------
 
@@ -260,6 +446,10 @@ export function detectClearBlunderPatterns(input: ClearBlunderInput): readonly C
     detectXCDanger(input),
     detectWallFrontier(input),
     detectStableLoss(input),
+    detectMissedCorner(input),
+    detectOpponentPassMissed(input),
+    detectOwnMobilityCollapse(input),
+    detectMassFlip(input),
   ].filter((pattern): pattern is ClearBlunderPattern => pattern !== null)
 
   if (detected.length === 0) return null

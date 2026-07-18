@@ -715,6 +715,12 @@ export function PracticeMode() {
             return
           } catch (error) {
             console.error('明確な悪化パターン判定用の特徴量取得に失敗しました', error)
+            // T128b(codex-review指摘・中1、tasks/review/T128-clear-blunder-claude-review.md):
+            // Promise.allのawaitがreject後に戻った時点でも、他のawait後の分岐と同様に
+            // 世代チェックを行う。これが無いと、requestFeatureSet待ちの間にユーザーが
+            // 離脱(backToSettings等)していた場合、離脱済みセッションのfail記録が
+            // localStorageに書き込まれてしまう(T119で対処したのと同型のstale書き込み)。
+            if (sessionGenerationRef.current !== generation) return // 離脱済み
             // フォールバック: ゲートを適用できないため、従来どおり評価値のみで不合格とする。
             await handleModeFailure(s, square, playedNotation, judgement, generation, null)
             return
