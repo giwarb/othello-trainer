@@ -1,7 +1,8 @@
 ---
 id: T135
 title: UX強化1: コンパクトヘッダとデザイン言語の統一(共通シェル)
-status: in_progress # T134完了(done)を受けて委譲
+status: redo # オーケストレーターのビジュアルQAによる差し戻し(デザイン階層)
+attempts: 1
 assignee: implementer(Sonnet)
 attempts: 0
 ---
@@ -47,4 +48,33 @@ attempts: 0
 
 ## フィードバック(やり直し時にオーケストレーターが記入)
 
+### redo#1(2026-07-18、オーケストレーターが本番スクショでビジュアルQA。機能不具合ではなくデザイン階層の差し戻し)
+
+1. **ヘッダのモード名二重表示を解消**: 現状「[ホーム] 対局(テキストラベル) [対局(紫アクティブタブ)] [定石練習]…」とモード名が2回出ている。テキストラベルを削除し、タブのアクティブ状態だけで現在地を示す(スペースも節約される)。
+2. **プライマリボタンの規律**: 「1画面にプライマリは原則1個(最大2個)」を適用する。同格の選択肢グループは全てセカンダリにする。具体的な割当:
+   - 対局: 「黒番で開始」のみprimary、他の開始4種はsecondary
+   - 詰めオセロ: 「今日の1問(デイリー)」のみprimary。難易度1〜5とランダム・ステージ一覧はsecondary
+   - 定石練習: 「復習を始める」primary(due>0時)。黒番/白番/ランダム開始はsecondary
+   - 中盤練習「開始」・棋譜解析「解析開始」は現状どおりprimary(これは正しい)
+3. 修正後、アフタースクショ(375x812、対局・詰め設定・定石・ヘッダ拡大)を撮り直して作業ログに記録。他の受け入れ基準(テスト・Pages確認)も再実行。最小差分でよい(コミットは`(T135)`)。
+
 ## 作業ログ(担当エージェントが追記)
+
+- 2026-07-18 implementer(Sonnet)着手。`git pull --rebase`実行(既にorigin/mainと同期済み、T134まで反映確認)。
+- 調査: `app/src/app.tsx`(共通シェル・`<h1>`+`.mode-nav`)、`app/src/app.css`・`index.css`(既存デザイントークン`--color-accent`等はT061で定義済みと確認)、`TitleScreen.tsx/.css`(ホームの正デザイン)、各モード(joseki/midgame/tsume/analysis)のTSX/CSSを確認。素の`<button>`(クラス無し)が全モードに多数存在することを確認。
+- 追加要件の原因特定: `app.css`の横置きメディアクエリ内`.board-container`セレクタが素のクラスセレクタでスコープされておらず、`BlunderPanel.tsx`の`.blunder-panel__board`等スコープ外の盤にも`width`/`margin:0`が波及することを確認(`.clear-blunder-compare__board.board-container`は詳細度0,2,0で元々セーフだった)。
+- 実装方針決定: 個別クラスへの`.card`併用はCSSインポート順依存の詳細度衝突リスクがあるため避け、(1) `index.css`にボタン共通ベース(`button{}`グローバル既定=セカンダリボタン相当、最小44px)+`.btn-primary`/`.btn-secondary`/`.card`の3ユーティリティクラスを定義、(2) 各画面の主アクションのみJSXに`.btn-primary`を明示追加、(3) 既存の設定グループ枠(`.settings`/`.analysis-settings`/`.midgame-settings__group`/`.tsume-settings__group`/`.joseki-due-summary`/`.midgame-pattern-stats`/`.tsume-stats-summary`)は各CSSファイル側でカードのトークンを直接指定(クラス併用ではなくルール自体を更新、詳細度衝突を回避)。
+- グローバル`button{min-height:44px}`が既存の小型ボタン(テーブル内インライン操作・盤面自由配置エディタの8x8グリッドセル)を壊す懸念を洗い出し、`analysis/AnalysisMode.css`の`.analysis-result__movelist-blunder-button`と`components/BoardEditor.css`の`.board-editor__cell`に`min-height`の明示解除を追加。
+- `app.tsx`: `<h1>オセロトレーナー</h1>`+旧`.mode-nav`(ホームボタン込み2行折返し)を撤去し、`<header class="app-header">`(ホームボタン+現在モード名+横スクロール1行タブ)を`<main>`の兄弟要素として新設。`app.css`に`.app-header`(`position:sticky;top:0`)・`.app-header__home`・`.app-header__title`・更新版`.mode-nav`/`.mode-nav__tab`を実装。
+- `app.css`: 横置きメディアクエリの`.board-container`グローバル上書きを、各モードCSSの`> .board-container`直接子スコープと同じ6セレクタ(`.play-board-area`/`.joseki-practice`/`.midgame-practice`/`.tsume-practice`/`.tsume-result`/`.analysis-result__board-area`)に限定し、追加要件を解消。死んだ`main > h1`非表示ルールも削除(h1自体が既にホームのみのため)。
+- 各モードのプライマリCTA(黒番/白番/ランダム/2人対戦で開始、復習を始める、開始、難易度N、ランダムに出題、今日の1問、解析開始、この局面から開始、もう一度/ここからやり直す/次のステージへ/次の問題、この対局を棋譜解析で振り返る 等)に`.btn-primary`を付与。設定に戻る/ステージ一覧/やめる/キャンセル/いいえ等は既定(セカンダリ相当)のまま。
+- 検証: `npx tsc --noEmit -p app/tsconfig.app.json` エラー無し。`npx vitest run` 87ファイル/723件全パス(既存テストのセレクタ変更は不要だった、`.mode-nav__tab`クラス名は維持)。
+- スクショ取得: `git stash`で一時的にbefore状態に戻し(タスク配下ファイルは巻き込まないよう`-- app/`指定)、`npx vite`(ローカル、ポート5183)+Playwright(`npx -p playwright node`、375x812)でホーム+全5モードのbefore/afterを撮影後`git stash pop`で復元。保存先(いずれもscratchpad、リポジトリ外):
+  - before: `C:\Users\yoshi\AppData\Local\Temp\claude\C--Users-yoshi-work-othello-trainer\a74684b6-fe54-4c81-a1d7-c94ce1ef4945\scratchpad\t135\before-00-home.png` / `before-play.png` / `before-joseki.png` / `before-midgame.png` / `before-tsume.png` / `before-analysis.png`
+  - after: 同ディレクトリの `after-00-home.png` / `after-play.png` / `after-joseki.png` / `after-midgame.png` / `after-tsume.png` / `after-analysis.png`
+  - Playwright実測: `.app-header`高さ53px、タブ/ホームボタン全て44px(受け入れ基準の90px以下・44px最小を実測でも確認)。
+  - 追加要件の修正確認: 同ディレクトリ`verify-scoping.js`で844x390時の`getComputedStyle`を直接検証し、`.analysis-result__board-area > .board-container`はスコープ内上書き(width≈187px・margin:0)が効く一方、`.blunder-panel__board.board-container`(スコープ外)はスコープ外のまま(margin auto centered、幅も基準の`.board-container`既定に戻る)ことを確認。
+- コミット: `b42370b`(`app: 共通シェルを1行スティッキーヘッダ化しデザイントークンを全画面に適用(T135)`、`app/src/`配下12ファイルのみ、`tasks/`は含めず)。※コミット本文に軽微なタイプミス(「左カラム本体」の意図箇所に「左カラムbomb本体」という余分な単語が混入)あり、コード自体には影響なし。
+- push→GitHub Actions確認: `gh run watch 29633874121`で`Deploy to GitHub Pages`が成功(buildジョブ57s・deployジョブ11s、いずれも✓)したことを確認。
+- 本番Pages実機確認: `https://giwarb.github.io/othello-trainer/` に対しPlaywrightで375x812(ホーム+全5モード)・844x390(対局モード、横置き非退行)を撮影。ローカルafter版と同一の見た目(コンパクトヘッダ・紫プライマリボタン・カード・T133横置き2カラムの維持)を確認。保存先(同ディレクトリ): `prod-00-home.png` / `prod-play.png` / `prod-joseki.png` / `prod-midgame.png` / `prod-tsume.png` / `prod-analysis.png` / `prod-landscape-play.png`(参考: ローカル横置き確認用に`landscape-play.png`等も同ディレクトリに保存済み)。
+- `git status --short`最終確認: `app/src/`配下12ファイルのコミット済み差分のみで、未追跡・未コミットの残差分なし(タスク完了時点でクリーン)。
