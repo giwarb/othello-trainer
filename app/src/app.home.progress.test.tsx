@@ -120,9 +120,9 @@ describe('T137要件4: ホーム画面のモードカード進捗行', () => {
     // 定石: 記録0件(SRS状態なし)なので2ライン全てdue扱い。
     expect(cardProgressText(container, '定石練習')).toBe('今日の復習2本')
     // 中盤練習: 2ステージ・記録なしなのでクリア0件。
-    expect(cardProgressText(container, '中盤練習')).toBe('クリア0/2')
+    expect(cardProgressText(container, '中盤練習')).toBe('クリア 0/2')
     // 詰めオセロ: 3問・記録なしなのでクリア0件、今日の1問も未挑戦。
-    expect(cardProgressText(container, '詰めオセロ')).toBe('クリア0/3・今日の1問未挑戦')
+    expect(cardProgressText(container, '詰めオセロ')).toBe('クリア 0/3・今日の1問未挑戦')
   })
 
   it('クリア記録があれば実績行の分子・今日の1問の状態に反映される', async () => {
@@ -143,7 +143,50 @@ describe('T137要件4: ホーム画面のモードカード進捗行', () => {
     })
     await flushAsyncEffects()
 
-    expect(cardProgressText(container, '中盤練習')).toBe('クリア1/2')
-    expect(cardProgressText(container, '詰めオセロ')).toBe('クリア1/3・今日の1問済み')
+    expect(cardProgressText(container, '中盤練習')).toBe('クリア 1/2')
+    expect(cardProgressText(container, '詰めオセロ')).toBe('クリア 1/3・今日の1問済み')
+  })
+
+  // T137 redo#1 中2: 進捗取得effectがマウント時1回のみだったため、モードで
+  // クリアしてホームへ戻っても実績行が古いままだった不具合の回帰テスト。
+  // 「モードへ入る→(実プレイの代わりに直接localStorageへ記録)→ホームへ戻る」で
+  // 実績行が更新されることを固定する(`app.tsx`のeffect依存配列に`mode`を
+  // 追加し、`mode === null`に戻るたび再取得するよう修正済み)。
+  it('モードでクリアしてホームへ戻ると実績行の数値が更新される(古いまま残らない)', async () => {
+    const stagePool = buildMidgameStagePool(JOSEKI_DB)
+    expect(stagePool.length).toBe(2)
+
+    const { App } = await import('./app.tsx')
+    await act(async () => {
+      render(<App />, container)
+    })
+    await flushAsyncEffects()
+    expect(cardProgressText(container, '中盤練習')).toBe('クリア 0/2')
+
+    // 中盤練習モードへ入る。
+    await act(async () => {
+      const midgameCard = Array.from(container.querySelectorAll<HTMLButtonElement>('.title-screen__card')).find(
+        (btn) => btn.querySelector('.title-screen__card-label')?.textContent === '中盤練習',
+      )
+      midgameCard?.click()
+    })
+    await flushAsyncEffects()
+    expect(container.querySelector('.title-screen__card-progress')).toBeNull()
+
+    // モード内での実際のクリア操作(エンジン呼び出し)は本テストの対象外のため、
+    // 記録の永続化先(`localStorage`)へ直接書き込んで「クリアした直後」を再現する。
+    recordMidgameStageAttempt(localStorage, stagePool[0]!.key, 'standard', 'clear')
+
+    // ヘッダの「ホーム」ボタンでタイトル画面へ戻る。
+    await act(async () => {
+      const homeButton = Array.from(container.querySelectorAll<HTMLButtonElement>('button')).find(
+        (btn) => btn.textContent === 'ホーム',
+      )
+      homeButton?.click()
+    })
+    await flushAsyncEffects()
+
+    // リロードなしで「クリア 1/2」に更新されている(古い「クリア 0/2」のままではない)。
+    expect(cardProgressText(container, '中盤練習')).toBe('クリア 1/2')
   })
 })

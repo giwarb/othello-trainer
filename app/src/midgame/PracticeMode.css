@@ -72,6 +72,16 @@
   font-weight: bold;
 }
 
+/* T137 redo#1 中1: `<input type="radio">`を`.sr-only`(1x1にクリップ)で
+   視覚的に隠しているため、キーボードフォーカスリングが不可視のinput側に
+   描かれてしまい後退していた(グローバルの`button:focus-visible`は<label>には
+   効かない)。ラップしている`<label>`(チップ本体)側に可視のフォーカスリングを
+   出す。 */
+.midgame-settings__option:has(input:focus-visible) {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
 .midgame-settings__buttons {
   display: flex;
   flex-direction: column;

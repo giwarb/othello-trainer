@@ -124,12 +124,19 @@ export function App() {
   // 集計ロジック(T131のdueLines・T117/T119のstageProgress・T028のdailyPuzzle)を
   // そのまま再利用するだけで、新規のIndexedDB/localStorageスキーマは追加しない。
   // 3モードは互いに独立な非同期取得のため、1つが失敗しても他の表示に影響しない
-  // よう個別にtry/catchする(要件4「取得失敗時は表示しない」)。マウント時に1回
-  // だけ実行する(各モードの練習画面自体が同じキャッシュ付きローダー
-  // (`loadJosekiDb`・`loadPuzzles`)を使うため、実際のfetchが重複することもない)。
+  // よう個別にtry/catchする(要件4「取得失敗時は表示しない」)。
+  //
+  // T137 redo#1 中2: 当初はマウント時1回だけの取得だったため、中盤・詰めで
+  // クリアしてホームへ戻っても実績行が古いまま(リロードするまで更新されない)
+  // という不整合があった。`mode`を依存配列に含め、`mode === null`(ホーム画面へ
+  // 戻った)たびに再取得する。`loadJosekiDb`/`loadPuzzles`はモジュール内で
+  // Promiseをキャッシュしているため、ホームへ戻るたびに実際のfetchが増える
+  // ことはなく(2回目以降はキャッシュ済みPromiseを再利用)、増えるのは
+  // `localStorage`/IndexedDBの読み直しのみ(軽量)。
   const [modeProgress, setModeProgress] = useState<Partial<Record<AppMode, string>>>({})
 
   useEffect(() => {
+    if (mode !== null) return
     let cancelled = false
 
     void (async () => {
@@ -178,7 +185,7 @@ export function App() {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [mode])
 
   if (mode === null) {
     const cards = MODE_CARDS.map((card) => ({ ...card, progress: modeProgress[card.key as AppMode] }))

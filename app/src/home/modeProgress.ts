@@ -21,15 +21,22 @@ export function formatJosekiProgress(dueCount: number): string {
   return `今日の復習${dueCount}本`
 }
 
-/** 中盤練習の実績行(要件4「クリアx/111」)。`total`は`stagePool.length`をそのまま渡す(ハードコードしない)。 */
+/**
+ * 中盤練習の実績行(要件4「クリアx/111」)。`total`は`stagePool.length`をそのまま渡す(ハードコードしない)。
+ *
+ * T137 redo#1軽微1: 「クリア」と数値の間のスペース有無がホーム(旧: 無し)と
+ * ステージ一覧サマリ・詰め難易度カード(有り)で不統一だった。スペース有りに
+ * 統一する(3箇所中2箇所が既にスペース有りだったため、そちらへ揃えた)。
+ */
 export function formatMidgameProgress(cleared: number, total: number): string {
-  return `クリア${cleared}/${total}`
+  return `クリア ${cleared}/${total}`
 }
 
 /**
  * 詰めオセロの実績行(要件4「クリアx/182・今日の1問」)。
  * `todayCleared`は本日の「今日の1問」(`todaysPuzzle`が返す問題)を既にクリア済みかどうか。
+ * T137 redo#1軽微1: 「クリア」表記のスペースを他画面と統一(`formatMidgameProgress`参照)。
  */
 export function formatTsumeProgress(cleared: number, total: number, todayCleared: boolean): string {
-  return `クリア${cleared}/${total}・今日の1問${todayCleared ? '済み' : '未挑戦'}`
+  return `クリア ${cleared}/${total}・今日の1問${todayCleared ? '済み' : '未挑戦'}`
 }

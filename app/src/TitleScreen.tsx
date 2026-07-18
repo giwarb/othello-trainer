@@ -6,7 +6,7 @@ export interface ModeCardInfo {
   label: string
   description: string
   /**
-   * 進捗の実績行(T137要件4、例:「今日の復習3本」「クリア42/111」)。
+   * 進捗の実績行(T137要件4、例:「今日の復習3本」「クリア 42/111」)。
    * 呼び出し側(`app.tsx`)がIndexedDB/localStorageから非同期に取得するため、
    * 取得できるまで(または取得に失敗した場合)は`undefined`で、その間は
    * 進捗行自体を表示しない(要件4「取得失敗時は表示しない」)。

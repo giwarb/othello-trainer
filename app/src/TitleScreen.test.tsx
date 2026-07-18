@@ -48,7 +48,7 @@ describe('TitleScreen', () => {
   })
 
   it('カードをクリックするとonSelectにkeyが渡る', async () => {
-    const cards: ModeCardInfo[] = [{ key: 'midgame', label: '中盤練習', description: '説明', progress: 'クリア5/111' }]
+    const cards: ModeCardInfo[] = [{ key: 'midgame', label: '中盤練習', description: '説明', progress: 'クリア 5/111' }]
     let selected: string | null = null
     await act(async () => {
       render(<TitleScreen cards={cards} onSelect={(key) => (selected = key)} />, container)

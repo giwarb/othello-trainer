@@ -78,11 +78,16 @@ describe('components/PlayerBadge', () => {
   // T137追加要件5(T136 codex-review指摘・軽微5): 中盤練習・詰めオセロで削除した
   // 「あなたは○番です。手番: ○」相当のSR向けテキストの代替として、バッジ自身が
   // aria-labelで同等の情報(誰か・何番か・石数・手番か・考え中か)を提供する。
-  it('aria-labelに side・label・石数・手番・考え中の情報が含まれる', async () => {
+  //
+  // T137 redo#1 中3(codex-review指摘): 素の<div>(暗黙ロール`generic`)への
+  // aria-labelはARIA 1.2でprohibitedのためSRに無視されうる不具合があった。
+  // `role="group"`を付与して`aria-label`が許可されるロールにしたことを固定する。
+  it('aria-labelに side・label・石数・手番・考え中の情報が含まれ、role="group"が付与されている', async () => {
     await act(async () => {
       render(<PlayerBadge side="black" label="あなた" count={2} active={true} thinking={false} />, container)
     })
     const badge = container.querySelector('.player-badge')
+    expect(badge?.getAttribute('role')).toBe('group')
     const ariaLabel = badge?.getAttribute('aria-label')
     expect(ariaLabel).toContain('あなた')
     expect(ariaLabel).toContain('黒番')
@@ -93,6 +98,7 @@ describe('components/PlayerBadge', () => {
       render(<PlayerBadge side="white" label="相手" count={3} active={false} thinking={true} />, container)
     })
     const badgeWhite = container.querySelector('.player-badge')
+    expect(badgeWhite?.getAttribute('role')).toBe('group')
     const ariaLabelWhite = badgeWhite?.getAttribute('aria-label')
     expect(ariaLabelWhite).toContain('相手')
     expect(ariaLabelWhite).toContain('白番')

@@ -40,6 +40,12 @@ export interface PlayerBadgeProps {
  * 代替が無く、SR利用者向けの情報(「あなたは○番」相当)が後退していた
  * (T136 codex-review指摘・軽微5)。コンポーネント自身に`aria-label`を
  * 持たせることで、呼び出し側のJSX変更なしに3モード共通で後退を解消する。
+ *
+ * T137 redo#1 中3: ルート要素は素の`<div>`(暗黙ロールは`generic`)だったが、
+ * ARIA 1.2では`generic`ロールへの`aria-label`付与はprohibitedであり、
+ * 主要スクリーンリーダーで無視されうる不具合があった(T136申し送り5の意図が
+ * 実環境で未達)。ルート要素に`role="group"`を付与し、`aria-label`が許可される
+ * ロールにする(`playerBadgeAriaLabel`の内容自体は変更なし)。
  */
 function playerBadgeAriaLabel(side: Side, label: string, count: number, active: boolean, thinking: boolean): string {
   const sideLabel = side === 'black' ? '黒' : '白'
@@ -53,6 +59,7 @@ export function PlayerBadge({ side, label, count, active, thinking = false }: Pl
   return (
     <div
       class={`player-badge player-badge--${side}${active ? ' player-badge--active' : ''}`}
+      role="group"
       aria-current={active ? 'true' : undefined}
       aria-label={playerBadgeAriaLabel(side, label, count, active, thinking)}
     >
