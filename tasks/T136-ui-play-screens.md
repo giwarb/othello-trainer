@@ -1,7 +1,7 @@
 ---
 id: T136
 title: UX強化2: プレイ画面の盤中心レイアウト(プレイヤーバッジ・盤ノイズ削減・対局中コントロール整理)
-status: in_progress # T135完了(done)を受けて委譲
+status: done # verifier/代替レビュー両合格+オーケストレーターのビジュアルQA合格(2026-07-18)
 assignee: implementer(Sonnet)
 attempts: 0
 ---
