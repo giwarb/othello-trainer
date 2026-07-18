@@ -1,7 +1,7 @@
 ---
 id: T134
 title: 対局: 石返しアニメーションの直列化(自分の返しが終わってからCPUの着手を見せる)
-status: redo # 表示ラグ中クリックの入力整合バグ(中)の修正
+status: done # redo#1(表示ラグ中クリックガード)含めverifier/代替レビュー合格(2026-07-18)
 assignee: implementer(Sonnet)
 attempts: 1
 ---

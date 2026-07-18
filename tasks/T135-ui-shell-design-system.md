@@ -1,7 +1,7 @@
 ---
 id: T135
 title: UX強化1: コンパクトヘッダとデザイン言語の統一(共通シェル)
-status: todo # T134完了後に着手(app全域のため直列)
+status: in_progress # T134完了(done)を受けて委譲
 assignee: implementer(Sonnet)
 attempts: 0
 ---
