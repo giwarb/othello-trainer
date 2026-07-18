@@ -78,3 +78,23 @@ attempts: 0
 - push→GitHub Actions確認: `gh run watch 29633874121`で`Deploy to GitHub Pages`が成功(buildジョブ57s・deployジョブ11s、いずれも✓)したことを確認。
 - 本番Pages実機確認: `https://giwarb.github.io/othello-trainer/` に対しPlaywrightで375x812(ホーム+全5モード)・844x390(対局モード、横置き非退行)を撮影。ローカルafter版と同一の見た目(コンパクトヘッダ・紫プライマリボタン・カード・T133横置き2カラムの維持)を確認。保存先(同ディレクトリ): `prod-00-home.png` / `prod-play.png` / `prod-joseki.png` / `prod-midgame.png` / `prod-tsume.png` / `prod-analysis.png` / `prod-landscape-play.png`(参考: ローカル横置き確認用に`landscape-play.png`等も同ディレクトリに保存済み)。
 - `git status --short`最終確認: `app/src/`配下12ファイルのコミット済み差分のみで、未追跡・未コミットの残差分なし(タスク完了時点でクリーン)。
+
+### redo#1対応(2026-07-18 implementer(Sonnet))
+
+- フィードバック2点に対応(最小差分):
+  1. **ヘッダ二重表示解消**: `app.tsx`から`<span class="app-header__title">{MODE_LABEL[mode]}</span>`を削除し、現在地はタブのアクティブ状態のみで示すようにした。`app.css`の`.app-header__title`ルール(通常・375px以下・横置きの3箇所)も未使用になったため削除。
+  2. **プライマリボタンの規律(1画面原則1個・最大2個)**: フィードバック指定どおり変更。
+     - 対局(`app.tsx`): 新規対局行は「黒番で開始」のみ`.btn-primary`、他4種(白番/ランダム/2人対戦/盤面自由配置)はsecondaryへ。あわせて盤面自由配置エディタパネルの開始ボタン群(黒番/白番/ランダム/2人対戦)も、開いている間は上の「黒番で開始」と同時に見えてしまうため全てsecondaryに揃えた(フィードバックの明示対象ではないが同じ規律を一貫適用、コメントで理由を明記)。
+     - 詰めオセロ(`tsume/PlayMode.tsx`): 「今日の1問(デイリー)」のみ`.btn-primary`。難易度1〜5・ランダムに出題・ステージ一覧はsecondaryへ。
+     - 定石練習(`joseki/PracticeMode.tsx`): 「復習を始める」は`dueLines.length > 0`のときのみ`.btn-primary`を条件付与(0件時はフォールバック出題に過ぎないためsecondary)。黒番/白番/ランダム開始はsecondaryへ。
+     - 中盤練習「開始」・棋譜解析「解析開始」は変更なし(フィードバックで「現状どおりで正しい」と明記)。
+  - 各結果画面(もう一度/次のステージへ/次の問題等)はフィードバックの明示対象外かつ最大2個以内に収まっているため変更していない。
+- 検証: `npx tsc --noEmit -p app/tsconfig.app.json` エラー無し。`npx vitest run` 87ファイル/723件全パス。
+- スクショ再取得: `npx vite`(ローカル、ポート5184)+Playwright(`npx -p playwright node`)で撮影。保存先(scratchpad、いずれも同ディレクトリ`...\scratchpad\t135\`):
+  - ヘッダ拡大(二重表示解消の確認): `redo1-header-play.png` 他4モード分(`redo1-header-joseki.png`/`redo1-header-midgame.png`/`redo1-header-tsume.png`/`redo1-header-analysis.png`)
+  - 全画面(375x812): `redo1-00-home.png` / `redo1-play.png` / `redo1-joseki.png` / `redo1-midgame.png` / `redo1-tsume.png` / `redo1-analysis.png`
+  - 盤面自由配置エディタ状態(primary重複が無いことの確認): `redo1-play-editor.png`(目視確認: 画面内でprimaryは「黒番で開始」1つのみ)
+- コミット: `d6637bd`(`app: T135 redo#1 ビジュアルQA差し戻し対応(ヘッダ二重表示解消・primary規律)(T135)`、`app/src/app.css` `app.tsx` `joseki/PracticeMode.tsx` `tsume/PlayMode.tsx` の4ファイルのみ)。
+- push→Actions確認: `gh run watch 29634213698`で`Deploy to GitHub Pages`成功(build 55s・deploy 9s)。
+- 本番Pages実機確認: `https://giwarb.github.io/othello-trainer/` で375x812(対局・詰め・定石)・ヘッダ拡大・844x390横置き(対局)を撮影し、ローカル修正後と同一の見た目(二重表示解消・primary1個のみ・横置き非退行)を確認。保存先: `prod-redo1-play.png` / `prod-redo1-header.png` / `prod-redo1-tsume.png` / `prod-redo1-joseki.png` / `prod-redo1-landscape-play.png`。
+- `git status --short`最終確認: クリーン(タスクファイル自体の差分のみ、コミットはオーケストレーター担当のため未コミットのまま)。
