@@ -26,6 +26,12 @@ attempts: 0
 5. 縦375px・横置き520px以下(T133の2カラム)の両方で成立すること。描画変更はFFO/エンジンに一切影響しない(見た目のみ)。
 6. **T133申し送りの解消**: 横置き2カラムで内容過多時に「右カラムのみ縦スクロール」(盤は固定)を実現する(現状はコンテナ全体スクロールで盤ごと流れる。tasks/review/T133-landscape-claude-review.md 中(1))。
 
+## 追加要件(T135代替レビュー中4件+軽微、tasks/review/T135-ui-shell-claude-review.md)
+
+1. グローバル`button{min-height:44px}`の打ち消し漏れ4系統を修正(各`min-height:0`等1行): `.verbalize-tags__info`(「?」丸ボタンが縦長楕円に崩れ)・`.motif-badge--button`・`.attribution-waterfall__label--button`・`.blunder-panel__branch-node`。あわせてレビュー軽微指摘の「フィルタチップ・用語集ピルの44px化が意図した見た目か」をスクショで確認し、不自然なら同様に調整。
+2. 横置き`max-height:100dvh`がヘッダ高(40px)を未考慮 → `calc(100dvh - ヘッダ高)`化を検討・適用。
+3. 未使用の`.btn-secondary`クラスは削除するか実使用に置き換える(デッドコード解消)。
+
 ## やらないこと(スコープ外)
 
 - アニメーションの変更(T134で対応済みのはず)/評価バー・解析ロジックの変更/エンジン変更
