@@ -29,7 +29,7 @@
 | T127b | expanded1m本番生成(新規80万件) | オーケストレーター管理 | in_progress(**7/17 21:3x 親またぎバッチ方式(32親/束)へ乗り換え成功、PID 21948**。292,679件を全件保持してresume。7/18 04:2x重い帯(空き20-29、incremental bin3)へ突入しペース3万→1万件/hに低下(構造的・異常なし)。**ETA再修正(7/18朝、重い帯の実測5k/h前後を反映): 完走7/19夜〜7/20朝**。当初41h推計は帯構成の平均を誤適用した楽観(bin3=空き20-29の incremental 割当が17.3万件と大きい)。ログlogs/t127b-gen2.log) | 0 |
 | T127c-e | 1M検証(+テスト固定2件FU)→v4学習(500k bridge+1M×3seed)→4M投資判定 | Codex gpt-5.6-sol | todo(生成完走後に順次) | 0 |
 | T139 | エンジン: analyzeAllの対称性・決定性(TT/MPCノイズ根本対応) | Codex優先 | todo(生成完走後。engineビルドを伴うため) | 0 |
-| T140 | 対局: 1手戻る(undo、研究用) | implementer(Sonnet) | in_progress(ユーザー指示7/19朝。app.tsx側、T141と並行・領域分離) | 0 |
+| T140 | 対局: 1手戻る(undo、研究用) | implementer(Sonnet) | review(41cf510、本番で思考中undo・世代ガードまで実機確認済み。全体vitest/tscの最終確認とverifier+代替レビューはT141完了後に一括) | 0 |
 | T141 | 中盤練習: ステージクリア型全面改訂(3往復・★1-3判定・評価常時表示) | implementer(Sonnet) | in_progress(ユーザー指示7/19朝。midgame配下、旧クリア→★1シードで記録移行) | 0 |
 | T134 | 対局: 石返しアニメーション直列化(返し完了→間→CPU応手) | implementer(Sonnet) | redo(直列化本体は両検収合格。**表示ラグ窓内クリックで見えない局面への着手が確定する中バグ**を両検収が独立確認→handleMoveガード+回帰テストで修正中) | 1 |
 

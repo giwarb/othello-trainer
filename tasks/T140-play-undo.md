@@ -40,3 +40,51 @@ attempts: 0
 ## フィードバック(やり直し時にオーケストレーターが記入)
 
 ## 作業ログ(担当エージェントが追記)
+
+- 2026-07-19 実装着手。`git pull --rebase`実行(既に最新、変更なし)。既存実装調査:
+  `app/src/game/gameHistory.ts`(T132、`appendPlayedMove`/`isStandardStartPosition`)、
+  `app/src/game/gameLoop.ts`(`createGame`/`playMove`/`requestCpuMove`)、
+  `app/src/game/displayQueue.ts`(T134の直列化キュー)、`app.tsx`のCPU着手effect
+  (T115の`cancelled`クロージャ)・`moveHistory`/`standardStart`state・
+  投了/新規対局ボタン周りを確認。
+- `gameHistory.ts`に`replayMoves`(初期局面から履歴を順にplayMoveで再生)・
+  `computeUndoLength`(vsHumanは単純に-1、CPU対戦は履歴を先頭から再生して
+  各着手の手番側を復元し、末尾のCPU側着手+続く1件のhuman側着手を取り除く
+  長さを返す)を追加。この方式により「CPUが思考中(応手が未記録)」ケースは
+  末尾が既にhuman側なので自動的に1件のみ除去される特別扱いなしのロジックになった。
+  `game/gameHistory.test.ts`に純粋関数の単体テストを追加(23件、全パス)。
+- `app.tsx`: `gameGenerationRef`(useRef)を追加し、CPU着手effect内で
+  `generation`をクロージャに捕捉、`.then`/`.finally`で`cancelled`に加え
+  世代照合するガードを追加(新規effectは増やさず既存のCPU着手effectに加算)。
+  `undoMove`関数を追加(`computeUndoLength`→`moveHistory.slice`→`replayMoves`
+  →`setMoveHistory`/`setGame`/`displaySequencerRef.reset`/`setThinking(false)`/
+  `setEvalInfo(null)`/`firstMoveSquareRef`再計算)。投了・新規対局と並ぶ
+  「1手戻る」ボタンを追加(`standardStart`のときのみ表示、`moveHistory.length===0`で
+  disabled、`displayGame.phase`に関わらず常に表示=終局後も押せる)。
+- 統合テスト`app.playmode.undo.test.tsx`を新規作成(7件): 履歴空で非活性/
+  非標準開始(エディタで次の手番=白)で非表示/CPU戦4手→undo→2手目までの
+  自分の手番に戻る+投了→振り返るでmoveHistoryの整合を確認/CPU思考中undo→
+  世代ガードで遅延応答が無視される/vsHumanの1ply+undo後の定石トレース再計算
+  (「(離脱)」解消)/投了後(終局後)のundo。単独実行で7件全パス、
+  `game/gameHistory.test.ts`(23件)も全パス。
+- `npx tsc --noEmit -p app/tsconfig.app.json`は実装直後(T141の並行編集が
+  `app/src/midgame/`に及ぶ前の時点)でエラーなしを確認。
+- **既知の制約(並行作業起因、T140の実装には無関係)**: 検証中、並行実行中の
+  T141が`app/src/midgame/PracticeMode.tsx`の依存(`generateStart.ts`・
+  `judgeModeStorage.ts`等)を作業ディレクトリ上でリファクタリング中(未コミット)
+  のため、`app.tsx`が`MidgamePracticeMode`を経由してこれらをimportする関係で、
+  `npx vitest run`(全体)・`npx tsc --noEmit -p app/tsconfig.app.json`の
+  再実行がT141の中間状態と衝突して失敗する状態が断続的に発生した
+  (`git status --short app/src/midgame`で該当ファイルが未コミットのD/M/??で
+  残っていることを確認済み)。エラーメッセージはすべて`src/midgame/*`関連
+  (`Cannot find module './generateStart.ts'`等)で、本タスクが変更した
+  `app.tsx`・`game/gameHistory.ts`・`app.playmode.undo.test.tsx`には無関係。
+  コミットは`app.tsx`・`game/gameHistory.ts`・`game/gameHistory.test.ts`・
+  `app.playmode.undo.test.tsx`の4ファイルのみをパス明示でstage・commitしており
+  (T141側の未コミット差分は含めていない)、`git log origin/main`はT141の
+  中間状態を含まないため、push・CI・Pagesビルドへの影響はない見込み
+  (下記Actions結果で確認)。verifier/オーケストレーターには、T141完了後の
+  `npx vitest run`全体実行での再確認を推奨する。
+- コミット: `41cf510`(`app: 対局モードに「1手戻る」(研究用)を追加(T140)`)。
+  `git push origin main`成功(`0320850..41cf510`)。GitHub Actions
+  (Deploy to GitHub Pages / Rust Tests)をwatch中。
