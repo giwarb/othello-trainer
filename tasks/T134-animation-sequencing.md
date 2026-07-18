@@ -96,3 +96,14 @@ attempts: 1
 - regression-catchingの主張(`<Board board={game.board} .../>`に戻すとテストが落ちる)は、`animationSequencing.test.tsx`のアサーション(「50ms未満の時点でd3のまま」)がdisplayGame経由でしか成立しない設計であることをコード読解で確認(`game`直結だとCPUの応手確定と同時に`board`propが即e3へ切り替わり同アサーションに反する)。ロジック上妥当と判断(コード修正禁止のため実機での再現実験はしていない)。
 - **既存レビュー(`tasks/review/T134-animation-claude-review.md`、独立エージェントによる読み取り専用最終レビュー、コミット時点で既に存在)を確認・裏取りした**: 総合判定「合格(done可)」だが**中程度の実在バグ1件**を指摘している。`Board.tsx`のクリックガード(`legalMoves(board, sideToMove)`、`displayGame`基準)と`app.tsx`の`handleMove`ガード(`game.phase !== 'human'`、`game`基準)が異なる局面を見ているため、CPU応手が`game`として確定済みだが表示(`displayGame`)にまだ反映されていない窓(ブック応手時最大470ms)で、「旧局面でCPU色に合法 かつ 新局面で人間に合法」なマスをクリックすると、ユーザーがまだ見ていない局面に対して着手が確定してしまう経路が存在する(`app/src/app.tsx`589-611行・`app/src/components/Board.tsx`252行を実読し、レビューの指摘どおりであることを確認)。クラッシュ・ハング・状態破壊は無く、成立には複数条件が重なる必要があるため本タスクの受け入れ基準(直列化そのもの・T115回帰・ビルド・デプロイ)はいずれも満たしているが、**別タスクとしての追修正(`handleMove`冒頭に`displayGame !== game`ガード追加、1〜2行)を推奨**。他は軽微指摘(アンマウント時タイマー未クリーンアップ等)のみで実害なし。
 - 使用したPlaywright検証スクリプト・スクリーンショットはscratchpadに保存(リポジトリ非汚染)。
+
+### 2026-07-18 redo#1対応
+
+- フィードバック(上記)のとおり修正: `app/src/app.tsx`の`handleMove`冒頭(既存の`if (game.phase !== 'human') return`の直後)に`if (displayGame !== game) return`ガードを追加。`game`/`displayGame`はどちらも遷移のたびに新規オブジェクトとして生成される(既存の不変更新パターン)ため、参照が一致していれば「表示が内部状態に追いついている」ことを正しく表せる。追いついていない(=直列化キューが処理中で、Boardのクリックガードがまだ古い局面を見ている)間はクリックを無視する。
+- 誤りだった`handleMove`内の既存コメント(「Board側の合法手ガードで常に人間の手番かつ表示が追いついた状態でのみクリックできるはず」という前提)を修正: 新しいガードの根拠(redo#1の原因説明)と、`push`直前のコメント(「上のガードにより、この行に到達する時点では表示は必ず追いついている」という正しい前提への書き換え)の2箇所。
+- 回帰テストを`app/src/app.playmode.animationSequencing.test.tsx`に2件追加(フィードバックの指示どおり):
+  1. 「表示ラグ窓内のクリックは無視され、追いついた後の着手は通常どおり反映される」: 黒d3→CPU書籍応手(e3)を`game`としては解決させるがタイマーは進めない(表示ラグ窓を作る)→この時点で`applyMove`/`legalMoves`を実ロジックで計算した「黒の次の合法手」を`latestOnMove`(Boardスタブの`onMove`を直接捕捉、実物のBoard自身の合法手ガードを経由しない)経由で直接クリック→クールダウン2周期分(e3の反映+もう1周期)進めても盤面の`data-last-move`が`E3`のまま(ラグ窓内クリックが紛れ込んで自動反映されていない)ことを確認→表示が追いついた後に同じマスへ再度クリックすると今度は即座に反映されることを確認。
+  2. 「2人対戦モードでは通常の連続クリックが阻害されない」: 2人対戦で黒d3→クールダウン分だけ`advanceTimersByTimeAsync`で待つ(アイドルへ戻す、通常のプレイ間隔を模擬)→白の合法手を実ロジックで計算し`latestOnMove`経由でクリック→即座に反映されることを確認(ガードが2人対戦の正当な操作を阻害しないことの直接証明)。
+  - 修正前(`if (false && displayGame !== game) return`へ一時的に無効化)で1つ目のテストを実行し、実際に失敗する(ラグ窓内クリックが2周期後に紛れ込んで反映されてしまい`data-last-move`が期待値`E3`ではなくラグ窓内クリックのマス番号になる)ことを確認した上で復元(regression-catchingであることを実証)。
+- `npx tsc --noEmit -p app/tsconfig.app.json`: エラーなし。`npx vitest run`: **87ファイル723件全件パス**(前回721件+新規2件)。連続2回実行して安定。
+- `git status --short`: 変更は`app/src/app.tsx`(19行)・`app/src/app.playmode.animationSequencing.test.tsx`(180行)の2ファイルのみ(最小差分)。`tasks/`は本ファイルの作業ログ追記のみ。`bench/`・`train/data/teacher/`には触れていない。
