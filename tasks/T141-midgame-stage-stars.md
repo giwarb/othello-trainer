@@ -55,3 +55,91 @@ attempts: 0
 ## フィードバック(やり直し時にオーケストレーターが記入)
 
 ## 作業ログ(担当エージェントが追記)
+
+### 2026-07-19 implementer(Sonnet)実装完了
+
+- `git pull --rebase`実施(コンフリクトなし、origin/mainは既にup to date)。
+- 既存資産調査: `PracticeMode.tsx`(旧1405行)・`stageProgress.ts`(判定モード別2階層)・
+  `judgeMidgameMove.ts`(**verbalize/PracticeMode.tsxが`mode:'standard'`固定で
+  引き続き使用しているため削除せず残置**、中盤練習からの利用のみ廃止)・
+  `clearBlunder.ts`/`ClearBlunderCompare.tsx`(1手先対比、読み取り再利用)・
+  `MoveEvalOverlay.tsx`+`moveEvalOverlayLogic.ts`(T138部品、読み取り再利用)・
+  `reviewFilter.ts`(tsumeと共有、読み取り再利用・表示ラベルのみローカルで上書き)を
+  explorer相当の自読解析。
+- 新規ファイル: `stageStarJudge.ts`(★判定純関数`computeStageStars`+`isBestMove`、
+  境界値含む12ケースのテスト)。
+- `stageProgress.ts`全面書き換え: 新localStorageキー
+  `othello-trainer:midgame-stage-stars`のフラットスキーマ
+  (`bestStars`/`attempts`/`failCount`/`lastResultStars`/`lastAttemptAt`/`firstClearedAt`)。
+  **`failCount`はタスク仕様のスキーマに無い追加フィールド**(判断根拠: 復習フィルタ
+  「失敗あり」(要件6で存置)が「累積の失敗経験」を要求するが、`attempts`だけでは
+  区別できないため)。旧記録(`othello-trainer:midgame-stage-progress`)からの
+  一度きりの移行を`loadStageProgress`内に実装(移行済みマーカーキーで二重実行防止、
+  旧データは一切変更しない)。`loadStageProgress`/`stageStatus`の**シグネチャ・
+  意味論の外形は維持**したため`app.tsx`(T140並行作業中につき無変更)は無改造で
+  新定義(`bestStars>=1`が「クリア」)に追従する(実機確認済み、下記参照)。
+- `PracticeMode.tsx`全面書き換え(1405行→約590行): 判定モード/相手の強さ/開始局面
+  ソース選択・「開始」(ランダム出題)・毎手ごとの合否ゲートを撤去。ステージ選択→
+  3往復(自分3手+相手最善応手3手)固定フロー。評価値(候補手オーバーレイ+評価バー)は
+  T138のMoveEvalOverlay/computeBoardEvalScore/EvalBarを**変更せず**再利用し常時表示。
+  ★判定は表示と同じ`getAnalyzedMoves`キャッシュ経由の結果を使い回し二重計算しない
+  (旧`analyzedMovesRef`パターンを踏襲)。苦手パターン検出(損失1石以上の手のみ、
+  要件8)・1手先対比(最も損失が大きかった手のみ、要件7)は`clearBlunder.ts`を
+  変更せず再利用。`sessionGenerationRef`によるstale-session防止(T119 redo#1教訓)を
+  新フロー(`checkSessionEnd`)にも適用。
+- 出題プール(`pool.ts`、棋譜解析からの送信機能と共有)への失敗局面登録は
+  ★0確定時に1回だけ行うよう維持(判断根拠: タスク仕様に明記は無いが、既存の
+  データ収集機能を無指示で削るのは避けた)。
+- `PracticeMode.css`: 旧`.midgame-settings*`(判定モード/相手/開始局面チップ)・
+  `.midgame-generating`・`.midgame-result__compare-pv`を削除。新要素
+  (`.midgame-practice__round`・`.midgame-eval-bar-panel`・`.midgame-result__stars`・
+  `.midgame-result__moves`)を追加。横置き(T133)の2カラムgridレイアウトは
+  旧`.midgame-result--fail`限定から`.midgame-result:has(.clear-blunder-compare)`に
+  一般化(★1以上のクリアでも1手先対比が表示されうるため)。
+- テスト: 旧`PracticeMode.settingsUx/clearBlunderGate/clearBlunderGateFallbackGuard.test.tsx`・
+  `judgeModeStorage.*`・`generateStart.*`を削除(judgeMidgameMove.test.ts・
+  pickOpponentMove.test.tsは他モード共用のため残置)。`PracticeMode.staleSession.test.tsx`・
+  `PracticeMode.reviewFilter.test.tsx`・`PracticeMode.patternStats.test.tsx`を新フロー向けに
+  改訂、新規`PracticeMode.flow.test.tsx`(3往復完走★3・損失/1手先対比表示・途中終局の
+  打ち切り判定)を追加。`app.home.progress.test.tsx`(app.tsx自体は無変更、テストのみ)を
+  新`recordStageAttempt`シグネチャに追従。
+- 受け入れ基準の実行結果:
+  - `npx vitest run`: **95 test files / 771 tests 全パス**。
+  - `npx tsc --noEmit -p app/tsconfig.app.json`: **エラーなし**。
+  - `git status --short`: 当該タスク由来の差分・未追跡ファイルなし(コミット後)。
+- コミット: `632eae0`(`app: 中盤練習をステージクリア型に全面改訂...(T141)`、
+  変更対象20ファイルのみをパス明示でadd、`tasks/`はコミットしていない)。
+  `git fetch`でorigin/mainとの乖離なしを確認し、そのまま`git push origin main`。
+- デプロイ確認: `gh run watch`でActions(Rust Tests/Deploy to GitHub Pages)完走を確認。
+  本番Pages(`https://giwarb.github.io/othello-trainer/`)で実機相当の検証を実施
+  (Browser MCP、ローカルdevサーバーでも`npx vite --port 5183`で先行確認済み。
+  `npm run dev`/`npm run typecheck`は使わず`npx vite`/`npx tsc`直接実行、Rust/wasmビルドは
+  行っていない):
+    - 375x812: ホーム「クリア x/111」表示 → ステージ一覧(新フィルタ語彙・★0〜3グリッド)
+      → ステージ選択 → 評価値オーバーレイ+評価バー常時表示 → 3往復完走
+      → 結果画面「クリア!★★☆自己ベストを更新しました!評価値要約+3手の損失一覧」
+      → ステージ一覧に★反映・ホームの「クリア」分子が更新、を確認。
+    - 844x390(横置き): `.midgame-practice`が2カラムgrid(T133踏襲)で表示され、
+      round counter・盤・評価バーが正しく配置されることを確認。
+  - 注記: 検証中、既存タブのService Worker更新伝播が遅く一時的に旧UIが表示された
+    (SW unregister+再読み込みで解消、コード上の問題ではない)。新規タブでは
+    初回から新UIが表示された。
+  - `computer{action:"screenshot"}`がこのセッションのBrowser MCPで一貫してタイムアウトし、
+    ピクセル画像のスクリーンショットは取得できなかった(環境側の制約と判断、
+    他の対局モード等でCanvas盤クリックがcomputer coordinateクリックで動作する前例と
+    比較しても本タスク由来の問題ではないとみられる)。代わりに`read_page`/
+    `get_page_text`/`javascript_tool`(合法手評価オーバーレイのDOM座標を取得し、
+    盤のcanvasへ合成`MouseEvent`をdispatchしてクリックを再現)で機能的な実機検証を
+    行った。オーケストレーターのスクショQAは別途正常に動作するBrowser環境で
+    実施いただく想定(保存済みスクショファイルは無し)。
+- 仕様どおりにできなかった点・判断に迷った点:
+  1. `failCount`フィールドをタスク仕様のスキーマに追加した(上記参照、理由は要件6の
+     復習フィルタ「失敗あり」を維持するため)。
+  2. 出題プールへの失敗局面登録の継続(上記参照)。
+  3. 結果画面の「評価値 A → B(損失X石)」表示で、A・Bはそれぞれ丸めて表示するが
+     損失Xは丸め前の生値から計算するため、`A-B`の見た目の引き算と1石程度ズレる
+     ケースがある(例: 実機検証で「-5 → -9(損失5石)」、-5-(-9)=4のはずが5と表示)。
+     数値としては内部的に正しい(生の評価値で計算)が、UI上わずかに混乱を招きうる。
+     タスク仕様に丸め方の指定が無かったため放置したが、気になる場合は要調整。
+  4. `computer{action:"screenshot"}`が本セッションで機能せず、画像スクショは保存できて
+     いない(上記参照)。
