@@ -1,7 +1,7 @@
 import type { ClassifyThresholds, MoveClassification } from '../analysis/types.ts'
 import type { MoveEvalJson } from '../engine/types.ts'
 import type { Side } from '../game/othello.ts'
-import { computeCellEvals, formatLoss } from './moveEvalOverlayLogic.ts'
+import { applyBookCap, computeCellEvals, formatEvalScore } from './moveEvalOverlayLogic.ts'
 import './MoveEvalOverlay.css'
 
 export interface MoveEvalOverlayProps {
@@ -13,11 +13,19 @@ export interface MoveEvalOverlayProps {
   readonly thresholds: ClassifyThresholds
   /** `false`のときは何も描画しない(オーバーレイ表示OFF)。 */
   readonly visible: boolean
+  /**
+   * 定石ブックcap(T138仕様2〜4)の適用対象マス集合。省略時・空集合なら
+   * capを適用せず素の評価値を表示する(`moveEvalOverlayLogic.ts`の
+   * `applyBookCap`参照)。
+   */
+  readonly bookSquares?: ReadonlySet<number>
 }
 
 const SIDE_LABEL: Record<Side, string> = { black: '黒', white: '白' }
 
 const SQUARES = Array.from({ length: 64 }, (_, sq) => sq)
+
+const EMPTY_BOOK_SQUARES: ReadonlySet<number> = new Set()
 
 /**
  * 盤面上の各合法手のマスに、その手を打った場合の評価(候補手中の最善手との
@@ -32,10 +40,16 @@ const SQUARES = Array.from({ length: 64 }, (_, sq) => sq)
  * (要件1・2)。他のモードからも再利用できるよう、対局モード固有の状態には
  * 依存しない汎用的なProps設計にしてある(スコープ外注記、T041で展開予定)。
  */
-export function MoveEvalOverlay({ allMoves, mover, thresholds, visible }: MoveEvalOverlayProps) {
+export function MoveEvalOverlay({
+  allMoves,
+  mover,
+  thresholds,
+  visible,
+  bookSquares = EMPTY_BOOK_SQUARES,
+}: MoveEvalOverlayProps) {
   if (!visible || !allMoves) return null
 
-  const cellEvals = computeCellEvals(allMoves, thresholds)
+  const cellEvals = applyBookCap(computeCellEvals(allMoves, thresholds), bookSquares)
   if (cellEvals.size === 0) return null
 
   return (
@@ -44,14 +58,14 @@ export function MoveEvalOverlay({ allMoves, mover, thresholds, visible }: MoveEv
         const cellEval = cellEvals.get(sq)
         if (!cellEval) return <div key={sq} class="move-eval-overlay__cell" />
 
-        const label = `${SIDE_LABEL[mover]}番 ロス${Math.round(cellEval.lossDiscs)}石`
+        const label = `${SIDE_LABEL[mover]}番 評価値${formatEvalScore(cellEval.evalScore)}`
         return (
           <div
             key={sq}
             class={`move-eval-overlay__cell move-eval-overlay__cell--${cellEval.classification}`}
             title={label}
           >
-            <span class="move-eval-overlay__value">{formatLoss(cellEval.lossDiscs)}</span>
+            <span class="move-eval-overlay__value">{formatEvalScore(cellEval.evalScore)}</span>
           </div>
         )
       })}

@@ -6,6 +6,11 @@
  * (拡張子`.tsx`は対象外)のみを対象にしており、コンポーネント本体をテストする
  * 仕組みが無いため(`BoardOverlay.tsx`も同様に無テスト)。分類→色マッピングの
  * ロジックだけはここに切り出してテスト可能にする。
+ *
+ * T138: 表示の考え方を「最善手からのロス量」から「評価値そのもの(mover視点の
+ * 石差)」へ変更した。合法手の色分類(best/inaccuracy/dubious/blunder)は
+ * 従来どおり最善手とのロス量で判定するが(定石cap適用前の生の探索品質を表す)、
+ * 画面に出す数値は定石ブックcap(`applyBookCap`、仕様2〜4)適用後の評価値にする。
  */
 
 import { classifyMove } from '../analysis/classifyMove.ts'
@@ -15,14 +20,17 @@ import { notationToSquare } from '../game/othello.ts'
 
 /** あるマス(候補手)についてのオーバーレイ表示情報。 */
 export interface CellEval {
+  /** 最善手とのロス量(定石cap適用前)に基づく4段階分類。色分けにのみ使う。 */
   readonly classification: MoveClassification
-  /** 候補手中の最善評価値からのロス(石差、0以上)。 */
-  readonly lossDiscs: number
+  /** この手を打った場合の評価値(mover視点の石差、centi-discではなく石差)。
+   * `applyBookCap`適用前は`MoveEvalJson.discDiff`そのもの。 */
+  readonly evalScore: number
 }
 
 /**
  * 候補手一括評価(`requestAnalyzeAll`の結果)から、マス(0〜63)ごとの
- * 分類・ロス量を求める。`allMoves`が`null`または空配列の場合は空のMapを返す。
+ * 分類・評価値を求める(定石ブックcapは適用しない生の値、`applyBookCap`で
+ * 別途適用する)。`allMoves`が`null`または空配列の場合は空のMapを返す。
  *
  * 最善手は`discDiff`(石差、手番視点)が最大の候補手とする
  * (`engine/src/protocol.rs`により`discDiff = score / 100`なので`score`基準の
@@ -40,20 +48,59 @@ export function computeCellEvals(
   for (const move of allMoves) {
     const lossDiscs = Math.max(0, best.discDiff - move.discDiff)
     const classification = classifyMove(lossDiscs, thresholds)
-    result.set(notationToSquare(move.move), { classification, lossDiscs })
+    result.set(notationToSquare(move.move), { classification, evalScore: move.discDiff })
   }
 
   return result
 }
 
 /**
- * ロス量を「±0」「-1」のような短い表示用文字列に整形する(要件、
- * `MoveEvalOverlay.tsx`のマーカーに小さく表示する数値)。
- * 四捨五入して0になる場合(最善手自身を含む)は`±0`にする(T049で
- * 小数点第1位表示から整数表示に変更。Edax同様、石数差らしい整数で表示する)。
+ * 定石ブックcap(T138仕様2〜4)を適用する純粋関数。
+ *
+ * `bookSquares`は現局面の合法手のうち定石ブックに登録されている手のマス集合
+ * (`lookupJosekiNode`の`bookMoves`から求める。呼び出し側`app.tsx`の責務)。
+ *
+ * - `bookSquares`が空(合法手にブック手が残っていない、仕様4): 何もせず
+ *   `cellEvals`をそのまま返す(素の評価値を表示)。
+ * - `bookSquares`が空でない(仕様3): ブック手自身の評価値は0にする。
+ *   非ブック手はプラスの評価値なら0に丸め、マイナスならそのまま
+ *   (=ブック手が存在する間、表示はすべて0以下になる)。
  */
-export function formatLoss(lossDiscs: number): string {
-  const rounded = Math.round(lossDiscs)
-  if (rounded <= 0) return '±0'
-  return `-${rounded}`
+export function applyBookCap(
+  cellEvals: ReadonlyMap<number, CellEval>,
+  bookSquares: ReadonlySet<number>,
+): ReadonlyMap<number, CellEval> {
+  if (bookSquares.size === 0) return cellEvals
+
+  const result = new Map<number, CellEval>()
+  for (const [square, cellEval] of cellEvals) {
+    const evalScore = bookSquares.has(square) ? 0 : Math.min(0, cellEval.evalScore)
+    result.set(square, { ...cellEval, evalScore })
+  }
+  return result
+}
+
+/**
+ * 盤面評価値(T138仕様1・2)。「各合法手の評価値の最大値」を基本とするが、
+ * 定石ブックcapが働く間(`bookSquares`が空でない間、=現在の進行が定石ブック内)は
+ * 0(互角)を返す。`allMoves`が`null`または空配列(合法手が無い・未取得)なら
+ * `null`を返す。
+ */
+export function computeBoardEvalScore(
+  allMoves: readonly MoveEvalJson[] | null,
+  bookSquares: ReadonlySet<number>,
+): number | null {
+  if (!allMoves || allMoves.length === 0) return null
+  if (bookSquares.size > 0) return 0
+  return allMoves.reduce((max, move) => Math.max(max, move.discDiff), -Infinity)
+}
+
+/**
+ * 評価値を「+3」「-1」のような符号付き整数石差の表示用文字列に整形する
+ * (T138仕様: 丸めは四捨五入の整数石差、+0/-0は符号を付けず「0」)。
+ */
+export function formatEvalScore(evalScore: number): string {
+  const rounded = Math.round(evalScore)
+  if (rounded === 0) return '0'
+  return rounded > 0 ? `+${rounded}` : `${rounded}`
 }

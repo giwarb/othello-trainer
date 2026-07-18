@@ -10,6 +10,7 @@ import { BoardEditor, type BoardEditorResult } from './components/BoardEditor.ts
 import { EvalBadge, formatDiscDiff } from './components/EvalBadge.tsx'
 import { Board, DISPLAY_GAP_MS, FLIP_ANIMATION_MS } from './components/Board.tsx'
 import { MoveEvalOverlay } from './components/MoveEvalOverlay.tsx'
+import { computeBoardEvalScore } from './components/moveEvalOverlayLogic.ts'
 import { PlayerBadge } from './components/PlayerBadge.tsx'
 import { ResultCelebration } from './components/ResultCelebration.tsx'
 import { celebrationKindFor, type CelebrationKind } from './components/resultCelebrationLogic.ts'
@@ -35,6 +36,7 @@ import { computeDueLines } from './joseki/dueLines.ts'
 import { loadJosekiDb, lookupJosekiNode } from './joseki/lookup.ts'
 import { PracticeMode } from './joseki/PracticeMode.tsx'
 import { selectCpuBookMove } from './joseki/selectCpuBookMove.ts'
+import { formatJosekiTrace } from './joseki/traceDisplay.ts'
 import type { JosekiDb } from './joseki/types.ts'
 import { EvalBar } from './midgame/EvalBar.tsx'
 import { PracticeMode as MidgamePracticeMode } from './midgame/PracticeMode.tsx'
@@ -43,8 +45,6 @@ import {
   loadStageProgress as loadMidgameStageProgress,
   stageStatus as midgameStageStatus,
 } from './midgame/stageProgress.ts'
-import { loadEvalBarEnabled, saveEvalBarEnabled } from './settings/evalBarSettings.ts'
-import { loadMoveEvalOverlayEnabled, saveMoveEvalOverlayEnabled } from './settings/moveEvalOverlaySettings.ts'
 import { loadOpeningBookEnabled, saveOpeningBookEnabled } from './settings/openingBookSettings.ts'
 import { TitleScreen } from './TitleScreen.tsx'
 import { todaysPuzzle } from './tsume/dailyPuzzle.ts'
@@ -426,20 +426,29 @@ function PlayMode({ onReviewGame }: PlayModeProps) {
   )
   const [blunderConfig, setBlunderConfig] = useState<BlunderConfig>(DEFAULT_BLUNDER_CONFIG)
   const [evalInfo, setEvalInfo] = useState<EvalInfo | null>(null)
-  const [moveEvalOverlayEnabled, setMoveEvalOverlayEnabled] = useState<boolean>(() =>
-    loadMoveEvalOverlayEnabled(localStorage),
-  )
   const [classifyThresholds] = useState<ClassifyThresholds>(() => loadClassifyThresholds(localStorage))
   const [overlayMoves, setOverlayMoves] = useState<MoveEvalJson[] | null>(null)
+  // T138: 合法手のうち定石ブックに登録されている手のマス集合(空なら
+  // ブックcapなし)。`overlayMoves`と同じ`requestAnalyzeAll`エフェクトで
+  // 一緒に求める(下の候補手評価+評価値バーの統合エフェクト参照)。
+  const [overlayBookSquares, setOverlayBookSquares] = useState<ReadonlySet<number>>(() => new Set())
   // 終局時の勝敗演出(T067)の表示可否。`game.phase === 'over'`になった瞬間
   // ではなく`FLIP_ANIMATION_MS`後にtrueにすることで、Board.tsx側の最後の
   // 一手の反転アニメーションが終わってから演出を表示する(要件3)。
   const [celebrationVisible, setCelebrationVisible] = useState(false)
 
-  // 現在の評価値バー(T077要件2・3)。`localStorage`にON/OFFを永続化し、
-  // ONの間は着手のたびに現局面(直前の着手後)をエンジンに問い合わせる。
-  const [evalBarEnabled, setEvalBarEnabled] = useState<boolean>(() => loadEvalBarEnabled(localStorage))
+  // 現在の評価値バー(T077要件2・3、T138要件5で常時表示化)。
   const [evalBarValue, setEvalBarValue] = useState<number | null>(null)
+
+  // T138要件6: 定石トレース表示(オセロクエスト風)。`displayGame`が定石DBの
+  // いずれかのノードに一致する間、その`{names, ply}`を保持し続ける。一致しなく
+  // なった(定石を外れた・最後まで指し終えた)後も、直前に一致していた情報を
+  // 保持したまま`active: false`にする(離脱後も薄く表示を残す仕様)。
+  const [josekiTrace, setJosekiTrace] = useState<{
+    readonly names: readonly string[]
+    readonly ply: number
+    readonly active: boolean
+  } | null>(null)
 
   // 盤面自由配置(T077要件4)。エディタ表示中は通常の対局盤を隠し、
   // 編集中の盤面・手番をこの2つのstateに保持する(`BoardEditor`は制御コンポーネント)。
@@ -542,20 +551,40 @@ function PlayMode({ onReviewGame }: PlayModeProps) {
     if (game.phase !== 'cpu') setThinking(false)
   }, [game.phase])
 
-  // 盤面セル評価オーバーレイ(T039)。人間の手番になった時点で、表示ONの場合のみ
-  // 現局面(着手前)の全合法手の評価をまとめて取得する。`evaluateHumanMove`
+  // T138: 候補手評価オーバーレイ(T039)+現在の評価値バー(T077)を、1本の
+  // `requestAnalyzeAll`から導出する(仕様1・2・「値の整合が構造的に保証される」)。
+  // 人間の手番になった時点で現局面(着手前)の全合法手の評価をまとめて取得し、
+  // (a) マスごとのオーバーレイ表示用データ、(b) 定石ブックcap対象マス集合
+  // (`lookupJosekiNode`の`bookMoves`、仕様3・4)、(c) 盤面評価値(=合法手評価の
+  // 最大値にブックcapを適用したもの、`computeBoardEvalScore`)をまとめて更新する。
+  // どちらも常時表示(仕様5、ON/OFFの概念自体を廃止)。`evaluateHumanMove`
   // (人間の着手*後*にその1手だけを評価するもの)とは目的・タイミングが異なるため
   // 状態を分けている(将来的に1回のリクエストへ統合する余地はあるが、本タスクの
-  // スコープ外・作業ログ参照)。CPUの手番中は取得せず、直前(人間手番時)の結果を
-  // クリアする。
+  // スコープ外・作業ログ参照)。
   //
   // `game`ではなく`displayGame`を見る(T134)。このオーバーレイは`<Board>`の
   // 各マスに重ねて描画するため、盤面がまだCPUの応手を表示していない
   // (直列化の待ち時間中の)タイミングで先に「人間の手番の合法手評価」を
   // 出してしまうと、まだ画面上に残っている前の局面のマスと数値がずれて見える。
   // `displayGame`が人間の手番に追いつくのを待つことでこれを避ける。
+  //
+  // CPUの手番中(`'cpu'`)は取得せず、直前(人間手番時)のオーバーレイだけ
+  // クリアする(評価値バーはあえて直前の値を残す。着手直後〜CPU応手までの
+  // 短い間、盤面評価がいったん消えて再度出るより、直前の値を残したほうが
+  // 見やすいため)。終局後(`'over'`)は合法手が無い局面をエンジンに問い合わせて
+  // エラーになるのを避けるため、石差をそのまま使う。
   useEffect(() => {
-    if (displayGame.phase !== 'human' || !moveEvalOverlayEnabled) {
+    const perspectiveSide: Side = displayGame.vsHuman ? 'black' : displayGame.humanSide
+
+    if (displayGame.phase === 'over') {
+      setOverlayMoves(null)
+      const black = countDiscs(displayGame.board, 'black')
+      const white = countDiscs(displayGame.board, 'white')
+      setEvalBarValue(perspectiveSide === 'black' ? black - white : white - black)
+      return
+    }
+
+    if (displayGame.phase !== 'human') {
       setOverlayMoves(null)
       return
     }
@@ -564,7 +593,21 @@ function PlayMode({ onReviewGame }: PlayModeProps) {
     getEngine()
       .requestAnalyzeAll(displayGame.board, displayGame.sideToMove, LEVELS[level].limit)
       .then((moves) => {
-        if (!cancelled) setOverlayMoves(moves)
+        if (cancelled) return
+        setOverlayMoves(moves)
+
+        const firstMove = firstMoveSquareRef.current ?? notationToSquare('f5')
+        const lookup = safeLookupJosekiNode(josekiDb, displayGame.board, displayGame.sideToMove, firstMove)
+        const bookSquares = new Set<number>((lookup?.bookMoves ?? []).map((bookMove) => bookMove.move))
+        setOverlayBookSquares(bookSquares)
+
+        const boardScore = computeBoardEvalScore(moves, bookSquares)
+        if (boardScore === null) {
+          setEvalBarValue(null)
+          return
+        }
+        const value = displayGame.sideToMove === perspectiveSide ? boardScore : -boardScore
+        setEvalBarValue(value)
       })
       .catch((error: unknown) => {
         console.error('候補手評価オーバーレイの取得に失敗しました', error)
@@ -574,48 +617,29 @@ function PlayMode({ onReviewGame }: PlayModeProps) {
       cancelled = true
     }
     // eslint disabled equivalent: CPU思考エフェクトと同様、levelは取得開始時点の値でよい。
-  }, [displayGame, moveEvalOverlayEnabled, level])
+  }, [displayGame, level, josekiDb])
 
-  // 現在の評価値バー(T077要件2・3)。表示ONの間、`game`が変わるたび
-  // (人間・CPU・2人対戦いずれの着手後も、また新規対局開始時も)直前の着手後の
-  // 局面をエンジンに問い合わせて更新する。表示の基準色(`perspectiveSide`)は
-  // 2人対戦モードでは黒固定、CPU対戦では人間の担当色とする(`humanSide`基準の
-  // 「+なら自分が有利」という既存の`evalInfo`/中盤練習モードの表示規約に合わせる)。
-  // 終局後(`phase === 'over'`)はエンジンに合法手が無い局面を問い合わせて
-  // エラーになるのを避けるため、石差をそのまま使う。
+  // T138要件6: 定石トレース表示(オセロクエスト風)。`displayGame`が進むたびに
+  // 定石DBへ問い合わせ、一致する間は`{names, ply}`を更新し続ける。一致しなく
+  // なった(定石手順を外れた・ラインの終端まで指し終えた、いずれも同じ扱い)後も
+  // `josekiTrace`自体はクリアせず、直前の一致情報を保持したまま`active: false`に
+  // する(離脱後も「〜(離脱)」として薄く表示を残す仕様)。
+  //
+  // 初期局面(ply=0)は定石DBの全ライン(112件、`lookupJosekiNode`が返す
+  // `names`参照)に一致してしまい表示が無意味になるため対象外にする(1手目が
+  // 指されて`ply >= 1`になってから追跡を開始する)。
   useEffect(() => {
-    if (!evalBarEnabled) {
-      setEvalBarValue(null)
-      return
+    const ply = countDiscs(displayGame.board, 'black') + countDiscs(displayGame.board, 'white') - 4
+    if (ply <= 0) return
+
+    const firstMove = firstMoveSquareRef.current ?? notationToSquare('f5')
+    const lookup = safeLookupJosekiNode(josekiDb, displayGame.board, displayGame.sideToMove, firstMove)
+    if (lookup) {
+      setJosekiTrace({ names: lookup.names, ply, active: true })
+    } else {
+      setJosekiTrace((prev) => (prev ? { ...prev, active: false } : null))
     }
-
-    const perspectiveSide: Side = game.vsHuman ? 'black' : game.humanSide
-
-    if (game.phase === 'over') {
-      const black = countDiscs(game.board, 'black')
-      const white = countDiscs(game.board, 'white')
-      setEvalBarValue(perspectiveSide === 'black' ? black - white : white - black)
-      return
-    }
-
-    let cancelled = false
-    getEngine()
-      .requestAnalyze(game.board, game.sideToMove, LEVELS[level].limit)
-      .then((response) => {
-        if (cancelled) return
-        const value =
-          game.sideToMove === perspectiveSide ? response.score.discDiff : -response.score.discDiff
-        setEvalBarValue(value)
-      })
-      .catch((error: unknown) => {
-        console.error('現在の評価値の取得に失敗しました', error)
-      })
-
-    return () => {
-      cancelled = true
-    }
-    // eslint disabled equivalent: 他のエフェクトと同様、levelは取得開始時点の値でよい。
-  }, [game, evalBarEnabled, level])
+  }, [displayGame, josekiDb])
 
   // 対局が終了したら、Board.tsxの最後の一手の反転アニメーション
   // (FLIP_ANIMATION_MS)が終わるタイミングで勝敗演出を表示する(T067要件3)。
@@ -634,18 +658,6 @@ function PlayMode({ onReviewGame }: PlayModeProps) {
     const timer = window.setTimeout(() => setCelebrationVisible(true), FLIP_ANIMATION_MS)
     return () => window.clearTimeout(timer)
   }, [displayGame.phase])
-
-  /** オーバーレイ表示ON/OFFを切り替え、`localStorage`へ永続化する(T039、要件4)。 */
-  function handleToggleMoveEvalOverlay(enabled: boolean) {
-    setMoveEvalOverlayEnabled(enabled)
-    saveMoveEvalOverlayEnabled(localStorage, enabled)
-  }
-
-  /** 評価値バー表示ON/OFFを切り替え、`localStorage`へ永続化する(T077要件2)。 */
-  function handleToggleEvalBar(enabled: boolean) {
-    setEvalBarEnabled(enabled)
-    saveEvalBarEnabled(localStorage, enabled)
-  }
 
   /** CPU定石ブックON/OFFを切り替え、`localStorage`へ永続化する(T093)。 */
   function handleToggleOpeningBook(enabled: boolean) {
@@ -740,6 +752,13 @@ function PlayMode({ onReviewGame }: PlayModeProps) {
     setEvalInfo(null)
     setEditorOpen(false)
     setMoveHistory([])
+    // T138: 前の対局のオーバーレイ・評価値バー・定石トレースを持ち越さない
+    // (人間が白番でCPUが初手を指す対局では、人間の手番になるまで候補手評価
+    // エフェクトが発火せず、リセットしないと前の対局の値が一瞬残って見えてしまう)。
+    setOverlayMoves(null)
+    setOverlayBookSquares(new Set())
+    setEvalBarValue(null)
+    setJosekiTrace(null)
   }
 
   function startNewGame(choice: Side | 'random') {
@@ -855,6 +874,9 @@ function PlayMode({ onReviewGame }: PlayModeProps) {
   const whiteLabel = game.vsHuman ? '白' : game.humanSide === 'white' ? 'あなた' : 'CPU'
   const cpuSide: Side | null = game.vsHuman ? null : opposite(game.humanSide)
 
+  // T138要件6: 定石トレース表示の文言(`josekiTrace`が無ければ何も表示しない)。
+  const josekiTraceText = josekiTrace ? formatJosekiTrace(josekiTrace.names, josekiTrace.ply, !josekiTrace.active) : ''
+
   return (
     <>
       {/* T136要件2: 対局開始前はセットアップカード(開始ボタン群・CPU強さ・
@@ -959,21 +981,34 @@ function PlayMode({ onReviewGame }: PlayModeProps) {
           {/* T136要件1: 従来の「あなたは黒番です。手番: 黒」「黒: 2 / 白: 2」という
               素テキストを、盤の直上の2バッジ(手番側ハイライト+石数+思考中表示)に
               置き換える。 */}
-          <div class="player-badges">
-            <PlayerBadge
-              side="black"
-              label={blackLabel}
-              count={blackCount}
-              active={displayGame.phase !== 'over' && displayGame.sideToMove === 'black'}
-              thinking={thinking && cpuSide === 'black'}
-            />
-            <PlayerBadge
-              side="white"
-              label={whiteLabel}
-              count={whiteCount}
-              active={displayGame.phase !== 'over' && displayGame.sideToMove === 'white'}
-              thinking={thinking && cpuSide === 'white'}
-            />
+          {/* T138要件6: `.player-badges`に加え定石トレース表示(下記)も横置き
+              2カラムレイアウトで1行目(全幅)にまとめて配置したいため、両方を
+              共通のラッパーで包む(`app.css`の`.play-board-area > .play-board-area__header`
+              参照。以前は`.player-badges`単独に直接grid配置していた)。 */}
+          <div class="play-board-area__header">
+            <div class="player-badges">
+              <PlayerBadge
+                side="black"
+                label={blackLabel}
+                count={blackCount}
+                active={displayGame.phase !== 'over' && displayGame.sideToMove === 'black'}
+                thinking={thinking && cpuSide === 'black'}
+              />
+              <PlayerBadge
+                side="white"
+                label={whiteLabel}
+                count={whiteCount}
+                active={displayGame.phase !== 'over' && displayGame.sideToMove === 'white'}
+                thinking={thinking && cpuSide === 'white'}
+              />
+            </div>
+
+            {/* T138要件6: 定石トレース表示(オセロクエスト風)。現在の進行がどの定石を
+                どこまでたどっているかを1行で示す。ブックを離脱(または最後まで
+                指し終えた)後は`formatJosekiTrace`が末尾に「(離脱)」を付けた
+                文言を返す。一度も定石DBに一致していない対局では`josekiTraceText`が
+                空文字列のままなので何も描画しない。 */}
+            {josekiTraceText && <p class="joseki-trace">{josekiTraceText}</p>}
           </div>
 
           {/* T134: 手番表示は`displayGame`(実際に見せている状態)基準。`game`基準だと
@@ -1003,14 +1038,16 @@ function PlayMode({ onReviewGame }: PlayModeProps) {
               allMoves={overlayMoves}
               mover={displayGame.sideToMove}
               thresholds={classifyThresholds}
-              visible={moveEvalOverlayEnabled}
+              visible={true}
+              bookSquares={overlayBookSquares}
             />
           </div>
 
           <div class="play-board-area__side">
             {displayGame.passMessage && <p class="notice">{displayGame.passMessage}</p>}
 
-            {evalBarEnabled && evalBarValue !== null && (
+            {/* T138要件5: 常時表示(旧ON/OFFチェックは廃止)。 */}
+            {evalBarValue !== null && (
               <div class="play-eval-bar">
                 <p class="play-eval-bar__caption">
                   現在の評価値({sideLabel(game.vsHuman ? 'black' : game.humanSide)}視点、+なら有利)
@@ -1062,28 +1099,14 @@ function PlayMode({ onReviewGame }: PlayModeProps) {
         </div>
       )}
 
-      {/* T136要件2・追加要件1: 悪手判定設定・表示オプションは折りたたみへ移す
-          (`<details>`、既定で閉じる)。`.settings`クラスはT135の設定カード見た目
-          (`app.css`)をそのまま流用する。 */}
+      {/* T136要件2・追加要件1: 悪手判定設定は折りたたみへ移す(`<details>`、既定で
+          閉じる)。`.settings`クラスはT135の設定カード見た目(`app.css`)を
+          そのまま流用する。T138要件5: 候補手評価・現在の評価値は常時表示に
+          なったため、このパネルからON/OFFチェックは撤去した(悪手判定の
+          閾値設定のみ残る)。 */}
       <details class="settings play-settings-panel">
-        <summary class="play-settings-panel__summary">設定(候補手評価・現在の評価値・悪手判定)</summary>
+        <summary class="play-settings-panel__summary">設定(悪手判定)</summary>
         <div class="play-settings-panel__body">
-          <label class="move-eval-overlay-toggle">
-            <input
-              type="checkbox"
-              checked={moveEvalOverlayEnabled}
-              onChange={(event) => handleToggleMoveEvalOverlay((event.target as HTMLInputElement).checked)}
-            />
-            候補手評価を表示
-          </label>
-          <label class="eval-bar-toggle">
-            <input
-              type="checkbox"
-              checked={evalBarEnabled}
-              onChange={(event) => handleToggleEvalBar((event.target as HTMLInputElement).checked)}
-            />
-            現在の評価値を表示
-          </label>
           <BlunderSettings onChange={setBlunderConfig} />
         </div>
       </details>

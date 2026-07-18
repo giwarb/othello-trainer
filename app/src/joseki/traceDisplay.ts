@@ -1,0 +1,32 @@
+/**
+ * 定石トレース表示(T138、オセロクエスト風)の文言を組み立てる純粋関数。
+ *
+ * 対局モード(`app.tsx`)は、`displayGame`が進むたびに`lookupJosekiNode`で
+ * 現局面を定石DBに問い合わせ、見つかった間は`{names, ply}`を保持し続ける
+ * (見つからなくなった=定石から外れた後も、直前に一致していた情報を保持した
+ * まま`left: true`で渡す)。この関数自体は保持ロジックを持たない、表示文言への
+ * 変換だけを行う純粋関数。
+ */
+
+/**
+ * `names`(その局面を経由する定石ライン名、複数合流時は複数)・`ply`(その局面
+ * までの着手数)・`left`(定石から外れた後かどうか)から、1行の表示文言を
+ * 組み立てる。
+ *
+ * `names`が複数ある場合は先頭1件を代表として表示し、「他N」を付す
+ * (`names`の順序は`lookupJosekiNode`が返す配列の順序をそのまま使う)。
+ * `left`が`true`のときは末尾に「(離脱)」を付す(定石DBの手順を外れた場合・
+ * 定石ラインの終端まで指し終えた場合のいずれも対象。仕様上どちらも
+ * 「もうこの局面は定石DBに無い」という点で同じ扱いにしてある)。
+ *
+ * `names`が空配列の場合は空文字列を返す(呼び出し側は空文字列なら
+ * 何も描画しない)。
+ */
+export function formatJosekiTrace(names: readonly string[], ply: number, left: boolean): string {
+  if (names.length === 0) return ''
+
+  const rest = names.length - 1
+  const nameLabel = rest > 0 ? `${names[0]}(他${rest})` : names[0]
+  const base = `定石: ${nameLabel}(${ply}手目)`
+  return left ? `${base}(離脱)` : base
+}

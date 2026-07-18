@@ -125,6 +125,20 @@ main {
   font-weight: bold;
 }
 
+/* T138要件6: 定石トレース表示(オセロクエスト風)。プレイヤーバッジの直下に
+   1行で「定石: 兎(5手目)」のように出す。離脱後は薄い色で目立たせすぎない
+   (`formatJosekiTrace`が付す「(離脱)」を含め、通常の状態表示より控えめに
+   見せる意図)。 */
+.joseki-trace {
+  margin: 0 auto var(--space-sm);
+  max-width: var(--board-size-lg);
+  padding: 0 0.5rem;
+  box-sizing: border-box;
+  text-align: center;
+  font-size: 0.85rem;
+  color: var(--color-text-secondary);
+}
+
 .notice {
   /* T068フィードバック対応: .notice--error と同様、固定背景を持たないため
      --color-warning-text 経由にする。 */
@@ -401,10 +415,9 @@ main {
     box-sizing: border-box;
   }
 
-  .play-board-area > .player-badges {
+  .play-board-area > .play-board-area__header {
     grid-column: 1 / span 2;
     grid-row: 1;
-    margin: 0;
   }
 
   .play-board-area > .board-container {
