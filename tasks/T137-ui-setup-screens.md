@@ -1,10 +1,9 @@
 ---
 id: T137
 title: UX強化3: 設定・一覧・ホーム画面の磨き込み(CTA強調・進捗の見える化)
-status: redo # 代替レビュー中3件の仕上げ(シリーズ最終弾のため持ち越さず修正)
-attempts: 1
+status: done # redo#1(仕上げ4点)含めverifier/代替レビュー/ビジュアルQA全合格(2026-07-18)
 assignee: implementer(Sonnet)
-attempts: 0
+attempts: 1
 ---
 
 # T137: 設定・一覧・ホームの磨き
