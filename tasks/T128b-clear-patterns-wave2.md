@@ -1,7 +1,7 @@
 ---
 id: T128b
 title: 中盤練習: 明確悪手パターン第1波追加(隅の取り逃し・パス取り逃し・自分の手数激減・石の取りすぎ)
-status: in_progress # T128完了(done)を受けて着手
+status: done # verifier/代替レビュー両合格(2026-07-18)
 assignee: implementer(Sonnet)
 attempts: 0
 ---
