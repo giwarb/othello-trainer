@@ -36,3 +36,14 @@ attempts: 0
 ## フィードバック(やり直し時にオーケストレーターが記入)
 
 ## 作業ログ(担当エージェントが追記)
+
+- 2026-07-18 implementer(Sonnet): 実装完了。
+  - due判定・出題対象選択の純粋ロジックを新規 `app/src/joseki/dueLines.ts` に切り出した(`computeDueLines`/`previewDueLineNames`/`selectPracticeTargetLine`/`dueSummaryHeadline`)。`PracticeMode.tsx`の`startPractice`内にインラインだった「due優先・無ければ全体」ロジックをこれに置き換え、加えて`dueOnly`オプション(due限定・0件ならallLinesへフォールバック)を追加。
+  - `PracticeMode.tsx`: 色選択画面に「今日の復習: n本」(0本時は状況により「今日の復習はありません」/「今日の復習完了!」)、due一覧のdetails(最大10件+「他n本」)、「復習を始める」ボタン(due限定出題、ランダム色)を追加。`PracticeState`に`reviewFallback`を追加し、due限定セッションが0件フォールバックした場合は`playing`画面に「本日の復習はないため、通常の出題です。」を表示。due限定セッションを完走してdueが0になったことを検知するため`dueOnlySessionActiveRef`(ref)と`justCompletedReview`(state)を追加、colorSelect画面に戻るたびにdueを再計算するeffectを追加。
+  - `PracticeMode.css`: `.joseki-due-summary`関連のスタイルを追加、375px向けの`@media (max-width: 400px)`にpadding/font-size調整を追加。
+  - テスト: `dueLines.test.ts`(純粋関数の単体テスト、due判定・プレビュー切り詰め・due限定選択と0件フォールバック・見出し文言の分岐を網羅)、`PracticeMode.dueVisibility.test.tsx`(fake-indexeddb/autoで実IndexedDBを使い、1手で完結する合成定石ラインを用いてUI結線を統合テスト。シナリオ1: 未挑戦→「今日の復習: 1本」表示→復習開始→1手でクリア→「もう一度」で戻ると「今日の復習完了!」。シナリオ2: 事前にdueDateを2099年に設定した状態をIndexedDBへ書き込み→「今日の復習はありません」表示→「復習を始める」クリックでフォールバック通知が出ることを確認)。
+  - 検証コマンド: `npx vitest run`(77 files / 661 tests 全パス、うち joseki 配下 12 files / 88 tests)、`npx tsc --noEmit -p app/tsconfig.app.json`(joseki関連のエラーなし。`app/src/midgame/PracticeMode.tsx`に既存の未使用変数エラー6件があるが、これは並行作業中のT129の変更によるものでT131のスコープ外)。
+  - コミット: `ea757f8`(`app/src/joseki/{PracticeMode.tsx,PracticeMode.css,dueLines.ts,dueLines.test.ts,PracticeMode.dueVisibility.test.tsx}` のみ、`git add`はファイルパス明示)。`git push origin main`実行時点でリモートは進んでいなかった(fast-forward、rebase不要)。
+  - デプロイ確認: GitHub Actions「Deploy to GitHub Pages」(run 29628230446)成功。本番Pages(`https://giwarb.github.io/othello-trainer/`)で「定石練習」→ Service Workerの更新通知が出ていたため「今すぐ更新」を適用 → 色選択画面に「今日の復習: 112本」「復習対象のラインを見る(112件)」(開くと先頭10件+「他102本」)「復習を始める」ボタンを実機で確認。「復習を始める」クリックでdue限定の練習が開始されること(黒番・盤面表示)を確認。375px(375x812)にリサイズしても`document.documentElement.scrollWidth`が`clientWidth`と同じ(横スクロールなし)で表示崩れが無いことを確認。
+  - 注記: 0件フォールバック通知(「本日の復習はないため、通常の出題です。」)と復習完了バナー(「今日の復習完了!」)は、本番DB(112ラインの多くが未挑戦=常時due)の状態を人為的に0件へ持っていくのがPages実機では非現実的なため、`PracticeMode.dueVisibility.test.tsx`の実IndexedDB統合テスト(シナリオ1・2)で実コードパスを通して確認済み。本番実機ではdue件数・一覧・復習開始ボタンの表示と動作(due>0の経路)のみ確認した。
+  - Browser MCPの`computer{action:"screenshot"}`が本セッション環境でタイムアウトし続けたため、視覚確認は`get_page_text`/`javascript_tool`によるDOM・テキスト検証で代替した(操作自体はコンソールJS実行で行い、実装コードは変更していない)。

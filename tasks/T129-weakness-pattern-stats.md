@@ -42,3 +42,12 @@ attempts: 0
 ## フィードバック(やり直し時にオーケストレーターが記入)
 
 ## 作業ログ(担当エージェントが追記)
+
+- 2026-07-18: 実装完了。
+  - `app/src/midgame/clearBlunder.ts`: `CLEAR_BLUNDER_PATTERN_LABELS`(パターンID→平易な日本語ラベルの単一ソース)・`CLEAR_BLUNDER_PATTERN_IDS`・`detectAllClearBlunderPatterns`(表示上限による切り詰め前の全件を返す)を追加。`detectClearBlunderPatterns`は内部でこれを呼ぶようリファクタ(既存の挙動は不変)。
+  - `app/src/midgame/patternStats.ts`(新規): `localStorage`キー`othello-trainer:midgame-pattern-stats`に`{ [patternId]: { failCount, lastAt } }`を保存。`stageProgress.ts`と同じ`StorageLike`/ISO日時厳密検証パターンを踏襲。`recordPatternFailures`・`resetPatternStats`・`topPatternStats`(failCount降順・同数はlastAt降順・上位5件既定)を実装。
+  - `app/src/midgame/PracticeMode.tsx`: `handlePlayerMove`のゲート判定で`detectClearBlunderPatterns`(表示用、最大2件)に加え、失敗確定時のみ`detectAllClearBlunderPatterns`で全件IDを取得し`handleModeFailure`に渡す。`handleModeFailure`は`recordStageAttemptNow`と同じ同期タイミング(比較PV取得のawaitより前、世代ガード通過後)で`recordPatternFailuresNow`を呼ぶ。ゲート合格(`patterns === null`)時は呼ばない。設定画面に「苦手パターン」セクション(上位5件表示・0件時メッセージ・インライン確認付きリセットボタン)を追加。
+  - `app/src/midgame/PracticeMode.css`: `.midgame-pattern-stats`系のスタイルと375px向けメディアクエリ追加。
+  - テスト: `app/src/midgame/patternStats.test.ts`(新規、パターン統計モジュールの単体テスト。往復保存=リロード後保持・全パターン加算・累積・リセット・降順ソート・バリデーション)、`app/src/midgame/clearBlunder.test.ts`に`detectAllClearBlunderPatterns`が表示上限を超えて全件返すことの回帰テストを追加、`app/src/midgame/PracticeMode.patternStats.test.tsx`(新規、コンポーネントテスト: 失敗で全検出パターン(3件、表示は2件)が加算/ゲート合格時は非加算/世代ガード(離脱後は書かれない)/設定画面での降順上位5件表示・0件表示・リセット動作)。
+  - 検証: `npx vitest run`(app配下)666件全パス。`npx tsc --noEmit -p tsconfig.app.json`エラーなし。
+  - コミット `8931951`(`app:` プレフィックス、T129のみ)。push後、GitHub Actionsの完了待ち・Pages実機確認を実施中(続きは次の追記で報告)。

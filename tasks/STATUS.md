@@ -29,9 +29,9 @@
 | T127b | expanded1m本番生成(新規80万件) | オーケストレーター管理 | in_progress(**7/17 21:3x 親またぎバッチ方式(32親/束)へ乗り換え成功、PID 21948**。292,679件を全件保持してresume。7/18 04:2x重い帯(空き20-29、incremental bin3)へ突入しペース3万→1万件/hに低下(構造的・異常なし)。**ETA再修正(7/18朝、重い帯の実測5k/h前後を反映): 完走7/19夜〜7/20朝**。当初41h推計は帯構成の平均を誤適用した楽観(bin3=空き20-29の incremental 割当が17.3万件と大きい)。ログlogs/t127b-gen2.log) | 0 |
 | T127c-e | 1M検証(+テスト固定2件FU)→v4学習(500k bridge+1M×3seed)→4M投資判定 | Codex gpt-5.6-sol | todo(生成完走後に順次) | 0 |
 | T129 | 中盤練習: 苦手パターン統計(タグ永続化+表示) | implementer(Sonnet) | in_progress(学習機能シリーズ、ユーザー指示7/18昼「できそうなことを見つけてタスク化」。棚卸し調査済み) | 0 |
-| T131 | 定石練習: SRS復習キューの見える化 | implementer(Sonnet) | in_progress(T129と並行、ファイル領域独立) | 0 |
+| T131 | 定石練習: SRS復習キューの見える化 | implementer(Sonnet) | review(ea757f8、Pages実機で「今日の復習112本」確認済み報告。verifier実行中。代替レビューはT129完了後にまとめて) | 0 |
 | T130 | 詰め/中盤のステージ復習フィルタ | implementer(Sonnet) | todo(T129完了後、PracticeMode.tsx競合回避の直列) | 0 |
-| T132 | 対局→棋譜解析の連携(終局後の振り返り導線) | implementer(Sonnet) | todo(T131完了後に委譲) | 0 |
+| T132 | 対局→棋譜解析の連携(終局後の振り返り導線) | implementer(Sonnet) | in_progress(委譲済み、app.tsx+analysis領域) | 0 |
 
 ## 有効な方針・申し送り(今後のタスクに効くもの)
 
