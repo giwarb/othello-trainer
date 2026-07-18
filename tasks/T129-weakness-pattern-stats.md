@@ -1,7 +1,7 @@
 ---
 id: T129
 title: 中盤練習: 悪手パターンの記録と「苦手パターン」統計表示
-status: in_progress # todo | in_progress | review | redo | done | blocked
+status: done # verifier/代替レビュー両合格(2026-07-18)
 assignee: implementer(Sonnet)
 attempts: 0
 ---

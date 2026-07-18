@@ -1,7 +1,7 @@
 ---
 id: T131
 title: 定石練習: SRS復習キューの見える化(今日の復習n本)
-status: in_progress # todo | in_progress | review | redo | done | blocked
+status: done # verifier/代替レビュー両合格(2026-07-18)
 assignee: implementer(Sonnet)
 attempts: 0
 ---
