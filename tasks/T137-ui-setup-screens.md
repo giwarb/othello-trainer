@@ -109,3 +109,24 @@ attempts: 0
 - GitHub Actions: 対象コミット0196d7eの`Deploy to GitHub Pages`・`Rust Tests`とも`success`。
 - `git status --short`: クリーン(コミット範囲は0196d7eのみでapp/配下、bench/・train/への差分なし)。
 - 判定: 合格。
+
+### 2026-07-18 implementer(Sonnet)redo#1対応完了(コミット `3d0ea39`)
+
+セッション中断(APIエラー・利用枠復帰待ち)を挟んだが、途中変更(9ファイル)は破棄せず引き継いで完了させた。
+
+**対応内容(4点)**
+
+1. **(中1)チップのキーボードフォーカスリング可視化**: `midgame/PracticeMode.css`に`.midgame-settings__option:has(input:focus-visible) { outline: 2px solid var(--color-accent); outline-offset: 2px; }`を追加。本番Pagesで実際にTabキーを押してキーボードフォーカスを移動させ、`document.activeElement`が該当inputであること・ラップするlabelの`getComputedStyle().outline`が`2px solid rgb(134, 59, 255)`(`--color-accent`)になっていることを確認済み(programmatic `.focus()`だと`:focus-visible`が発火しないため、`computer(action:"key", text:"Tab")`で実際のキーボード操作として検証した)。
+2. **(中2)ホーム実績行のモード復帰時再取得**: `app.tsx`の進捗取得`useEffect`の依存配列を`[]`→`[mode]`にし、`mode !== null`なら即returnする形にして「`mode === null`(ホーム)に戻るたび再取得」を実現。`loadJosekiDb`/`loadPuzzles`はモジュール内でPromiseキャッシュ済みのため実fetchは増えない。回帰テスト`app.home.progress.test.tsx`に「モードでクリアしてホームへ戻ると実績行の数値が更新される」を追加(vitestは`localStorage`への直接書き込みでクリアを再現)。本番Pagesでも実際に詰めオセロモードへ入り、`localStorage`(`othello-trainer:tsume-stage-progress`)に実在する問題ID(`tsume-4`、`puzzles.json`から実在確認済み)のクリア記録を書き込んでから「ホーム」ボタンでリロード無しに戻り、「クリア 1/182」→「クリア 2/182」への更新をライブ確認(確認後は元の状態に戻すクリーンアップ済み)。
+3. **(中3)PlayerBadgeのaria-label付与先修正**: ルート`<div>`(暗黙ロール`generic`、ARIA1.2でaria-label prohibited)に`role="group"`を付与。`PlayerBadge.test.tsx`に`role="group"`のアサーションを追加。本番Pagesの対局モードで`.player-badge`の`role`/`aria-label`属性を直接確認し、両方とも意図どおり付与されていることを確認。
+4. **(軽微)「クリアx/y」表記統一**: `home/modeProgress.ts`の`formatMidgameProgress`/`formatTsumeProgress`を「クリア」と数値の間にスペースを入れる形に統一(ステージ一覧サマリ・詰め難易度カードの表記に合わせた)。`modeProgress.test.ts`・`app.home.progress.test.tsx`・`TitleScreen.tsx`/`.css`/`.test.tsx`のコメント・サンプル文字列も追従。
+
+**変更ファイル(10件、コミット`3d0ea39`)**: `app/src/TitleScreen.css`・`.tsx`・`.test.tsx`、`app/src/app.tsx`、`app/src/app.home.progress.test.tsx`、`app/src/components/PlayerBadge.tsx`・`.test.tsx`、`app/src/home/modeProgress.ts`・`.test.ts`、`app/src/midgame/PracticeMode.css`。
+
+**検証**
+
+- `npx vitest run`(app/): 95ファイル/755件 全パス(redo#1回帰テスト1件追加分)。
+- `npx tsc --noEmit -p tsconfig.app.json`: エラーなし。
+- mainへpush → GitHub Actions「Deploy to GitHub Pages」`success`(run 29639178955)。
+- 本番Pages実機確認(上記1〜3参照。375x812縦持ち基準、キーボード操作含む): 全4点の修正が意図どおり反映されていることを確認。コンソールエラーなし。
+- `git status --short`: `tasks/T137-ui-setup-screens.md`のみ残存(作業ログ追記分、オーケストレーター担当のためコミットしない)。それ以外の差分・未追跡なし。
