@@ -10,13 +10,27 @@
   --board-size-md: 320px;
   --board-size-sm: 260px;
 
-  /* デザイントークン: 盤の座標ラベル帯の太さ(T136)。`components/Board.css`の
-     `.othello-board-frame`(上端a-h・左端1-8のラベル帯+盤本体の2x2 grid)と、
-     オーバーレイ2種(`components/MoveEvalOverlay.css`の`.move-eval-overlay`、
-     `analysis/BoardOverlay.css`の`.board-overlay`)が同じ値を参照することで、
-     盤の実ピクセル範囲(canvas)とオーバーレイの8x8グリッドの位置を一致させる
-     (3ファイルとも同じCSS変数を参照するため、値を変える場合はここ1箇所でよい)。 */
-  --board-label-band: 1.35em;
+  /* デザイントークン: 盤の座標ラベル帯の太さ(T136、T137追加要件1でem→rem化)。
+     `components/Board.css`の`.othello-board-frame`(上端a-h・左端1-8のラベル帯+
+     盤本体の2x2 grid)と、オーバーレイ2種(`components/MoveEvalOverlay.css`の
+     `.move-eval-overlay`、`analysis/BoardOverlay.css`の`.board-overlay`)が
+     同じ値を参照することで、盤の実ピクセル範囲(canvas)とオーバーレイの8x8
+     グリッドの位置を一致させる(3ファイルとも同じCSS変数を参照するため、
+     値を変える場合はここ1箇所でよい)。T136 codex-review指摘(中1)対応:
+     この値はフレームのgridトラック(フレームのfont-size基準)とオーバーレイの
+     `inset`(各オーバーレイ要素のfont-size基準)という別要素の文脈で2回解決
+     されるため、em単位だと将来どちらかの祖先にfont-size指定が入った場合に
+     無警告で数pxずれる罠があった。rem(ルート基準で常に1箇所にしか依存しない)
+     化することでこの罠自体を無くす。 */
+  --board-label-band: 1.35rem;
+
+  /* デザイントークン: スティッキーヘッダ(`app.css`の`.app-header`)の実測高さ
+     (T137追加要件2)。各モードの横置き(landscape)対応CSSが「画面高さから
+     ヘッダ分を差し引く」ために`calc(100dvh - 40px)`という同じマジックナンバーを
+     7箇所超で直書きしていた(T136 codex-review指摘・軽微1)。この値はCSS上で
+     40px固定を保証する宣言はなく実測値であることに注意(ヘッダの文言・
+     font-size変更で本変数もあわせて更新する必要がある)。 */
+  --app-header-height: 40px;
 
   /* デザイントークン: アクセントカラー(T061)。
      PWAマニフェスト(manifest.json/index.html)のtheme_color #863bffと

@@ -71,6 +71,41 @@
   gap: 0.5rem;
 }
 
+/* T137要件2: 「難易度で選ぶ」カード(空きマス数帯+クリア数)。 */
+.tsume-difficulty-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(6.5rem, 1fr));
+  gap: 0.5rem;
+}
+
+.tsume-difficulty-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+  padding: 0.5rem 0.4rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-tertiary);
+  color: var(--color-text);
+  box-sizing: border-box;
+}
+
+.tsume-difficulty-card__level {
+  font-weight: bold;
+  font-size: 0.9rem;
+}
+
+.tsume-difficulty-card__range {
+  font-size: 0.7rem;
+  color: var(--color-text-secondary);
+}
+
+.tsume-difficulty-card__clear {
+  font-size: 0.7rem;
+  color: var(--color-text-secondary);
+}
+
 .tsume-practice {
   display: flex;
   flex-direction: column;
@@ -235,6 +270,37 @@
   padding: 0 0.5rem;
 }
 
+/* T137要件3: 「クリア x/182」サマリ+進捗バー(`midgame/PracticeMode.css`の
+   `.midgame-stage-select__summary`系と同じデザイン方針を複製している、
+   このファイル内の他の`.tsume-stage-*`系と同じくCSS読み込み順に依存しない
+   ための方針)。 */
+.tsume-stage-select__summary {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.tsume-stage-select__summary-text {
+  margin: 0;
+  font-weight: bold;
+  font-size: 0.95rem;
+}
+
+.tsume-stage-select__progress-bar {
+  width: 100%;
+  height: 0.5rem;
+  border-radius: var(--radius-full);
+  background: var(--color-bg-tertiary);
+  overflow: hidden;
+}
+
+.tsume-stage-select__progress-fill {
+  height: 100%;
+  background: var(--color-accent);
+  border-radius: var(--radius-full);
+  transition: width 0.2s ease;
+}
+
 .tsume-stage-select__legend {
   display: flex;
   flex-wrap: wrap;
@@ -323,11 +389,15 @@
   opacity: 0.6;
 }
 
-/* 固定の明るい背景色のため、文字色も固定の濃色にペアで指定する(既存の`.tsume-result`と同じ方針、T068)。 */
+/* 固定の明るい背景色のため、文字色も固定の濃色にペアで指定する(既存の`.tsume-result`と同じ方針、T068)。
+   T137要件3: 未挑戦セルとの差を強め達成感を出すため、枠線を太めにして
+   軽い影を添える(`midgame/PracticeMode.css`の同種の変更と同じ方針)。 */
 .tsume-stage-grid__cell--cleared {
   background: #dcfce7;
   color: #14532d;
   border-color: #86efac;
+  border-width: 2px;
+  box-shadow: 0 1px 3px rgba(22, 163, 74, 0.25);
 }
 
 .tsume-stage-grid__cell--attempted {
@@ -409,8 +479,9 @@
        `align-self: start`で個別にstretchを外している)。 */
     align-items: stretch;
     text-align: left;
-    /* T136追加要件2(T135代替レビュー指摘): ヘッダ高(約40px)を差し引く。 */
-    height: calc(100dvh - 40px);
+    /* T136追加要件2(T135代替レビュー指摘): ヘッダ高(約40px)を差し引く。
+       T137追加要件2: マジックナンバーを`index.css`の`--app-header-height`に集約。 */
+    height: calc(100dvh - var(--app-header-height));
     box-sizing: border-box;
   }
 
@@ -441,7 +512,8 @@
 
   /* 結果画面(クリア/不正解、要件2): 最終盤面(左)+結果表示・全合法手の表
      ・操作ボタン(右)。`.tsume-result`は`--clear`/`--fail`共通の基底クラス。
-     T136追加要件2(T135代替レビュー指摘): ヘッダ高(約40px)を差し引く。 */
+     T136追加要件2(T135代替レビュー指摘): ヘッダ高(約40px)を差し引く。
+     T137追加要件2: マジックナンバーを`index.css`の`--app-header-height`に集約。 */
   .tsume-result {
     display: grid;
     grid-template-columns: minmax(0, auto) minmax(0, 1fr);
@@ -451,7 +523,7 @@
     text-align: left;
     width: 100%;
     max-width: 100%;
-    max-height: calc(100dvh - 40px);
+    max-height: calc(100dvh - var(--app-header-height));
     overflow-y: auto;
     box-sizing: border-box;
     padding: 0.6rem;

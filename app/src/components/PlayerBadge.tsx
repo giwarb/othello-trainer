@@ -30,11 +30,31 @@ export interface PlayerBadgeProps {
  * どちらの色でも同じマークアップを共有し、色の違いは`side`由来のクラスで
  * 表現する)。
  */
+/**
+ * `side`・`label`・`count`・`active`・`thinking`から、スクリーンリーダー向けの
+ * バッジ全体の要約文を組み立てる(T137追加要件5)。
+ *
+ * T136で対局・中盤練習・詰めオセロの手番表示を素テキストからこのバッジへ
+ * 置き換えた際、対局モードは「あなたは黒番です。手番: 黒」という文言を
+ * `.sr-only`で残したが、中盤練習・詰めオセロは素テキストを削除しただけで
+ * 代替が無く、SR利用者向けの情報(「あなたは○番」相当)が後退していた
+ * (T136 codex-review指摘・軽微5)。コンポーネント自身に`aria-label`を
+ * 持たせることで、呼び出し側のJSX変更なしに3モード共通で後退を解消する。
+ */
+function playerBadgeAriaLabel(side: Side, label: string, count: number, active: boolean, thinking: boolean): string {
+  const sideLabel = side === 'black' ? '黒' : '白'
+  const parts = [`${label}(${sideLabel}番)`, `石数${count}`]
+  if (active) parts.push('手番です')
+  if (thinking) parts.push('考え中')
+  return parts.join('、')
+}
+
 export function PlayerBadge({ side, label, count, active, thinking = false }: PlayerBadgeProps) {
   return (
     <div
       class={`player-badge player-badge--${side}${active ? ' player-badge--active' : ''}`}
       aria-current={active ? 'true' : undefined}
+      aria-label={playerBadgeAriaLabel(side, label, count, active, thinking)}
     >
       <span class="player-badge__disc" aria-hidden="true" />
       <span class="player-badge__label">{label}</span>

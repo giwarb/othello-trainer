@@ -395,8 +395,9 @@ main {
     text-align: left;
     /* T136追加要件2(T135代替レビュー指摘): スティッキーヘッダ(`.app-header`、
        この幅高さでは約40px)の高さを差し引く。以前は`100dvh`のみで、実際には
-       ヘッダぶんだけ画面下端がはみ出しうる状態だった。 */
-    height: calc(100dvh - 40px);
+       ヘッダぶんだけ画面下端がはみ出しうる状態だった。T137追加要件2:
+       マジックナンバーを`index.css`の`--app-header-height`トークンに集約。 */
+    height: calc(100dvh - var(--app-header-height));
     box-sizing: border-box;
   }
 

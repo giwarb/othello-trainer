@@ -166,4 +166,29 @@ describe('T136要件2: 対局モードの状態分離', () => {
     expect(findButton(container, '黒番で開始')).toBeDefined()
     expect(container.querySelector('.player-badges')).toBeNull()
   })
+
+  // T137追加要件4(T136 codex-review指摘・軽微4): 2人対戦モード(`vsHuman`)には
+  // 「あなた」という単一視点が無いため投了ボタン自体を出さない(`app.tsx`の
+  // `!game.vsHuman && displayGame.phase !== 'over'`ガード)。CPU対戦の投了フローの
+  // テストはあるが、2人対戦で投了ボタンが最初から出ないことを固定する専用テストが
+  // 無かったため追加する。
+  it('2人対戦モードでは対局中も投了ボタンが表示されない', async () => {
+    await openPlayMode(container)
+
+    await act(async () => {
+      findButton(container, '2人対戦で開始')?.click()
+    })
+    await flushAsyncEffects()
+
+    // 盤面エリアには遷移している(対局中)が、投了ボタンは存在しない。
+    expect(container.querySelector('[data-testid="stub-board"]')).not.toBeNull()
+    expect(findButton(container, '投了')).toBeUndefined()
+
+    // 一手打った後(手番が変わった後)も引き続き投了ボタンは出ない。
+    await act(async () => {
+      container.querySelector<HTMLButtonElement>('[data-testid="stub-board"]')?.click()
+    })
+    await flushAsyncEffects()
+    expect(findButton(container, '投了')).toBeUndefined()
+  })
 })

@@ -31,6 +31,7 @@ import {
   type ReviewFilter,
 } from '../settings/reviewFilter.ts'
 import { todaysPuzzle } from './dailyPuzzle.ts'
+import { computeDifficultyStats } from './difficultyStats.ts'
 import { judgePuzzleMove } from './judgePuzzleMove.ts'
 import { loadPuzzles } from './loadPuzzles.ts'
 import {
@@ -572,6 +573,14 @@ export function PlayMode() {
       matchesReviewFilter(stageStatus(stageProgress, puzzle.id), stageProgress[puzzle.id]?.failCount ?? 0, reviewFilter),
     )
 
+  // T137要件2: 「難易度で選ぶ」カードに出す空きマス数帯+クリア数(要件2、
+  // `difficultyStats.ts`参照)。
+  const difficultyStats = computeDifficultyStats(pool ?? [], stageProgress, DIFFICULTY_LEVELS)
+
+  // T137要件3: ステージ一覧ヘッダの「クリア x/182」サマリ+進捗バー用。
+  const clearedStageCount = (pool ?? []).filter((puzzle) => stageStatus(stageProgress, puzzle.id) === 'cleared').length
+  const totalStageCount = pool?.length ?? 0
+
   return (
     <div class="tsume-practice-mode">
       {poolError && <p class="notice notice--error">{poolError}</p>}
@@ -602,17 +611,34 @@ export function PlayMode() {
             )}
           </div>
 
+          {/* T137要件2: 灰色ボタン5連を「難易度n(空きm〜kマス)+クリア x/y」の
+              カードに刷新する(T136 UXレビュー「同一見た目のボタン5連で選ぶ
+              手がかりがない」対応)。空きマス数帯は事前に固定された対応表が
+              無いため、実際にロード済みのプールから求める(`difficultyStats.ts`)。 */}
           <fieldset class="tsume-settings__group">
             <legend>難易度で選ぶ</legend>
-            <div class="tsume-settings__buttons">
-              {DIFFICULTY_LEVELS.map((level) => (
+            <div class="tsume-difficulty-cards">
+              {difficultyStats.map(({ level, total, cleared, minEmpties, maxEmpties }) => (
                 <button
                   type="button"
                   key={level}
+                  class="tsume-difficulty-card"
                   disabled={!pool || starting}
                   onClick={() => void startPractice({ kind: 'difficulty', level })}
                 >
-                  難易度{level}
+                  <span class="tsume-difficulty-card__level">難易度{level}</span>
+                  {total > 0 ? (
+                    <>
+                      <span class="tsume-difficulty-card__range">
+                        空き{minEmpties}〜{maxEmpties}マス
+                      </span>
+                      <span class="tsume-difficulty-card__clear">
+                        クリア {cleared}/{total}
+                      </span>
+                    </>
+                  ) : (
+                    <span class="tsume-difficulty-card__range">問題なし</span>
+                  )}
                 </button>
               ))}
             </div>
@@ -652,6 +678,29 @@ export function PlayMode() {
       {phase === 'stageSelect' && (
         <section class="tsume-stage-select">
           <p>ステージ一覧: 挑戦したい問題を選んでください(全{pool?.length ?? 0}問)</p>
+
+          {/* T137要件3: 「クリア x/182」サマリ+進捗バー(midgame版と同じ方針)。 */}
+          {pool && (
+            <div class="tsume-stage-select__summary">
+              <p class="tsume-stage-select__summary-text">
+                クリア {clearedStageCount}/{totalStageCount}
+              </p>
+              <div
+                class="tsume-stage-select__progress-bar"
+                role="progressbar"
+                aria-valuenow={clearedStageCount}
+                aria-valuemin={0}
+                aria-valuemax={totalStageCount}
+                aria-label="ステージクリア進捗"
+              >
+                <div
+                  class="tsume-stage-select__progress-fill"
+                  style={{ width: `${totalStageCount > 0 ? (clearedStageCount / totalStageCount) * 100 : 0}%` }}
+                />
+              </div>
+            </div>
+          )}
+
           <p class="tsume-stage-select__legend">
             <span class="tsume-stage-legend__mark tsume-stage-legend__mark--cleared">■</span>
             クリア済み

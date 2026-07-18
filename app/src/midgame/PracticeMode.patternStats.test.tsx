@@ -338,7 +338,8 @@ describe('T129: 苦手パターン統計の表示・リセット(設定画面)',
     await flushAsyncEffects()
 
     expect(container.textContent).toContain('苦手パターン')
-    expect(container.textContent).toContain('まだ記録がありません')
+    // T137要件1: 空状態の文言をアイコン付き説明文に刷新した(旧「まだ記録がありません」)。
+    expect(container.textContent).toContain('失敗するとここに苦手パターンが貯まります')
   })
 
   it('failCount降順で最大5件を表示し、リセットボタンで消せる(確認つき)', async () => {
@@ -394,7 +395,8 @@ describe('T129: 苦手パターン統計の表示・リセット(設定画面)',
     })
     await flushAsyncEffects()
 
-    expect(container.textContent).toContain('まだ記録がありません')
+    // T137要件1: 空状態の文言をアイコン付き説明文に刷新した(旧「まだ記録がありません」)。
+    expect(container.textContent).toContain('失敗するとここに苦手パターンが貯まります')
     expect(JSON.parse(localStorage.getItem(MIDGAME_PATTERN_STATS_STORAGE_KEY) ?? '{}')).toEqual({})
   })
 })

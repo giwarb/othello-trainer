@@ -998,6 +998,12 @@ export function PracticeMode() {
     ),
   )
 
+  // T137要件3: ステージ一覧ヘッダの「クリア x/N」サマリ+進捗バー用(いずれかの
+  // 判定モードでクリア済み=★1つ以上のステージ数、`stageStatus`は全判定モード横断)。
+  const clearedStageCount = (stagePool ?? []).filter((stage) => stageStatus(stageProgress, stage.key) === 'cleared')
+    .length
+  const totalStageCount = stagePool?.length ?? 0
+
   return (
     <div class="midgame-practice-mode">
       {josekiDbError && <p class="notice notice--error">{josekiDbError}</p>}
@@ -1010,7 +1016,14 @@ export function PracticeMode() {
           <div class="midgame-pattern-stats">
             <h3 class="midgame-pattern-stats__title">苦手パターン</h3>
             {topPatternRows.length === 0 ? (
-              <p>まだ記録がありません。</p>
+              // T137要件1: 素テキスト1行だった空状態を、アイコン+説明文に刷新する
+              // (T136 UXレビュー「苦手パターンの空状態が素テキスト1行で寂しい」対応)。
+              <p class="midgame-pattern-stats__empty">
+                <span class="midgame-pattern-stats__empty-icon" aria-hidden="true">
+                  📊
+                </span>
+                失敗するとここに苦手パターンが貯まります
+              </p>
             ) : (
               <ul class="midgame-pattern-stats__list">
                 {topPatternRows.map((row) => (
@@ -1042,59 +1055,93 @@ export function PracticeMode() {
               ))}
           </div>
 
+          {/* T137要件1: 縦積みのラジオ3グループを、選択式チップ(セグメント
+              コントロール風)に刷新する。アクセシビリティ・既存テスト
+              (`input[name="midgame-judge-mode"]`等をquerySelectorで直接
+              操作するテスト)を壊さないよう、`<fieldset>`+ネイティブ`radio`は
+              そのまま残し、`<input>`を視覚的に隠して(`.sr-only`)ラップする
+              `<label>`をチップ風に見せるだけに留める(クリックは
+              ネイティブのlabel-input関連付けでそのまま機能する)。 */}
           <fieldset class="midgame-settings__group">
             <legend>判定モード</legend>
-            {JUDGE_MODE_OPTIONS.map(({ value, label }) => (
-              <label class="midgame-settings__option" key={value}>
-                <input
-                  type="radio"
-                  name="midgame-judge-mode"
-                  value={value}
-                  checked={judgeMode === value}
-                  onChange={() => handleJudgeModeChange(value)}
-                />
-                {label}
-              </label>
-            ))}
+            <div class="midgame-settings__chips">
+              {JUDGE_MODE_OPTIONS.map(({ value, label }) => (
+                <label
+                  class={`midgame-settings__option${judgeMode === value ? ' midgame-settings__option--active' : ''}`}
+                  key={value}
+                >
+                  <input
+                    type="radio"
+                    class="sr-only"
+                    name="midgame-judge-mode"
+                    value={value}
+                    checked={judgeMode === value}
+                    onChange={() => handleJudgeModeChange(value)}
+                  />
+                  {label}
+                </label>
+              ))}
+            </div>
           </fieldset>
 
           <fieldset class="midgame-settings__group">
             <legend>相手の強さ</legend>
-            {OPPONENT_STRENGTH_OPTIONS.map(({ value, label }) => (
-              <label class="midgame-settings__option" key={value}>
-                <input
-                  type="radio"
-                  name="midgame-opponent-strength"
-                  value={value}
-                  checked={opponentStrength === value}
-                  onChange={() => setOpponentStrength(value)}
-                />
-                {label}
-              </label>
-            ))}
+            <div class="midgame-settings__chips">
+              {OPPONENT_STRENGTH_OPTIONS.map(({ value, label }) => (
+                <label
+                  class={`midgame-settings__option${opponentStrength === value ? ' midgame-settings__option--active' : ''}`}
+                  key={value}
+                >
+                  <input
+                    type="radio"
+                    class="sr-only"
+                    name="midgame-opponent-strength"
+                    value={value}
+                    checked={opponentStrength === value}
+                    onChange={() => setOpponentStrength(value)}
+                  />
+                  {label}
+                </label>
+              ))}
+            </div>
           </fieldset>
 
           <fieldset class="midgame-settings__group">
             <legend>開始局面ソース</legend>
-            {START_SOURCE_OPTIONS.map(({ value, label }) => (
-              <label class="midgame-settings__option" key={value}>
-                <input
-                  type="radio"
-                  name="midgame-start-source"
-                  value={value}
-                  checked={startSource === value}
-                  onChange={() => setStartSource(value)}
-                />
-                {label}
-              </label>
-            ))}
+            <div class="midgame-settings__chips">
+              {START_SOURCE_OPTIONS.map(({ value, label }) => (
+                <label
+                  class={`midgame-settings__option${startSource === value ? ' midgame-settings__option--active' : ''}`}
+                  key={value}
+                >
+                  <input
+                    type="radio"
+                    class="sr-only"
+                    name="midgame-start-source"
+                    value={value}
+                    checked={startSource === value}
+                    onChange={() => setStartSource(value)}
+                  />
+                  {label}
+                </label>
+              ))}
+            </div>
           </fieldset>
 
+          {/* T137要件1: 「開始」を最下部に大きなプライマリボタンとして固定し、
+              「ステージ一覧」は同格に並べず小さいセカンダリリンク風にして
+              主アクションを一目で分かるようにする(T136 UXレビュー「主アクション
+              『開始』が最小サイズの灰色ボタンで埋没」対応)。 */}
           <div class="midgame-settings__buttons">
-            <button type="button" class="btn-primary" disabled={!josekiDb || starting} onClick={() => void startPractice()}>
+            <button
+              type="button"
+              class="btn-primary midgame-settings__start-button"
+              disabled={!josekiDb || starting}
+              onClick={() => void startPractice()}
+            >
               開始
             </button>
-            <button type="button" disabled={!stagePool || starting} onClick={goToStageSelect}>
+            <button type="button" class="midgame-settings__stage-link" disabled={!stagePool || starting} onClick={goToStageSelect}>
               ステージ一覧
             </button>
           </div>
@@ -1105,6 +1152,30 @@ export function PracticeMode() {
       {phase === 'stageSelect' && (
         <section class="midgame-stage-select">
           <p>ステージ一覧: 挑戦したいステージを選んでください(全{stagePool?.length ?? 0}問)</p>
+
+          {/* T137要件3: 「クリア x/111」サマリ+進捗バー(T136 UXレビュー
+              「灰色一色の長大グリッドで達成感の演出がない」対応)。 */}
+          {stagePool && (
+            <div class="midgame-stage-select__summary">
+              <p class="midgame-stage-select__summary-text">
+                クリア {clearedStageCount}/{totalStageCount}
+              </p>
+              <div
+                class="midgame-stage-select__progress-bar"
+                role="progressbar"
+                aria-valuenow={clearedStageCount}
+                aria-valuemin={0}
+                aria-valuemax={totalStageCount}
+                aria-label="ステージクリア進捗"
+              >
+                <div
+                  class="midgame-stage-select__progress-fill"
+                  style={{ width: `${totalStageCount > 0 ? (clearedStageCount / totalStageCount) * 100 : 0}%` }}
+                />
+              </div>
+            </div>
+          )}
+
           <p class="midgame-stage-select__mode">
             現在の判定モード: {JUDGE_MODE_OPTIONS.find((o) => o.value === judgeMode)?.label ?? judgeMode}
             (「設定に戻る」から変更できます。判定モードごとに★は別々に記録されます)

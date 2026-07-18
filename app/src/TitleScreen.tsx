@@ -5,6 +5,13 @@ export interface ModeCardInfo {
   key: string
   label: string
   description: string
+  /**
+   * 進捗の実績行(T137要件4、例:「今日の復習3本」「クリア42/111」)。
+   * 呼び出し側(`app.tsx`)がIndexedDB/localStorageから非同期に取得するため、
+   * 取得できるまで(または取得に失敗した場合)は`undefined`で、その間は
+   * 進捗行自体を表示しない(要件4「取得失敗時は表示しない」)。
+   */
+  progress?: string
 }
 
 interface TitleScreenProps {
@@ -31,6 +38,7 @@ export function TitleScreen({ cards, onSelect }: TitleScreenProps) {
           <button type="button" key={card.key} class="title-screen__card" onClick={() => onSelect(card.key)}>
             <span class="title-screen__card-label">{card.label}</span>
             <span class="title-screen__card-desc">{card.description}</span>
+            {card.progress && <span class="title-screen__card-progress">{card.progress}</span>}
           </button>
         ))}
       </div>

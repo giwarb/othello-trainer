@@ -29,17 +29,31 @@ import {
   type Board as BoardState,
   type Side,
 } from './game/othello.ts'
+import { formatJosekiProgress, formatMidgameProgress, formatTsumeProgress } from './home/modeProgress.ts'
+import { getAllSrsStates } from './joseki/db.ts'
+import { computeDueLines } from './joseki/dueLines.ts'
 import { loadJosekiDb, lookupJosekiNode } from './joseki/lookup.ts'
 import { PracticeMode } from './joseki/PracticeMode.tsx'
 import { selectCpuBookMove } from './joseki/selectCpuBookMove.ts'
 import type { JosekiDb } from './joseki/types.ts'
 import { EvalBar } from './midgame/EvalBar.tsx'
 import { PracticeMode as MidgamePracticeMode } from './midgame/PracticeMode.tsx'
+import { buildMidgameStagePool } from './midgame/stagePool.ts'
+import {
+  loadStageProgress as loadMidgameStageProgress,
+  stageStatus as midgameStageStatus,
+} from './midgame/stageProgress.ts'
 import { loadEvalBarEnabled, saveEvalBarEnabled } from './settings/evalBarSettings.ts'
 import { loadMoveEvalOverlayEnabled, saveMoveEvalOverlayEnabled } from './settings/moveEvalOverlaySettings.ts'
 import { loadOpeningBookEnabled, saveOpeningBookEnabled } from './settings/openingBookSettings.ts'
 import { TitleScreen } from './TitleScreen.tsx'
+import { todaysPuzzle } from './tsume/dailyPuzzle.ts'
+import { loadPuzzles } from './tsume/loadPuzzles.ts'
 import { PlayMode as TsumePlayMode } from './tsume/PlayMode.tsx'
+import {
+  loadStageProgress as loadTsumeStageProgress,
+  stageStatus as tsumeStageStatus,
+} from './tsume/stageProgress.ts'
 import { VerbalizeMode } from './verbalize/VerbalizeMode.tsx'
 
 /**
@@ -105,10 +119,72 @@ export function App() {
     setMode('analysis')
   }
 
+  // T137要件4: ホームのモードカードに進捗の実績行(定石「今日の復習n本」・
+  // 詰め「クリアx/182・今日の1問」・中盤「クリアx/111」)を出す。既存の各モードの
+  // 集計ロジック(T131のdueLines・T117/T119のstageProgress・T028のdailyPuzzle)を
+  // そのまま再利用するだけで、新規のIndexedDB/localStorageスキーマは追加しない。
+  // 3モードは互いに独立な非同期取得のため、1つが失敗しても他の表示に影響しない
+  // よう個別にtry/catchする(要件4「取得失敗時は表示しない」)。マウント時に1回
+  // だけ実行する(各モードの練習画面自体が同じキャッシュ付きローダー
+  // (`loadJosekiDb`・`loadPuzzles`)を使うため、実際のfetchが重複することもない)。
+  const [modeProgress, setModeProgress] = useState<Partial<Record<AppMode, string>>>({})
+
+  useEffect(() => {
+    let cancelled = false
+
+    void (async () => {
+      try {
+        const db = await loadJosekiDb()
+        const states = await getAllSrsStates()
+        const due = computeDueLines(db.lines, states)
+        if (!cancelled) {
+          setModeProgress((prev) => ({ ...prev, joseki: formatJosekiProgress(due.length) }))
+        }
+      } catch (error) {
+        console.error('ホーム進捗(定石)の取得に失敗しました', error)
+      }
+    })()
+
+    void (async () => {
+      try {
+        const db = await loadJosekiDb()
+        const stagePool = buildMidgameStagePool(db)
+        const progress = loadMidgameStageProgress(localStorage)
+        const cleared = stagePool.filter((stage) => midgameStageStatus(progress, stage.key) === 'cleared').length
+        if (!cancelled) {
+          setModeProgress((prev) => ({ ...prev, midgame: formatMidgameProgress(cleared, stagePool.length) }))
+        }
+      } catch (error) {
+        console.error('ホーム進捗(中盤練習)の取得に失敗しました', error)
+      }
+    })()
+
+    void (async () => {
+      try {
+        const file = await loadPuzzles()
+        const pool = file.puzzles
+        const progress = loadTsumeStageProgress(localStorage)
+        const cleared = pool.filter((puzzle) => tsumeStageStatus(progress, puzzle.id) === 'cleared').length
+        const today = todaysPuzzle(pool)
+        const todayCleared = tsumeStageStatus(progress, today.id) === 'cleared'
+        if (!cancelled) {
+          setModeProgress((prev) => ({ ...prev, tsume: formatTsumeProgress(cleared, pool.length, todayCleared) }))
+        }
+      } catch (error) {
+        console.error('ホーム進捗(詰めオセロ)の取得に失敗しました', error)
+      }
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
   if (mode === null) {
+    const cards = MODE_CARDS.map((card) => ({ ...card, progress: modeProgress[card.key as AppMode] }))
     return (
       <main class="home-main">
-        <TitleScreen cards={MODE_CARDS} onSelect={(key) => setMode(key as AppMode)} />
+        <TitleScreen cards={cards} onSelect={(key) => setMode(key as AppMode)} />
       </main>
     )
   }
@@ -779,7 +855,13 @@ function PlayMode({ onReviewGame }: PlayModeProps) {
           非表示にし、盤面エリア(バッジ+盤+最小コントロール)に主役を譲る。 */}
       {!started && (
         <>
-          <section class="play-setup card">
+          {/* T137追加要件3: `app.css`の`.play-setup`コメントが「詳細度の衝突を
+              避けるため`.card`は併用せず直接指定する」と明記しているのに、
+              このJSXだけ`.card`を併用しておりコメントと矛盾していた
+              (T136 codex-review指摘・軽微2)。`.play-setup`は`.card`と同じ
+              トークンを既に直接指定済みのため、`.card`を外してコメント側の
+              方針に統一する(視覚差なし)。 */}
+          <section class="play-setup">
             <div class="controls__row">
               <span>新規対局:</span>
               <button type="button" class="btn-primary" onClick={() => startNewGame('black')}>

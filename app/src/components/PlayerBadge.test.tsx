@@ -74,4 +74,29 @@ describe('components/PlayerBadge', () => {
     })
     expect(container.querySelector('.player-badge__thinking')).toBeNull()
   })
+
+  // T137追加要件5(T136 codex-review指摘・軽微5): 中盤練習・詰めオセロで削除した
+  // 「あなたは○番です。手番: ○」相当のSR向けテキストの代替として、バッジ自身が
+  // aria-labelで同等の情報(誰か・何番か・石数・手番か・考え中か)を提供する。
+  it('aria-labelに side・label・石数・手番・考え中の情報が含まれる', async () => {
+    await act(async () => {
+      render(<PlayerBadge side="black" label="あなた" count={2} active={true} thinking={false} />, container)
+    })
+    const badge = container.querySelector('.player-badge')
+    const ariaLabel = badge?.getAttribute('aria-label')
+    expect(ariaLabel).toContain('あなた')
+    expect(ariaLabel).toContain('黒番')
+    expect(ariaLabel).toContain('2')
+    expect(ariaLabel).toContain('手番です')
+
+    await act(async () => {
+      render(<PlayerBadge side="white" label="相手" count={3} active={false} thinking={true} />, container)
+    })
+    const badgeWhite = container.querySelector('.player-badge')
+    const ariaLabelWhite = badgeWhite?.getAttribute('aria-label')
+    expect(ariaLabelWhite).toContain('相手')
+    expect(ariaLabelWhite).toContain('白番')
+    expect(ariaLabelWhite).toContain('考え中')
+    expect(ariaLabelWhite).not.toContain('手番です')
+  })
 })

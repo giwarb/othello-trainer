@@ -38,18 +38,78 @@
   font-weight: bold;
 }
 
-.midgame-settings__option {
+/* T137要件1: 選択式チップ(セグメントコントロール風)。行内に折り返して並べる
+   コンテナ(`.midgame-settings__chips`)+個々のチップ(`.midgame-settings__option`、
+   `input[type=radio]`は`.sr-only`で視覚的に隠し、labelそのものをチップとして
+   見せる)。アクティブ状態はJS側(`judgeMode === value`等)が付ける
+   `--active`修飾クラスで表現する(復習フィルタボタン
+   `.midgame-stage-select__filter-button--active`と同じ方針)。 */
+.midgame-settings__chips {
   display: flex;
-  align-items: center;
+  flex-wrap: wrap;
   gap: 0.4rem;
+}
+
+.midgame-settings__option {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.4rem 0.9rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  background: var(--color-bg-tertiary);
+  color: var(--color-text);
+  font-size: 0.85rem;
+  cursor: pointer;
   text-align: left;
+}
+
+.midgame-settings__option--active {
+  /* 固定の明るい紫背景のため、文字色も固定の濃色にペアで指定する(T068と同じ方針)。 */
+  background: var(--color-accent-bg);
+  border-color: var(--color-accent);
+  color: var(--color-accent-dark);
+  font-weight: bold;
 }
 
 .midgame-settings__buttons {
   display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 0.5rem;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-sm);
+}
+
+/* T137要件1: 「開始」を最下部に大きなプライマリCTAとして固定する
+   (T136 UXレビュー「主アクションが最小サイズの灰色ボタンで埋没」対応)。 */
+.midgame-settings__start-button {
+  min-height: 56px;
+  font-size: 1.05rem;
+}
+
+/* 「ステージ一覧」は主アクションと同格に見えないよう、控えめな中央寄せの
+   セカンダリリンク風にする(枠線を弱め、幅を狭める)。 */
+.midgame-settings__stage-link {
+  align-self: center;
+  min-height: 40px;
+  padding: 0 var(--space-lg);
+  background: none;
+  border-color: var(--color-border);
+  color: var(--color-text-secondary);
+  font-weight: normal;
+}
+
+/* T137要件1: 苦手パターンの空状態(アイコン+説明文)。 */
+.midgame-pattern-stats__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+  margin: 0;
+}
+
+.midgame-pattern-stats__empty-icon {
+  font-size: 1.6rem;
+  line-height: 1;
 }
 
 /* T129: 苦手パターン統計セクション(設定画面)。`tsume/PlayMode.css`の
@@ -112,6 +172,34 @@
   max-width: 640px;
   box-sizing: border-box;
   padding: 0 0.5rem;
+}
+
+/* T137要件3: 「クリア x/111」サマリ+進捗バー。 */
+.midgame-stage-select__summary {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.midgame-stage-select__summary-text {
+  margin: 0;
+  font-weight: bold;
+  font-size: 0.95rem;
+}
+
+.midgame-stage-select__progress-bar {
+  width: 100%;
+  height: 0.5rem;
+  border-radius: var(--radius-full);
+  background: var(--color-bg-tertiary);
+  overflow: hidden;
+}
+
+.midgame-stage-select__progress-fill {
+  height: 100%;
+  background: var(--color-accent);
+  border-radius: var(--radius-full);
+  transition: width 0.2s ease;
 }
 
 .midgame-stage-select__mode {
@@ -210,11 +298,15 @@
   opacity: 0.6;
 }
 
-/* 固定の明るい背景色のため、文字色も固定の濃色にペアで指定する(既存の`.midgame-result`と同じ方針、T068)。 */
+/* 固定の明るい背景色のため、文字色も固定の濃色にペアで指定する(既存の`.midgame-result`と同じ方針、T068)。
+   T137要件3: 未挑戦セルとの差を強め達成感を出すため、枠線を太めにして
+   軽い影を添える(★表示自体は既存のまま)。 */
 .midgame-stage-grid__cell--cleared {
   background: #dcfce7;
   color: #14532d;
   border-color: #86efac;
+  border-width: 2px;
+  box-shadow: 0 1px 3px rgba(22, 163, 74, 0.25);
 }
 
 .midgame-stage-grid__cell--attempted {
@@ -453,8 +545,9 @@
        `align-self: start`で個別にstretchを外している)。 */
     align-items: stretch;
     text-align: left;
-    /* T136追加要件2(T135代替レビュー指摘): ヘッダ高(約40px)を差し引く。 */
-    height: calc(100dvh - 40px);
+    /* T136追加要件2(T135代替レビュー指摘): ヘッダ高(約40px)を差し引く。
+       T137追加要件2: マジックナンバーを`index.css`の`--app-header-height`に集約。 */
+    height: calc(100dvh - var(--app-header-height));
     box-sizing: border-box;
   }
 
@@ -485,8 +578,9 @@
      直接のgridアイテムとして扱えるようにする(JSX変更不要)。 */
   /* T136追加要件2(T135代替レビュー指摘): `max-height: 100dvh`はスティッキー
      ヘッダ(`.app-header`、この幅高さでは約40px)の高さを考慮しておらず、
-     実際にはヘッダぶんだけ画面下端がはみ出しうる。`calc(100dvh - 40px)`に
-     揃える。 */
+     実際にはヘッダぶんだけ画面下端がはみ出しうる。
+     `calc(100dvh - var(--app-header-height))`に揃える(T137追加要件2:
+     マジックナンバーをトークン化)。 */
   .midgame-result--fail {
     display: grid;
     grid-template-columns: minmax(0, auto) minmax(0, 1fr);
@@ -496,7 +590,7 @@
     text-align: left;
     width: 100%;
     max-width: 100%;
-    max-height: calc(100dvh - 40px);
+    max-height: calc(100dvh - var(--app-header-height));
     overflow-y: auto;
     box-sizing: border-box;
     padding: 0.6rem;
