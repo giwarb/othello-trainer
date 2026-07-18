@@ -48,3 +48,43 @@ attempts: 0
 ## フィードバック(やり直し時にオーケストレーターが記入)
 
 ## 作業ログ(担当エージェントが追記)
+
+### 2026-07-18 implementer(Sonnet)実装完了
+
+**方針・スコープの確認**
+
+- 追加要件1〜5(T136 codex-review申し送り)を先に着手し、その後要件1〜4(設定・一覧・ホーム磨き込み)を実装した。
+- チップ化はネイティブ`<input type="radio">`を`.sr-only`で視覚的に隠し、`<label>`をチップ風に見せる方式を採用(既存のquerySelectorベースのテスト・アクセシビリティを壊さないため)。アクティブ状態はJS側で判定した`--active`修飾クラスで表現(復習フィルタボタンの既存パターンを踏襲)。
+- 難易度nの「空きm〜kマス」は固定の対応表が無い(生成時のパーセンタイル分割のみ)ため、実際にロード済みの問題プールからその場で最小〜最大を求める方式にした(`tsume/difficultyStats.ts`)。
+- ホームの実績行はIndexedDB/localStorageの取得を3モード独立にtry/catchし、失敗時はその行だけ非表示にする設計(要件4)。新規スキーマは追加していない(既存のdueLines/stageProgress/dailyPuzzleをそのまま再利用)。
+
+**変更ファイル**
+
+- 追加要件1: `app/src/index.css`(`--board-label-band`をem→rem化)
+- 追加要件2: `app/src/index.css`(`--app-header-height: 40px`新設)+ `app/src/app.css`・`app/src/analysis/AnalysisMode.css`・`app/src/joseki/PracticeMode.css`・`app/src/midgame/PracticeMode.css`・`app/src/tsume/PlayMode.css`の`calc(100dvh - 40px)`(計8箇所)をトークン参照に置換
+- 追加要件3: `app/src/app.tsx`(`class="play-setup card"` → `class="play-setup"`)
+- 追加要件4: `app/src/app.playmode.stateSeparation.test.tsx`に「2人対戦モードでは投了ボタンが表示されない」専用テストを追加
+- 追加要件5: `app/src/components/PlayerBadge.tsx`にaria-label(誰・何番・石数・手番・考え中を要約)を追加、`app/src/components/PlayerBadge.test.tsx`にテスト追加
+- 要件1(中盤設定): `app/src/midgame/PracticeMode.tsx`(3fieldsetをチップ化、苦手パターン空状態をアイコン+説明文化、「開始」を大きなプライマリCTAに、「ステージ一覧」をセカンダリリンク風に)+ `app/src/midgame/PracticeMode.css`
+- 要件2(詰め設定): `app/src/tsume/PlayMode.tsx`(難易度ボタン→カード化)+ 新規`app/src/tsume/difficultyStats.ts`(空きマス数帯+クリア数の集計、純粋関数)・`app/src/tsume/difficultyStats.test.ts` + `app/src/tsume/PlayMode.css`
+- 要件3(ステージ一覧): `app/src/midgame/PracticeMode.tsx`・`app/src/tsume/PlayMode.tsx`(「クリア x/N」サマリ+進捗バーを追加、クリア済みセルの達成色を強化)+ 両CSS
+- 要件4(ホーム進捗): 新規`app/src/home/modeProgress.ts`(文言組み立ての純粋関数)・`app/src/home/modeProgress.test.ts` + `app/src/TitleScreen.tsx`・`app/src/TitleScreen.css`(`ModeCardInfo.progress`追加)・`app/src/TitleScreen.test.tsx` + `app/src/app.tsx`(3モード分の非同期取得effect)
+- 新規コンポーネントテスト: `app/src/midgame/PracticeMode.settingsUx.test.tsx`・`app/src/tsume/PlayMode.settingsUx.test.tsx`・`app/src/app.home.progress.test.tsx`
+- 既存テスト更新: `app/src/midgame/PracticeMode.patternStats.test.tsx`(空状態アサーションを新文言に更新。default judgeModeが`'strict'`である点は`PracticeMode.settingsUx.test.tsx`側で対応)
+
+**検証**
+
+- `npx vitest run`: 95ファイル/754件 全パス
+- `npx tsc --noEmit -p app/tsconfig.app.json`: エラーなし
+- ローカル動作確認: `npx vite --port 5183`で起動し、Browser MCPで実際のjoseki.json/puzzles.json(定石111ステージ・詰め182問)を使って以下を確認:
+  - ホーム: 「今日の復習112本」「クリア0/111」「クリア0/182・今日の1問未挑戦」が各カードに表示
+  - 中盤設定: 苦手パターン空状態(📊アイコン+「失敗するとここに苦手パターンが貯まります」)、判定モードチップの`--active`クラス切り替え、「開始」が`btn-primary midgame-settings__start-button`(高さ56px)
+  - 中盤ステージ一覧: 「クリア 0/111」サマリ+進捗バー(aria-valuenow/valuemax)
+  - 詰め設定: 難易度カード5枚に「空きm〜kマス」「クリア x/y」(実データで難易度1=空き6〜9マス等)
+  - 詰めステージ一覧: 「クリア 0/182」サマリ+進捗バー
+  - **スクリーンショット未取得(環境制約)**: `mcp__Claude_Browser__computer(action: screenshot)`および`zoom`が本セッションでは`http://localhost:5183`・`https://example.com`いずれに対しても一貫してタイムアウトし撮影不能だった(アプリ側の不具合ではなく、このセッションのBrowser MCPツール自体の問題と判断。`get_page_text`・`read_page`・`javascript_tool`は正常に機能し、上記の内容確認は全てこれらで行った)。375x812のビフォー/アフター4画面のスクリーンショットはオーケストレーター側で別途取得・確認をお願いしたい。
+- GitHub Pages実機確認: 未実施(コミット・push後にオーケストレーターまたは次のステップで実施予定。下記完了レポート参照)
+
+**判断に迷った点**
+
+- 詰めオセロの「今日の1問」実績: 要件4の文言例「クリアx/182・今日の1問」だけでは「今日の1問」が何を示すか曖昧だったため、「今日の1問(デイリー)を既にクリア済みかどうか」(済み/未挑戦)を表示する設計にした(定石の「今日の復習」と同様、当日のアクションを促すゲーミフィケーション要素として一貫させる意図)。
