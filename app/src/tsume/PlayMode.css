@@ -18,9 +18,17 @@
   padding: 0 0.5rem;
 }
 
+/* T135要件2: カード化(白背景・角丸・薄い影)。`.tsume-settings__group`と
+   同じトークン(`index.css`の`.card`)を直接指定する。 */
 .tsume-stats-summary {
   font-size: 0.9rem;
   color: var(--color-text-secondary);
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+  padding: var(--space-lg);
+  box-sizing: border-box;
 }
 
 .tsume-stats-summary p {
@@ -37,13 +45,18 @@
   padding: 0;
 }
 
+/* T135要件2: カード化(白背景・角丸・薄い影)。`.tsume-stats-summary`と
+   同じトークン(`index.css`の`.card`)を直接指定する。 */
 .tsume-settings__group {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+  background: var(--color-bg-secondary);
   border: 1px solid var(--color-border);
-  border-radius: 0.5rem;
-  padding: 0.5rem 0.75rem;
+  border-radius: var(--radius-lg);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+  padding: var(--space-lg);
+  box-sizing: border-box;
 }
 
 .tsume-settings__group legend {

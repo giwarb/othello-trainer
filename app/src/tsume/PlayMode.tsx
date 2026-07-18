@@ -607,6 +607,7 @@ export function PlayMode() {
                 <button
                   type="button"
                   key={level}
+                  class="btn-primary"
                   disabled={!pool || starting}
                   onClick={() => void startPractice({ kind: 'difficulty', level })}
                 >
@@ -617,10 +618,20 @@ export function PlayMode() {
           </fieldset>
 
           <div class="tsume-settings__buttons">
-            <button type="button" disabled={!pool || starting} onClick={() => void startPractice({ kind: 'random' })}>
+            <button
+              type="button"
+              class="btn-primary"
+              disabled={!pool || starting}
+              onClick={() => void startPractice({ kind: 'random' })}
+            >
               ランダムに出題
             </button>
-            <button type="button" disabled={!pool || starting} onClick={() => void startPractice({ kind: 'daily' })}>
+            <button
+              type="button"
+              class="btn-primary"
+              disabled={!pool || starting}
+              onClick={() => void startPractice({ kind: 'daily' })}
+            >
               今日の1問(デイリー)
             </button>
           </div>
@@ -756,7 +767,7 @@ export function PlayMode() {
           </div>
 
           <div class="tsume-result__buttons">
-            <button type="button" disabled={starting} onClick={() => void nextPuzzle()}>
+            <button type="button" class="btn-primary" disabled={starting} onClick={() => void nextPuzzle()}>
               次の問題
             </button>
             {lastSelection?.kind === 'stage' && (
@@ -813,7 +824,7 @@ export function PlayMode() {
           </table>
 
           <div class="tsume-result__buttons">
-            <button type="button" disabled={starting} onClick={() => void nextPuzzle()}>
+            <button type="button" class="btn-primary" disabled={starting} onClick={() => void nextPuzzle()}>
               次の問題
             </button>
             {lastSelection?.kind === 'stage' && (

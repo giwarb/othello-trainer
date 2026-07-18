@@ -18,13 +18,19 @@
   padding: 0 0.5rem;
 }
 
+/* T135要件2: カード(白背景・角丸・薄い影)化。`index.css`の`.card`と同じ
+   トークンを直接指定する(既存の`border`/`padding`との詳細度衝突を避けるため、
+   `.card`クラスの併用ではなくこのルール自体を更新する)。 */
 .midgame-settings__group {
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
+  background: var(--color-bg-secondary);
   border: 1px solid var(--color-border);
-  border-radius: 0.5rem;
-  padding: 0.5rem 0.75rem;
+  border-radius: var(--radius-lg);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+  padding: var(--space-lg);
+  box-sizing: border-box;
 }
 
 .midgame-settings__group legend {
@@ -47,7 +53,8 @@
 }
 
 /* T129: 苦手パターン統計セクション(設定画面)。`tsume/PlayMode.css`の
-   `.tsume-stats-summary`と同じ「小さめの補助情報」デザイン方針。 */
+   `.tsume-stats-summary`と同じ「小さめの補助情報」デザイン方針。
+   T135要件2: カード化(`.midgame-settings__group`と同じトークン)。 */
 .midgame-pattern-stats {
   display: flex;
   flex-direction: column;
@@ -56,6 +63,13 @@
   font-size: 0.9rem;
   color: var(--color-text-secondary);
   text-align: center;
+  width: 100%;
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+  padding: var(--space-lg);
+  box-sizing: border-box;
 }
 
 .midgame-pattern-stats__title {

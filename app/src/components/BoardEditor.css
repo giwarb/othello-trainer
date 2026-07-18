@@ -46,6 +46,11 @@
 }
 
 .board-editor__cell {
+  /* T135: `index.css`のグローバル`button`既定値(最小44px)は、8x8グリッドの
+     各マス(`grid-template-rows: repeat(8, 1fr)`)のサイズをこのボタンの
+     min-heightが押し上げてしまい、正方形(`aspect-ratio: 1/1`)の盤面が崩れる。
+     このマスは通常のボタンではなく盤面の一部なので明示的に外す。 */
+  min-height: 0;
   appearance: none;
   background: #0a6e31;
   border: none;

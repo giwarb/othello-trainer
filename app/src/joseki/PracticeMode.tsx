@@ -466,7 +466,7 @@ export function PracticeMode() {
                 })()}
               <button
                 type="button"
-                class="joseki-due-summary__review-button"
+                class="joseki-due-summary__review-button btn-primary"
                 disabled={!josekiDb}
                 onClick={() => void startPractice('random', { dueOnly: true })}
               >
@@ -475,13 +475,13 @@ export function PracticeMode() {
             </div>
           )}
           <div class="joseki-color-select__buttons">
-            <button type="button" disabled={!josekiDb} onClick={() => void startPractice('black')}>
+            <button type="button" class="btn-primary" disabled={!josekiDb} onClick={() => void startPractice('black')}>
               黒番で開始
             </button>
-            <button type="button" disabled={!josekiDb} onClick={() => void startPractice('white')}>
+            <button type="button" class="btn-primary" disabled={!josekiDb} onClick={() => void startPractice('white')}>
               白番で開始
             </button>
-            <button type="button" disabled={!josekiDb} onClick={() => void startPractice('random')}>
+            <button type="button" class="btn-primary" disabled={!josekiDb} onClick={() => void startPractice('random')}>
               ランダムで開始
             </button>
           </div>
@@ -559,7 +559,7 @@ export function PracticeMode() {
             )
           })()}
           <p class="joseki-result__moves">手順: {formatSquares(resultInfo.moveHistory)}</p>
-          <button type="button" onClick={backToColorSelect}>
+          <button type="button" class="btn-primary" onClick={backToColorSelect}>
             もう一度
           </button>
         </section>
@@ -608,7 +608,7 @@ export function PracticeMode() {
               ロス{Math.round(resultInfo.lossDiscs)}石でした。
             </p>
           )}
-          <button type="button" onClick={backToColorSelect}>
+          <button type="button" class="btn-primary" onClick={backToColorSelect}>
             もう一度
           </button>
         </section>

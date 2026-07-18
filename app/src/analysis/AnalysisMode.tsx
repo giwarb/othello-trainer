@@ -458,7 +458,12 @@ export function AnalysisMode({ initialTranscript, onInitialTranscriptConsumed }:
                 onInput={(event) => setTranscriptText((event.target as HTMLTextAreaElement).value)}
                 rows={4}
               />
-              <button type="button" onClick={handleTranscriptSubmit} disabled={transcriptText.trim().length === 0}>
+              <button
+                type="button"
+                class="btn-primary"
+                onClick={handleTranscriptSubmit}
+                disabled={transcriptText.trim().length === 0}
+              >
                 解析開始
               </button>
             </div>
@@ -489,6 +494,7 @@ export function AnalysisMode({ initialTranscript, onInitialTranscriptConsumed }:
                 </button>
                 <button
                   type="button"
+                  class="btn-primary"
                   onClick={() => void startAnalysis(manualMoves)}
                   disabled={manualMoves.length === 0}
                 >
@@ -509,7 +515,7 @@ export function AnalysisMode({ initialTranscript, onInitialTranscriptConsumed }:
                     onChange={handleCustomEditorChange}
                   />
                   <div class="analysis-input__custom-buttons">
-                    <button type="button" onClick={confirmCustomStart}>
+                    <button type="button" class="btn-primary" onClick={confirmCustomStart}>
                       この局面から開始
                     </button>
                   </div>
@@ -542,6 +548,7 @@ export function AnalysisMode({ initialTranscript, onInitialTranscriptConsumed }:
                     </button>
                     <button
                       type="button"
+                      class="btn-primary"
                       onClick={() => void startAnalysis(customMoves, customStart)}
                       disabled={customMoves.length === 0}
                     >

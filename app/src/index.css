@@ -85,6 +85,66 @@ body {
   color: var(--color-text);
 }
 
+/* デザイントークン: ボタン共通ベース(T135)。
+   ホーム画面(`TitleScreen.css`)の紫アクセント・角丸の見た目を正とし、全画面の
+   素の<button>要素の既定見た目をここで統一する(要件2「素の<button>デフォルト
+   見た目を全画面から排除する」)。この既定値はセカンダリボタン相当(白背景・
+   枠線・アクセント文字)であり、`.btn-secondary`と同じ見た目になるため、
+   クラス無しのボタン(各モードの「やめる」「設定に戻る」等)もこれだけで
+   セカンダリボタンとして統一される。個別画面がクラスで背景色等を指定して
+   いる場合(class選択子はここより詳細度が高い)はそちらが優先されるため、
+   既存の専用スタイル(タブ・グリッドセル等)は安全に上書きされずそのまま残る。
+   タップターゲット(要件3、最小44px・間隔8px以上)の底上げもここで行う。
+   個別に小さく留めたいインライン操作(例:
+   `analysis/AnalysisMode.css`の`.analysis-result__movelist-blunder-button`、
+   テーブル行内の小さな操作ボタン)は、より詳細度の高い自クラス側で
+   `min-height`を上書きしてよい。 */
+button {
+  min-height: 44px;
+  padding: 0 var(--space-md);
+  box-sizing: border-box;
+  border: 1px solid var(--color-accent);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-secondary);
+  color: var(--color-accent-text);
+  font-family: inherit;
+  font-size: 0.95rem;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+/* デザイントークン: プライマリボタン(T135要件2)。各画面の主アクション
+   (開始/解析開始/復習を始める等)に適用する。 */
+.btn-primary {
+  border-color: var(--color-accent);
+  background: var(--color-accent);
+  color: #ffffff;
+  font-weight: bold;
+}
+
+/* デザイントークン: セカンダリボタン(T135要件2)。上のbutton既定値と同じ見た目
+   だが、明示的にセカンダリだと分かるようにしたい箇所で使うためのクラス。 */
+.btn-secondary {
+  border-color: var(--color-accent);
+  background: var(--color-bg-secondary);
+  color: var(--color-accent-text);
+  font-weight: 500;
+}
+
+/* デザイントークン: カード(T135要件2)。設定グループ・情報ブロックの見た目を
+   統一する(ホーム画面の`.title-screen__card`と同じ紫寄りの角丸カード言語)。
+   既存の個別コンポーネントで同種の枠(border+radius+padding)を既に持つものは、
+   詳細度の衝突を避けるため、このクラスを併用せず同じトークンで直接置き換えて
+   いる箇所がある(`app.css`の`.settings`、各モードCSSの設定グループ等参照)。 */
+.card {
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+  padding: var(--space-lg);
+  box-sizing: border-box;
+}
+
 /* T069: 全ボタン共通のホバー/クリック/フォーカスフィードバック。
    要素セレクタ(詳細度が低い)なので、`.title-screen__card:hover`等の
    コンポーネント固有のクラスセレクタによる背景色・枠線変更は上書きしない

@@ -1027,7 +1027,7 @@ export function PracticeMode() {
               (confirmingPatternStatsReset ? (
                 <p class="midgame-pattern-stats__confirm">
                   本当にリセットしますか?
-                  <button type="button" onClick={handleResetPatternStats}>
+                  <button type="button" class="btn-primary" onClick={handleResetPatternStats}>
                     はい
                   </button>
                   <button type="button" onClick={() => setConfirmingPatternStatsReset(false)}>
@@ -1094,7 +1094,7 @@ export function PracticeMode() {
           </fieldset>
 
           <div class="midgame-settings__buttons">
-            <button type="button" disabled={!josekiDb || starting} onClick={() => void startPractice()}>
+            <button type="button" class="btn-primary" disabled={!josekiDb || starting} onClick={() => void startPractice()}>
               開始
             </button>
             <button type="button" disabled={!stagePool || starting} onClick={goToStageSelect}>
@@ -1229,12 +1229,12 @@ export function PracticeMode() {
           <p>石差 {formatDiscDiff(resultInfo.margin)} で優勢を確定できました。</p>
           {justEarnedStar && <p class="midgame-result__star-earned">★ 新しい★を獲得しました!</p>}
           <div class="midgame-result__buttons">
-            <button type="button" onClick={retryFromStart}>
+            <button type="button" class="btn-primary" onClick={retryFromStart}>
               もう一度(同じ局面)
             </button>
             {activeStage && (
               <>
-                <button type="button" onClick={nextStage}>
+                <button type="button" class="btn-primary" onClick={nextStage}>
                   次のステージへ
                 </button>
                 <button type="button" onClick={goToStageSelect}>
@@ -1293,12 +1293,12 @@ export function PracticeMode() {
           )}
 
           <div class="midgame-result__buttons">
-            <button type="button" onClick={retryFromStart}>
+            <button type="button" class="btn-primary" onClick={retryFromStart}>
               ここからやり直す
             </button>
             {activeStage && (
               <>
-                <button type="button" onClick={nextStage}>
+                <button type="button" class="btn-primary" onClick={nextStage}>
                   次のステージへ
                 </button>
                 <button type="button" onClick={goToStageSelect}>

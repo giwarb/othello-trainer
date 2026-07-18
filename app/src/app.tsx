@@ -112,43 +112,51 @@ export function App() {
   }
 
   return (
-    <main>
-      <h1>オセロトレーナー</h1>
-
-      <nav class="mode-nav" aria-label="モード切り替え">
+    <>
+      {/* T135: 全モード共通の1行スティッキーヘッダ。旧`<h1>オセロトレーナー</h1>`
+          (約90px)+2行折返しのナビピルを、ホームボタン・現在のモード名・
+          横スクロール可能な1行のモード切り替えタブに置き換える。`<main>`の
+          兄弟要素にすることで`main`の左右パディングの影響を受けず画面幅
+          いっぱいに張り出す(`app.css`の`.app-header`コメント参照)。 */}
+      <header class="app-header">
         <button
           type="button"
-          class="mode-nav__home"
+          class="app-header__home"
           aria-label="タイトル画面に戻る"
           onClick={() => setMode(null)}
         >
           ホーム
         </button>
-        {NAV_VISIBLE_MODES.map((key) => (
-          <button
-            type="button"
-            key={key}
-            class={`mode-nav__tab${mode === key ? ' mode-nav__tab--active' : ''}`}
-            aria-current={mode === key ? 'page' : undefined}
-            onClick={() => setMode(key)}
-          >
-            {MODE_LABEL[key]}
-          </button>
-        ))}
-      </nav>
+        <span class="app-header__title">{MODE_LABEL[mode]}</span>
+        <nav class="mode-nav" aria-label="モード切り替え">
+          {NAV_VISIBLE_MODES.map((key) => (
+            <button
+              type="button"
+              key={key}
+              class={`mode-nav__tab${mode === key ? ' mode-nav__tab--active' : ''}`}
+              aria-current={mode === key ? 'page' : undefined}
+              onClick={() => setMode(key)}
+            >
+              {MODE_LABEL[key]}
+            </button>
+          ))}
+        </nav>
+      </header>
 
-      {mode === 'play' && <PlayMode onReviewGame={handleReviewGame} />}
-      {mode === 'joseki' && <PracticeMode />}
-      {mode === 'midgame' && <MidgamePracticeMode />}
-      {mode === 'tsume' && <TsumePlayMode />}
-      {mode === 'analysis' && (
-        <AnalysisMode
-          initialTranscript={pendingReviewTranscript}
-          onInitialTranscriptConsumed={() => setPendingReviewTranscript(null)}
-        />
-      )}
-      {mode === 'verbalize' && <VerbalizeMode />}
-    </main>
+      <main>
+        {mode === 'play' && <PlayMode onReviewGame={handleReviewGame} />}
+        {mode === 'joseki' && <PracticeMode />}
+        {mode === 'midgame' && <MidgamePracticeMode />}
+        {mode === 'tsume' && <TsumePlayMode />}
+        {mode === 'analysis' && (
+          <AnalysisMode
+            initialTranscript={pendingReviewTranscript}
+            onInitialTranscriptConsumed={() => setPendingReviewTranscript(null)}
+          />
+        )}
+        {mode === 'verbalize' && <VerbalizeMode />}
+      </main>
+    </>
   )
 }
 
@@ -715,16 +723,16 @@ function PlayMode({ onReviewGame }: PlayModeProps) {
       <section class="controls">
         <div class="controls__row">
           <span>新規対局:</span>
-          <button type="button" onClick={() => startNewGame('black')}>
+          <button type="button" class="btn-primary" onClick={() => startNewGame('black')}>
             黒番で開始
           </button>
-          <button type="button" onClick={() => startNewGame('white')}>
+          <button type="button" class="btn-primary" onClick={() => startNewGame('white')}>
             白番で開始
           </button>
-          <button type="button" onClick={() => startNewGame('random')}>
+          <button type="button" class="btn-primary" onClick={() => startNewGame('random')}>
             ランダムで開始
           </button>
-          <button type="button" onClick={startVsHumanGame}>
+          <button type="button" class="btn-primary" onClick={startVsHumanGame}>
             2人対戦で開始
           </button>
           <button type="button" onClick={openEditor}>
@@ -782,16 +790,16 @@ function PlayMode({ onReviewGame }: PlayModeProps) {
           <BoardEditor board={editorBoard} sideToMove={editorSideToMove} onChange={handleEditorChange} />
           <div class="controls__row board-editor-panel__actions">
             <span>この局面から開始:</span>
-            <button type="button" onClick={() => startFromEditor('black')}>
+            <button type="button" class="btn-primary" onClick={() => startFromEditor('black')}>
               黒番で開始
             </button>
-            <button type="button" onClick={() => startFromEditor('white')}>
+            <button type="button" class="btn-primary" onClick={() => startFromEditor('white')}>
               白番で開始
             </button>
-            <button type="button" onClick={() => startFromEditor('random')}>
+            <button type="button" class="btn-primary" onClick={() => startFromEditor('random')}>
               ランダムで開始
             </button>
-            <button type="button" onClick={() => startFromEditor('vsHuman')}>
+            <button type="button" class="btn-primary" onClick={() => startFromEditor('vsHuman')}>
               2人対戦で開始
             </button>
             <button type="button" onClick={closeEditor}>
@@ -864,7 +872,7 @@ function PlayMode({ onReviewGame }: PlayModeProps) {
               棋譜解析モードへワンタップで遷移できるボタンを出す(要件1・4)。 */}
           {displayGame.phase === 'over' && standardStart && moveHistory.length > 0 && (
             <div class="review-game">
-              <button type="button" onClick={() => onReviewGame(movesToTranscript(moveHistory))}>
+              <button type="button" class="btn-primary" onClick={() => onReviewGame(movesToTranscript(moveHistory))}>
                 この対局を棋譜解析で振り返る
               </button>
             </div>
