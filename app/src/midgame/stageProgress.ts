@@ -1,30 +1,54 @@
 /**
- * 中盤練習「ステージ一覧」(T119)の挑戦記録を`localStorage`へ保存・読み込みする。
+ * 中盤練習「ステージ一覧」(T119、T141で★制へ全面改訂)の挑戦記録を
+ * `localStorage`へ保存・読み込みする。
  *
- * `app/src/tsume/stageProgress.ts`(T117、詰めオセロ側)と同じ実装パターン
- * (`StorageLike`インターフェース、`isValid*`によるフォールバック検証)を
- * 踏襲する。T119固有の違いは以下の2点:
+ * ## T141での変更点
  *
- * 1. **判定モードごとに別記録**(要件3): `Puzzle.id`相当の`stageKey`
- *    (`stagePool.ts`の正規化済み局面ハッシュ)に加え、`JudgeMode`
- *    (`'strict'|'standard'|'noReversal'`)を第2のキーとして持つ2階層構造
- *    (`StageProgress = Record<stageKey, Record<JudgeMode, Entry>>`)。
- *    ★の数はそのステージでクリア済みの判定モード数(0〜3)。
- * 2. **T117 redo #1で判明した2つの教訓を最初から反映**
- *    (`tasks/T117-tsume-stage-select.md`のフィードバック・
- *    `tasks/review/T117-tsume-stage-select-codex-review.md`参照):
- *    - 日時バリデーションは`Date.parse`の可否ではなく、`Date.toISOString()`
- *      が実際に出力する形式(`YYYY-MM-DDTHH:mm:ss.sssZ`)の厳密な正規表現
- *      検証+往復一致チェックにする(`isValidIsoDateTimeString`)。
- *    - フィールド相関の整合チェックを行う(`clearCount`と各日時・
- *      `lastResult`の整合性、`isValidEntry`)。
- *    - `recordStageAttempt`を呼ぶ側(`PracticeMode.tsx`)でも、IndexedDB
- *      (`midgamePool`への失敗局面登録)の完了を待たずに`localStorage`へ
- *      同期的に書き込む設計を最初から採用する(T117 redo #1のレースを
- *      未然に防ぐ。詳細は`PracticeMode.tsx`の`recordStageAttemptNow`参照)。
+ * 旧実装(T119)は「ステージキー × 判定モード(`strict`/`standard`/`noReversal`)」の
+ * 2階層構造で、★の数は「クリア済みの判定モード数」だった。T141で判定モード
+ * 選択UI自体を廃止し、1ステージにつき単一の★0〜3(`stageStarJudge.ts`の
+ * `computeStageStars`が返す)を記録するフラットな構造に置き換える。
+ *
+ * `loadStageProgress`/`stageStatus`は**関数シグネチャ・意味論を保ったまま**
+ * 実装を差し替えている(`app.tsx`のホーム実績行(T137)がこの2つをそのまま
+ * 呼んでおり、T141は`app.tsx`本体に触れないスコープのため)。`stageStatus`の
+ * `'cleared'`の意味が「いずれかの判定モードでクリア済み」から「`bestStars >= 1`」
+ * に変わる点が要件5の「クリア」定義更新そのものであり、`app.tsx`側は無改造で
+ * 新定義に追従する。
+ *
+ * ## 新localStorageキーと旧記録の一度きりの移行(要件5)
+ *
+ * 新記録は`MIDGAME_STAGE_STARS_STORAGE_KEY`(`othello-trainer:midgame-stage-stars`)
+ * に保存する。旧キー(`MIDGAME_STAGE_PROGRESS_STORAGE_KEY`、
+ * `othello-trainer:midgame-stage-progress`)は**削除しない**(ユーザー指示
+ * 「旧データは消さない」、T114の教訓「ユーザーはデータ消失に極めて敏感」を
+ * 踏まえた保守的な方針)。`loadStageProgress`は初回呼び出し時(移行済みマーカー
+ * `MIDGAME_STAGE_STARS_MIGRATED_KEY`が無い場合)に旧記録を読み、いずれかの
+ * 判定モードでクリア済み(`clearCount > 0`)のステージを`bestStars: 1`として
+ * 新記録へ**一度だけ**シードし、移行済みマーカーを立てる(以後は素通しで
+ * 新記録を読むだけになる)。新記録に既にエントリがあるステージは上書きしない
+ * (実運用ではまだ存在しないはずだが、防御的に)。
+ *
+ * ## `failCount`フィールドについて(タスク仕様のスキーマからの小さな拡張)
+ *
+ * `tasks/T141-midgame-stage-stars.md`要件5が明示するスキーマは
+ * `{ bestStars, attempts, lastResultStars, lastAttemptAt, firstClearedAt }`だが、
+ * 要件6が維持する復習フィルタ「失敗あり」(`settings/reviewFilter.ts`の
+ * `matchesReviewFilter`、"現在の状態を問わない累積の失敗経験そのものを指す"、
+ * T130由来の既存語彙)を再現するには「このステージでこれまで★0という結果に
+ * なった回数」が要る。`attempts`(総挑戦回数)だけでは
+ * 「1回目で失敗し2回目でクリアした」ケースと「1回目でいきなりクリアした」
+ * ケースを区別できないため、`failCount`(★0だった挑戦回数の累計)を1フィールド
+ * 追加している。新規追加のフィールドであり、指定スキーマの意味(★・挑戦回数・
+ * 直近結果・日時)を変えるものではない。
+ *
+ * ## `StorageLike`・妥当性検証の実装パターン
+ *
+ * `app/src/tsume/stageProgress.ts`・T117 redo #1の教訓(`Date.toISOString()`の
+ * 厳密な正規表現+往復一致チェック、フィールド相関の整合チェック)を踏襲する。
  */
 
-import type { JudgeMode } from './types.ts'
+import type { Stars } from './stageStarJudge.ts'
 
 /** `localStorage` のうち本モジュールが使う最小限のインターフェース。 */
 export interface StorageLike {
@@ -32,203 +56,275 @@ export interface StorageLike {
   setItem(key: string, value: string): void
 }
 
-/** `localStorage` に保存する際のキー。 */
+/** 新記録(★制)の`localStorage`キー(要件5)。 */
+export const MIDGAME_STAGE_STARS_STORAGE_KEY = 'othello-trainer:midgame-stage-stars'
+
+/** 旧記録(判定モード別2階層、T119)の`localStorage`キー。移行元としてのみ読む。 */
 export const MIDGAME_STAGE_PROGRESS_STORAGE_KEY = 'othello-trainer:midgame-stage-progress'
 
-/** 判定モードの既知の値一覧(バリデーション・★数の分母に使う)。 */
-export const JUDGE_MODES: readonly JudgeMode[] = ['strict', 'standard', 'noReversal']
+/** 「旧記録からの一度きりの移行を実行済みか」を示すマーカーキー。 */
+export const MIDGAME_STAGE_STARS_MIGRATED_KEY = 'othello-trainer:midgame-stage-stars-migrated'
 
-/** 1回の挑戦結果。 */
-export type StageAttemptResult = 'clear' | 'fail'
-
-/** 1ステージ×1判定モードぶんの挑戦記録。 */
-export interface StageProgressEntry {
-  /** 初めてクリアした日時(ISO文字列)。未クリアなら`null`。 */
-  readonly firstClearedAt: string | null
-  /** 直近にクリアした日時(ISO文字列)。未クリアなら`null`。 */
-  readonly lastClearedAt: string | null
-  /** クリア回数(累計)。 */
-  readonly clearCount: number
-  /** 失敗回数(累計)。 */
+/** 1ステージぶんの挑戦記録(要件5のスキーマ + `failCount`拡張、上記コメント参照)。 */
+export interface StageStarEntry {
+  /** これまでの最高★(0〜3)。挑戦のたびに単調非減少で更新される。 */
+  readonly bestStars: Stars
+  /** 総挑戦回数。 */
+  readonly attempts: number
+  /** ★0(クリア失敗)だった挑戦回数の累計(上記コメント参照、新規追加フィールド)。 */
   readonly failCount: number
-  /** 直近の挑戦日時(クリア・失敗を問わない、ISO文字列)。 */
+  /** 直近の挑戦で獲得した★。 */
+  readonly lastResultStars: Stars
+  /** 直近の挑戦日時(ISO文字列)。 */
   readonly lastAttemptAt: string
-  /** 直近の挑戦結果。 */
-  readonly lastResult: StageAttemptResult
+  /** 初めて★1以上を獲得した日時(ISO文字列)。未クリアなら`null`。 */
+  readonly firstClearedAt: string | null
 }
 
-/** `stageKey` -> 判定モード -> `StageProgressEntry` の2階層マップ。 */
-export type StageProgress = Readonly<Record<string, Readonly<Partial<Record<JudgeMode, StageProgressEntry>>>>>
+/** `stageKey` -> `StageStarEntry` のフラットマップ。 */
+export type StageProgress = Readonly<Record<string, StageStarEntry>>
 
 const EMPTY_PROGRESS: StageProgress = {}
 
 /**
  * `Date.prototype.toISOString()`が実際に出力する形式(`YYYY-MM-DDTHH:mm:ss.sssZ`)
- * の厳密な正規表現(T117 redo #1のcodex-review指摘の反映)。
+ * の厳密な正規表現(T117 redo #1教訓の踏襲)。
  */
 const ISO_DATETIME_REGEX = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/
 
-/**
- * `value`が`Date.toISOString()`形式(`YYYY-MM-DDTHH:mm:ss.sssZ`)の
- * 日時文字列として厳密に妥当かどうかを検証する。正規表現の形式チェックに加え、
- * `new Date(value).toISOString()`で往復させて元の文字列と一致するかまで見る
- * (例: `"2026-02-30T00:00:00.000Z"`のような、形式は正しいが暦として存在しない
- * 日付は`Date`が別の日付へ繰り上げてしまい往復一致しないため弾かれる)。
- */
 function isValidIsoDateTimeString(value: unknown): value is string {
   if (typeof value !== 'string' || !ISO_DATETIME_REGEX.test(value)) return false
   const parsed = new Date(value)
   return !Number.isNaN(parsed.getTime()) && parsed.toISOString() === value
 }
 
-/** 回数(`clearCount`/`failCount`)として妥当な非負整数かどうかを検証する。 */
 function isNonNegativeInteger(value: unknown): value is number {
   return typeof value === 'number' && Number.isInteger(value) && value >= 0
 }
 
+function isStars(value: unknown): value is Stars {
+  return value === 0 || value === 1 || value === 2 || value === 3
+}
+
 /**
- * `value`が`StageProgressEntry`として妥当かどうかを検証する。
- * 型・意味的制約(非負整数・厳密なISO日時)に加え、フィールド相関の整合性
- * まで検証する(T117 redo #1のcodex-review指摘(b)を最初から反映):
- * - `clearCount === 0`なのにクリア日時(`firstClearedAt`/`lastClearedAt`)が
- *   設定されている場合は不正。
- * - `clearCount > 0`なのに`firstClearedAt`/`lastClearedAt`の**どちらか一方でも**
- *   `null`の場合は不正(クリア済みならスキーマ上どちらの日時も必須。
- *   redo #1: codex-review指摘(b)2で、修正前は「両方`null`」の場合しか
- *   弾けておらず、片方だけ`null`の破損データが有効値として通ってしまう
- *   欠陥があった)。
- * - `lastResult === 'clear'`なのに`clearCount === 0`の場合は不正
- *   (直近の結果がクリアなら、クリア回数は最低1回あるはず)。
+ * `value`が`StageStarEntry`として妥当かどうかを検証する。
+ * フィールド相関の整合性チェック(T117 redo #1の教訓を踏襲):
+ * - `bestStars === 0`なのに`firstClearedAt`が設定されていれば不正。
+ * - `bestStars >= 1`なのに`firstClearedAt`が`null`なら不正。
+ * - `attempts === 0`なのに`failCount > 0`、または`attempts < failCount`なら不正。
  */
-function isValidEntry(value: unknown): value is StageProgressEntry {
+function isValidEntry(value: unknown): value is StageStarEntry {
   if (typeof value !== 'object' || value === null) return false
   const v = value as Record<string, unknown>
 
   const baseValid =
+    isStars(v.bestStars) &&
+    isNonNegativeInteger(v.attempts) &&
+    isNonNegativeInteger(v.failCount) &&
+    isStars(v.lastResultStars) &&
+    isValidIsoDateTimeString(v.lastAttemptAt) &&
+    (v.firstClearedAt === null || isValidIsoDateTimeString(v.firstClearedAt))
+  if (!baseValid) return false
+
+  const bestStars = v.bestStars as Stars
+  const attempts = v.attempts as number
+  const failCount = v.failCount as number
+  const firstClearedAt = v.firstClearedAt as string | null
+
+  if (bestStars === 0 && firstClearedAt !== null) return false
+  if (bestStars >= 1 && firstClearedAt === null) return false
+  if (failCount > attempts) return false
+
+  return true
+}
+
+function isValidProgress(value: unknown): value is StageProgress {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return false
+  return Object.values(value as Record<string, unknown>).every(isValidEntry)
+}
+
+// --- 旧記録(判定モード別2階層、T119)の読み取り専用の妥当性検証(移行用) ---
+
+const LEGACY_JUDGE_MODES = ['strict', 'standard', 'noReversal'] as const
+
+interface LegacyStageProgressEntry {
+  readonly firstClearedAt: string | null
+  readonly lastClearedAt: string | null
+  readonly clearCount: number
+  readonly failCount: number
+  readonly lastAttemptAt: string
+  readonly lastResult: 'clear' | 'fail'
+}
+
+function isValidLegacyEntry(value: unknown): value is LegacyStageProgressEntry {
+  if (typeof value !== 'object' || value === null) return false
+  const v = value as Record<string, unknown>
+  return (
     (v.firstClearedAt === null || isValidIsoDateTimeString(v.firstClearedAt)) &&
     (v.lastClearedAt === null || isValidIsoDateTimeString(v.lastClearedAt)) &&
     isNonNegativeInteger(v.clearCount) &&
     isNonNegativeInteger(v.failCount) &&
     isValidIsoDateTimeString(v.lastAttemptAt) &&
     (v.lastResult === 'clear' || v.lastResult === 'fail')
-  if (!baseValid) return false
-
-  const clearCount = v.clearCount as number
-  const firstClearedAt = v.firstClearedAt as string | null
-  const lastClearedAt = v.lastClearedAt as string | null
-  const lastResult = v.lastResult as StageAttemptResult
-
-  if (clearCount === 0 && (firstClearedAt !== null || lastClearedAt !== null)) return false
-  if (clearCount > 0 && (firstClearedAt === null || lastClearedAt === null)) return false
-  if (lastResult === 'clear' && clearCount === 0) return false
-
-  return true
-}
-
-/** `value`が「判定モード文字列 -> `StageProgressEntry`」のマップとして妥当かどうかを検証する。 */
-function isValidModeRecord(value: unknown): value is Readonly<Partial<Record<JudgeMode, StageProgressEntry>>> {
-  if (typeof value !== 'object' || value === null || Array.isArray(value)) return false
-  const v = value as Record<string, unknown>
-  return Object.entries(v).every(
-    ([mode, entry]) => (JUDGE_MODES as readonly string[]).includes(mode) && isValidEntry(entry),
   )
 }
 
-function isValidProgress(value: unknown): value is StageProgress {
+type LegacyStageProgress = Readonly<Record<string, Readonly<Partial<Record<string, LegacyStageProgressEntry>>>>>
+
+function isValidLegacyProgress(value: unknown): value is LegacyStageProgress {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) return false
-  return Object.values(value as Record<string, unknown>).every(isValidModeRecord)
+  return Object.values(value as Record<string, unknown>).every((modeRecord) => {
+    if (typeof modeRecord !== 'object' || modeRecord === null || Array.isArray(modeRecord)) return false
+    return Object.entries(modeRecord as Record<string, unknown>).every(
+      ([mode, entry]) => (LEGACY_JUDGE_MODES as readonly string[]).includes(mode) && isValidLegacyEntry(entry),
+    )
+  })
 }
 
 /**
- * 保存済みのステージ挑戦記録を読み込む。
- * 未保存(キーが無い)、またはJSONとして壊れている・形が不正な場合は
- * 空のレコード(`{}`)を返す(例外は投げない)。
+ * 旧記録(`MIDGAME_STAGE_PROGRESS_STORAGE_KEY`)を読み、いずれかの判定モードで
+ * クリア済み(`clearCount > 0`)だったステージを`bestStars: 1`として`progress`へ
+ * シードする(要件5「旧記録でいずれかのモードのクリアがあるステージは
+ * `bestStars>=1`として一度だけシード」)。`progress`に既にエントリがある
+ * ステージは上書きしない。旧記録が無い・壊れている場合は何もしない
+ * (例外は投げない)。
+ */
+function migrateFromLegacyProgress(storage: StorageLike, progress: StageProgress): StageProgress {
+  const raw = storage.getItem(MIDGAME_STAGE_PROGRESS_STORAGE_KEY)
+  if (raw === null) return progress
+
+  let legacy: unknown
+  try {
+    legacy = JSON.parse(raw)
+  } catch {
+    return progress
+  }
+  if (!isValidLegacyProgress(legacy)) return progress
+
+  const next: Record<string, StageStarEntry> = { ...progress }
+  for (const [stageKey, modeRecord] of Object.entries(legacy)) {
+    if (next[stageKey]) continue // 新記録に既存エントリがあれば上書きしない(防御的)
+
+    const clearedEntries = LEGACY_JUDGE_MODES.map((mode) => modeRecord[mode]).filter(
+      (entry): entry is LegacyStageProgressEntry => !!entry && entry.clearCount > 0,
+    )
+    if (clearedEntries.length === 0) continue
+
+    // 複数モードでクリア済みの場合、最も早い初クリア日時を代表値として使う。
+    const seedAt = clearedEntries.reduce(
+      (earliest, entry) => (entry.firstClearedAt && entry.firstClearedAt < earliest ? entry.firstClearedAt : earliest),
+      clearedEntries[0]!.firstClearedAt ?? clearedEntries[0]!.lastAttemptAt,
+    )
+
+    next[stageKey] = {
+      bestStars: 1,
+      attempts: 1,
+      failCount: 0,
+      lastResultStars: 1,
+      lastAttemptAt: seedAt,
+      firstClearedAt: seedAt,
+    }
+  }
+  return next
+}
+
+/**
+ * 保存済みのステージ挑戦記録を読み込む(要件5)。
+ *
+ * 初回呼び出し(移行済みマーカーが無い)の場合、旧記録からの一度きりの
+ * シード(`migrateFromLegacyProgress`)を行い、その結果を新キーへ書き戻して
+ * マーカーを立ててから返す。2回目以降は新キーをそのまま読むだけ。
+ *
+ * 新キーの内容が未保存・JSONとして壊れている・形が不正な場合は空のレコード
+ * (`{}`)として扱う(例外は投げない)。
  */
 export function loadStageProgress(storage: StorageLike): StageProgress {
-  const raw = storage.getItem(MIDGAME_STAGE_PROGRESS_STORAGE_KEY)
-  if (raw === null) return EMPTY_PROGRESS
+  const raw = storage.getItem(MIDGAME_STAGE_STARS_STORAGE_KEY)
+  let progress: StageProgress = EMPTY_PROGRESS
+  if (raw !== null) {
+    try {
+      const parsed: unknown = JSON.parse(raw)
+      progress = isValidProgress(parsed) ? parsed : EMPTY_PROGRESS
+    } catch {
+      progress = EMPTY_PROGRESS
+    }
+  }
+
+  if (storage.getItem(MIDGAME_STAGE_STARS_MIGRATED_KEY) !== null) {
+    return progress
+  }
 
   try {
-    const parsed: unknown = JSON.parse(raw)
-    return isValidProgress(parsed) ? parsed : EMPTY_PROGRESS
-  } catch {
-    return EMPTY_PROGRESS
+    const migrated = migrateFromLegacyProgress(storage, progress)
+    storage.setItem(MIDGAME_STAGE_STARS_MIGRATED_KEY, '1')
+    if (migrated !== progress) {
+      storage.setItem(MIDGAME_STAGE_STARS_STORAGE_KEY, JSON.stringify(migrated))
+    }
+    return migrated
+  } catch (error) {
+    console.error('中盤練習ステージ記録の旧データ移行に失敗しました', error)
+    return progress
   }
 }
 
 /** ステージ挑戦記録を`localStorage`へ保存する(次回起動時も`loadStageProgress`で読み戻せる)。 */
 export function saveStageProgress(storage: StorageLike, progress: StageProgress): void {
-  storage.setItem(MIDGAME_STAGE_PROGRESS_STORAGE_KEY, JSON.stringify(progress))
+  storage.setItem(MIDGAME_STAGE_STARS_STORAGE_KEY, JSON.stringify(progress))
 }
 
 /**
- * 1回の挑戦結果(`stageKey`・`mode`について`result`)を記録し、更新後の全体を
- * 返して`localStorage`へ保存する(要件3)。既存エントリがあれば更新、
- * 無ければ新規作成。呼び出し側(`PracticeMode.tsx`)は、IndexedDB
- * (`midgamePool`への失敗局面登録)より前にこの関数を同期的に呼ぶこと
- * (T117 redo #1のレース対策、`PracticeMode.tsx`の`recordStageAttemptNow`参照)。
+ * 1回の挑戦結果(★数)を記録し、更新後の全体を返して`localStorage`へ保存する
+ * (要件5)。`bestStars`は単調非減少(既存の方が高ければそちらを維持)。
+ * 呼び出し側(`PracticeMode.tsx`)は他の非同期処理より前に同期的にこれを呼ぶこと
+ * (T117 redo #1の教訓)。
  */
 export function recordStageAttempt(
   storage: StorageLike,
   stageKey: string,
-  mode: JudgeMode,
-  result: StageAttemptResult,
+  stars: Stars,
   now: string = new Date().toISOString(),
 ): StageProgress {
   const progress = loadStageProgress(storage)
-  const modeRecord = progress[stageKey] ?? {}
-  const existing = modeRecord[mode]
-  const isClear = result === 'clear'
+  const existing = progress[stageKey]
+  const bestStars = Math.max(existing?.bestStars ?? 0, stars) as Stars
 
-  const entry: StageProgressEntry = {
-    firstClearedAt: isClear ? (existing?.firstClearedAt ?? now) : (existing?.firstClearedAt ?? null),
-    lastClearedAt: isClear ? now : (existing?.lastClearedAt ?? null),
-    clearCount: (existing?.clearCount ?? 0) + (isClear ? 1 : 0),
-    failCount: (existing?.failCount ?? 0) + (isClear ? 0 : 1),
+  const entry: StageStarEntry = {
+    bestStars,
+    attempts: (existing?.attempts ?? 0) + 1,
+    failCount: (existing?.failCount ?? 0) + (stars === 0 ? 1 : 0),
+    lastResultStars: stars,
     lastAttemptAt: now,
-    lastResult: result,
+    firstClearedAt: existing?.firstClearedAt ?? (stars >= 1 ? now : null),
   }
 
-  const nextModeRecord = { ...modeRecord, [mode]: entry }
-  const next: StageProgress = { ...progress, [stageKey]: nextModeRecord }
+  const next: StageProgress = { ...progress, [stageKey]: entry }
   saveStageProgress(storage, next)
   return next
 }
 
-/**
- * `stageKey`について、クリア済みの判定モード数(★の数、0〜`JUDGE_MODES.length`)
- * を返す(要件3)。
- */
-export function stageStarCount(progress: StageProgress, stageKey: string): number {
-  const modeRecord = progress[stageKey]
-  if (!modeRecord) return 0
-  let count = 0
-  for (const mode of JUDGE_MODES) {
-    if ((modeRecord[mode]?.clearCount ?? 0) > 0) count++
-  }
-  return count
+/** `stageKey`の最高★(0〜3、グリッド表示に使う、要件5)。記録が無ければ`0`。 */
+export function stageBestStars(progress: StageProgress, stageKey: string): Stars {
+  return progress[stageKey]?.bestStars ?? 0
 }
 
-/** ステージ一覧セルの表示状態(要件2、`app/src/tsume/stageProgress.ts`の3状態モデルを踏襲)。 */
+/** `stageKey`の累計失敗回数(★0だった回数、復習フィルタ「失敗あり」に使う)。記録が無ければ`0`。 */
+export function stageFailCount(progress: StageProgress, stageKey: string): number {
+  return progress[stageKey]?.failCount ?? 0
+}
+
+/** ステージ一覧セルの表示状態(`app/src/tsume/stageProgress.ts`の3状態モデルを踏襲)。 */
 export type StageStatus = 'unattempted' | 'attempted' | 'cleared'
 
 /**
- * `stageKey`の総合状態を導出する純粋関数。
+ * `stageKey`の総合状態を導出する純粋関数(要件5「クリア」定義の更新: `app.tsx`の
+ * ホーム実績行・進捗バーは本関数を無改造のまま呼び続けるだけで新定義に従う)。
  * - 記録が無ければ`'unattempted'`(未挑戦)。
- * - ★が1つ以上あれば`'cleared'`(いずれかの判定モードでクリア済み)。
- * - ★0だが挑戦記録(失敗のみ)があれば`'attempted'`(挑戦済み未クリア)。
+ * - `bestStars >= 1`なら`'cleared'`。
+ * - `bestStars === 0`だが挑戦記録があれば`'attempted'`(挑戦済み未クリア)。
  */
 export function stageStatus(progress: StageProgress, stageKey: string): StageStatus {
-  if (stageStarCount(progress, stageKey) > 0) return 'cleared'
-  const modeRecord = progress[stageKey]
-  if (modeRecord && Object.keys(modeRecord).length > 0) return 'attempted'
-  return 'unattempted'
-}
-
-/** `stageKey`・`mode`単位での状態(結果画面等で「このモードは既にクリア済みか」を見るのに使う)。 */
-export function stageStatusForMode(progress: StageProgress, stageKey: string, mode: JudgeMode): StageStatus {
-  const entry = progress[stageKey]?.[mode]
+  const entry = progress[stageKey]
   if (!entry) return 'unattempted'
-  if (entry.clearCount > 0) return 'cleared'
+  if (entry.bestStars >= 1) return 'cleared'
   return 'attempted'
 }

@@ -7,7 +7,10 @@
  * スキーマは追加しない):
  * - 定石: `joseki/dueLines.ts`の`computeDueLines`(T131で導入済み)。
  * - 中盤練習: `midgame/stagePool.ts`の`buildMidgameStagePool` +
- *   `midgame/stageProgress.ts`の`stageStatus`(T119で導入済み)。
+ *   `midgame/stageProgress.ts`の`stageStatus`(T119で導入、T141でステージクリア型
+ *   (★制)へ全面改訂。「クリア」の定義は`bestStars >= 1`に変わったが、
+ *   `stageStatus`の関数シグネチャ・呼び出し側(`app.tsx`)は無改造のまま新定義に
+ *   追従する。詳細は`midgame/stageProgress.ts`のモジュールコメント参照)。
  * - 詰めオセロ: `tsume/stageProgress.ts`の`stageStatus`(T117で導入済み) +
  *   `tsume/dailyPuzzle.ts`の`todaysPuzzle`(T028で導入済み)。
  *

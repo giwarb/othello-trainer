@@ -127,10 +127,10 @@ describe('T137要件4: ホーム画面のモードカード進捗行', () => {
 
   it('クリア記録があれば実績行の分子・今日の1問の状態に反映される', async () => {
     // 中盤: 実際のstagePool(buildMidgameStagePoolがJOSEKI_DBから求める2ステージ)の
-    // うち1件を判定モード'standard'でクリア済みにする。
+    // うち1件を★2でクリア済みにする(T141: 判定モード別ではなく★制)。
     const stagePool = buildMidgameStagePool(JOSEKI_DB)
     expect(stagePool.length).toBe(2)
-    recordMidgameStageAttempt(localStorage, stagePool[0]!.key, 'standard', 'clear')
+    recordMidgameStageAttempt(localStorage, stagePool[0]!.key, 2)
 
     // 詰め: 実際に選ばれる「今日の1問」をクリア済みとして記録する(日付依存で
     // 対象が変わらないよう、`todaysPuzzle`で実際に選ばれる問題のIDを使う)。
@@ -174,8 +174,9 @@ describe('T137要件4: ホーム画面のモードカード進捗行', () => {
     expect(container.querySelector('.title-screen__card-progress')).toBeNull()
 
     // モード内での実際のクリア操作(エンジン呼び出し)は本テストの対象外のため、
-    // 記録の永続化先(`localStorage`)へ直接書き込んで「クリアした直後」を再現する。
-    recordMidgameStageAttempt(localStorage, stagePool[0]!.key, 'standard', 'clear')
+    // 記録の永続化先(`localStorage`)へ直接書き込んで「クリアした直後」を再現する
+    // (T141: 判定モード別ではなく★制。★1以上で「クリア」扱い)。
+    recordMidgameStageAttempt(localStorage, stagePool[0]!.key, 1)
 
     // ヘッダの「ホーム」ボタンでタイトル画面へ戻る。
     await act(async () => {

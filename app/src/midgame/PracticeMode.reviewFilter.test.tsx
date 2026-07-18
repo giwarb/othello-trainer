@@ -1,24 +1,20 @@
 // @vitest-environment jsdom
 /**
- * T130: 中盤練習ステージ一覧の復習フィルタ(すべて/未挑戦/失敗あり/未クリア/
- * クリア済み)が`localStorage`の挑戦記録(`stageProgress.ts`、T119の判定モード
- * 別2階層構造)どおりに絞り込まれること、選択が`localStorage`へ永続化される
- * こと、および**判定モードの切り替えにフィルタ結果が追従する**(要件2)ことを
- * 検証する。
+ * T130(T141で★制の新スキーマ・語彙向けに改訂): 中盤練習ステージ一覧の復習
+ * フィルタ(すべて/未挑戦/失敗あり/未クリア(★0)/クリア済み(★1+))が
+ * `localStorage`の挑戦記録(`stageProgress.ts`、T141のフラット★スキーマ)どおりに
+ * 絞り込まれること、選択が`localStorage`へ永続化されることを検証する。
+ *
+ * T141で判定モード選択UI自体が廃止されたため、旧要件2(判定モード切り替えへの
+ * フィルタ追従)は対象外(モードという概念が無くなったため、`tasks/T141-*.md`
+ * 要件6「判定モード切替への追従は廃止」)。
  *
  * 4件の合成定石ラインからステージプールを構築し、各ステージのキーへ既知の
- * 進捗を事前投入する。注意: 定石DB正規化(`joseki/normalize.ts`の
- * `opForFirstMove`)は初手のマス自体を基準に全着手を正規化するため、
- * 「初手だけが異なる深さ1のライン」は初手が何であっても同じ正規化後の
- * 1局面に収束してしまい、4件に分離できない(黒の初手4種
- * d3/c4/f5/e6はいずれも盤面の対称変換で移りあう関係にあるため)。
- * そのため本テストの4ラインは**全て同じ初手(f5)**を共有し、2手目以降
- * (f5の合法応手f4/d6/f6、および3手目まで進めたf5→f4→c3)で互いに区別する。
- * 4手とも実際に合法な手順であることは事前にscratchpadで
- * `game/othello.ts`を直接実行して確認済み。
- * モック方針は`PracticeMode.staleSession.test.tsx`と同じ(Board/engineを
- * スタブ化、`loadJosekiDb`を合成DBに差し替え。対局は行わず設定画面・
- * ステージ一覧画面のみを操作する)。
+ * 進捗を事前投入する。ライン構成・正規化の注意点は旧テストと同じ(`opForFirstMove`
+ * により初手だけが異なるラインは同一局面に収束するため、全ラインが同じ初手(f5)を
+ * 共有し2手目以降で区別する)。
+ * モック方針は`PracticeMode.staleSession.test.tsx`と同じ(Board/engineをスタブ化、
+ * `loadJosekiDb`を合成DBに差し替え。対局は行わずステージ一覧画面のみを操作する)。
  */
 import { render } from 'preact'
 import { act } from 'preact/test-utils'
@@ -27,7 +23,7 @@ import { buildJosekiDb } from '../joseki/buildDb.ts'
 import type { RawJosekiLine } from '../joseki/types.ts'
 import { MIDGAME_REVIEW_FILTER_STORAGE_KEY } from '../settings/reviewFilter.ts'
 import { buildMidgameStagePool } from './stagePool.ts'
-import { MIDGAME_STAGE_PROGRESS_STORAGE_KEY, type StageProgress } from './stageProgress.ts'
+import { MIDGAME_STAGE_STARS_STORAGE_KEY, type StageProgress } from './stageProgress.ts'
 
 vi.mock('../components/Board.tsx', () => ({
   Board: () => (
@@ -74,35 +70,25 @@ vi.mock('../engine/sharedClient.ts', () => ({
   }),
 }))
 
-const NOW = '2026-07-18T00:00:00.000Z'
+const NOW = '2026-07-19T00:00:00.000Z'
 
 /**
- * ステージA〜D(定義順でstageNumber1〜4)に、判定モード別のフィルタ挙動を
- * 検証するための挑戦記録:
- * - A: 記録なし -> どの判定モードでも未挑戦。
- * - B: 「厳格」でのみ失敗1回(クリアなし) -> 厳格では挑戦済み未クリア・失敗あり、
- *   標準では未挑戦(記録が無いため)。
- * - C: 「厳格」でのみクリア1回(失敗なし) -> 厳格ではクリア済み、標準では未挑戦。
- * - D: 「厳格」で失敗2回(クリアなし)・「標準」でクリア1回(失敗なし)
- *   -> 厳格では挑戦済み未クリア・失敗あり、標準ではクリア済み・失敗なし。
- *   要件2「現在選択中の判定モードの記録で判定する」を、判定モード切り替えで
- *   結果が変わることとして検証する要。
+ * ステージA〜D(定義順でstageNumber1〜4)に、フィルタ挙動を検証するための
+ * 挑戦記録(T141フラット★スキーマ):
+ * - A: 記録なし -> 未挑戦。
+ * - B: ★0で1回失敗(クリアなし) -> 挑戦済み未クリア・失敗あり。
+ * - C: ★2でクリア(失敗なし) -> クリア済み・失敗なし。
+ * - D: ★0で2回失敗した後、★1でクリア -> クリア済み・失敗あり(要件「失敗あり」は
+ *   現在の状態を問わない累積の失敗経験そのものを指す、`failCount`フィールド参照)。
  */
 function makeProgress(): StageProgress {
   const keyB = keyForLine('ステージB用ライン')
   const keyC = keyForLine('ステージC用ライン')
   const keyD = keyForLine('ステージD用ライン')
   return {
-    [keyB]: {
-      strict: { firstClearedAt: null, lastClearedAt: null, clearCount: 0, failCount: 1, lastAttemptAt: NOW, lastResult: 'fail' },
-    },
-    [keyC]: {
-      strict: { firstClearedAt: NOW, lastClearedAt: NOW, clearCount: 1, failCount: 0, lastAttemptAt: NOW, lastResult: 'clear' },
-    },
-    [keyD]: {
-      strict: { firstClearedAt: null, lastClearedAt: null, clearCount: 0, failCount: 2, lastAttemptAt: NOW, lastResult: 'fail' },
-      standard: { firstClearedAt: NOW, lastClearedAt: NOW, clearCount: 1, failCount: 0, lastAttemptAt: NOW, lastResult: 'clear' },
-    },
+    [keyB]: { bestStars: 0, attempts: 1, failCount: 1, lastResultStars: 0, lastAttemptAt: NOW, firstClearedAt: null },
+    [keyC]: { bestStars: 2, attempts: 1, failCount: 0, lastResultStars: 2, lastAttemptAt: NOW, firstClearedAt: NOW },
+    [keyD]: { bestStars: 1, attempts: 3, failCount: 2, lastResultStars: 1, lastAttemptAt: NOW, firstClearedAt: NOW },
   }
 }
 
@@ -114,7 +100,7 @@ async function flushAsyncEffects(rounds = 10): Promise<void> {
   }
 }
 
-/** 設定画面 → ステージ一覧まで進める共通手順。 */
+/** ステージ一覧(T141: 初期画面そのもの)が表示されるまで進める共通手順。 */
 async function enterStageSelect(container: HTMLDivElement): Promise<void> {
   const { PracticeMode } = await import('./PracticeMode.tsx')
   await act(async () => {
@@ -122,38 +108,7 @@ async function enterStageSelect(container: HTMLDivElement): Promise<void> {
   })
   await flushAsyncEffects()
 
-  const stageListButton = Array.from(container.querySelectorAll<HTMLButtonElement>('button')).find((btn) =>
-    btn.textContent?.includes('ステージ一覧'),
-  )
-  expect(stageListButton).toBeDefined()
-  await act(async () => {
-    stageListButton?.click()
-  })
-  await flushAsyncEffects()
-
   expect(container.querySelector('.midgame-stage-select')).not.toBeNull()
-}
-
-/** ステージ一覧 → 「設定に戻る」で設定画面へ戻る。 */
-async function backToSettings(container: HTMLDivElement): Promise<void> {
-  const backButton = Array.from(container.querySelectorAll<HTMLButtonElement>('button')).find((btn) =>
-    btn.textContent === '設定に戻る',
-  )
-  expect(backButton).toBeDefined()
-  await act(async () => {
-    backButton?.click()
-  })
-  await flushAsyncEffects()
-}
-
-/** 設定画面で判定モードのラジオボタンを切り替える。 */
-async function selectJudgeMode(container: HTMLDivElement, value: 'strict' | 'standard' | 'noReversal'): Promise<void> {
-  const radio = container.querySelector<HTMLInputElement>(`input[name="midgame-judge-mode"][value="${value}"]`)
-  expect(radio).not.toBeNull()
-  await act(async () => {
-    radio?.click()
-  })
-  await flushAsyncEffects()
 }
 
 function clickFilter(container: HTMLDivElement, label: string): void {
@@ -170,12 +125,15 @@ function gridNumbers(container: HTMLDivElement): string[] {
     .sort()
 }
 
-describe('T130: 中盤練習ステージ一覧の復習フィルタ', () => {
+describe('T130/T141: 中盤練習ステージ一覧の復習フィルタ(★制)', () => {
   let container: HTMLDivElement
 
   beforeEach(() => {
     localStorage.clear()
-    localStorage.setItem(MIDGAME_STAGE_PROGRESS_STORAGE_KEY, JSON.stringify(makeProgress()))
+    localStorage.setItem(MIDGAME_STAGE_STARS_STORAGE_KEY, JSON.stringify(makeProgress()))
+    // 移行ロジック(旧記録からのシード)を起動時に一度スキップさせる(旧記録が
+    // 無いため実質何もしないが、明示的にマーカーを立てて安全側にする)。
+    localStorage.setItem('othello-trainer:midgame-stage-stars-migrated', '1')
     container = document.createElement('div')
     document.body.appendChild(container)
   })
@@ -186,7 +144,7 @@ describe('T130: 中盤練習ステージ一覧の復習フィルタ', () => {
     vi.restoreAllMocks()
   })
 
-  it('判定モード「厳格」(既定)で、フィルタ5種それぞれの表示ステージ番号が記録どおりになる', async () => {
+  it('フィルタ5種それぞれの表示ステージ番号が記録どおりになる(要件6の新語彙で操作)', async () => {
     await enterStageSelect(container)
 
     // 既定は「すべて」: 4ステージすべて表示。
@@ -198,28 +156,23 @@ describe('T130: 中盤練習ステージ一覧の復習フィルタ', () => {
     await act(async () => clickFilter(container, '失敗あり'))
     expect(gridNumbers(container)).toEqual(['2', '4'])
 
-    await act(async () => clickFilter(container, '未クリア'))
-    expect(gridNumbers(container)).toEqual(['1', '2', '4'])
+    await act(async () => clickFilter(container, '未クリア(★0)'))
+    expect(gridNumbers(container)).toEqual(['1', '2'])
 
-    await act(async () => clickFilter(container, 'クリア済み'))
-    expect(gridNumbers(container)).toEqual(['3'])
+    await act(async () => clickFilter(container, 'クリア済み(★1+)'))
+    expect(gridNumbers(container)).toEqual(['3', '4'])
 
     await act(async () => clickFilter(container, 'すべて'))
     expect(gridNumbers(container)).toEqual(['1', '2', '3', '4'])
   })
 
   it('該当0件のとき、グリッドの代わりに空表示メッセージを出す', async () => {
-    // 判定モードを「標準」へ切り替えると、標準モードでの記録を持つのはD
-    // (クリア)のみ(A・B・Cは標準モードでは未挑戦扱い)なので、「失敗あり」
-    // フィルタは0件になる。
-    await enterStageSelect(container)
-    await backToSettings(container)
-    await selectJudgeMode(container, 'standard')
-    const stageListButton = Array.from(container.querySelectorAll<HTMLButtonElement>('button')).find((btn) =>
-      btn.textContent?.includes('ステージ一覧'),
+    // 全ステージが「失敗あり」ではない状態を作る(B・Dの記録を消す)。
+    localStorage.setItem(
+      MIDGAME_STAGE_STARS_STORAGE_KEY,
+      JSON.stringify({ [keyForLine('ステージC用ライン')]: makeProgress()[keyForLine('ステージC用ライン')]! }),
     )
-    await act(async () => stageListButton?.click())
-    await flushAsyncEffects()
+    await enterStageSelect(container)
 
     await act(async () => clickFilter(container, '失敗あり'))
 
@@ -229,52 +182,34 @@ describe('T130: 中盤練習ステージ一覧の復習フィルタ', () => {
     expect(empty?.textContent).toContain('条件に一致するステージがありません')
   })
 
-  it('要件2: 判定モードの切り替えにフィルタ結果が追従する(現在選択中の判定モードの記録で判定)', async () => {
-    await enterStageSelect(container)
-
-    // 厳格モード: 「クリア済み」はCのみ、「失敗あり」はB・D。
-    await act(async () => clickFilter(container, 'クリア済み'))
-    expect(gridNumbers(container)).toEqual(['3'])
-
-    // 判定モードを「標準」へ切り替える(フィルタ選択「クリア済み」はそのまま保持)。
-    await backToSettings(container)
-    await selectJudgeMode(container, 'standard')
-    const stageListButton = Array.from(container.querySelectorAll<HTMLButtonElement>('button')).find((btn) =>
-      btn.textContent?.includes('ステージ一覧'),
-    )
-    await act(async () => stageListButton?.click())
-    await flushAsyncEffects()
-
-    // フィルタ選択(「クリア済み」)は追従して保持されている。
-    const activeButton = Array.from(
-      container.querySelectorAll<HTMLButtonElement>('.midgame-stage-select__filter-button'),
-    ).find((btn) => btn.textContent === 'クリア済み')
-    expect(activeButton?.classList.contains('midgame-stage-select__filter-button--active')).toBe(true)
-
-    // 標準モードでは、C(厳格クリアのみ)は対象外になり、D(標準クリア)が対象になる。
-    expect(gridNumbers(container)).toEqual(['4'])
-
-    // 「失敗あり」も標準モードの記録に追従して切り替わる(B・Dの失敗は厳格モードの記録であり、
-    // 標準モードにはB・Dの記録自体が存在しないため0件になる)。
-    await act(async () => clickFilter(container, '失敗あり'))
-    expect(container.querySelector('.midgame-stage-grid')).toBeNull()
-  })
-
   it('フィルタ選択はlocalStorageへ永続化され、再マウント後も保持される', async () => {
     await enterStageSelect(container)
-    await act(async () => clickFilter(container, '未クリア'))
+    await act(async () => clickFilter(container, '未クリア(★0)'))
 
     expect(localStorage.getItem(MIDGAME_REVIEW_FILTER_STORAGE_KEY)).toBe(JSON.stringify('uncleared'))
-    expect(gridNumbers(container)).toEqual(['1', '2', '4'])
+    expect(gridNumbers(container)).toEqual(['1', '2'])
 
     // 「再マウント」でアプリ再起動をシミュレートする。
     render(null, container)
     await enterStageSelect(container)
 
-    expect(gridNumbers(container)).toEqual(['1', '2', '4'])
+    expect(gridNumbers(container)).toEqual(['1', '2'])
     const activeButton = Array.from(
       container.querySelectorAll<HTMLButtonElement>('.midgame-stage-select__filter-button'),
-    ).find((btn) => btn.textContent === '未クリア')
+    ).find((btn) => btn.textContent === '未クリア(★0)')
     expect(activeButton?.classList.contains('midgame-stage-select__filter-button--active')).toBe(true)
+  })
+
+  it('グリッドセルは★0〜3(bestStars)を表示する(旧: モード数の代わり)', async () => {
+    await enterStageSelect(container)
+
+    const cells = Array.from(container.querySelectorAll<HTMLButtonElement>('.midgame-stage-grid__cell'))
+    const cellForStage = (num: string) =>
+      cells.find((c) => c.querySelector('.midgame-stage-grid__number')?.textContent === num)
+
+    expect(cellForStage('1')?.querySelector('.midgame-stage-grid__stars')?.textContent).toBe('☆☆☆') // A: 未挑戦
+    expect(cellForStage('2')?.querySelector('.midgame-stage-grid__stars')?.textContent).toBe('☆☆☆') // B: ★0
+    expect(cellForStage('3')?.querySelector('.midgame-stage-grid__stars')?.textContent).toBe('★★☆') // C: ★2
+    expect(cellForStage('4')?.querySelector('.midgame-stage-grid__stars')?.textContent).toBe('★☆☆') // D: ★1(bestStars、failCountは加味しない)
   })
 })

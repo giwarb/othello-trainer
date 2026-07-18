@@ -8,7 +8,12 @@
 import type { Side } from '../game/othello.ts'
 
 /**
- * 判定モード(要件1・4)。
+ * 判定モード(T021、`judgeMidgameMove.ts`が使う)。
+ *
+ * T141で中盤練習モード(`midgame/PracticeMode.tsx`)自体は判定モード選択UIを
+ * 廃止しステージクリア型(★制、`stageStarJudge.ts`)に一本化したが、この型と
+ * `judgeMidgameMove.ts`自体は言語化トレーニングモード(`verbalize/PracticeMode.tsx`、
+ * `mode: 'standard'`固定で使用)が引き続き利用するため残す。
  * - `'strict'`: 厳格。打った手が最善手(ロス0)でなければ失敗。
  * - `'standard'`: 標準(既定)。石差ロスが `judgeMidgameMove.ts` の
  *   `STANDARD_LOSS_THRESHOLD` 以下なら正解。
@@ -17,20 +22,11 @@ import type { Side } from '../game/othello.ts'
 export type JudgeMode = 'strict' | 'standard' | 'noReversal'
 
 /**
- * 相手(エンジン)の強さ(要件1・5)。
- * 「実戦模倣(WTHOR頻度分布)」はWTHORデータが未導入のため本タスクではスコープ外
- * (タスク仕様「本タスクでのスコープ縮小」参照)。
+ * 相手(エンジン)の強さ(`pickOpponentMove.ts`が使う)。
+ * T141以降、中盤練習モードは常に`'best'`(最善応手)のみを使うが、
+ * `pickOpponentMove`自体は汎用的な純粋関数として残す。
  */
 export type OpponentStrength = 'best' | 'top3Random'
-
-/**
- * 開始局面の生成元(要件1・2)。
- * - `'josekiEnd'`: 定石DBの終端(`isLeaf`)局面からランダムに1つ選ぶ。
- * - `'selfPlayRandom'`: エンジン自己対局によるランダム中盤局面(WTHOR由来の
- *   ランダム実戦局面の代替)。
- * 「自分の棋譜解析で悪手を打った局面」は棋譜解析モード未実装のためスコープ外。
- */
-export type StartPositionSource = 'josekiEnd' | 'selfPlayRandom'
 
 /**
  * IndexedDBに保存する盤面のシリアライズ形式。

@@ -1,20 +1,28 @@
 // @vitest-environment jsdom
 /**
- * T129回帰テスト: 中盤練習で失敗画面に至ったとき、検出された明確な悪化パターン
- * (`clearBlunder.ts`)の全パターンID(表示上限2件でなく検出全件、要件1)が
- * `localStorage`(`patternStats.ts`)へ記録され、設定画面に「苦手パターン」
- * として表示・リセットできる(要件2・3)ことを固定する。
+ * T129回帰テスト(T141で新フロー向けに改訂): 中盤練習でプレイヤーが手を打ち、
+ * その手の損失が1石以上(`PATTERN_DETECTION_LOSS_THRESHOLD`)で明確な悪化
+ * パターン(`clearBlunder.ts`)が検出された場合、検出全件のパターンID
+ * (表示上限2件でなく、要件8)が`localStorage`(`patternStats.ts`)へ記録され、
+ * ステージ一覧の「苦手パターン」として表示・リセットできる(要件2・3)ことを
+ * 固定する。
  *
- * モック方針・局面設計は`PracticeMode.clearBlunderGate.test.tsx`(T128)・
- * `PracticeMode.clearBlunderGateFallbackGuard.test.tsx`(T128b)と同じ。
- * 「複数パターン同時検出」の局面は`clearBlunder.test.ts`の
+ * T141では毎手ごとの合否判定(旧ゲート)が無くなり、3手打ち切って★判定する
+ * 方式になったため、本テストは「1手打った直後にlocalStorageへ記録される」ことを
+ * 確認するに留め、3往復の完了(結果画面遷移)までは追わない
+ * (`recordPatternFailuresNow`は`handlePlayerMove`内で同期的に呼ばれるため、
+ * セッション継続中でも記録タイミングを検証できる)。
+ *
+ * モック方針・局面設計は旧`PracticeMode.clearBlunderGate.test.tsx`(T128)・
+ * `PracticeMode.clearBlunderGateFallbackGuard.test.tsx`(T128b、いずれもT141で
+ * 廃止)を踏襲する。「複数パターン同時検出」の局面は`clearBlunder.test.ts`の
  * opponent-mobility陽性ケース(初期局面から12手進めた局面、g6:白10か所 vs
  * b1:白5か所、差5→opponent-mobility検出)をそのまま再利用し、
  * `requestFeatureSet`の応答をown-mobility-collapse・stable-lossも同時に
  * 検出されるよう上書きする(`clearBlunder.test.ts`の
  * 「detectAllClearBlunderPatternsは表示上限を超えても全件を返す」テストと
  * 同じ組み合わせ)。これにより「表示は上位2件(opponent-mobility・
- * own-mobility-collapse)まで、記録は3件とも」という要件1の核心を検証できる。
+ * own-mobility-collapse)まで、記録は3件とも」という要件8の核心を検証できる。
  */
 import { render } from 'preact'
 import { act } from 'preact/test-utils'
@@ -173,20 +181,11 @@ async function flushAsyncEffects(rounds = 10): Promise<void> {
   }
 }
 
-/** 設定画面 → ステージ一覧 → 最初のステージへ進み、`.midgame-practice`が表示されるまで進める共通手順。 */
+/** ステージ一覧(T141: 初期画面そのもの)→ 最初のステージへ進み、`.midgame-practice`が表示されるまで進める共通手順。 */
 async function enterPracticeFromStageSelect(container: HTMLDivElement): Promise<void> {
   const { PracticeMode } = await import('./PracticeMode.tsx')
   await act(async () => {
     render(<PracticeMode />, container)
-  })
-  await flushAsyncEffects()
-
-  const stageListButton = Array.from(container.querySelectorAll<HTMLButtonElement>('button')).find((btn) =>
-    btn.textContent?.includes('ステージ一覧'),
-  )
-  expect(stageListButton).toBeDefined()
-  await act(async () => {
-    stageListButton?.click()
   })
   await flushAsyncEffects()
 
@@ -237,9 +236,6 @@ describe('T129: 苦手パターン統計の記録', () => {
     })
     await flushAsyncEffects(20)
 
-    // 失敗結果画面へ遷移していること(明確な悪化パターンが検出されたことの前提条件)。
-    expect(container.querySelector('.midgame-result--fail')).not.toBeNull()
-
     const raw = localStorage.getItem(MIDGAME_PATTERN_STATS_STORAGE_KEY)
     expect(raw).not.toBeNull()
     const stats = JSON.parse(raw!)
@@ -251,14 +247,14 @@ describe('T129: 苦手パターン統計の記録', () => {
     expect(Object.keys(stats).length).toBe(3)
   })
 
-  it('ゲートで合格扱い(明確な悪化パターンが1件も無い)になった手は統計に記録しない', async () => {
+  it('明確な悪化パターンが1件も検出されない手は統計に記録しない', async () => {
     bestMoveNotation = 'd1'
     featureOverridesByMove = {}
 
     await enterPracticeFromStageSelect(container)
 
-    // 「最善手ではない」c1をクリックする(評価値ベースの判定は不合格になるが、
-    // 明確な悪化パターンは無いため合格扱いになる、T128要件2)。
+    // 「最善手ではない」c1をクリックする(損失は1石以上あるが、特徴量が中立的で
+    // 明確な悪化パターンは検出されない)。
     const c1Button = container.querySelector<HTMLButtonElement>('[data-testid="move-c1"]')
     expect(c1Button).not.toBeNull()
     await act(async () => {
@@ -266,7 +262,6 @@ describe('T129: 苦手パターン統計の記録', () => {
     })
     await flushAsyncEffects(20)
 
-    expect(container.querySelector('.midgame-result--fail')).toBeNull()
     expect(localStorage.getItem(MIDGAME_PATTERN_STATS_STORAGE_KEY)).toBeNull()
   })
 
@@ -287,11 +282,11 @@ describe('T129: 苦手パターン統計の記録', () => {
     })
     await flushAsyncEffects(5)
 
-    // ゲート判定中(requestFeatureSetの応答待ち)であることを確認する。
+    // パターン判定中(requestFeatureSetの応答待ち)であることを確認する。
     expect(pendingFeatureSetResolvers.length).toBeGreaterThan(0)
     expect(container.querySelector('.midgame-practice')).not.toBeNull()
 
-    // ゲート判定中に「やめる」を押して設定画面へ戻る(離脱)。
+    // パターン判定中に「やめる」を押してステージ一覧へ戻る(離脱)。
     const quitButton = Array.from(container.querySelectorAll<HTMLButtonElement>('button')).find(
       (btn) => btn.textContent === 'やめる',
     )
@@ -315,7 +310,7 @@ describe('T129: 苦手パターン統計の記録', () => {
   })
 })
 
-describe('T129: 苦手パターン統計の表示・リセット(設定画面)', () => {
+describe('T129: 苦手パターン統計の表示・リセット(ステージ一覧画面)', () => {
   let container: HTMLDivElement
 
   beforeEach(() => {

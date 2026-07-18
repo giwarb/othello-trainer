@@ -7,107 +7,6 @@
   box-sizing: border-box;
 }
 
-.midgame-settings {
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  gap: 0.75rem;
-  width: 100%;
-  max-width: 480px;
-  box-sizing: border-box;
-  padding: 0 0.5rem;
-}
-
-/* T135要件2: カード(白背景・角丸・薄い影)化。`index.css`の`.card`と同じ
-   トークンを直接指定する(既存の`border`/`padding`との詳細度衝突を避けるため、
-   `.card`クラスの併用ではなくこのルール自体を更新する)。 */
-.midgame-settings__group {
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-  background: var(--color-bg-secondary);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
-  padding: var(--space-lg);
-  box-sizing: border-box;
-}
-
-.midgame-settings__group legend {
-  padding: 0 0.3rem;
-  font-weight: bold;
-}
-
-/* T137要件1: 選択式チップ(セグメントコントロール風)。行内に折り返して並べる
-   コンテナ(`.midgame-settings__chips`)+個々のチップ(`.midgame-settings__option`、
-   `input[type=radio]`は`.sr-only`で視覚的に隠し、labelそのものをチップとして
-   見せる)。アクティブ状態はJS側(`judgeMode === value`等)が付ける
-   `--active`修飾クラスで表現する(復習フィルタボタン
-   `.midgame-stage-select__filter-button--active`と同じ方針)。 */
-.midgame-settings__chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
-}
-
-.midgame-settings__option {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.3rem;
-  padding: 0.4rem 0.9rem;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-full);
-  background: var(--color-bg-tertiary);
-  color: var(--color-text);
-  font-size: 0.85rem;
-  cursor: pointer;
-  text-align: left;
-}
-
-.midgame-settings__option--active {
-  /* 固定の明るい紫背景のため、文字色も固定の濃色にペアで指定する(T068と同じ方針)。 */
-  background: var(--color-accent-bg);
-  border-color: var(--color-accent);
-  color: var(--color-accent-dark);
-  font-weight: bold;
-}
-
-/* T137 redo#1 中1: `<input type="radio">`を`.sr-only`(1x1にクリップ)で
-   視覚的に隠しているため、キーボードフォーカスリングが不可視のinput側に
-   描かれてしまい後退していた(グローバルの`button:focus-visible`は<label>には
-   効かない)。ラップしている`<label>`(チップ本体)側に可視のフォーカスリングを
-   出す。 */
-.midgame-settings__option:has(input:focus-visible) {
-  outline: 2px solid var(--color-accent);
-  outline-offset: 2px;
-}
-
-.midgame-settings__buttons {
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  gap: var(--space-sm);
-}
-
-/* T137要件1: 「開始」を最下部に大きなプライマリCTAとして固定する
-   (T136 UXレビュー「主アクションが最小サイズの灰色ボタンで埋没」対応)。 */
-.midgame-settings__start-button {
-  min-height: 56px;
-  font-size: 1.05rem;
-}
-
-/* 「ステージ一覧」は主アクションと同格に見えないよう、控えめな中央寄せの
-   セカンダリリンク風にする(枠線を弱め、幅を狭める)。 */
-.midgame-settings__stage-link {
-  align-self: center;
-  min-height: 40px;
-  padding: 0 var(--space-lg);
-  background: none;
-  border-color: var(--color-border);
-  color: var(--color-text-secondary);
-  font-weight: normal;
-}
-
 /* T137要件1: 苦手パターンの空状態(アイコン+説明文)。 */
 .midgame-pattern-stats__empty {
   display: flex;
@@ -122,9 +21,9 @@
   line-height: 1;
 }
 
-/* T129: 苦手パターン統計セクション(設定画面)。`tsume/PlayMode.css`の
-   `.tsume-stats-summary`と同じ「小さめの補助情報」デザイン方針。
-   T135要件2: カード化(`.midgame-settings__group`と同じトークン)。 */
+/* T129: 苦手パターン統計セクション(T141: ステージ一覧画面上部)。
+   `tsume/PlayMode.css`の`.tsume-stats-summary`と同じ「小さめの補助情報」
+   デザイン方針。T135要件2: カード化(白背景・角丸・薄い影)。 */
 .midgame-pattern-stats {
   display: flex;
   flex-direction: column;
@@ -165,11 +64,7 @@
   margin: 0;
 }
 
-.midgame-generating {
-  padding: 1rem;
-}
-
-/* ステージ一覧画面(T119要件2)。`app/src/tsume/PlayMode.css`の
+/* ステージ一覧画面(T119要件2、T141で中盤練習の初期画面そのものに変更)。`app/src/tsume/PlayMode.css`の
    `.tsume-stage-select`系と同じデザイン方針(グリッド+3状態の固定配色)を、
    モジュール間のCSS読み込み順に依存しないよう本ファイル内に複製している
    (タスク仕様「コピーに近い再利用でも可」を採用)。 */
@@ -210,11 +105,6 @@
   background: var(--color-accent);
   border-radius: var(--radius-full);
   transition: width 0.2s ease;
-}
-
-.midgame-stage-select__mode {
-  font-size: 0.85rem;
-  color: var(--color-text-secondary);
 }
 
 .midgame-stage-select__legend {
@@ -358,16 +248,40 @@
   box-sizing: border-box;
 }
 
-/* T136要件1・6: 盤の直上のプレイヤーバッジ以外(判定中/完全読み確定中の通知・
-   評価バー・候補手評価トグル・やめるボタン)をまとめる1つのdiv。縦持ちでは
-   通常のブロック積み、横置き2カラム時のみ下の`@media`でスクロールコンテナに
-   なる(`app.css`の`.play-board-area__side`と同じ考え方)。 */
+/* T141要件2: 「n/3手」の往復カウンタ(プレイヤーバッジの下、盤の上)。 */
+.midgame-practice__round {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--color-text-secondary);
+}
+
+/* T136要件1・6: 盤の直上のプレイヤーバッジ以外(判定中/最終評価確定中の通知・
+   評価バー・やめるボタン)をまとめる1つのdiv。縦持ちでは通常のブロック積み、
+   横置き2カラム時のみ下の`@media`でスクロールコンテナになる
+   (`app.css`の`.play-board-area__side`と同じ考え方)。 */
 .midgame-practice__side {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 0.5rem;
   width: 100%;
+}
+
+/* T141要件3: 評価バー常時表示のキャプション付きラッパー(`app.css`の
+   `.play-eval-bar`/`.play-eval-bar__caption`と同じ考え方を本ファイル内に複製
+   している、中盤練習からは`app.css`を参照できないため)。 */
+.midgame-eval-bar-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+  width: 100%;
+}
+
+.midgame-eval-bar-panel__caption {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
 }
 
 .midgame-practice__quit {
@@ -412,12 +326,30 @@
   overflow-wrap: break-word;
 }
 
-.midgame-result__compare-pv {
+/* T141要件4・7: 獲得★の大きな表示(見出しの下)。 */
+.midgame-result__stars {
+  font-size: 2rem;
+  letter-spacing: 0.1em;
+  margin: 0;
+}
+
+/* T141要件7: 3手それぞれの損失一覧。 */
+.midgame-result__moves {
   display: flex;
   flex-direction: column;
-  gap: 0.3rem;
+  gap: 0.2rem;
   font-size: 0.9rem;
   font-variant-numeric: tabular-nums;
+  text-align: left;
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  padding-left: 1.4rem;
+  box-sizing: border-box;
+}
+
+.midgame-result__move--best {
+  font-weight: bold;
 }
 
 .midgame-result__buttons {
@@ -484,10 +416,6 @@
 
 /* 狭い画面幅(スマートフォン想定、375px程度)ではボタン・文字を少し縮めて縦積みにする。 */
 @media (max-width: 400px) {
-  .midgame-settings__option {
-    font-size: 0.9rem;
-  }
-
   .midgame-result__buttons {
     flex-direction: column;
     align-items: stretch;
@@ -581,17 +509,21 @@
     align-items: flex-start;
   }
 
-  /* 失敗画面(要件1の最優先対象): 盤2枚(左)+理由・言語化文・操作ボタン(右)。
-     `ClearBlunderCompare`のルート要素を`display: contents`で透過にすることで、
-     内部の`.clear-blunder-compare__boards`(盤2枚)・`.clear-blunder-compare__messages`
-     (言語化文)を、コンポーネントの境界を変えずに`.midgame-result--fail`の
-     直接のgridアイテムとして扱えるようにする(JSX変更不要)。 */
-  /* T136追加要件2(T135代替レビュー指摘): `max-height: 100dvh`はスティッキー
+  /* 結果画面: 1手先対比(`ClearBlunderCompare`)が表示される場合、盤2枚(左)+
+     ★・損失一覧・操作ボタン(右)のレイアウトにする。T141: `ClearBlunderCompare`は
+     ★1〜3(クリア)でも損失1石以上の手があれば表示されうるため、旧`--fail`限定
+     から`.midgame-result`全体(★0の`--fail`・★1以上の`--clear`共通)に対象を
+     広げた。`ClearBlunderCompare`のルート要素を`display: contents`で透過に
+     することで、内部の`.clear-blunder-compare__boards`(盤2枚)・
+     `.clear-blunder-compare__messages`(言語化文)を、コンポーネントの境界を
+     変えずに`.midgame-result`の直接のgridアイテムとして扱えるようにする
+     (JSX変更不要)。
+     T136追加要件2(T135代替レビュー指摘): `max-height: 100dvh`はスティッキー
      ヘッダ(`.app-header`、この幅高さでは約40px)の高さを考慮しておらず、
      実際にはヘッダぶんだけ画面下端がはみ出しうる。
      `calc(100dvh - var(--app-header-height))`に揃える(T137追加要件2:
      マジックナンバーをトークン化)。 */
-  .midgame-result--fail {
+  .midgame-result:has(.clear-blunder-compare) {
     display: grid;
     grid-template-columns: minmax(0, auto) minmax(0, 1fr);
     column-gap: 0.6rem;
@@ -606,30 +538,30 @@
     padding: 0.6rem;
   }
 
-  .midgame-result--fail > h2,
-  .midgame-result--fail > p,
-  .midgame-result--fail > .midgame-result__compare-pv,
-  .midgame-result--fail > .midgame-result__buttons {
+  .midgame-result:has(.clear-blunder-compare) > h2,
+  .midgame-result:has(.clear-blunder-compare) > p,
+  .midgame-result:has(.clear-blunder-compare) > .midgame-result__moves,
+  .midgame-result:has(.clear-blunder-compare) > .midgame-result__buttons {
     grid-column: 2;
     margin: 0;
   }
 
-  .midgame-result--fail .clear-blunder-compare {
+  .midgame-result:has(.clear-blunder-compare) .clear-blunder-compare {
     display: contents;
   }
 
-  .midgame-result--fail .clear-blunder-compare__boards {
+  .midgame-result:has(.clear-blunder-compare) .clear-blunder-compare__boards {
     grid-column: 1;
     /* T133 redo: 過大な`span`値の危険性は上の`.midgame-practice > .board-container`
-       コメント参照。右カラムの実項目数(見出し・理由・あなたの手/正解手/最終石差・
-       比較PV・言語化文・操作ボタン、多くても8程度)を軽く超える値にとどめる。 */
+       コメント参照。右カラムの実項目数(見出し・★表示・評価値要約・損失一覧・
+       言語化文・操作ボタン、多くても8程度)を軽く超える値にとどめる。 */
     grid-row: 1 / span 12;
     align-self: start;
     width: auto;
     max-width: none;
   }
 
-  .midgame-result--fail .clear-blunder-compare__messages {
+  .midgame-result:has(.clear-blunder-compare) .clear-blunder-compare__messages {
     grid-column: 2;
   }
 
