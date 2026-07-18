@@ -20,6 +20,14 @@ import {
 } from '../game/othello.ts'
 import { resolveMover } from '../midgame/resolveMover.ts'
 import { loadMoveEvalOverlayEnabled, saveMoveEvalOverlayEnabled } from '../settings/moveEvalOverlaySettings.ts'
+import {
+  loadReviewFilter,
+  matchesReviewFilter,
+  REVIEW_FILTER_OPTIONS,
+  saveReviewFilter,
+  TSUME_REVIEW_FILTER_STORAGE_KEY,
+  type ReviewFilter,
+} from '../settings/reviewFilter.ts'
 import { todaysPuzzle } from './dailyPuzzle.ts'
 import { judgePuzzleMove } from './judgePuzzleMove.ts'
 import { loadPuzzles } from './loadPuzzles.ts'
@@ -186,6 +194,10 @@ export function PlayMode() {
   )
   /** ステージ一覧のクリア済みマーク表示用(T117要件1・3)。`localStorage`から起動時に1回読み込む。 */
   const [stageProgress, setStageProgress] = useState<StageProgress>(() => loadStageProgress(localStorage))
+  /** ステージ一覧の復習フィルタ(T130要件1・3)。`localStorage`から起動時に1回読み込む。 */
+  const [reviewFilter, setReviewFilter] = useState<ReviewFilter>(() =>
+    loadReviewFilter(localStorage, TSUME_REVIEW_FILTER_STORAGE_KEY),
+  )
   const [classifyThresholds] = useState<ClassifyThresholds>(() => loadClassifyThresholds(localStorage))
   const [overlayMoves, setOverlayMoves] = useState<MoveEvalJson[] | null>(null)
 
@@ -537,8 +549,26 @@ export function PlayMode() {
     setAnalyzing(false)
   }
 
+  /** ステージ一覧の復習フィルタ選択を変更し、`localStorage`へ永続化する(T130要件3)。 */
+  function handleReviewFilterChange(filter: ReviewFilter): void {
+    setReviewFilter(filter)
+    saveReviewFilter(localStorage, TSUME_REVIEW_FILTER_STORAGE_KEY, filter)
+  }
+
   const overallStats = computeOverallStats(attempts)
   const tagAccuracy = computeTagAccuracy(attempts)
+
+  /**
+   * ステージ一覧を復習フィルタで絞り込んだもの(T130要件1)。`pool`内での
+   * 元の`index`は`startPractice({kind:'stage', stageIndex})`・「次の問題」の
+   * 通し番号ロジック(`nextPuzzle`)が`pool`そのものを前提にしているため、
+   * 絞り込み後も保持しておく。
+   */
+  const filteredStageEntries = (pool ?? [])
+    .map((puzzle, index) => ({ puzzle, index }))
+    .filter(({ puzzle }) =>
+      matchesReviewFilter(stageStatus(stageProgress, puzzle.id), stageProgress[puzzle.id]?.failCount ?? 0, reviewFilter),
+    )
 
   return (
     <div class="tsume-practice-mode">
@@ -617,29 +647,49 @@ export function PlayMode() {
             未挑戦
           </p>
 
-          <div class="tsume-stage-grid">
-            {pool?.map((puzzle, index) => {
-              const status = stageStatus(stageProgress, puzzle.id)
-              return (
-                <button
-                  type="button"
-                  key={puzzle.id}
-                  class={`tsume-stage-grid__cell tsume-stage-grid__cell--${status}`}
-                  disabled={starting}
-                  onClick={() => void startPractice({ kind: 'stage', stageIndex: index })}
-                  title={`第${index + 1}問(難易度${puzzle.difficulty})${status === 'cleared' ? ' クリア済み' : status === 'attempted' ? ' 挑戦済み未クリア' : ' 未挑戦'}`}
-                >
-                  <span class="tsume-stage-grid__number">{index + 1}</span>
-                  <span class="tsume-stage-grid__difficulty">D{puzzle.difficulty}</span>
-                  {status === 'cleared' && (
-                    <span class="tsume-stage-grid__check" aria-hidden="true">
-                      ✓
-                    </span>
-                  )}
-                </button>
-              )
-            })}
+          <div class="tsume-stage-select__filters" role="group" aria-label="復習フィルタ">
+            {REVIEW_FILTER_OPTIONS.map((option) => (
+              <button
+                type="button"
+                key={option.value}
+                class={`tsume-stage-select__filter-button${
+                  reviewFilter === option.value ? ' tsume-stage-select__filter-button--active' : ''
+                }`}
+                aria-pressed={reviewFilter === option.value}
+                onClick={() => handleReviewFilterChange(option.value)}
+              >
+                {option.label}
+              </button>
+            ))}
           </div>
+
+          {filteredStageEntries.length === 0 ? (
+            <p class="tsume-stage-select__empty">条件に一致する問題がありません。</p>
+          ) : (
+            <div class="tsume-stage-grid">
+              {filteredStageEntries.map(({ puzzle, index }) => {
+                const status = stageStatus(stageProgress, puzzle.id)
+                return (
+                  <button
+                    type="button"
+                    key={puzzle.id}
+                    class={`tsume-stage-grid__cell tsume-stage-grid__cell--${status}`}
+                    disabled={starting}
+                    onClick={() => void startPractice({ kind: 'stage', stageIndex: index })}
+                    title={`第${index + 1}問(難易度${puzzle.difficulty})${status === 'cleared' ? ' クリア済み' : status === 'attempted' ? ' 挑戦済み未クリア' : ' 未挑戦'}`}
+                  >
+                    <span class="tsume-stage-grid__number">{index + 1}</span>
+                    <span class="tsume-stage-grid__difficulty">D{puzzle.difficulty}</span>
+                    {status === 'cleared' && (
+                      <span class="tsume-stage-grid__check" aria-hidden="true">
+                        ✓
+                      </span>
+                    )}
+                  </button>
+                )
+              })}
+            </div>
+          )}
 
           <button type="button" class="tsume-practice__quit" onClick={backToSettings}>
             設定に戻る

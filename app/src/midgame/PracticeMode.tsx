@@ -23,6 +23,14 @@ import {
 import { loadJosekiDb } from '../joseki/lookup.ts'
 import type { JosekiDb } from '../joseki/types.ts'
 import { loadMoveEvalOverlayEnabled, saveMoveEvalOverlayEnabled } from '../settings/moveEvalOverlaySettings.ts'
+import {
+  loadReviewFilter,
+  matchesReviewFilter,
+  MIDGAME_REVIEW_FILTER_STORAGE_KEY,
+  REVIEW_FILTER_OPTIONS,
+  saveReviewFilter,
+  type ReviewFilter,
+} from '../settings/reviewFilter.ts'
 import { ClearBlunderCompare } from './ClearBlunderCompare.tsx'
 import {
   CLEAR_BLUNDER_PATTERN_LABELS,
@@ -51,6 +59,7 @@ import {
   recordStageAttempt,
   stageStarCount,
   stageStatus,
+  stageStatusForMode,
   type StageProgress,
 } from './stageProgress.ts'
 import type { JudgeMode, OpponentStrength, StartPositionSource } from './types.ts'
@@ -213,6 +222,13 @@ export function PracticeMode() {
   )
   /** ステージ挑戦記録(判定モード別、要件3)。起動時に`localStorage`から1回読み込む。 */
   const [stageProgress, setStageProgress] = useState<StageProgress>(() => loadStageProgress(localStorage))
+  /**
+   * ステージ一覧の復習フィルタ(T130要件1・3)。`localStorage`から起動時に1回
+   * 読み込む。判定は現在選択中の判定モード(`judgeMode`)の記録で行う(要件2)。
+   */
+  const [reviewFilter, setReviewFilter] = useState<ReviewFilter>(() =>
+    loadReviewFilter(localStorage, MIDGAME_REVIEW_FILTER_STORAGE_KEY),
+  )
   /** 現在の(または直前の)セッションが開始されたステージ。ランダム練習中は`null`。 */
   const [activeStage, setActiveStage] = useState<MidgameStage | null>(null)
   /** 直前のクリアで新たに★を獲得した(このステージ×判定モードの初クリア)場合`true`(要件5)。 */
@@ -934,6 +950,12 @@ export function PracticeMode() {
     saveJudgeMode(localStorage, mode)
   }
 
+  /** ステージ一覧の復習フィルタ選択を変更し、`localStorage`へ永続化する(T130要件3)。 */
+  function handleReviewFilterChange(filter: ReviewFilter): void {
+    setReviewFilter(filter)
+    saveReviewFilter(localStorage, MIDGAME_REVIEW_FILTER_STORAGE_KEY, filter)
+  }
+
   /**
    * T128: 失敗画面で「あなたの手のあと」「最善手のあと」を対比表示するための
    * 派生値(要件3)。判定モードによる失敗(`handleModeFailure`が`preMoveBoard`/
@@ -964,6 +986,20 @@ export function PracticeMode() {
 
   // 苦手パターン統計(T129要件2): failCount降順で最大5件。
   const topPatternRows = topPatternStats(patternStats)
+
+  /**
+   * ステージ一覧を復習フィルタで絞り込んだもの(T130要件1)。要件2により、
+   * 判定は現在選択中の判定モード(`judgeMode`)ごとの記録
+   * (`stageStatusForMode`・`stageProgress[stage.key]?.[judgeMode]`)で行う
+   * (グリッドの★表示自体は従来どおり全判定モード横断、`stageStarCount`のまま)。
+   */
+  const filteredStagePool = (stagePool ?? []).filter((stage) =>
+    matchesReviewFilter(
+      stageStatusForMode(stageProgress, stage.key, judgeMode),
+      stageProgress[stage.key]?.[judgeMode]?.failCount ?? 0,
+      reviewFilter,
+    ),
+  )
 
   return (
     <div class="midgame-practice-mode">
@@ -1085,32 +1121,52 @@ export function PracticeMode() {
             未挑戦
           </p>
 
-          <div class="midgame-stage-grid">
-            {stagePool?.map((stage) => {
-              const status = stageStatus(stageProgress, stage.key)
-              const stars = stageStarCount(stageProgress, stage.key)
-              const primaryName = stage.josekiNames[0] ?? '(名称未設定)'
-              const nameLabel =
-                stage.josekiNames.length > 1 ? `${primaryName} 他${stage.josekiNames.length - 1}件` : primaryName
-              return (
-                <button
-                  type="button"
-                  key={stage.key}
-                  class={`midgame-stage-grid__cell midgame-stage-grid__cell--${status}`}
-                  disabled={starting}
-                  onClick={() => startStagePractice(stage)}
-                  title={`第${stage.stageNumber}問: ${nameLabel}(★${stars}/${JUDGE_MODE_OPTIONS.length})`}
-                >
-                  <span class="midgame-stage-grid__number">{stage.stageNumber}</span>
-                  <span class="midgame-stage-grid__name">{primaryName}</span>
-                  <span class="midgame-stage-grid__stars" aria-hidden="true">
-                    {'★'.repeat(stars)}
-                    {'☆'.repeat(Math.max(0, JUDGE_MODE_OPTIONS.length - stars))}
-                  </span>
-                </button>
-              )
-            })}
+          <div class="midgame-stage-select__filters" role="group" aria-label="復習フィルタ">
+            {REVIEW_FILTER_OPTIONS.map((option) => (
+              <button
+                type="button"
+                key={option.value}
+                class={`midgame-stage-select__filter-button${
+                  reviewFilter === option.value ? ' midgame-stage-select__filter-button--active' : ''
+                }`}
+                aria-pressed={reviewFilter === option.value}
+                onClick={() => handleReviewFilterChange(option.value)}
+              >
+                {option.label}
+              </button>
+            ))}
           </div>
+
+          {filteredStagePool.length === 0 ? (
+            <p class="midgame-stage-select__empty">条件に一致するステージがありません。</p>
+          ) : (
+            <div class="midgame-stage-grid">
+              {filteredStagePool.map((stage) => {
+                const status = stageStatus(stageProgress, stage.key)
+                const stars = stageStarCount(stageProgress, stage.key)
+                const primaryName = stage.josekiNames[0] ?? '(名称未設定)'
+                const nameLabel =
+                  stage.josekiNames.length > 1 ? `${primaryName} 他${stage.josekiNames.length - 1}件` : primaryName
+                return (
+                  <button
+                    type="button"
+                    key={stage.key}
+                    class={`midgame-stage-grid__cell midgame-stage-grid__cell--${status}`}
+                    disabled={starting}
+                    onClick={() => startStagePractice(stage)}
+                    title={`第${stage.stageNumber}問: ${nameLabel}(★${stars}/${JUDGE_MODE_OPTIONS.length})`}
+                  >
+                    <span class="midgame-stage-grid__number">{stage.stageNumber}</span>
+                    <span class="midgame-stage-grid__name">{primaryName}</span>
+                    <span class="midgame-stage-grid__stars" aria-hidden="true">
+                      {'★'.repeat(stars)}
+                      {'☆'.repeat(Math.max(0, JUDGE_MODE_OPTIONS.length - stars))}
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+          )}
 
           <button type="button" class="midgame-practice__quit" onClick={backToSettings}>
             設定に戻る

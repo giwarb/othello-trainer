@@ -207,6 +207,38 @@
   color: var(--color-border);
 }
 
+/* 復習フィルタチップ(T130要件1)。 */
+.tsume-stage-select__filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.tsume-stage-select__filter-button {
+  background: none;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  padding: 0.3rem 0.8rem;
+  font-size: 0.85rem;
+  cursor: pointer;
+  color: var(--color-text);
+}
+
+.tsume-stage-select__filter-button--active {
+  /* 固定の明るい紫背景のため、文字色も固定の濃色にペアで指定する(`analysis/AnalysisMode.css`の`.analysis-input__tab--active`と同じ方針、T068)。 */
+  background: var(--color-accent-bg);
+  border-color: var(--color-accent);
+  color: var(--color-accent-dark);
+  font-weight: bold;
+}
+
+.tsume-stage-select__empty {
+  color: var(--color-text-secondary);
+  font-size: 0.9rem;
+  text-align: center;
+  margin: 0.5rem 0;
+}
+
 .tsume-stage-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(3.4rem, 1fr));
@@ -288,5 +320,10 @@
   .tsume-stage-grid {
     grid-template-columns: repeat(auto-fill, minmax(2.8rem, 1fr));
     gap: 0.3rem;
+  }
+
+  .tsume-stage-select__filter-button {
+    padding: 0.25rem 0.6rem;
+    font-size: 0.8rem;
   }
 }
