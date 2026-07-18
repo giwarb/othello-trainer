@@ -114,10 +114,14 @@ export function App() {
   return (
     <>
       {/* T135: 全モード共通の1行スティッキーヘッダ。旧`<h1>オセロトレーナー</h1>`
-          (約90px)+2行折返しのナビピルを、ホームボタン・現在のモード名・
-          横スクロール可能な1行のモード切り替えタブに置き換える。`<main>`の
-          兄弟要素にすることで`main`の左右パディングの影響を受けず画面幅
-          いっぱいに張り出す(`app.css`の`.app-header`コメント参照)。 */}
+          (約90px)+2行折返しのナビピルを、ホームボタン・横スクロール可能な
+          1行のモード切り替えタブに置き換える。`<main>`の兄弟要素にすることで
+          `main`の左右パディングの影響を受けず画面幅いっぱいに張り出す
+          (`app.css`の`.app-header`コメント参照)。
+          T135 redo#1(オーケストレーターのビジュアルQA): 現在地はタブの
+          アクティブ状態(`.mode-nav__tab--active`)だけで示す。以前は
+          テキストラベル(`.app-header__title`)でも同じモード名を出しており、
+          「対局 [対局]」のように二重表示になっていたため削除した。 */}
       <header class="app-header">
         <button
           type="button"
@@ -127,7 +131,6 @@ export function App() {
         >
           ホーム
         </button>
-        <span class="app-header__title">{MODE_LABEL[mode]}</span>
         <nav class="mode-nav" aria-label="モード切り替え">
           {NAV_VISIBLE_MODES.map((key) => (
             <button
@@ -726,13 +729,13 @@ function PlayMode({ onReviewGame }: PlayModeProps) {
           <button type="button" class="btn-primary" onClick={() => startNewGame('black')}>
             黒番で開始
           </button>
-          <button type="button" class="btn-primary" onClick={() => startNewGame('white')}>
+          <button type="button" onClick={() => startNewGame('white')}>
             白番で開始
           </button>
-          <button type="button" class="btn-primary" onClick={() => startNewGame('random')}>
+          <button type="button" onClick={() => startNewGame('random')}>
             ランダムで開始
           </button>
-          <button type="button" class="btn-primary" onClick={startVsHumanGame}>
+          <button type="button" onClick={startVsHumanGame}>
             2人対戦で開始
           </button>
           <button type="button" onClick={openEditor}>
@@ -790,16 +793,20 @@ function PlayMode({ onReviewGame }: PlayModeProps) {
           <BoardEditor board={editorBoard} sideToMove={editorSideToMove} onChange={handleEditorChange} />
           <div class="controls__row board-editor-panel__actions">
             <span>この局面から開始:</span>
-            <button type="button" class="btn-primary" onClick={() => startFromEditor('black')}>
+            {/* T135 redo#1: 盤面自由配置エディタを開いている間は上の「新規対局」行
+                (黒番で開始がprimary)も同時に見えており、ここにも同格のprimaryを
+                置くと1画面に複数のprimaryが並んでしまう。この行はすべて
+                secondary(既定)のままにする。 */}
+            <button type="button" onClick={() => startFromEditor('black')}>
               黒番で開始
             </button>
-            <button type="button" class="btn-primary" onClick={() => startFromEditor('white')}>
+            <button type="button" onClick={() => startFromEditor('white')}>
               白番で開始
             </button>
-            <button type="button" class="btn-primary" onClick={() => startFromEditor('random')}>
+            <button type="button" onClick={() => startFromEditor('random')}>
               ランダムで開始
             </button>
-            <button type="button" class="btn-primary" onClick={() => startFromEditor('vsHuman')}>
+            <button type="button" onClick={() => startFromEditor('vsHuman')}>
               2人対戦で開始
             </button>
             <button type="button" onClick={closeEditor}>

@@ -63,15 +63,6 @@ main {
   color: var(--color-accent-dark);
 }
 
-/* 現在のモード名(要件1「プレイ中は現在モード名を優先表示でもよい」)。 */
-.app-header__title {
-  flex: 0 0 auto;
-  font-weight: bold;
-  font-size: 0.95rem;
-  color: var(--color-text);
-  white-space: nowrap;
-}
-
 /* モード切り替えタブ。折り返さず横スクロールする1行に固定する
    (要件1「横スクロール可能な1行タブ、折返し禁止」)。 */
 .mode-nav {
@@ -245,10 +236,6 @@ main {
     padding: 0 0.8rem;
     font-size: 0.85rem;
   }
-
-  .app-header__title {
-    font-size: 0.85rem;
-  }
 }
 
 /*
@@ -298,10 +285,6 @@ main {
     min-width: 36px;
     min-height: 36px;
     font-size: 1rem;
-  }
-
-  .app-header__title {
-    font-size: 0.8rem;
   }
 
   .mode-nav {

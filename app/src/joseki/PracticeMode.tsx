@@ -464,9 +464,13 @@ export function PracticeMode() {
                     </details>
                   )
                 })()}
+              {/* T135 redo#1: 「1画面にprimaryは原則1個」の規律により、復習対象が
+                  実際にある(due>0)時だけprimaryにする。0件のときは全ライン出題への
+                  フォールバックに過ぎず、下の色選択(黒番/白番/ランダム)と同格の
+                  ため通常のsecondaryのままにする。 */}
               <button
                 type="button"
-                class="joseki-due-summary__review-button btn-primary"
+                class={`joseki-due-summary__review-button${dueLines.length > 0 ? ' btn-primary' : ''}`}
                 disabled={!josekiDb}
                 onClick={() => void startPractice('random', { dueOnly: true })}
               >
@@ -475,13 +479,13 @@ export function PracticeMode() {
             </div>
           )}
           <div class="joseki-color-select__buttons">
-            <button type="button" class="btn-primary" disabled={!josekiDb} onClick={() => void startPractice('black')}>
+            <button type="button" disabled={!josekiDb} onClick={() => void startPractice('black')}>
               黒番で開始
             </button>
-            <button type="button" class="btn-primary" disabled={!josekiDb} onClick={() => void startPractice('white')}>
+            <button type="button" disabled={!josekiDb} onClick={() => void startPractice('white')}>
               白番で開始
             </button>
-            <button type="button" class="btn-primary" disabled={!josekiDb} onClick={() => void startPractice('random')}>
+            <button type="button" disabled={!josekiDb} onClick={() => void startPractice('random')}>
               ランダムで開始
             </button>
           </div>

@@ -607,7 +607,6 @@ export function PlayMode() {
                 <button
                   type="button"
                   key={level}
-                  class="btn-primary"
                   disabled={!pool || starting}
                   onClick={() => void startPractice({ kind: 'difficulty', level })}
                 >
@@ -620,12 +619,14 @@ export function PlayMode() {
           <div class="tsume-settings__buttons">
             <button
               type="button"
-              class="btn-primary"
               disabled={!pool || starting}
               onClick={() => void startPractice({ kind: 'random' })}
             >
               ランダムに出題
             </button>
+            {/* T135 redo#1: 「1画面にprimaryは原則1個」の規律により、この設定画面では
+                デイリー問題のみをprimaryにする(難易度1〜5・ランダム・ステージ一覧は
+                同格の選択肢としてsecondaryのまま)。 */}
             <button
               type="button"
               class="btn-primary"
