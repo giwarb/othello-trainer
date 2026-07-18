@@ -46,6 +46,41 @@
   gap: 0.5rem;
 }
 
+/* T129: 苦手パターン統計セクション(設定画面)。`tsume/PlayMode.css`の
+   `.tsume-stats-summary`と同じ「小さめの補助情報」デザイン方針。 */
+.midgame-pattern-stats {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.9rem;
+  color: var(--color-text-secondary);
+  text-align: center;
+}
+
+.midgame-pattern-stats__title {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.midgame-pattern-stats__list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.midgame-pattern-stats__confirm {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  margin: 0;
+}
+
 .midgame-generating {
   padding: 1rem;
 }
@@ -316,5 +351,11 @@
   .clear-blunder-compare__board-col {
     max-width: 100%;
     width: 100%;
+  }
+
+  /* T129: 苦手パターン統計のリセット確認ボタン群を縦積みにする。 */
+  .midgame-pattern-stats__confirm {
+    flex-direction: column;
+    align-items: stretch;
   }
 }

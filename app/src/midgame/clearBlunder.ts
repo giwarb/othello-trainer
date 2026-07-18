@@ -58,6 +58,31 @@ export type ClearBlunderPatternId =
   | 'mass-flip'
 
 /**
+ * パターンIDと、専門用語を使わない平易な日本語の短いラベル(苦手パターン統計
+ * 画面での表示用、T129要件2)を対応付ける単一ソース。各パターンの`message`は
+ * 発生した局面固有の数値を含む文だが、統計の一覧表示ではパターン種別ごとに
+ * 固定の短いラベルが必要なため別途ここで定義する(統計側
+ * `app/src/midgame/patternStats.ts`はこの定数を参照するのみで、ラベル文字列を
+ * 自前で持たない)。
+ */
+export const CLEAR_BLUNDER_PATTERN_LABELS: Readonly<Record<ClearBlunderPatternId, string>> = {
+  'opponent-mobility': '相手の選択肢を広げる手',
+  'corner-gift': '隅を取られる手',
+  'x-c-danger': 'X打ち・C打ち',
+  'wall-frontier': '壁を作る手',
+  'stable-loss': '確定石を損する手',
+  'missed-corner': '隅の取り逃し',
+  'opponent-pass-missed': '相手のパスを逃す手',
+  'own-mobility-collapse': '自分が打てなくなる手',
+  'mass-flip': '石を取りすぎる手',
+}
+
+/** 既知のパターンID一覧(`CLEAR_BLUNDER_PATTERN_LABELS`のキーから導出。統計側の妥当性検証に使う)。 */
+export const CLEAR_BLUNDER_PATTERN_IDS: readonly ClearBlunderPatternId[] = Object.keys(
+  CLEAR_BLUNDER_PATTERN_LABELS,
+) as ClearBlunderPatternId[]
+
+/**
  * 検出された1件の明確な悪化パターン。`message`は専門用語を使わない平易な
  * 日本語(要件4)。`playedHighlightSquares`/`bestHighlightSquares`は、
  * それぞれ「あなたの手のあと」「最善手のあと」の盤面上でハイライトすべき
@@ -435,12 +460,13 @@ export function detectMassFlip(input: ClearBlunderInput): ClearBlunderPattern | 
 // ---------------------------------------------------------------------
 
 /**
- * `input`から明確な悪化パターンを検出する(要件1・2)。1件も検出されなければ
- * `null`(=明確な説明不能。呼び出し元はこれを「合格」として扱う)。複数検出時は
- * `severity`降順で最大`MAX_PATTERNS`(2)件を返す。
+ * `input`から検出しうる明確な悪化パターンを**全件**(表示上限による切り詰め無し)
+ * 返す純粋関数(T129要件1「表示上限2件でなく検出全件」の記録に使う)。
+ * `detectClearBlunderPatterns`(表示用、最大`MAX_PATTERNS`件)はこの関数の結果を
+ * 並べ替えて切り詰めるだけであり、検出器一覧はここに単一化されている。
  */
-export function detectClearBlunderPatterns(input: ClearBlunderInput): readonly ClearBlunderPattern[] | null {
-  const detected = [
+export function detectAllClearBlunderPatterns(input: ClearBlunderInput): readonly ClearBlunderPattern[] {
+  return [
     detectOpponentMobility(input),
     detectCornerGift(input),
     detectXCDanger(input),
@@ -451,7 +477,16 @@ export function detectClearBlunderPatterns(input: ClearBlunderInput): readonly C
     detectOwnMobilityCollapse(input),
     detectMassFlip(input),
   ].filter((pattern): pattern is ClearBlunderPattern => pattern !== null)
+}
 
+/**
+ * `input`から明確な悪化パターンを検出する(要件1・2)。1件も検出されなければ
+ * `null`(=明確な説明不能。呼び出し元はこれを「合格」として扱う)。複数検出時は
+ * `severity`降順で最大`MAX_PATTERNS`(2)件を返す(表示用。記録用に全件が
+ * 必要な場合は`detectAllClearBlunderPatterns`を使うこと、T129要件1)。
+ */
+export function detectClearBlunderPatterns(input: ClearBlunderInput): readonly ClearBlunderPattern[] | null {
+  const detected = detectAllClearBlunderPatterns(input)
   if (detected.length === 0) return null
   return [...detected].sort((a, b) => b.severity - a.severity).slice(0, MAX_PATTERNS)
 }

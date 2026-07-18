@@ -21,6 +21,7 @@ import {
   STABLE_LOSS_THRESHOLD,
   WALL_FRONTIER_THRESHOLD,
   X_C_DANGER_SEVERITY,
+  detectAllClearBlunderPatterns,
   detectClearBlunderPatterns,
   detectCornerGift,
   detectMassFlip,
@@ -660,5 +661,38 @@ describe('clearBlunder: detectClearBlunderPatterns(統合)', () => {
     expect(result).not.toBeNull()
     expect(result?.map((p) => p.id)).toEqual(['missed-corner', 'own-mobility-collapse'])
     expect(result![0]!.severity).toBeGreaterThan(result![1]!.severity)
+  })
+
+  /**
+   * T129要件1: 苦手パターン統計は「表示上限2件でなく検出全件」を記録する必要が
+   * あるため、`detectAllClearBlunderPatterns`が表示用の`detectClearBlunderPatterns`
+   * とは独立に切り詰め無しの全件を返すことを固定する。
+   */
+  it('detectAllClearBlunderPatternsは表示上限(2件)を超えても検出した全件を返す(T129要件1)', () => {
+    // missed-corner用の局面(黒: c1,f3 / 白: b1,f4、best=a1隅・played=f5)に、
+    // own-mobility-collapse・stable-lossも同時検出させるfeatureSetを追加する
+    // (上の「missed-cornerとown-mobility-collapseが同時検出」テストと同じ局面に、
+    // stableDiffの差も加えて3件同時検出にする)。
+    const before = createBoard(
+      [notationToSquare('c1'), notationToSquare('f3')],
+      [notationToSquare('b1'), notationToSquare('f4')],
+    )
+    const input = makeInput({
+      preMoveBoard: before,
+      preMoveSide: 'black',
+      playedSquare: notationToSquare('f5'),
+      bestSquare: notationToSquare('a1'),
+      playedFeatures: baseFeatures({ moverMobilityAfter: 2, stableDiff: 0 }),
+      bestFeatures: baseFeatures({ moverMobilityAfter: 6, stableDiff: 3 }),
+    })
+
+    const all = detectAllClearBlunderPatterns(input)
+    expect(all.map((p) => p.id).sort()).toEqual(['missed-corner', 'own-mobility-collapse', 'stable-loss'].sort())
+
+    // 表示用は上限2件に切り詰められ、severity最下位(stable-loss)は含まれない。
+    const limited = detectClearBlunderPatterns(input)
+    expect(limited).not.toBeNull()
+    expect(limited?.length).toBe(2)
+    expect(limited?.map((p) => p.id)).not.toContain('stable-loss')
   })
 })

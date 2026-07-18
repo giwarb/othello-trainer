@@ -24,13 +24,26 @@ import { loadJosekiDb } from '../joseki/lookup.ts'
 import type { JosekiDb } from '../joseki/types.ts'
 import { loadMoveEvalOverlayEnabled, saveMoveEvalOverlayEnabled } from '../settings/moveEvalOverlaySettings.ts'
 import { ClearBlunderCompare } from './ClearBlunderCompare.tsx'
-import { detectClearBlunderPatterns, type ClearBlunderPattern } from './clearBlunder.ts'
+import {
+  CLEAR_BLUNDER_PATTERN_LABELS,
+  detectAllClearBlunderPatterns,
+  detectClearBlunderPatterns,
+  type ClearBlunderPattern,
+  type ClearBlunderPatternId,
+} from './clearBlunder.ts'
 import { EvalBar } from './EvalBar.tsx'
 import { generateSelfPlayPosition, pickJosekiEndPosition, type StartPosition } from './generateStart.ts'
 import { judgeMidgameMove, type EvalSign, type JudgeMidgameMoveResult, type JudgeMidgameReasonKind } from './judgeMidgameMove.ts'
 import { loadJudgeMode, saveJudgeMode } from './judgeModeStorage.ts'
 import { pickOpponentMove } from './pickOpponentMove.ts'
 import { addPoolEntry } from './pool.ts'
+import {
+  loadPatternStats,
+  recordPatternFailures,
+  resetPatternStats,
+  topPatternStats,
+  type PatternStats,
+} from './patternStats.ts'
 import { resolveMover, resolveNextSideOrFallback } from './resolveMover.ts'
 import { buildMidgameStagePool, type MidgameStage } from './stagePool.ts'
 import {
@@ -205,6 +218,12 @@ export function PracticeMode() {
   /** 直前のクリアで新たに★を獲得した(このステージ×判定モードの初クリア)場合`true`(要件5)。 */
   const [justEarnedStar, setJustEarnedStar] = useState(false)
 
+  // --- 苦手パターン統計(T129) ---
+  /** 明確な悪化パターンの失敗回数(要件1)。起動時に`localStorage`から1回読み込む。 */
+  const [patternStats, setPatternStats] = useState<PatternStats>(() => loadPatternStats(localStorage))
+  /** 「記録をリセット」ボタンの確認ステップ中かどうか(要件3、`window.confirm`に頼らないインライン確認)。 */
+  const [confirmingPatternStatsReset, setConfirmingPatternStatsReset] = useState(false)
+
   const [showEvalBar, setShowEvalBar] = useState(false)
   const [evalBarValue, setEvalBarValue] = useState<number | null>(null)
 
@@ -335,6 +354,34 @@ export function PracticeMode() {
       console.error('ステージ挑戦記録の保存に失敗しました', error)
       return false
     }
+  }
+
+  /**
+   * 苦手パターン統計(要件1)を**同期的に**更新する。`recordStageAttemptNow`と
+   * 同じ理由(T117教訓)で、呼び出し側は非同期処理より前(かつ
+   * `sessionGenerationRef`の世代ガード通過が確認できているタイミング)で呼ぶ
+   * こと。`patternIds`が空(=明確な悪化パターンが検出されなかった、ゲートで
+   * 合格扱いになった手)の場合は何もしない(要件1「ゲートで合格扱いになった
+   * 手は記録しない」)。
+   */
+  function recordPatternFailuresNow(patternIds: readonly ClearBlunderPatternId[]): void {
+    if (patternIds.length === 0) return
+    try {
+      const next = recordPatternFailures(localStorage, patternIds)
+      setPatternStats(next)
+    } catch (error) {
+      console.error('苦手パターン統計の保存に失敗しました', error)
+    }
+  }
+
+  /** 苦手パターン統計の「記録をリセット」を確定する(要件3)。 */
+  function handleResetPatternStats(): void {
+    try {
+      setPatternStats(resetPatternStats(localStorage))
+    } catch (error) {
+      console.error('苦手パターン統計のリセットに失敗しました', error)
+    }
+    setConfirmingPatternStatsReset(false)
   }
 
   /**
@@ -565,6 +612,13 @@ export function PracticeMode() {
    * (1件以上)をそのまま結果画面の表示用に渡す。特徴量取得に失敗した場合の
    * フォールバック経路では`null`。
    *
+   * `allDetectedPatternIds`(T129要件1): 呼び出し元が`detectAllClearBlunderPatterns`
+   * (表示上限による切り詰め前の全件)から取り出したパターンID一覧。
+   * 苦手パターン統計への加算はこちらを使う(`clearBlunderPatterns`は表示用に
+   * 最大2件へ切り詰められているため統計には使わない)。既定値`[]`
+   * (呼び出し元がゲートを経由しない失敗経路、またはフォールバック経路)では
+   * `recordPatternFailuresNow`が何もしない。
+   *
    * `generation`(T119 redo #1): 比較PV取得の`await`を挟んだ後、
    * `setPhase('result')`等を確定する前に`sessionGenerationRef.current`と
    * 突き合わせ、その間に離脱・切り替えがあれば結果画面への遷移を行わない
@@ -577,8 +631,10 @@ export function PracticeMode() {
     judgement: JudgeMidgameMoveResult,
     generation: number,
     clearBlunderPatterns: readonly ClearBlunderPattern[] | null,
+    allDetectedPatternIds: readonly ClearBlunderPatternId[] = [],
   ): Promise<void> {
     recordStageAttemptNow(s.stageKey, 'fail')
+    recordPatternFailuresNow(allDetectedPatternIds)
     setJustEarnedStar(false)
     const opponentSide = opposite(s.sideToMove)
     const boardAfterPlayed = applyMove(s.board, s.sideToMove, square)
@@ -698,20 +754,24 @@ export function PracticeMode() {
               getEngine().requestFeatureSet(s.board, s.sideToMove, judgement.bestMove),
             ])
             if (sessionGenerationRef.current !== generation) return // 離脱済み
-            const patterns = detectClearBlunderPatterns({
+            const clearBlunderInput = {
               preMoveBoard: s.board,
               preMoveSide: s.sideToMove,
               playedSquare: square,
               bestSquare,
               playedFeatures: playedFeatureResp.features,
               bestFeatures: bestFeatureResp.features,
-            })
+            }
+            const patterns = detectClearBlunderPatterns(clearBlunderInput)
             if (patterns === null) {
               // 明確な悪化パターンが無い → 合格扱い(要件2、ユーザー裁定)。
+              // T129要件1: ゲートで合格扱いになった手は苦手パターン統計にも記録しない。
               await applyMoveAndContinue(s, square, judgement.nextSign, generation)
               return
             }
-            await handleModeFailure(s, square, playedNotation, judgement, generation, patterns)
+            // T129要件1: 表示は`patterns`(最大2件)に留めるが、統計には検出全件のIDを渡す。
+            const allDetectedPatternIds = detectAllClearBlunderPatterns(clearBlunderInput).map((p) => p.id)
+            await handleModeFailure(s, square, playedNotation, judgement, generation, patterns, allDetectedPatternIds)
             return
           } catch (error) {
             console.error('明確な悪化パターン判定用の特徴量取得に失敗しました', error)
@@ -902,6 +962,9 @@ export function PracticeMode() {
         }
       : null
 
+  // 苦手パターン統計(T129要件2): failCount降順で最大5件。
+  const topPatternRows = topPatternStats(patternStats)
+
   return (
     <div class="midgame-practice-mode">
       {josekiDbError && <p class="notice notice--error">{josekiDbError}</p>}
@@ -910,6 +973,41 @@ export function PracticeMode() {
       {phase === 'settings' && (
         <section class="midgame-settings">
           <p>中盤練習モード: 条件を選んで開始してください</p>
+
+          <div class="midgame-pattern-stats">
+            <h3 class="midgame-pattern-stats__title">苦手パターン</h3>
+            {topPatternRows.length === 0 ? (
+              <p>まだ記録がありません。</p>
+            ) : (
+              <ul class="midgame-pattern-stats__list">
+                {topPatternRows.map((row) => (
+                  <li key={row.id}>
+                    {CLEAR_BLUNDER_PATTERN_LABELS[row.id]}: {row.failCount}回
+                  </li>
+                ))}
+              </ul>
+            )}
+            {topPatternRows.length > 0 &&
+              (confirmingPatternStatsReset ? (
+                <p class="midgame-pattern-stats__confirm">
+                  本当にリセットしますか?
+                  <button type="button" onClick={handleResetPatternStats}>
+                    はい
+                  </button>
+                  <button type="button" onClick={() => setConfirmingPatternStatsReset(false)}>
+                    いいえ
+                  </button>
+                </p>
+              ) : (
+                <button
+                  type="button"
+                  class="midgame-pattern-stats__reset"
+                  onClick={() => setConfirmingPatternStatsReset(true)}
+                >
+                  記録をリセット
+                </button>
+              ))}
+          </div>
 
           <fieldset class="midgame-settings__group">
             <legend>判定モード</legend>
