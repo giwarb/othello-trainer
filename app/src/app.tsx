@@ -18,7 +18,13 @@ import type { EngineClient } from './engine/client.ts'
 import { getSharedEngineClient } from './engine/sharedClient.ts'
 import type { AnalyzeLimit, MoveEvalJson } from './engine/types.ts'
 import { createDisplaySequencer, type DisplaySequencer } from './game/displayQueue.ts'
-import { appendPlayedMove, isStandardStartPosition, movesToTranscript } from './game/gameHistory.ts'
+import {
+  appendPlayedMove,
+  computeUndoLength,
+  isStandardStartPosition,
+  movesToTranscript,
+  replayMoves,
+} from './game/gameHistory.ts'
 import { createGame, createGameFromPosition, playMove, requestCpuMove, type GameState } from './game/gameLoop.ts'
 import {
   countDiscs,
@@ -413,6 +419,14 @@ function PlayMode({ onReviewGame }: PlayModeProps) {
   // 「思考中」表示が解除されなくなる不具合の原因だった)。値の変化そのものを
   // 検知して再描画する必要はないため`useRef`で保持する。
   const firstMoveSquareRef = useRef<number | null>(null)
+  // 対局の「世代」ID(T140: 1手戻る)。`undoMove`を実行するたびインクリメントする。
+  // CPU着手effect(下の`useEffect`)は自身が開始した時点の世代を`generation`として
+  // 閉じ込め、`requestCpuMove`の解決時に現在の世代と照合する。undo実行中に
+  // 進行中だったCPU応手が(世代が変わった後に)遅れて解決しても、その結果を
+  // 適用しない安全網になる(T115/T119の教訓により、新規effectは増やさず
+  // 既存のCPU着手effectに追加する。effect自身の`cancelled`クロージャ変数も
+  // `game`の変化による通常のeffect再実行で同様に機能するが、二重の安全網とする)。
+  const gameGenerationRef = useRef(0)
   // 実際に打たれた着手の記法列(T132)。パスは含まない(`gameHistory.ts`の
   // `appendPlayedMove`参照)。終局後「この対局を振り返る」ボタンの棋譜文字列の
   // 元データになる。表示に使う(ボタンの活性・非表示判定)ため`useState`にする。
@@ -502,6 +516,8 @@ function PlayMode({ onReviewGame }: PlayModeProps) {
     if (openingBookEnabled && !josekiDbReady) return
 
     let cancelled = false
+    // T140: この着手effectインスタンスが開始した時点の対局世代を閉じ込める。
+    const generation = gameGenerationRef.current
     setThinking(true)
 
     // CPUが黒で初手を指す場合は任意の合法初手を正規化基準にできるためf5を使う。
@@ -514,7 +530,10 @@ function PlayMode({ onReviewGame }: PlayModeProps) {
 
     requestCpuMove(game, getEngine(), cpuMoveLimitForLevel(level, game.board), bookMove)
       .then((next) => {
-        if (!cancelled) {
+        // T140: `cancelled`(effect再実行によるクリーンアップ)に加え、対局世代も
+        // 照合する。undo実行中にこのCPU応手が解決した場合、世代が食い違うため
+        // 適用しない(思考中のCPU応手を破棄する要件1後段の安全網)。
+        if (!cancelled && gameGenerationRef.current === generation) {
           // T132: CPUの着手(書籍応手・探索応手いずれも)が実際に成立した場合のみ
           // 履歴へ追記する(`appendPlayedMove`は`lastMove`が変化していなければ
           // 何もしない)。
@@ -529,7 +548,7 @@ function PlayMode({ onReviewGame }: PlayModeProps) {
         console.error('CPUの着手取得に失敗しました', error)
       })
       .finally(() => {
-        if (!cancelled) {
+        if (!cancelled && gameGenerationRef.current === generation) {
           setThinking(false)
         }
       })
@@ -837,6 +856,43 @@ function PlayMode({ onReviewGame }: PlayModeProps) {
   }
 
   /**
+   * 「1手戻る」(T140、研究用)。`moveHistory`(実際に打たれた着手の記法列、T132)を
+   * 正とし、`computeUndoLength`で「戻す」目標の着手数を求めたうえで、標準初期
+   * 局面から履歴prefixを`replayMoves`でリプレイして`GameState`を再構築する
+   * (パス・終局判定は`playMove`が内部で自動的に再現する)。
+   *
+   * CPU対戦は自分(human側)の直前の手の直前まで(CPUの応手も含めて)戻り、
+   * CPUが思考中でも押せて自分の直前の手のみ取り消す(要件1、
+   * `computeUndoLength`のコメント参照)。2人対戦は1ply戻す。履歴が空・非標準
+   * 開始局面(呼び出し側のボタン非表示条件)では呼ばれない想定だが、
+   * 空履歴からの呼び出しは何もしない(念のための防御)。
+   *
+   * `gameGenerationRef`をインクリメントし、進行中のCPU着手effect(思考中の
+   * 応手)がこの後に解決してもその世代のずれで結果を適用しないようにする
+   * (上のCPU着手effectの世代照合参照)。`displaySequencerRef.reset`で
+   * T134の表示直列化キューの残骸(保留中のタイマー・push待ちの値)も
+   * 破棄し、新しい局面を即座に表示へ反映する。
+   */
+  function undoMove() {
+    if (moveHistory.length === 0) return
+    gameGenerationRef.current += 1
+
+    const keep = computeUndoLength(moveHistory, game.humanSide, game.vsHuman)
+    const truncated = moveHistory.slice(0, keep)
+    const next = replayMoves(game.humanSide, game.vsHuman, truncated)
+
+    setMoveHistory(truncated)
+    setGame(next)
+    displaySequencerRef.current?.reset(next)
+    setThinking(false)
+    setEvalInfo(null)
+    // その対局で実際に指された初手(T115、`firstMoveSquareRef`参照)を
+    // truncate後の履歴に合わせて再計算する。履歴が空に戻った場合は
+    // 「まだ初手が指されていない」状態に戻す。
+    firstMoveSquareRef.current = truncated.length > 0 ? notationToSquare(truncated[0]) : null
+  }
+
+  /**
    * 「新規対局」(T136要件2: 対局中の最小コントロール)。現在の対局そのものは
    * 変更せず、セットアップカードを再表示するだけ(実際に新しい対局を始めるのは
    * ユーザーがセットアップカードの開始ボタンを押した時点、`prepareNewGame`
@@ -1059,11 +1115,21 @@ function PlayMode({ onReviewGame }: PlayModeProps) {
             {/* T136要件2: 対局中の最小コントロール。投了はCPU対戦中(2人対戦モードでは
                 「あなた」という単一視点が無いため出さない)かつ未終局のときのみ表示する。
                 新規対局はセットアップカードへ戻るだけで、実際の対局開始は
-                セットアップカードの開始ボタンで行う(`returnToSetup`参照)。 */}
+                セットアップカードの開始ボタンで行う(`returnToSetup`参照)。
+                T140: 「1手戻る」(研究用)は標準初期局面からの対局
+                (`standardStart`、盤面自由配置対局ではリプレイの前提が崩れるため
+                出さない、要件3)でのみ表示する。終局後も押せる(研究用、要件1)ため
+                `displayGame.phase`では出し分けない。履歴が空のときは非活性にする
+                (要件1)。 */}
             <div class="play-board-area__controls">
               {!game.vsHuman && displayGame.phase !== 'over' && (
                 <button type="button" onClick={resignGame}>
                   投了
+                </button>
+              )}
+              {standardStart && (
+                <button type="button" onClick={undoMove} disabled={moveHistory.length === 0}>
+                  1手戻る
                 </button>
               )}
               <button type="button" onClick={returnToSetup}>

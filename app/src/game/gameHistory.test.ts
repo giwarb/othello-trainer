@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { appendPlayedMove, isStandardStartPosition, movesToTranscript } from './gameHistory.ts'
+import { appendPlayedMove, computeUndoLength, isStandardStartPosition, movesToTranscript, replayMoves } from './gameHistory.ts'
 import { createGame, createGameFromPosition, playMove, type GameState } from './gameLoop.ts'
 import { createBoard, hasLegalMove, initialBoard, legalMoves, notationToSquare, squareToNotation } from './othello.ts'
 
@@ -117,5 +117,110 @@ describe('isStandardStartPosition', () => {
     expect(isStandardStartPosition(game.board, game.sideToMove)).toBe(true)
     // 前提確認: この局面で黒に合法手がある(パス即終局ではない通常の開始)。
     expect(hasLegalMove(game.board, 'black')).toBe(true)
+  })
+})
+
+/**
+ * `moves`の記法列を実際に順番に着手して(常に現局面の最初の合法手を選ぶ
+ * 決定的な手順で)組み立てるテスト用ヘルパー。標準初期局面(黒番)から始まる
+ * 対局を、CPU対戦(`humanSide`/`vsHuman: false`)を想定して`count`手ぶん進める。
+ */
+function playMovesFromStart(count: number): string[] {
+  let game: GameState = createGame('black')
+  const moves: string[] = []
+  for (let i = 0; i < count; i += 1) {
+    const square = legalMoves(game.board, game.sideToMove)[0]!
+    game = playMove(game, square)
+    moves.push(squareToNotation(square))
+  }
+  return moves
+}
+
+describe('replayMoves(T140: 1手戻るのリプレイ再構築)', () => {
+  it('空配列を渡すと、createGameと同じ開始局面のGameStateを返す', () => {
+    const replayed = replayMoves('black', false, [])
+    const started = createGame('black')
+    expect(replayed).toEqual(started)
+  })
+
+  it('着手記法列を順に適用した結果は、playMoveを手動で連鎖させた結果と一致する', () => {
+    const moves = playMovesFromStart(4)
+
+    let expected: GameState = createGame('black')
+    for (const move of moves) {
+      expected = playMove(expected, notationToSquare(move))
+    }
+
+    expect(replayMoves('black', false, moves)).toEqual(expected)
+  })
+
+  it('2人対戦(vsHuman)でも同様にリプレイできる', () => {
+    let game: GameState = createGame('black', { vsHuman: true })
+    const d3 = notationToSquare('d3')
+    game = playMove(game, d3)
+    const whiteReply = legalMoves(game.board, 'white')[0]!
+    game = playMove(game, whiteReply)
+
+    const moves = ['d3', squareToNotation(whiteReply)]
+    expect(replayMoves('black', true, moves)).toEqual(game)
+  })
+
+  it('人間が白番の対局(黒=CPU)も正しくリプレイできる(humanSideがCPUの色判定に使われる)', () => {
+    const moves = playMovesFromStart(3)
+    let expected: GameState = createGame('white')
+    for (const move of moves) {
+      expected = playMove(expected, notationToSquare(move))
+    }
+    expect(replayMoves('white', false, moves)).toEqual(expected)
+  })
+})
+
+describe('computeUndoLength(T140: 1手戻るの保持すべき着手数)', () => {
+  it('2人対戦(vsHuman)は単純に1ply戻す', () => {
+    const moves = playMovesFromStart(3)
+    expect(computeUndoLength(moves, 'black', true)).toBe(2)
+  })
+
+  it('2人対戦(vsHuman)で履歴が1件だけなら0(初期局面へ戻る)', () => {
+    const moves = playMovesFromStart(1)
+    expect(computeUndoLength(moves, 'black', true)).toBe(0)
+  })
+
+  it('2人対戦(vsHuman)で履歴が空なら0のまま(0未満にはしない)', () => {
+    expect(computeUndoLength([], 'black', true)).toBe(0)
+  })
+
+  it('CPU対戦: 人間の着手1件+CPUの応手1件のペアがある場合、まとめて2件戻す', () => {
+    // 黒(human)が1手・白(CPU)が応手1手、という2手ぶんの対局を組み立てる。
+    const moves = playMovesFromStart(2)
+    expect(computeUndoLength(moves, 'black', false)).toBe(0)
+  })
+
+  it('CPU対戦: 4手(human, cpu, human, cpu)進めた後は、直前のペア(3・4手目)だけ戻す(1手目直後の自分の手番に戻る)', () => {
+    const moves = playMovesFromStart(4)
+    expect(computeUndoLength(moves, 'black', false)).toBe(2)
+    // 戻した後の状態は、1手目(human)+2手目(cpuの応手)まで進めた局面と一致する
+    // (=「1手目直後の自分の手番」、要件1)。
+    const truncated = moves.slice(0, computeUndoLength(moves, 'black', false))
+    const afterUndo = replayMoves('black', false, truncated)
+    expect(afterUndo.phase).toBe('human')
+    expect(truncated).toEqual(moves.slice(0, 2))
+  })
+
+  it('CPU対戦: CPUがまだ応手していない(思考中)場合、自分の直前の手のみ(1件)戻す', () => {
+    // 2手目(cpuの応手)をまだ`moves`に積んでいない状態を模す(=CPUが思考中)。
+    const moves = playMovesFromStart(2)
+    const whileThinking = moves.slice(0, 1) // humanの着手のみ記録済み
+    expect(computeUndoLength(whileThinking, 'black', false)).toBe(0)
+  })
+
+  it('CPU対戦: 履歴が空なら0のまま', () => {
+    expect(computeUndoLength([], 'black', false)).toBe(0)
+  })
+
+  it('CPU対戦: 人間が白番でCPU(黒)が初手を指した直後(履歴が1件・すべてCPU側)は0まで戻る', () => {
+    // humanSideが'white'なので、standard開始の1手目(黒)は必ずCPU側の着手になる。
+    const moves = playMovesFromStart(1)
+    expect(computeUndoLength(moves, 'white', false)).toBe(0)
   })
 })

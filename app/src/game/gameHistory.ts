@@ -8,8 +8,8 @@
  * Reactの描画に依存せず単体テストできるようにしたもの。
  */
 
-import type { GameState } from './gameLoop.ts'
-import { initialBoard, squareToNotation, type Board, type Side } from './othello.ts'
+import { createGame, playMove, type GameState } from './gameLoop.ts'
+import { initialBoard, notationToSquare, squareToNotation, type Board, type Side } from './othello.ts'
 
 /**
  * 着手適用前後の`GameState`を比較し、実際に着手が成立していれば
@@ -51,4 +51,60 @@ export function isStandardStartPosition(board: Board, sideToMove: Side): boolean
   if (sideToMove !== 'black') return false
   const initial = initialBoard()
   return board.black === initial.black && board.white === initial.white
+}
+
+/**
+ * 標準初期局面(黒番)から`moves`(`appendPlayedMove`で積み上げた着手記法列、
+ * パスを含まない)を順に適用して`GameState`を再構築する(T140「1手戻る」の
+ * 実装方針: moveHistoryを正とし、undo時は初期局面から履歴prefixをリプレイする)。
+ *
+ * `playMove`は内部で`afterMove`のパス/終局判定規則を適用するため、記録に
+ * 含まれないパスも自動的に再現される(`appendPlayedMove`のコメント参照)。
+ * `isStandardStartPosition`が`true`の対局(=このモジュールが「振り返る」
+ * ボタンや「1手戻る」ボタンを出す対象)にのみ使う想定で、開始局面自体は
+ * `createGame`と同じ(`initialBoard()`・黒番)に固定する。
+ */
+export function replayMoves(humanSide: Side, vsHuman: boolean, moves: readonly string[]): GameState {
+  let state = createGame(humanSide, { vsHuman })
+  for (const move of moves) {
+    state = playMove(state, notationToSquare(move))
+  }
+  return state
+}
+
+/**
+ * 「1手戻る」(T140要件1)が保持すべき着手数(=`moveHistory`をこの長さへ
+ * truncateすればよい)を求める。
+ *
+ * 2人対戦(`vsHuman`)は単純に1ply戻す(`moves.length - 1`、0未満にはしない)。
+ *
+ * CPU対戦は「自分(human側)の直前の手の直前まで戻る」規則を、`moves`を
+ * 先頭から`replayMoves`と同じ手順で再生し各着手の手番側を復元することで
+ * 実現する: 末尾から見てCPU側の着手が続く間は取り除き、続けて見つかった
+ * human側の着手も1つ取り除く。
+ *
+ * - 通常(人間→CPUが1回ずつ応手): CPUの応手1件+人間の着手1件の計2件が
+ *   取り除かれる。
+ * - CPUが思考中(=まだCPUの応手が`moves`に積まれていない)場合: 末尾は
+ *   既にhuman側の着手のため、上のループは何も取り除かず、続く1件
+ *   (その人間の着手自身)だけが取り除かれる(要件1後段: 「思考中のCPU応手は
+ *   破棄」)。
+ * - 相手のパスにより同じ側の着手が連続する場合(`appendPlayedMove`の
+ *   コメント参照)も、手番側の復元によって自然に扱える。
+ * - 対局の最初の着手がまだ無い(`moves`が空)場合は0を返す。
+ */
+export function computeUndoLength(moves: readonly string[], humanSide: Side, vsHuman: boolean): number {
+  if (vsHuman) return Math.max(0, moves.length - 1)
+
+  let state = createGame(humanSide, { vsHuman })
+  const sides: Side[] = []
+  for (const move of moves) {
+    sides.push(state.sideToMove)
+    state = playMove(state, notationToSquare(move))
+  }
+
+  let cut = moves.length
+  while (cut > 0 && sides[cut - 1] !== humanSide) cut -= 1
+  if (cut > 0) cut -= 1
+  return cut
 }
