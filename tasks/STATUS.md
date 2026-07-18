@@ -30,6 +30,7 @@
 | T127c-e | 1M検証(+テスト固定2件FU)→v4学習(500k bridge+1M×3seed)→4M投資判定 | Codex gpt-5.6-sol | todo(生成完走後に順次) | 0 |
 | T130 | 詰め/中盤のステージ復習フィルタ | implementer(Sonnet) | in_progress(委譲済み、rebase指示付き) | 0 |
 | T132 | 対局→棋譜解析の連携(終局後の振り返り導線) | implementer(Sonnet) | in_progress(委譲済み、app.tsx+analysis領域) | 0 |
+| T133 | 全モードの横置きレスポンシブ最適化 | implementer(Sonnet) | todo(ユーザー指示7/18午後。T130/T132完了後に直列着手=同一ファイル群) | 0 |
 
 ## 有効な方針・申し送り(今後のタスクに効くもの)
 
