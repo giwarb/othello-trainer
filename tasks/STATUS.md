@@ -28,7 +28,7 @@
 |---|---|---|---|---|
 | T127b | expanded1m本番生成(新規80万件) | オーケストレーター管理 | in_progress(**7/17 21:3x 親またぎバッチ方式(32親/束)へ乗り換え成功、PID 21948**。292,679件を全件保持してresume。7/18 04:2x重い帯(空き20-29、incremental bin3)へ突入しペース3万→1万件/hに低下(構造的・異常なし)。**ETA再修正(7/18朝、重い帯の実測5k/h前後を反映): 完走7/19夜〜7/20朝**。当初41h推計は帯構成の平均を誤適用した楽観(bin3=空き20-29の incremental 割当が17.3万件と大きい)。ログlogs/t127b-gen2.log) | 0 |
 | T127c-e | 1M検証(+テスト固定2件FU)→v4学習(500k bridge+1M×3seed)→4M投資判定 | Codex gpt-5.6-sol | todo(生成完走後に順次) | 0 |
-| T128b | 明確悪手パターン第1波追加+T128中指摘修正 | implementer(Sonnet) | in_progress(T128 done受け同一ワーカーに委譲済み。設計=tasks/design/T128-clear-patterns-report.md。codex-designセカンドオピニオンはCodex復帰後(依頼書作成済み)。第2波〔ウィング・種石〕=T128c保留) | 0 |
+| T128b | 明確悪手パターン第1波追加+T128中指摘修正 | implementer(Sonnet) | review(5214f52、628テスト全パス。**要注意: own-mobility-collapse/mass-flipが実装者の見込み局面で発火せず原因未特定** → verifier+代替レビューで視点取り違え等を重点切り分け中。新4種のPages実機再現は未達で代替確認) | 0 |
 
 ## 有効な方針・申し送り(今後のタスクに効くもの)
 

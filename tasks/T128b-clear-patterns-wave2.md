@@ -52,3 +52,27 @@ attempts: 0
 ## フィードバック(やり直し時にオーケストレーターが記入)
 
 ## 作業ログ(担当エージェントが追記)
+
+### 2026-07-18 実装完了(implementer、T128に続けて同一ワーカーが担当)
+
+- **調査**: `tasks/design/T128-clear-patterns-report.md`(§(a)①〜④の検出条件・severity案・確認事項)と`tasks/review/T128-clear-blunder-claude-review.md`(観点1「中1」指摘)を読み、実装方針を確定。
+- **実装1(catch経路の世代ガード修正、追加要件)**: `PracticeMode.tsx`の`handlePlayerMove`のゲート`catch`節冒頭に`if (sessionGenerationRef.current !== generation) return`を追加。修正前のコードを一時的に復元してリグレッションテストが実際に失敗する(stale fail記録が書き込まれる)ことを確認してから、修正を戻して再度パスすることを確認済み(テストの実効性を検証済み)。
+- **実装2(4検出器追加)**: `clearBlunder.ts`に`detectMissedCorner`・`detectOpponentPassMissed`・`detectOwnMobilityCollapse`・`detectMassFlip`を追加。severityはオーケストレーター裁定どおり`corner-gift(10) > missed-corner(9) > opponent-pass-missed(8) > x-c-danger(6)`の順に設定(設計レポートの生の提案値はmissed-corner=8/opponent-pass-missed=9で裁定と逆順だったため、裁定の文言「隅の取り逃し>パス取り逃し」を優先して数値を入れ替えた)。own-mobility-collapse/mass-flipは既存パターン(opponent-mobility/wall-frontier/stable-loss)と同じ「severity=diff(実測値)」方式を踏襲。mass-flipの空きマスガードはレポート提案値16をそのまま採用。
+- **実装3(テスト)**: `clearBlunder.test.ts`に4検出器それぞれの陽性・陰性テスト(14件)+severity優先順位のテスト2件(定数の大小関係+missed-corner/own-mobility-collapse同時検出時の並び順)を追加。局面フィクスチャは、T128と同じ方針で一時スクリプト(`app/src/midgame/_scratch_t128b*.ts`、都度`node --experimental-strip-types`で実行し**同一コマンド内で`rm -f`まで実行**、リポジトリに残さない)で実在の盤面(乱数対局シミュレーションで採取した実局面・手作りの合法局面)を事前検証してから組み込んだ。mass-flipの空きマスガードのテストのみ、市松模様の埋め石で空きマス数を意図的に減らした合成局面を使用(フリップ数自体は元局面と変わるが、本テストの主眼である「ガードが効くこと」の検証には影響しない)。
+- **実装4(回帰テスト)**: `PracticeMode.clearBlunderGateFallbackGuard.test.tsx`を新規作成。ゲート判定中(`requestFeatureSet`応答待ち)に離脱→その後で`requestFeatureSet`が拒否される、という修正前バグの再現条件をシミュレートし、ステージ記録への不合格書き込みが起きないことを確認。
+
+### 受け入れ基準の実行結果
+
+- [x] 4検出器それぞれに陽性・陰性ユニットテスト(合成盤面) → `clearBlunder.test.ts`に追加(missed-corner 3件・opponent-pass-missed 2件・own-mobility-collapse 4件・mass-flip 3件、全て実盤面計算)
+- [x] 既存5種との優先順位統合のテスト(隅系が上位に来る) → 同ファイルに2件追加(severity定数の大小関係の直接検証+missed-corner/own-mobility-collapse同時検出時の並び順検証)。既存の「corner-gift+x-c-danger同時検出」テストも引き続きパス
+- [x] `npm test` 全パス → `npx vitest run`: `Test Files 74 passed / Tests 628 passed`。`npx tsc --noEmit -p tsconfig.app.json`もエラーなし(いずれも`npm run typecheck`は使わず直接呼び出し)
+- [x] mainへpush→Actions成功→Pages実機確認 → コミット`5214f52`をpush、`gh run watch`でDeploy成功を確認。Playwright的操作(Claude Browserツール)で本番Pages中盤練習を多数プレイし、**既存5種(corner-gift、x-c-danger、wall-frontier、opponent-mobility)の複数組み合わせが正しく描画される(MAX_PATTERNS=2の上限順守・severity降順・corner-giftが常に先頭)ことを4回の異なる失敗画面で確認**。コンソールエラーは一貫して無し。
+  - **T128b新規4パターン自体の実機再現は達成できなかった**(作業ログに明記、要件どおりの代替確認)。理由: missed-corner(最善手が隅なのに実際の手が隅でない)・opponent-pass-missed(最善手なら相手合法手0)は条件が狭く、`josekiEnd`開始局面(既に空きマス10前後からスタート)ではCPU相手との対局進行中に该当局面へ到達しなかった。own-mobility-collapse/mass-flipについては、canvasピクセル読み取り+自前实装のオセロロジックで盤面を再構成し発火しそうな手を特定して複数回試行したが(空きマス数・手数上限などの条件は満たしていたはずだが)実際には発火せず、自前ロジックと実装(Rust engineのFeatureSet)側の差異(ピクセル読み取り誤差の可能性を含む)を作業時間内に特定できなかった。
+  - **代替確認**: (a) 4検出器とも実際のビットボード演算(`applyMove`/`legalMoves`/`countEmpty`)を通した実盤面での陽性・陰性テストで、メッセージ文言・severity・ハイライトマスまで厳密に検証済み(モックで検出条件を注入する自己参照的なテストではない)。(b) 9検出器統合後の`detectClearBlunderPatterns`パイプライン(severityソート・2件上限)は既存パターンの実機確認で継続して正しく動作することを確認済み。(c) 新パターンの検出器コード自体は既存パターン(corner-gift等)と全く同じ設計パターン・同じ`ClearBlunderInput`/`ClearBlunderPattern`型・同じ`ClearBlunderCompare`描画経路を通るため、表示パイプラインのバグリスクは低いと判断する。
+- [x] 変更対象のみパス明示コミット(`app:`、`(T128b)`)。`tasks/`はコミットしない → コミット`5214f52`(`app: 明確悪手パターン第1波4種を追加+ゲートfallback世代ガード修正(T128b)`)。`git add app/src/midgame/PracticeMode.tsx app/src/midgame/clearBlunder.ts app/src/midgame/clearBlunder.test.ts app/src/midgame/PracticeMode.clearBlunderGateFallbackGuard.test.tsx`で個別指定
+- [x] 当該タスク由来の差分・未追跡が`git status --short`に残っていない → 確認済み(一時検証スクリプトは都度削除、`git status --short`はクリーン)
+
+### 注意事項・申し送り
+
+- T128の作業ログで申し送った「`npm run typecheck`/`npm run build`/`npm run dev`は教師コーパス生成中は避け、`npx tsc`等の直接呼び出しを使う」を本タスクでも遵守した(`npm run typecheck`等は一度も実行していない)。
+- 本番Pagesでの新パターン4種の実機再現は達成できず(上記参照)。もし正確な実機確認が重要な場合、後続タスクで「WASM headless再判定スクリプト」(設計レポートのT128d案)のような決定的な手法を使うか、あるいはローカル`vite preview`+固定局面注入(例: URLパラメータや開発用デバッグフックで開始局面を直接指定できる仕組み)を用意すると再現性高く確認できる可能性がある。
