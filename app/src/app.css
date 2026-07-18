@@ -186,3 +186,111 @@ main {
     font-size: 0.9rem;
   }
 }
+
+/*
+ * T133: スマホ横置き(ランドスケープ、高さの低い画面)対応。
+ *
+ * ユーザー報告: 「横向きで持った時にスクロールしないと説明が見れなかったり
+ * することが多くて不便」。`orientation: landscape` かつ `max-height: 520px`
+ * (スマホ横置き相当、タブレット横置き・PCには影響させない)を対象に、
+ * 以下の2点を各モード共通の考え方として適用する:
+ *
+ * 1. 盤面サイズを「幅」ではなく「高さ」基準にする。`components/Board.tsx`の
+ *    キャンバスサイズ決定はJS側で`.othello-board`(親コンテナ)の
+ *    `clientWidth`のみを見ており(高さは見ない)、正方形として描画するCSS
+ *    (`aspect-ratio: 1/1`)と組み合わさって「コンテナの幅 = 正方形の一辺」
+ *    になる。そのため、盤を包む`.board-container`の**幅**をビューポート高さ
+ *    (`dvh`)基準の値に制約するだけで、JS側を一切変更せずに「高さに収まる
+ *    正方形の盤」を実現できる(iOS Safariのアドレスバー分の高さ変動は
+ *    `dvh`が動的に反映する)。
+ * 2. 各モードの画面を「盤(左)+状態表示/操作(右)」の2カラムに再構成する。
+ *    DOM順序は変えず(縦持ちの見た目・既存テストへの影響を避ける)、
+ *    `display: grid` + `grid-row: 1 / span N`(盤側の要素を、右カラムの
+ *    実際の項目数を軽く超える行数だけスパンさせることで、右カラムの
+ *    縦積みぶんの高さいっぱいに広がる「サイドバーが可変長のメインカラムぶん
+ *    伸びる」定番のCSSパターン)で、盤を左カラムに、それ以外の直接の子要素を
+ *    右カラム(縦積み・そのカラム内だけスクロール可)に配置する。各対象画面の
+ *    個別CSS(`PracticeMode.css`等)で同じ考え方を適用する。
+ *
+ *    `N`は`999`のような過大な値にしないこと: `row-gap`は暗黙的に生成された
+ *    行境界の数ぶん積算されるため、実際には使われない行が大量にあると
+ *    高さが意図せず数千px規模まで膨張する(T133 redoで実測発覚。詳細は
+ *    各`.board-container`側のコメント参照)。右カラムの実項目数を軽く超える
+ *    程度(6〜12程度)の小さい値にとどめる。
+ */
+@media (orientation: landscape) and (max-height: 520px) {
+  main {
+    padding: 0.5rem 0.75rem;
+  }
+
+  /* 見出し「オセロトレーナー」は`.mode-nav`が現在地を示すため視覚的には
+     冗長になる。高さが乏しい横置きでは表示上取り除き、スクリーンリーダー
+     向けにのみ残す(内容の削除ではなく非表示化)。 */
+  main > h1 {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  .mode-nav {
+    margin-bottom: 0.4rem;
+    gap: 0.3rem;
+  }
+
+  .mode-nav__tab,
+  .mode-nav__home {
+    padding: 0.3rem 0.7rem;
+    font-size: 0.85rem;
+  }
+
+  /* 盤面サイズを高さ基準にする(全モード共通、上記コメント参照)。
+     2枚の盤を並べる`.clear-blunder-compare__board`(中盤練習の失敗画面)は
+     `PracticeMode.css`側でこれより小さい専用サイズに上書きする。 */
+  .board-container {
+    width: min(48dvh, 42vw, 320px);
+    max-width: min(48dvh, 42vw, 320px);
+    margin: 0;
+  }
+
+  /* 対局モード(`app.tsx`のPlayMode)。盤(左)+状態表示・評価バー・評価情報・
+     スコア・「振り返る」ボタン・勝敗演出(右、縦積み・スクロール可)。 */
+  .play-board-area {
+    display: grid;
+    grid-template-columns: minmax(0, auto) minmax(0, 1fr);
+    column-gap: 0.75rem;
+    row-gap: 0.3rem;
+    align-items: start;
+    text-align: left;
+    max-height: 100dvh;
+    overflow-y: auto;
+    box-sizing: border-box;
+  }
+
+  .play-board-area > .board-container {
+    grid-column: 1;
+    grid-row: 1 / span 8;
+    align-self: start;
+  }
+
+  .play-board-area > :not(.board-container) {
+    grid-column: 2;
+  }
+
+  .play-eval-bar,
+  .eval-info {
+    margin: 0;
+    padding: 0;
+    align-items: flex-start;
+  }
+
+  .controls {
+    gap: 0.3rem;
+    margin-bottom: 0.5rem;
+  }
+}

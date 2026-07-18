@@ -399,3 +399,98 @@
     align-items: stretch;
   }
 }
+
+/*
+ * T133: スマホ横置き対応(`app.css`の同名メディアクエリのコメント参照、
+ * 同じ考え方をこのファイルの対象画面に適用する)。
+ */
+@media (orientation: landscape) and (max-height: 520px) {
+  /* 対局中画面: 盤(左)+状態表示・候補手評価トグル・やめるボタン(右)。 */
+  .midgame-practice {
+    display: grid;
+    grid-template-columns: minmax(0, auto) minmax(0, 1fr);
+    column-gap: 0.75rem;
+    row-gap: 0.3rem;
+    align-items: start;
+    text-align: left;
+    max-height: 100dvh;
+    overflow-y: auto;
+    box-sizing: border-box;
+  }
+
+  .midgame-practice > .board-container {
+    grid-column: 1;
+    /* T133 redo: `span`の数はrow-gapがこの数の行境界ぶん積算されるため、
+       右カラムの実際の項目数(状態表示・候補手評価トグル・やめるボタン等、
+       多くても5〜6程度)を軽く超える程度の小さい値にとどめる
+       (`999`のような過大な値は、実項目が無い行の間にも`row-gap`が乗算
+       され続け、意図せず高さが数千px規模まで暴発する。実測で確認済み)。 */
+    grid-row: 1 / span 8;
+    align-self: start;
+  }
+
+  .midgame-practice > :not(.board-container) {
+    grid-column: 2;
+  }
+
+  /* 失敗画面(要件1の最優先対象): 盤2枚(左)+理由・言語化文・操作ボタン(右)。
+     `ClearBlunderCompare`のルート要素を`display: contents`で透過にすることで、
+     内部の`.clear-blunder-compare__boards`(盤2枚)・`.clear-blunder-compare__messages`
+     (言語化文)を、コンポーネントの境界を変えずに`.midgame-result--fail`の
+     直接のgridアイテムとして扱えるようにする(JSX変更不要)。 */
+  .midgame-result--fail {
+    display: grid;
+    grid-template-columns: minmax(0, auto) minmax(0, 1fr);
+    column-gap: 0.6rem;
+    row-gap: 0.3rem;
+    align-items: start;
+    text-align: left;
+    width: 100%;
+    max-width: 100%;
+    max-height: 100dvh;
+    overflow-y: auto;
+    box-sizing: border-box;
+    padding: 0.6rem;
+  }
+
+  .midgame-result--fail > h2,
+  .midgame-result--fail > p,
+  .midgame-result--fail > .midgame-result__compare-pv,
+  .midgame-result--fail > .midgame-result__buttons {
+    grid-column: 2;
+    margin: 0;
+  }
+
+  .midgame-result--fail .clear-blunder-compare {
+    display: contents;
+  }
+
+  .midgame-result--fail .clear-blunder-compare__boards {
+    grid-column: 1;
+    /* T133 redo: 過大な`span`値の危険性は上の`.midgame-practice > .board-container`
+       コメント参照。右カラムの実項目数(見出し・理由・あなたの手/正解手/最終石差・
+       比較PV・言語化文・操作ボタン、多くても8程度)を軽く超える値にとどめる。 */
+    grid-row: 1 / span 12;
+    align-self: start;
+    width: auto;
+    max-width: none;
+  }
+
+  .midgame-result--fail .clear-blunder-compare__messages {
+    grid-column: 2;
+  }
+
+  /* 盤2枚(1枚あたり)を通常のランドスケープ盤より小さくし、縦積み・横並び
+     いずれでも高さに収まりやすくする(`.board-container`より詳細度を上げて
+     `app.css`側の既定値を上書きする、要件「盤2枚を左に縦積みまたは横並び
+     (高さに収まる方)」)。 */
+  .clear-blunder-compare__board-col {
+    flex: 0 0 auto;
+    max-width: min(30vw, 150px);
+  }
+
+  .clear-blunder-compare__board.board-container {
+    width: min(24dvh, 28vw, 150px);
+    max-width: min(24dvh, 28vw, 150px);
+  }
+}

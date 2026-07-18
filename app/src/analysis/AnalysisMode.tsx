@@ -217,6 +217,13 @@ export function AnalysisMode({ initialTranscript, onInitialTranscriptConsumed }:
   // ロードに失敗しても`josekiDb`は`null`のままとなり、`analyzeGame`側が
   // フォールバック(定石照会スキップ、従来通りの評価)する(要件3)。
   const [josekiDb, setJosekiDb] = useState<JosekiDb | null>(null)
+  // T133: 定石DBの読み込み(成功・失敗いずれか)が完了したかどうか。`app.tsx`の
+  // CPU着手effectと同じ命名・用途(`josekiDbReady`)。下の`initialTranscript`
+  // 自動解析effectが、`josekiDb`のロード未完了のまま解析を開始してしまう
+  // (=常に`josekiDb: null`で解析され、定石内悪手除外・定石表示が手動貼り付け
+  // 経路と異なり効かなくなる)不整合を防ぐために使う
+  // (tasks/review/T130-T132-learning-features-claude-review.md 指摘「中(a)」)。
+  const [josekiDbReady, setJosekiDbReady] = useState(false)
 
   // T060: 解析結果キャッシュ(IndexedDB)の手動クリアボタンの状態。
   // 「デプロイしても古いキャッシュが返ってくる」というユーザー報告への対応として、
@@ -248,6 +255,9 @@ export function AnalysisMode({ initialTranscript, onInitialTranscriptConsumed }:
       })
       .catch((error: unknown) => {
         console.error('定石DBの読み込みに失敗しました(定石内の手の判定なしで解析を続行します)', error)
+      })
+      .finally(() => {
+        if (!cancelled) setJosekiDbReady(true)
       })
     return () => {
       cancelled = true
@@ -317,12 +327,22 @@ export function AnalysisMode({ initialTranscript, onInitialTranscriptConsumed }:
 
   // T132: 対局モードからの「この対局を振り返る」導線。`initialTranscript`が
   // 渡された場合、「テキストで入力」タブへプリフィルした上で自動的に解析を
-  // 開始する(`handleTranscriptSubmit`と同じ経路)。依存配列を`[initialTranscript]`
-  // のみにしているのは、`initialTranscript`が新しい値になった時だけ発火させる
-  // ためで、`onInitialTranscriptConsumed`(呼び出し元が毎レンダー新しい関数を
-  // 渡しうる)を含めると意図せず再発火してしまう。
+  // 開始する(`handleTranscriptSubmit`と同じ経路)。
+  //
+  // T133: `josekiDbReady`が`true`になるまで(=定石DBの読み込みが成功・失敗
+  // いずれかで完了するまで)は解析を開始しない。マウント直後は`josekiDb`が
+  // 必ず`null`であり、これを待たずに解析を始めると常に`josekiDb: null`で
+  // 解析されてしまい、手動貼り付け経路(通常はDBロード済みの状態でユーザーが
+  // ボタンを押す)と異なり定石内悪手除外・定石表示(T038)が効かなくなる
+  // (tasks/review/T130-T132-learning-features-claude-review.md 指摘「中(a)」)。
+  // 依存配列に`josekiDbReady`を加えたことで、マウント時は`initialTranscript`が
+  // あっても`josekiDbReady`未完了で早期returnし、ロード完了後の再実行で
+  // 実際に解析を開始する。`onInitialTranscriptConsumed`(呼び出し元が毎レンダー
+  // 新しい関数を渡しうる)を依存配列から外しているのは従来どおり
+  // (含めると意図せず再発火してしまうため)。
   useEffect(() => {
     if (!initialTranscript) return
+    if (!josekiDbReady) return
     setTranscriptText(initialTranscript)
     setInputTab('transcript')
     try {
@@ -333,7 +353,7 @@ export function AnalysisMode({ initialTranscript, onInitialTranscriptConsumed }:
     }
     onInitialTranscriptConsumed?.()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialTranscript])
+  }, [initialTranscript, josekiDbReady])
 
   function handleManualMove(square: number): void {
     if (!manualReplay.positions) return

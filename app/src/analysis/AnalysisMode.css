@@ -258,3 +258,37 @@
     align-items: stretch;
   }
 }
+
+/*
+ * T133: スマホ横置き対応(`app.css`の同名メディアクエリのコメント参照、
+ * 同じ考え方をこの画面に適用する)。局面盤(左)+解析結果ヘッダー・グラフ・
+ * 着手一覧(右、縦積み・そのカラム内だけスクロール可)。
+ */
+@media (orientation: landscape) and (max-height: 520px) {
+  .analysis-result {
+    display: grid;
+    grid-template-columns: minmax(0, auto) minmax(0, 1fr);
+    column-gap: 0.75rem;
+    row-gap: 0.4rem;
+    align-items: start;
+    max-height: 100dvh;
+    overflow-y: auto;
+    box-sizing: border-box;
+    padding: 0.5rem 0.5rem 0.5rem 0;
+  }
+
+  .analysis-result > .analysis-result__board-area {
+    grid-column: 1;
+    /* T133 redo: 過大な`span`値は`row-gap`が意図せず積算され高さが暴発する
+       (`app.css`の`.play-board-area > .board-container`コメント参照)。
+       右カラムの実項目数(ヘッダー・グラフ・着手一覧、3つ)を軽く超える
+       程度の小さい値にとどめる。 */
+    grid-row: 1 / span 6;
+    align-self: start;
+  }
+
+  .analysis-result > :not(.analysis-result__board-area) {
+    grid-column: 2;
+    min-width: 0;
+  }
+}

@@ -205,3 +205,44 @@
     font-size: 1.1rem;
   }
 }
+
+/*
+ * T133: スマホ横置き対応(`app.css`の同名メディアクエリのコメント参照、
+ * 同じ考え方をこのファイルの対象画面に適用する)。
+ */
+@media (orientation: landscape) and (max-height: 520px) {
+  /* 色選択画面(今日の復習を含む): ボードが無いため2カラム化はせず、
+     縦積みのまま高さに収まらない場合だけこの画面内でスクロールさせる。 */
+  .joseki-color-select {
+    max-height: 100dvh;
+    overflow-y: auto;
+    box-sizing: border-box;
+    gap: 0.5rem;
+  }
+
+  /* 練習中画面: 盤(左)+状態表示・候補手評価トグル・やめるボタン(右)。 */
+  .joseki-practice {
+    display: grid;
+    grid-template-columns: minmax(0, auto) minmax(0, 1fr);
+    column-gap: 0.75rem;
+    row-gap: 0.3rem;
+    align-items: start;
+    text-align: left;
+    max-height: 100dvh;
+    overflow-y: auto;
+    box-sizing: border-box;
+  }
+
+  .joseki-practice > .board-container {
+    grid-column: 1;
+    /* T133 redo: 過大な`span`値は`row-gap`が意図せず積算され高さが暴発する
+       (`app.css`の`.play-board-area > .board-container`コメント参照)。
+       右カラムの実項目数を軽く超える程度の小さい値にとどめる。 */
+    grid-row: 1 / span 8;
+    align-self: start;
+  }
+
+  .joseki-practice > :not(.board-container) {
+    grid-column: 2;
+  }
+}

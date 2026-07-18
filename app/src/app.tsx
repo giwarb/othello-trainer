@@ -742,8 +742,14 @@ function PlayMode({ onReviewGame }: PlayModeProps) {
         </section>
       )}
 
+      {/* T133: 横置き(ランドスケープ、低height)対応の2カラム化用ラッパー。
+          通常時(縦持ち)はこのdiv自体には何もスタイルを当てず、中身は従来どおり
+          単純な縦積みのまま(旧`<>`フラグメントと視覚的に同一)。`app.css`の
+          横置きメディアクエリでのみ、盤(`.board-container`)を左カラム、
+          それ以外(状態表示・評価バー・評価情報・スコア・振り返るボタン・
+          勝敗演出)を右カラムに配置する。 */}
       {!editorOpen && (
-        <>
+        <div class="play-board-area">
           <p class="status">
             {game.vsHuman ? '2人対戦モードです。' : `あなたは${sideLabel(game.humanSide)}番です。`}
             {game.phase === 'over'
@@ -799,7 +805,7 @@ function PlayMode({ onReviewGame }: PlayModeProps) {
               message={game.result === 'draw' ? '引き分けです。' : `${sideLabel(game.result)}の勝ちです。`}
             />
           )}
-        </>
+        </div>
       )}
 
       <section class="settings">
