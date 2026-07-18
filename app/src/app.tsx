@@ -10,6 +10,7 @@ import { BoardEditor, type BoardEditorResult } from './components/BoardEditor.ts
 import { EvalBadge, formatDiscDiff } from './components/EvalBadge.tsx'
 import { Board, DISPLAY_GAP_MS, FLIP_ANIMATION_MS } from './components/Board.tsx'
 import { MoveEvalOverlay } from './components/MoveEvalOverlay.tsx'
+import { PlayerBadge } from './components/PlayerBadge.tsx'
 import { ResultCelebration } from './components/ResultCelebration.tsx'
 import { celebrationKindFor, type CelebrationKind } from './components/resultCelebrationLogic.ts'
 import type { EngineClient } from './engine/client.ts'
@@ -23,6 +24,7 @@ import {
   countEmpty,
   initialBoard,
   notationToSquare,
+  opposite,
   squareToNotation,
   type Board as BoardState,
   type Side,
@@ -292,6 +294,13 @@ interface PlayModeProps {
  *   エディタから非標準局面で開始した対局ではボタンを表示しない(要件4)。
  */
 function PlayMode({ onReviewGame }: PlayModeProps) {
+  // T136要件2: 対局モードの状態分離(セットアップ/対局中/終局後)。`false`の間は
+  // セットアップカード(開始ボタン群・CPU強さ・オプション)だけを表示し、盤面
+  // エリアは隠す。開始ボタン(`startNewGame`/`startVsHumanGame`/`startFromEditor`)
+  // を押すと`true`になり、盤面エリア(バッジ+盤+最小コントロール)に切り替わる。
+  // `game`自体はモード表示中ずっと存在する(初期値は黒番の対局)ため、`started`は
+  // 「セットアップUIを表示するかどうか」だけを制御する独立したUI状態にしてある。
+  const [started, setStarted] = useState(false)
   const [level, setLevel] = useState<LevelKey>('normal')
   const [game, setGame] = useState<GameState>(() => createGame('black'))
   // `<Board>`・手番表示・スコア等、盤面まわりの「実際に見せる」状態(T134)。
@@ -635,8 +644,14 @@ function PlayMode({ onReviewGame }: PlayModeProps) {
     void evaluateHumanMove(preBoard, preSide, square, firstMove)
   }
 
-  /** 新しい対局に切り替える直前の共通リセット処理(表示中の直前対局の情報をクリアする)。 */
+  /**
+   * 新しい対局に切り替える直前の共通リセット処理(表示中の直前対局の情報をクリアする)。
+   * `startNewGame`/`startVsHumanGame`/`startFromEditor`(対局開始の3経路すべて)が
+   * この関数を経由するため、`setStarted(true)`もここでまとめて行う(T136要件2:
+   * 開始ボタンのいずれを押してもセットアップカードを隠し盤面エリアへ切り替える)。
+   */
   function prepareNewGame() {
+    setStarted(true)
     setThinking(false)
     firstMoveSquareRef.current = null
     setEvalInfo(null)
@@ -704,6 +719,32 @@ function PlayMode({ onReviewGame }: PlayModeProps) {
   }
 
   /**
+   * 投了(T136要件2: 対局中の最小コントロール)。CPU対戦中(`!game.vsHuman`)に、
+   * 現在の盤面・最後の着手はそのまま据え置いて即座に終局扱いにし、勝敗は
+   * 相手(CPU)側の勝ちとして確定する。2人対戦モード(`vsHuman`、「あなた」という
+   * 単一視点が無い)・既に終局済みのときは何もしない(呼び出し側のボタンも
+   * その条件でのみ表示する)。`gameLoop.ts`に新しい遷移APIは追加せず、既存の
+   * `GameState`の形のまま`phase`/`result`だけを書き換える(エンジン・探索には
+   * 一切触れない)。
+   */
+  function resignGame() {
+    if (game.vsHuman || game.phase === 'over') return
+    const next: GameState = { ...game, phase: 'over', result: opposite(game.humanSide), passMessage: null }
+    setGame(next)
+    displaySequencerRef.current?.reset(next)
+  }
+
+  /**
+   * 「新規対局」(T136要件2: 対局中の最小コントロール)。現在の対局そのものは
+   * 変更せず、セットアップカードを再表示するだけ(実際に新しい対局を始めるのは
+   * ユーザーがセットアップカードの開始ボタンを押した時点、`prepareNewGame`
+   * 経由)。
+   */
+  function returnToSetup() {
+    setStarted(false)
+  }
+
+  /**
    * 終局時の勝敗演出の種別(T077)。CPU対戦は既存の`celebrationKindFor`
    * (`humanSide`視点の勝ち/負け/引き分け)をそのまま使うが、2人対戦モードには
    * 「あなた」という単一の視点が無く勝ち負けの主観が無いため、常に落ち着いた
@@ -721,129 +762,142 @@ function PlayMode({ onReviewGame }: PlayModeProps) {
   const blackCount = countDiscs(displayGame.board, 'black')
   const whiteCount = countDiscs(displayGame.board, 'white')
 
+  // T136要件1: プレイヤーバッジのラベル・手番ハイライト・思考中表示の算出。
+  // 2人対戦モード(`game.vsHuman`)には「あなた」という単一視点が無いため、
+  // ラベルは常に色名(黒/白)にする。手番ハイライトは「実際に見せている」
+  // 局面(`displayGame`)基準(T134の既存方針と同じ理由)で、終局後はどちらも
+  // ハイライトしない。「考え中...」はCPU対戦(`!game.vsHuman`)でCPU側の
+  // バッジにのみ出す(2人対戦にCPUはいないため常に出さない)。
+  const blackLabel = game.vsHuman ? '黒' : game.humanSide === 'black' ? 'あなた' : 'CPU'
+  const whiteLabel = game.vsHuman ? '白' : game.humanSide === 'white' ? 'あなた' : 'CPU'
+  const cpuSide: Side | null = game.vsHuman ? null : opposite(game.humanSide)
+
   return (
     <>
-      <section class="controls">
-        <div class="controls__row">
-          <span>新規対局:</span>
-          <button type="button" class="btn-primary" onClick={() => startNewGame('black')}>
-            黒番で開始
-          </button>
-          <button type="button" onClick={() => startNewGame('white')}>
-            白番で開始
-          </button>
-          <button type="button" onClick={() => startNewGame('random')}>
-            ランダムで開始
-          </button>
-          <button type="button" onClick={startVsHumanGame}>
-            2人対戦で開始
-          </button>
-          <button type="button" onClick={openEditor}>
-            盤面を自由に配置して開始
-          </button>
-        </div>
+      {/* T136要件2: 対局開始前はセットアップカード(開始ボタン群・CPU強さ・
+          オプション)だけを表示する。開始後(`started`)はこのセクション自体を
+          非表示にし、盤面エリア(バッジ+盤+最小コントロール)に主役を譲る。 */}
+      {!started && (
+        <>
+          <section class="play-setup card">
+            <div class="controls__row">
+              <span>新規対局:</span>
+              <button type="button" class="btn-primary" onClick={() => startNewGame('black')}>
+                黒番で開始
+              </button>
+              <button type="button" onClick={() => startNewGame('white')}>
+                白番で開始
+              </button>
+              <button type="button" onClick={() => startNewGame('random')}>
+                ランダムで開始
+              </button>
+              <button type="button" onClick={startVsHumanGame}>
+                2人対戦で開始
+              </button>
+              <button type="button" onClick={openEditor}>
+                盤面を自由に配置して開始
+              </button>
+            </div>
 
-        <div class="controls__row">
-          <label>
-            CPUの強さ:{' '}
-            <select
-              value={level}
-              onChange={(event) => setLevel((event.target as HTMLSelectElement).value as LevelKey)}
-            >
-              {Object.entries(LEVELS).map(([key, { label }]) => (
-                <option value={key} key={key}>
-                  {label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label class={'opening-book-toggle'}>
-            <input
-              type={'checkbox'}
-              checked={openingBookEnabled}
-              onChange={(event) => handleToggleOpeningBook((event.target as HTMLInputElement).checked)}
-            />
-            定石ブック
-          </label>
-        </div>
+            <div class="controls__row">
+              <label>
+                CPUの強さ:{' '}
+                <select
+                  value={level}
+                  onChange={(event) => setLevel((event.target as HTMLSelectElement).value as LevelKey)}
+                >
+                  {Object.entries(LEVELS).map(([key, { label }]) => (
+                    <option value={key} key={key}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label class={'opening-book-toggle'}>
+                <input
+                  type={'checkbox'}
+                  checked={openingBookEnabled}
+                  onChange={(event) => handleToggleOpeningBook((event.target as HTMLInputElement).checked)}
+                />
+                定石ブック
+              </label>
+            </div>
+          </section>
 
-        <div class="controls__row">
-          <label class="move-eval-overlay-toggle">
-            <input
-              type="checkbox"
-              checked={moveEvalOverlayEnabled}
-              onChange={(event) => handleToggleMoveEvalOverlay((event.target as HTMLInputElement).checked)}
-            />
-            候補手評価を表示
-          </label>
-          <label class="eval-bar-toggle">
-            <input
-              type="checkbox"
-              checked={evalBarEnabled}
-              onChange={(event) => handleToggleEvalBar((event.target as HTMLInputElement).checked)}
-            />
-            現在の評価値を表示
-          </label>
-        </div>
-      </section>
-
-      {editorOpen && (
-        <section class="board-editor-panel">
-          <p class="notice">盤面を自由に配置し、次の手番を選んでから開始方法を選んでください。</p>
-          <BoardEditor board={editorBoard} sideToMove={editorSideToMove} onChange={handleEditorChange} />
-          <div class="controls__row board-editor-panel__actions">
-            <span>この局面から開始:</span>
-            {/* T135 redo#1: 盤面自由配置エディタを開いている間は上の「新規対局」行
-                (黒番で開始がprimary)も同時に見えており、ここにも同格のprimaryを
-                置くと1画面に複数のprimaryが並んでしまう。この行はすべて
-                secondary(既定)のままにする。 */}
-            <button type="button" onClick={() => startFromEditor('black')}>
-              黒番で開始
-            </button>
-            <button type="button" onClick={() => startFromEditor('white')}>
-              白番で開始
-            </button>
-            <button type="button" onClick={() => startFromEditor('random')}>
-              ランダムで開始
-            </button>
-            <button type="button" onClick={() => startFromEditor('vsHuman')}>
-              2人対戦で開始
-            </button>
-            <button type="button" onClick={closeEditor}>
-              キャンセル
-            </button>
-          </div>
-        </section>
+          {editorOpen && (
+            <section class="board-editor-panel">
+              <p class="notice">盤面を自由に配置し、次の手番を選んでから開始方法を選んでください。</p>
+              <BoardEditor board={editorBoard} sideToMove={editorSideToMove} onChange={handleEditorChange} />
+              <div class="controls__row board-editor-panel__actions">
+                <span>この局面から開始:</span>
+                {/* T135 redo#1: 盤面自由配置エディタを開いている間は上の「新規対局」行
+                    (黒番で開始がprimary)も同時に見えており、ここにも同格のprimaryを
+                    置くと1画面に複数のprimaryが並んでしまう。この行はすべて
+                    secondary(既定)のままにする。 */}
+                <button type="button" onClick={() => startFromEditor('black')}>
+                  黒番で開始
+                </button>
+                <button type="button" onClick={() => startFromEditor('white')}>
+                  白番で開始
+                </button>
+                <button type="button" onClick={() => startFromEditor('random')}>
+                  ランダムで開始
+                </button>
+                <button type="button" onClick={() => startFromEditor('vsHuman')}>
+                  2人対戦で開始
+                </button>
+                <button type="button" onClick={closeEditor}>
+                  キャンセル
+                </button>
+              </div>
+            </section>
+          )}
+        </>
       )}
 
       {/* T133: 横置き(ランドスケープ、低height)対応の2カラム化用ラッパー。
           通常時(縦持ち)はこのdiv自体には何もスタイルを当てず、中身は従来どおり
-          単純な縦積みのまま(旧`<>`フラグメントと視覚的に同一)。`app.css`の
-          横置きメディアクエリでのみ、盤(`.board-container`)を左カラム、
-          それ以外(状態表示・評価バー・評価情報・スコア・振り返るボタン・
-          勝敗演出)を右カラムに配置する。 */}
-      {!editorOpen && (
+          単純な縦積みのまま。`app.css`の横置きメディアクエリでのみ、
+          プレイヤーバッジを全幅の1行目、盤(`.board-container`)を2行目の
+          左カラム、それ以外(`.play-board-area__side`、状態表示・評価バー・
+          最小コントロール・評価情報・振り返るボタン・勝敗演出)を2行目の
+          右カラムに配置し、右カラムだけがその中で縦スクロールする
+          (T136要件6、T133申し送りの解消。以前は`.play-board-area`全体に
+          `overflow-y: auto`を掛けており、スクロールすると盤も一緒に画面外へ
+          流れていた)。 */}
+      {started && (
         <div class="play-board-area">
+          {/* T136要件1: 従来の「あなたは黒番です。手番: 黒」「黒: 2 / 白: 2」という
+              素テキストを、盤の直上の2バッジ(手番側ハイライト+石数+思考中表示)に
+              置き換える。 */}
+          <div class="player-badges">
+            <PlayerBadge
+              side="black"
+              label={blackLabel}
+              count={blackCount}
+              active={displayGame.phase !== 'over' && displayGame.sideToMove === 'black'}
+              thinking={thinking && cpuSide === 'black'}
+            />
+            <PlayerBadge
+              side="white"
+              label={whiteLabel}
+              count={whiteCount}
+              active={displayGame.phase !== 'over' && displayGame.sideToMove === 'white'}
+              thinking={thinking && cpuSide === 'white'}
+            />
+          </div>
+
           {/* T134: 手番表示は`displayGame`(実際に見せている状態)基準。`game`基準だと
               CPUの応手が盤面へ反映される前に「手番: 黒」等の文言だけ先に進んでしまい、
-              盤面と文言の間で新たな不整合が生じるため。 */}
-          <p class="status">
+              盤面と文言の間で新たな不整合が生じるため。T136: 同じ情報は上の
+              プレイヤーバッジで視覚的に表示するため、このテキスト自体は
+              スクリーンリーダー向けに残しつつ画面上は視覚的に隠す(`.sr-only`)。 */}
+          <p class="status sr-only">
             {game.vsHuman ? '2人対戦モードです。' : `あなたは${sideLabel(game.humanSide)}番です。`}
             {displayGame.phase === 'over'
               ? ' 対局終了。'
               : ` 手番: ${sideLabel(displayGame.sideToMove)}${thinking ? '(思考中...)' : ''}`}
           </p>
-
-          {displayGame.passMessage && <p class="notice">{displayGame.passMessage}</p>}
-
-          {evalBarEnabled && evalBarValue !== null && (
-            <div class="play-eval-bar">
-              <p class="play-eval-bar__caption">
-                現在の評価値({sideLabel(game.vsHuman ? 'black' : game.humanSide)}視点、+なら有利)
-              </p>
-              <EvalBar discDiff={evalBarValue} />
-            </div>
-          )}
 
           {/* T134: `<Board>`には`displayGame`(実際に見せている状態)を渡す。これにより
               盤面上の合法手ヒント・クリック可否も表示中の状態を基準に判定され、
@@ -864,39 +918,86 @@ function PlayMode({ onReviewGame }: PlayModeProps) {
             />
           </div>
 
-          {evalInfo && (
-            <section class="eval-info">
-              <EvalBadge discDiff={evalInfo.discDiff} source={evalInfo.source} blunder={evalInfo.blunder} />
-              {evalInfo.reason && <p class="eval-info__reason">{evalInfo.reason}</p>}
-            </section>
-          )}
+          <div class="play-board-area__side">
+            {displayGame.passMessage && <p class="notice">{displayGame.passMessage}</p>}
 
-          <p class="score">
-            黒: {blackCount} / 白: {whiteCount}
-          </p>
+            {evalBarEnabled && evalBarValue !== null && (
+              <div class="play-eval-bar">
+                <p class="play-eval-bar__caption">
+                  現在の評価値({sideLabel(game.vsHuman ? 'black' : game.humanSide)}視点、+なら有利)
+                </p>
+                <EvalBar discDiff={evalBarValue} />
+              </div>
+            )}
 
-          {/* T132: 終局後、標準初期局面からの対局かつ実際に着手が記録されている場合のみ、
-              棋譜解析モードへワンタップで遷移できるボタンを出す(要件1・4)。 */}
-          {displayGame.phase === 'over' && standardStart && moveHistory.length > 0 && (
-            <div class="review-game">
-              <button type="button" class="btn-primary" onClick={() => onReviewGame(movesToTranscript(moveHistory))}>
-                この対局を棋譜解析で振り返る
+            {/* T136要件2: 対局中の最小コントロール。投了はCPU対戦中(2人対戦モードでは
+                「あなた」という単一視点が無いため出さない)かつ未終局のときのみ表示する。
+                新規対局はセットアップカードへ戻るだけで、実際の対局開始は
+                セットアップカードの開始ボタンで行う(`returnToSetup`参照)。 */}
+            <div class="play-board-area__controls">
+              {!game.vsHuman && displayGame.phase !== 'over' && (
+                <button type="button" onClick={resignGame}>
+                  投了
+                </button>
+              )}
+              <button type="button" onClick={returnToSetup}>
+                新規対局
               </button>
             </div>
-          )}
 
-          {displayGame.phase === 'over' && celebrationVisible && displayGame.result && (
-            <ResultCelebration
-              kind={celebrationKindForGame(displayGame)}
-              message={displayGame.result === 'draw' ? '引き分けです。' : `${sideLabel(displayGame.result)}の勝ちです。`}
-            />
-          )}
+            {evalInfo && (
+              <section class="eval-info">
+                <EvalBadge discDiff={evalInfo.discDiff} source={evalInfo.source} blunder={evalInfo.blunder} />
+                {evalInfo.reason && <p class="eval-info__reason">{evalInfo.reason}</p>}
+              </section>
+            )}
+
+            {/* T132: 終局後、標準初期局面からの対局かつ実際に着手が記録されている場合のみ、
+                棋譜解析モードへワンタップで遷移できるボタンを出す(要件1・4)。
+                T136要件2: 終局後はこのボタンと下の勝敗演出を目立たせる。 */}
+            {displayGame.phase === 'over' && standardStart && moveHistory.length > 0 && (
+              <div class="review-game">
+                <button type="button" class="btn-primary" onClick={() => onReviewGame(movesToTranscript(moveHistory))}>
+                  この対局を棋譜解析で振り返る
+                </button>
+              </div>
+            )}
+
+            {displayGame.phase === 'over' && celebrationVisible && displayGame.result && (
+              <ResultCelebration
+                kind={celebrationKindForGame(displayGame)}
+                message={displayGame.result === 'draw' ? '引き分けです。' : `${sideLabel(displayGame.result)}の勝ちです。`}
+              />
+            )}
+          </div>
         </div>
       )}
 
-      <section class="settings">
-        <BlunderSettings onChange={setBlunderConfig} />
-      </section>
+      {/* T136要件2・追加要件1: 悪手判定設定・表示オプションは折りたたみへ移す
+          (`<details>`、既定で閉じる)。`.settings`クラスはT135の設定カード見た目
+          (`app.css`)をそのまま流用する。 */}
+      <details class="settings play-settings-panel">
+        <summary class="play-settings-panel__summary">設定(候補手評価・現在の評価値・悪手判定)</summary>
+        <div class="play-settings-panel__body">
+          <label class="move-eval-overlay-toggle">
+            <input
+              type="checkbox"
+              checked={moveEvalOverlayEnabled}
+              onChange={(event) => handleToggleMoveEvalOverlay((event.target as HTMLInputElement).checked)}
+            />
+            候補手評価を表示
+          </label>
+          <label class="eval-bar-toggle">
+            <input
+              type="checkbox"
+              checked={evalBarEnabled}
+              onChange={(event) => handleToggleEvalBar((event.target as HTMLInputElement).checked)}
+            />
+            現在の評価値を表示
+          </label>
+          <BlunderSettings onChange={setBlunderConfig} />
+        </div>
+      </details>
     </>
   )
 }

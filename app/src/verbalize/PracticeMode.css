@@ -107,6 +107,10 @@
 }
 
 .verbalize-tags__info {
+  /* T136追加要件1(T135代替レビュー指摘): グローバル`button{min-height:44px}`
+     (index.css)が`height:1.1em`より優先されてしまい、幅約15px×高さ44pxの
+     縦長楕円に崩れていた。この小円ボタンは打ち消す。 */
+  min-height: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;

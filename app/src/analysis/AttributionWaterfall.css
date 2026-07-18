@@ -35,6 +35,10 @@
 /* T058要件4: ラベルから用語集を起動できる場合、ボタン化する
    (見た目は既存のラベルとほぼ変わらないよう最小限の打ち消しに留める)。 */
 .attribution-waterfall__label--button {
+  /* T136追加要件1(T135代替レビュー指摘): グローバル`button{min-height:44px}`が
+     打ち消されておらず、ラベルとほぼ同じ見た目を意図したリンク風ボタンだけ
+     行が44pxに膨らんでいた。 */
+  min-height: 0;
   background: none;
   border: none;
   padding: 0;

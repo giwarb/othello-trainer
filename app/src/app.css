@@ -113,14 +113,6 @@ main {
   font-weight: bold;
 }
 
-.controls {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.5rem;
-  margin-bottom: 1rem;
-}
-
 .controls__row {
   display: flex;
   flex-wrap: wrap;
@@ -147,10 +139,6 @@ main {
   width: 100%;
   max-width: var(--board-size-lg);
   margin: 0 auto;
-}
-
-.score {
-  font-size: 1.1rem;
 }
 
 .eval-info {
@@ -224,6 +212,65 @@ main {
 
 .board-editor-panel__actions {
   margin-top: 0;
+}
+
+/* T136要件2: 対局開始前のセットアップカード(開始ボタン群・CPU強さ・オプション)。
+   `.settings`(T135要件2の設定カード見た目)と同じトークンを使う独立クラス
+   (詳細度の衝突を避けるため、`.card`は併用せず直接指定する。`.settings`の
+   コメントと同じ理由)。 */
+.play-setup {
+  margin: 1rem 0.5rem;
+  padding: var(--space-lg);
+  box-sizing: border-box;
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+/* T136要件2: 対局中・終局後の右カラム(横置き時)/盤の下(縦持ち時)。
+   状態表示・評価バー・最小コントロール・評価情報・振り返るボタン・勝敗演出を
+   縦積みでまとめる。縦持ちでは通常のブロック積み(このdiv自体には特別な
+   スタイルを当てない)、横置き2カラム時のみ下の`@media`でスクロールコンテナに
+   なる。 */
+.play-board-area__side {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* T136要件2: 対局中の最小コントロール(投了/新規対局)。 */
+.play-board-area__controls {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.5rem;
+  margin: 0.3rem 0;
+}
+
+/* T136要件2・追加要件1: 悪手判定設定・表示オプションの折りたたみパネル。
+   `.settings`(T135要件2の設定カード見た目)を併用し、`<details>`要素自体の
+   既定の三角マーカー付き`<summary>`をボタンらしく見せる。 */
+.play-settings-panel {
+  margin-top: 1rem;
+}
+
+.play-settings-panel__summary {
+  cursor: pointer;
+  font-weight: bold;
+  color: var(--color-accent-text);
+}
+
+.play-settings-panel__body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
+  margin-top: var(--space-md);
 }
 
 /* 狭い画面幅(スマートフォン想定、375px程度)ではmainの左右余白を詰める。 */
@@ -316,7 +363,7 @@ main {
   .play-board-area > .board-container,
   .joseki-practice > .board-container,
   .midgame-practice > .board-container,
-  .tsume-practice > .board-container,
+  .tsume-practice__board-col > .board-container,
   .tsume-result > .board-container,
   .analysis-result__board-area > .board-container {
     width: min(48dvh, 42vw, 320px);
@@ -324,28 +371,53 @@ main {
     margin: 0;
   }
 
-  /* 対局モード(`app.tsx`のPlayMode)。盤(左)+状態表示・評価バー・評価情報・
-     スコア・「振り返る」ボタン・勝敗演出(右、縦積み・スクロール可)。 */
+  /*
+   * 対局モード(`app.tsx`のPlayMode)。T136要件6(T133申し送りの解消):
+   * 以前は`.play-board-area`全体に`max-height` + `overflow-y: auto`を掛けて
+   * おり(`grid-row: 1 / span 8`で盤を右カラムの縦積みぶんスパンさせる方式)、
+   * 内容過多でスクロールすると盤も一緒に画面外へ流れてしまっていた
+   * (`tasks/review/T133-landscape-claude-review.md`中(1))。
+   *
+   * `<PlayerBadge>`2枚を1行目(2カラムぶん全幅)、盤(`.board-container`)を
+   * 2行目左カラム、それ以外全部(`.play-board-area__side`、1つのdivに
+   * まとめてある)を2行目右カラムに置く2行gridに変更した。右カラムは
+   * `.play-board-area__side`という単一のdivなので、そこにだけ
+   * `overflow-y: auto`を掛ければ「右カラムだけがスクロールし、盤は
+   * 固定されたまま」を実現できる(以前のような`span N`の暗黙行境界・
+   * row-gap積算の心配も無くなった)。
+   */
   .play-board-area {
     display: grid;
     grid-template-columns: minmax(0, auto) minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
     column-gap: 0.75rem;
     row-gap: 0.3rem;
-    align-items: start;
     text-align: left;
-    max-height: 100dvh;
-    overflow-y: auto;
+    /* T136追加要件2(T135代替レビュー指摘): スティッキーヘッダ(`.app-header`、
+       この幅高さでは約40px)の高さを差し引く。以前は`100dvh`のみで、実際には
+       ヘッダぶんだけ画面下端がはみ出しうる状態だった。 */
+    height: calc(100dvh - 40px);
     box-sizing: border-box;
+  }
+
+  .play-board-area > .player-badges {
+    grid-column: 1 / span 2;
+    grid-row: 1;
+    margin: 0;
   }
 
   .play-board-area > .board-container {
     grid-column: 1;
-    grid-row: 1 / span 8;
+    grid-row: 2;
     align-self: start;
   }
 
-  .play-board-area > :not(.board-container) {
+  .play-board-area > .play-board-area__side {
     grid-column: 2;
+    grid-row: 2;
+    min-height: 0;
+    overflow-y: auto;
+    align-items: flex-start;
   }
 
   .play-eval-bar,
@@ -355,8 +427,7 @@ main {
     align-items: flex-start;
   }
 
-  .controls {
-    gap: 0.3rem;
-    margin-bottom: 0.5rem;
+  .play-board-area__controls {
+    justify-content: flex-start;
   }
 }

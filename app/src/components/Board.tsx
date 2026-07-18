@@ -6,8 +6,9 @@ import './Board.css'
 
 const GRID = 8
 
-const BLACK_COLOR = '#111111'
-const WHITE_COLOR = '#f5f5f5'
+/** 列ラベル(a〜h)・行ラベル(1〜8)。`.othello-board-frame__files`/`__ranks`(T136)で使う。 */
+const FILE_LABELS = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']
+const RANK_LABELS = ['1', '2', '3', '4', '5', '6', '7', '8']
 
 /**
  * 石の反転/出現アニメーションの総所要時間(ms)。既存の自動進行の遅延(300ms程度)を超えない範囲に収める。
@@ -41,18 +42,27 @@ export interface BoardProps {
   onMove?: (square: number) => void
 }
 
-function discColor(side: Side): string {
-  return side === 'black' ? BLACK_COLOR : WHITE_COLOR
-}
-
 /**
  * オセロ盤をCanvasで描画するコンポーネント。
  *
  * - 8x8のマス目を緑背景・グリッド線で描画する
- * - 列(a-h)・行(1-8)の座標ラベルを、最下段/最左列のマスの隅に常時描画する
- *   (T073)。ホバー等の操作なしで最初から表示され、全モード共通で見える。
- * - 黒/白の石を円で描画する
- * - `sideToMove` の合法手を薄い点でハイライトする
+ * - 列(a-h)・行(1-8)の座標ラベルは、盤の外周(上端a-h・左端1-8の細い帯、
+ *   `.othello-board-frame__files`/`__ranks`)にDOM(HTML)で常時描画する
+ *   (T073導入・T136で石と重なるセル内埋め込みから外周へ移動)。canvas自体は
+ *   従来どおり8x8のマス目そのものだけを描画し、ラベル帯の分だけ`<canvas>`の
+ *   親要素(`.othello-board`)を`.othello-board-frame`というCSS Grid
+ *   (`Board.css`、列/行とも`[var(--board-label-band)] [1fr]`)の右下セルに
+ *   収める。これにより`MoveEvalOverlay`/`analysis/BoardOverlay`が前提とする
+ *   「重ねる8x8グリッドがcanvasの実ピクセル範囲と一致する」という契約を、
+ *   canvas自体の座標系(サイズ算出・クリック判定とも`container.clientWidth`/
+ *   `canvas.getBoundingClientRect()`ベースで従来のまま不変)を保ったまま、
+ *   両オーバーレイCSS側の`inset`を`var(--board-label-band)`ぶんだけ
+ *   トップ・レフトにオフセットすることで実現している(`MoveEvalOverlay.css`/
+ *   `analysis/BoardOverlay.css`参照。ラベル帯のサイズは`index.css`の
+ *   `--board-label-band`で一元管理し、両ファイルとも同じ値を参照する)。
+ * - 黒/白の石を円で描画する(T136: 軽い放射グラデーション+縁取りで立体感を付ける)
+ * - `sideToMove` の合法手を点でハイライトする(T136: 視認性向上のため拡大・
+ *   コントラスト改善)
  * - `lastMove` のマスに印を付ける
  * - マスクリック時、そのマスが合法手であれば `onMove(square)` を呼ぶ(非合法手のクリックは無視する)
  * - Canvasのサイズは親要素(コンテナ)の幅に追従する
@@ -179,10 +189,8 @@ export function Board({ board, sideToMove, lastMove = null, onMove }: BoardProps
           drawFlippingDisc(ctx, cx, cy, cell, fromSide, occupant, progress)
         } else if (occupant && placedSet.has(square)) {
           drawAppearingDisc(ctx, cx, cy, cell, occupant, progress)
-        } else if (occupant === 'black') {
-          drawDisc(ctx, cx, cy, cell, BLACK_COLOR)
-        } else if (occupant === 'white') {
-          drawDisc(ctx, cx, cy, cell, WHITE_COLOR)
+        } else if (occupant === 'black' || occupant === 'white') {
+          drawDisc(ctx, cx, cy, cell, occupant)
         } else if (legal.has(square)) {
           drawLegalHint(ctx, cx, cy, cell)
         }
@@ -191,16 +199,8 @@ export function Board({ board, sideToMove, lastMove = null, onMove }: BoardProps
           drawLastMoveMark(ctx, cx, cy, cell)
         }
       }
-
-      // 座標ラベル(列a-h・行1-8、T073)。マス目の隅に描くことで、専用の
-      // 余白(コンテナのサイズ)を追加せずに済み、`MoveEvalOverlay`/
-      // `BoardOverlay`が前提とする「コンテナ = 盤面8x8そのもの」という
-      // ピクセル対応関係を崩さない。ただし隅は石(半径 `cell * 0.42`)の
-      // 描画範囲ぎりぎり外側でしかなく、文字自体には幅・高さがあるため、
-      // 石や合法手ヒントより後に最前面へ重ね描きし、縁取り(アウトライン)
-      // 付きで描画することで、隅にわずかにかかっても盤面のどの色の上でも
-      // 判読できるようにする(石で覆われて読めなくなる問題への対応)。
-      drawCoordinateLabels(ctx, cell)
+      // 座標ラベル(列a-h・行1-8)はT136でcanvas描画からDOM(盤の外周の帯、
+      // `.othello-board-frame__files`/`__ranks`)へ移動した。ここでは描かない。
     }
 
     drawFrameRef.current = drawFrame
@@ -254,65 +254,70 @@ export function Board({ board, sideToMove, lastMove = null, onMove }: BoardProps
   }
 
   return (
-    <div ref={containerRef} class="othello-board">
-      <canvas ref={canvasRef} class="othello-board__canvas" onClick={handleClick} />
+    <div class="othello-board-frame">
+      {/* 座標ラベルの帯(T136要件3): 従来はcanvas内のマス隅に石と重ねて描画して
+          いたが、盤の外周(上端a-h・左端1-8)のDOM要素へ移す。`aria-hidden`は
+          純粋な視覚的補助であり、`Board`のクリック判定・合法手はcanvas側の
+          ロジックのみで完結するため。 */}
+      <div class="othello-board-frame__corner" aria-hidden="true" />
+      <div class="othello-board-frame__files" aria-hidden="true">
+        {FILE_LABELS.map((label) => (
+          <span key={label}>{label}</span>
+        ))}
+      </div>
+      <div class="othello-board-frame__ranks" aria-hidden="true">
+        {RANK_LABELS.map((label) => (
+          <span key={label}>{label}</span>
+        ))}
+      </div>
+      <div ref={containerRef} class="othello-board">
+        <canvas ref={canvasRef} class="othello-board__canvas" onClick={handleClick} />
+      </div>
     </div>
   )
 }
 
 /**
- * 列(a-h)・行(1-8)の座標ラベルを描画する(T073)。
- *
- * 列ラベルは最下段(内部表現の`rank0 = 7`、"8"の行)の各マスの左下隅に、
- * 行ラベルは最左列(`file = 0`、"a"の列)の各マスの左上隅に描く。
- * `notationToSquare`/`squareToNotation`(`game/othello.ts`)の変換規則
- * (`file = square % 8` が 'a'〜'h'、`rank0 = Math.floor(square / 8)` が
- * '1'〜'8'、`square = 0` すなわち左上マスが"a1")と対応が一致するようにする。
- *
- * 隅は石の描画範囲(半径 `cell * 0.42`)のすぐ外側だが、文字自体には幅・
- * 高さがあるため、密集した盤面では石のごく一部に文字がかかることがある。
- * これに対応するため、`drawFrame`内でこの関数を石より後(最前面)に呼び、
- * かつ濃い縁取り+明るい塗りの2度描き(アウトライン文字)にすることで、
- * 緑の盤面・黒石・白石のいずれの上でも文字の形が判読できるようにする。
+ * 石の放射グラデーション(T136: 立体感)。中心よりやや左上にハイライトを置き、
+ * 縁に向かって沈む色にすることで、上方から光が当たった球面のような見た目にする。
+ * `cx`/`cy`は呼び出し側の座標系での中心(`drawDisc`は盤面の絶対座標、
+ * `drawFlippingDisc`/`drawAppearingDisc`は`ctx.translate`後のローカル座標`(0, 0)`)。
  */
-function drawCoordinateLabels(ctx: CanvasRenderingContext2D, cell: number) {
-  const fontSize = Math.min(Math.max(cell * 0.22, 8), 20)
-  const padding = Math.max(cell * 0.08, 2)
-  ctx.font = `bold ${fontSize}px sans-serif`
-  ctx.lineWidth = Math.max(fontSize * 0.22, 1.5)
-  ctx.strokeStyle = 'rgba(0, 0, 0, 0.65)'
-  ctx.fillStyle = 'rgba(255, 255, 255, 0.95)'
-  ctx.lineJoin = 'round'
-
-  const drawLabel = (label: string, x: number, y: number) => {
-    ctx.strokeText(label, x, y)
-    ctx.fillText(label, x, y)
-  }
-
-  ctx.textAlign = 'left'
-  ctx.textBaseline = 'bottom'
-  for (let file = 0; file < GRID; file++) {
-    const label = String.fromCharCode('a'.charCodeAt(0) + file)
-    const x = file * cell + padding
-    const y = (GRID - 1) * cell + cell - padding
-    drawLabel(label, x, y)
-  }
-
-  ctx.textAlign = 'left'
-  ctx.textBaseline = 'top'
-  for (let rank0 = 0; rank0 < GRID; rank0++) {
-    const label = `${rank0 + 1}`
-    const x = padding
-    const y = rank0 * cell + padding
-    drawLabel(label, x, y)
-  }
+function discGradientFill(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  cy: number,
+  radius: number,
+  side: Side,
+): CanvasGradient {
+  const [highlight, shadow] = side === 'black' ? ['#4a4a4a', '#000000'] : ['#ffffff', '#c9c9c9']
+  const gradient = ctx.createRadialGradient(
+    cx - radius * 0.35,
+    cy - radius * 0.35,
+    radius * 0.05,
+    cx,
+    cy,
+    radius,
+  )
+  gradient.addColorStop(0, highlight)
+  gradient.addColorStop(1, shadow)
+  return gradient
 }
 
-function drawDisc(ctx: CanvasRenderingContext2D, cx: number, cy: number, cell: number, color: string) {
+/** 石の縁取り(T136: 立体感・背景とのコントラスト向上)。白石は盤の緑地に沈みやすいため濃いめの縁を、黒石はごく薄い縁を引く。 */
+function strokeDiscOutline(ctx: CanvasRenderingContext2D, radius: number, side: Side): void {
+  ctx.lineWidth = Math.max(radius * 0.05, 0.6)
+  ctx.strokeStyle = side === 'black' ? 'rgba(0, 0, 0, 0.5)' : 'rgba(0, 0, 0, 0.25)'
+  ctx.stroke()
+}
+
+function drawDisc(ctx: CanvasRenderingContext2D, cx: number, cy: number, cell: number, side: Side) {
+  const radius = cell * 0.42
   ctx.beginPath()
-  ctx.fillStyle = color
-  ctx.arc(cx, cy, cell * 0.42, 0, Math.PI * 2)
+  ctx.fillStyle = discGradientFill(ctx, cx, cy, radius, side)
+  ctx.arc(cx, cy, radius, 0, Math.PI * 2)
   ctx.fill()
+  strokeDiscOutline(ctx, radius, side)
 }
 
 /**
@@ -336,15 +341,17 @@ function drawFlippingDisc(
   const raw = Math.cos(progress * Math.PI)
   // 潰れきった瞬間も石の縁がわずかに見えるよう、完全な0にはしない。
   const scaleX = Math.max(Math.abs(raw), 0.04)
-  const color = raw >= 0 ? discColor(fromSide) : discColor(toSide)
+  const side = raw >= 0 ? fromSide : toSide
+  const radius = cell * 0.42
 
   ctx.save()
   ctx.translate(cx, cy)
   ctx.scale(scaleX, 1)
   ctx.beginPath()
-  ctx.fillStyle = color
-  ctx.arc(0, 0, cell * 0.42, 0, Math.PI * 2)
+  ctx.fillStyle = discGradientFill(ctx, 0, 0, radius, side)
+  ctx.arc(0, 0, radius, 0, Math.PI * 2)
   ctx.fill()
+  strokeDiscOutline(ctx, radius, side)
   ctx.restore()
 }
 
@@ -359,28 +366,50 @@ function drawAppearingDisc(
 ) {
   const eased = 1 - Math.pow(1 - progress, 3)
   const scale = Math.max(eased, 0.001)
+  const radius = cell * 0.42
 
   ctx.save()
   ctx.translate(cx, cy)
   ctx.scale(scale, scale)
   ctx.beginPath()
-  ctx.fillStyle = discColor(side)
-  ctx.arc(0, 0, cell * 0.42, 0, Math.PI * 2)
+  ctx.fillStyle = discGradientFill(ctx, 0, 0, radius, side)
+  ctx.arc(0, 0, radius, 0, Math.PI * 2)
   ctx.fill()
+  strokeDiscOutline(ctx, radius, side)
   ctx.restore()
 }
 
+/**
+ * 合法手ヒントドット(T136要件3: 視認性向上)。従来(半径 `cell * 0.12`、
+ * 塗りのみ)は薄い白の小さな点で見落としやすかったため、半径を約2倍
+ * (`cell * 0.22`、直径はセル幅の半分弱、コメント上の目安「セル幅の約1/4」は
+ * 半径基準)に拡大し、不透明度を上げた塗り+濃い縁取りでコントラストを付ける。
+ */
 function drawLegalHint(ctx: CanvasRenderingContext2D, cx: number, cy: number, cell: number) {
+  const radius = cell * 0.22
   ctx.beginPath()
-  ctx.fillStyle = 'rgba(255, 255, 255, 0.35)'
-  ctx.arc(cx, cy, cell * 0.12, 0, Math.PI * 2)
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.55)'
+  ctx.arc(cx, cy, radius, 0, Math.PI * 2)
   ctx.fill()
+  ctx.lineWidth = Math.max(radius * 0.12, 1)
+  ctx.strokeStyle = 'rgba(0, 0, 0, 0.3)'
+  ctx.stroke()
 }
 
+/**
+ * 直前の着手マスの印(T136要件3: 既存の赤いリング印の視認性を確認し、
+ * わずかに拡大+中心に小さい塗りを足してリング1本だけより見落としにくくした)。
+ */
 function drawLastMoveMark(ctx: CanvasRenderingContext2D, cx: number, cy: number, cell: number) {
+  const radius = cell * 0.1
+  ctx.beginPath()
+  ctx.fillStyle = 'rgba(220, 40, 40, 0.9)'
+  ctx.arc(cx, cy, radius * 0.35, 0, Math.PI * 2)
+  ctx.fill()
+
   ctx.beginPath()
   ctx.strokeStyle = 'rgba(220, 40, 40, 0.9)'
-  ctx.lineWidth = Math.max(cell / 24, 1)
-  ctx.arc(cx, cy, cell * 0.08, 0, Math.PI * 2)
+  ctx.lineWidth = Math.max(cell / 22, 1.2)
+  ctx.arc(cx, cy, radius, 0, Math.PI * 2)
   ctx.stroke()
 }

@@ -110,6 +110,10 @@
 /* T036要件2: モチーフバッジをボタン化(用語集への1タップ導線)しても
    見た目が既存のバッジと変わらないよう、ボタン固有のデフォルトスタイルを打ち消す。 */
 .motif-badge--button {
+  /* T136追加要件1(T135代替レビュー指摘): グローバル`button{min-height:44px}`が
+     打ち消されておらず、ボタン化したモチーフバッジだけ高さ44pxのピルに
+     なっていた。 */
+  min-height: 0;
   border: none;
   cursor: pointer;
   font: inherit;
@@ -213,6 +217,9 @@
 }
 
 .blunder-panel__branch-node {
+  /* T136追加要件1(T135代替レビュー指摘): グローバル`button{min-height:44px}`が
+     打ち消されておらず、コンパクトな分岐ツリーノードが各44pxに膨らんでいた。 */
+  min-height: 0;
   display: inline-flex;
   align-items: center;
   gap: 0.3rem;

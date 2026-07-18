@@ -157,6 +157,16 @@ describe('T115: 定石ブックON時のCPU書籍応手と「思考中」表示',
     )
     expect(bookCheckbox?.checked).toBe(true)
 
+    // CPU対戦(黒番人間)で開始する(T136: 対局モードの状態分離により、開始
+    // ボタンを押すまで盤面エリアはセットアップカードの陰に隠れている)。
+    const blackButton = Array.from(container.querySelectorAll<HTMLButtonElement>('button')).find(
+      (btn) => btn.textContent === '黒番で開始',
+    )
+    expect(blackButton).toBeDefined()
+    await act(async () => {
+      blackButton?.click()
+    })
+
     // 黒番(人間)としてd3に着手する。
     const boardStub = container.querySelector<HTMLButtonElement>('[data-testid="stub-board-play-d3"]')
     expect(boardStub).not.toBeNull()

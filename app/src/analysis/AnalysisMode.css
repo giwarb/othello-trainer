@@ -274,13 +274,17 @@
  * 着手一覧(右、縦積み・そのカラム内だけスクロール可)。
  */
 @media (orientation: landscape) and (max-height: 520px) {
+  /* T136追加要件2(T135代替レビュー指摘): `max-height: 100dvh`はスティッキー
+     ヘッダ(`.app-header`、この幅高さでは約40px)の高さを考慮しておらず、
+     実際にはヘッダぶんだけ画面下端がはみ出しうる。`calc(100dvh - 40px)`に
+     揃える。 */
   .analysis-result {
     display: grid;
     grid-template-columns: minmax(0, auto) minmax(0, 1fr);
     column-gap: 0.75rem;
     row-gap: 0.4rem;
     align-items: start;
-    max-height: 100dvh;
+    max-height: calc(100dvh - 40px);
     overflow-y: auto;
     box-sizing: border-box;
     padding: 0.5rem 0.5rem 0.5rem 0;

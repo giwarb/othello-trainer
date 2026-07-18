@@ -4,12 +4,14 @@ import type { ClassifyThresholds } from '../analysis/types.ts'
 import { Board } from '../components/Board.tsx'
 import { formatDiscDiff } from '../components/EvalBadge.tsx'
 import { MoveEvalOverlay } from '../components/MoveEvalOverlay.tsx'
+import { PlayerBadge } from '../components/PlayerBadge.tsx'
 import type { EngineClient } from '../engine/client.ts'
 import { hexToBigint } from '../engine/hex.ts'
 import { getSharedEngineClient } from '../engine/sharedClient.ts'
 import type { AnalyzeLimit, MoveEvalJson } from '../engine/types.ts'
 import {
   applyMove,
+  countDiscs,
   hasLegalMove,
   legalMoves,
   notationToSquare,
@@ -711,47 +713,75 @@ export function PlayMode() {
 
       {phase === 'playing' && session && (
         <section class="tsume-practice">
-          <p class="status">
-            {sideLabel(session.puzzle.sideToMove)}番、最善で{formatDiscDiff(session.puzzle.bestDiscDiff)}
-            (この局面、勝てるか?)
-          </p>
-          <p class="status">
-            手番: {sideLabel(session.sideToMove)}
-            {opponentThinking ? '(相手考慮中...)' : ''}
-            {analyzing ? '(判定中...)' : ''}
-          </p>
-          <p class="tsume-practice__meta">
-            難易度{session.puzzle.difficulty} / 空き{session.puzzle.empties}マス
-          </p>
-          {lastMoveCorrect && <p class="tsume-practice__feedback">✓ 正解(最善を維持しています)</p>}
-
-          <label class="move-eval-overlay-toggle">
-            <input
-              type="checkbox"
-              checked={moveEvalOverlayEnabled}
-              onChange={(event) => handleToggleMoveEvalOverlay((event.target as HTMLInputElement).checked)}
+          {/* T136要件1: 「手番: 黒(相手考慮中...)」という素テキストを、盤の直上の
+              2バッジ(手番側ハイライト+石数+思考中表示)に置き換える。 */}
+          <div class="player-badges">
+            <PlayerBadge
+              side="black"
+              label={session.humanSide === 'black' ? 'あなた' : '相手'}
+              count={countDiscs(session.board, 'black')}
+              active={session.sideToMove === 'black'}
+              thinking={opponentThinking && session.humanSide !== 'black'}
             />
-            候補手評価を表示
-          </label>
-
-          <div class="board-container board-with-move-eval-overlay">
-            <Board
-              board={session.board}
-              sideToMove={session.sideToMove}
-              lastMove={session.lastMove}
-              onMove={(square) => void handlePlayerMove(square)}
-            />
-            <MoveEvalOverlay
-              allMoves={overlayMoves}
-              mover={session.sideToMove}
-              thresholds={classifyThresholds}
-              visible={moveEvalOverlayEnabled}
+            <PlayerBadge
+              side="white"
+              label={session.humanSide === 'white' ? 'あなた' : '相手'}
+              count={countDiscs(session.board, 'white')}
+              active={session.sideToMove === 'white'}
+              thinking={opponentThinking && session.humanSide !== 'white'}
             />
           </div>
 
-          <button type="button" class="tsume-practice__quit" onClick={backToSettings}>
-            やめる
-          </button>
+          {/* T136要件4・6: お題カード化。「○番、最善で+44(この局面、勝てるか?)」と
+              「難易度○ / 空き○マス」を、盤直上の1カードにまとめる(以前は盤から
+              離れた上部に浮いていた)。カードと盤を1つのdiv
+              (`.tsume-practice__board-col`)にまとめているのは、横置き2カラム
+              (`app.css`の`.play-board-area`と同じ考え方の右カラム単独スクロール、
+              T136要件6)で「カード+盤」をまとめて左カラムに配置するため。 */}
+          <div class="tsume-practice__board-col">
+            <div class="tsume-prompt-card">
+              <p class="tsume-prompt-card__goal">
+                {sideLabel(session.puzzle.sideToMove)}番、最善で{formatDiscDiff(session.puzzle.bestDiscDiff)}
+                (この局面、勝てるか?)
+              </p>
+              <p class="tsume-prompt-card__meta">
+                難易度{session.puzzle.difficulty} / 空き{session.puzzle.empties}マス
+              </p>
+            </div>
+
+            <div class="board-container board-with-move-eval-overlay">
+              <Board
+                board={session.board}
+                sideToMove={session.sideToMove}
+                lastMove={session.lastMove}
+                onMove={(square) => void handlePlayerMove(square)}
+              />
+              <MoveEvalOverlay
+                allMoves={overlayMoves}
+                mover={session.sideToMove}
+                thresholds={classifyThresholds}
+                visible={moveEvalOverlayEnabled}
+              />
+            </div>
+          </div>
+
+          <div class="tsume-practice__side">
+            {analyzing && <p class="notice">判定中...</p>}
+            {lastMoveCorrect && <p class="tsume-practice__feedback">✓ 正解(最善を維持しています)</p>}
+
+            <label class="move-eval-overlay-toggle">
+              <input
+                type="checkbox"
+                checked={moveEvalOverlayEnabled}
+                onChange={(event) => handleToggleMoveEvalOverlay((event.target as HTMLInputElement).checked)}
+              />
+              候補手評価を表示
+            </label>
+
+            <button type="button" class="tsume-practice__quit" onClick={backToSettings}>
+              やめる
+            </button>
+          </div>
         </section>
       )}
 

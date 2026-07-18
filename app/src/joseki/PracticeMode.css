@@ -216,10 +216,14 @@
  * 同じ考え方をこのファイルの対象画面に適用する)。
  */
 @media (orientation: landscape) and (max-height: 520px) {
+  /* T136追加要件2(T135代替レビュー指摘): `max-height: 100dvh`はスティッキー
+     ヘッダ(`.app-header`、この幅高さでは約40px)の高さを考慮しておらず、
+     実際にはヘッダぶんだけ画面下端がはみ出しうる。`calc(100dvh - 40px)`に
+     揃える(このファイル内の他の`100dvh`利用箇所も同様)。 */
   /* 色選択画面(今日の復習を含む): ボードが無いため2カラム化はせず、
      縦積みのまま高さに収まらない場合だけこの画面内でスクロールさせる。 */
   .joseki-color-select {
-    max-height: 100dvh;
+    max-height: calc(100dvh - 40px);
     overflow-y: auto;
     box-sizing: border-box;
     gap: 0.5rem;
@@ -233,7 +237,7 @@
     row-gap: 0.3rem;
     align-items: start;
     text-align: left;
-    max-height: 100dvh;
+    max-height: calc(100dvh - 40px);
     overflow-y: auto;
     box-sizing: border-box;
   }

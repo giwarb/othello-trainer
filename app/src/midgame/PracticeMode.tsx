@@ -4,6 +4,7 @@ import type { ClassifyThresholds } from '../analysis/types.ts'
 import { Board } from '../components/Board.tsx'
 import { formatDiscDiff } from '../components/EvalBadge.tsx'
 import { MoveEvalOverlay } from '../components/MoveEvalOverlay.tsx'
+import { PlayerBadge } from '../components/PlayerBadge.tsx'
 import type { EngineClient } from '../engine/client.ts'
 import { getSharedEngineClient } from '../engine/sharedClient.ts'
 import type { AnalyzeLimit, MoveEvalJson } from '../engine/types.ts'
@@ -172,10 +173,6 @@ const REASON_LABEL: Record<JudgeMidgameReasonKind | 'insufficientMargin', string
   noLegalMoves: '合法手がありませんでした',
   moveNotFound: '着手の評価が見つかりませんでした',
   insufficientMargin: '優勢(+2石以上)を維持できませんでした',
-}
-
-function sideLabel(side: Side): string {
-  return side === 'black' ? '黒' : '白'
 }
 
 function formatContinuation(moves: readonly string[]): string {
@@ -1182,26 +1179,25 @@ export function PracticeMode() {
 
       {phase === 'playing' && session && (
         <section class="midgame-practice">
-          <p class="status">
-            あなたは{sideLabel(session.humanSide)}番です。 手番: {sideLabel(session.sideToMove)}
-            {opponentThinking ? '(相手考慮中...)' : ''}
-            {analyzing ? '(判定中...)' : ''}
-          </p>
-
-          {finalizing && (
-            <p class="notice midgame-finalizing">終盤の完全読みで結果を確定しています…</p>
-          )}
-
-          {showEvalBar && evalBarValue !== null && <EvalBar discDiff={evalBarValue} />}
-
-          <label class="move-eval-overlay-toggle">
-            <input
-              type="checkbox"
-              checked={moveEvalOverlayEnabled}
-              onChange={(event) => handleToggleMoveEvalOverlay((event.target as HTMLInputElement).checked)}
+          {/* T136要件1: 「あなたは黒番です。手番: 黒」という素テキストを、盤の直上の
+              2バッジ(手番側ハイライト+石数+思考中表示)に置き換える。「相手考慮中」は
+              CPU(相手)側のバッジの思考中表示に統合する。 */}
+          <div class="player-badges">
+            <PlayerBadge
+              side="black"
+              label={session.humanSide === 'black' ? 'あなた' : '相手'}
+              count={countDiscs(session.board, 'black')}
+              active={session.sideToMove === 'black'}
+              thinking={opponentThinking && session.humanSide !== 'black'}
             />
-            候補手評価を表示
-          </label>
+            <PlayerBadge
+              side="white"
+              label={session.humanSide === 'white' ? 'あなた' : '相手'}
+              count={countDiscs(session.board, 'white')}
+              active={session.sideToMove === 'white'}
+              thinking={opponentThinking && session.humanSide !== 'white'}
+            />
+          </div>
 
           <div class="board-container board-with-move-eval-overlay">
             <Board
@@ -1217,9 +1213,29 @@ export function PracticeMode() {
               visible={moveEvalOverlayEnabled}
             />
           </div>
-          <button type="button" class="midgame-practice__quit" onClick={backToSettings}>
-            やめる
-          </button>
+
+          <div class="midgame-practice__side">
+            {analyzing && <p class="notice">判定中...</p>}
+
+            {finalizing && (
+              <p class="notice midgame-finalizing">終盤の完全読みで結果を確定しています…</p>
+            )}
+
+            {showEvalBar && evalBarValue !== null && <EvalBar discDiff={evalBarValue} />}
+
+            <label class="move-eval-overlay-toggle">
+              <input
+                type="checkbox"
+                checked={moveEvalOverlayEnabled}
+                onChange={(event) => handleToggleMoveEvalOverlay((event.target as HTMLInputElement).checked)}
+              />
+              候補手評価を表示
+            </label>
+
+            <button type="button" class="midgame-practice__quit" onClick={backToSettings}>
+              やめる
+            </button>
+          </div>
         </section>
       )}
 

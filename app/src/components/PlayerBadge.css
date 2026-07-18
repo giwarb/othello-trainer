@@ -1,0 +1,101 @@
+/* T136要件1: 対局・中盤練習・詰めオセロ共通のプレイヤーバッジ。 */
+
+.player-badges {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  margin: 0 auto var(--space-sm);
+  max-width: var(--board-size-lg);
+}
+
+.player-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4em;
+  padding: 0.4em 0.8em;
+  box-sizing: border-box;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  background: var(--color-bg-secondary);
+  color: var(--color-text);
+  font-size: 0.95rem;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+/* 手番側のハイライト(要件1)。アクセントカラーの枠+うっすら背景で強調する。 */
+.player-badge--active {
+  border-color: var(--color-accent);
+  border-width: 2px;
+  background: var(--color-accent-bg);
+  color: var(--color-accent-dark);
+  font-weight: bold;
+}
+
+.player-badge__disc {
+  display: inline-block;
+  width: 1em;
+  height: 1em;
+  border-radius: 50%;
+  border: 1px solid var(--color-border);
+  flex-shrink: 0;
+}
+
+.player-badge--black .player-badge__disc {
+  background: #111111;
+  border-color: #111111;
+}
+
+.player-badge--white .player-badge__disc {
+  background: #f5f5f5;
+}
+
+.player-badge__label {
+  white-space: nowrap;
+}
+
+.player-badge__count {
+  font-variant-numeric: tabular-nums;
+  font-weight: bold;
+  min-width: 1.4em;
+  text-align: right;
+}
+
+.player-badge__thinking {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3em;
+  font-size: 0.85em;
+  font-weight: normal;
+  white-space: nowrap;
+}
+
+.player-badge__spinner {
+  display: inline-block;
+  width: 0.9em;
+  height: 0.9em;
+  border-radius: 50%;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  animation: player-badge-spin 0.8s linear infinite;
+}
+
+@keyframes player-badge-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .player-badge__spinner {
+    animation: none;
+  }
+}
+
+@media (max-width: 400px) {
+  .player-badge {
+    padding: 0.35em 0.6em;
+    font-size: 0.88rem;
+  }
+}

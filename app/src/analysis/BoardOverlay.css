@@ -5,9 +5,13 @@
   margin: 0 auto;
 }
 
+/* T136: `Board`のルートが座標ラベル帯を含む`.othello-board-frame`になった
+   (`components/Board.tsx`のdocコメント参照)ため、盤本体(canvasの実ピクセル
+   範囲)は左上から`--board-label-band`ぶんオフセットしている。8x8グリッドを
+   canvasに正確に重ねるため、`inset: 0`ではなく上・左だけそのぶん内側にする。 */
 .board-overlay {
   position: absolute;
-  inset: 0;
+  inset: var(--board-label-band) 0 0 var(--board-label-band);
   display: grid;
   grid-template-columns: repeat(8, 1fr);
   grid-template-rows: repeat(8, 1fr);

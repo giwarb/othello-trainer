@@ -256,6 +256,18 @@
   box-sizing: border-box;
 }
 
+/* T136要件1・6: 盤の直上のプレイヤーバッジ以外(判定中/完全読み確定中の通知・
+   評価バー・候補手評価トグル・やめるボタン)をまとめる1つのdiv。縦持ちでは
+   通常のブロック積み、横置き2カラム時のみ下の`@media`でスクロールコンテナに
+   なる(`app.css`の`.play-board-area__side`と同じ考え方)。 */
+.midgame-practice__side {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+}
+
 .midgame-practice__quit {
   background: none;
   border: 1px solid var(--color-border);
@@ -419,32 +431,51 @@
  * 同じ考え方をこのファイルの対象画面に適用する)。
  */
 @media (orientation: landscape) and (max-height: 520px) {
-  /* 対局中画面: 盤(左)+状態表示・候補手評価トグル・やめるボタン(右)。 */
+  /*
+   * 対局中画面: プレイヤーバッジ(1行目、全幅)+盤(2行目左)+それ以外
+   * (2行目右、`.midgame-practice__side`)。T136要件6(T133申し送りの解消):
+   * 以前は`span N`で盤を右カラムの縦積みぶんスパンさせ、コンテナ全体に
+   * `overflow-y: auto`を掛けていたため、スクロールすると盤も画面外へ流れて
+   * いた。右カラムが単一のdiv(`.midgame-practice__side`)になったことで、
+   * そこにだけ`overflow-y: auto`を掛ければ盤を固定したまま右カラムだけ
+   * スクロールできる(`app.css`の`.play-board-area`と同じ考え方)。
+   */
   .midgame-practice {
     display: grid;
     grid-template-columns: minmax(0, auto) minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
     column-gap: 0.75rem;
     row-gap: 0.3rem;
-    align-items: start;
+    /* ベース(縦持ち用flexレイアウト)の`align-items: center`がgridコンテキストに
+       漏れ、右カラム(`.midgame-practice__side`)が2行目トラックの高さいっぱいに
+       stretchせず中央寄せの短い箱になってしまう不具合があった(実機検証で
+       再現・確認済み)。`stretch`で明示的に上書きする(盤は自身の
+       `align-self: start`で個別にstretchを外している)。 */
+    align-items: stretch;
     text-align: left;
-    max-height: 100dvh;
-    overflow-y: auto;
+    /* T136追加要件2(T135代替レビュー指摘): ヘッダ高(約40px)を差し引く。 */
+    height: calc(100dvh - 40px);
     box-sizing: border-box;
+  }
+
+  .midgame-practice > .player-badges {
+    grid-column: 1 / span 2;
+    grid-row: 1;
+    margin: 0;
   }
 
   .midgame-practice > .board-container {
     grid-column: 1;
-    /* T133 redo: `span`の数はrow-gapがこの数の行境界ぶん積算されるため、
-       右カラムの実際の項目数(状態表示・候補手評価トグル・やめるボタン等、
-       多くても5〜6程度)を軽く超える程度の小さい値にとどめる
-       (`999`のような過大な値は、実項目が無い行の間にも`row-gap`が乗算
-       され続け、意図せず高さが数千px規模まで暴発する。実測で確認済み)。 */
-    grid-row: 1 / span 8;
+    grid-row: 2;
     align-self: start;
   }
 
-  .midgame-practice > :not(.board-container) {
+  .midgame-practice > .midgame-practice__side {
     grid-column: 2;
+    grid-row: 2;
+    min-height: 0;
+    overflow-y: auto;
+    align-items: flex-start;
   }
 
   /* 失敗画面(要件1の最優先対象): 盤2枚(左)+理由・言語化文・操作ボタン(右)。
@@ -452,6 +483,10 @@
      内部の`.clear-blunder-compare__boards`(盤2枚)・`.clear-blunder-compare__messages`
      (言語化文)を、コンポーネントの境界を変えずに`.midgame-result--fail`の
      直接のgridアイテムとして扱えるようにする(JSX変更不要)。 */
+  /* T136追加要件2(T135代替レビュー指摘): `max-height: 100dvh`はスティッキー
+     ヘッダ(`.app-header`、この幅高さでは約40px)の高さを考慮しておらず、
+     実際にはヘッダぶんだけ画面下端がはみ出しうる。`calc(100dvh - 40px)`に
+     揃える。 */
   .midgame-result--fail {
     display: grid;
     grid-template-columns: minmax(0, auto) minmax(0, 1fr);
@@ -461,7 +496,7 @@
     text-align: left;
     width: 100%;
     max-width: 100%;
-    max-height: 100dvh;
+    max-height: calc(100dvh - 40px);
     overflow-y: auto;
     box-sizing: border-box;
     padding: 0.6rem;

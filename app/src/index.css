@@ -10,6 +10,14 @@
   --board-size-md: 320px;
   --board-size-sm: 260px;
 
+  /* デザイントークン: 盤の座標ラベル帯の太さ(T136)。`components/Board.css`の
+     `.othello-board-frame`(上端a-h・左端1-8のラベル帯+盤本体の2x2 grid)と、
+     オーバーレイ2種(`components/MoveEvalOverlay.css`の`.move-eval-overlay`、
+     `analysis/BoardOverlay.css`の`.board-overlay`)が同じ値を参照することで、
+     盤の実ピクセル範囲(canvas)とオーバーレイの8x8グリッドの位置を一致させる
+     (3ファイルとも同じCSS変数を参照するため、値を変える場合はここ1箇所でよい)。 */
+  --board-label-band: 1.35em;
+
   /* デザイントークン: アクセントカラー(T061)。
      PWAマニフェスト(manifest.json/index.html)のtheme_color #863bffと
      揃えたブランドカラー。盤面自体の緑色はオセロの伝統色として対象外。
@@ -89,9 +97,11 @@ body {
    ホーム画面(`TitleScreen.css`)の紫アクセント・角丸の見た目を正とし、全画面の
    素の<button>要素の既定見た目をここで統一する(要件2「素の<button>デフォルト
    見た目を全画面から排除する」)。この既定値はセカンダリボタン相当(白背景・
-   枠線・アクセント文字)であり、`.btn-secondary`と同じ見た目になるため、
-   クラス無しのボタン(各モードの「やめる」「設定に戻る」等)もこれだけで
-   セカンダリボタンとして統一される。個別画面がクラスで背景色等を指定して
+   枠線・アクセント文字)であり、クラス無しのボタン(各モードの「やめる」
+   「設定に戻る」等)もこれだけでセカンダリボタンとして統一される
+   (T136: 明示的な`.btn-secondary`クラスはこのbutton既定値と全く同じ見た目で
+   実使用箇所が無いまま残っていたため削除した。セカンダリボタンが欲しい場合は
+   クラスを付けずに素の`<button>`を使えばよい)。個別画面がクラスで背景色等を指定して
    いる場合(class選択子はここより詳細度が高い)はそちらが優先されるため、
    既存の専用スタイル(タブ・グリッドセル等)は安全に上書きされずそのまま残る。
    タップターゲット(要件3、最小44px・間隔8px以上)の底上げもここで行う。
@@ -122,15 +132,6 @@ button {
   font-weight: bold;
 }
 
-/* デザイントークン: セカンダリボタン(T135要件2)。上のbutton既定値と同じ見た目
-   だが、明示的にセカンダリだと分かるようにしたい箇所で使うためのクラス。 */
-.btn-secondary {
-  border-color: var(--color-accent);
-  background: var(--color-bg-secondary);
-  color: var(--color-accent-text);
-  font-weight: 500;
-}
-
 /* デザイントークン: カード(T135要件2)。設定グループ・情報ブロックの見た目を
    統一する(ホーム画面の`.title-screen__card`と同じ紫寄りの角丸カード言語)。
    既存の個別コンポーネントで同種の枠(border+radius+padding)を既に持つものは、
@@ -143,6 +144,27 @@ button {
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
   padding: var(--space-lg);
   box-sizing: border-box;
+}
+
+/*
+ * デザイントークン: 視覚的には隠すがスクリーンリーダーには読ませるユーティリティ
+ * (T136)。プレイヤーバッジ等の視覚コンポーネントに置き換えた既存の文言
+ * (「あなたは黒番です。手番: 黒」等)を、アクセシビリティ用途と既存の
+ * コンポーネントテスト(DOMのtextContentを検証するもの)の両方のために
+ * 残す場合に使う。標準的な「クリップして1x1pxに縮める」パターン
+ * (`display: none`/`visibility: hidden`だとスクリーンリーダーからも
+ * 読み上げられなくなるため使わない)。
+ */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 /* T069: 全ボタン共通のホバー/クリック/フォーカスフィードバック。

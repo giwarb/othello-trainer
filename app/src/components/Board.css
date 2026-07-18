@@ -1,7 +1,69 @@
-.othello-board {
+/*
+ * T136: 座標ラベルを盤の外周(上端a-h・左端1-8の細い帯)に配置するため、
+ * `<Board>`のルート要素は「ラベル帯+8x8盤」の2x2 CSS Gridになった
+ * (`.othello-board-frame`)。以前は`.othello-board`自体が
+ * `max-width: var(--board-size-lg); margin: 0 auto`で盤の外枠だったが、
+ * その役割はこのフレームに移った。ラベル帯のサイズ(`--board-label-band`、
+ * `index.css`で定義)は、`MoveEvalOverlay.css`/`analysis/BoardOverlay.css`の
+ * オーバーレイ`inset`が参照する値と一致させる必要がある(`Board.tsx`の
+ * コンポーネントdocコメント参照)。
+ */
+.othello-board-frame {
+  display: grid;
+  /* `minmax(0, 1fr)`(単なる`1fr`ではない)が重要: canvas要素は`width`/`height`
+     属性(描画バッファの実ピクセルサイズ)を持つreplaced elementのため、
+     グリッドアイテムの既定`min-width: auto`はその実ピクセル幅を「最小内容
+     サイズ」とみなす。単なる`1fr`だとその内容最小サイズより列を縮められず、
+     横置き(ランドスケープ)でコンテナ幅が縮んだ際にcanvasが縮まないまま
+     列がコンテナ外へ突き抜ける「グリッドブロウアウト」が起きる(実機検証で
+     再現・確認済み)。`minmax(0, 1fr)`で最小サイズの制約を明示的に0にし、
+     列が確実にコンテナ幅まで縮められるようにする。 */
+  grid-template-columns: var(--board-label-band) minmax(0, 1fr);
+  grid-template-rows: var(--board-label-band) auto;
   width: 100%;
   max-width: var(--board-size-lg);
   margin: 0 auto;
+}
+
+.othello-board-frame__corner {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.othello-board-frame__files {
+  grid-column: 2;
+  grid-row: 1;
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  align-items: end;
+  justify-items: center;
+  padding-bottom: 0.15em;
+  font-size: 0.7em;
+  font-weight: bold;
+  color: var(--color-text-secondary);
+}
+
+.othello-board-frame__ranks {
+  grid-column: 1;
+  grid-row: 2;
+  display: grid;
+  grid-template-rows: repeat(8, 1fr);
+  align-items: center;
+  justify-items: end;
+  padding-right: 0.25em;
+  font-size: 0.7em;
+  font-weight: bold;
+  color: var(--color-text-secondary);
+}
+
+.othello-board {
+  grid-column: 2;
+  grid-row: 2;
+  width: 100%;
+  /* 上の`.othello-board-frame`のコメント参照(グリッドブロウアウト対策の
+     defense-in-depth。トラック側の`minmax(0, 1fr)`だけで十分だが、念のため
+     アイテム自身の既定`min-width: auto`も明示的に0にしておく)。 */
+  min-width: 0;
 }
 
 .othello-board__canvas {

@@ -129,6 +129,20 @@ async function flushMicrotasks(rounds = 10): Promise<void> {
   }
 }
 
+/**
+ * セットアップカードの「黒番で開始」を押してCPU対戦(黒番人間)を開始する
+ * (T136: 対局モードの状態分離により、開始ボタンを押すまで盤面エリア
+ * (`<Board>`を含む)はセットアップカードの陰に隠れているため)。
+ */
+async function startBlackGame(container: HTMLDivElement): Promise<void> {
+  const blackButton = Array.from(container.querySelectorAll<HTMLButtonElement>('button')).find(
+    (btn) => btn.textContent === '黒番で開始',
+  )
+  await act(async () => {
+    blackButton?.click()
+  })
+}
+
 describe('T134: 対局モードでの石返しアニメーション直列化', () => {
   it('sanity: d3(黒)の後、e3(白)は実際に合法手である(モックの前提を裏取りする)', () => {
     const boardAfterD3 = applyMove(initialBoard(), 'black', D3)
@@ -172,6 +186,8 @@ describe('T134: 対局モードでの石返しアニメーション直列化', (
         })
         // 定石DBの読み込み完了(josekiDbReady)を待つ(Promiseのみ、実タイマー不要)。
         await flushMicrotasks()
+
+        await startBlackGame(container)
 
         // 黒番(人間)としてd3に着手する。
         const boardStub = container.querySelector<HTMLButtonElement>('[data-testid="stub-board-play-d3"]')
@@ -243,6 +259,8 @@ describe('T134: 対局モードでの石返しアニメーション直列化', (
           playCard?.click()
         })
         await flushMicrotasks()
+
+        await startBlackGame(container)
 
         // 黒番(人間)としてd3に着手する(即座に反映される)。
         const boardStub = container.querySelector<HTMLButtonElement>('[data-testid="stub-board-play-d3"]')

@@ -80,10 +80,52 @@
   box-sizing: border-box;
 }
 
-.tsume-practice__meta {
+/* T136要件4: お題カード化。「○番、最善で+44(この局面、勝てるか?)」+
+   「難易度○ / 空き○マス」を盤直上の1カードにまとめる(`.tsume-stats-summary`
+   と同じカードトークン)。 */
+.tsume-prompt-card {
+  width: 100%;
+  max-width: var(--board-size-lg);
+  box-sizing: border-box;
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+  padding: 0.6rem var(--space-lg);
+  text-align: center;
+}
+
+.tsume-prompt-card__goal {
+  margin: 0;
+  font-weight: bold;
+}
+
+.tsume-prompt-card__meta {
+  margin: 0.2rem 0 0;
   font-size: 0.85rem;
   color: var(--color-text-secondary);
-  margin: 0;
+}
+
+/* T136要件4・6: お題カード+盤をまとめた1つのdiv(横置き2カラム時に左カラムと
+   して丸ごと配置するため、`tsume/PlayMode.tsx`のコメント参照)。 */
+.tsume-practice__board-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+/* T136要件1・6: 盤の直上のプレイヤーバッジ・お題カード以外(判定中の通知・
+   正解フィードバック・候補手評価トグル・やめるボタン)をまとめる1つのdiv。
+   縦持ちでは通常のブロック積み、横置き2カラム時のみ下の`@media`でスクロール
+   コンテナになる(`app.css`の`.play-board-area__side`と同じ考え方)。 */
+.tsume-practice__side {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
 }
 
 .tsume-practice__feedback {
@@ -346,34 +388,60 @@
  * 同じ考え方をこのファイルの対象画面に適用する)。
  */
 @media (orientation: landscape) and (max-height: 520px) {
-  /* プレイ画面: 盤(左)+状態表示・候補手評価トグル・やめるボタン(右)。 */
+  /*
+   * プレイ画面: プレイヤーバッジ(1行目、全幅)+盤・お題カード(2行目左)+
+   * それ以外(2行目右、`.tsume-practice__side`)。T136要件6(T133申し送りの
+   * 解消): 右カラムが単一のdiv(`.tsume-practice__side`)になったことで、
+   * そこにだけ`overflow-y: auto`を掛ければ盤を固定したまま右カラムだけ
+   * スクロールできる(`app.css`の`.play-board-area`と同じ考え方)。
+   */
   .tsume-practice {
     display: grid;
     grid-template-columns: minmax(0, auto) minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
     column-gap: 0.75rem;
     row-gap: 0.3rem;
-    align-items: start;
+    /* ベース(縦持ち用flexレイアウト)の`align-items: center`がgridコンテキストに
+       漏れ、右カラム(`.tsume-practice__side`)が2行目トラックの高さいっぱいに
+       stretchせず中央寄せの短い箱になってしまう不具合があった(`midgame/
+       PracticeMode.css`の同種コメント参照、実機検証で再現・確認済み)。
+       `stretch`で明示的に上書きする(お題カード+盤の左カラムは自身の
+       `align-self: start`で個別にstretchを外している)。 */
+    align-items: stretch;
     text-align: left;
-    max-height: 100dvh;
-    overflow-y: auto;
+    /* T136追加要件2(T135代替レビュー指摘): ヘッダ高(約40px)を差し引く。 */
+    height: calc(100dvh - 40px);
     box-sizing: border-box;
   }
 
-  .tsume-practice > .board-container {
-    grid-column: 1;
-    /* T133 redo: 過大な`span`値は`row-gap`が意図せず積算され高さが暴発する
-       (`app.css`の`.play-board-area > .board-container`コメント参照)。
-       右カラムの実項目数を軽く超える程度の小さい値にとどめる。 */
-    grid-row: 1 / span 8;
-    align-self: start;
+  .tsume-practice > .player-badges {
+    grid-column: 1 / span 2;
+    grid-row: 1;
+    margin: 0;
   }
 
-  .tsume-practice > :not(.board-container) {
+  /* お題カード+盤をまとめた左カラム(JSX側で1つのdivにしてある、
+     `tsume/PlayMode.tsx`のコメント参照)。 */
+  .tsume-practice > .tsume-practice__board-col {
+    grid-column: 1;
+    grid-row: 2;
+    align-self: start;
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+  }
+
+  .tsume-practice > .tsume-practice__side {
     grid-column: 2;
+    grid-row: 2;
+    min-height: 0;
+    overflow-y: auto;
+    align-items: flex-start;
   }
 
   /* 結果画面(クリア/不正解、要件2): 最終盤面(左)+結果表示・全合法手の表
-     ・操作ボタン(右)。`.tsume-result`は`--clear`/`--fail`共通の基底クラス。 */
+     ・操作ボタン(右)。`.tsume-result`は`--clear`/`--fail`共通の基底クラス。
+     T136追加要件2(T135代替レビュー指摘): ヘッダ高(約40px)を差し引く。 */
   .tsume-result {
     display: grid;
     grid-template-columns: minmax(0, auto) minmax(0, 1fr);
@@ -383,7 +451,7 @@
     text-align: left;
     width: 100%;
     max-width: 100%;
-    max-height: 100dvh;
+    max-height: calc(100dvh - 40px);
     overflow-y: auto;
     box-sizing: border-box;
     padding: 0.6rem;
