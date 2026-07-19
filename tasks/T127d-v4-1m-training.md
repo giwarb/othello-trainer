@@ -71,3 +71,15 @@ T127b/cで生成・検証済みの100万件教師コーパスを使い、**v4特
 ## 作業ログ
 
 (ワーカーが節目ごとに追記)
+
+### 2026-07-20 00:0x JST 着手・事前確認・メモリ実験・500kブリッジ学習完了
+
+- 前提確認: `git status --short`空、直近コミットT127c done(4a0f8f7)。コーパス`train/data/teacher/corpus_expanded1m.jsonl`実在確認(1,595,551,517 bytes、`ls`実測)。`train/src/t090_distillation.rs`に`--train-subset-size`/`--subset-seed`(既定42)が既存(T126で追加済み、distillationトレーナー側)。`cargo build --release -p train --bin train_distillation -p engine --bin eval_cli`は差分なしで成功(ソース変更なしのため再ビルドのみ)。
+- **メモリ実験(要件1)**: `load_corpus`は`fs::read_to_string`で1.6GB全文を一括読込した後、パース済み`Vec<DistillRecord>`を構築する現行実装のまま、1M corpus(全レコード900k弱)+`--train-subset-size 500000/2000`のスモークを実行。42秒(2000件)・21秒(500k, 1epoch)・33秒(500k, 4epoch)で正常終了、OOMや異常な遅延なし(空きメモリ約8.5GB/総16GB環境)。**ストリーミング化は不要と判断し、trainerのコード変更なし**(要件1のスコープ「不要なら変更しない」を適用)。
+- **タイミング実測**: 500k train・1epoch=21.4s(コーパス全読込+outcomeキャッシュ含む固定コスト込み)、4epoch=33.3s → 1epochあたり約4.0秒(500k規模)。900k規模へ比例外挿で約7.2秒/epoch。3seed合計は corpus 1回読込(約17秒、複数seed/mixで共有)+各seed最大60epoch×約7.2秒。
+- **resume実地確認(受け入れ基準4)**: `train/data/t127d/resume-check`(スクラッチ、200k件サブセット)でバックグラウンド学習中にBashツール呼び出し境界でプロセスが打ち切られ、epoch=6まで保存・epoch=7開始直後で中断される実インシデントが発生。同一コマンドを再実行したところ`resume mix=teacher-only seed=1 epoch=6`と出力され、epoch=7から再開して完走(exit 0)。中断→再開が実機能することを確認後、このスクラッチdirは削除(正式run対象外)。
+- **500k bridge (seed1) 学習完了**: コマンド`target/release/train_distillation.exe --corpus train/data/teacher/corpus_expanded1m.jsonl --checkpoint-dir train/data/t127d/expanded1m-v4-500k-bridge --mixes teacher-only --seeds 1 --pattern-set v4 --reference-weights train/weights/pattern_v2.bin --jobs 1 --train-subset-size 500000`。
+  - 実件数: corpus全体train=899,467(full_train_size)、subsetターゲット500,000→実際499,974件(層化flooringにより26件少)、validation=49,278、frozen=51,255。
+  - 学習: best_epoch=29、completed_epoch=29(patience切れで停止、max60epoch未到達)。train_teacher_mae=4.351038、validation_loss=19.956412、validation_teacher_mae=6.661462、frozen_agreement=0.402517、frozen_mean_regret=5.967457、wthor_2024_mae=14.809149。
+  - epoch単位でweights/state/metricsをatomic保存する既存機構を使用(コード変更なし)。
+- **1Mフル(seed1/2/3)学習を起動**: コマンド`target/release/train_distillation.exe --corpus train/data/teacher/corpus_expanded1m.jsonl --checkpoint-dir train/data/t127d/expanded1m-v4-1m --mixes teacher-only --seeds 1,2,3 --pattern-set v4 --reference-weights train/weights/pattern_v2.bin --jobs 1`(train-subset-size無指定=corpus全量899,467train)。detached起動(Bashバックグラウンド、`disown`)、ログ`train/data/t127d/logs/1m-full.stdout.log`をMonitorで90秒間隔・進捗停滞30分検知付きで監視中。次の節目でoracle評価(compare_pattern_v3.py、T096 60局面、M2ガード)へ進む。
