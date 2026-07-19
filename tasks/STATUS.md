@@ -30,7 +30,7 @@
 
 | ID | タスク | 担当 | 状態 | 試行 |
 |---|---|---|---|---|
-| T147 | v4重みの本番アプリ組み込み(ユーザー裁定採用) | implementer(Sonnet) | in_progress(委譲中。T122前例踏襲、ANALYSIS_ENGINE_VERSION 6、強度再審査なし・スモーク10局のみ) | 0 |
+| T147 | v4重みの本番アプリ組み込み(ユーザー裁定採用) | implementer(Sonnet) | review(実装完了3f8a95f: 重みSHA三重一致・ANALYSIS_ENGINE_VERSION 6・Pages実機動作・スモーク10局異常なし。verifier+代替レビュー検収中) | 0 |
 
 ## 有効な方針・申し送り(今後のタスクに効くもの)
 
