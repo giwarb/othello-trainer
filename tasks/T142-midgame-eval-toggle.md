@@ -1,7 +1,7 @@
 ---
 id: T142
 title: 中盤練習: 評価値表示の切り替え復活(既定ON)+全モードのトグル監査
-status: in_progress
+status: done # verifier合格(2026-07-19。軽微タスクにつき代替レビュー省略)
 assignee: implementer(Sonnet)
 attempts: 0
 ---
