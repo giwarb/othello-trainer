@@ -1,0 +1,79 @@
+{
+  "task": "T146",
+  "generatedAt": "2026-07-20",
+  "purpose": "Measurement-only estimate of Edax level-10 vs level-16 labeling time for ~4.43M WTHOR positions; no production code changed, no generation job started.",
+  "dataSources": {
+    "productionLv16Actuals": {
+      "path": "train/data/teacher/corpus_expanded1m.jsonl",
+      "recordCount": 1000000,
+      "jsonlSha256": "067a4e3a0076d39f793164c0b2168375a5a9d450cf1f7325ba0e4661e4741e86",
+      "generatedWith": {
+        "edaxExe": "wEdax-x86-64-v3.exe",
+        "edaxExeSha256": "d85b7555879387cd20cee2dab28bcbbdb09631f245459e48b1b0b34b4558800c",
+        "nTasks": 1,
+        "edaxParentsPerProcess": 32,
+        "exactEmptiesThreshold": 20,
+        "exactEdaxLevel": 60,
+        "defaultEdaxLevel": 16,
+        "shards": 8
+      },
+      "note": "Real production wall-clock elapsedMs per record, aggregated by record.empties. 0 mixed-level records confirmed (childEmpties = parentEmpties - 1 is constant per record, so level is fully determined by parentEmpties)."
+    },
+    "liveAbSample": {
+      "scriptsUsedReadOnly": [
+        "bench/edax-compare/gen_teacher_corpus.py (run_children_batch, unmodified)",
+        "bench/edax-compare/vs_edax.py (edax_solve_batch, unmodified)"
+      ],
+      "edaxExeSha256": "d85b7555879387cd20cee2dab28bcbbdb09631f245459e48b1b0b34b4558800c",
+      "bundleSize": 8,
+      "levelsCompared": [16, 10],
+      "bandSampleSeed": 146100,
+      "bandSampleSizePerBand": 32,
+      "sensitivitySampleSeed": 146200,
+      "sensitivitySampleSizePerValue": 8,
+      "totalMeasurementWallSeconds": 462.4,
+      "environment": "quiet (no other heavy processes), 16 logical CPUs, otherwise idle"
+    }
+  },
+  "keyFindingNonMonotonicLevel": {
+    "description": "level=10 is 5.1x-9.6x faster than level=16 for parent empties 22-30 (the historically 'heavy band'), but 2.4x-4.1x SLOWER than level=16 for parent empties 31-59, despite level=10 always reporting a shallower search depth (10 vs 16, verified via Edax -vv depth output, no exact auto-promotion occurred). A uniform level 16->10 switch is therefore a net time INCREASE, not decrease.",
+    "abSpeedupRatioLv16OverLv10ByBand": {
+      "22-25": 9.591,
+      "26-30": 5.093,
+      "31-40": 0.282,
+      "41-50": 0.242,
+      "51-59": 0.410
+    }
+  },
+  "extrapolation": {
+    "assumedTotalRecords": 4430000,
+    "assumedRecordsPerEmptiesValue": 75085,
+    "emptiesValueRange": [1, 59],
+    "shardsAssumedParallel": 8,
+    "totalHours": {
+      "lv16Current": 269.07,
+      "lv10Uniform": 304.59,
+      "hybridLv10OnlyEmpties22to30": 114.76
+    },
+    "breakdown": {
+      "exactBandEmptiesUpTo21Hours": 13.11,
+      "levelBandLv16Hours": 255.96,
+      "levelBandLv10Hours": 291.48,
+      "heavyBandEmpties22to30": {
+        "recordCount": 675763,
+        "lv16Hours": 182.74,
+        "lv10Hours": 28.44
+      },
+      "restOfLevelBandEmpties31to59": {
+        "recordCount": 2177458,
+        "lv16Hours": 73.22,
+        "lv10Hours": 263.04
+      }
+    },
+    "exactEmptiesThresholdSensitivity": {
+      "lv16Default": {"threshold20": 269.07, "threshold18": 267.41, "threshold16": 266.88},
+      "lv10UniformDefault": {"threshold20": 304.59, "threshold18": 302.78, "threshold16": 302.24}
+    }
+  },
+  "scopeNote": "No production code (gen_teacher_corpus.py, vs_edax.py) was modified. No 4.43M-record labeling job was started. Measurement scripts (analyze_corpus.py, sample_positions.py, sample_sensitivity.py, measure_ab.py) were kept in the session scratchpad and are not part of this commit."
+}
