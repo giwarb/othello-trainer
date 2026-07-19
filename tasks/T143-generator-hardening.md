@@ -1,7 +1,7 @@
 ---
 id: T143
 title: 教師コーパス生成基盤の堅牢化(申し送り一括対応、4M生成前の必須整備)
-status: todo # todo | in_progress | review | redo | done | blocked
+status: done # verifier(非空洞化確認込み)+代替レビュー(中2件は4M前申し送り)両合格、2026-07-20。独断変更(provenance緩和)は妥当と裁定、tool SHA照合強化はT127e判断後の4M準備タスクへ
 assignee: implementer(Sonnet)
 attempts: 0
 ---

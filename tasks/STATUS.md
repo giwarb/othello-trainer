@@ -6,7 +6,7 @@
 
 ## 現在地
 
-**【2026-07-20未明】** **T127c合格・done(1M全件検証0エラー、verifier独立再実行+代替レビュー両合格)**。corpus_expanded1m.jsonl SHA-256=067a4e3a...741e86(オーケストレーター実測、manifest追記はT143)。**T127d(v4×1M学習、500k bridge+3seed)とT143(生成基盤堅牢化)を起票し並列委譲中**(いずれもimplementer Sonnetフォールバック、Codexは7/23 20:32まで不可)。T127dの事前登録期待値: T126外挿で1M=1.4〜1.63石(v3×WTHOR本番=1.40)。完了後: T127e(4M投資判定、ユーザー判断)。シャードファイルは保持中(削除判断は未定)。停止時のresume: `python bench/edax-compare/gen_teacher_corpus.py expanded1m --num-shards 8 --skip-extract --reuse-selection-plan`(Start-Process detached)。高速化第2弾(T127i/j)完了: **Edax v3バイナリ(AVX2)へ7/18 07:1x乗り換え済み**(値全帯全件一致・残件加重1.152倍、493,703件全保持、wEdax-x86-64-v3×8稼働、ログlogs/t127b-gen3.log)。方式境界はteacher_manifests/corpus_expanded1m_method_boundaries.json(サイドカー、warm切替とv3切替の2件)が正。完走後: T127c検証→T127d学習(v4×1M)→T127e 4M判定。ユーザー裁定待ち: 終盤シリーズ完了扱いの確定(推奨=完了、Edax比19.17倍)。
+**【2026-07-20未明2】** **T127d・T143とも両検収合格でdone**。T127dの結果: **1M×3seed oracle regret=1.900(SD=0)で事前登録帯1.4-1.63の外・設計§7打ち切り閾値1.70超・本番v3(1.40)より劣位**。500k=2.400。4M外挿はinv-sqrt/powerで1.16-1.53(log-linearの0.43は形状破綻につき単独引用禁止)=楽観端でもv4×WTHOR(1.111)に届かず。**T127e(4M投資判定)はユーザー裁定待ち** — 裁定材料を鋭くするため、レビュー推奨の180k判別実験(K=4密度説 vs 純粋逓減説の切り分け)+絶対regret CIを元ワーカーに追加依頼中。完了次第ユーザーへ判断材料を報告。シャードファイルは保持中(削除判断は4M判定後)。停止時のresume: `python bench/edax-compare/gen_teacher_corpus.py expanded1m --num-shards 8 --skip-extract --reuse-selection-plan`(Start-Process detached)。高速化第2弾(T127i/j)完了: **Edax v3バイナリ(AVX2)へ7/18 07:1x乗り換え済み**(値全帯全件一致・残件加重1.152倍、493,703件全保持、wEdax-x86-64-v3×8稼働、ログlogs/t127b-gen3.log)。方式境界はteacher_manifests/corpus_expanded1m_method_boundaries.json(サイドカー、warm切替とv3切替の2件)が正。完走後: T127c検証→T127d学習(v4×1M)→T127e 4M判定。ユーザー裁定待ち: 終盤シリーズ完了扱いの確定(推奨=完了、Edax比19.17倍)。
 
 **エンジン強化を再開(2026-07-15 ユーザー指示)**: 方針は「大きい実験(200kコーパス・v3×蒸留)の前に、学習パイプラインのボトルネックを先に潰す」。explorer調査2本完了:
 - ①教師生成: 律速は**子局面ごとのEdaxプロセス起動42.3万回**(固定約164ms/回、8並列時は競合で実効2.3〜2.6倍に劣化)→ **T094(局面単位バッチ化)をCodexに委譲中**。
@@ -26,9 +26,8 @@
 
 | ID | タスク | 担当 | 状態 | 試行 |
 |---|---|---|---|---|
-| T127d | v4×1M蒸留学習(teacher-only、500k bridge+1M×3seed)+oracle評価 | implementer(Sonnet) | review(実装完了2591579: **1M regret=1.900(3seed、SD=0)で事前登録帯1.4-1.63の外・打ち切り閾値1.70超**。500k=2.400、M2全PASS、trainerコード無変更。4M外挿はモデル間で0.43-1.53と割れる。verifier+代替レビュー検収中) | 0 |
-| T143 | 生成基盤堅牢化(束checkpoint・identityへのEdax SHA・verify指紋・finalizeゲート・corpusSha256追記・固定テスト群) | implementer(Sonnet) | review(実装完了51d25d4: 全11要件+テスト69件PASS・1M再verify 0エラー・corpusSha256一致。**独断変更1件**=provenanceのコード成果物SHA4種のライブ照合を記録存在チェックへ緩和→検収で重点確認中) | 0 |
-| T127e | 4M投資判定 | オーケストレーター+ユーザー | todo(T127d結果後) | 0 |
+| T127d-FU | 180k判別実験(K=4密度説vs逓減説)+絶対regret CI | implementer(Sonnet、T127dワーカー継続) | in_progress(T127e裁定材料、数分〜十数分想定) | 0 |
+| T127e | 4M投資判定 | オーケストレーター+ユーザー | todo(FU完了後にユーザーへ材料報告→裁定待ち) | 0 |
 | T139 | エンジン: analyzeAllの対称性・決定性(TT/MPCノイズ根本対応) | Codex優先 | todo(engineビルドを伴うため専有ウィンドウで) | 0 |
 
 ## 有効な方針・申し送り(今後のタスクに効くもの)
@@ -139,6 +138,8 @@
 | T125 | v4候補の頑健性確認+最終審査 | **採用見送りが結論**(913f183、verifier合格・codex-review内容合格〔形式指摘は裁定済〕、Codex実装)。6seed oracle 0.70-1.67(平均1.106、事前登録規準でseed3=0.967選定)だが**対Edax60局 -24.02でv3(-21.23)比悪化**(paired -2.78石、11勝18敗、CI跨ぎ)→v3維持。oracle(終盤帯のみ)と実戦の乖離が示された |
 | T126 | 蒸留100万規模化の切り分け実験 | **量が支配要因と確定**(953b15b、verifier/codex-review両合格、Codex実装)。同量18万の直接対決: v4×WTHOR 3.822 vs v4×蒸留2.87=**Edaxラベルが約1石優位**。v4蒸留曲線4.77→3.63→2.77(急峻)、外挿1M=1.4-1.63/4M=0.80-1.21(参考値)。推奨=段階投資(1M生成2日→1.4以下なら4M検討)。WTHORサブセット機能(--train-subset-size)も導入 |
 | T127f/g/h | 生成高速化(ハッシュA/B→warm A/B→親またぎ乗り換え) | **完了**(f=ハッシュ拡大は効果なし・値全一致/g=warm方式1.32倍・値全一致/h=32親束で乗り換え実施、292,679件全保持でresume成功、Claude代替レビュー合格・実地検証込み)。ETA約16時間短縮(7/19昼→7/18夜) |
+| T127d | v4×1M蒸留学習+oracle評価 | **完了・予測未達**(2591579、verifier〔独立再集計・bootstrap/フィットのビット単位再現〕/代替レビュー両合格、redo 0回)。1M=1.900(3seed SD=0、事前登録1.4-1.63の外・閾値1.70超)、500k=2.400、M2 4/4。trainerコード無変更(1.6GB一括読込で問題なし)。中4件はT127e申し送り(レビューレポート参照) |
+| T143 | 生成基盤堅牢化(申し送り一括) | **完了**(51d25d4、verifier〔1M再verify 0エラー実測・非空洞化確認〕/代替レビュー両合格、redo 0回)。全11要件+テスト49→69件、corpusSha256追記(実測一致)。独断変更(provenanceコード成果物SHAの照合緩和)は妥当と裁定。中2件(tool SHA照合強化・expanded1m系復旧手順)は4M生成前の申し送り |
 | T127c | expanded1m独立検証・manifest確定 | **完了**(98060ba、verifier〔独立再実行1M件0エラー・方式境界突合完全一致〕/代替レビュー〔中2件はT143へ〕両合格、redo 0回)。全12検証項目クリア、verify側の既存パス区切りバグ1件修正、チャンク進捗+resume基盤追加(49テスト) |
 | T127b | expanded1m本番生成(新規80万件) | **完走**(2026-07-19 23:04、1,000,000件・8シャード全exit 0・merge成功1.6GB・エラーなし)。方式切替2回(warm束/Edax v3、境界はサイドカーが正)+PC再起動1回をいずれも損失ゼロで乗り切り。実所要約6日。検証はT127c |
 | T127i/j | 生成高速化第2弾(Edax v3バイナリA/B→乗り換え) | **完了**(i=v3(AVX2)値全帯全件一致・残件加重1.152倍、-n2はlevel16で67件値不一致→不採用/j=切替実施493,703件全保持・plan SHA byte同一・v3×8稼働。redo1回=方式境界がmetaから消滅→サイドカーjson化+migrate再実行ガード、代替レビュー起点)。約3時間短縮 |

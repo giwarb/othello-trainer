@@ -1,7 +1,7 @@
 ---
 id: T127d
 title: v4×expanded1m蒸留学習(teacher-only、500k bridge+1M×3seed)・oracle評価
-status: todo # todo | in_progress | review | redo | done | blocked
+status: done # verifier(独立再集計・bootstrap/フィット完全再現)+代替レビュー(中4件はT127e申し送り)両合格、2026-07-20
 assignee: implementer(Sonnet)(Codex usage limit中のフォールバック)
 attempts: 0
 ---
