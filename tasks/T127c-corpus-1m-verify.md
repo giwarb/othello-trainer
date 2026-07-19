@@ -1,7 +1,7 @@
 ---
 id: T127c
 title: expanded1m独立検証・manifest確定(1M教師コーパス)
-status: todo # todo | in_progress | review | redo | done | blocked
+status: done # verifier合格(独立再実行1M件0エラー)+Claude代替レビュー合格(中2件はT143へ)、2026-07-20 done裁定
 assignee: implementer(Sonnet)(Codex usage limit中のフォールバック)
 attempts: 0
 ---
@@ -125,3 +125,9 @@ manifest確定: 上記の検証結果・SHA・分布・provenance・方式境界
 - **既存の潜在バグを発見・修正**: `verify_teacher_corpus.py`の`expanded1m_provenance_errors()`はT127a以降モックテストのみで検証されており、実データでの初回フル実行でパス区切り文字(Windows `\` vs 期待値`/`)の不一致による誤検知(4件)を発見した。データ・meta.json本体は変更せず、`_normalize_recorded_path()`で比較側のみ頑健化。これはスコープ外の`gen_teacher_corpus.py`修正ではなく、タスク仕様が明示的に許可する`verify_teacher_corpus.py`の検証項目拡張の範囲内と判断した。
 - 長時間実行ルール(チャンク進捗+resume)は`verify_teacher_corpus.py`に実装したが、実測では1M件のverifyは214秒(約3.6分)で完走し、CLAUDE.mdが想定する「10分超えうる」水準には達しなかった。タスク指示に明示されていたため実装は行い、expanded200kでの人為的な巻き戻しによるresume動作確認も実施済み。
 - `train/data/teacher/corpus_expanded1m.meta.json`(生成パイプラインが書いたgitignore領域の生meta)自体は本タスクでは変更していない(読み取りのみ)。最終manifestは`bench/edax-compare/teacher_manifests/corpus_expanded1m.meta.json`として新規に書き出した。
+
+### 検収結果(オーケストレーター、2026-07-20)
+
+- **verifier: 合格**(受け入れ基準6項目全パス)。独立再実行で1,000,000件0エラーを追認(158.8秒)、方式境界2件のサイドカー⇔manifest突合完全一致、生meta⇔manifest全文突合一致、データ本体・シャード無改変を確認。
+- **Claude代替レビュー: 合格**(重大なし、中2件・軽微6件。レポート: tasks/review/T127c-corpus-1m-verify-claude-review.md)。中2件(verify checkpointのフィンガープリント欠如・finalize整合性ゲート欠如)はT143スコープへ。
+- **要件11の残余(merged JSONL自体のSHA-256がmanifest未記載)の裁定**: 前例(corpus_expanded200k.meta.json)も同形式であり、タスク仕様の「既存manifest形式に揃える」と整合するためdoneとする。ドリフト検出のためオーケストレーターが実測: **corpus_expanded1m.jsonl SHA-256 = 067a4e3a0076d39f793164c0b2168375a5a9d450cf1f7325ba0e4661e4741e86(1,595,551,517 bytes、2026-07-20実測)**。manifestへの追記(corpusSha256)はT143で実施し、追記時に本値との一致を確認すること。
