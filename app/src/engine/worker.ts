@@ -25,17 +25,18 @@ const workerScope = self as unknown as DedicatedWorkerScope;
 let engine: Engine | undefined;
 let readyPromise: Promise<void> | undefined;
 
-// T122: WTHOR学習済みパターン評価v3(`train/weights/pattern_v3.bin`を
-// `app/public/pattern_v3.bin`にコピーしたもの)。`public/joseki.json`と同様に
-// 静的アセットとして配置し、`import.meta.env.BASE_URL`(GitHub Pagesの
-// サブパス配信 `vite.config.ts` 参照)を前置してfetchする。
-// v2へ切り戻す場合は、ファイル名を`pattern_v2.bin`へ戻すだけでよい。
-// **ただし、ここを変更する(v2/v3を切り替える)たびに、
+// T147: WTHOR学習済みパターン評価v4(ステージ1石刻み61段、T124で導入・
+// T125のseed3を採用、`train/weights/pattern_v4.bin`を`app/public/pattern_v4.bin`
+// にコピーしたもの)。`public/joseki.json`と同様に静的アセットとして配置し、
+// `import.meta.env.BASE_URL`(GitHub Pagesのサブパス配信 `vite.config.ts` 参照)
+// を前置してfetchする。
+// v3へ切り戻す場合は、ファイル名を`pattern_v3.bin`へ戻すだけでよい(T122参照)。
+// **ただし、ここを変更する(v3/v4を切り替える)たびに、
 // `analysis/cache.ts`の`ANALYSIS_ENGINE_VERSION`も必ず1つ上げること**
 // (T122申し送り事項、T139で追記。評価値が変わるのにキャッシュキーが
 // 変わらないと、古いバージョンで解析した結果がヒットし続け、新しい重みでの
 // 再解析が行われない。詳細は`cache.ts`のT060コメント参照)。
-const PATTERN_WEIGHTS_URL = `${import.meta.env.BASE_URL}pattern_v3.bin`;
+const PATTERN_WEIGHTS_URL = `${import.meta.env.BASE_URL}pattern_v4.bin`;
 
 /**
  * 本番用パターン重みをfetchして `engine.load_pattern_weights` に渡す。

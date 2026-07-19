@@ -74,8 +74,12 @@ function defaultIndexedDb(): IDBFactory {
  * (手ごとに専用のローカルTTを使用)させ、順序に依存しない決定的な値を返す
  * よう修正した。同一局面・同一探索条件でも返る評価値が変わりうるため、
  * 古い解析結果を無効化する(4 -> 5)。
+ *
+ * T147: 本番パターン重みをv3からv4(ステージ1石刻み61段、T124で導入・
+ * T125のseed3をユーザー裁定により採用)へ切り替え、同一局面・同一探索条件
+ * でも評価値が変わるため、古い解析結果を無効化する(5 -> 6)。
  */
-export const ANALYSIS_ENGINE_VERSION = 5
+export const ANALYSIS_ENGINE_VERSION = 6
 
 /** 探索条件をキャッシュキー用の安定したタグへ変換する。 */
 export function analysisLimitTag(limit: AnalyzeLimit): string {
