@@ -1,7 +1,7 @@
 ---
 id: T139
 title: エンジン: 候補手評価の対称性・決定性の根本対応(TT共有/MPC由来の±1石ノイズ)
-status: in_progress # 生成完走(7/19)によりCPU専有可。Codex上限中(7/23まで)のためSonnet+検証強化で着手(2026-07-20)
+status: done # verifier(Pages実機Playwright込み全8項目)+代替レビュー(中4件はT145へ)両合格、2026-07-20
 assignee: implementer(Sonnet)(Codex usage limit中のフォールバック)
 attempts: 0
 ---
@@ -51,3 +51,16 @@ attempts: 0
 - Pages実機確認: https://giwarb.github.io/othello-trainer/ で対局(強い・黒番開始)を実施、初期局面の4候補手すべてが同一の表示評価値(「黒番 評価値0」)になっていることをブラウザツールで確認、コンソールエラーなし。
 - 作業中に気づいた点: `train/src/t090_distillation.rs`が(本タスクと無関係に)未コミットの状態で変更されていた。本タスクでは一切触れておらず、コミットにも含めていない(おそらく並行して動いている別タスクの成果物)。
 - git状態: タスク完了時点で`git status --short`はT139由来の差分なし(train/src/t090_distillation.rsのみ残るが本タスク無関係)。
+
+### 2026-07-20 verifier検証
+
+- `git log`/`git show 4612c66 --stat`: 差分は報告どおり6ファイル(app/src/analysis/cache.ts, app/src/engine/worker.ts, engine/src/bin/eval_cli.rs, engine/src/pattern_eval.rs, engine/src/protocol.rs, engine/src/search.rs)のみ。`git status --short`は`train/src/t090_distillation.rs`(T144並行作業由来、T139無関係)のみで、T139由来の残差分なし。
+- `cargo test -p engine --lib`: 199 passed / 0 failed / 2 ignored(34.23s)。フレーキー`node_limited_protocol_requests_are_deterministic`含め今回失敗なし(単独再実行不要)。
+- `cargo test -p engine --test ffo_bench --release`: fast系1 passed(68.56s)、heavy系1 ignored(既存仕様どおり)。#40-#44全問正解。
+- コードレビューで経路を直接確認: `search_all_moves_with_eval`(search.rs:1091-)は関数専用ローカルTT(`ANALYZE_ALL_LOCAL_TT_MB=16`)を確保し各合法手の直前に`local_tt.clear()`する設計になっており、呼び出し元TTを一切受け取らない(関数シグネチャに`tt`引数なし)。`protocol.rs`の`handle_analyze`はallMoves分岐でこの関数を`tt`を渡さず呼び、非allMoves分岐(通常analyze/CPU着手、maxNodes指定時は`tt.clear()`後、未指定時はそのまま)は従来どおり共有`tt`を使っており、CPU着手経路は変更の影響を受けない構造であることを確認。
+- 新規テスト実効性確認: `search_all_moves_from_initial_position_gives_the_four_d4_symmetric_opening_moves_identical_scores`と`search_all_moves_is_deterministic_across_repeated_calls_even_with_a_prewarmed_local_state`はいずれも新シグネチャの`search_all_moves`/`search_all_moves_with_eval`(tt引数なし)を直接呼んでおり、ローカルTT経路を実際に通っている。`protocol.rs`の`node_limited_protocol_requests_are_deterministic`(maxNodes指定・cpuLimit相当)と`node_unlimited_protocol_requests_are_deterministic_even_without_a_pre_clear`(maxNodes未指定・weak/normal/strong終盤相当)はいずれも間に`allMoves:true`リクエストを挟んで前後の結果一致を検証しており、CPU着手経路の不変性を直接検証している。`pattern_eval.rs`の新規D4不変性テストは初期局面(D4対称)に対象範囲を限定しており、非対称盤面での既知の制約(スコープ外と判断)についてコメントで詳細に説明されていることを確認。報告内容と実装が一致。
+- `app/src/analysis/cache.ts`: `ANALYSIS_ENGINE_VERSION = 5`を確認。
+- `npx vitest run`(app/): 96 test files / 781 tests、全パス(15.99s)。
+- GitHub Actions: commit 4612c66の"Deploy to GitHub Pages"(run 29694473973)・"Rust Tests"(run 29694473932)いずれも`completed success`を`gh run list`で確認。
+- Pages実機確認: Playwright(npx cache経由でplaywrightパッケージを解決)で https://giwarb.github.io/othello-trainer/ を操作。モードカード「対局」→CPUの強さを「強い (depth12)」に変更→「黒番で開始」。`.move-eval-overlay__cell[title]`(初期局面の合法手4マスのみtitle属性を持つ)を取得したところ、4マスすべてが`title="黒番 評価値0"`・表示値"0"で完全一致。コンソールエラー0件。実装者報告と一致。
+- 総合判定: 合格。受け入れ基準8項目すべて満たされていることを確認した。
