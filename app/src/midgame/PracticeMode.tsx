@@ -24,6 +24,10 @@ import {
 import { loadJosekiDb } from '../joseki/lookup.ts'
 import type { JosekiDb } from '../joseki/types.ts'
 import {
+  loadMidgameMoveEvalOverlayEnabled,
+  saveMidgameMoveEvalOverlayEnabled,
+} from '../settings/moveEvalOverlaySettings.ts'
+import {
   loadReviewFilter,
   matchesReviewFilter,
   MIDGAME_REVIEW_FILTER_STORAGE_KEY,
@@ -142,10 +146,12 @@ const MIDGAME_FILTER_LABELS: Readonly<Record<ReviewFilter, string>> = {
  * ユーザー指示(2026-07-19朝)により、モード・相手の強さ・開始局面ソースの
  * 選択画面を廃止し、111ステージの一覧から選ぶだけの構成へ全面改訂した。
  * 1ステージにつき: プレイヤーが3手打ち、そのたびに相手(エンジン)が最善応手を
- * 返す(3往復)。評価値(候補手評価オーバーレイ・評価バー)は対局モード(T138)と
- * 同じ部品で常時表示する。3往復後(または途中終局時)の評価値ロスに応じて
- * ★0〜3を判定する(`stageStarJudge.ts`)。詳細は`tasks/T141-midgame-stage-stars.md`
- * 参照。
+ * 返す(3往復)。評価バーは対局モード(T138)と同じ部品で常時表示する。候補手
+ * 評価オーバーレイは既定ONで表示するが、「候補手評価を表示」トグル(T142)で
+ * OFFにでき、その場合も判定(★算出)・相手応手はオーバーレイ非表示と無関係に
+ * 裏で正常に動作する(表示だけの切り替え、要件2)。3往復後(または途中終局時)の
+ * 評価値ロスに応じて★0〜3を判定する(`stageStarJudge.ts`)。詳細は
+ * `tasks/T141-midgame-stage-stars.md`・`tasks/T142-midgame-eval-toggle.md`参照。
  *
  * 旧実装(T021〜T130)の判定モード(厳格/標準/逆転禁止)・相手の強さ選択・
  * 開始局面ソース選択・毎手ごとの合否判定(ゲート)は廃止した。`judgeMidgameMove.ts`
@@ -187,6 +193,14 @@ export function PracticeMode() {
 
   const [classifyThresholds] = useState<ClassifyThresholds>(() => loadClassifyThresholds(localStorage))
   const [overlayMoves, setOverlayMoves] = useState<MoveEvalJson[] | null>(null)
+  /**
+   * 候補手評価オーバーレイの表示ON/OFF(T142)。既定ON(要件1)。
+   * 判定(★算出)・相手応手・評価バーはこのON/OFFと無関係に常時動作する
+   * (要件2、`overlayMoves`・`evalBarValue`はこのstateと独立して更新され続ける)。
+   */
+  const [moveEvalOverlayEnabled, setMoveEvalOverlayEnabled] = useState<boolean>(() =>
+    loadMidgameMoveEvalOverlayEnabled(localStorage),
+  )
 
   /** セッション開始時点(1手目を打つ前)の評価値、プレイヤー視点(★判定の基準、要件4)。 */
   const startEvalRef = useRef<number | null>(null)
@@ -420,8 +434,11 @@ export function PracticeMode() {
     // eslint-disable-next-line
   }, [phase, session])
 
-  // 候補手評価オーバーレイ+評価バー(要件3: 常時表示)。プレイヤーの手番になった
-  // 時点で現局面(着手前)の全合法手評価をまとめて取得する(T078踏襲)。
+  // 候補手評価オーバーレイ+評価バー用のデータ取得(要件3: 評価バーは常時表示)。
+  // `moveEvalOverlayEnabled`(T142)がOFFでもここでの取得自体は止めない
+  // (判定(★算出)がこの`getAnalyzedMoves`キャッシュに依存するため、表示だけを
+  // `MoveEvalOverlay`側の`visible`で止める)。プレイヤーの手番になった時点で
+  // 現局面(着手前)の全合法手評価をまとめて取得する(T078踏襲)。
   useEffect(() => {
     if (phase !== 'playing' || !session || session.sideToMove !== session.humanSide) {
       setOverlayMoves(null)
@@ -603,6 +620,12 @@ export function PracticeMode() {
   function handleReviewFilterChange(filter: ReviewFilter): void {
     setReviewFilter(filter)
     saveReviewFilter(localStorage, MIDGAME_REVIEW_FILTER_STORAGE_KEY, filter)
+  }
+
+  /** 候補手評価オーバーレイの表示ON/OFFを切り替える(T142要件1)。表示だけの切り替えで判定・応手には影響しない。 */
+  function handleToggleMoveEvalOverlay(enabled: boolean): void {
+    setMoveEvalOverlayEnabled(enabled)
+    saveMidgameMoveEvalOverlayEnabled(localStorage, enabled)
   }
 
   /**
@@ -792,7 +815,12 @@ export function PracticeMode() {
               lastMove={session.lastMove}
               onMove={(square) => void handlePlayerMove(square)}
             />
-            <MoveEvalOverlay allMoves={overlayMoves} mover={session.sideToMove} thresholds={classifyThresholds} visible={true} />
+            <MoveEvalOverlay
+              allMoves={overlayMoves}
+              mover={session.sideToMove}
+              thresholds={classifyThresholds}
+              visible={moveEvalOverlayEnabled}
+            />
           </div>
 
           <div class="midgame-practice__side">
@@ -805,6 +833,15 @@ export function PracticeMode() {
                 <EvalBar discDiff={evalBarValue} />
               </div>
             )}
+
+            <label class="move-eval-overlay-toggle">
+              <input
+                type="checkbox"
+                checked={moveEvalOverlayEnabled}
+                onChange={(event) => handleToggleMoveEvalOverlay((event.target as HTMLInputElement).checked)}
+              />
+              候補手評価を表示
+            </label>
 
             <button type="button" class="midgame-practice__quit" onClick={goToStageSelect}>
               やめる
