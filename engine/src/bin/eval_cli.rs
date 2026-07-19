@@ -589,8 +589,7 @@ fn cmd_moves(args: &[String]) {
                 time_ms,
                 exact_from_empties,
             };
-            let mut tt = TranspositionTable::new(16);
-            let evals = search::search_all_moves_with_eval(&b, side, &limit, &mut tt, Some(w));
+            let evals = search::search_all_moves_with_eval(&b, side, &limit, Some(w));
             let moves: Vec<Value> = evals
                 .iter()
                 .map(|e| {

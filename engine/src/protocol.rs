@@ -257,7 +257,12 @@ pub fn handle_analyze(request_json: &str, tt: &mut TranspositionTable, weights: 
     // フィールドに含めて返す。既存の `analyze`(`allMoves` 省略/false)は
     // この分岐に入らず、従来どおりの応答を返す(後方互換性の維持)。
     if request.all_moves {
-        let evals = search_all_moves_with_eval(&board, side, &limit, tt, weights);
+        // T139: `search_all_moves_with_eval`はもう呼び出し元のTT(`tt`、
+        // 対局CPU着手の探索と共有される`Engine::analyze`のTT)を読み書き
+        // しない(関数内で完結するローカルTTを使う)。この分岐でも`tt`を
+        // 渡さなくなったことで、表示用のこの経路が対局用のTTを汚す経路が
+        // なくなった(詳細はsearch.rsの関数docコメント参照)。
+        let evals = search_all_moves_with_eval(&board, side, &limit, weights);
 
         let moves: Vec<MoveEvalJson> = evals
             .iter()
@@ -773,6 +778,19 @@ mod tests {
         assert!(response.get("final").is_none());
     }
 
+    /// T139関連の確認: CPU着手経路(`cpuLimit`、`maxNodes`指定)の探索は、
+    /// 途中に挟まる無関係な`allMoves: true`リクエスト(表示用analyzeAll、
+    /// `search_all_moves_with_eval`経由)の影響を一切受けない。
+    ///
+    /// T139以前から、`max_nodes.is_some()`分岐は呼び出しのたびに`tt.clear()`
+    /// してから探索する実装だったため(このテスト自体もT139より前から
+    /// 存在する)、この不変性は元々成立していた。T139では
+    /// `search_all_moves_with_eval`が呼び出し元の`tt`(=`Engine`が保持し、
+    /// この`maxNodes`分岐とも共有される置換表)を一切読み書きしなくなった
+    /// ため、この不変性がより強く(=`tt.clear()`の有無に関わらず)保証される
+    /// ようになった。このテストがT139適用後も変更なしに通ることが、
+    /// 「表示経路の変更がCPU着手探索(ノード数・選択手)に一切影響しない」
+    /// ことの直接的な回帰確認になる。
     #[test]
     fn node_limited_protocol_requests_are_deterministic() {
         const SMOKE_01_BLACK: &str = "0x1030100004080000";
@@ -811,5 +829,67 @@ mod tests {
             assert_eq!(response["depth"], first["depth"]);
             assert_eq!(response["nodes"], first["nodes"]);
         }
+    }
+
+    /// T139関連の確認: `maxNodes`を指定しないCPU着手経路(`app.tsx`の
+    /// `weak`/`normal`レベル、および`strong`レベルの空き20以下の終盤区間が
+    /// 使う`ENDGAME_UNLIMITED_LIMIT`。いずれも`search_with_eval`経由で、
+    /// `max_nodes.is_some()`分岐のような呼び出し前`tt.clear()`は行わない)も、
+    /// 途中に挟まる無関係な`allMoves: true`リクエストの影響を受けないことを
+    /// 確認する。
+    ///
+    /// この経路は`node_limited_protocol_requests_are_deterministic`と異なり、
+    /// T139以前は呼び出し前の`tt.clear()`という safety net が無かったため、
+    /// `search_all_moves_with_eval`が呼び出し元の`Engine`の共有TTを読み書き
+    /// していた旧実装のままだと、この経路の探索結果(ノード数・最善手)が
+    /// 直前のanalyzeAll呼び出しの有無・順序に依存しうる、より脆弱な経路
+    /// だった。T139で`search_all_moves_with_eval`が呼び出し元のTTを一切
+    /// 読み書きしなくなったことで、この経路もTT状態から完全に独立する。
+    ///
+    /// 注意: この経路は`maxNodes`分岐と異なり呼び出し前に`tt.clear()`を
+    /// 行わないため、同一リクエストを繰り返すだけでも(前回の探索が
+    /// 残したTTエントリのおかげで)2回目以降はノード数が減る、という
+    /// **意図した**挙動がある(これはバグではない)。そのためこのテストは
+    /// 「1回目」との比較ではなく、「2回目(間に無関係な呼び出しを挟まない)」
+    /// と「4回目(間にallMovesを挟む)」を比較する。両者とも直前の1回目が
+    /// 残したTT状態を引き継ぐ点は同じであり、間に挟むallMovesの有無だけが
+    /// 差分になるため、この2つが完全一致することが「allMovesがこの経路に
+    /// 一切影響しない」ことの正しい確認になる。
+    #[test]
+    fn node_unlimited_protocol_requests_are_deterministic_even_without_a_pre_clear() {
+        const SMOKE_01_BLACK: &str = "0x1030100004080000";
+        const SMOKE_01_WHITE: &str = "0x0000241C18100000";
+        let request = format!(
+            r#"{{"id":36,"cmd":"analyze","board":{{"black":"{SMOKE_01_BLACK}","white":"{SMOKE_01_WHITE}","turn":"black"}},"limit":{{"depth":8,"exactFromEmpties":12}}}}"#
+        );
+        let unrelated_request = format!(
+            r#"{{"id":37,"cmd":"analyze","board":{{"black":"{INITIAL_BLACK}","white":"{INITIAL_WHITE}","turn":"black"}},"limit":{{"depth":6,"timeMs":100,"exactFromEmpties":10}},"allMoves":true}}"#
+        );
+        let weights = include_bytes!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../train/weights/pattern_v2.bin"
+        ));
+        let mut engine = Engine::new();
+        engine
+            .load_pattern_weights(weights)
+            .expect("production pattern weights should load");
+
+        let _first: serde_json::Value = serde_json::from_str(&engine.analyze(&request)).unwrap();
+        let second: serde_json::Value = serde_json::from_str(&engine.analyze(&request)).unwrap();
+        let unrelated: serde_json::Value =
+            serde_json::from_str(&engine.analyze(&unrelated_request)).unwrap();
+        let after_unrelated: serde_json::Value =
+            serde_json::from_str(&engine.analyze(&request)).unwrap();
+
+        assert!(_first.get("error").is_none());
+        assert!(unrelated.get("error").is_none());
+        assert!(second.get("error").is_none());
+        assert_eq!(after_unrelated["pv"][0], second["pv"][0]);
+        assert_eq!(after_unrelated["score"], second["score"]);
+        assert_eq!(after_unrelated["depth"], second["depth"]);
+        assert_eq!(
+            after_unrelated["nodes"], second["nodes"],
+            "an intervening allMoves:true request must not change this path's node count at all"
+        );
     }
 }

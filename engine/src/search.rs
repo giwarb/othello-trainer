@@ -1035,9 +1035,8 @@ pub fn search_all_moves(
     board: &Board,
     side_to_move: Side,
     limit: &SearchLimit,
-    tt: &mut TranspositionTable,
 ) -> Vec<MoveEval> {
-    search_all_moves_with_eval(board, side_to_move, limit, tt, None)
+    search_all_moves_with_eval(board, side_to_move, limit, None)
 }
 
 /// [`search_all_moves_with_eval`] が、まだ評価していない1つの合法手に
@@ -1061,23 +1060,40 @@ fn fair_share_time_ms(total_time_ms: u64, elapsed_ms: u64, moves_left: usize) ->
     remaining_ms / moves_left
 }
 
+/// [`search_all_moves_with_eval`]が各合法手の探索に使う、この関数呼び出し
+/// 専用のローカル置換表のサイズ(MB)。`eval_cli`が単発の`search_all_moves_with_eval`
+/// 呼び出し用に使ってきた既存の慣例値(`eval_cli.rs`の`cmd_moves`参照)に揃える。
+const ANALYZE_ALL_LOCAL_TT_MB: usize = 16;
+
 /// [`search_all_moves`]と同じだが、`weights`が`Some`ならT043のパターン評価を
 /// 静的評価に使う(`None`なら[`search_all_moves`]と全く同じ挙動)。
+///
+/// # T139: 置換表は呼び出し元と共有しない(手ごとに独立)
+/// 以前は呼び出し元(`Engine::analyze`が保持する共有TT)をそのまま
+/// 全合法手・全反復深化ステップを通じて使い回していた。この設計には
+/// 2つの問題があった(T138調査、T139):
+///
+/// 1. 先に評価した合法手が置換表に残したエントリが、後で評価する合法手の
+///    MPC近似枝刈り判断に混入し、対称局面(初手d3/c4/f5/e6等)で評価値が
+///    最大1石ズレる(=どの順番で4手を評価するかに結果が依存してしまう)。
+/// 2. 表示専用のこの関数の探索が、対局用の共有TT(`Engine::analyze`の
+///    もう一方の分岐、CPU着手の探索が使う)を汚してしまう。
+///
+/// 対応として、この関数は**呼び出し元のTTを一切読み書きしない**。
+/// 各合法手ごとに、この関数内だけで完結するローカルTTを新規に用意して
+/// 使う(`local_tt.clear()`で完全にリセットしてから探索するため、前の
+/// 合法手が残したエントリは一切引き継がない)。ただし同一の合法手の
+/// 反復深化(depth 1..=max_depth)の間はこのローカルTTを使い回す
+/// (iterative deepeningの高速化のため。手をまたいでは共有しない)。
+/// この結果、呼び出し元のTTの状態(空かどうか・何が入っているか)に
+/// 一切依存せず、常に同じ入力に対して同じ結果を返すようになる
+/// (受け入れ基準: 事前にTTを汚す先行探索を挟んでも結果が変わらない)。
 pub fn search_all_moves_with_eval(
     board: &Board,
     side_to_move: Side,
     limit: &SearchLimit,
-    tt: &mut TranspositionTable,
     weights: Option<&PatternWeights>,
 ) -> Vec<MoveEval> {
-    // TTスケール混同防止(T007と同じロジック。search()参照)。
-    if let Some(prev) = tt.last_exact_from_empties() {
-        if prev != limit.exact_from_empties {
-            tt.clear();
-        }
-    }
-    tt.set_last_exact_from_empties(limit.exact_from_empties);
-
     let legal = board.legal_moves(side_to_move);
     let mut moves: Vec<u8> = Vec::with_capacity(legal.count_ones() as usize);
     let mut remaining = legal;
@@ -1115,7 +1131,15 @@ pub fn search_all_moves_with_eval(
     // (全合法手の持ち分の合計は常に元の `time_ms` 以下に収まる)。
     let start = Instant::now();
 
+    // T139: 呼び出し元のTTとは独立な、この関数専用のローカルTT。各合法手の
+    // 評価直前に`clear()`して完全にリセットするため、手をまたいだ
+    // エントリの持ち越しは起きない(関数doc参照)。
+    let mut local_tt = TranspositionTable::new(ANALYZE_ALL_LOCAL_TT_MB);
+
     for (i, mv) in moves.into_iter().enumerate() {
+        local_tt.clear();
+        local_tt.set_last_exact_from_empties(limit.exact_from_empties);
+
         let next_board = board.apply_move(side_to_move, 1u64 << mv);
         let next_empties = next_board.empty_count();
 
@@ -1156,13 +1180,14 @@ pub fn search_all_moves_with_eval(
                         start: move_start,
                         time_ms,
                     };
-                    match solve_exact_bounded(&next_board, opponent, tt, budget) {
+                    match solve_exact_bounded(&next_board, opponent, &mut local_tt, budget) {
                         Some(raw_diff) => (-(raw_diff * 100), true),
                         None => (-static_eval(&next_board, opponent, weights), false),
                     }
                 }
                 None => {
-                    let (raw_diff, _nodes) = solve_exact_with_nodes(&next_board, opponent, tt);
+                    let (raw_diff, _nodes) =
+                        solve_exact_with_nodes(&next_board, opponent, &mut local_tt);
                     (-(raw_diff * 100), true)
                 }
             }
@@ -1182,7 +1207,7 @@ pub fn search_all_moves_with_eval(
                 let candidate = {
                     let mut ctx = SearchCtx {
                         limit: &per_move_limit,
-                        tt: &mut *tt,
+                        tt: &mut local_tt,
                         nodes: &mut nodes,
                         nodes_before: 0,
                         max_nodes: None,
@@ -2262,9 +2287,8 @@ mod tests {
     fn search_all_moves_from_initial_position_returns_all_four_opening_moves() {
         let board = Board::initial();
         let limit = default_limit(4, 10);
-        let mut tt = TranspositionTable::new(4);
 
-        let evals = search_all_moves(&board, Side::Black, &limit, &mut tt);
+        let evals = search_all_moves(&board, Side::Black, &limit);
 
         assert_eq!(
             evals.len(),
@@ -2285,6 +2309,76 @@ mod tests {
     }
 
     #[test]
+    fn search_all_moves_from_initial_position_gives_the_four_d4_symmetric_opening_moves_identical_scores(
+    ) {
+        // T139回帰テスト: 初期局面の4つの合法手(d3/c4/f5/e6)は互いにD4対称
+        // (盤面全体を90度回転すると initial position はそのまま自分自身に
+        // 写り、4つの初手は互いに写り合う)。以前は
+        // `search_all_moves_with_eval`が全合法手・全反復深化を通じて
+        // 単一の共有TTを使い回していたため、先に評価した手が残した
+        // エントリがMPC近似枝刈りの判断に混入し、最大1石のズレが生じ得た
+        // (T138調査)。T139対応(手ごとに独立したローカルTT)により、
+        // 4つの対称な初手はすべて完全に同じ評価値になるはず。
+        let board = Board::initial();
+        let limit = default_limit(10, 12);
+
+        let evals = search_all_moves(&board, Side::Black, &limit);
+        assert_eq!(evals.len(), 4);
+
+        let scores: std::collections::HashMap<String, i32> = evals
+            .iter()
+            .map(|e| (crate::protocol::square_to_notation(e.mv), e.score))
+            .collect();
+        let d3 = scores["d3"];
+        for mv in ["c4", "f5", "e6"] {
+            assert_eq!(
+                scores[mv], d3,
+                "opening move {mv} (score={}) should exactly match d3's score ({d3}); \
+                 all four opening moves are D4-symmetric to each other",
+                scores[mv]
+            );
+        }
+    }
+
+    #[test]
+    fn search_all_moves_is_deterministic_across_repeated_calls_even_with_a_prewarmed_local_state()
+    {
+        // T139回帰テスト: `search_all_moves`はもう呼び出し元のTTを共有しない
+        // ため、同一局面に対して呼ぶたびに完全に同じ結果が返るはず
+        // (TT状態に依存しない)。この関数はもはやTTを引数に取らないため、
+        // 「事前にTTを汚す先行探索を挟む」ことを、時間予算なし・
+        // 十分な深さの先行`search_all_moves`呼び出し(=TTを大量に使う
+        // 重い探索)を先に走らせることで再現する。
+        let board = Board::initial();
+        let limit = default_limit(10, 12);
+
+        // 事前に(無関係の局面も含め)重い探索を走らせ、もし何らかの
+        // グローバル/共有状態が残っていれば結果が乱れるはずの状況を作る。
+        let (warmup_board, warmup_side) = play_until_empties(6, first_move_strategy);
+        let _ = search_all_moves(&warmup_board, warmup_side, &default_limit(10, 12));
+        let _ = search_all_moves(&board, Side::Black, &limit);
+
+        let first = search_all_moves(&board, Side::Black, &limit);
+        let second = search_all_moves(&board, Side::Black, &limit);
+
+        assert_eq!(
+            first.len(),
+            second.len(),
+            "both calls should return the same number of legal moves"
+        );
+        for (a, b) in first.iter().zip(second.iter()) {
+            assert_eq!(a.mv, b.mv, "move order should be identical across repeated calls");
+            assert_eq!(
+                a.score, b.score,
+                "move {} score should be identical across repeated calls regardless of prior \
+                 (unrelated) search activity",
+                a.mv
+            );
+            assert_eq!(a.is_exact, b.is_exact);
+        }
+    }
+
+    #[test]
     fn search_all_moves_max_score_matches_search_best_score() {
         // 整合性チェック: search_all_moves() が返す評価値の最大値は、
         // 同じ局面・同じ limit で search() (単一最善手API) が返す評価値と
@@ -2292,8 +2386,7 @@ mod tests {
         let board = Board::initial();
         let limit = default_limit(4, 10);
 
-        let mut tt_all = TranspositionTable::new(4);
-        let evals = search_all_moves(&board, Side::Black, &limit, &mut tt_all);
+        let evals = search_all_moves(&board, Side::Black, &limit);
         let max_score = evals
             .iter()
             .map(|e| e.score)
@@ -2323,8 +2416,7 @@ mod tests {
         let exact_threshold = (empties_before - 1) as u8;
         let limit = default_limit(20, exact_threshold);
 
-        let mut tt = TranspositionTable::new(4);
-        let evals = search_all_moves(&board, side, &limit, &mut tt);
+        let evals = search_all_moves(&board, side, &limit);
         assert!(!evals.is_empty());
 
         for eval in &evals {
@@ -2375,8 +2467,7 @@ mod tests {
         );
 
         let limit = default_limit(20, exact_threshold);
-        let mut tt = TranspositionTable::new(4);
-        let evals = search_all_moves(&board, side, &limit, &mut tt);
+        let evals = search_all_moves(&board, side, &limit);
 
         assert!(!evals.is_empty());
         for eval in &evals {
@@ -2396,9 +2487,8 @@ mod tests {
         // `is_exact == false` になることを確認する。
         let board = Board::initial();
         let limit = default_limit(4, 10);
-        let mut tt = TranspositionTable::new(4);
 
-        let evals = search_all_moves(&board, Side::Black, &limit, &mut tt);
+        let evals = search_all_moves(&board, Side::Black, &limit);
         assert!(!evals.is_empty());
         for eval in &evals {
             assert!(
@@ -2426,10 +2516,8 @@ mod tests {
             time_ms: Some(50),
             exact_from_empties: 10,
         };
-        let mut tt = TranspositionTable::new(64);
-
         let start = std::time::Instant::now();
-        let evals = search_all_moves(&board, Side::Black, &limit, &mut tt);
+        let evals = search_all_moves(&board, Side::Black, &limit);
         let elapsed = start.elapsed();
 
         println!("search_all_moves with time_ms=50 finished in {elapsed:?}");
@@ -2554,10 +2642,8 @@ mod tests {
             time_ms: Some(1000),
             exact_from_empties: 24,
         };
-        let mut tt = TranspositionTable::new(64);
-
         let start = std::time::Instant::now();
-        let evals = search_all_moves(&board, Side::Black, &limit, &mut tt);
+        let evals = search_all_moves(&board, Side::Black, &limit);
         let elapsed = start.elapsed();
         println!("T076 repro finished in {elapsed:?}");
 
@@ -2601,8 +2687,7 @@ mod tests {
         assert_eq!(board.legal_moves(Side::White), 0);
 
         let limit = default_limit(4, 0);
-        let mut tt = TranspositionTable::new(4);
-        let evals = search_all_moves(&board, Side::White, &limit, &mut tt);
+        let evals = search_all_moves(&board, Side::White, &limit);
 
         assert!(evals.is_empty());
     }
@@ -3001,9 +3086,7 @@ mod tests {
                     // 見なさない。検証できなければ本物の不一致として扱う。
                     match (result_on.best_move, result_off.best_move) {
                         (Some(mv_on), Some(mv_off)) => {
-                            let mut tt_ground_truth = TranspositionTable::new(4);
-                            let evals =
-                                search_all_moves(board, *side, &limit, &mut tt_ground_truth);
+                            let evals = search_all_moves(board, *side, &limit);
                             let score_of =
                                 |mv: u8| evals.iter().find(|e| e.mv == mv).map(|e| e.score);
                             let (score_on, score_off) = (score_of(mv_on), score_of(mv_off));
@@ -3127,10 +3210,8 @@ mod tests {
         let weights = make_pattern_weights_with_extreme_values(1000.0);
         let board = Board::initial();
         let limit = default_limit(2, 24);
-        let mut tt = TranspositionTable::new(4);
 
-        let evals =
-            search_all_moves_with_eval(&board, Side::Black, &limit, &mut tt, Some(&weights));
+        let evals = search_all_moves_with_eval(&board, Side::Black, &limit, Some(&weights));
 
         assert!(!evals.is_empty());
         for eval in &evals {

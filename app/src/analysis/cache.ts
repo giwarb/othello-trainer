@@ -65,8 +65,17 @@ function defaultIndexedDb(): IDBFactory {
  *
  * T122: 本番パターン重みをv2からv3へ切り替え、同一局面・同一探索条件でも
  * 評価値が変わるため、古い解析結果を無効化する(3 -> 4)。
+ *
+ * T139: `search_all_moves_with_eval`(候補手評価=analyzeAllが使う探索経路)
+ * が呼び出し元の置換表(TT)を全合法手・全反復深化ステップを通じて使い回して
+ * いたため、対称局面(初手d3/c4/f5/e6等)で先に評価した手が残したTTエントリが
+ * 後続の手のMPC近似枝刈り判断に混入し、評価値が最大1石ズレることがあった
+ * (T138調査で機構を特定)。T139でこの経路を呼び出し元のTTから完全に独立
+ * (手ごとに専用のローカルTTを使用)させ、順序に依存しない決定的な値を返す
+ * よう修正した。同一局面・同一探索条件でも返る評価値が変わりうるため、
+ * 古い解析結果を無効化する(4 -> 5)。
  */
-export const ANALYSIS_ENGINE_VERSION = 4
+export const ANALYSIS_ENGINE_VERSION = 5
 
 /** 探索条件をキャッシュキー用の安定したタグへ変換する。 */
 export function analysisLimitTag(limit: AnalyzeLimit): string {

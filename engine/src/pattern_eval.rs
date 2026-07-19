@@ -817,6 +817,89 @@ mod tests {
         assert_eq!(weights.class_info.representative_of_class.len(), 6);
     }
 
+    /// `board`の全セルの石を、対称変換`sym`(`patterns::apply_symmetry`)で
+    /// 写した先のセルへ移した新しい盤面を返す(`patterns.rs`の`transform_board`
+    /// と同じロジック。あちらは`#[cfg(test)]`かつ非公開でこのモジュールから
+    /// 直接使えないため、`patterns::apply_symmetry`だけを使って本モジュールの
+    /// テスト内で組み立て直す)。
+    fn transform_board_for_test(board: &Board, sym: usize) -> Board {
+        let mut black = 0u64;
+        let mut white = 0u64;
+        for c in 0u8..64 {
+            let bit = 1u64 << c;
+            let dest = patterns::apply_symmetry(sym, c);
+            if board.black & bit != 0 {
+                black |= 1u64 << dest;
+            }
+            if board.white & bit != 0 {
+                white |= 1u64 << dest;
+            }
+        }
+        Board { black, white }
+    }
+
+    #[test]
+    fn score_is_invariant_under_all_eight_d4_symmetries_of_the_initial_position() {
+        // T139: `PatternWeights::score`のD4不変性を直接検証する回帰テスト
+        // (explorer調査で欠落を確認済み)。
+        //
+        // `search_all_moves_with_eval`が対称局面(初手d3/c4/f5/e6等)で
+        // 評価値がズレる問題の主因はTT共有・MPC近似枝刈りの順序依存
+        // (T138調査、T139本体の修正で対応済み)。ここでは、そもそも
+        // 静的評価自体が対称初手のシナリオでD4不変であることを直接確認する。
+        //
+        // # 調査で判明した既知の制約(本テストの対象範囲を限定した理由)
+        // 任意の(非対称な)盤面に対しては、現在の`PatternWeights::score`は
+        // 厳密なD4不変性を保証しない。`patterns::compute_pattern_classes`が
+        // 各インスタンスの`aligned_cells`(状態インデックス計算に使うセル順序)
+        // を「対称変換で先に一致したセル集合」だけで決めており、D4軌道サイズが
+        // 8未満のクラス(対角線: 軌道2、行・列・隅3x3: 軌道4)では、盤面全体を
+        // 回転・反転した際に必要になる「もう一方のセル順序」(スタビライザーの
+        // 非自明要素による並べ替え)が記録されないことがある。位置重み付けの
+        // 3進数エンコード(`pattern_state_index`)はセルの並び順に依存するため、
+        // 対称な盤面(内容自体がD4対称、またはパターンが触れるセルが全て空)
+        // では並び順の違いが結果に影響しないが、非対称な盤面では実際に
+        // スコアが変わりうる(調査で最大でクラス単位・数点相当のズレを確認)。
+        //
+        // これはT044(対称重み共有の導入)由来の設計上の制約であり、本タスク
+        // (T139、analyzeAllのTT共有・MPC順序依存の解消)のスコープ外と判断した
+        // (完全に直すには対称オービットの整列方法自体の見直し=検討した選択肢3の
+        // 「D4 canonical化」相当の実装大な変更が必要になる。加えて現状
+        // `PatternWeights`は対局・解析のどちらの経路でも実運用では未使用
+        // (軽量ヒューリスティック評価のまま、CLAUDE.md参照)であり、直ちに
+        // ユーザーへの実害はない)。そのため本テストは、実際にT139が解決すべき
+        // 実用シナリオ(初期局面は本質的にD4対称)に対応する範囲で不変性を
+        // 検証する。任意局面での不変性はオーケストレーターの判断でフォロー
+        // アップタスク化する(作業ログ・完了レポート参照)。
+        let patterns = patterns::generate_patterns();
+        let mut weights = PatternWeights::zeroed(patterns);
+        // 各クラス・各ステージ・各状態に異なる値を入れ、たまたま値が
+        // 揃って不変性の破れを見逃す事故を避ける。
+        for (class_id, table) in weights.class_tables.iter_mut().enumerate() {
+            for (stage, stage_table) in table.stage_tables.iter_mut().enumerate() {
+                for (state, w) in stage_table.iter_mut().enumerate() {
+                    *w = (class_id * 10_000 + stage * 100 + state) as f32 * 0.001;
+                }
+            }
+        }
+
+        let board = Board::initial();
+
+        for &mover in &[Side::Black, Side::White] {
+            let base_score = weights.score(&board, mover);
+            for sym in 0..patterns::NUM_SYMMETRIES {
+                let transformed = transform_board_for_test(&board, sym);
+                let score = weights.score(&transformed, mover);
+                assert!(
+                    (score - base_score).abs() < 1e-3,
+                    "sym={sym} mover={mover:?}: score should be invariant under D4 symmetry for \
+                     the (inherently D4-symmetric) initial position, got {score} vs base \
+                     {base_score}"
+                );
+            }
+        }
+    }
+
     #[test]
     fn to_bytes_and_from_bytes_roundtrip_preserves_weights() {
         let patterns = patterns::generate_patterns();

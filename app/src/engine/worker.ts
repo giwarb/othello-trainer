@@ -30,6 +30,11 @@ let readyPromise: Promise<void> | undefined;
 // 静的アセットとして配置し、`import.meta.env.BASE_URL`(GitHub Pagesの
 // サブパス配信 `vite.config.ts` 参照)を前置してfetchする。
 // v2へ切り戻す場合は、ファイル名を`pattern_v2.bin`へ戻すだけでよい。
+// **ただし、ここを変更する(v2/v3を切り替える)たびに、
+// `analysis/cache.ts`の`ANALYSIS_ENGINE_VERSION`も必ず1つ上げること**
+// (T122申し送り事項、T139で追記。評価値が変わるのにキャッシュキーが
+// 変わらないと、古いバージョンで解析した結果がヒットし続け、新しい重みでの
+// 再解析が行われない。詳細は`cache.ts`のT060コメント参照)。
 const PATTERN_WEIGHTS_URL = `${import.meta.env.BASE_URL}pattern_v3.bin`;
 
 /**
