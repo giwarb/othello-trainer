@@ -98,3 +98,18 @@ T127b/cで生成・検証済みの100万件教師コーパスを使い、**v4特
 - **成果物**: `bench/edax-compare/t127d_v4_1m_training.meta.json`、`bench/edax-compare/t127d_v4_1m_training_report.md`を新規作成(この2ファイルのみコミット対象)。重み・checkpoint・oracle生JSON・スクラッチ実験は`train/data/t127d/`(gitignore領域)。`bench/edax-compare/`の既存pyファイル群・corpus_expanded1m.meta.jsonは変更していない(T143が並行してコミット済み、コンフリクトなしを`git status --short`で確認)。
 - **採否判定・対局ゲート・本番配線は本タスクのスコープ外**(T127e、design report §7の閾値との対比を客観情報として記載のみ)。
 - **オーケストレーターへの申し送り**: 実測1M regret=1.9は設計レポートの「打ち切り」基準(>1.70)域に該当する客観的事実。T127e(4M投資判定)ではこの数値と500k→1Mの傾き悪化・K=4密度変化の懸念(design report §3.9)を踏まえた判断が必要。
+
+### 2026-07-20 00:5x JST done後の追加実験2点(オーケストレーター指示、T127e判断材料)完了
+
+- **前提確認**: T127dはverifier・codex-review両合格でdone済み(status行に記載済み)。追加実験開始前に`git status --short`を確認し、`tasks/T127d-*.md`(本ファイル)以外に自分由来の未追跡・差分がないことを確認してから着手。
+- **①180kサブセット判別実験**: `target/release/train_distillation.exe --corpus train/data/teacher/corpus_expanded1m.jsonl --checkpoint-dir train/data/t127d/expanded1m-v4-180k-probe --mixes teacher-only --seeds 1 --pattern-set v4 --reference-weights train/weights/pattern_v2.bin --jobs 1 --train-subset-size 180000`(subset-seed既定42、本タスクの1M runと同一構成)。実train=179,969(validation/frozen=既存run共通の49,278/51,255)、patience停止best/completed epoch=32/32。
+  - oracle評価(compare_pattern_v3.py、T096 60局面): v2=1.5666666666666667(**M2ガードPASS**)、candidate regret=**4.0000**、v2差+2.4333、95%CI[1.0000,4.0000]、candidate_worse。
+  - **事前登録判定**: 「≈2.77なら純粋逓減、>3.0なら K密度説」に対し、実測4.0000は3.0を明確に超過 → **K密度説を支持**。
+  - T126のK=1系180k点(regret 2.7667、`train/data/t126/oracle/distill-180k-seed-1.json`が現存)と同一60局面IDで直接paired比較: 差分(K4-K1)=+1.2333、95%CI[-0.2667,2.8333]、no_significant_difference(点推定はK密度説を支持するが、60局面のみでは統計的有意性までは確立できず)。両runのeval_cliビルドが異なる(T126:6ba26dc5.../本セッション:e874bb4c...)点は限定条件として明記(いずれもv2=1.5666666666666667を完全再現しスコアリング挙動自体の一貫性は確認済み)。
+- **②絶対regretのbootstrap CI**: 追加学習・追加Edax呼び出しなしで、既存oracle生JSON(`train/data/t127d/oracle/1m-seed-1.json`、`500k-bridge-seed-1.json`)から位置レベルpercentile bootstrap(seed=96002、100,000サンプル、compare_pattern_v3.pyと同じ規約)で絶対平均regretのCIを算出。
+  - 1M(seed1代表、seed2/3は局面別regretが完全一致するため同一CI): 平均1.9000、95%CI[1.0333,2.9000]。
+  - 500k bridge: 平均2.4000、95%CI[1.4667,3.4333]。
+  - 参考: v2平均1.5667、95%CI[0.9333,2.2333]。
+  - **解釈**: 1M・500kいずれも95%CIが打ち切り閾値1.70をまたぐ(v2自身のCIともまたぐ)ため、「1.9>1.70」は点推定としては事実だが、60局面のみでは統計的に鋭い超過とは言えない。
+- **成果物**: 上記2点の数値・解釈を`bench/edax-compare/t127d_v4_1m_training_report.md`の追補セクション(「Addendum: two cheap follow-up experiments for T127e」)と`t127d_v4_1m_training.meta.json`の`"addendum"`キーに追記。新規学習(180k probe)・新規oracle JSON(`train/data/t127d/oracle/180k-probe-seed-1.json`)は`train/data/t127d/`(gitignore領域)。`train/src`・`bench/edax-compare/*.py`は無変更。
+- **コミット**: `bench/edax-compare/t127d_v4_1m_training.meta.json`と`_report.md`の2ファイルのみパス指定でadd・commit・push(`tasks/`はコミット対象外、本作業ログ追記のみ)。
