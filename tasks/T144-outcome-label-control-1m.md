@@ -52,3 +52,19 @@ attempts: 0
 ## 作業ログ
 
 (ワーカーが節目ごとに追記)
+
+### 2026-07-20 01:4x JST 完了
+
+- **前提確認**: 開始時`git status --short`は空(train/src変更含む)。T127dのteacher-only@1M(899,467件、regret=1.900、3seed完全一致)を`bench/edax-compare/t127d_v4_1m_training.meta.json`から参照。
+- **カバレッジ計測**: 既存`outcome_matched_train`manifestフィールドで、corpus_expanded1mのtrain split(899,467)中、WTHOR outcome一致件数=**220,450件(24.51%、欠落75.49%)**。閾値2%を大幅に超過したため要件2の等実効集合対照を実施(必須)。T112当時(45k、欠落約19.8%)より欠落率が大幅に高い(コーパスの年範囲2000-2024 vs outcome参照表2015-2023の非重複が一因と推定、断定はせず)。
+- **軽微なトレーナー追加**: `train/src/t090_distillation.rs`に値なしフラグ`--outcome-matched-only`を追加(train splitをoutcome一致レコードのみへ絞る、`--train-subset-size`より先に適用)。未指定時はmanifest/identity/挙動とも既存と完全不変(既存の一貫した設計方針を踏襲)。新規関数`filter_outcome_matched`+ユニットテスト2件(順序保持・全件一致時no-op)。`cargo test -p train`: 58 passed(56既存+2新規)、0 failed。トレーナーの大規模改修ではなく軽微追加のみ(スコープ内)。
+- **学習**:
+  - outcome-only@1Mフル、v4、seed1/2/3、T127dの1M runと同一構成(--jobs 1、reference-weights pattern_v2.bin、train-subset-size無指定)。全train split(899,467)を対象にしたが、no-op機構により実効学習は220,450件相当。3seedとも60epoch上限未到達でpatience停止(best/completed epoch 16/17, 12/17, 14/16)。
+  - 等実効集合対照: teacher-only、seed1のみ、`--outcome-matched-only`指定(train=220,450に絞り込み確認済み)。best/completed epoch=27/27。
+- **oracle評価(T096 60局面、M2ガード)**: 全4回(outcome-only seed1/2/3、teacher-only対照)でv2=1.5666666666666667を完全再現、PASS。
+  - outcome-only: seed1=4.0333, seed2=3.8000, seed3=3.9000、3seed平均=**3.9111**、sample SD=0.1171。teacher-only@1M(1.900)とのpaired bootstrap(3seed局面平均): 差分+2.0111、95%CI[0.7222,3.4222]、outcome_worse(有意)。
+  - teacher-only対照(N=220,450): regret=**3.8333**。teacher-only@1M(N=899,467)との比較: 差分+1.9333、95%CI[0.6667,3.3333](有意にサンプル数減少分が悪化)。**outcome-only(同一N)との比較: 差分-0.0778、95%CI[-1.5667,1.3333]、no_significant_difference** — 同一Nでは両ラベルが統計的に区別できない。
+- **事前登録解釈への当てはめ**: outcome-only@1M=3.9111は「≦1.9程度」ではなく明確に悪い(T112の45k対照3.6-3.8と同水準)→ **ラベル問題説を棄却し、量説を採用**。さらに等N対照実験により、これが消去法ではなく直接的な確認的証拠であることを示した(同一220,450件でteacher-onlyもoutcome-onlyとほぼ同じ悪化を示す)。T127dのK=4密度説と併存しうる要因として報告(定量的な寄与分解は本タスクの範囲外)。
+- **eval_cliバイナリの注記**: 本タスクの4回のoracle計測は全て同一eval_cliビルド(SHA-256 e56092090e...)を使用(各oracle JSONのmetadata.evalCliSha256で確認)。T127dのteacher-only@1M参照値のビルド(e874bb4c...)とは異なる(セッション間でmainにT139等の変更が入り共有target/releaseが再ビルドされたため)が、両ビルドともv2=1.5666666666666667を完全再現しスコアリング挙動の一貫性を確認済み。
+- **成果物**: `bench/edax-compare/t144_outcome_label_control_1m.meta.json`、`bench/edax-compare/t144_outcome_label_control_1m_report.md`(新設)。`train/src/t090_distillation.rs`(フラグ追加)。学習重み・oracle生JSON・ログは`train/data/t144/`(gitignore領域)。`bench/edax-compare/`の既存pyファイル群(T143成果物)は変更していない。
+- **コミット**: `git add train/src/t090_distillation.rs bench/edax-compare/t144_outcome_label_control_1m.meta.json bench/edax-compare/t144_outcome_label_control_1m_report.md` → commit `bfae49a` → `git push origin main`(0d64f25..bfae49a)。完了時`git status --short`はクリーン(gitignore領域除く、tasks/本ファイルの作業ログ追記のみ未コミットで意図通り)。
