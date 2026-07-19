@@ -1,0 +1,164 @@
+{
+  "task": "T127d",
+  "generatedAt": "2026-07-20T00:20:00+09:00",
+  "provenance": {
+    "gitCommit": "4a0f8f71107bdf59b98e51dbf1e636ba7805cb30",
+    "gitTree": "8a1712eb33cb9a0ca858a0f383b22da65621eb29",
+    "oracleCorpusSha256": "eec09e7a3c194a71cbb60f25ce13e1887204bbbc4a9ba052cb19c61507786356",
+    "distillationCorpusPath": "train/data/teacher/corpus_expanded1m.jsonl",
+    "distillationCorpusSha256": "067a4e3a0076d39f793164c0b2168375a5a9d450cf1f7325ba0e4661e4741e86",
+    "v2WeightsSha256": "b916c29e4f84692610a65b75c1692132628de5ba2b27b71bf2e8b94426b76c2a",
+    "evalCliSha256": "e874bb4c434125a4a996ffebb24c8ffcce6f535b706d2eef3baa21f70ccd740a",
+    "edaxSha256": "aabb5ac7d3f9a872fc0e7388ab1eee1d23c687f76c28642122524dc318b322b1",
+    "edaxEvalSha256": "f8b2299612d9fa4414157e70e932636e33111c2602d0c2fc382a7d90ef21b792"
+  },
+  "corpusSplit": {
+    "note": "requirement 9: distinguish corpus record count (1,000,000) from actual trainer split counts. Split is a deterministic fnv1a(canonicalKey)%100 partition of corpus_expanded1m.jsonl: train0-89, validation90-94, frozen95-99. Identical across the bridge and full runs (same corpus, same hash).",
+    "corpusRecordCount": 1000000,
+    "fullTrainSamples": 899467,
+    "validationSamples": 49278,
+    "frozenSamples": 51255
+  },
+  "memoryStreamingDecision": {
+    "requirement": "trainer input streaming (only if needed)",
+    "decision": "not changed",
+    "reasoning": "load_corpus() still uses fs::read_to_string on the full 1.6GB JSONL followed by building Vec<DistillRecord>. Smoke tests loading the full corpus_expanded1m.jsonl completed in 21-43s across --train-subset-size 2000/500000 with max-epochs 1-60 on a 16GB-RAM/~8.5GB-free-at-start machine, with no OOM, no swapping, and no abnormal slowdown. train/src/t090_distillation.rs was left unchanged (no code diff in this task)."
+  },
+  "resumeVerification": {
+    "method": "scratch run train/data/t127d/resume-check (200k train subset, not part of the official curve), interrupted mid-epoch-7 by an out-of-band process termination after epoch-06.bin/.state were saved, then re-invoked with the identical command",
+    "result": "printed 'resume mix=teacher-only seed=1 epoch=6' and continued training to completion (exit code 0)",
+    "scratchDirRemoved": true
+  },
+  "trainingCommands": {
+    "bridge500kSeed1": "target/release/train_distillation.exe --corpus train/data/teacher/corpus_expanded1m.jsonl --checkpoint-dir train/data/t127d/expanded1m-v4-500k-bridge --mixes teacher-only --seeds 1 --pattern-set v4 --reference-weights train/weights/pattern_v2.bin --jobs 1 --train-subset-size 500000",
+    "oneMillionFullSeeds123": "target/release/train_distillation.exe --corpus train/data/teacher/corpus_expanded1m.jsonl --checkpoint-dir train/data/t127d/expanded1m-v4-1m --mixes teacher-only --seeds 1,2,3 --pattern-set v4 --reference-weights train/weights/pattern_v2.bin --jobs 1"
+  },
+  "results": {
+    "bridge500kSeed1": {
+      "trainSubsetSizeTarget": 500000,
+      "subsetSeed": 42,
+      "actualTrainSamples": 499974,
+      "validationSamples": 49278,
+      "frozenSamples": 51255,
+      "bestEpoch": 29,
+      "completedEpoch": 29,
+      "trainTeacherMae": 4.351038,
+      "validationLoss": 19.956412,
+      "validationTeacherMae": 6.661462,
+      "frozenAgreement": 0.402517,
+      "frozenMeanRegret": 5.967457,
+      "wthor2024Mae": 14.809149,
+      "weightsSha256": "e4be92b029abf218d790d599de3b814bc4e3f1d375791fbc707ff3cace4cf43b",
+      "oracle": {
+        "v2MeanRegret": 1.5666666666666667,
+        "m2GuardPass": true,
+        "candidateMeanRegret": 2.4,
+        "differenceFromV2": 0.8333333333333334,
+        "ci95": [-0.16666666666666666, 1.9333333333333333],
+        "classification": "no_significant_difference"
+      }
+    },
+    "oneMillionFull": {
+      "trainSubsetSizeTarget": "full (no --train-subset-size)",
+      "actualTrainSamples": 899467,
+      "validationSamples": 49278,
+      "frozenSamples": 51255,
+      "seeds": [
+        {
+          "seed": 1,
+          "bestEpoch": 31,
+          "completedEpoch": 31,
+          "trainTeacherMae": 4.593856,
+          "validationLoss": 18.460410,
+          "validationTeacherMae": 6.266283,
+          "frozenAgreement": 0.427197,
+          "frozenMeanRegret": 5.202985,
+          "wthor2024Mae": 14.538322,
+          "weightsSha256": "1d5b111e36402e16b4f68daf609d142f72bdab8897320d2a1235373e193eb69d",
+          "oracleRegret": 1.9,
+          "v2Difference": 0.3333333333333333,
+          "ci95": [-0.5666666666666667, 1.4]
+        },
+        {
+          "seed": 2,
+          "bestEpoch": 33,
+          "completedEpoch": 33,
+          "trainTeacherMae": 4.578552,
+          "validationLoss": 18.453075,
+          "validationTeacherMae": 6.265153,
+          "frozenAgreement": 0.427529,
+          "frozenMeanRegret": 5.188528,
+          "wthor2024Mae": 14.536250,
+          "weightsSha256": "2cc4fb9b3bb55bf8c888d939c6f688e5bc0136494022b3033d300b88c7efc975",
+          "oracleRegret": 1.9,
+          "v2Difference": 0.3333333333333333,
+          "ci95": [-0.5666666666666667, 1.4]
+        },
+        {
+          "seed": 3,
+          "bestEpoch": 33,
+          "completedEpoch": 36,
+          "trainTeacherMae": 4.537373,
+          "validationLoss": 18.435398,
+          "validationTeacherMae": 6.260505,
+          "frozenAgreement": 0.428387,
+          "frozenMeanRegret": 5.145683,
+          "wthor2024Mae": 14.532877,
+          "weightsSha256": "198315b263e7e2814e612bd4666be66c79ca37f65b651b7c6fda54a5282644b8",
+          "oracleRegret": 1.9,
+          "v2Difference": 0.3333333333333333,
+          "ci95": [-0.5666666666666667, 1.4]
+        }
+      ],
+      "v2MeanRegret": 1.5666666666666667,
+      "m2GuardPassAllThreeRuns": true,
+      "meanOracleRegret": 1.9,
+      "seedSampleSd": 0.0,
+      "seedNote": "All three seeds chose the identical engine move on all 60 oracle positions (verified by direct per-position move comparison), despite having distinct weight-file SHA-256 hashes and small differences in frozen_mean_regret (5.203/5.189/5.146). The zero seed-SD on this 60-position oracle reflects policy agreement on this specific test set, not weight-identical models."
+    }
+  },
+  "learningCurve": {
+    "points": [
+      {"source": "T126", "targetTrainSamples": 45000, "actualTrainSamples": 44965, "oracleRegret": 4.766666666666667},
+      {"source": "T126", "targetTrainSamples": 90000, "actualTrainSamples": 89966, "oracleRegret": 3.6333333333333333},
+      {"source": "T126", "targetTrainSamples": 180000, "actualTrainSamples": 179957, "oracleRegret": 2.7666666666666666},
+      {"source": "T127d", "targetTrainSamples": 500000, "actualTrainSamples": 499974, "oracleRegret": 2.4},
+      {"source": "T127d", "targetTrainSamples": "full (corpus_expanded1m)", "actualTrainSamples": 899467, "oracleRegret": 1.9}
+    ],
+    "refit5Point": {
+      "inverseSqrt": {"model": "regret = a + b/sqrt(N)", "a": 1.152386, "b": 753.719039, "fitR2": 0.987024, "oneMillion": 1.9061, "fourMillion": 1.5292},
+      "fittedPowerLaw": {"model": "regret = a * N^(-k), nonlinear least squares", "a": 124.8781, "exponent": 0.307550, "fitR2": 0.973350, "oneMillion": 1.7832, "fourMillion": 1.1642},
+      "logLinear": {"model": "regret = a + b*log10(N), ordinary least squares (requirement-9 primary refit)", "a": 13.969991, "b": -2.051034, "fitR2": 0.929250, "oneMillion": 1.6638, "fourMillion": 0.4289},
+      "fourMillionPlanningRange": [0.4289, 1.5292],
+      "note": "Fit quality (R2) dropped from the T126 3-point fits (0.994-1.000) to 0.929-0.987 here because the 500k/900k points sit above (worse than) what the 3-point curve predicted (predicted ~1.85-1.98 at 500k and ~1.47-1.68 at 900k vs. measured 2.4 and 1.9). This is a sensitivity analysis, not a statistical confidence interval."
+    },
+    "comparisonToPriorExtrapolation": {
+      "preregisteredOneMillionRange": [1.4, 1.63],
+      "measuredOneMillionMean": 1.9,
+      "withinPreregisteredRange": false,
+      "threePointFitPredictionAt500k": {"inverseSqrt": 1.9836, "fittedPowerLaw": 1.8538},
+      "measured500k": 2.4,
+      "threePointFitPredictionAt900k": {"inverseSqrt": 1.6791, "fittedPowerLaw": 1.4726},
+      "measured900k": 1.9
+    }
+  },
+  "comparisonBenchmarks": {
+    "v2xWTHORFull": 1.5666666666666667,
+    "v3xWTHORFull_T111": 1.4778,
+    "v4xWTHORFull_T124": 1.1111111111111112,
+    "v4xWTHORReduced180k_T126": 3.8222222222222224,
+    "v4xDistilled180k_T124": 2.8666666666666667,
+    "designReportDecisionRuleSection7": {
+      "proceedToFourMillionIfMeanLte": 1.40,
+      "discontinueIfMeanGt": 1.70,
+      "measuredOneMillionMean": 1.9,
+      "ruleZone": "measured mean (1.9) is above the discontinue threshold (1.70) from tasks/design/T127-corpus-1m-report.md section 7; this is reported as objective context for T127e, not a T127d acceptance/production decision (out of scope for this task)"
+    }
+  },
+  "cargoTest": {
+    "command": "cargo test -p train",
+    "result": "PASS (56 lib unit + 2 teacher_candidates unit + 1 real_data, 0 failed)",
+    "note": "no train/src changes were made in this task (see memoryStreamingDecision); this run is a baseline/regression confirmation only"
+  },
+  "scopeNote": "This task covers train/ side experiments and this report only. Acceptance/adoption decisions, game-play gating, and app/engine wiring are out of scope (T127e). bench/edax-compare/*.py generator files were not modified (T143 concurrent scope)."
+}
