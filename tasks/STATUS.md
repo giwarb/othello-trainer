@@ -26,7 +26,7 @@
 
 | ID | タスク | 担当 | 状態 | 試行 |
 |---|---|---|---|---|
-| T127c | expanded1m独立検証・manifest確定 | implementer(Sonnet) | in_progress(委譲中。全1M verify+先頭200k同一性+方式境界のmanifest転記) | 0 |
+| T127c | expanded1m独立検証・manifest確定 | implementer(Sonnet) | review(実装完了98060ba: 全1M verify 0エラー214秒・manifest確定・49テストPASS・verify側の潜在バグ1件修正〔Windowsパス区切りの誤検知〕。verifier+代替レビュー並列検収中) | 0 |
 | T127d-e | v4学習(500k bridge+1M×3seed)→4M投資判定 | Codex gpt-5.6-sol(limit中はフォールバック) | todo(T127c合格後) | 0 |
 | T143 | 生成基盤堅牢化(束フォールバックcheckpoint・identityへのEdax SHA・T127a固定テスト2件・T114申し送り) | 未定 | todo(T127c後・4M生成前に必須。起票はT127c完了時) | 0 |
 | T139 | エンジン: analyzeAllの対称性・決定性(TT/MPCノイズ根本対応) | Codex優先 | todo(engineビルドを伴うため専有ウィンドウで) | 0 |
