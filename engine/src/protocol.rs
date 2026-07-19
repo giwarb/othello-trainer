@@ -930,7 +930,8 @@ mod tests {
     ///   D4非不変性だけで**既に生じる。
     /// - `depth=12`(`app.tsx`の「強い」CPUレベルが実際に使う設定、
     ///   `exactFromEmpties=16`)でも、`pattern_v2.bin`で最大約0.09disc、
-    ///   `pattern_v3.bin`(本番配信中の重み)で最大約1.45disc相当の乖離が残る。
+    ///   `pattern_v3.bin`(T122〜T146時点の本番配信重み、T147以降は
+    ///   `pattern_v4.bin`に切替済み)で最大約1.45disc相当の乖離が残る。
     ///
     /// これは`pattern_eval.rs`のコメント(T145で訂正)が説明する
     /// `compute_pattern_classes`のD4不変性の破れが、机上の理論的な懸念に
@@ -944,13 +945,14 @@ mod tests {
     ///
     /// 代わりに本テストは、T139が実際に保証した性質(`search_all_moves_with_eval`
     /// が呼び出し元の`Engine`が保持するTTの状態に一切依存しないこと)を、
-    /// 本番重み構成下で直接検証する。`search.rs`の対応テスト
+    /// パターン重みロード構成下で直接検証する。`search.rs`の対応テスト
     /// (`search_all_moves_is_deterministic_across_repeated_calls_even_with_a_prewarmed_local_state`)
-    /// は`weights=None`だが、こちらは本番重みロード経路
-    /// (`Engine::load_pattern_weights`、既存テストに倣いpattern_v2.binを使用)
-    /// を通す点が異なる。
+    /// は`weights=None`だが、こちらは実際の重みロード経路
+    /// (`Engine::load_pattern_weights`、既存テストに倣い歴代重みの代表として
+    /// pattern_v2.binを使用。本番配信中の重みかどうかは本テストの関心事では
+    /// ない)を通す点が異なる。
     #[test]
-    fn analyze_all_moves_from_initial_position_is_deterministic_with_production_weights_loaded() {
+    fn analyze_all_moves_from_initial_position_is_deterministic_with_pattern_weights_loaded() {
         const SMOKE_01_BLACK: &str = "0x1030100004080000";
         const SMOKE_01_WHITE: &str = "0x0000241C18100000";
 

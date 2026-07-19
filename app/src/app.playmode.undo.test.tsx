@@ -467,6 +467,31 @@ describe('T140: 対局モード「1手戻る」', () => {
     expect(container.querySelector('.joseki-trace')?.textContent).toBe('定石: 兎(1手目)')
   })
 
+  it('2人対戦: 1手目までundoして初期局面(ply=0)まで全戻しすると、定石トレース表示が残らない', async () => {
+    await startVsHumanGame(container)
+
+    const f5Button = container.querySelector<HTMLButtonElement>('[data-testid="stub-board-play-f5"]')
+    expect(f5Button).not.toBeNull()
+    await act(async () => {
+      f5Button?.click()
+    })
+    await flushAsyncEffects()
+
+    expect(container.querySelector('.joseki-trace')?.textContent).toBe('定石: 兎(1手目)')
+
+    // 1ply戻す(=初期局面、ply=0)。`josekiTrace`のuseEffectはply<=0を対象外にして
+    // 早期returnするため、undo前の表示が残留してしまわないことを確認する。
+    const undoButton = findButtonByText(container, '1手戻る')
+    expect(undoButton?.disabled).toBe(false)
+    await act(async () => {
+      undoButton?.click()
+    })
+    await flushAsyncEffects()
+
+    expect(boardStubLastMove(container)).toBeNull()
+    expect(container.querySelector('.joseki-trace')).toBeNull()
+  })
+
   it('終局後(投了)でもundoできる', async () => {
     await startBlackGame(container)
 

@@ -868,9 +868,9 @@ mod tests {
         //
         // 訂正(T145、レビュー指摘M1): 当初この付近のコメントには
         // 「`PatternWeights`は対局・解析のどちらの経路でも実運用では未使用」
-        // という記述があったが、これは事実誤認だった。本番はT122以降
-        // v3×PatternWeights が配線済みで、`app/src/engine/worker.ts` が
-        // `pattern_v3.bin` をロードして `Engine::load_pattern_weights` に渡し、
+        // という記述があったが、これは事実誤認だった。本番はT147以降
+        // v4×PatternWeights が配線済みで、`app/src/engine/worker.ts` が
+        // `pattern_v4.bin` をロードして `Engine::load_pattern_weights` に渡し、
         // 対局・解析(analyzeAll含む)の全経路で`PatternWeights::score`を実際に
         // 使っている。つまりここで説明した`compute_pattern_classes`のD4不変性の
         // 破れは、机上の懸念ではなく**現在の本番評価に実際に効いている**:

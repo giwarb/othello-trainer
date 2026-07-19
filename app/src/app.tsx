@@ -886,6 +886,10 @@ function PlayMode({ onReviewGame }: PlayModeProps) {
     displaySequencerRef.current?.reset(next)
     setThinking(false)
     setEvalInfo(null)
+    // T148: 初期局面(ply=0)までの全戻しでは`josekiTrace`のuseEffectがply<=0を
+    // 対象外にして早期returnするため、undo前の表示が残留してしまう。ここで
+    // 明示的にクリアする(ply>=1に戻る場合はuseEffectが再計算するため不要)。
+    if (truncated.length === 0) setJosekiTrace(null)
     // その対局で実際に指された初手(T115、`firstMoveSquareRef`参照)を
     // truncate後の履歴に合わせて再計算する。履歴が空に戻った場合は
     // 「まだ初手が指されていない」状態に戻す。
