@@ -27,7 +27,7 @@
 | ID | タスク | 担当 | 状態 | 試行 |
 |---|---|---|---|---|
 | T127d | v4×1M蒸留学習(teacher-only、500k bridge+1M×3seed)+oracle評価 | implementer(Sonnet) | in_progress(委譲中。train/側のみ、--jobs 1直列) | 0 |
-| T143 | 生成基盤堅牢化(束checkpoint・identityへのEdax SHA・verify指紋・finalizeゲート・corpusSha256追記・固定テスト群) | implementer(Sonnet) | in_progress(委譲中。bench/edax-compare/のみ、T127dと変更対象独立) | 0 |
+| T143 | 生成基盤堅牢化(束checkpoint・identityへのEdax SHA・verify指紋・finalizeゲート・corpusSha256追記・固定テスト群) | implementer(Sonnet) | review(実装完了51d25d4: 全11要件+テスト69件PASS・1M再verify 0エラー・corpusSha256一致。**独断変更1件**=provenanceのコード成果物SHA4種のライブ照合を記録存在チェックへ緩和→検収で重点確認中) | 0 |
 | T127e | 4M投資判定 | オーケストレーター+ユーザー | todo(T127d結果後) | 0 |
 | T139 | エンジン: analyzeAllの対称性・決定性(TT/MPCノイズ根本対応) | Codex優先 | todo(engineビルドを伴うため専有ウィンドウで) | 0 |
 
