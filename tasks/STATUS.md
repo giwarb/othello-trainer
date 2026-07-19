@@ -6,7 +6,7 @@
 
 ## 現在地
 
-**【2026-07-20未明2】** **T127d・T143とも両検収合格でdone**。T127dの結果: **1M×3seed oracle regret=1.900(SD=0)で事前登録帯1.4-1.63の外・設計§7打ち切り閾値1.70超・本番v3(1.40)より劣位**。500k=2.400。4M外挿はinv-sqrt/powerで1.16-1.53(log-linearの0.43は形状破綻につき単独引用禁止)=楽観端でもv4×WTHOR(1.111)に届かず。**T127e(4M投資判定)はユーザー裁定待ち** — 裁定材料を鋭くするため、レビュー推奨の180k判別実験(K=4密度説 vs 純粋逓減説の切り分け)+絶対regret CIを元ワーカーに追加依頼中。完了次第ユーザーへ判断材料を報告。シャードファイルは保持中(削除判断は4M判定後)。停止時のresume: `python bench/edax-compare/gen_teacher_corpus.py expanded1m --num-shards 8 --skip-extract --reuse-selection-plan`(Start-Process detached)。高速化第2弾(T127i/j)完了: **Edax v3バイナリ(AVX2)へ7/18 07:1x乗り換え済み**(値全帯全件一致・残件加重1.152倍、493,703件全保持、wEdax-x86-64-v3×8稼働、ログlogs/t127b-gen3.log)。方式境界はteacher_manifests/corpus_expanded1m_method_boundaries.json(サイドカー、warm切替とv3切替の2件)が正。完走後: T127c検証→T127d学習(v4×1M)→T127e 4M判定。ユーザー裁定待ち: 終盤シリーズ完了扱いの確定(推奨=完了、Edax比19.17倍)。
+**【2026-07-20未明3】** **1Mシリーズの実験フェーズ完了、T127e(4M投資判定)のユーザー裁定待ち**。判断材料(d1fbc6f追補まで): ①1M実測1.900(3seed SD=0、閾値1.70超だが絶対CI[1.03,2.90]で統計的に鋭くない) ②**180k判別実験: expanded1m由来180k=4.000 vs T126 K=1系180k=2.767 → K=4同一対局密度拡張が曲線を悪化させた説を支持**(事前登録判定線3.0超。paired差+1.23、CI[-0.27,2.83]) ③4M外挿の現実帯1.16-1.53は楽観端でもv4×WTHOR(1.111)未達。オーケストレーター推奨=4M生成(約2日)は見送り。**並行してT139(analyzeAll対称性・決定性)をSonnetフォールバックで委譲中**(生成完走でCPU専有可)。シャードファイルは保持中(削除判断は4M判定後)。停止時のresume: `python bench/edax-compare/gen_teacher_corpus.py expanded1m --num-shards 8 --skip-extract --reuse-selection-plan`(Start-Process detached)。高速化第2弾(T127i/j)完了: **Edax v3バイナリ(AVX2)へ7/18 07:1x乗り換え済み**(値全帯全件一致・残件加重1.152倍、493,703件全保持、wEdax-x86-64-v3×8稼働、ログlogs/t127b-gen3.log)。方式境界はteacher_manifests/corpus_expanded1m_method_boundaries.json(サイドカー、warm切替とv3切替の2件)が正。完走後: T127c検証→T127d学習(v4×1M)→T127e 4M判定。ユーザー裁定待ち: 終盤シリーズ完了扱いの確定(推奨=完了、Edax比19.17倍)。
 
 **エンジン強化を再開(2026-07-15 ユーザー指示)**: 方針は「大きい実験(200kコーパス・v3×蒸留)の前に、学習パイプラインのボトルネックを先に潰す」。explorer調査2本完了:
 - ①教師生成: 律速は**子局面ごとのEdaxプロセス起動42.3万回**(固定約164ms/回、8並列時は競合で実効2.3〜2.6倍に劣化)→ **T094(局面単位バッチ化)をCodexに委譲中**。
@@ -26,9 +26,8 @@
 
 | ID | タスク | 担当 | 状態 | 試行 |
 |---|---|---|---|---|
-| T127d-FU | 180k判別実験(K=4密度説vs逓減説)+絶対regret CI | implementer(Sonnet、T127dワーカー継続) | in_progress(T127e裁定材料、数分〜十数分想定) | 0 |
-| T127e | 4M投資判定 | オーケストレーター+ユーザー | todo(FU完了後にユーザーへ材料報告→裁定待ち) | 0 |
-| T139 | エンジン: analyzeAllの対称性・決定性(TT/MPCノイズ根本対応) | Codex優先 | todo(engineビルドを伴うため専有ウィンドウで) | 0 |
+| T127e | 4M投資判定 | ユーザー裁定 | **blocked(ユーザー裁定待ち。材料は現在地と報告参照。推奨=4M見送り)** | 0 |
+| T139 | エンジン: analyzeAllの対称性・決定性(TT/MPCノイズ根本対応) | implementer(Sonnet) | in_progress(委譲中。表示経路限定・CPU着手経路不変が最重要検証項目) | 0 |
 
 ## 有効な方針・申し送り(今後のタスクに効くもの)
 

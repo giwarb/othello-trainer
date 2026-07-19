@@ -1,8 +1,8 @@
 ---
 id: T139
 title: エンジン: 候補手評価の対称性・決定性の根本対応(TT共有/MPC由来の±1石ノイズ)
-status: todo # 教師コーパス生成の完走後に着手(engineビルド・計測を伴うため)
-assignee: 未定(エンジン系のためCodex gpt-5.6-sol優先、上限中ならSonnet+検証強化)
+status: in_progress # 生成完走(7/19)によりCPU専有可。Codex上限中(7/23まで)のためSonnet+検証強化で着手(2026-07-20)
+assignee: implementer(Sonnet)(Codex usage limit中のフォールバック)
 attempts: 0
 ---
 
@@ -19,13 +19,16 @@ attempts: 0
 3. 対称局面のcanonical化(4初手対称のみの特例でなく一般のD4 canonical化で探索し値を共有)— 効果は広いが実装大。
 - 併せて `PatternWeights::score` の盤全体D4不変性を直接検証する単体テストを追加(explorer調査で欠落を確認済み)。
 
-## 受け入れ基準(起票時点の骨子、着手時に精緻化)
+## 受け入れ基準(2026-07-20精緻化)
 
-- [ ] 初期局面の4合法手のanalyzeAll値が完全一致する(自動テスト)
-- [ ] 同一局面のanalyzeAllを2回呼んで完全一致(TT状態に依存しない)
-- [ ] FFO正解・既存エンジンテスト全パス、CPU着手経路(cpuLimit)のノード数不変(表示経路のみの変更であること)
-- [ ] 速度影響の計測と採否判断の記録
-- [ ] wasm再ビルド→Pages実機確認(生成完走後に実施)
+- [ ] 初期局面の4合法手のanalyzeAll値が完全一致する(自動テスト。可能なら初期局面以外の対称局面ペアでも)
+- [ ] 同一局面のanalyzeAllを2回呼んで完全一致(TT状態に依存しない。事前にTTを汚す先行探索を挟んだケースを含む)
+- [ ] FFO正解・既存エンジンテスト全パス(`cargo test -p engine`。既知フレーキー`node_limited_protocol_requests_are_deterministic`は単独再実行で切り分け)
+- [ ] CPU着手経路(cpuLimit)のノード数・選択手が完全不変であることをテストまたはベンチ比較で示す(表示経路のみの変更であること)
+- [ ] 速度影響の計測(analyzeAll 1回あたりの壁時計、変更前後)と採否判断の記録。オーバーレイ用途なので多少の低速化は許容だが、体感を損なう場合(目安2倍超)は選択肢を再検討
+- [ ] **表示評価値が変わるため `ANALYSIS_ENGINE_VERSION` をインクリメント**(app/src/lib/cache.ts。解析キャッシュ混在防止、T122申し送りのコメント表現修正も同時に)
+- [ ] wasm再ビルド→mainへpush→GitHub Actionsデプロイ成功→Pages実機(https://giwarb.github.io/othello-trainer/)で対局モードの候補手評価表示が動作し、初手4手の表示値が一致することをPlaywright等で確認
+- [ ] タスク完了時点で、当該タスク由来の差分・未追跡ファイルが `git status --short` に残っていないこと
 
 ## フィードバック(やり直し時にオーケストレーターが記入)
 
