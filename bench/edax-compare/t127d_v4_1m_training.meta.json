@@ -160,5 +160,69 @@
     "result": "PASS (56 lib unit + 2 teacher_candidates unit + 1 real_data, 0 failed)",
     "note": "no train/src changes were made in this task (see memoryStreamingDecision); this run is a baseline/regression confirmation only"
   },
-  "scopeNote": "This task covers train/ side experiments and this report only. Acceptance/adoption decisions, game-play gating, and app/engine wiring are out of scope (T127e). bench/edax-compare/*.py generator files were not modified (T143 concurrent scope)."
+  "scopeNote": "This task covers train/ side experiments and this report only. Acceptance/adoption decisions, game-play gating, and app/engine wiring are out of scope (T127e). bench/edax-compare/*.py generator files were not modified (T143 concurrent scope).",
+  "addendum": {
+    "requestedBy": "orchestrator, post-done, per verifier/codex-review recommendation, as input to T127e",
+    "generatedAt": "2026-07-20T00:45:00+09:00",
+    "kDensityProbe180k": {
+      "purpose": "discriminate whether the 1M curve's underperformance vs. T126's 3-point extrapolation is caused by K=4 same-game density expansion (corpus_expanded1m) vs. pure diminishing returns, by comparing at equal N=180k",
+      "command": "target/release/train_distillation.exe --corpus train/data/teacher/corpus_expanded1m.jsonl --checkpoint-dir train/data/t127d/expanded1m-v4-180k-probe --mixes teacher-only --seeds 1 --pattern-set v4 --reference-weights train/weights/pattern_v2.bin --jobs 1 --train-subset-size 180000",
+      "trainSubsetSizeTarget": 180000,
+      "subsetSeed": 42,
+      "actualTrainSamples": 179969,
+      "validationSamples": 49278,
+      "frozenSamples": 51255,
+      "bestEpoch": 32,
+      "completedEpoch": 32,
+      "trainTeacherMae": 3.697209,
+      "validationLoss": 23.081996,
+      "validationTeacherMae": 7.487773,
+      "frozenAgreement": 0.359809,
+      "frozenMeanRegret": 7.113062,
+      "wthor2024Mae": 15.387650,
+      "oracle": {
+        "v2MeanRegret": 1.5666666666666667,
+        "m2GuardPass": true,
+        "candidateMeanRegret": 4.0,
+        "differenceFromV2": 2.433333333333333,
+        "ci95VsV2": [1.0, 4.0],
+        "classification": "candidate_worse"
+      },
+      "comparisonToT126K1_180k": {
+        "t126K1PointOracleRegret": 2.7666666666666666,
+        "t126K1SourceFile": "train/data/t126/oracle/distill-180k-seed-1.json",
+        "t127dK4PointOracleRegret": 4.0,
+        "pairedDirectComparison": {
+          "method": "position-level paired bootstrap on (K4 regret - K1 regret) using the same 60 t096 position ids, seed 96002, 100000 samples",
+          "meanDifference": 1.2333333333333334,
+          "ci95": [-0.26666666666666666, 2.8333333333333335],
+          "classification": "no_significant_difference",
+          "caveat": "the two runs used different eval_cli builds (T126: 6ba26dc5f895f23a5b51e7299c47163e10f678bb282f0d12326f11ee4236b2b8, T127d: e874bb4c434125a4a996ffebb24c8ffcce6f535b706d2eef3baa21f70ccd740a); both reproduced v2=1.5666666666666667 exactly, so scoring behavior is consistent across builds even though they are not byte-identical"
+        }
+      },
+      "preregisteredInterpretationRule": "same-N regret near 2.77 => pure diminishing returns; clearly worse (example threshold >3.0) => K-density explanation",
+      "conclusion": "measured 4.0000 is above the 3.0 pre-registered threshold and 1.2333 discs worse than the K=1 180k point, so the point estimate falls in the K-density zone; however the direct paired-difference 95% CI straddles zero, so statistical significance at only 60 oracle positions is not established"
+    },
+    "absoluteRegretBootstrapCi": {
+      "purpose": "quantify how statistically sharp the 1.9000 > 1.70 discontinue-threshold exceedance is, using only the already-collected oracle JSON (no new training/Edax calls)",
+      "method": "position-level percentile bootstrap of the absolute candidate mean regret, seed 96002, 100000 samples (same convention as compare_pattern_v3.py, applied to the raw regret values instead of the v2-candidate difference)",
+      "oneMillion": {
+        "sourceFile": "train/data/t127d/oracle/1m-seed-1.json",
+        "note": "seed 1 used as representative; seeds 2 and 3 have position-identical regret arrays (see main report), so the CI is the same for all three",
+        "mean": 1.9,
+        "ci95": [1.0333333333333334, 2.9]
+      },
+      "fiveHundredK": {
+        "sourceFile": "train/data/t127d/oracle/500k-bridge-seed-1.json",
+        "mean": 2.4,
+        "ci95": [1.4666666666666668, 3.4333333333333336]
+      },
+      "v2Reference": {
+        "mean": 1.5666666666666667,
+        "ci95": [0.9333333333333333, 2.2333333333333334]
+      },
+      "discontinueThreshold": 1.70,
+      "conclusion": "both the 1M and 500k absolute-regret 95% CIs straddle the 1.70 discontinue threshold (and even straddle v2's own CI), so the exceedance is a point-estimate fact rather than a statistically sharp one at n=60 oracle positions"
+    }
+  }
 }

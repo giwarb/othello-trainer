@@ -228,3 +228,83 @@ response to a code change.
 - Oracle scoring (per run): `python bench/edax-compare/compare_pattern_v3.py --v2 train/weights/pattern_v2.bin --candidate <run-dir>/teacher-only-seed-<N>/final.bin --corpus bench/edax-compare/t096_oracle_positions.json --output train/data/t127d/oracle/<label>.json`
 
 Weights, epoch checkpoints, metrics, and raw oracle JSON are under gitignored `train/data/t127d/`.
+
+## Addendum: two cheap follow-up experiments for T127e (post-done, review-recommended)
+
+After this task reached `done` (verifier + codex-review both passed), the review recommended two
+inexpensive follow-up measurements to sharpen the input to T127e's 4M investment decision. Both
+were run from the already-trained/already-scored artifacts above plus one small new training run;
+no new corpus generation, no production wiring.
+
+### 1. 180k subset discriminator: K=4 density vs. pure diminishing returns
+
+Trained one more seed-1 run on `corpus_expanded1m` (the K=4-density corpus) at the **same target
+train size (180,000)** as T126's K=1 nested-subset point, using otherwise identical configuration
+to this task's 1M run (teacher-only, v4, `--jobs 1`, `--reference-weights train/weights/pattern_v2.bin`,
+`--subset-seed` default 42):
+
+```
+target/release/train_distillation.exe --corpus train/data/teacher/corpus_expanded1m.jsonl \
+  --checkpoint-dir train/data/t127d/expanded1m-v4-180k-probe --mixes teacher-only --seeds 1 \
+  --pattern-set v4 --reference-weights train/weights/pattern_v2.bin --jobs 1 \
+  --train-subset-size 180000
+```
+
+Actual train = 179,969 (validation/frozen unchanged: 49,278 / 51,255). Training stopped by
+patience at epoch 32/32 (well under the 60-epoch cap). Oracle (T096 60 positions):
+**v2 = 1.5666666666666667 (M2 guard PASS)**, candidate = **4.0000**, difference from v2 = +2.4333,
+95% CI [1.0000, 4.0000], `candidate_worse`.
+
+| point | corpus/extraction density | actual train | oracle regret |
+|---|---|---:|---:|
+| T126 180k (nested expanded200k, K=1) | K=1 | 179,957 | 2.7667 |
+| **T127d 180k probe (corpus_expanded1m, K=4)** | K=4 | 179,969 | **4.0000** |
+
+**Pre-registered interpretation (per the follow-up request): a same-N regret of 4.0000 is above
+the 3.0 "K-density" threshold and clearly worse than the K=1 180k point's 2.7667 — the result
+falls in the K-density zone, not the "≈2.77 pure diminishing returns" zone.** A direct
+position-level paired comparison against T126's stored raw oracle JSON
+(`train/data/t126/oracle/distill-180k-seed-1.json`, same 60 position ids, same oracle-corpus SHA)
+gives a mean difference of **+1.2333** (K=4 worse), 95% CI **[-0.2667, 2.8333]**,
+`no_significant_difference`. So the point estimate decisively supports the K=4 same-game-density
+explanation from the pre-registered rule, but with only 60 oracle positions the paired
+significance test cannot rule out chance at this same-N comparison. (Caveat: the two runs used
+`eval_cli` binaries from different commits — `6ba26dc5...` for T126, `e874bb4c...` for this
+session; both exactly reproduced v2 = 1.5666666666666667, so the scoring behavior is consistent
+across builds, but the binaries are not byte-identical.)
+
+Taken together with the main curve (K=4 180k=4.00 > K=4 500k=2.40 > K=4 899,467=1.90), the K=4
+corpus is internally consistent — more K=4 data still helps — but the K=4 180k point is far worse
+than what an unbroken continuation of the K=1 curve would predict at N=180k (2.77), pointing at
+the incremental (K=4) portion of `corpus_expanded1m` carrying less independent information per
+position than the original K=1 expanded200k data, consistent with the design report's K=4
+same-game-density caveat (section 3.9).
+
+### 2. Absolute-regret bootstrap CIs (sharpness of the >1.70 threshold exceedance)
+
+Computed directly from the already-collected oracle JSON (`train/data/t127d/oracle/1m-seed-1.json`,
+`.../500k-bridge-seed-1.json`) with no new training or Edax calls: position-level percentile
+bootstrap (same convention as `compare_pattern_v3.py`: seed 96002, 100,000 resamples) of the
+**absolute** candidate mean regret (not the difference from v2).
+
+| configuration | mean regret | 95% CI (absolute) | CI vs. 1.70 discontinue threshold |
+|---|---:|---:|---|
+| 1M full (seed 1, representative — seeds 2/3 are position-identical, see main report) | 1.9000 | [1.0333, 2.9000] | straddles 1.70 (not a sharp exceedance) |
+| 500k bridge | 2.4000 | [1.4667, 3.4333] | straddles 1.70 (not a sharp exceedance) |
+| v2 (reference, for scale) | 1.5667 | [0.9333, 2.2333] | straddles 1.70 |
+
+**Interpretation: the >1.70 exceedance is a point-estimate fact, not a statistically sharp one.**
+Both the 1M and 500k absolute-regret 95% CIs comfortably straddle the 1.70 discontinue threshold
+from the design report (and even straddle v2's own CI), so 60 oracle positions alone cannot
+establish with confidence that the true regret of either configuration is above 1.70. This
+does not overturn the point estimate (1.9000 is still the best available estimate and it is
+above 1.70), but it means T127e should weigh the point estimate together with this wide
+uncertainty rather than treat ">1.70" as a statistically certain fact.
+
+### Artifacts for this addendum
+
+- Training: `train/data/t127d/expanded1m-v4-180k-probe/teacher-only-seed-1/` (gitignored).
+- Oracle JSON: `train/data/t127d/oracle/180k-probe-seed-1.json` (gitignored).
+- Both new numbers (180k probe regret and the two absolute-regret CIs) are also recorded in
+  `bench/edax-compare/t127d_v4_1m_training.meta.json` under `"addendum"`.
+- No `train/src` or `bench/edax-compare/*.py` changes were made for this addendum.
