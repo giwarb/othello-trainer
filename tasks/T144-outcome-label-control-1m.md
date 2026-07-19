@@ -1,7 +1,7 @@
 ---
 id: T144
 title: ラベル対照実験@1M: 蒸留と同一局面でWTHOR最終石差ラベル学習を比較(ユーザー指示)
-status: todo # todo | in_progress | review | redo | done | blocked
+status: done # verifier合格(全数値独立再現・CI完全一致)、代替レビュー省略(opt-inフラグのみの軽微変更と裁定)、2026-07-20
 assignee: implementer(Sonnet、T127dワーカー継続)
 attempts: 0
 ---
@@ -68,3 +68,15 @@ attempts: 0
 - **eval_cliバイナリの注記**: 本タスクの4回のoracle計測は全て同一eval_cliビルド(SHA-256 e56092090e...)を使用(各oracle JSONのmetadata.evalCliSha256で確認)。T127dのteacher-only@1M参照値のビルド(e874bb4c...)とは異なる(セッション間でmainにT139等の変更が入り共有target/releaseが再ビルドされたため)が、両ビルドともv2=1.5666666666666667を完全再現しスコアリング挙動の一貫性を確認済み。
 - **成果物**: `bench/edax-compare/t144_outcome_label_control_1m.meta.json`、`bench/edax-compare/t144_outcome_label_control_1m_report.md`(新設)。`train/src/t090_distillation.rs`(フラグ追加)。学習重み・oracle生JSON・ログは`train/data/t144/`(gitignore領域)。`bench/edax-compare/`の既存pyファイル群(T143成果物)は変更していない。
 - **コミット**: `git add train/src/t090_distillation.rs bench/edax-compare/t144_outcome_label_control_1m.meta.json bench/edax-compare/t144_outcome_label_control_1m_report.md` → commit `bfae49a` → `git push origin main`(0d64f25..bfae49a)。完了時`git status --short`はクリーン(gitignore領域除く、tasks/本ファイルの作業ログ追記のみ未コミットで意図通り)。
+
+### 2026-07-20 verifier検収
+
+- **`git show bfae49a --stat`**: 3ファイルのみ(`train/src/t090_distillation.rs` 68行追加、`bench/edax-compare/t144_outcome_label_control_1m.{meta.json,report.md}` 新設)。PASS。
+- **数値の独立再集計**: `train/data/t144/oracle/*.json`(gitignore領域、ローカルに現存)を直接読み、4run全てで`v2.meanRegret=1.5666666666666667`を確認(M2ガードPASS×4)。`candidate.meanRegret`はseed1=4.033333333333333/seed2=3.8/seed3=3.9/対照(teacher-only@N=220,450)=3.8333333333333335で報告値と完全一致。3seed平均=3.911111...、sample SD(n-1)=0.11713を自算し報告の3.9111/0.1171と一致。
+- **カバレッジ**: `train/data/t144/outcome-only-1m/manifest.txt`および`teacher-only-matched-subset/manifest.txt`を直接読み、`train=899467`/`outcome_matched_train=220450`(220450/899467=24.513%)を確認。さらに`train/data/t127d/expanded1m-v4-1m/manifest.txt`(T127d当時の同一corpus実行)にも同一の`outcome_matched_train=220450`が既に記録されており、本タスク固有の新規算出ではなく既存manifestフィールドの参照であることも確認。
+- **`--outcome-matched-only`未指定時の不変性**: `git show bfae49a -- train/src/t090_distillation.rs`を読み、フラグ未指定時は`outcome_matched_manifest_line`が空文字列のままmanifest/identity文字列に影響しないことをコードで確認(outcome-only-1mの3 run実際のmanifest.txtにも`outcome_matched_only=`行が存在しないことで裏付け)。`cargo test -p train`をローカル実行し**58 passed; 0 failed**(新規2件`filter_outcome_matched_keeps_only_records_with_outcome_and_preserves_order`/`filter_outcome_matched_is_a_no_op_when_all_records_have_outcome`含む)を確認、報告と一致。
+- **paired bootstrap CIの独立再現**: `compare_pattern_v3.py`の`paired_bootstrap`(`random.Random(seed).choice`ベース、seed既定96002・samples 100000)と同一アルゴリズムを自前のPythonスクリプトで実装し、T127dのteacher-only@1M生oracle JSON(`train/data/t127d/oracle/1m-seed-{1,2,3}.json`、ローカルに現存、3seedとも meanRegret=1.9で一致)とT144の4本のoracle JSONの`results[].rows[].regret`(60局面ペア)から再計算した結果、以下が完全一致(浮動小数点誤差内): outcome-only seed1 vs teacher-only@1M = +2.1333 [0.8000,3.5667]/seed2=+1.9000 [0.6333,3.2667]/seed3=+2.0000 [0.6333,3.4667]/3seed平均=+2.0111 [0.7222,3.4222]/control(N=220,450) vs teacher-only@1M full=+1.9333 [0.6667,3.3333]/control vs outcome-only同N平均=-0.0778 [-1.5667,1.3333]。全てPASS。
+- **コミット規律・push**: `bfae49a`は`origin/main`と一致(`git fetch`後`git log HEAD..origin/main`空)、`git status --short`はクリーン(検収時点のtasks/配下の別タスク差分・未追跡ファイルはT144由来ではない)。
+- **事前登録解釈への当てはめ**: outcome-only@1M=3.9111はT112の45k対照(3.6〜3.8、`tasks/T112-label-loss-ablation.md`で実測確認)と同水準で「明確に悪い」に該当し、レポートの「ラベル問題説を棄却、量説を採用」という結論は数値と整合。等N対照(3.8333 vs 3.9111、有意差なし)は消去法ではなく直接的な確証データとして機能しており、レポートの記述と整合。
+- **付随観察(要オーケストレーター判断、合否には影響しない)**: タスクファイルのfrontmatterが`status: todo`/`attempts: 0`のままで、作業ログの完了報告・commit記録と乖離している(進捗管理ルール上はレビュー中/doneへの更新漏れの可能性)。verifierはfrontmatterを書き換える権限がないため、事実として報告のみ行う。
+- **総合判定**: 受け入れ基準4項目すべてPASS。**合格**。

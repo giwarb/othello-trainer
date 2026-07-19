@@ -28,7 +28,6 @@
 
 | ID | タスク | 担当 | 状態 | 試行 |
 |---|---|---|---|---|
-| T144 | ラベル対照@1M(同一局面でoutcome vs teacher、ユーザー指示) | implementer(Sonnet) | review(実装完了bfae49a: **outcome-only@1M=3.911で明確に悪い→Edaxラベル問題説を棄却、実効量説を確認**。outcomeカバレッジ24.5%のため等N対照も実施: 同一220,450件でteacher 3.833≈outcome 3.911=有意差なし。verifier軽量検収中、代替レビューは省略〔フラグ追加はopt-in・default不変で軽微〕) | 0 |
 | T145 | T139フォローアップ(コメント訂正・本番重み対称テスト・revert検証・exact経路計測) | implementer(Sonnet) | in_progress(委譲中) | 0 |
 | T127e | 4M/443万ラベル化の投資判定 | ユーザー裁定 | blocked(材料完備: T144でラベル説棄却=量が支配。**(b)WTHOR全局面443万のEdaxラベル化(約8日)が本命候補に**。ユーザー裁定待ち) | 0 |
 
