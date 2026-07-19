@@ -12,8 +12,11 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import subprocess
 import sys
+import time
+from datetime import datetime, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -23,6 +26,11 @@ import vs_edax  # noqa: E402
 TEACHER_DATA_DIR = ROOT / "train" / "data" / "teacher"
 TOOL = ROOT / "target" / "release" / "teacher_candidates.exe"
 BATCH_SIZE = 500
+# T127c: 1M件規模の全件検証はCLAUDE.mdの長時間実行ルール(チャンク進捗+resume)を
+# 適用する対象になり得るため、既定でBATCH_SIZE(500)の倍数区切りで進捗を出す。
+# smoke/primary/expanded200kはこれまでどおり`verify_one(set_name)`のみの呼び出しで
+# 挙動不変(progress_every/checkpoint_pathは既定Noneで無効)。
+DEFAULT_PROGRESS_EVERY = 50_000
 EXACT_EMPTIES_THRESHOLD = 24
 # T114: t096独立oracle(60局面)の非混入を全setで機械検証する(混入すると
 # 独立評価指標が自己参照になるため)。各局面は既にD4正準化済みcanonicalKeyを
@@ -84,6 +92,20 @@ def sha256_of_file(path: Path) -> str | None:
     return digest.hexdigest()
 
 
+_PROVENANCE_PATH_FIELDS = {"path", "manifestPath", "candidatePoolPath", "selectionPlanPath"}
+
+
+def _normalize_recorded_path(value: object) -> object:
+    """Windowsで生成されたmeta.jsonは`os.sep`(`\\`)区切りのパス文字列を記録して
+    いることがある。verify側の期待値はリポジトリ内表記に合わせたPOSIX区切り
+    (`/`)なので、パス系フィールドの比較だけは区切り文字の差を無視する
+    (T127c: 実データ検証で発見。パス表記の違いはデータ不整合ではないため、
+    provenance内容そのものやjsonl本体は一切変更せず、検証側の比較を頑健にする)。"""
+    if isinstance(value, str):
+        return value.replace("\\", "/")
+    return value
+
+
 def expanded1m_provenance_errors(meta_doc: dict) -> list[str]:
     """Validate fixed two-layer provenance against the actual local artifacts."""
     errors = []
@@ -101,8 +123,10 @@ def expanded1m_provenance_errors(meta_doc: dict) -> list[str]:
         "manifestSha256": EXPANDED1M_BASE_MANIFEST_SHA256,
     }
     for key, expected in base_expected.items():
-        if base.get(key) != expected:
-            errors.append(f"baseCorpus.{key}={base.get(key)!r}, expected {expected!r}")
+        actual_value = base.get(key)
+        compare_value = _normalize_recorded_path(actual_value) if key in _PROVENANCE_PATH_FIELDS else actual_value
+        if compare_value != expected:
+            errors.append(f"baseCorpus.{key}={actual_value!r}, expected {expected!r}")
     actual_base_sha = sha256_of_file(EXPANDED1M_BASE_PATH)
     if actual_base_sha != EXPANDED1M_BASE_SHA256:
         errors.append(f"actual expanded200k SHA-256={actual_base_sha!r}, expected {EXPANDED1M_BASE_SHA256!r}")
@@ -130,8 +154,10 @@ def expanded1m_provenance_errors(meta_doc: dict) -> list[str]:
         "selectionPlanPath": "train/data/teacher/corpus_expanded1m_selection_plan.jsonl",
     }
     for key, expected in incremental_expected.items():
-        if incremental.get(key) != expected:
-            errors.append(f"incrementalGeneration.{key}={incremental.get(key)!r}, expected {expected!r}")
+        actual_value = incremental.get(key)
+        compare_value = _normalize_recorded_path(actual_value) if key in _PROVENANCE_PATH_FIELDS else actual_value
+        if compare_value != expected:
+            errors.append(f"incrementalGeneration.{key}={actual_value!r}, expected {expected!r}")
 
     artifact_shas = {
         "candidatePoolSha256": sha256_of_file(EXPANDED1M_CANDIDATE_POOL_PATH),
@@ -236,7 +262,50 @@ def schema_errors(record: dict) -> list[str]:
     return errors
 
 
-def verify_one(set_name: str) -> tuple[int, int]:
+def load_verify_checkpoint(checkpoint_path: Path, set_name: str) -> dict | None:
+    """T127c: 1M件全件検証の中断→再開用checkpoint読み込み。
+
+    setNameが一致しないcheckpoint(別setからの取り違え)は無視してNoneを返す
+    (フルスキャンにフォールバックさせ、誤ったseen_canonicalの流用を防ぐ)。
+    """
+    if not checkpoint_path.exists():
+        return None
+    try:
+        doc = json.loads(checkpoint_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    if doc.get("setName") != set_name:
+        return None
+    return doc
+
+
+def save_verify_checkpoint(
+    checkpoint_path: Path,
+    set_name: str,
+    record_count: int,
+    errors: int,
+    seen_canonical: dict[tuple, int],
+) -> None:
+    """チャンク境界ごとに呼ぶ。原子的置換(tmp書き→os.replace)でクラッシュ時の
+    破損checkpointを防ぐ(長時間実行ルール: 逐次保存・resume可能を満たす)。"""
+    doc = {
+        "setName": set_name,
+        "recordCount": record_count,
+        "errors": errors,
+        "seenCanonical": [[key[0], key[1], key[2], pos_id] for key, pos_id in seen_canonical.items()],
+        "updatedAt": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+    }
+    tmp_path = checkpoint_path.with_suffix(checkpoint_path.suffix + ".tmp")
+    checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
+    tmp_path.write_text(json.dumps(doc), encoding="utf-8")
+    os.replace(tmp_path, checkpoint_path)
+
+
+def verify_one(
+    set_name: str,
+    progress_every: int | None = None,
+    checkpoint_path: Path | None = None,
+) -> tuple[int, int]:
     jsonl_path = TEACHER_DATA_DIR / f"corpus_{set_name}.jsonl"
     meta_path = TEACHER_DATA_DIR / f"corpus_{set_name}.meta.json"
     errors = 0
@@ -280,6 +349,27 @@ def verify_one(set_name: str) -> tuple[int, int]:
     seen_canonical: dict[tuple, int] = {}
     record_count = 0
     batch: list[dict] = []
+
+    # T127c: 中断→再開。checkpointのsetNameが一致する場合のみ採用し、既に
+    # verify_batch(subprocess呼び出し)まで完了した先頭resume_record_count件は
+    # 重い再検証(children/canonical recompute)をスキップする。schema_errors・
+    # positionId連番・expanded200kプレフィックス比較(いずれもsubprocess不要で
+    # 安価)はresume区間でも引き続き全件実施する。
+    resume_record_count = 0
+    if checkpoint_path is not None:
+        loaded = load_verify_checkpoint(checkpoint_path, set_name)
+        if loaded is not None:
+            resume_record_count = int(loaded.get("recordCount", 0))
+            errors += int(loaded.get("errors", 0))
+            for item in loaded.get("seenCanonical", []):
+                seen_canonical[(item[0], item[1], item[2])] = item[3]
+            report(
+                set_name,
+                f"resume: loaded checkpoint at {checkpoint_path} "
+                f"(recordCount={resume_record_count}, priorErrors={loaded.get('errors', 0)}, "
+                f"seenCanonical={len(seen_canonical)})",
+            )
+    start_time = time.monotonic()
 
     def verify_batch(records: list[dict], start_index: int) -> int:
         batch_errors = 0
@@ -425,11 +515,27 @@ def verify_one(set_name: str) -> tuple[int, int]:
             for message in schema_errors(value):
                 report(set_name, f"positionId={value.get('positionId')}: {message}")
                 errors += 1
+            if record_count < resume_record_count:
+                # 前回checkpointまでに既にverify_batchで検証済み(subprocessでの
+                # children/canonical recomputeとD4重複・oracle照合は完了している)。
+                record_count += 1
+                continue
             batch.append(value)
             record_count += 1
             if len(batch) >= BATCH_SIZE:
                 errors += verify_batch(batch, record_count - len(batch))
                 batch.clear()
+                if progress_every and record_count % progress_every == 0:
+                    elapsed = time.monotonic() - start_time
+                    rate_suffix = f", rate={record_count / elapsed:.0f}/s" if elapsed > 0 else ""
+                    report(
+                        set_name,
+                        f"progress: {record_count}/{expected_total or '?'} record(s), {errors} error(s), "
+                        f"elapsed={elapsed:.1f}s{rate_suffix}",
+                    )
+                    sys.stdout.flush()
+                    if checkpoint_path is not None:
+                        save_verify_checkpoint(checkpoint_path, set_name, record_count, errors, seen_canonical)
     if batch:
         errors += verify_batch(batch, record_count - len(batch))
     if base_fh is not None:
@@ -449,17 +555,48 @@ def verify_one(set_name: str) -> tuple[int, int]:
             f"meta count mismatch: records={record_count} progress.done={expected_done} progress.total={expected_total}",
         )
         errors += 1
-    print(f"[{set_name}] verified {record_count} record(s), {errors} error(s)")
+    if checkpoint_path is not None:
+        # 完走時点のcheckpointを残す。次回実行が全件済みの状態から始まっても
+        # resume_record_count==record_countとなり、スキップのみで即完走する。
+        save_verify_checkpoint(checkpoint_path, set_name, record_count, errors, seen_canonical)
+    elapsed_total = time.monotonic() - start_time
+    print(f"[{set_name}] verified {record_count} record(s), {errors} error(s), elapsed={elapsed_total:.1f}s")
     return record_count, errors
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("set_names", nargs="+", choices=["smoke", "primary", "expanded200k", "expanded1m"])
+    parser.add_argument(
+        "--progress-every",
+        type=int,
+        default=DEFAULT_PROGRESS_EVERY,
+        help=f"records between progress log lines (default {DEFAULT_PROGRESS_EVERY}; 0 disables)",
+    )
+    parser.add_argument(
+        "--checkpoint-dir",
+        type=Path,
+        default=None,
+        help="directory for per-set resume checkpoints (T127c long-running rule); omit to disable",
+    )
+    parser.add_argument(
+        "--resume",
+        action="store_true",
+        help="load an existing checkpoint under --checkpoint-dir if present (no-op without --checkpoint-dir)",
+    )
     args = parser.parse_args()
     total_records = total_errors = 0
     for set_name in args.set_names:
-        count, errors = verify_one(set_name)
+        checkpoint_path = (
+            args.checkpoint_dir / f"{set_name}.verify-checkpoint.json" if args.checkpoint_dir else None
+        )
+        if checkpoint_path is not None and not args.resume and checkpoint_path.exists():
+            checkpoint_path.unlink()
+        count, errors = verify_one(
+            set_name,
+            progress_every=args.progress_every or None,
+            checkpoint_path=checkpoint_path,
+        )
         total_records += count
         total_errors += errors
     print(f"TOTAL: {total_records} record(s) verified, {total_errors} error(s)")

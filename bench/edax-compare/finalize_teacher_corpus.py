@@ -19,6 +19,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 DATA_DIR = ROOT / "train" / "data" / "teacher"
 MANIFEST_DIR = ROOT / "bench" / "edax-compare" / "teacher_manifests"
+T096_ORACLE_POSITIONS_PATH = ROOT / "bench" / "edax-compare" / "t096_oracle_positions.json"
+EXPANDED1M_METHOD_BOUNDARIES_PATH = MANIFEST_DIR / "corpus_expanded1m_method_boundaries.json"
 
 
 def sha256(path: Path) -> str:
@@ -161,6 +163,173 @@ def corpus_stats(path: Path, openings: dict[tuple[str, str], str]) -> tuple[dict
     return stats, report
 
 
+def load_oracle_keys() -> set[tuple[int, int, int]]:
+    doc = json.loads(T096_ORACLE_POSITIONS_PATH.read_text(encoding="utf-8"))
+    return {tuple(p["canonicalKey"]) for p in doc["positions"]}
+
+
+def expanded1m_corpus_stats(jsonl_path: Path, oracle_keys: set[tuple[int, int, int]]) -> tuple[dict, dict, dict]:
+    """T127c: corpus_expanded1m.jsonl(1,000,000件)を1回だけ順次スキャンして集計する。
+
+    children/canonicalKey/legal moveの正しさ自体はverify_teacher_corpus.py
+    expanded1mが別途subprocess経由で全件検証済み(0エラー)なので、ここでは
+    検証済みJSONLからの集計・oracle非混入の独立再確認のみを行う(subprocess
+    呼び出しなし・1パスのみで高速)。"""
+    sources: Counter = Counter()
+    phases: Counter = Counter()
+    xc_by_phase: dict[int, Counter] = defaultdict(Counter)
+    opening_counts: Counter = Counter()
+    year_counts: Counter = Counter()
+    game_counts: Counter = Counter()
+    children = exact = terminal = 0
+    elapsed_sum = 0.0
+    elapsed_count = 0
+    unmatched_openings = 0
+    contaminated = 0
+    record_count = 0
+    with jsonl_path.open("r", encoding="utf-8") as fh:
+        for raw in fh:
+            record = json.loads(raw)
+            record_count += 1
+            sources[record["source"]] += 1
+            if tuple(record["canonicalKey"]) in oracle_keys:
+                contaminated += 1
+            if record["source"] == "wthor":
+                phase = record["phaseBin"]
+                phases[phase] += 1
+                xc_by_phase[phase]["total"] += 1
+                if record["hasXcLegalMove"]:
+                    xc_by_phase[phase]["xc"] += 1
+                opening = record.get("openingKey")
+                if not opening:
+                    unmatched_openings += 1
+                else:
+                    opening_counts[opening] += 1
+                year = record.get("year")
+                game_index = record.get("gameIndex")
+                if year is not None:
+                    year_counts[str(year)] += 1
+                if year is not None and game_index is not None:
+                    game_counts[f"{year}:{game_index}"] += 1
+            for child in record["children"]:
+                children += 1
+                if child["exact"]:
+                    exact += 1
+                if child["level"] is None:
+                    terminal += 1
+                if "elapsedMs" in child:
+                    elapsed_sum += child["elapsedMs"]
+                    elapsed_count += 1
+
+    wthor_count = sources["wthor"]
+    phase_report = {
+        str(phase): {
+            "total": counts["total"],
+            "xc": counts["xc"],
+            "xcCoverage": counts["xc"] / counts["total"] if counts["total"] else None,
+        }
+        for phase, counts in sorted(xc_by_phase.items())
+    }
+    max_key, max_count = opening_counts.most_common(1)[0] if opening_counts else (None, 0)
+    per_game_histogram = Counter(game_counts.values())
+    selection_audit = {
+        "openingKeyPlies": 8,
+        "phaseXcCoverage": phase_report,
+        "openingMatched": sum(opening_counts.values()),
+        "openingUnmatched": unmatched_openings,
+        "distinctOpeningKeys": len(opening_counts),
+        "maxOpeningKey": max_key,
+        "maxOpeningCount": max_count,
+        "maxOpeningShareOfWthor": max_count / wthor_count if wthor_count else None,
+        "acceptanceThresholds": {"minimumXcCoveragePerPhase": 0.50, "maximumSingleOpeningShare": 0.02},
+        "distinctGamesRepresented": len(game_counts),
+        "positionsPerGameHistogram": {str(key): value for key, value in sorted(per_game_histogram.items())},
+    }
+    failed_xc_bins = [
+        phase
+        for phase, values in phase_report.items()
+        if values["xcCoverage"] is not None and values["xcCoverage"] < 0.50
+    ]
+    selection_audit["failedXcPhaseBins"] = failed_xc_bins
+    selection_audit["openingShareExceeded"] = (selection_audit["maxOpeningShareOfWthor"] or 0) > 0.02
+    selection_audit["thresholdTriggered"] = bool(failed_xc_bins or selection_audit["openingShareExceeded"])
+
+    stats = {
+        "records": record_count,
+        "sourceCounts": dict(sources),
+        "phaseCountsWthor": {str(key): value for key, value in sorted(phases.items())},
+        "yearCountsWthor": dict(sorted(year_counts.items())),
+        "children": children,
+        "exactChildren": exact,
+        "exactRate": exact / children if children else None,
+        "terminalChildren": terminal,
+        "averageElapsedMsPerEdaxCall": elapsed_sum / elapsed_count if elapsed_count else None,
+        "errors": 0,
+    }
+    oracle_report = {
+        "oracleKeyCount": len(oracle_keys),
+        "oraclePositionsPath": "bench/edax-compare/t096_oracle_positions.json",
+        "contaminatedRecordsFound": contaminated,
+    }
+    return stats, selection_audit, oracle_report
+
+
+def finalize_expanded1m(verification: dict) -> dict:
+    """T127c: train/data/teacher/corpus_expanded1m.meta.json(生成パイプラインが
+    書いた生meta、gitignore領域)とcorpus_expanded1m_method_boundaries.json
+    サイドカー(方式境界2件、git管理下)を突き合わせて、コミット用の確定manifest
+    bench/edax-compare/teacher_manifests/corpus_expanded1m.meta.jsonを作る。
+    データ本体(jsonl)は一切変更しない(読み取りのみ)。"""
+    live_meta_path = DATA_DIR / "corpus_expanded1m.meta.json"
+    jsonl_path = DATA_DIR / "corpus_expanded1m.jsonl"
+    live_meta = json.loads(live_meta_path.read_text(encoding="utf-8"))
+    boundaries_doc = json.loads(EXPANDED1M_METHOD_BOUNDARIES_PATH.read_text(encoding="utf-8"))
+    oracle_keys = load_oracle_keys()
+    stats, selection_audit, oracle_report = expanded1m_corpus_stats(jsonl_path, oracle_keys)
+
+    provenance = dict(live_meta.get("provenance") or {})
+    provenance["methodBoundaries"] = boundaries_doc.get("boundaries")
+    provenance["methodBoundariesNote"] = boundaries_doc.get("note")
+    provenance["methodBoundariesSidecarPath"] = "bench/edax-compare/teacher_manifests/corpus_expanded1m_method_boundaries.json"
+
+    doc = {
+        "schemaVersion": 2,
+        "runKey": live_meta.get("runKey"),
+        "meta": live_meta.get("meta"),
+        "settings": live_meta.get("settings"),
+        "mergedFromShards": live_meta.get("mergedFromShards"),
+        "progress": live_meta.get("progress"),
+        "reusedRecordCount": live_meta.get("reusedRecordCount"),
+        "corpusStats": stats,
+        "selectionAudit": selection_audit,
+        "oracleNonContamination": {
+            "verifiedAt": datetime.now(timezone.utc).date().isoformat(),
+            **oracle_report,
+            "method": (
+                "verify_teacher_corpus.py expanded1mが全1,000,000件のcanonicalKeyと"
+                "t096_oracle_positions.json(60キー、D4正準化・対称形込み)を全件突合"
+                "(0件、下記verification参照)。finalize_teacher_corpus.pyのexpanded1m_"
+                "corpus_statsでも独立に全件再突合し同じ結果を確認。"
+            ),
+        },
+        "provenance": provenance,
+        "generationCommand": (
+            "python bench/edax-compare/gen_teacher_corpus.py expanded1m --years 2000-2024 --num-shards 8 "
+            "(base 200,000件はcorpus_expanded200k.jsonlをbase importとして再利用、新規800,000件を"
+            "Edax生成。生成途中でedaxParentsPerProcess: 1->32(T127h)、edaxExe: wEdax-x86-64.exe -> "
+            "wEdax-x86-64-v3.exe(T127j)の2回切替。両切替の値等価性はT127g/T127iでA/B検証済み。"
+            "方式境界の詳細はprovenance.methodBoundariesを参照)"
+        ),
+        "verification": verification,
+    }
+
+    MANIFEST_DIR.mkdir(parents=True, exist_ok=True)
+    manifest_path = MANIFEST_DIR / "corpus_expanded1m.meta.json"
+    with manifest_path.open("w", encoding="utf-8", newline="\n") as out:
+        out.write(json.dumps(doc, indent=2, ensure_ascii=False) + "\n")
+    return doc
+
+
 def update_meta(set_name: str, stats: dict, report: dict, jsonl_paths: list[Path]) -> dict:
     meta_path = DATA_DIR / f"corpus_{set_name}.meta.json"
     doc = json.loads(meta_path.read_text(encoding="utf-8"))
@@ -195,8 +364,49 @@ def update_meta(set_name: str, stats: dict, report: dict, jsonl_paths: list[Path
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("candidate", nargs="+", help="set=path, for example smoke=train/data/teacher/candidates_smoke_audit.json")
+    parser.add_argument(
+        "candidate",
+        nargs="*",
+        help="set=path, for example smoke=train/data/teacher/candidates_smoke_audit.json",
+    )
+    parser.add_argument(
+        "--expanded1m",
+        action="store_true",
+        help="T127c: finalize bench/edax-compare/teacher_manifests/corpus_expanded1m.meta.json instead "
+        "of the smoke/primary backfill flow (no candidate= arguments needed)",
+    )
+    parser.add_argument(
+        "--verification-command",
+        default="python bench/edax-compare/verify_teacher_corpus.py expanded1m",
+        help="--expanded1m only: command recorded in the manifest's verification section",
+    )
+    parser.add_argument(
+        "--verification-result",
+        default=None,
+        help="--expanded1m only: result summary text recorded in the manifest's verification section "
+        "(for example '1000000 record(s) verified, 0 error(s), exit code 0')",
+    )
+    parser.add_argument(
+        "--verification-log",
+        default=None,
+        help="--expanded1m only: path to the verify run's log file, recorded in the manifest for provenance",
+    )
     args = parser.parse_args()
+
+    if args.expanded1m:
+        if not args.verification_result:
+            raise SystemExit("--expanded1m requires --verification-result (the actual verify_teacher_corpus.py outcome)")
+        verification = {
+            "verifiedAt": datetime.now(timezone.utc).date().isoformat(),
+            "command": args.verification_command,
+            "result": args.verification_result,
+        }
+        if args.verification_log:
+            verification["logPath"] = args.verification_log
+        doc = finalize_expanded1m(verification)
+        print(f"expanded1m: manifest written with {doc['corpusStats']['records']} record(s)")
+        return
+
     candidates = {}
     for item in args.candidate:
         set_name, path = item.split("=", 1)

@@ -1,0 +1,427 @@
+{
+  "schemaVersion": 2,
+  "runKey": null,
+  "meta": {
+    "gitCommit": "ea6d07c1f8f48516bacf529dd31e80fbb26c3246",
+    "harnessSha256": "d56ba738791f122142fc43a37888b107734408a53ed332de05e68273429a5f79",
+    "teacherCandidatesToolSha256": "5013cf984db7b2bde27d5861f848c86656420329261d3d6e8fd3c1347a7d5ca2",
+    "edaxSha256": "aabb5ac7d3f9a872fc0e7388ab1eee1d23c687f76c28642122524dc318b322b1",
+    "edaxEvalDataSha256": "f8b2299612d9fa4414157e70e932636e33111c2602d0c2fc382a7d90ef21b792",
+    "candidatesPoolSha256": "433c882a41a355037a0d172c3586cac26d3fafd3101dbca4e477fde81fde0025",
+    "highRegretSourceSha256": "bbbccfa21440373fef500c23b0e7ccb17e5efb60637888a749a7adabccf42299",
+    "selectionPlanSha256": "2f26451299ea000c2ee118ab91330d1cdbc283903b0f23474b882210f2698483",
+    "baseCorpus": {
+      "path": "train\\data\\teacher\\corpus_expanded200k.jsonl",
+      "recordCount": 200000,
+      "jsonlSha256": "412477e2da6bacb0d715c7e5d02447d37b6e981237f64f221013a8eb465690e9",
+      "manifestPath": "bench\\edax-compare\\teacher_manifests\\corpus_expanded200k.meta.json",
+      "manifestSha256": "89c3cd33ec491c0aa55b2c4d0165b0785a5b8f3df08674b5107caffc4b223f4c",
+      "edaxSha256": "aabb5ac7d3f9a872fc0e7388ab1eee1d23c687f76c28642122524dc318b322b1",
+      "edaxEvalDataSha256": "f8b2299612d9fa4414157e70e932636e33111c2602d0c2fc382a7d90ef21b792"
+    },
+    "incrementalGeneration": {
+      "recordCount": 800000,
+      "candidatePoolPath": "train\\data\\teacher\\candidates_expanded1m.json",
+      "candidatePoolSha256": "433c882a41a355037a0d172c3586cac26d3fafd3101dbca4e477fde81fde0025",
+      "selectionPlanPath": "train\\data\\teacher\\corpus_expanded1m_selection_plan.jsonl",
+      "selectionPlanSha256": "2f26451299ea000c2ee118ab91330d1cdbc283903b0f23474b882210f2698483",
+      "shardPlanSha256": [
+        "0f5d81043e49bb65675a5a59ebb442ebbfb5c4e55eff458327f4ec961b914709",
+        "e233321a7e407513e147528d1b291522e568ab679127da0e51bb49b0d5b8eeda",
+        "80abba2b607be442d34c5277a0ee75d14f9cbdc8cb028be951b5a676249e00bd",
+        "04e2e8eeb28f4a14d4dd58cf11e6c6b0935767abc52fc23f24a3a8df20e66001",
+        "a420d86b3272396a88cff30def4ba2b746cdcb98f62562a643d5976b1f04cc34",
+        "bd9d7befb12c1b9cd8abbd7359d6852f1c19dbf86871de6e8273b5f3883db3d4",
+        "72ab94ffe1436f251249a5ec5a694a8b21f44ede279afc3038bd4b3d67004e5c",
+        "7e744315838b1254441a91e749a41fe7361095abc88070f80b759c5cf4820b60"
+      ],
+      "teacherCandidatesToolSha256": "5013cf984db7b2bde27d5861f848c86656420329261d3d6e8fd3c1347a7d5ca2",
+      "generatorSha256": "d56ba738791f122142fc43a37888b107734408a53ed332de05e68273429a5f79",
+      "edaxSha256": "aabb5ac7d3f9a872fc0e7388ab1eee1d23c687f76c28642122524dc318b322b1",
+      "edaxEvalDataSha256": "f8b2299612d9fa4414157e70e932636e33111c2602d0c2fc382a7d90ef21b792",
+      "t096OracleSha256": "eec09e7a3c194a71cbb60f25ce13e1887204bbbc4a9ba052cb19c61507786356"
+    },
+    "generatedAt": "2026-07-19T06:37:45+00:00",
+    "edaxExeSha256": "d85b7555879387cd20cee2dab28bcbbdb09631f245459e48b1b0b34b4558800c"
+  },
+  "settings": {
+    "setName": "expanded1m",
+    "targetCount": 1000000,
+    "seed": 90104,
+    "years": "2000-2024",
+    "perGameCap": 24,
+    "perBinCap": 4,
+    "exactEmptiesThreshold": 20,
+    "exactEdaxLevel": 60,
+    "defaultEdaxLevel": 16,
+    "edaxTasksPerProcess": 1,
+    "elapsedMsPolicy": "cross-parent-level-batch-averaged",
+    "numPhaseBins": 6,
+    "xcQuotaFraction": 0.5,
+    "openingKeyPlies": 8,
+    "openingMaxFraction": 0.02,
+    "selectionStats": {
+      "targetCount": 1000000,
+      "baseRecordCount": 200000,
+      "incrementalSelected": 800000,
+      "basePhaseCounts": [
+        4635,
+        39061,
+        39061,
+        39060,
+        39059,
+        39059
+      ],
+      "basePhaseXcCounts": [
+        2482,
+        34692,
+        38464,
+        38696,
+        38034,
+        33704
+      ],
+      "candidatePoolTotalAfterDedup": 1306421,
+      "rawIncrementalPoolPopulations": [
+        7087,
+        123994,
+        248446,
+        277472,
+        279561,
+        276646
+      ],
+      "incrementalPoolPopulations": [
+        7045,
+        103005,
+        171458,
+        180832,
+        180826,
+        177660
+      ],
+      "unionPoolPopulations": [
+        11680,
+        142066,
+        210519,
+        219892,
+        219885,
+        216719
+      ],
+      "finalBinAllocation": [
+        11680,
+        142066,
+        210519,
+        211891,
+        211890,
+        211889
+      ],
+      "incrementalBinAllocation": [
+        7045,
+        103005,
+        171458,
+        172831,
+        172831,
+        172830
+      ],
+      "finalPhaseXcCounts": [
+        6491,
+        124507,
+        206308,
+        209603,
+        205992,
+        182441
+      ],
+      "cappedBins": [
+        0,
+        1,
+        2
+      ],
+      "waterfallCount": 179565,
+      "openingMaxCount": 20000,
+      "maxOpeningCountSelected": 19608,
+      "oracleExcluded": 27,
+      "baseExcluded": 93188,
+      "incrementalDuplicateExcluded": 0,
+      "unselectedCandidates": 20826,
+      "candidateMarginFraction": 0.0260325,
+      "incrementalYearCounts": {
+        "2000": 44763,
+        "2009": 50391,
+        "2011": 22699,
+        "2015": 21740,
+        "2024": 33013,
+        "2002": 54622,
+        "2001": 50945,
+        "2019": 23348,
+        "2007": 29415,
+        "2004": 82479,
+        "2023": 26738,
+        "2006": 34024,
+        "2008": 26297,
+        "2018": 28358,
+        "2016": 22399,
+        "2020": 11788,
+        "2005": 49069,
+        "2003": 37778,
+        "2013": 26181,
+        "2014": 20596,
+        "2012": 26134,
+        "2022": 15918,
+        "2017": 28631,
+        "2010": 25253,
+        "2021": 7421
+      },
+      "incrementalSelectedPerGameHistogram": {
+        "21": 586,
+        "18": 6733,
+        "17": 7409,
+        "20": 2066,
+        "22": 145,
+        "19": 4543,
+        "13": 2744,
+        "16": 6623,
+        "15": 5185,
+        "23": 16,
+        "12": 1954,
+        "9": 813,
+        "14": 3762,
+        "8": 824,
+        "6": 1419,
+        "3": 4847,
+        "4": 3281,
+        "10": 1052,
+        "11": 1509,
+        "2": 6351,
+        "5": 2173,
+        "1": 5956,
+        "7": 1013
+      }
+    },
+    "selectionPlanSha256": "2f26451299ea000c2ee118ab91330d1cdbc283903b0f23474b882210f2698483",
+    "edaxParentsPerProcess": 32,
+    "edaxExe": "wEdax-x86-64-v3.exe"
+  },
+  "mergedFromShards": 8,
+  "progress": {
+    "done": 1000000,
+    "total": 1000000,
+    "ratePerSec": null,
+    "updatedAt": "2026-07-19T14:04:23+00:00"
+  },
+  "reusedRecordCount": 200000,
+  "corpusStats": {
+    "records": 1000000,
+    "sourceCounts": {
+      "engineLoss": 65,
+      "wthor": 999935
+    },
+    "phaseCountsWthor": {
+      "0": 11680,
+      "1": 142066,
+      "2": 210519,
+      "3": 211891,
+      "4": 211890,
+      "5": 211889
+    },
+    "yearCountsWthor": {
+      "2000": 56732,
+      "2001": 63978,
+      "2002": 68408,
+      "2003": 47224,
+      "2004": 103534,
+      "2005": 61210,
+      "2006": 42481,
+      "2007": 36634,
+      "2008": 32834,
+      "2009": 62967,
+      "2010": 31512,
+      "2011": 28297,
+      "2012": 32579,
+      "2013": 32716,
+      "2014": 25617,
+      "2015": 27145,
+      "2016": 27897,
+      "2017": 35614,
+      "2018": 35292,
+      "2019": 29146,
+      "2020": 14684,
+      "2021": 9253,
+      "2022": 19843,
+      "2023": 33262,
+      "2024": 41076
+    },
+    "children": 8274500,
+    "exactChildren": 2467121,
+    "exactRate": 0.29815952625536285,
+    "terminalChildren": 24200,
+    "averageElapsedMsPerEdaxCall": 240.84835395071838,
+    "errors": 0
+  },
+  "selectionAudit": {
+    "openingKeyPlies": 8,
+    "phaseXcCoverage": {
+      "0": {
+        "total": 11680,
+        "xc": 6491,
+        "xcCoverage": 0.555736301369863
+      },
+      "1": {
+        "total": 142066,
+        "xc": 124507,
+        "xcCoverage": 0.8764025171399209
+      },
+      "2": {
+        "total": 210519,
+        "xc": 206308,
+        "xcCoverage": 0.9799970548976576
+      },
+      "3": {
+        "total": 211891,
+        "xc": 209603,
+        "xcCoverage": 0.9892019953655418
+      },
+      "4": {
+        "total": 211890,
+        "xc": 205992,
+        "xcCoverage": 0.972164802491859
+      },
+      "5": {
+        "total": 211889,
+        "xc": 182441,
+        "xcCoverage": 0.8610215726158508
+      }
+    },
+    "openingMatched": 999935,
+    "openingUnmatched": 0,
+    "distinctOpeningKeys": 2925,
+    "maxOpeningKey": "0000001c00200000:000010207c100000:0",
+    "maxOpeningCount": 19608,
+    "maxOpeningShareOfWthor": 0.019609274602849187,
+    "acceptanceThresholds": {
+      "minimumXcCoveragePerPhase": 0.5,
+      "maximumSingleOpeningShare": 0.02
+    },
+    "distinctGamesRepresented": 72115,
+    "positionsPerGameHistogram": {
+      "1": 4433,
+      "2": 5609,
+      "3": 4966,
+      "4": 3757,
+      "5": 2676,
+      "6": 1887,
+      "7": 1312,
+      "8": 936,
+      "9": 671,
+      "10": 544,
+      "11": 560,
+      "12": 683,
+      "13": 926,
+      "14": 1183,
+      "15": 1576,
+      "16": 1932,
+      "17": 2739,
+      "18": 3341,
+      "19": 4458,
+      "20": 5777,
+      "21": 6553,
+      "22": 6290,
+      "23": 4774,
+      "24": 2759,
+      "25": 1222,
+      "26": 411,
+      "27": 118,
+      "28": 17,
+      "29": 5
+    },
+    "failedXcPhaseBins": [],
+    "openingShareExceeded": false,
+    "thresholdTriggered": false
+  },
+  "oracleNonContamination": {
+    "verifiedAt": "2026-07-19",
+    "oracleKeyCount": 60,
+    "oraclePositionsPath": "bench/edax-compare/t096_oracle_positions.json",
+    "contaminatedRecordsFound": 0,
+    "method": "verify_teacher_corpus.py expanded1mが全1,000,000件のcanonicalKeyとt096_oracle_positions.json(60キー、D4正準化・対称形込み)を全件突合(0件、下記verification参照)。finalize_teacher_corpus.pyのexpanded1m_corpus_statsでも独立に全件再突合し同じ結果を確認。"
+  },
+  "provenance": {
+    "baseCorpus": {
+      "path": "train\\data\\teacher\\corpus_expanded200k.jsonl",
+      "recordCount": 200000,
+      "jsonlSha256": "412477e2da6bacb0d715c7e5d02447d37b6e981237f64f221013a8eb465690e9",
+      "manifestPath": "bench\\edax-compare\\teacher_manifests\\corpus_expanded200k.meta.json",
+      "manifestSha256": "89c3cd33ec491c0aa55b2c4d0165b0785a5b8f3df08674b5107caffc4b223f4c",
+      "edaxSha256": "aabb5ac7d3f9a872fc0e7388ab1eee1d23c687f76c28642122524dc318b322b1",
+      "edaxEvalDataSha256": "f8b2299612d9fa4414157e70e932636e33111c2602d0c2fc382a7d90ef21b792"
+    },
+    "incrementalGeneration": {
+      "recordCount": 800000,
+      "candidatePoolPath": "train\\data\\teacher\\candidates_expanded1m.json",
+      "candidatePoolSha256": "433c882a41a355037a0d172c3586cac26d3fafd3101dbca4e477fde81fde0025",
+      "selectionPlanPath": "train\\data\\teacher\\corpus_expanded1m_selection_plan.jsonl",
+      "selectionPlanSha256": "2f26451299ea000c2ee118ab91330d1cdbc283903b0f23474b882210f2698483",
+      "shardPlanSha256": [
+        "0f5d81043e49bb65675a5a59ebb442ebbfb5c4e55eff458327f4ec961b914709",
+        "e233321a7e407513e147528d1b291522e568ab679127da0e51bb49b0d5b8eeda",
+        "80abba2b607be442d34c5277a0ee75d14f9cbdc8cb028be951b5a676249e00bd",
+        "04e2e8eeb28f4a14d4dd58cf11e6c6b0935767abc52fc23f24a3a8df20e66001",
+        "a420d86b3272396a88cff30def4ba2b746cdcb98f62562a643d5976b1f04cc34",
+        "bd9d7befb12c1b9cd8abbd7359d6852f1c19dbf86871de6e8273b5f3883db3d4",
+        "72ab94ffe1436f251249a5ec5a694a8b21f44ede279afc3038bd4b3d67004e5c",
+        "7e744315838b1254441a91e749a41fe7361095abc88070f80b759c5cf4820b60"
+      ],
+      "teacherCandidatesToolSha256": "5013cf984db7b2bde27d5861f848c86656420329261d3d6e8fd3c1347a7d5ca2",
+      "generatorSha256": "d56ba738791f122142fc43a37888b107734408a53ed332de05e68273429a5f79",
+      "edaxSha256": "aabb5ac7d3f9a872fc0e7388ab1eee1d23c687f76c28642122524dc318b322b1",
+      "edaxEvalDataSha256": "f8b2299612d9fa4414157e70e932636e33111c2602d0c2fc382a7d90ef21b792",
+      "t096OracleSha256": "eec09e7a3c194a71cbb60f25ce13e1887204bbbc4a9ba052cb19c61507786356"
+    },
+    "methodBoundaries": [
+      {
+        "sequence": 1,
+        "change": "edaxParentsPerProcess: 1 -> 32 (cross-parent warm batching)",
+        "changedAt": "2026-07-17 21:1x (JST、正確な分は未記録)",
+        "totalRecordsBefore": 292679,
+        "perShard": {
+          "0": 36672,
+          "1": 36520,
+          "2": 36583,
+          "3": 36631,
+          "4": 36547,
+          "5": 36601,
+          "6": 36518,
+          "7": 36607
+        },
+        "perShardSource": "tasks/T127h-warm-batch-switch.md の作業ログ(2026-07-17 20:5x JST、Claudeフェーズ2実施分)のシャード別レコード数表を転記(total列)。base(reuse)25,000+incrementalの内訳も同表に記載。",
+        "valuesIdentical": true,
+        "evidence": "t127g_warm_tt_ab_report.md"
+      },
+      {
+        "sequence": 2,
+        "change": "edaxExe: wEdax-x86-64.exe -> wEdax-x86-64-v3.exe",
+        "changedAt": "2026-07-18 07:1x (JST、正確な分は未記録)",
+        "totalRecordsBefore": 493703,
+        "perShard": {
+          "0": 61760,
+          "1": 61608,
+          "2": 61831,
+          "3": 61655,
+          "4": 61795,
+          "5": 61625,
+          "6": 61670,
+          "7": 61759
+        },
+        "perShardSource": "tasks/T127j-v3-binary-switch.md の『切替実施ログ』節(オーケストレーター実施、①生成停止時点のシャード別件数)を転記。",
+        "valuesIdentical": true,
+        "evidence": "t127i_edax_v3_ab_report.md"
+      }
+    ],
+    "methodBoundariesNote": "T127j redo#1(2026-07-18、代替レビューtasks/review/T127ij-v3-binary-claude-review.mdの重大-1指摘)への対応。migrate_t127j_v3_binary.pyがcorpus_expanded1m_shard*of8.meta.jsonへ書いたedaxExeBoundaryは、生成再開後にTeacherCorpusCheckpoint._write_meta(gen_teacher_corpus.py)がチェックポイント書き込みのたびにmeta docを作り直す際、未知のトップレベルキーとして毎回捨てられ、全8シャードのライブmetaから消滅した(edaxExe設定自体はsettings経由で残るため切替自体は無傷・成功、レコード493,703件も無傷)。このサイドカーファイルはgit管理下でchekpoint書き込みの影響を受けないため、方式境界の正しい値をここに固定して保存する。値はオーケストレーターが実地ログ(tasks/T127h-warm-batch-switch.mdの作業ログ、tasks/T127j-v3-binary-switch.mdの『切替実施ログ』節)から確定した値であり、実装ワーカーによる再計算は行っていない。最終manifestへの転記はT127c(expanded1m完走時)が行う。",
+    "methodBoundariesSidecarPath": "bench/edax-compare/teacher_manifests/corpus_expanded1m_method_boundaries.json"
+  },
+  "generationCommand": "python bench/edax-compare/gen_teacher_corpus.py expanded1m --years 2000-2024 --num-shards 8 (base 200,000件はcorpus_expanded200k.jsonlをbase importとして再利用、新規800,000件をEdax生成。生成途中でedaxParentsPerProcess: 1->32(T127h)、edaxExe: wEdax-x86-64.exe -> wEdax-x86-64-v3.exe(T127j)の2回切替。両切替の値等価性はT127g/T127iでA/B検証済み。方式境界の詳細はprovenance.methodBoundariesを参照)",
+  "verification": {
+    "verifiedAt": "2026-07-19",
+    "command": "python bench/edax-compare/verify_teacher_corpus.py expanded1m",
+    "result": "1000000 record(s) verified, 0 error(s), exit code 0",
+    "logPath": "logs/t127c-verify-expanded1m.log"
+  }
+}

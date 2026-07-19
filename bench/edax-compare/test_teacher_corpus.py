@@ -20,6 +20,10 @@ VERIFY_SPEC = importlib.util.spec_from_file_location("verify_teacher_corpus", HE
 assert VERIFY_SPEC and VERIFY_SPEC.loader
 verify = importlib.util.module_from_spec(VERIFY_SPEC)
 VERIFY_SPEC.loader.exec_module(verify)
+FINALIZE_SPEC = importlib.util.spec_from_file_location("finalize_teacher_corpus", HERE / "finalize_teacher_corpus.py")
+assert FINALIZE_SPEC and FINALIZE_SPEC.loader
+finalize = importlib.util.module_from_spec(FINALIZE_SPEC)
+FINALIZE_SPEC.loader.exec_module(finalize)
 
 
 class TeacherCorpusTests(unittest.TestCase):
@@ -945,6 +949,248 @@ class TeacherCorpusTests(unittest.TestCase):
             tampered = json.loads((data_dir / "corpus_expanded1m.meta.json").read_text(encoding="utf-8"))
             tampered["provenance"]["incrementalGeneration"]["selectionPlanSha256"] = "tampered"
             self.assertTrue(verify.expanded1m_provenance_errors(tampered))
+
+            # T127c: 実データのtrain/data/teacher/corpus_expanded1m.meta.jsonは
+            # Windows上のPath(os.sep=`\\`)でシリアライズされたためbaseCorpus.path等が
+            # 例えば"train\\data\\teacher\\corpus_expanded200k.jsonl"のように記録されて
+            # いた。区切り文字の差だけを理由に誤検知しないことを確認する(パス自体が
+            # 誤っている場合=別ディレクトリ名等は引き続き検出されること、も併せて確認)。
+            with mock.patch.multiple(verify, **patches):
+                with mock.patch.object(verify.vs_edax, "EDAX_EXE", artifacts["edax"]):
+                    with mock.patch.object(verify.vs_edax, "EDAX_EVAL_DATA", artifacts["eval"]):
+                        windows_style = json.loads(json.dumps(provenance))
+                        windows_style["baseCorpus"]["path"] = "train\\data\\teacher\\corpus_expanded200k.jsonl"
+                        windows_style["baseCorpus"]["manifestPath"] = (
+                            "bench\\edax-compare\\teacher_manifests\\corpus_expanded200k.meta.json"
+                        )
+                        windows_style["incrementalGeneration"]["candidatePoolPath"] = (
+                            "train\\data\\teacher\\candidates_expanded1m.json"
+                        )
+                        windows_style["incrementalGeneration"]["selectionPlanPath"] = (
+                            "train\\data\\teacher\\corpus_expanded1m_selection_plan.jsonl"
+                        )
+                        windows_style_errors = verify.expanded1m_provenance_errors({"provenance": windows_style})
+                        self.assertEqual(windows_style_errors, [])
+
+                        wrong_path = json.loads(json.dumps(provenance))
+                        wrong_path["baseCorpus"]["path"] = "train\\data\\teacher\\corpus_wrong200k.jsonl"
+                        wrong_path_errors = verify.expanded1m_provenance_errors({"provenance": wrong_path})
+                        self.assertTrue(any("baseCorpus.path" in message for message in wrong_path_errors))
+
+    def test_verify_checkpoint_round_trip_and_set_name_mismatch_is_ignored(self) -> None:
+        """T127c: 長時間実行ルール(チャンク進捗+resume)対応で追加した
+        save_verify_checkpoint/load_verify_checkpointの基本契約を確認する。
+        setNameが異なるcheckpointは取り違え防止のため無視されること、
+        原子的置換(.tmp書き→os.replace)で本体ファイルが残ることも確認する。"""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            checkpoint_path = Path(temp_dir) / "expanded1m.verify-checkpoint.json"
+            seen = {(1, 2, 3): 0, (4, 5, 6): 1}
+            verify.save_verify_checkpoint(checkpoint_path, "expanded1m", 2, 0, seen)
+            self.assertFalse(checkpoint_path.with_suffix(".json.tmp").exists())
+            loaded = verify.load_verify_checkpoint(checkpoint_path, "expanded1m")
+            self.assertIsNotNone(loaded)
+            self.assertEqual(loaded["recordCount"], 2)
+            self.assertEqual(loaded["errors"], 0)
+            self.assertEqual(
+                {(row[0], row[1], row[2]): row[3] for row in loaded["seenCanonical"]}, seen
+            )
+            self.assertIsNone(verify.load_verify_checkpoint(checkpoint_path, "expanded200k"))
+
+    def test_verify_one_resumes_from_checkpoint_and_skips_recomputation(self) -> None:
+        """T127c: checkpointにrecordCountが記録済みの区間はcompute_children/
+        compute_canonical_keys(subprocess経由の重い再検証)を呼ばずスキップし、
+        seenCanonicalを引き継いだ上で残り区間だけを検証することを確認する。"""
+        record = self.valid_corpus_record()
+        second_move = verify.compute_children([record])[0]["moves"][0]
+        second = self.valid_corpus_record(second_move["childBoard"], second_move["childSideToMove"])
+        second["positionId"] = 1
+        records = [record, second]
+        with tempfile.TemporaryDirectory() as temp_dir:
+            data_dir = Path(temp_dir)
+            (data_dir / "corpus_smoke.jsonl").write_text(
+                "".join(json.dumps(r) + "\n" for r in records), encoding="utf-8", newline="\n"
+            )
+            (data_dir / "corpus_smoke.meta.json").write_text(
+                json.dumps({"schemaVersion": 2, "progress": {"done": 2, "total": 2}}),
+                encoding="utf-8",
+                newline="\n",
+            )
+            checkpoint_path = data_dir / "smoke.verify-checkpoint.json"
+            first_key = tuple(record["canonicalKey"])
+            verify.save_verify_checkpoint(checkpoint_path, "smoke", 1, 0, {first_key: 0})
+
+            call_count = {"children": 0, "canonical": 0}
+            real_children = verify.compute_children
+            real_canonical = verify.compute_canonical_keys
+
+            def counting_children(recs):
+                call_count["children"] += 1
+                return real_children(recs)
+
+            def counting_canonical(recs):
+                call_count["canonical"] += 1
+                return real_canonical(recs)
+
+            with mock.patch.object(verify, "TEACHER_DATA_DIR", data_dir):
+                with mock.patch.object(verify, "BATCH_SIZE", 1):
+                    with mock.patch.object(verify, "compute_children", side_effect=counting_children):
+                        with mock.patch.object(verify, "compute_canonical_keys", side_effect=counting_canonical):
+                            count, errors = verify.verify_one(
+                                "smoke", progress_every=1, checkpoint_path=checkpoint_path
+                            )
+            self.assertEqual((count, errors), (2, 0))
+            # positionId=0はcheckpointでresume_record_count=1未満なのでbatchへ
+            # 積まれず、children/canonicalの再計算は最後の1件分(positionId=1)
+            # だけで済む(BATCH_SIZE=1なので1回呼ばれる)。
+            self.assertEqual(call_count["children"], 1)
+            self.assertEqual(call_count["canonical"], 1)
+            final_checkpoint = json.loads(checkpoint_path.read_text(encoding="utf-8"))
+            self.assertEqual(final_checkpoint["recordCount"], 2)
+            self.assertEqual(len(final_checkpoint["seenCanonical"]), 2)
+
+
+class T127cFinalizeExpanded1mTests(unittest.TestCase):
+    """T127c: `finalize_teacher_corpus.py`に追加したexpanded1m集計・manifest確定の
+    回帰テスト。実データ(1M件)は使わず、既知の値を計算できる小さな合成JSONLで
+    集計ロジック自体を検証する。"""
+
+    @staticmethod
+    def _synthetic_records() -> list[dict]:
+        return [
+            {
+                "positionId": 0,
+                "source": "wthor",
+                "canonicalKey": [1, 0, 0],
+                "phaseBin": 0,
+                "hasXcLegalMove": True,
+                "openingKey": "op1",
+                "year": 2001,
+                "gameIndex": 5,
+                "children": [
+                    {"move": "a1", "exact": True, "level": None, "elapsedMs": 1.0},
+                    {"move": "b2", "exact": False, "level": 16, "elapsedMs": 2.0},
+                ],
+            },
+            {
+                "positionId": 1,
+                "source": "wthor",
+                "canonicalKey": [2, 0, 0],
+                "phaseBin": 0,
+                "hasXcLegalMove": False,
+                "openingKey": "op1",
+                "year": 2001,
+                "gameIndex": 5,
+                "children": [{"move": "c3", "exact": True, "level": 60, "elapsedMs": 3.0}],
+            },
+            {
+                "positionId": 2,
+                "source": "wthor",
+                "canonicalKey": [3, 0, 0],
+                "phaseBin": 1,
+                "hasXcLegalMove": True,
+                "openingKey": "op2",
+                "year": 2002,
+                "gameIndex": 9,
+                "children": [{"move": "d4", "exact": False, "level": 16, "elapsedMs": 4.0}],
+            },
+            {
+                "positionId": 3,
+                "source": "engineLoss",
+                "canonicalKey": [999, 0, 0],
+                "phaseBin": None,
+                "hasXcLegalMove": None,
+                "openingKey": None,
+                "year": None,
+                "gameIndex": None,
+                "children": [{"move": "e5", "exact": False, "level": 16, "elapsedMs": 5.0}],
+            },
+        ]
+
+    def test_expanded1m_corpus_stats_aggregates_counts_and_histograms(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            jsonl_path = Path(temp_dir) / "corpus_expanded1m.jsonl"
+            jsonl_path.write_text(
+                "".join(json.dumps(r) + "\n" for r in self._synthetic_records()), encoding="utf-8", newline="\n"
+            )
+            oracle_keys = {(999, 0, 0)}
+            stats, audit, oracle_report = finalize.expanded1m_corpus_stats(jsonl_path, oracle_keys)
+
+        self.assertEqual(stats["records"], 4)
+        self.assertEqual(stats["sourceCounts"], {"wthor": 3, "engineLoss": 1})
+        self.assertEqual(stats["phaseCountsWthor"], {"0": 2, "1": 1})
+        self.assertEqual(stats["yearCountsWthor"], {"2001": 2, "2002": 1})
+        self.assertEqual(stats["children"], 5)
+        self.assertEqual(stats["exactChildren"], 2)
+        self.assertEqual(stats["terminalChildren"], 1)
+        self.assertAlmostEqual(stats["averageElapsedMsPerEdaxCall"], 3.0)
+
+        self.assertEqual(audit["phaseXcCoverage"]["0"], {"total": 2, "xc": 1, "xcCoverage": 0.5})
+        self.assertEqual(audit["phaseXcCoverage"]["1"], {"total": 1, "xc": 1, "xcCoverage": 1.0})
+        self.assertEqual(audit["openingMatched"], 3)
+        self.assertEqual(audit["openingUnmatched"], 0)
+        self.assertEqual(audit["distinctOpeningKeys"], 2)
+        self.assertEqual(audit["maxOpeningKey"], "op1")
+        self.assertEqual(audit["maxOpeningCount"], 2)
+        self.assertAlmostEqual(audit["maxOpeningShareOfWthor"], 2 / 3)
+        self.assertEqual(audit["distinctGamesRepresented"], 2)
+        self.assertEqual(audit["positionsPerGameHistogram"], {"1": 1, "2": 1})
+        self.assertEqual(audit["failedXcPhaseBins"], [])
+
+        self.assertEqual(oracle_report["oracleKeyCount"], 1)
+        self.assertEqual(oracle_report["contaminatedRecordsFound"], 1)
+
+    def test_finalize_expanded1m_writes_manifest_with_method_boundaries(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            data_dir = root / "teacher"
+            manifest_dir = root / "manifests"
+            data_dir.mkdir()
+            manifest_dir.mkdir()
+
+            jsonl_path = data_dir / "corpus_expanded1m.jsonl"
+            jsonl_path.write_text(
+                "".join(json.dumps(r) + "\n" for r in self._synthetic_records()), encoding="utf-8", newline="\n"
+            )
+            live_meta = {
+                "schemaVersion": 2,
+                "runKey": None,
+                "meta": {"gitCommit": "abc123"},
+                "settings": {"setName": "expanded1m", "targetCount": 4},
+                "mergedFromShards": 8,
+                "progress": {"done": 4, "total": 4},
+                "reusedRecordCount": 2,
+                "provenance": {"baseCorpus": {"recordCount": 2}, "incrementalGeneration": {"recordCount": 2}},
+            }
+            (data_dir / "corpus_expanded1m.meta.json").write_text(json.dumps(live_meta), encoding="utf-8")
+
+            boundaries_path = manifest_dir / "corpus_expanded1m_method_boundaries.json"
+            boundaries_path.write_text(
+                json.dumps({"boundaries": [{"sequence": 1, "change": "test-switch"}], "note": "synthetic note"}),
+                encoding="utf-8",
+            )
+
+            oracle_path = root / "oracle.json"
+            oracle_path.write_text(json.dumps({"positions": [{"canonicalKey": [999, 0, 0]}]}), encoding="utf-8")
+
+            patches = {
+                "DATA_DIR": data_dir,
+                "MANIFEST_DIR": manifest_dir,
+                "T096_ORACLE_POSITIONS_PATH": oracle_path,
+                "EXPANDED1M_METHOD_BOUNDARIES_PATH": boundaries_path,
+            }
+            verification = {"verifiedAt": "2026-07-19", "command": "verify_teacher_corpus.py expanded1m", "result": "ok"}
+            with mock.patch.multiple(finalize, **patches):
+                doc = finalize.finalize_expanded1m(verification)
+
+            self.assertEqual(doc["corpusStats"]["records"], 4)
+            self.assertEqual(doc["reusedRecordCount"], 2)
+            self.assertEqual(doc["provenance"]["methodBoundaries"], [{"sequence": 1, "change": "test-switch"}])
+            self.assertEqual(doc["provenance"]["methodBoundariesNote"], "synthetic note")
+            self.assertEqual(doc["verification"], verification)
+            self.assertEqual(doc["oracleNonContamination"]["contaminatedRecordsFound"], 1)
+
+            written = json.loads((manifest_dir / "corpus_expanded1m.meta.json").read_text(encoding="utf-8"))
+            self.assertEqual(written, doc)
 
 
 class VsEdaxSolveBatchCommandTests(unittest.TestCase):
