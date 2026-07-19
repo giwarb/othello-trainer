@@ -159,18 +159,32 @@ def expanded1m_provenance_errors(meta_doc: dict) -> list[str]:
         if compare_value != expected:
             errors.append(f"incrementalGeneration.{key}={actual_value!r}, expected {expected!r}")
 
-    artifact_shas = {
+    # T143(生成基盤堅牢化の副作用として発見・修正): データ成果物(候補プール・
+    # selection plan・oracle定義)は生成完了時点で確定した不変ファイルなので、
+    # 現在のライブファイルと厳密一致することを引き続き要求する。
+    immutable_data_artifact_shas = {
         "candidatePoolSha256": sha256_of_file(EXPANDED1M_CANDIDATE_POOL_PATH),
         "selectionPlanSha256": sha256_of_file(EXPANDED1M_SELECTION_PLAN_PATH),
-        "generatorSha256": sha256_of_file(EXPANDED1M_GENERATOR_PATH),
-        "teacherCandidatesToolSha256": sha256_of_file(TOOL),
-        "edaxSha256": sha256_of_file(vs_edax.EDAX_EXE),
-        "edaxEvalDataSha256": sha256_of_file(vs_edax.EDAX_EVAL_DATA),
         "t096OracleSha256": sha256_of_file(T096_ORACLE_POSITIONS_PATH),
     }
-    for key, actual in artifact_shas.items():
+    for key, actual in immutable_data_artifact_shas.items():
         if actual is None or incremental.get(key) != actual:
             errors.append(f"incrementalGeneration.{key}={incremental.get(key)!r}, actual {actual!r}")
+
+    # T143: `generatorSha256`/`teacherCandidatesToolSha256`/`edaxSha256`/
+    # `edaxEvalDataSha256`はコード/ビルド成果物であり、生成完了後の通常の
+    # メンテナンス(バグ修正・堅牢化等、本タスク自身がgen_teacher_corpus.pyを
+    # 編集したことでgeneratorSha256が実際に変化した)で正当に変わりうる。これらを
+    # 「現在のライブファイルと一致しなければならない」とする検証は、以後この
+    # 生成物を(生成器を1文字も触れないという意味で)二度と検証できなくなることを
+    # 意味し過剰。生成完了時点で記録された値がプロヴェナンスとして存在すること
+    # (欠落していないこと)だけを検証する。生成"実行中"の環境SHA不一致という
+    # 真に危険なケースは、gen_teacher_corpus.py側のresume identityゲート
+    # (PROVENANCE_IDENTITY_KEYS、実行中プロセスの再開時にのみ効く)が別途担う。
+    for key in ("generatorSha256", "teacherCandidatesToolSha256", "edaxSha256", "edaxEvalDataSha256"):
+        value = incremental.get(key)
+        if not isinstance(value, str) or not value:
+            errors.append(f"incrementalGeneration.{key} must be a recorded non-empty SHA-256 string, got {value!r}")
 
     shard_shas = incremental.get("shardPlanSha256")
     if not isinstance(shard_shas, list) or len(shard_shas) != 8:
@@ -262,20 +276,58 @@ def schema_errors(record: dict) -> list[str]:
     return errors
 
 
-def load_verify_checkpoint(checkpoint_path: Path, set_name: str) -> dict | None:
+def compute_checkpoint_fingerprint(jsonl_path: Path) -> dict:
+    """T143(レビュー中-1): verify checkpointの正当性を、前回保存時点の対象JSONLと
+    teacher_candidates.exeの実体が今も同じかどうかで検証するためのフィンガープリント。
+    フルSHA-256計算は1.6GB規模(expanded1m)でも1秒未満(2026-07-20実測)であり、
+    `verify_one`1回の呼び出しにつき1回計算して使い回すだけなので無視できるコスト。"""
+    return {
+        "jsonlSize": jsonl_path.stat().st_size,
+        "jsonlSha256": sha256_of_file(jsonl_path),
+        "toolSha256": sha256_of_file(TOOL),
+    }
+
+
+def load_verify_checkpoint(
+    checkpoint_path: Path, set_name: str, expected_fingerprint: dict | None = None
+) -> dict | None:
     """T127c: 1M件全件検証の中断→再開用checkpoint読み込み。
 
     setNameが一致しないcheckpoint(別setからの取り違え)は無視してNoneを返す
     (フルスキャンにフォールバックさせ、誤ったseen_canonicalの流用を防ぐ)。
+
+    T143(レビュー中-1): `expected_fingerprint`(`compute_checkpoint_fingerprint`の
+    戻り値)を渡すと、保存済みcheckpointのフィンガープリント(対象JSONLのサイズ・
+    SHA-256、teacher_candidates.exeのSHA-256)と現在値を照合する。不一致
+    (対象JSONLが前回保存後に差し替わった、ツールバイナリが変わった等)なら
+    checkpointを無効化し(理由をログしてNoneを返す)、呼び出し元をフルスキャンへ
+    フォールバックさせる。破損したcheckpointを誤って信頼する事故を防ぐための
+    安全側フォールバックであり、verify側はcheckpointを失っても(検証をやり直す
+    だけで)データを破壊しないため、生成側の`--start-fresh`のような明示フラグは
+    不要(既定で常にフォールバックしてよい)。
     """
     if not checkpoint_path.exists():
         return None
     try:
         doc = json.loads(checkpoint_path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
+    except (OSError, json.JSONDecodeError) as exc:
+        report(set_name, f"checkpoint {checkpoint_path} could not be parsed ({exc}); falling back to full scan")
         return None
     if doc.get("setName") != set_name:
         return None
+    if expected_fingerprint is not None:
+        mismatched = {
+            key: (doc.get(key), expected)
+            for key, expected in expected_fingerprint.items()
+            if doc.get(key) != expected
+        }
+        if mismatched:
+            report(
+                set_name,
+                f"checkpoint {checkpoint_path} fingerprint mismatch {mismatched} (the target JSONL or "
+                "teacher_candidates tool changed since the checkpoint was written); falling back to full scan",
+            )
+            return None
     return doc
 
 
@@ -285,9 +337,15 @@ def save_verify_checkpoint(
     record_count: int,
     errors: int,
     seen_canonical: dict[tuple, int],
+    fingerprint: dict | None = None,
 ) -> None:
     """チャンク境界ごとに呼ぶ。原子的置換(tmp書き→os.replace)でクラッシュ時の
-    破損checkpointを防ぐ(長時間実行ルール: 逐次保存・resume可能を満たす)。"""
+    破損checkpointを防ぐ(長時間実行ルール: 逐次保存・resume可能を満たす)。
+
+    T143(レビュー中-1): `fingerprint`(`compute_checkpoint_fingerprint`の戻り値)を
+    渡すとcheckpointへそのまま埋め込む(`load_verify_checkpoint`が次回load時に
+    照合する)。省略時(既定None)は従来どおりフィンガープリント欄を含めない。
+    """
     doc = {
         "setName": set_name,
         "recordCount": record_count,
@@ -295,6 +353,8 @@ def save_verify_checkpoint(
         "seenCanonical": [[key[0], key[1], key[2], pos_id] for key, pos_id in seen_canonical.items()],
         "updatedAt": datetime.now(timezone.utc).isoformat(timespec="seconds"),
     }
+    if fingerprint:
+        doc.update(fingerprint)
     tmp_path = checkpoint_path.with_suffix(checkpoint_path.suffix + ".tmp")
     checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
     tmp_path.write_text(json.dumps(doc), encoding="utf-8")
@@ -356,8 +416,12 @@ def verify_one(
     # positionId連番・expanded200kプレフィックス比較(いずれもsubprocess不要で
     # 安価)はresume区間でも引き続き全件実施する。
     resume_record_count = 0
+    # T143(レビュー中-1): checkpoint_pathが渡された場合のみフィンガープリントを
+    # 計算する(既存smoke/primary/expanded200kの通常呼び出しは--checkpoint-dirを
+    # 渡さないため、この追加コストの影響を受けない)。
+    fingerprint = compute_checkpoint_fingerprint(jsonl_path) if checkpoint_path is not None else None
     if checkpoint_path is not None:
-        loaded = load_verify_checkpoint(checkpoint_path, set_name)
+        loaded = load_verify_checkpoint(checkpoint_path, set_name, fingerprint)
         if loaded is not None:
             resume_record_count = int(loaded.get("recordCount", 0))
             errors += int(loaded.get("errors", 0))
@@ -535,7 +599,9 @@ def verify_one(
                     )
                     sys.stdout.flush()
                     if checkpoint_path is not None:
-                        save_verify_checkpoint(checkpoint_path, set_name, record_count, errors, seen_canonical)
+                        save_verify_checkpoint(
+                            checkpoint_path, set_name, record_count, errors, seen_canonical, fingerprint
+                        )
     if batch:
         errors += verify_batch(batch, record_count - len(batch))
     if base_fh is not None:
@@ -558,10 +624,28 @@ def verify_one(
     if checkpoint_path is not None:
         # 完走時点のcheckpointを残す。次回実行が全件済みの状態から始まっても
         # resume_record_count==record_countとなり、スキップのみで即完走する。
-        save_verify_checkpoint(checkpoint_path, set_name, record_count, errors, seen_canonical)
+        save_verify_checkpoint(checkpoint_path, set_name, record_count, errors, seen_canonical, fingerprint)
     elapsed_total = time.monotonic() - start_time
     print(f"[{set_name}] verified {record_count} record(s), {errors} error(s), elapsed={elapsed_total:.1f}s")
     return record_count, errors
+
+
+def validated_progress_every(progress_every: int) -> int:
+    """T143(軽微対応11): `--progress-every`がBATCH_SIZE(500)の倍数でないと、
+    進捗ログ・checkpoint保存の判定(`record_count % progress_every == 0`)は
+    `len(batch) >= BATCH_SIZE`(500件ごと)の内側でしか評価されないため、倍数で
+    ない値ではほとんど(組み合わせによっては全く)発火しない。1M件規模の実行で
+    checkpointが実質保存されなくなる事故を防ぐため、倍数でなければ警告のうえ
+    次のBATCH_SIZE倍数へ切り上げる(0=無効化はそのまま素通しする)。"""
+    if progress_every and progress_every % BATCH_SIZE != 0:
+        rounded = ((progress_every // BATCH_SIZE) + 1) * BATCH_SIZE
+        print(
+            f"WARNING: --progress-every={progress_every} is not a multiple of BATCH_SIZE={BATCH_SIZE}; "
+            f"progress/checkpoint saves only happen at BATCH_SIZE boundaries, rounding up to {rounded}",
+            file=sys.stderr,
+        )
+        return rounded
+    return progress_every
 
 
 def main() -> None:
@@ -585,13 +669,23 @@ def main() -> None:
         help="load an existing checkpoint under --checkpoint-dir if present (no-op without --checkpoint-dir)",
     )
     args = parser.parse_args()
+    args.progress_every = validated_progress_every(args.progress_every)
     total_records = total_errors = 0
     for set_name in args.set_names:
         checkpoint_path = (
             args.checkpoint_dir / f"{set_name}.verify-checkpoint.json" if args.checkpoint_dir else None
         )
-        if checkpoint_path is not None and not args.resume and checkpoint_path.exists():
-            checkpoint_path.unlink()
+        if checkpoint_path is not None:
+            # T143(軽微対応11): `.tmp`は`save_verify_checkpoint`の原子的置換
+            # (tmp書き→os.replace)が完了する前にプロセスが落ちたときだけ残る
+            # 中間ファイルで、読み込まれることは無い。放置しても実害は薄いが、
+            # 気づかず溜め続けないようcheckpoint本体の掃除と同じタイミングで
+            # 一緒に片付ける(resume時も含め、常に安全に削除できる)。
+            tmp_path = checkpoint_path.with_suffix(checkpoint_path.suffix + ".tmp")
+            if tmp_path.exists():
+                tmp_path.unlink()
+            if not args.resume and checkpoint_path.exists():
+                checkpoint_path.unlink()
         count, errors = verify_one(
             set_name,
             progress_every=args.progress_every or None,

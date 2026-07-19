@@ -73,6 +73,21 @@ Edaxの探索値に置き換えるための第一段(コーパス生成)。
     #       意図的に破棄し、ゼロから再生成する(旧来の暗黙のstart_fresh相当)。
     python bench/edax-compare/gen_teacher_corpus.py expanded200k --years 2000-2024 --num-shards 8 --adopt-provenance
 
+    # T143追記(生成基盤の堅牢化、2026-07-20): 本ファイル自体の編集は
+    # `harnessSha256`/`generatorSha256`(いずれも`sha256_of_file(Path(__file__))`)を
+    # 変える。expanded1m(1,000,000件、完走・マージ・検証済み)の固定selection plan
+    # (`train/data/teacher/corpus_expanded1m_selection_plan.meta.json`、gitignore対象の
+    # 生成物であり本タスクでは意図的に一切更新しない)は、生成当時のgeneratorSha256を
+    # そのまま記録し続ける(過去の実行が実際に使ったコードの証跡としてこれが正しい)。
+    # そのため、このコミット以降に(既に完了済みの)expanded1mのシャードを
+    # `--shard-index`付きで再実行しようとすると、`_expanded1m_settings_and_meta`の
+    # 「plan記録済みSHA vs 現在のファイルSHA」照合で`generatorSha256`不一致となり、
+    # 明示エラー(execution SHA mismatch)で拒否される(この照合に脱出フラグは無い)。
+    # expanded1mは再開の必要が無い完了データのため実害は無い。将来の新規set(4M等)は
+    # `prepare_expanded1m_selection_plan`が呼ばれた時点のファイル内容から
+    # generatorSha256を都度再計算して新しいplanへ記録するため、この編集による影響を
+    # 一切受けない(移行スクリプト等は不要)。
+
 前提: `cargo build --release -p train --bin teacher_candidates` でビルド済み、
 `bench/edax-compare/edax-extract/`にEdaxが展開済み(`download-edax.ps1`)。
 
@@ -384,6 +399,19 @@ def run_extract(years: str, seed: int, per_game_cap: int, out_path: Path, per_bi
         raise RuntimeError(f"teacher_candidates extract failed (code={result.returncode}): {result.stdout}\n{result.stderr}")
 
 
+def require_year_range_matched_games(pool: dict, years: str, candidates_path: Path) -> None:
+    """T143(T114申し送り): `--years`指定ミス(タイポ・対象年のWTHORファイル欠落)を、
+    後段の(高コストな)選定・Edaxラベリングより前に早期検出する。`teacher_candidates
+    extract`は該当年が1件も無くても正常終了し(`totalGamesInYearRange: 0`の
+    候補プールを書き出すだけ)、以前はそのまま選定段階へ進んでいた。"""
+    if pool.get("totalGamesInYearRange", 0) == 0:
+        raise RuntimeError(
+            f"no WTHOR games matched --years {years!r} in candidate pool {candidates_path} "
+            "(totalGamesInYearRange=0). Check for a --years typo or missing WTH_*.wtb files for the "
+            "requested year(s) under --data-dir before proceeding to selection/Edax labeling."
+        )
+
+
 def run_children_batch(positions: list[dict]) -> list[dict]:
     """`teacher_candidates.exe children`を1プロセス起動でまとめて呼ぶ。"""
     if not positions:
@@ -526,6 +554,22 @@ def select_positions(
         by_bin[row["phaseBin"]].append(row)
 
     bin_populations = [len(b) for b in by_bin]
+    # T143(T114申し送り): 候補プール不足の事前検出。`allocate_bin_targets`は母集団が
+    # 目標に届かない場合でも例外を出さず、単に配分合計が目標未満のまま返す
+    # (waterfallの`remaining_bins`が空になって静かにループを抜けるだけ)。そのため
+    # 以前は、`--years`指定ミスや対象年のWTHORファイル欠落で候補プールがほぼ空でも、
+    # X/Cクォータ判定がtarget=0で自明に満たされてしまい、実質空(または大幅に
+    # target未満)のコーパスがEdaxラベリング(高コスト)まで気づかず完走しうる経路が
+    # あった。ラベリング開始前のこの時点で、優先層+プールの合計が目標に届くかを
+    # 明示的に検証する。
+    available_total = len(priority_selected) + sum(bin_populations)
+    if available_total < target_count:
+        raise RuntimeError(
+            f"candidate pool insufficient for target_count={target_count}: only {available_total} available "
+            f"(priority={len(priority_selected)}, pool={sum(bin_populations)} across phase bins={bin_populations}). "
+            "Check for a --years typo, missing WTH_*.wtb files for the requested year(s), or an "
+            "unreasonably large targetCount before proceeding to (costly) Edax labeling."
+        )
     allocation = allocate_bin_targets(bin_populations, remaining_target)
 
     sampled: list[dict] = []
@@ -888,6 +932,7 @@ def prepare_expanded1m_selection_plan(years: str, per_game_cap: int, per_bin_cap
     else:
         run_extract(years, CORPUS_SETS["expanded1m"]["seed"], per_game_cap, EXPANDED1M_CANDIDATES_PATH, per_bin_cap)
     pool = json.loads(EXPANDED1M_CANDIDATES_PATH.read_text(encoding="utf-8"))
+    require_year_range_matched_games(pool, years, EXPANDED1M_CANDIDATES_PATH)
     if pool.get("perGameCap") != 24 or pool.get("perBinCap") != 4:
         raise RuntimeError("expanded1m candidate pool has incompatible K/per-game settings")
 
@@ -1137,6 +1182,19 @@ PROVENANCE_IDENTITY_KEYS = (
     "edaxEvalDataSha256",
     "candidatesPoolSha256",
     "highRegretSourceSha256",
+    # T143(T127ij申し送り): `edaxSha256`は既定バイナリ(`vs_edax.EDAX_EXE`)のSHAを
+    # 指し続ける(`_expanded1m_settings_and_meta`のコメント参照、T127jで意図的に
+    # 固定された仕様)。そのため`edaxExe`設定(現状expanded1mのみ、
+    # `CORPUS_SETS["expanded1m"]["edaxExe"] = "wEdax-x86-64-v3.exe"`)で実際に
+    # 呼び出すバイナリが差し替わっていても、`edaxSha256`だけを見るidentityでは
+    # fail-closedに検知できなかった(バイナリ差し替えがresume拒否に繋がらない)。
+    # `edaxExeSha256`(実際に呼び出すバイナリの実SHA、`edaxExe`未設定のset
+    # (smoke/primary/expanded200k)では`build_run_metadata`が一切キーを追加しない
+    # ためsaved/currentとも常にNoneのまま=既存の3set のsettings/runKey/resume挙動は
+    # 完全に不変)をidentityへ追加し、v3バイナリ等の差し替えを他のSHAと同じく
+    # fail-closedで検知する(不一致時は`--adopt-provenance`/`--start-fresh`の
+    # 既存の脱出口で明示的に受理する)。
+    "edaxExeSha256",
 )
 
 
@@ -1194,8 +1252,29 @@ class TeacherCorpusCheckpoint:
         try:
             saved_meta_doc = json.loads(self.meta_path.read_text(encoding="utf-8"))
         except (json.JSONDecodeError, OSError) as exc:
-            print(f"  [resume] {self.meta_path.name} could not be parsed ({exc}), starting fresh")
-            return False
+            # T143(T114申し送り): 以前はここで無条件にFalseを返していたため、呼び出し元の
+            # `if not checkpoint.try_resume(): checkpoint.start_fresh()`が発動し、
+            # 中身が壊れているのはmeta.jsonだけ(jsonl自体は健全かもしれない)にも
+            # かかわらずjsonlを空へ切り詰めていた(完了済み局面の暗黙破棄)。
+            # runKey/provenance不一致と同じ扱いに揃え、既定はRuntimeErrorで停止し、
+            # 明示的に`--start-fresh`が指定されたときだけ意図的な破棄として進める。
+            if self.start_fresh_allowed:
+                print(
+                    f"  [resume] {self.meta_path.name} could not be parsed ({exc}), --start-fresh specified: "
+                    "discarding checkpoint and regenerating from scratch"
+                )
+                return False
+            raise RuntimeError(
+                f"{self.meta_path.name}: could not be parsed as JSON ({exc}), but {self.jsonl_path.name} "
+                "exists and may still contain valid completed positions. Refusing to silently discard it.\n"
+                "Recovery options:\n"
+                "  1. Restore meta.json from a backup (e.g. a git-tracked copy or a prior checkpoint snapshot) "
+                "if one is available, then resume normally.\n"
+                "  2. Inspect the jsonl file's tail for the last valid record and hand-reconstruct a meta.json "
+                "(schemaVersion/runKey/meta/settings/progress) around it.\n"
+                "  3. Pass --start-fresh if you intend to discard the existing checkpoint and regenerate "
+                "from scratch."
+            ) from exc
 
         if saved_meta_doc.get("runKey") != self.run_key:
             if self.start_fresh_allowed:
@@ -1362,6 +1441,7 @@ def generate(
     else:
         run_extract(years, seed, per_game_cap, CANDIDATES_PATH)
     pool = json.loads(CANDIDATES_PATH.read_text(encoding="utf-8"))
+    require_year_range_matched_games(pool, years, CANDIDATES_PATH)
     print(f"  pool: {pool['totalCandidatesAfterDedup']} candidates from {pool['totalGamesInYearRange']} games")
 
     print(f"[{tag}] step 2/4: loading high-regret positions (loss>={HIGH_REGRET_MIN_LOSS}) ...")
@@ -1646,30 +1726,43 @@ def checkpoint_expanded1m_parent_bundle(
     checkpoint: TeacherCorpusCheckpoint,
     edax_exe: Path | None = None,
 ) -> bool:
-    """Solve one cross-parent bundle, falling back before any checkpoint append.
+    """Solve one cross-parent bundle (up to `edaxParentsPerProcess`, 32 by default).
 
     `edax_exe`(T127j)は未指定(None)なら従来どおりのEdaxバイナリを使う。
     バッチ経路・フォールバック経路のどちらでも同じバイナリで解く。
+
+    T143(T127h申し送り・中): フォールバック経路は元々「束内の全親をlabel_positionで
+    逐次ラベリングし終えてからまとめてcheckpoint.append()する」実装だったため、
+    フォールバック中にプロセスが落ちると、既にEdaxで解き終えた親(最大束サイズ-1件、
+    既定32親構成では最大31件)分の計算結果が丸ごと失われていた。1局面ごとの
+    checkpoint(CLAUDE.mdの長時間実行ルール)という設計原則をフォールバック経路にも
+    適用し、各親をラベリングした直後に即appendする(バッチ成功経路も同様に、
+    バッチ全体が完了した直後にappendする点は従来どおり: バッチ呼び出し自体は
+    1回のEdaxプロセス起動で不可分なため、束の途中まででの部分checkpointはできない)。
     """
-    fell_back = False
     try:
         records = label_positions_across_parents(parents, exact_empties_threshold=20, edax_exe=edax_exe)
     except Exception as exc:  # noqa: BLE001
-        fell_back = True
         position_ids = [position_id for position_id, _, _ in parents]
         print(
             f"  WARNING: expanded1m parent bundle {position_ids} failed ({exc}); "
-            "falling back to one Edax execution per parent"
+            "falling back to one Edax execution per parent (checkpointing each parent immediately)"
         )
-        records = [
-            label_position(
+        for position_id, position, children_info in parents:
+            record = label_position(
                 position_id, position, children_info, exact_empties_threshold=20, edax_exe=edax_exe
             )
-            for position_id, position, children_info in parents
-        ]
-    for record in records:
-        checkpoint.append(record)
-    return fell_back
+            checkpoint.append(record)
+        return True
+    else:
+        # `try`節と同じ例外(checkpoint.append自体の失敗、例: ディスクフル)を
+        # ここで誤って握りつぶし、既に成功した束をEdax再実行の無駄なフォール
+        # バックへ回さないよう、appendは`try`ブロックの外(=この`else`節)で行う
+        # (成功時のみ実行され、`except`の対象にならない)。従来の挙動どおり、
+        # append失敗はそのまま呼び出し元へ伝播する。
+        for record in records:
+            checkpoint.append(record)
+        return False
 
 
 def generate_expanded1m_shard(shard_index: int) -> None:

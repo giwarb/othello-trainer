@@ -265,6 +265,11 @@ def expanded1m_corpus_stats(jsonl_path: Path, oracle_keys: set[tuple[int, int, i
         "terminalChildren": terminal,
         "averageElapsedMsPerEdaxCall": elapsed_sum / elapsed_count if elapsed_count else None,
         "errors": 0,
+        # T143(要件7): マージ済みJSONL本体自体のSHA-256をmanifestへ記録する。
+        # 生成物(train/data/teacher/以下、gitignore対象)を再配布する手段が無いため、
+        # 誰でもこのmanifestだけを見て「本当にこの内容のjsonlから集計したものか」を
+        # 独立に検証できるようにする。
+        "corpusSha256": sha256(jsonl_path),
     }
     oracle_report = {
         "oracleKeyCount": len(oracle_keys),
@@ -286,6 +291,28 @@ def finalize_expanded1m(verification: dict) -> dict:
     boundaries_doc = json.loads(EXPANDED1M_METHOD_BOUNDARIES_PATH.read_text(encoding="utf-8"))
     oracle_keys = load_oracle_keys()
     stats, selection_audit, oracle_report = expanded1m_corpus_stats(jsonl_path, oracle_keys)
+
+    # T143(レビュー中-2、必須): manifestを書き出す前の整合性ゲート。集計結果が
+    # 期待から外れていれば(生成物の破損・部分完走・選定制約の逸脱等)、不整合な
+    # manifestをコミット対象として書き出してしまう前にここで停止する。
+    progress_total = (live_meta.get("progress") or {}).get("total")
+    if stats["records"] != progress_total:
+        raise RuntimeError(
+            "finalize_expanded1m integrity gate failed: corpusStats.records="
+            f"{stats['records']} != live meta progress.total={progress_total!r} "
+            f"({live_meta_path})"
+        )
+    if oracle_report["contaminatedRecordsFound"] != 0:
+        raise RuntimeError(
+            "finalize_expanded1m integrity gate failed: oracleNonContamination."
+            f"contaminatedRecordsFound={oracle_report['contaminatedRecordsFound']} != 0"
+        )
+    if selection_audit["thresholdTriggered"]:
+        raise RuntimeError(
+            "finalize_expanded1m integrity gate failed: selectionAudit.thresholdTriggered is True "
+            f"(failedXcPhaseBins={selection_audit['failedXcPhaseBins']!r}, "
+            f"openingShareExceeded={selection_audit['openingShareExceeded']!r})"
+        )
 
     provenance = dict(live_meta.get("provenance") or {})
     provenance["methodBoundaries"] = boundaries_doc.get("boundaries")
@@ -328,6 +355,29 @@ def finalize_expanded1m(verification: dict) -> dict:
     with manifest_path.open("w", encoding="utf-8", newline="\n") as out:
         out.write(json.dumps(doc, indent=2, ensure_ascii=False) + "\n")
     return doc
+
+
+def append_corpus_sha256(jsonl_path: Path, manifest_path: Path) -> str:
+    """T143(要件7): 既に確定・コミット済みのmanifest(`finalize_expanded1m`を再実行
+    すると`verifiedAt`等の他フィールドまで今日の日付で書き換わってしまうため、
+    その再実行は使わない)へ、`corpusStats.corpusSha256`だけを後から追記する。
+    manifestの他フィールドは一切変更しない(読み込んだJSONへ1キー追加して
+    書き戻すのみ)。値が既に記録済みで、かつ再計算値と食い違う場合は
+    (データが変わった可能性があるため)上書きせずエラーにする。"""
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    corpus_sha256 = sha256(jsonl_path)
+    stats = manifest.setdefault("corpusStats", {})
+    existing = stats.get("corpusSha256")
+    if existing is not None and existing != corpus_sha256:
+        raise RuntimeError(
+            f"{manifest_path}: corpusStats.corpusSha256 is already recorded as {existing!r}, "
+            f"which differs from the recomputed value {corpus_sha256!r}. Refusing to overwrite "
+            "(this would indicate the underlying jsonl changed since the manifest was written)."
+        )
+    stats["corpusSha256"] = corpus_sha256
+    with manifest_path.open("w", encoding="utf-8", newline="\n") as out:
+        out.write(json.dumps(manifest, indent=2, ensure_ascii=False) + "\n")
+    return corpus_sha256
 
 
 def update_meta(set_name: str, stats: dict, report: dict, jsonl_paths: list[Path]) -> dict:
@@ -391,7 +441,22 @@ def main() -> None:
         default=None,
         help="--expanded1m only: path to the verify run's log file, recorded in the manifest for provenance",
     )
+    parser.add_argument(
+        "--append-corpus-sha256",
+        nargs=2,
+        metavar=("JSONL", "MANIFEST"),
+        default=None,
+        help="T143(要件7): finalize_expanded1mの再実行(verifiedAt等の他フィールドまで "
+        "書き換わってしまう)を経由せず、既に確定済みのmanifestへcorpusStats.corpusSha256 "
+        "だけを後から追記する。他の全引数と排他。",
+    )
     args = parser.parse_args()
+
+    if args.append_corpus_sha256:
+        jsonl_arg, manifest_arg = args.append_corpus_sha256
+        corpus_sha256 = append_corpus_sha256(ROOT / jsonl_arg, ROOT / manifest_arg)
+        print(f"appended corpusStats.corpusSha256={corpus_sha256} to {manifest_arg}")
+        return
 
     if args.expanded1m:
         if not args.verification_result:

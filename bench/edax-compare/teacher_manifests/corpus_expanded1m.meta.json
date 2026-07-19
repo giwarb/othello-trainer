@@ -253,7 +253,8 @@
     "exactRate": 0.29815952625536285,
     "terminalChildren": 24200,
     "averageElapsedMsPerEdaxCall": 240.84835395071838,
-    "errors": 0
+    "errors": 0,
+    "corpusSha256": "067a4e3a0076d39f793164c0b2168375a5a9d450cf1f7325ba0e4661e4741e86"
   },
   "selectionAudit": {
     "openingKeyPlies": 8,
