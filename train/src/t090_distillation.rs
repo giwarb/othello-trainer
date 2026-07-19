@@ -823,6 +823,14 @@ fn subset_seed_for_phase(seed: u64, phase: usize) -> u64 {
     fnv_update(hash, &[phase as u8])
 }
 
+/// T144: `--outcome-matched-only`で使う、WTHOR再生outcomeが引けない
+/// レコードを取り除く決定的フィルタ(入力順序を保持する)。
+/// outcome-only mixとteacher-only mixを「全く同じ局面集合」で対照するために、
+/// 未指定時は呼ばれない(呼び出し側`run()`のフラグ分岐、既存動作不変)。
+fn filter_outcome_matched(train: Vec<DistillRecord>) -> Vec<DistillRecord> {
+    train.into_iter().filter(|r| r.outcome.is_some()).collect()
+}
+
 /// T109: 既存コーパスのtrain splitから、空きマス帯(phase)で層化した
 /// 入れ子(nested)部分集合を決定論的に抽出する。
 ///
@@ -1262,6 +1270,11 @@ pub fn run() -> ExitCode {
         }
         None => 42,
     };
+    // T144: teacher-only/outcome-only mixを「全く同じ局面集合」で対照するための
+    // 値なしフラグ。指定時はtrain splitをWTHOR再生outcomeが一致するレコードだけに
+    // 絞る(train_subset_sizeより先に適用し、指定があればその絞り込み後の集合から
+    // さらにサブセットを取る)。未指定時は従来どおり全件(既存動作不変)。
+    let outcome_matched_only = env::args().any(|value| value == "--outcome-matched-only");
     // T110: 学習するパターン集合(v2/v3)。未指定はv2(既存動作を変えない既定値)。
     let pattern_set = match parse_pattern_set(arg("--pattern-set")) {
         Ok(value) => value,
@@ -1313,6 +1326,13 @@ pub fn run() -> ExitCode {
         return ExitCode::FAILURE;
     }
     let full_train_len = train.len();
+    if outcome_matched_only {
+        train = filter_outcome_matched(train);
+        if train.is_empty() {
+            eprintln!("--outcome-matched-only produced an empty train split");
+            return ExitCode::FAILURE;
+        }
+    }
     if let Some(target) = train_subset_size {
         if target == 0 {
             eprintln!("--train-subset-size must be positive");
@@ -1348,7 +1368,13 @@ pub fn run() -> ExitCode {
             PatternSet::V4 => "v4",
         }
     );
-    let manifest = format!("split=fnv1a(canonicalKey)%100:train0-89,validation90-94,frozen95-99\noutcome_policy=canonical averages from WTHOR 2015-2023; keys occurring in 2024 removed with test priority; 2024 reserved for gate c\ntrain={}\nvalidation={}\nfrozen={}\noutcome_matched_train={}\noutcome_matched_validation={}\noutcome_matched_frozen={}\nwthor_2024={}\ncorpus_hash={corpus_hash}\nreference_hash={reference_hash}\nwthor_hash={wthor_hash}\n{subset_manifest_line}{pattern_set_manifest_line}",
+    // T144: 未指定時は空文字列のまま(既存動作・manifest不変)。
+    let outcome_matched_manifest_line = if outcome_matched_only {
+        "outcome_matched_only=true\n".to_string()
+    } else {
+        String::new()
+    };
+    let manifest = format!("split=fnv1a(canonicalKey)%100:train0-89,validation90-94,frozen95-99\noutcome_policy=canonical averages from WTHOR 2015-2023; keys occurring in 2024 removed with test priority; 2024 reserved for gate c\ntrain={}\nvalidation={}\nfrozen={}\noutcome_matched_train={}\noutcome_matched_validation={}\noutcome_matched_frozen={}\nwthor_2024={}\ncorpus_hash={corpus_hash}\nreference_hash={reference_hash}\nwthor_hash={wthor_hash}\n{subset_manifest_line}{pattern_set_manifest_line}{outcome_matched_manifest_line}",
         train.len(), validation.len(), frozen.len(),
         train.iter().filter(|r| r.outcome.is_some()).count(),
         validation.iter().filter(|r| r.outcome.is_some()).count(),
@@ -1372,7 +1398,7 @@ pub fn run() -> ExitCode {
         }
         None => String::new(),
     };
-    let identity = format!("corpus_hash={corpus_hash}\nreference_hash={reference_hash}\nwthor_hash={wthor_hash}\ntrain={}\nvalidation={}\nfrozen={}\n{subset_identity}{}",
+    let identity = format!("corpus_hash={corpus_hash}\nreference_hash={reference_hash}\nwthor_hash={wthor_hash}\ntrain={}\nvalidation={}\nfrozen={}\n{subset_identity}{}{outcome_matched_manifest_line}",
         train.len(), validation.len(), frozen.len(), pattern_set_identity_line(pattern_set));
     let runs: Vec<_> = mixes
         .into_iter()
@@ -1795,6 +1821,44 @@ mod tests {
             best: 0,
             pairs: Vec::new(),
         }
+    }
+
+    /// T144: `filter_outcome_matched`はoutcomeが一致するレコードだけを、
+    /// 元の順序を保ったまま残す。
+    #[test]
+    fn filter_outcome_matched_keeps_only_records_with_outcome_and_preserves_order() {
+        let mut with_outcome_a = fixture_record(1, 0);
+        with_outcome_a.outcome = Some(1.0);
+        let without_outcome = fixture_record(2, 0);
+        let mut with_outcome_b = fixture_record(3, 0);
+        with_outcome_b.outcome = Some(-0.5);
+        let records = vec![
+            with_outcome_a.clone(),
+            without_outcome,
+            with_outcome_b.clone(),
+        ];
+        let filtered = filter_outcome_matched(records);
+        assert_eq!(
+            filtered.iter().map(|r| r.key).collect::<Vec<_>>(),
+            vec![with_outcome_a.key, with_outcome_b.key]
+        );
+    }
+
+    /// T144: 全レコードがoutcome一致ならフィルタは何も取り除かない
+    /// (`--outcome-matched-only`未指定時に呼ばれない経路の既存動作不変とは別に、
+    /// 呼ばれた場合でも全件一致コーパスでは損失が無いことを確認する)。
+    #[test]
+    fn filter_outcome_matched_is_a_no_op_when_all_records_have_outcome() {
+        let records: Vec<_> = (0..5)
+            .map(|i| {
+                let mut record = fixture_record(i, 0);
+                record.outcome = Some(i as f32);
+                record
+            })
+            .collect();
+        let before_keys: Vec<_> = records.iter().map(|r| r.key).collect();
+        let filtered = filter_outcome_matched(records);
+        assert_eq!(filtered.iter().map(|r| r.key).collect::<Vec<_>>(), before_keys);
     }
 
     #[test]

@@ -1,0 +1,101 @@
+{
+  "task": "T144",
+  "generatedAt": "2026-07-20T01:35:00+09:00",
+  "purpose": "isolate whether T127d's teacher-only@1M oracle regret (1.9000) is caused by Edax level-16 label quality or by effective sample volume, by training v4/outcome-only on the identical expanded1m train split and, since coverage was far below the 98% threshold, adding an equal-effective-set teacher-only control",
+  "provenance": {
+    "gitCommitAtCodeChange": "0d64f25ac5183accbd84f7758c9642ebf6cb44db",
+    "corpusPath": "train/data/teacher/corpus_expanded1m.jsonl",
+    "corpusSha256": "067a4e3a0076d39f793164c0b2168375a5a9d450cf1f7325ba0e4661e4741e86",
+    "oracleCorpusSha256": "eec09e7a3c194a71cbb60f25ce13e1887204bbbc4a9ba052cb19c61507786356",
+    "v2WeightsSha256": "b916c29e4f84692610a65b75c1692132628de5ba2b27b71bf2e8b94426b76c2a",
+    "evalCliSha256UsedForThisTasksScoring": "e56092090e7928148518351448361a10e7aef8dcbf88f86cf34cb461d87e0ab7",
+    "evalCliSha256UsedForT127dTeacherOnly1mReference": "e874bb4c434125a4a996ffebb24c8ffcce6f535b706d2eef3baa21f70ccd740a",
+    "evalCliCaveat": "both builds reproduced v2=1.5666666666666667 exactly on the same 60 oracle positions; the difference is due to unrelated engine work landing on main between sessions and rebuilding the shared target/release binary, not a scoring-behavior change observed on this oracle"
+  },
+  "trainerChange": {
+    "file": "train/src/t090_distillation.rs",
+    "newFlag": "--outcome-matched-only",
+    "defaultBehavior": "flag absent -> no filtering, manifest/identity byte-for-byte unchanged from before this task",
+    "whenPresent": "filters the train split to records with outcome.is_some() (applied after the deterministic split, before optional --train-subset-size), adds outcome_matched_only=true to manifest.txt and to the resume identity string",
+    "newFunction": "filter_outcome_matched(train: Vec<DistillRecord>) -> Vec<DistillRecord>",
+    "newUnitTests": [
+      "filter_outcome_matched_keeps_only_records_with_outcome_and_preserves_order",
+      "filter_outcome_matched_is_a_no_op_when_all_records_have_outcome"
+    ],
+    "cargoTestPTrain": "PASS (58 total: 56 pre-existing + 2 new, 0 failed)"
+  },
+  "coverage": {
+    "trainSplitTotal": 899467,
+    "outcomeMatchedTrain": 220450,
+    "coverageFraction": 0.24513288568314078,
+    "missingFraction": 0.7548671143168592,
+    "gateThreshold": 0.02,
+    "gateResult": "missing (75.5%) far exceeds the 2% threshold, so the equal-effective-set control (requirement 2) was mandatory",
+    "note": "much lower coverage than T112's ~19.8% missing at 45k scale; corpus_expanded1m spans WTHOR years 2000-2024 while the outcome lookup table only covers 2015-2023, a plausible but unconfirmed partial explanation"
+  },
+  "trainingCommands": {
+    "outcomeOnly1mFull3Seeds": "target/release/train_distillation.exe --corpus train/data/teacher/corpus_expanded1m.jsonl --checkpoint-dir train/data/t144/outcome-only-1m --mixes outcome-only --seeds 1,2,3 --pattern-set v4 --reference-weights train/weights/pattern_v2.bin --jobs 1",
+    "teacherOnlyMatchedSubsetControlSeed1": "target/release/train_distillation.exe --corpus train/data/teacher/corpus_expanded1m.jsonl --checkpoint-dir train/data/t144/teacher-only-matched-subset --mixes teacher-only --seeds 1 --pattern-set v4 --reference-weights train/weights/pattern_v2.bin --jobs 1 --outcome-matched-only"
+  },
+  "results": {
+    "referenceTeacherOnly1mFull": {
+      "source": "T127d bench/edax-compare/t127d_v4_1m_training.meta.json",
+      "trainSamples": 899467,
+      "seeds": 3,
+      "oracleRegret": 1.9,
+      "note": "all 3 T127d seeds gave identical per-position regret arrays"
+    },
+    "outcomeOnly1mFull": {
+      "trainSamplesInSplit": 899467,
+      "effectiveTrainSamples": 220450,
+      "weightsSha256": {
+        "seed1": "855c6a309d64bc74094404b616e64661a89dbd42a96ff04f98bdaa7b3d5a3cd8",
+        "seed2": "db4887916efe955222b925c0def0bee5a748aded2f7d13b029ee6b617ab981ba",
+        "seed3": "cb6177020aae462aa0b41d16ca5ba98c3c86541ce6625d354b4c0b8dd7a3fd82"
+      },
+      "seeds": [
+        {"seed": 1, "bestEpoch": 16, "completedEpoch": 17, "validationLoss": 13.608902, "frozenAgreement": 0.337996, "frozenMeanRegret": 7.603687, "oracleRegret": 4.033333333333333, "m2GuardPass": true},
+        {"seed": 2, "bestEpoch": 12, "completedEpoch": 17, "validationLoss": 13.623393, "frozenAgreement": 0.336904, "frozenMeanRegret": 7.658765, "oracleRegret": 3.8, "m2GuardPass": true},
+        {"seed": 3, "bestEpoch": 14, "completedEpoch": 16, "validationLoss": 13.613737, "frozenAgreement": 0.338191, "frozenMeanRegret": 7.585523, "oracleRegret": 3.9, "m2GuardPass": true}
+      ],
+      "v2MeanRegret": 1.5666666666666667,
+      "meanOracleRegret": 3.911111111111111,
+      "seedSampleSd": 0.11713075591265678,
+      "pairedBootstrapVsTeacherOnly1mFull": {
+        "seed1": {"meanDifference": 2.1333333333333333, "ci95": [0.8, 3.5666666666666664], "classification": "outcome_worse"},
+        "seed2": {"meanDifference": 1.9, "ci95": [0.6333333333333333, 3.2666666666666666], "classification": "outcome_worse"},
+        "seed3": {"meanDifference": 2.0, "ci95": [0.6333333333333333, 3.4666666666666668], "classification": "outcome_worse"},
+        "threeSeedPositionAveraged": {"meanDifference": 2.011111111111111, "ci95": [0.7222222222222222, 3.4222222222222225], "classification": "outcome_worse"}
+      }
+    },
+    "teacherOnlyMatchedSubsetControl": {
+      "trainSamples": 220450,
+      "seed": 1,
+      "bestEpoch": 27,
+      "completedEpoch": 27,
+      "trainTeacherMae": 3.934311,
+      "validationLoss": 22.671546,
+      "frozenAgreement": 0.379319,
+      "frozenMeanRegret": 6.578519,
+      "weightsSha256": "b610e4ccde20239ffe8a5c79cbcbb28c8693c44295dda24663cef01766bd2079",
+      "v2MeanRegret": 1.5666666666666667,
+      "m2GuardPass": true,
+      "oracleRegret": 3.8333333333333335,
+      "pairedBootstrapVsTeacherOnly1mFull": {"meanDifference": 1.9333333333333333, "ci95": [0.6666666666666666, 3.3333333333333335], "classification": "control_worse_than_full_volume"},
+      "pairedBootstrapVsOutcomeOnlySameN": {
+        "note": "compares against the position-averaged regret across the 3 outcome-only seeds, at the same effective N=220450",
+        "meanDifference": -0.07777777777777778,
+        "ci95": [-1.5666666666666667, 1.3333333333333333],
+        "classification": "no_significant_difference"
+      }
+    }
+  },
+  "preregisteredInterpretation": {
+    "rule": "outcome-only@1M <= ~1.9 (comparable to teacher-only@1M) => Edax level-16 label quality problem; outcome-only@1M clearly worse (T112 45k reference 3.6-3.8) => label is not the cause, remaining explanation is volume/distribution/trainer differences",
+    "measuredOutcomeOnly1mMean": 3.911111111111111,
+    "conclusion": "clearly worse branch selected; the equal-N control (teacher-only restricted to the same 220,450 records, 3.8333, statistically indistinguishable from outcome-only's 3.9111) turns this into a positive volume finding rather than an inference by elimination",
+    "attributedCause": "effective sample volume (899,467 vs 220,450), not Edax level-16 label quality",
+    "relationToT127dAddendum": "consistent with, and additive to, the K=4 same-game-density finding from the T127d addendum's 180k probe; this task does not partition the 1M shortfall quantitatively between the two effects"
+  },
+  "scopeNote": "train/src/t090_distillation.rs was the only code change (one opt-in flag + helper + 2 tests). bench/edax-compare/*.py generator files were not modified. No production wiring, adoption decision, or 4M corpus work performed."
+}
