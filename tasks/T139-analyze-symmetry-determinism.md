@@ -33,3 +33,21 @@ attempts: 0
 ## フィードバック(やり直し時にオーケストレーターが記入)
 
 ## 作業ログ(担当エージェントが追記)
+
+### 2026-07-19/20 implementer(Sonnet)による実装
+
+**採用した選択肢**: 選択肢1(手ごとに独立TT)。選択肢2(MPC無効化)・選択肢3(D4 canonical化)は不採用。
+
+- 調査: `search_all_moves_with_eval`(engine/src/search.rs)は呼び出し元(`Engine::analyze`が保持し、対局CPU着手の探索とも共有される`tt`)を全合法手・全反復深化を通じて使い回していた。`handle_analyze`(protocol.rs)の`max_nodes.is_some()`分岐(cpuLimit相当)は呼び出し前に無条件`tt.clear()`していたため元々TT状態非依存だったが、`max_nodes`を指定しない経路(weak/normalレベル、strongレベルの空き20以下の終盤)はこの保険が無く、analyzeAllの呼び出し順序に本来依存しうる、より脆弱な経路だった。
+- 実装: `search_all_moves_with_eval`から`tt`引数を削除し、関数内で`TranspositionTable::new(16)`のローカルTTを1つ確保、各合法手の探索直前に`local_tt.clear()`してから使う設計にした(同一手の反復深化の間は使い回す=速度低下を抑える)。`search_all_moves`・`protocol.rs`・`eval_cli.rs`・既存テスト(十数箇所)の呼び出しを合わせて更新。
+- 選択肢2(MPC無効化)は不要と判断: 選択肢1だけで初期局面4合法手(d3/c4/f5/e6)の評価値が完全一致することを新規テスト`search_all_moves_from_initial_position_gives_the_four_d4_symmetric_opening_moves_identical_scores`で確認できたため、MPCはそのまま(`suppress_mpc: false`)有効にした。
+- 選択肢3(D4 canonical化)は実装大のため見送り。
+- **副次的発見(スコープ外として報告)**: `PatternWeights::score`の盤全体D4不変性を検証する単体テスト追加の過程で、任意の(非対称な)盤面に対しては現在の`patterns::compute_pattern_classes`の整列方法(対称オービットの`aligned_cells`決定が「セル集合が先に一致した対称変換」だけで決まり、軌道サイズが8未満のクラス=対角線・行・列・隅3x3で、盤面全体をD4変換した際に必要な「もう一方のセル順序」が記録されないことがある)が、厳密なD4不変性を保証しないことが判明した(位置重み付けエンコードのため並び順が結果に影響しうる。実測でクラス単位・数点相当のズレを確認、初期局面など内容自体がD4対称/空の盤面では発生しない)。T044由来の既存の設計上の制約でありT139のスコープ外と判断、`PatternWeights`が実運用でまだ配線されていないことも踏まえ、テストは初期局面(実際にT139が解決すべきシナリオ)に対象範囲を限定した(`pattern_eval.rs`の`score_is_invariant_under_all_eight_d4_symmetries_of_the_initial_position`、コメントに詳細記載)。将来PatternWeightsを配線する際は別タスクでの見直しを推奨。
+- 速度影響のA/B計測: `git stash`で新旧コードを切り替え、`eval_cli moves --depth 12`(T076局面、weights=None、time_ms無指定)で計測。旧実装(共有TT): 6.14s/6.28s。新実装(独立TT): 6.32s/6.65s。数%程度の低速化に留まり許容範囲。
+- CPU着手経路の不変性テスト: 既存`node_limited_protocol_requests_are_deterministic`(maxNodes=cpuLimit相当、間に無関係なallMoves呼び出しを挟んでも結果不変)が引き続き合格することを確認し、T139関連である旨のコメントを追加。加えて`max_nodes`を指定しない経路(weak/normal・strong終盤)向けに新規テスト`node_unlimited_protocol_requests_are_deterministic_even_without_a_pre_clear`を追加(こちらはT139以前は保険が無く、修正の効果を直接検証する)。
+- テスト結果: `cargo test -p engine --lib` 199 passed / 2 ignored(release限定の既存2件)。`cargo test -p engine --test ffo_bench --release`(fast、#40-#44)全問正解。`npm run build`(app、wasm再ビルド込み)成功、`npx vitest run`(app)781 passed。
+- `ANALYSIS_ENGINE_VERSION`を4→5に更新(app/src/analysis/cache.ts)、T122申し送り(worker.tsのv2/v3切り戻しコメントにANALYSIS_ENGINE_VERSION更新の必要性が無い件)もコメント追記で対応。
+- コミット: `4612c66`(engine/src/search.rs, protocol.rs, pattern_eval.rs, bin/eval_cli.rs, app/src/analysis/cache.ts, app/src/engine/worker.ts)。push済み、GitHub Actions(Deploy to GitHub Pages・Rust Tests)両方成功を確認(run 29694473973 / 29694473932)。
+- Pages実機確認: https://giwarb.github.io/othello-trainer/ で対局(強い・黒番開始)を実施、初期局面の4候補手すべてが同一の表示評価値(「黒番 評価値0」)になっていることをブラウザツールで確認、コンソールエラーなし。
+- 作業中に気づいた点: `train/src/t090_distillation.rs`が(本タスクと無関係に)未コミットの状態で変更されていた。本タスクでは一切触れておらず、コミットにも含めていない(おそらく並行して動いている別タスクの成果物)。
+- git状態: タスク完了時点で`git status --short`はT139由来の差分なし(train/src/t090_distillation.rsのみ残るが本タスク無関係)。
