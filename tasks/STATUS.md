@@ -6,7 +6,7 @@
 
 ## 現在地
 
-**【2026-07-19夕】** **expanded1m生成: 約63万/100万(63%)で進行中。7/19 15:06にPC再起動で停止→15:5x resumeで再起動済み(PID 7360、ログlogs/t127b-gen4.log)**。束単位checkpointにより損失は実質ゼロ(resume後629,447から継続、v3×8稼働確認済み)。重い帯の実測ペース約4.5k/h(7/18朝49万→7/19 15時63万)が続くなら残37万件でETAは7/21〜7/22に後ろ倒れの可能性(重い帯明けで加速すれば前倒し)。停止時のresume: `python bench/edax-compare/gen_teacher_corpus.py expanded1m --num-shards 8 --skip-extract --reuse-selection-plan`(Start-Process detached)。高速化第2弾(T127i/j)完了: **Edax v3バイナリ(AVX2)へ7/18 07:1x乗り換え済み**(値全帯全件一致・残件加重1.152倍、493,703件全保持、wEdax-x86-64-v3×8稼働、ログlogs/t127b-gen3.log)。方式境界はteacher_manifests/corpus_expanded1m_method_boundaries.json(サイドカー、warm切替とv3切替の2件)が正。完走後: T127c検証→T127d学習(v4×1M)→T127e 4M判定。ユーザー裁定待ち: 終盤シリーズ完了扱いの確定(推奨=完了、Edax比19.17倍)。
+**【2026-07-19夜】** **expanded1m生成: 76.0万/100万(76%)で進行中、重い帯明けで大幅加速**(PID 7360、ログlogs/t127b-gen4.log)。7/19 15:06のPC再起動はresumeで復旧済み(損失ゼロ)。21時台にシャード0/4/5から順に重い帯(空き20-29 incremental)を抜け、ペース4.5k→142k件/hに回復。**ETA: 7/19深夜〜7/20朝**(残るシャードの重い帯残量次第)。完走後: T127c検証→T127d学習(v4×1M)→T127e 4M判定。停止時のresume: `python bench/edax-compare/gen_teacher_corpus.py expanded1m --num-shards 8 --skip-extract --reuse-selection-plan`(Start-Process detached)。高速化第2弾(T127i/j)完了: **Edax v3バイナリ(AVX2)へ7/18 07:1x乗り換え済み**(値全帯全件一致・残件加重1.152倍、493,703件全保持、wEdax-x86-64-v3×8稼働、ログlogs/t127b-gen3.log)。方式境界はteacher_manifests/corpus_expanded1m_method_boundaries.json(サイドカー、warm切替とv3切替の2件)が正。完走後: T127c検証→T127d学習(v4×1M)→T127e 4M判定。ユーザー裁定待ち: 終盤シリーズ完了扱いの確定(推奨=完了、Edax比19.17倍)。
 
 **エンジン強化を再開(2026-07-15 ユーザー指示)**: 方針は「大きい実験(200kコーパス・v3×蒸留)の前に、学習パイプラインのボトルネックを先に潰す」。explorer調査2本完了:
 - ①教師生成: 律速は**子局面ごとのEdaxプロセス起動42.3万回**(固定約164ms/回、8並列時は競合で実効2.3〜2.6倍に劣化)→ **T094(局面単位バッチ化)をCodexに委譲中**。
@@ -26,7 +26,7 @@
 
 | ID | タスク | 担当 | 状態 | 試行 |
 |---|---|---|---|---|
-| T127b | expanded1m本番生成(新規80万件) | オーケストレーター管理 | in_progress(**7/19 15:06 PC再起動で停止→resume再起動済み(PID 7360、ログlogs/t127b-gen4.log)**。停止時点約63万/100万。重い帯(空き20-29 incremental)進行中でペース5k〜1万件/h。ETA 7/20中) | 0 |
+| T127b | expanded1m本番生成(新規80万件) | オーケストレーター管理 | in_progress(**76%、重い帯明けで142k件/hに加速。ETA 7/19深夜〜7/20朝**。PC再起動(7/19 15:06)はresumeで損失ゼロ復旧、PID 7360、ログlogs/t127b-gen4.log) | 0 |
 | T127c-e | 1M検証(+テスト固定2件FU)→v4学習(500k bridge+1M×3seed)→4M投資判定 | Codex gpt-5.6-sol | todo(生成完走後に順次) | 0 |
 | T139 | エンジン: analyzeAllの対称性・決定性(TT/MPCノイズ根本対応) | Codex優先 | todo(生成完走後。engineビルドを伴うため) | 0 |
 
