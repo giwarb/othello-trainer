@@ -30,7 +30,7 @@
 |---|---|---|---|---|
 | T144 | ラベル対照@1M(同一局面でoutcome vs teacher、ユーザー指示) | implementer(Sonnet、T127dワーカー継続) | in_progress(委譲中。outcome≦1.9ならEdaxラベル問題説、明確に悪ければラベル説棄却の事前登録) | 0 |
 | T127e | 4M/443万ラベル化の投資判定 | ユーザー裁定 | blocked(T144の結果を材料に追加してから最終裁定。現時点推奨=4M新規生成見送り、(b)WTHOR全局面443万ラベル化はT144次第) | 0 |
-| T139 | エンジン: analyzeAllの対称性・決定性(TT/MPCノイズ根本対応) | implementer(Sonnet) | in_progress(委譲中。表示経路限定・CPU着手経路不変が最重要検証項目) | 0 |
+| T139 | エンジン: analyzeAllの対称性・決定性(TT/MPCノイズ根本対応) | implementer(Sonnet) | review(実装完了4612c66: 手ごと独立TT採用・速度影響数%・ANALYSIS_ENGINE_VERSION 5・Pages実機で初手4手一致。**副次発見**=PatternWeights::scoreの非対称盤面D4不変性は既存制約で不成立(T044由来、実運用未配線)。verifier+代替レビュー検収中) | 0 |
 
 ## 有効な方針・申し送り(今後のタスクに効くもの)
 
