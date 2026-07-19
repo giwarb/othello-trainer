@@ -1,7 +1,7 @@
 ---
 id: T146
 title: WTHOR全局面ラベル付けのlevel 10所要時間見積もり(計測のみ、ユーザー指示)
-status: todo # todo | in_progress | review | redo | done | blocked
+status: done # 2026-07-20 done裁定。計測のみ・本番コード無変更。オーケストレーターが外挿計算を再検算し一致確認(verifier省略裁定)
 assignee: implementer(Sonnet)
 attempts: 0
 ---
@@ -52,4 +52,10 @@ attempts: 0
 
 ## 作業ログ
 
-(ワーカーが節目ごとに追記)
+- 2026-07-20: 着手。`gen_teacher_corpus.py`/`vs_edax.py`を調査し、本番呼び出し経路(warm 32親束バッチ、`wEdax-x86-64-v3.exe`、`-n 1`、`exactEmptiesThreshold=20`、`DEFAULT_EDAX_LEVEL=16`)を確認。`train/data/teacher/corpus_expanded1m.jsonl`が既に完了済み(1,000,000件、2026-07-19完了)であることを発見し、これを実本番lv16実績データとして活用する方針に転換(帯別サンプル実測だけに頼るより高精度)。
+- 2026-07-20: `analyze_corpus.py`(scratchpad)でcorpus_expanded1m.jsonlを解析し、親局面の空きマス数(record.empties)ごとの平均レコード時間(children.elapsedMsの合計)を算出。1record内でexact/level16が混在する例が0件であることを確認(childEmpties=parentEmpties-1が一定のため、levelは親の空きマス数だけで一意に決まる)。
+- 2026-07-20: `sample_positions.py`/`measure_ab.py`(scratchpad、gen_teacher_corpus.py・vs_edax.pyの関数をimportして呼ぶのみ、両ファイル無変更)で、帯別(親空き22-25/26-30/31-40/41-50/51-59、各32局面)にlv16→lv10のライブA/B計測を実施(総計測432.7秒)。**重要な発見**: level=10は親空き22-30では5.1〜9.6倍高速だが、親空き31-59では逆にlevel=16より2.4〜4.1倍低速という非単調な結果を確認(Edaxのlevel→探索深さ/選択的探索強度の対応が単調でないため。depthは要求通り10/16で、exactへの自動昇格は起きていないことを確認済み)。
+- 2026-07-20: `sample_sensitivity.py`/`measure_ab.py`で親空き18-21(exactEmptiesThreshold20→18/16で新たにlevel化される対象)を追加計測(29.7秒)。
+- 2026-07-20: 外挿計算により、(i)lv16総時間269.07h(11.21日) (ii)lv10一律304.59h(+13.2%悪化) (iii)重い帯(空き22-30、レコード数23.7%だがlevel帯時間の71.4%)/残りの帯の内訳 (iv)exactEmptiesThreshold感度(20→18/16で最大2.2h・0.8%短縮、効果小)を算出。参考知見として、lv10を重い帯(空き22-30)だけに限定するハイブリッド運用なら114.76h(-57.3%)という追加試算も実施(スコープ外の追加分析として明記)。
+- 2026-07-20: `bench/edax-compare/t146_lv10_estimate_report.md`と`t146_lv10_estimate_report.meta.json`を作成。計測スクリプト(analyze_corpus.py/sample_positions.py/sample_sensitivity.py/measure_ab.py/sample_sensitivity.py)はすべてscratchpadに配置し、リポジトリには一切追加していない(git status --shortで確認、生成した一時OBFファイルもfinally節で都度削除済み、リポジトリ内に残存なし)。443万レコードのラベル付けジョブは開始していない。gen_teacher_corpus.py/vs_edax.pyは無変更。
+- 受け入れ基準確認: (1)帯別実測値(サンプル数明記)をレポートに記載済み (2)総所要見積もり(lv16/lv10/内訳/閾値感度)を8シャード並列前提で提示済み (3)仮定と誤差要因を明記済み (4)レポート2ファイルをコミット・push予定(オーケストレーターが担当) (5)一時ファイル残存なし(git status --short で確認済み)。
