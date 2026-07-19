@@ -28,11 +28,12 @@
 
 | ID | タスク | 担当 | 状態 | 試行 |
 |---|---|---|---|---|
-| T145 | T139フォローアップ(コメント訂正・本番重み対称テスト・revert検証・exact経路計測) | implementer(Sonnet) | in_progress(委譲中) | 0 |
+| T145 | T139フォローアップ(コメント訂正・本番重み対称テスト・revert検証・exact経路計測) | implementer(Sonnet) | review(実装完了33d13d7、CI Rust Tests完了待ち。**重要発見**: ①本番重み(v3)では対称局面の値は静的評価のD4非不変性により実際には一致しない(depth12で最大約1.45disc、MPC/TT非依存)=T139のPages「初手4手0一致」はT138ブックcapの表示であり対称性の実証ではなかった ②T139新規テスト群はlocal_tt.clear()削除を検知できない(検知力ゼロ、感度の高いテスト設計は未達) ③exact経路: 壁時計+1%・is_exact率25.1→23.5%の小幅退行) | 0 |
 | T127e | 4M/443万ラベル化の投資判定 | ユーザー裁定 | blocked(材料完備: T144でラベル説棄却=量が支配。**(b)WTHOR全局面443万のEdaxラベル化(約8日)が本命候補に**。ユーザー裁定待ち) | 0 |
 
 ## 有効な方針・申し送り(今後のタスクに効くもの)
 
+- **T145発見の申し送り(バックログ候補、次にエンジン評価系を触るタスクで検討)**: (1)**静的評価(compute_pattern_classes)のD4非不変性**(T044由来)は本番v3重みで対称局面に最大約1.45disc(depth12)の値差を生む。T139のTT独立化では消えない(MPC非依存で発生)。ユーザーが当初報告した「対称局面の±1石ズレ」は中盤(ブック外)で残りうる。根本対応=D4 canonical化(実装大)。(2)search_all_moves_with_evalのlocal_tt.clear()削除を検知する回帰テストが未整備(既存テストの検知力ゼロ。トランスポジションが実際に起きる局面選定+TT縮小での衝突誘発が設計案)。(3)棋譜解析exact経路はT139でis_exact率25.1→23.5%(183手中3手)の小幅退行(値の正しさには無影響、対策不要と裁定)。
 - **T127h申し送り(方式境界のmanifest転記=T127c、それ以外=T143)**: (中)束フォールバック経路が全親成功までcheckpointしない(損失は最大1束=32親に有界)→T143で修正(generatorSHAゲートに触れるためplan provenance更新とセットで)。(軽微)移行後metaのelapsedMsPolicyが切替前分を遡及誤記述(診断用でラベル値に無関係)。方式境界サイドカー(teacher_manifests/corpus_expanded1m_method_boundaries.json)のmanifest転記はT127cが実施。
 - **T127ijレビュー申し送り(T143で対応)**: (中)resume identity/runKeyにEdaxバイナリ実SHAが入らずバイナリ差し替えをfail-closed検知できない(緩和: meta.edaxExeSha256は毎起動再記録)→PROVENANCE_IDENTITY_KEYS拡張とセットで。(軽微)残件加重speedupが件数加重(ETA精度のみ)/ソーススキャンテストの禁止パターン不完全/A/Bハーネス未コミット。
 
