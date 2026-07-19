@@ -1,7 +1,7 @@
 ---
 id: T147
 title: v4重みの本番アプリ組み込み(ユーザー裁定による採用)
-status: todo # todo | in_progress | review | redo | done | blocked
+status: done # verifier(全7項目、Pages実機Playwright独立確認込み)+代替レビュー(軽微3のみ)両合格、2026-07-20
 assignee: implementer(Sonnet)(Codex usage limit中のフォールバック)
 attempts: 0
 ---
