@@ -83,3 +83,18 @@ T127b/cで生成・検証済みの100万件教師コーパスを使い、**v4特
   - 学習: best_epoch=29、completed_epoch=29(patience切れで停止、max60epoch未到達)。train_teacher_mae=4.351038、validation_loss=19.956412、validation_teacher_mae=6.661462、frozen_agreement=0.402517、frozen_mean_regret=5.967457、wthor_2024_mae=14.809149。
   - epoch単位でweights/state/metricsをatomic保存する既存機構を使用(コード変更なし)。
 - **1Mフル(seed1/2/3)学習を起動**: コマンド`target/release/train_distillation.exe --corpus train/data/teacher/corpus_expanded1m.jsonl --checkpoint-dir train/data/t127d/expanded1m-v4-1m --mixes teacher-only --seeds 1,2,3 --pattern-set v4 --reference-weights train/weights/pattern_v2.bin --jobs 1`(train-subset-size無指定=corpus全量899,467train)。detached起動(Bashバックグラウンド、`disown`)、ログ`train/data/t127d/logs/1m-full.stdout.log`をMonitorで90秒間隔・進捗停滞30分検知付きで監視中。次の節目でoracle評価(compare_pattern_v3.py、T096 60局面、M2ガード)へ進む。
+
+### 2026-07-20 00:2x JST 1Mフル学習完了・oracle評価・曲線再推定・レポート作成完了
+
+- **1Mフル学習結果**: 全3seed、train=899,467(共通)、validation=49,278、frozen=51,255。best/completed epoch: seed1=31/31、seed2=33/33、seed3=33/36(いずれもpatience停止、60epoch上限未到達)。train_teacher_mae 4.594/4.579/4.537、frozen_agreement 0.4272/0.4275/0.4284、frozen_mean_regret 5.203/5.189/5.146。
+- **oracle評価(T096 60局面、compare_pattern_v3.py)**: 500k bridge・1M seed1/2/3の**計4回すべてでv2行=1.5666666666666667(M2ガード完全一致)PASS**。
+  - 500k bridge(seed1): candidate regret=**2.4000**、v2差+0.8333、95%CI[-0.1667,1.9333]、no_significant_difference。
+  - 1M full: seed1/2/3すべて regret=**1.9000**(完全一致)、v2差+0.3333、95%CI[-0.5667,1.4000]、no_significant_difference。**3seed sample SD=0**。3つの重みファイルSHA-256は相異なる(異なる学習結果)が、60局面全てでengine選択手が3seed完全一致することを個別に確認(コピー・バグではなく実測結果)。frozen_mean_regretはseed間でわずかに異なる(5.203/5.189/5.146)ため「モデルが完全に同一」ではなく「この60局面テストでは判別できない」という限定的な結果として報告に明記。
+  - resume実地確認: `train/data/t127d/resume-check`(スクラッチ、200k件)でバックグラウンド実行中にツール呼び出し境界でプロセスが打ち切られepoch=6で中断→同一コマンド再実行で`resume mix=teacher-only seed=1 epoch=6`と表示し完走(exit 0)。確認後にスクラッチdirは削除。
+- **学習曲線再推定(T126の45k/90k/180k + 本タスクの500k/899,467の5点)**: inverseSqrt R²=0.9870(1M=1.9061,4M=1.5292)、fittedPowerLaw(非線形最小二乗) R²=0.9734(1M=1.7832,4M=1.1642)、**log-linear(要件9の主指定)** R²=0.9293(1M=1.6638,4M=0.4289)。4M外挿更新プランニングレンジ=0.43〜1.53(統計的信頼区間ではない、感度分析)。
+  - **重要な発見**: 実測500k(2.4000)・899,467(1.9000)はいずれもT126の3点フィット予測(500k予測1.85〜1.98、900k予測1.47〜1.68)より悪化しており、事前登録された期待値レンジ(1M=1.4〜1.63石)の上限を上回る(=悪い)。設計レポート§7の「>1.70で打ち切り」基準に対して実測1.9は基準超過。K=4拡張(同一対局内密度増加)による曲線の質的変化が示唆される(設計レポート§3.9の懸念が的中した可能性、断定はしない)。この事実はT127e判断のための客観情報としてレポートに記載し、採否判定自体は行っていない(スコープ外)。
+- **メモリ/ストリーミング化**: 上記スモーク実験(42.8秒/2000件、21.4秒・33.3秒/500k)で1.6GBコーパス全読込・全学習が正常完了することを確認済みのため、`train/src/t090_distillation.rs`は変更なし(要件1の「不要なら変更しない」を適用)。
+- **`cargo test -p train`**: PASS(lib unit 56 + teacher_candidates unit 2 + real_data 1、失敗0)。トレーナー未変更のためベースライン確認として実施。
+- **成果物**: `bench/edax-compare/t127d_v4_1m_training.meta.json`、`bench/edax-compare/t127d_v4_1m_training_report.md`を新規作成(この2ファイルのみコミット対象)。重み・checkpoint・oracle生JSON・スクラッチ実験は`train/data/t127d/`(gitignore領域)。`bench/edax-compare/`の既存pyファイル群・corpus_expanded1m.meta.jsonは変更していない(T143が並行してコミット済み、コンフリクトなしを`git status --short`で確認)。
+- **採否判定・対局ゲート・本番配線は本タスクのスコープ外**(T127e、design report §7の閾値との対比を客観情報として記載のみ)。
+- **オーケストレーターへの申し送り**: 実測1M regret=1.9は設計レポートの「打ち切り」基準(>1.70)域に該当する客観的事実。T127e(4M投資判定)ではこの数値と500k→1Mの傾き悪化・K=4密度変化の懸念(design report §3.9)を踏まえた判断が必要。
