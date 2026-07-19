@@ -851,10 +851,24 @@ mod tests {
     /// 残したTTエントリのおかげで)2回目以降はノード数が減る、という
     /// **意図した**挙動がある(これはバグではない)。そのためこのテストは
     /// 「1回目」との比較ではなく、「2回目(間に無関係な呼び出しを挟まない)」
-    /// と「4回目(間にallMovesを挟む)」を比較する。両者とも直前の1回目が
-    /// 残したTT状態を引き継ぐ点は同じであり、間に挟むallMovesの有無だけが
-    /// 差分になるため、この2つが完全一致することが「allMovesがこの経路に
-    /// 一切影響しない」ことの正しい確認になる。
+    /// と「4回目(間にallMovesを挟む)」を比較する。
+    ///
+    /// 訂正(T145、レビュー指摘L1): 以前のコメントは「両者とも直前の1回目が
+    /// 残したTT状態を引き継ぐ点は同じ」と書いていたが、これは厳密には
+    /// 不正確だった。実際には`second`(2回目)は「1回目」が残したTT状態から
+    /// 始まるのに対し、`after_unrelated`(4回目)は「1回目→2回目」の後の
+    /// TT状態(allMovesはT139によりTTを一切読み書きしないため3回目の影響は
+    /// 無いが、2回目自身が追加したエントリの影響は残る)から始まる。したがって
+    /// この2つの開始TT状態が一致すると言えるのは、**2回目の呼び出しで
+    /// 探索が到達するTTエントリの集合が1回目終了時点からすでに不動点に
+    /// 達している(=2回目が新たに意味のあるエントリを追加しない)**という
+    /// 経験的な前提があるからである(この局面・limitの組み合わせで実際に
+    /// 成立することを本テストで確認している)。この前提が崩れる変更を
+    /// 加えた場合、本テストは`second`と`after_unrelated`のノード数不一致
+    /// という形で(allMovesの影響とは無関係な理由で)フレーキーに落ちうる
+    /// ことに注意。それでも「間に挟むallMovesの有無だけが両者の差分」で
+    /// あることに変わりはなく、この2つが完全一致することは引き続き
+    /// 「allMovesがこの経路に一切影響しない」ことの確認になる。
     #[test]
     fn node_unlimited_protocol_requests_are_deterministic_even_without_a_pre_clear() {
         const SMOKE_01_BLACK: &str = "0x1030100004080000";
@@ -890,6 +904,88 @@ mod tests {
         assert_eq!(
             after_unrelated["nodes"], second["nodes"],
             "an intervening allMoves:true request must not change this path's node count at all"
+        );
+    }
+
+    /// T145(M2、T139レビュー指摘): `search.rs`の
+    /// `search_all_moves_from_initial_position_gives_the_four_d4_symmetric_opening_moves_identical_scores`
+    /// は`weights=None`(3項ヒューリスティック評価)でのみ対称性を検証しており、
+    /// 本番構成(`Engine::load_pattern_weights`でパターン重みをロードした状態)
+    /// での自動テストが欠落していた(レビュー指摘M2)。
+    ///
+    /// # 対称性(D4値一致)テストではなく決定性テストにした理由
+    /// 当初はこの箇所に、上記`search.rs`のテストと同じ「初期局面4合法手の
+    /// analyzeAll値が完全一致する」というD4対称性テストを本番重み構成
+    /// (`pattern_v2.bin`)で追加する予定だった(タスク仕様の元々の想定)。
+    /// しかし実際に実装して実行したところ、**本番重みを使うと4手のスコアは
+    /// 実際には一致しない**ことを確認した(このテストの前身は
+    /// `assertion left == right failed: ... c4 (score=-489) ... d3's score
+    /// (-151)`で落ちた)。追加調査で判明した事実:
+    ///
+    /// - `depth=1`(MPCの`mpc::MIN_DEPTH`=5未満、MPCは一切発動しない)時点で
+    ///   既に4手のスコアが大きく乖離する(`pattern_v2.bin`、
+    ///   `exactFromEmpties=0`: d3=-765, c4=-1167, f5=-438, e6=-37)。
+    ///   つまりこの乖離は`ordered_moves`のタイブレークやMPCの近似枝刈りとは
+    ///   無関係に、**静的評価(`PatternWeights::score`)そのものの
+    ///   D4非不変性だけで**既に生じる。
+    /// - `depth=12`(`app.tsx`の「強い」CPUレベルが実際に使う設定、
+    ///   `exactFromEmpties=16`)でも、`pattern_v2.bin`で最大約0.09disc、
+    ///   `pattern_v3.bin`(本番配信中の重み)で最大約1.45disc相当の乖離が残る。
+    ///
+    /// これは`pattern_eval.rs`のコメント(T145で訂正)が説明する
+    /// `compute_pattern_classes`のD4不変性の破れが、机上の理論的な懸念に
+    /// 留まらず、本番重み構成では実際に(かつMPCとは独立に)効いている
+    /// ことを裏付ける。したがって「対称局面同値」を本番重み構成で保証する
+    /// テストは原理的に書けない(書けたとしても、たまたま特定のdepth・
+    /// 重みバージョンで乖離が小さかっただけの偶然の一致に依存する脆い
+    /// テストになり、重みの再学習(v4以降)で簡単に壊れる)。この点は
+    /// タスク仕様(T145)の元々の想定と食い違うため、完了報告でオーケストレー
+    /// ターに明示的に申し送る。
+    ///
+    /// 代わりに本テストは、T139が実際に保証した性質(`search_all_moves_with_eval`
+    /// が呼び出し元の`Engine`が保持するTTの状態に一切依存しないこと)を、
+    /// 本番重み構成下で直接検証する。`search.rs`の対応テスト
+    /// (`search_all_moves_is_deterministic_across_repeated_calls_even_with_a_prewarmed_local_state`)
+    /// は`weights=None`だが、こちらは本番重みロード経路
+    /// (`Engine::load_pattern_weights`、既存テストに倣いpattern_v2.binを使用)
+    /// を通す点が異なる。
+    #[test]
+    fn analyze_all_moves_from_initial_position_is_deterministic_with_production_weights_loaded() {
+        const SMOKE_01_BLACK: &str = "0x1030100004080000";
+        const SMOKE_01_WHITE: &str = "0x0000241C18100000";
+
+        let weights = include_bytes!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../train/weights/pattern_v2.bin"
+        ));
+        let mut engine = Engine::new();
+        engine
+            .load_pattern_weights(weights)
+            .expect("production pattern weights should load");
+
+        // 事前にTTを汚す先行探索(無関係な局面のallMoves)を挟む。
+        let warmup_request = format!(
+            r#"{{"id":40,"cmd":"analyze","board":{{"black":"{SMOKE_01_BLACK}","white":"{SMOKE_01_WHITE}","turn":"black"}},"limit":{{"depth":10,"exactFromEmpties":12}},"allMoves":true}}"#
+        );
+        let request =
+            analyze_all_moves_request_json(41, INITIAL_BLACK, INITIAL_WHITE, "black", 10, 12);
+
+        let warmup: serde_json::Value =
+            serde_json::from_str(&engine.analyze(&warmup_request)).unwrap();
+        let first: serde_json::Value = serde_json::from_str(&engine.analyze(&request)).unwrap();
+        let second: serde_json::Value = serde_json::from_str(&engine.analyze(&request)).unwrap();
+
+        assert!(warmup.get("error").is_none());
+        assert!(first.get("error").is_none());
+        assert!(second.get("error").is_none());
+
+        let first_moves = first["moves"].as_array().expect("moves should be an array");
+        assert_eq!(first_moves.len(), 4, "initial position has 4 legal moves");
+        assert_eq!(
+            first["moves"], second["moves"],
+            "with production pattern weights loaded, repeating the same analyzeAll request \
+             (with an unrelated allMoves request warming the engine's shared TT beforehand) \
+             should give byte-for-byte identical results, regardless of prior TT activity"
         );
     }
 }
