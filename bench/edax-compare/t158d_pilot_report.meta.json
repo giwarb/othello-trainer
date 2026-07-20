@@ -1,0 +1,196 @@
+{
+  "schemaVersion": 1,
+  "task": "T158d",
+  "stage": "pilot",
+  "decision": "no_verdict_information_gathering_only",
+  "note": "n=3 opening pairs (6 games per weight set); strength conclusions are explicitly out of scope for this stage. 60-game full run is a separate, user-approved follow-up.",
+  "provenanceVerification": {
+    "manifestSource": "bench/edax-compare/t158c_screening_report.meta.json#deferredT158d",
+    "candidateWeightPath": "train/data/t158/full/t158-b3-seed-2.bin",
+    "candidateWeightSha256Manifest": "dae9af0b4d9e3322c6e2181071b095bca1f2272e69ba85d0e828f21e29c7c5ec",
+    "candidateWeightSha256Measured": "dae9af0b4d9e3322c6e2181071b095bca1f2272e69ba85d0e828f21e29c7c5ec",
+    "baselineWeightPath": "train/weights/pattern_v4.bin",
+    "baselineWeightSha256Manifest": "c372b83366c4006023ae05f3af5b68dda5929aca7ff7308d1b398a89639e383f",
+    "baselineWeightSha256Measured": "c372b83366c4006023ae05f3af5b68dda5929aca7ff7308d1b398a89639e383f",
+    "edaxExecutablePath": "bench/edax-compare/edax-extract/wEdax-x86-64.exe",
+    "edaxExecutableSha256Manifest": "aabb5ac7d3f9a872fc0e7388ab1eee1d23c687f76c28642122524dc318b322b1",
+    "edaxExecutableSha256Measured": "aabb5ac7d3f9a872fc0e7388ab1eee1d23c687f76c28642122524dc318b322b1",
+    "edaxEvalDataPath": "bench/edax-compare/edax-extract/data/eval.dat",
+    "edaxEvalDataSha256Manifest": "f8b2299612d9fa4414157e70e932636e33111c2602d0c2fc382a7d90ef21b792",
+    "edaxEvalDataSha256Measured": "f8b2299612d9fa4414157e70e932636e33111c2602d0c2fc382a7d90ef21b792",
+    "openingSetPath": "bench/edax-compare/openings.json",
+    "openingSetSha256Manifest": "7a340c17b02f85a29d5ff296b46ab19aac13f185de7bc03eaf574d6290be81e2",
+    "openingSetSha256Measured": "7a340c17b02f85a29d5ff296b46ab19aac13f185de7bc03eaf574d6290be81e2",
+    "allMatched": true
+  },
+  "t125ReuseAssessment": {
+    "eligible": false,
+    "reason": "gitCommit and evalCliSha256 (engine binary) differ from T125's run despite identical opening set, protocol parameters, and Edax config; 10 engine/ commits landed between T125 and this task's HEAD, so the search/eval binary itself is not the same artifact. Per task requirement, both candidate and v4 baseline were played fresh in this pilot.",
+    "t125RunKeySource": "bench/edax-compare/endgame-results/t125-vs-edax-results.json#runKey/meta",
+    "t125GitCommit": "ed22fd27b9df684f013baff6379d307a5202d7d9",
+    "t125EvalCliSha256": "6ba26dc5f895f23a5b51e7299c47163e10f678bb282f0d12326f11ee4236b2b8",
+    "thisRunGitCommit": "04dd37a8a509d3c3d7f74c6896674be7b1f008df",
+    "thisRunEvalCliSha256": "c19f8633ce4f4346ca64a2b5a7c294d4d78e43a9be476de8e923e1056ec3570e",
+    "evalCliSha256MatchesT158cScreeningManifest": true,
+    "engineDirCommitsSinceT125": 10,
+    "engineDirCommitsSinceT158cScreening": 0,
+    "matchedFields": ["openingSetSha256", "edaxExecutableSha256", "edaxEvalDataSha256", "baselineWeightSha256", "protocolParameters"],
+    "mismatchedFields": ["gitCommit", "evalCliSha256"]
+  },
+  "protocol": {
+    "engineDepth": 12,
+    "engineExactFromEmpties": 16,
+    "engineExactQuotaPercent": 60,
+    "engineMaxNodes": 160000,
+    "engineTimeMs": 1500,
+    "engineTtMiB": 64,
+    "unlimitedExactEmpties": 20,
+    "engineModes": ["single-root"],
+    "edaxLevels": [10],
+    "sourceOfTruth": "bench/edax-compare/endgame-results/t125-vs-edax-results.json#runKey (T125 production adoption gate)"
+  },
+  "harnessChange": {
+    "file": "bench/edax-compare/vs_edax.py",
+    "commit": "04dd37a8a509d3c3d7f74c6896674be7b1f008df",
+    "additions": [
+      "--opening-limit N: restricts match play to the first N openings of the selected --opening-set (default None = unrestricted, preserves prior behavior); recorded in settings/run_key as opening_limit",
+      "per-game wallClockSec field (time.monotonic() around play_game()) plus progress-line [X.Xs] suffix, for 60-game duration estimation"
+    ],
+    "backwardCompatible": true
+  },
+  "pilotRuns": {
+    "candidate": {
+      "weightsPath": "train/data/t158/full/t158-b3-seed-2.bin",
+      "weightsSha256": "dae9af0b4d9e3322c6e2181071b095bca1f2272e69ba85d0e828f21e29c7c5ec",
+      "resultsPath": "bench/edax-compare/endgame-results/t158d-candidate-vs-edax-results.json",
+      "reportPath": "bench/edax-compare/endgame-results/t158d-candidate-vs-edax-report.md",
+      "gitCommit": "04dd37a8a509d3c3d7f74c6896674be7b1f008df",
+      "evalCliSha256": "c19f8633ce4f4346ca64a2b5a7c294d4d78e43a9be476de8e923e1056ec3570e",
+      "generatedAtUtc": "2026-07-20T17:43:02+00:00",
+      "openingCount": 3,
+      "openingLimit": 3,
+      "gamesPlanned": 6,
+      "gamesCompleted": 6,
+      "wins": 1,
+      "draws": 0,
+      "losses": 5,
+      "marginSum": -102,
+      "marginMean": -17.0,
+      "wallClockSecSum": 80.4,
+      "wallClockSecMean": 13.39,
+      "wallClockSecMin": 11.9,
+      "wallClockSecMax": 17.0,
+      "totalProcessWallClockSec": 95,
+      "fixedDepthRegressionAllMatched": true,
+      "nodeBudgetRegressionAllMatched": true,
+      "anomalies": [],
+      "games": [
+        {"gameId": 1, "opening": "primary-01", "engineIsBlack": true, "margin": -18, "winner": "edax", "plies": 49, "wallClockSec": 13.172},
+        {"gameId": 2, "opening": "primary-01", "engineIsBlack": false, "margin": -18, "winner": "edax", "plies": 49, "wallClockSec": 12.563},
+        {"gameId": 3, "opening": "primary-02", "engineIsBlack": true, "margin": -38, "winner": "edax", "plies": 50, "wallClockSec": 17.0},
+        {"gameId": 4, "opening": "primary-02", "engineIsBlack": false, "margin": -16, "winner": "edax", "plies": 50, "wallClockSec": 11.859},
+        {"gameId": 5, "opening": "primary-03", "engineIsBlack": true, "margin": -32, "winner": "edax", "plies": 49, "wallClockSec": 13.031},
+        {"gameId": 6, "opening": "primary-03", "engineIsBlack": false, "margin": 20, "winner": "engine", "plies": 49, "wallClockSec": 12.735}
+      ]
+    },
+    "v4": {
+      "weightsPath": "train/weights/pattern_v4.bin",
+      "weightsSha256": "c372b83366c4006023ae05f3af5b68dda5929aca7ff7308d1b398a89639e383f",
+      "resultsPath": "bench/edax-compare/endgame-results/t158d-v4-vs-edax-results.json",
+      "reportPath": "bench/edax-compare/endgame-results/t158d-v4-vs-edax-report.md",
+      "gitCommit": "04dd37a8a509d3c3d7f74c6896674be7b1f008df",
+      "evalCliSha256": "c19f8633ce4f4346ca64a2b5a7c294d4d78e43a9be476de8e923e1056ec3570e",
+      "generatedAtUtc": "2026-07-20T17:49:39+00:00",
+      "openingCount": 3,
+      "openingLimit": 3,
+      "gamesPlanned": 6,
+      "gamesCompleted": 6,
+      "wins": 0,
+      "draws": 0,
+      "losses": 6,
+      "marginSum": -148,
+      "marginMean": -24.667,
+      "wallClockSecSum": 89.6,
+      "wallClockSecMean": 14.93,
+      "wallClockSecMin": 12.1,
+      "wallClockSecMax": 24.8,
+      "totalProcessWallClockSec": 104,
+      "fixedDepthRegressionAllMatched": true,
+      "nodeBudgetRegressionAllMatched": true,
+      "anomalies": [],
+      "games": [
+        {"gameId": 1, "opening": "primary-01", "engineIsBlack": true, "margin": -36, "winner": "edax", "plies": 49, "wallClockSec": 24.797, "note": "exactFallback=true at empties=22 (budgeted exact-quota attempt did not finish within budget; documented protocol behavior, not an error)"},
+        {"gameId": 2, "opening": "primary-01", "engineIsBlack": false, "margin": -22, "winner": "edax", "plies": 49, "wallClockSec": 13.422},
+        {"gameId": 3, "opening": "primary-02", "engineIsBlack": true, "margin": -44, "winner": "edax", "plies": 50, "wallClockSec": 13.891},
+        {"gameId": 4, "opening": "primary-02", "engineIsBlack": false, "margin": -8, "winner": "edax", "plies": 50, "wallClockSec": 12.671},
+        {"gameId": 5, "opening": "primary-03", "engineIsBlack": true, "margin": -32, "winner": "edax", "plies": 49, "wallClockSec": 12.718, "note": "exactFallback=true at empties=22 (documented protocol behavior, not an error)"},
+        {"gameId": 6, "opening": "primary-03", "engineIsBlack": false, "margin": -6, "winner": "edax", "plies": 49, "wallClockSec": 12.093}
+      ]
+    }
+  },
+  "pairDeltas": {
+    "description": "candidateMargin - v4Margin, matched by (opening, color)",
+    "rows": [
+      {"opening": "primary-01", "color": "black", "candidateMargin": -18, "v4Margin": -36, "delta": 18},
+      {"opening": "primary-01", "color": "white", "candidateMargin": -18, "v4Margin": -22, "delta": 4},
+      {"opening": "primary-02", "color": "black", "candidateMargin": -38, "v4Margin": -44, "delta": 6},
+      {"opening": "primary-02", "color": "white", "candidateMargin": -16, "v4Margin": -8, "delta": -8},
+      {"opening": "primary-03", "color": "black", "candidateMargin": -32, "v4Margin": -32, "delta": 0},
+      {"opening": "primary-03", "color": "white", "candidateMargin": 20, "v4Margin": -6, "delta": 26}
+    ],
+    "deltaSum": 46,
+    "deltaMean": 7.667,
+    "interpretation": "n=3 pairs only; direction (candidate margin better on average) is reported as raw fact, not as a strength conclusion. Sign is mixed across pairs (one pair -8) and variance is high."
+  },
+  "watchPointEmpties19": {
+    "description": "Qualitative check for suspicious disc-diff crashes or blunders by the candidate around the empties~19-22 budgeted-to-exact transition, across all 12 games",
+    "finding": "No suspicious blunder/disc-diff crash attributable to the candidate specifically was found. discDiff stabilizes to the final margin cleanly once unlimited-exact mode engages at empties<=20 in all 12 games. The largest budgeted-to-exact swing was on the candidate side (primary-02/black, -16.83 at empties=22 to -38 at empties=20), but v4 lost the same opening/color pairing even more heavily (-44), suggesting the opening itself is unfavorable rather than a candidate-specific defect. v4 showed exactFallback=true (budgeted exact-quota attempt not completed within budget) in 2 of 6 games at empties=22; candidate showed 0 of 6. This is a documented protocol behavior (exactQuotaPercent fallback), not an anomaly, but the frequency difference should be re-checked at 60-game scale.",
+    "followUp": "Re-examine this watch-point at full 60-game scale if/when that run is approved."
+  },
+  "anomalyCheck": {
+    "crashes": 0,
+    "illegalMoves": 0,
+    "nondeterminism": 0,
+    "fixedDepthRegression": {"candidate": "PASSED 40/40", "v4": "PASSED 40/40"},
+    "nodeBudgetRegression": {"candidate": "PASSED 10/10", "v4": "PASSED 10/10"},
+    "stderrLogsEmpty": true
+  },
+  "resumeTest": {
+    "description": "Interrupt-and-resume test performed separately from the main 6+6 pilot games, using the candidate weights and a single opening (2 games planned), output written to the session scratchpad (not committed to the repo).",
+    "steps": [
+      "Launched detached process via PowerShell Start-Process with --opening-limit 1 (2 games planned)",
+      "Polled log until game 1/2 completed (opening=primary-01, engineIsBlack=true, margin=-18)",
+      "Forcibly killed the process 3s into game 2 via Stop-Process -Force",
+      "Verified results.json persisted exactly 1 completed game (game_id=1, margin=-18) at that point",
+      "Re-ran the identical command (no --no-resume); log showed '[resume] loaded 1 already-completed game(s)', fixed-depth/node-budget regressions skipped as already completed, and only game 2 (game_id=2, opening=primary-01, engineIsBlack=false) was newly played",
+      "Final results.json contained both games with game_id=1 unchanged (margin=-18) and game_id=2 newly added (margin=-18); no duplication or loss"
+    ],
+    "result": "PASSED — atomic per-game checkpoint and resume confirmed working end-to-end on an actual interruption"
+  },
+  "sixtyGameEstimate": {
+    "basis": "pilot per-game wallClockSec (n=6 per weight set) plus measured fixed overhead per invocation",
+    "candidate": {
+      "overheadSec": 14.6,
+      "meanPerGameSec": 13.39,
+      "estimated60GameSec": 818,
+      "estimated60GameMinutes": 13.6
+    },
+    "v4": {
+      "overheadSec": 14.4,
+      "meanPerGameSec": 14.93,
+      "estimated60GameSec": 911,
+      "estimated60GameMinutes": 15.2
+    },
+    "combinedSequentialEstimateMinutes": 28.8,
+    "recommendedTimeBudgetMinutes": "30-45 (safety margin; pilot per-game time varied ~2x, 11.9s-24.8s, and untested openings among the remaining 27 may include slower empties-22..28 combinatorics)",
+    "concurrencyWarning": "Both runs use a wall-clock (--engine-time-ms 1500) budget for the engine's move selection during the budgeted phase; running candidate and v4 processes concurrently would cause CPU contention that reduces actual search depth within the same wall-clock budget, silently altering results and breaking comparability with a protocol-identical run. Sequential execution (as done in this pilot) must be preserved for the 60-game run.",
+    "t125ReuseNotApplicable": "v4 side requires a fresh 60-game run too (see t125ReuseAssessment); it cannot be skipped."
+  },
+  "verdict": "none (information gathering only, per task scope)",
+  "outOfScope": [
+    "60-game full run execution",
+    "adoption/production decision",
+    "placing any weight file under train/weights/",
+    "engine/train code changes"
+  ]
+}
