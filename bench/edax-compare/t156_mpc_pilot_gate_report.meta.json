@@ -1,0 +1,2241 @@
+{
+  "analysis": "T156b MPC pilot Gate 1",
+  "candidates": [
+    {
+      "aggregateSplitTails": {
+        "calibration": {
+          "1.5": {
+            "high": {
+              "count": 14,
+              "n": 192,
+              "rate": 0.07291666666666667,
+              "wilsonUpper95": 0.11865918851607828
+            },
+            "low": {
+              "count": 14,
+              "n": 192,
+              "rate": 0.07291666666666667,
+              "wilsonUpper95": 0.11865918851607828
+            }
+          },
+          "1.75": {
+            "high": {
+              "count": 7,
+              "n": 192,
+              "rate": 0.036458333333333336,
+              "wilsonUpper95": 0.07333089508948057
+            },
+            "low": {
+              "count": 8,
+              "n": 192,
+              "rate": 0.041666666666666664,
+              "wilsonUpper95": 0.08005198794773237
+            }
+          },
+          "2.0": {
+            "high": {
+              "count": 1,
+              "n": 192,
+              "rate": 0.005208333333333333,
+              "wilsonUpper95": 0.02890749715674057
+            },
+            "low": {
+              "count": 5,
+              "n": 192,
+              "rate": 0.026041666666666668,
+              "wilsonUpper95": 0.05950324819295327
+            }
+          }
+        },
+        "heldOutCombined": {
+          "1.5": {
+            "high": {
+              "count": 7,
+              "n": 128,
+              "rate": 0.0546875,
+              "wilsonUpper95": 0.10858490029974709
+            },
+            "low": {
+              "count": 6,
+              "n": 128,
+              "rate": 0.046875,
+              "wilsonUpper95": 0.09849752245094322
+            }
+          },
+          "1.75": {
+            "high": {
+              "count": 3,
+              "n": 128,
+              "rate": 0.0234375,
+              "wilsonUpper95": 0.06664374505143222
+            },
+            "low": {
+              "count": 3,
+              "n": 128,
+              "rate": 0.0234375,
+              "wilsonUpper95": 0.06664374505143222
+            }
+          },
+          "2.0": {
+            "high": {
+              "count": 0,
+              "n": 128,
+              "rate": 0.0,
+              "wilsonUpper95": 0.029136956273508416
+            },
+            "low": {
+              "count": 2,
+              "n": 128,
+              "rate": 0.015625,
+              "wilsonUpper95": 0.0551809766798172
+            }
+          }
+        },
+        "test": {
+          "1.5": {
+            "high": {
+              "count": 4,
+              "n": 64,
+              "rate": 0.0625,
+              "wilsonUpper95": 0.14997485092208665
+            },
+            "low": {
+              "count": 2,
+              "n": 64,
+              "rate": 0.03125,
+              "wilsonUpper95": 0.10697291770958313
+            }
+          },
+          "1.75": {
+            "high": {
+              "count": 1,
+              "n": 64,
+              "rate": 0.015625,
+              "wilsonUpper95": 0.08334101600094267
+            },
+            "low": {
+              "count": 2,
+              "n": 64,
+              "rate": 0.03125,
+              "wilsonUpper95": 0.10697291770958313
+            }
+          },
+          "2.0": {
+            "high": {
+              "count": 0,
+              "n": 64,
+              "rate": 0.0,
+              "wilsonUpper95": 0.05662405979280534
+            },
+            "low": {
+              "count": 1,
+              "n": 64,
+              "rate": 0.015625,
+              "wilsonUpper95": 0.08334101600094267
+            }
+          }
+        },
+        "tuning": {
+          "1.5": {
+            "high": {
+              "count": 3,
+              "n": 64,
+              "rate": 0.046875,
+              "wilsonUpper95": 0.12899653740093686
+            },
+            "low": {
+              "count": 4,
+              "n": 64,
+              "rate": 0.0625,
+              "wilsonUpper95": 0.14997485092208665
+            }
+          },
+          "1.75": {
+            "high": {
+              "count": 2,
+              "n": 64,
+              "rate": 0.03125,
+              "wilsonUpper95": 0.10697291770958313
+            },
+            "low": {
+              "count": 1,
+              "n": 64,
+              "rate": 0.015625,
+              "wilsonUpper95": 0.08334101600094267
+            }
+          },
+          "2.0": {
+            "high": {
+              "count": 0,
+              "n": 64,
+              "rate": 0.0,
+              "wilsonUpper95": 0.05662405979280534
+            },
+            "low": {
+              "count": 1,
+              "n": 64,
+              "rate": 0.015625,
+              "wilsonUpper95": 0.08334101600094267
+            }
+          }
+        }
+      },
+      "bucketFits": [
+        {
+          "emptyBucket": "21-28",
+          "intercept": -616.6844867647368,
+          "nodeRatioMedian": 0.04188867960029447,
+          "residualSigma": 501.8265035686773,
+          "slope": 1.0148803213782571,
+          "splitTails": {
+            "calibration": {
+              "1.5": {
+                "highCount": 4,
+                "highRate": 0.08333333333333333,
+                "lowCount": 5,
+                "lowRate": 0.10416666666666667
+              },
+              "1.75": {
+                "highCount": 2,
+                "highRate": 0.041666666666666664,
+                "lowCount": 2,
+                "lowRate": 0.041666666666666664
+              },
+              "2.0": {
+                "highCount": 1,
+                "highRate": 0.020833333333333332,
+                "lowCount": 1,
+                "lowRate": 0.020833333333333332
+              }
+            },
+            "test": {
+              "1.5": {
+                "highCount": 0,
+                "highRate": 0.0,
+                "lowCount": 1,
+                "lowRate": 0.0625
+              },
+              "1.75": {
+                "highCount": 0,
+                "highRate": 0.0,
+                "lowCount": 1,
+                "lowRate": 0.0625
+              },
+              "2.0": {
+                "highCount": 0,
+                "highRate": 0.0,
+                "lowCount": 1,
+                "lowRate": 0.0625
+              }
+            },
+            "tuning": {
+              "1.5": {
+                "highCount": 1,
+                "highRate": 0.0625,
+                "lowCount": 3,
+                "lowRate": 0.1875
+              },
+              "1.75": {
+                "highCount": 1,
+                "highRate": 0.0625,
+                "lowCount": 1,
+                "lowRate": 0.0625
+              },
+              "2.0": {
+                "highCount": 0,
+                "highRate": 0.0,
+                "lowCount": 1,
+                "lowRate": 0.0625
+              }
+            }
+          }
+        },
+        {
+          "emptyBucket": "29-36",
+          "intercept": -665.1034585531428,
+          "nodeRatioMedian": 0.027728728897951683,
+          "residualSigma": 648.1577345313309,
+          "slope": 0.8808365019661932,
+          "splitTails": {
+            "calibration": {
+              "1.5": {
+                "highCount": 4,
+                "highRate": 0.08333333333333333,
+                "lowCount": 3,
+                "lowRate": 0.0625
+              },
+              "1.75": {
+                "highCount": 1,
+                "highRate": 0.020833333333333332,
+                "lowCount": 3,
+                "lowRate": 0.0625
+              },
+              "2.0": {
+                "highCount": 0,
+                "highRate": 0.0,
+                "lowCount": 2,
+                "lowRate": 0.041666666666666664
+              }
+            },
+            "test": {
+              "1.5": {
+                "highCount": 2,
+                "highRate": 0.125,
+                "lowCount": 1,
+                "lowRate": 0.0625
+              },
+              "1.75": {
+                "highCount": 1,
+                "highRate": 0.0625,
+                "lowCount": 1,
+                "lowRate": 0.0625
+              },
+              "2.0": {
+                "highCount": 0,
+                "highRate": 0.0,
+                "lowCount": 0,
+                "lowRate": 0.0
+              }
+            },
+            "tuning": {
+              "1.5": {
+                "highCount": 0,
+                "highRate": 0.0,
+                "lowCount": 0,
+                "lowRate": 0.0
+              },
+              "1.75": {
+                "highCount": 0,
+                "highRate": 0.0,
+                "lowCount": 0,
+                "lowRate": 0.0
+              },
+              "2.0": {
+                "highCount": 0,
+                "highRate": 0.0,
+                "lowCount": 0,
+                "lowRate": 0.0
+              }
+            }
+          }
+        },
+        {
+          "emptyBucket": "37-44",
+          "intercept": -920.8634044352225,
+          "nodeRatioMedian": 0.02830436543575114,
+          "residualSigma": 627.6840274311602,
+          "slope": 0.6457430029015848,
+          "splitTails": {
+            "calibration": {
+              "1.5": {
+                "highCount": 3,
+                "highRate": 0.0625,
+                "lowCount": 4,
+                "lowRate": 0.08333333333333333
+              },
+              "1.75": {
+                "highCount": 2,
+                "highRate": 0.041666666666666664,
+                "lowCount": 3,
+                "lowRate": 0.0625
+              },
+              "2.0": {
+                "highCount": 0,
+                "highRate": 0.0,
+                "lowCount": 2,
+                "lowRate": 0.041666666666666664
+              }
+            },
+            "test": {
+              "1.5": {
+                "highCount": 1,
+                "highRate": 0.0625,
+                "lowCount": 0,
+                "lowRate": 0.0
+              },
+              "1.75": {
+                "highCount": 0,
+                "highRate": 0.0,
+                "lowCount": 0,
+                "lowRate": 0.0
+              },
+              "2.0": {
+                "highCount": 0,
+                "highRate": 0.0,
+                "lowCount": 0,
+                "lowRate": 0.0
+              }
+            },
+            "tuning": {
+              "1.5": {
+                "highCount": 1,
+                "highRate": 0.0625,
+                "lowCount": 1,
+                "lowRate": 0.0625
+              },
+              "1.75": {
+                "highCount": 0,
+                "highRate": 0.0,
+                "lowCount": 0,
+                "lowRate": 0.0
+              },
+              "2.0": {
+                "highCount": 0,
+                "highRate": 0.0,
+                "lowCount": 0,
+                "lowRate": 0.0
+              }
+            }
+          }
+        },
+        {
+          "emptyBucket": "45-52",
+          "intercept": -751.753605461018,
+          "nodeRatioMedian": 0.026478864372763748,
+          "residualSigma": 861.0652115371216,
+          "slope": 0.4166977532009903,
+          "splitTails": {
+            "calibration": {
+              "1.5": {
+                "highCount": 3,
+                "highRate": 0.0625,
+                "lowCount": 2,
+                "lowRate": 0.041666666666666664
+              },
+              "1.75": {
+                "highCount": 2,
+                "highRate": 0.041666666666666664,
+                "lowCount": 0,
+                "lowRate": 0.0
+              },
+              "2.0": {
+                "highCount": 0,
+                "highRate": 0.0,
+                "lowCount": 0,
+                "lowRate": 0.0
+              }
+            },
+            "test": {
+              "1.5": {
+                "highCount": 1,
+                "highRate": 0.0625,
+                "lowCount": 0,
+                "lowRate": 0.0
+              },
+              "1.75": {
+                "highCount": 0,
+                "highRate": 0.0,
+                "lowCount": 0,
+                "lowRate": 0.0
+              },
+              "2.0": {
+                "highCount": 0,
+                "highRate": 0.0,
+                "lowCount": 0,
+                "lowRate": 0.0
+              }
+            },
+            "tuning": {
+              "1.5": {
+                "highCount": 1,
+                "highRate": 0.0625,
+                "lowCount": 0,
+                "lowRate": 0.0
+              },
+              "1.75": {
+                "highCount": 1,
+                "highRate": 0.0625,
+                "lowCount": 0,
+                "lowRate": 0.0
+              },
+              "2.0": {
+                "highCount": 0,
+                "highRate": 0.0,
+                "lowCount": 0,
+                "lowRate": 0.0
+              }
+            }
+          }
+        }
+      ],
+      "deepDepth": 6,
+      "heldOutT15Pass": false,
+      "nodeRatioMaximumBucket": 0.04188867960029447,
+      "nodeRatioMedianAcrossBuckets": 0.02801654716685141,
+      "selectionRank": [
+        0.10858490029974709,
+        637.9208809812455,
+        0.02801654716685141,
+        3
+      ],
+      "shallowDepth": 3,
+      "zeroWindowProxy": {
+        "byBucket": {
+          "21-28": {
+            "cutRate": 0.625,
+            "deepNodes": 207839,
+            "estimatedNodeImprovement": 0.5797516346787658,
+            "highCuts": 11,
+            "lowCuts": 9,
+            "n": 32,
+            "probeNodes": 8061,
+            "savedDeepNodes": 128556,
+            "weightedProbeRatio": 0.038784828641400315,
+            "wrongCuts": 0
+          },
+          "29-36": {
+            "cutRate": 0.34375,
+            "deepNodes": 332175,
+            "estimatedNodeImprovement": 0.26310529088582824,
+            "highCuts": 6,
+            "lowCuts": 5,
+            "n": 32,
+            "probeNodes": 9794,
+            "savedDeepNodes": 97191,
+            "weightedProbeRatio": 0.029484458493264094,
+            "wrongCuts": 0
+          },
+          "37-44": {
+            "cutRate": 0.1875,
+            "deepNodes": 405972,
+            "estimatedNodeImprovement": 0.22325923955346674,
+            "highCuts": 2,
+            "lowCuts": 4,
+            "n": 32,
+            "probeNodes": 11221,
+            "savedDeepNodes": 101858,
+            "weightedProbeRatio": 0.027639837230153803,
+            "wrongCuts": 0
+          },
+          "45-52": {
+            "cutRate": 0.03125,
+            "deepNodes": 352646,
+            "estimatedNodeImprovement": 0.0049794978533713695,
+            "highCuts": 1,
+            "lowCuts": 0,
+            "n": 32,
+            "probeNodes": 9894,
+            "savedDeepNodes": 11650,
+            "weightedProbeRatio": 0.028056464556524108,
+            "wrongCuts": 0
+          }
+        },
+        "combined": {
+          "cutRate": 0.296875,
+          "deepNodes": 1298632,
+          "estimatedNodeImprovement": 0.23123178852823587,
+          "highCuts": 20,
+          "lowCuts": 18,
+          "n": 128,
+          "probeNodes": 38970,
+          "savedDeepNodes": 339255,
+          "weightedProbeRatio": 0.030008501253626894,
+          "wrongCuts": 0
+        },
+        "description": "held-out root proxy, NWS [-1,0)"
+      }
+    },
+    {
+      "aggregateSplitTails": {
+        "calibration": {
+          "1.5": {
+            "high": {
+              "count": 11,
+              "n": 192,
+              "rate": 0.057291666666666664,
+              "wilsonUpper95": 0.09966238321611699
+            },
+            "low": {
+              "count": 8,
+              "n": 192,
+              "rate": 0.041666666666666664,
+              "wilsonUpper95": 0.08005198794773237
+            }
+          },
+          "1.75": {
+            "high": {
+              "count": 8,
+              "n": 192,
+              "rate": 0.041666666666666664,
+              "wilsonUpper95": 0.08005198794773237
+            },
+            "low": {
+              "count": 3,
+              "n": 192,
+              "rate": 0.015625,
+              "wilsonUpper95": 0.04492427936429986
+            }
+          },
+          "2.0": {
+            "high": {
+              "count": 5,
+              "n": 192,
+              "rate": 0.026041666666666668,
+              "wilsonUpper95": 0.05950324819295327
+            },
+            "low": {
+              "count": 3,
+              "n": 192,
+              "rate": 0.015625,
+              "wilsonUpper95": 0.04492427936429986
+            }
+          }
+        },
+        "heldOutCombined": {
+          "1.5": {
+            "high": {
+              "count": 8,
+              "n": 128,
+              "rate": 0.0625,
+              "wilsonUpper95": 0.11848791104425867
+            },
+            "low": {
+              "count": 8,
+              "n": 128,
+              "rate": 0.0625,
+              "wilsonUpper95": 0.11848791104425867
+            }
+          },
+          "1.75": {
+            "high": {
+              "count": 5,
+              "n": 128,
+              "rate": 0.0390625,
+              "wilsonUpper95": 0.08818702076683688
+            },
+            "low": {
+              "count": 5,
+              "n": 128,
+              "rate": 0.0390625,
+              "wilsonUpper95": 0.08818702076683688
+            }
+          },
+          "2.0": {
+            "high": {
+              "count": 3,
+              "n": 128,
+              "rate": 0.0234375,
+              "wilsonUpper95": 0.06664374505143222
+            },
+            "low": {
+              "count": 4,
+              "n": 128,
+              "rate": 0.03125,
+              "wilsonUpper95": 0.07759763126136075
+            }
+          }
+        },
+        "test": {
+          "1.5": {
+            "high": {
+              "count": 7,
+              "n": 64,
+              "rate": 0.109375,
+              "wilsonUpper95": 0.2089864132689612
+            },
+            "low": {
+              "count": 5,
+              "n": 64,
+              "rate": 0.078125,
+              "wilsonUpper95": 0.17019537354162903
+            }
+          },
+          "1.75": {
+            "high": {
+              "count": 4,
+              "n": 64,
+              "rate": 0.0625,
+              "wilsonUpper95": 0.14997485092208665
+            },
+            "low": {
+              "count": 4,
+              "n": 64,
+              "rate": 0.0625,
+              "wilsonUpper95": 0.14997485092208665
+            }
+          },
+          "2.0": {
+            "high": {
+              "count": 3,
+              "n": 64,
+              "rate": 0.046875,
+              "wilsonUpper95": 0.12899653740093686
+            },
+            "low": {
+              "count": 3,
+              "n": 64,
+              "rate": 0.046875,
+              "wilsonUpper95": 0.12899653740093686
+            }
+          }
+        },
+        "tuning": {
+          "1.5": {
+            "high": {
+              "count": 1,
+              "n": 64,
+              "rate": 0.015625,
+              "wilsonUpper95": 0.08334101600094267
+            },
+            "low": {
+              "count": 3,
+              "n": 64,
+              "rate": 0.046875,
+              "wilsonUpper95": 0.12899653740093686
+            }
+          },
+          "1.75": {
+            "high": {
+              "count": 1,
+              "n": 64,
+              "rate": 0.015625,
+              "wilsonUpper95": 0.08334101600094267
+            },
+            "low": {
+              "count": 1,
+              "n": 64,
+              "rate": 0.015625,
+              "wilsonUpper95": 0.08334101600094267
+            }
+          },
+          "2.0": {
+            "high": {
+              "count": 0,
+              "n": 64,
+              "rate": 0.0,
+              "wilsonUpper95": 0.05662405979280534
+            },
+            "low": {
+              "count": 1,
+              "n": 64,
+              "rate": 0.015625,
+              "wilsonUpper95": 0.08334101600094267
+            }
+          }
+        }
+      },
+      "bucketFits": [
+        {
+          "emptyBucket": "21-28",
+          "intercept": 137.51057089080535,
+          "nodeRatioMedian": 0.018913017867405256,
+          "residualSigma": 510.0539359764061,
+          "slope": 0.9978447158494179,
+          "splitTails": {
+            "calibration": {
+              "1.5": {
+                "highCount": 4,
+                "highRate": 0.08333333333333333,
+                "lowCount": 3,
+                "lowRate": 0.0625
+              },
+              "1.75": {
+                "highCount": 2,
+                "highRate": 0.041666666666666664,
+                "lowCount": 2,
+                "lowRate": 0.041666666666666664
+              },
+              "2.0": {
+                "highCount": 1,
+                "highRate": 0.020833333333333332,
+                "lowCount": 2,
+                "lowRate": 0.041666666666666664
+              }
+            },
+            "test": {
+              "1.5": {
+                "highCount": 0,
+                "highRate": 0.0,
+                "lowCount": 2,
+                "lowRate": 0.125
+              },
+              "1.75": {
+                "highCount": 0,
+                "highRate": 0.0,
+                "lowCount": 2,
+                "lowRate": 0.125
+              },
+              "2.0": {
+                "highCount": 0,
+                "highRate": 0.0,
+                "lowCount": 2,
+                "lowRate": 0.125
+              }
+            },
+            "tuning": {
+              "1.5": {
+                "highCount": 0,
+                "highRate": 0.0,
+                "lowCount": 1,
+                "lowRate": 0.0625
+              },
+              "1.75": {
+                "highCount": 0,
+                "highRate": 0.0,
+                "lowCount": 0,
+                "lowRate": 0.0
+              },
+              "2.0": {
+                "highCount": 0,
+                "highRate": 0.0,
+                "lowCount": 0,
+                "lowRate": 0.0
+              }
+            }
+          }
+        },
+        {
+          "emptyBucket": "29-36",
+          "intercept": 113.73489546562843,
+          "nodeRatioMedian": 0.011643921300855259,
+          "residualSigma": 669.9849013574517,
+          "slope": 0.8829131119988851,
+          "splitTails": {
+            "calibration": {
+              "1.5": {
+                "highCount": 1,
+                "highRate": 0.020833333333333332,
+                "lowCount": 2,
+                "lowRate": 0.041666666666666664
+              },
+              "1.75": {
+                "highCount": 1,
+                "highRate": 0.020833333333333332,
+                "lowCount": 1,
+                "lowRate": 0.020833333333333332
+              },
+              "2.0": {
+                "highCount": 1,
+                "highRate": 0.020833333333333332,
+                "lowCount": 1,
+                "lowRate": 0.020833333333333332
+              }
+            },
+            "test": {
+              "1.5": {
+                "highCount": 1,
+                "highRate": 0.0625,
+                "lowCount": 2,
+                "lowRate": 0.125
+              },
+              "1.75": {
+                "highCount": 0,
+                "highRate": 0.0,
+                "lowCount": 2,
+                "lowRate": 0.125
+              },
+              "2.0": {
+                "highCount": 0,
+                "highRate": 0.0,
+                "lowCount": 1,
+                "lowRate": 0.0625
+              }
+            },
+            "tuning": {
+              "1.5": {
+                "highCount": 0,
+                "highRate": 0.0,
+                "lowCount": 0,
+                "lowRate": 0.0
+              },
+              "1.75": {
+                "highCount": 0,
+                "highRate": 0.0,
+                "lowCount": 0,
+                "lowRate": 0.0
+              },
+              "2.0": {
+                "highCount": 0,
+                "highRate": 0.0,
+                "lowCount": 0,
+                "lowRate": 0.0
+              }
+            }
+          }
+        },
+        {
+          "emptyBucket": "37-44",
+          "intercept": -119.61150635159152,
+          "nodeRatioMedian": 0.010080146365264189,
+          "residualSigma": 567.1515868143942,
+          "slope": 0.6547113583257265,
+          "splitTails": {
+            "calibration": {
+              "1.5": {
+                "highCount": 3,
+                "highRate": 0.0625,
+                "lowCount": 2,
+                "lowRate": 0.041666666666666664
+              },
+              "1.75": {
+                "highCount": 3,
+                "highRate": 0.0625,
+                "lowCount": 0,
+                "lowRate": 0.0
+              },
+              "2.0": {
+                "highCount": 1,
+                "highRate": 0.020833333333333332,
+                "lowCount": 0,
+                "lowRate": 0.0
+              }
+            },
+            "test": {
+              "1.5": {
+                "highCount": 2,
+                "highRate": 0.125,
+                "lowCount": 0,
+                "lowRate": 0.0
+              },
+              "1.75": {
+                "highCount": 1,
+                "highRate": 0.0625,
+                "lowCount": 0,
+                "lowRate": 0.0
+              },
+              "2.0": {
+                "highCount": 1,
+                "highRate": 0.0625,
+                "lowCount": 0,
+                "lowRate": 0.0
+              }
+            },
+            "tuning": {
+              "1.5": {
+                "highCount": 1,
+                "highRate": 0.0625,
+                "lowCount": 1,
+                "lowRate": 0.0625
+              },
+              "1.75": {
+                "highCount": 1,
+                "highRate": 0.0625,
+                "lowCount": 1,
+                "lowRate": 0.0625
+              },
+              "2.0": {
+                "highCount": 0,
+                "highRate": 0.0,
+                "lowCount": 1,
+                "lowRate": 0.0625
+              }
+            }
+          }
+        },
+        {
+          "emptyBucket": "45-52",
+          "intercept": -212.63171439464594,
+          "nodeRatioMedian": 0.009776434161961065,
+          "residualSigma": 729.017049396366,
+          "slope": 0.36355632544422345,
+          "splitTails": {
+            "calibration": {
+              "1.5": {
+                "highCount": 3,
+                "highRate": 0.0625,
+                "lowCount": 1,
+                "lowRate": 0.020833333333333332
+              },
+              "1.75": {
+                "highCount": 2,
+                "highRate": 0.041666666666666664,
+                "lowCount": 0,
+                "lowRate": 0.0
+              },
+              "2.0": {
+                "highCount": 2,
+                "highRate": 0.041666666666666664,
+                "lowCount": 0,
+                "lowRate": 0.0
+              }
+            },
+            "test": {
+              "1.5": {
+                "highCount": 4,
+                "highRate": 0.25,
+                "lowCount": 1,
+                "lowRate": 0.0625
+              },
+              "1.75": {
+                "highCount": 3,
+                "highRate": 0.1875,
+                "lowCount": 0,
+                "lowRate": 0.0
+              },
+              "2.0": {
+                "highCount": 2,
+                "highRate": 0.125,
+                "lowCount": 0,
+                "lowRate": 0.0
+              }
+            },
+            "tuning": {
+              "1.5": {
+                "highCount": 0,
+                "highRate": 0.0,
+                "lowCount": 1,
+                "lowRate": 0.0625
+              },
+              "1.75": {
+                "highCount": 0,
+                "highRate": 0.0,
+                "lowCount": 0,
+                "lowRate": 0.0
+              },
+              "2.0": {
+                "highCount": 0,
+                "highRate": 0.0,
+                "lowCount": 0,
+                "lowRate": 0.0
+              }
+            }
+          }
+        }
+      ],
+      "deepDepth": 8,
+      "heldOutT15Pass": false,
+      "nodeRatioMaximumBucket": 0.018913017867405256,
+      "nodeRatioMedianAcrossBuckets": 0.010862033833059724,
+      "selectionRank": [
+        0.11848791104425867,
+        618.568244085923,
+        0.010862033833059724,
+        4
+      ],
+      "shallowDepth": 4,
+      "zeroWindowProxy": {
+        "byBucket": {
+          "21-28": {
+            "cutRate": 0.59375,
+            "deepNodes": 1548520,
+            "estimatedNodeImprovement": 0.5338742799576369,
+            "highCuts": 12,
+            "lowCuts": 7,
+            "n": 32,
+            "probeNodes": 26191,
+            "savedDeepNodes": 852906,
+            "weightedProbeRatio": 0.016913569085320178,
+            "wrongCuts": 1
+          },
+          "29-36": {
+            "cutRate": 0.3125,
+            "deepNodes": 2790221,
+            "estimatedNodeImprovement": 0.25022354860063056,
+            "highCuts": 5,
+            "lowCuts": 5,
+            "n": 32,
+            "probeNodes": 31052,
+            "savedDeepNodes": 729231,
+            "weightedProbeRatio": 0.011128867569988184,
+            "wrongCuts": 1
+          },
+          "37-44": {
+            "cutRate": 0.28125,
+            "deepNodes": 3554485,
+            "estimatedNodeImprovement": 0.3572357176918738,
+            "highCuts": 4,
+            "lowCuts": 5,
+            "n": 32,
+            "probeNodes": 37935,
+            "savedDeepNodes": 1307724,
+            "weightedProbeRatio": 0.010672432152618452,
+            "wrongCuts": 0
+          },
+          "45-52": {
+            "cutRate": 0.03125,
+            "deepNodes": 3389484,
+            "estimatedNodeImprovement": 0.018978700002714278,
+            "highCuts": 1,
+            "lowCuts": 0,
+            "n": 32,
+            "probeNodes": 34530,
+            "savedDeepNodes": 98858,
+            "weightedProbeRatio": 0.010187391355144322,
+            "wrongCuts": 0
+          }
+        },
+        "combined": {
+          "cutRate": 0.3046875,
+          "deepNodes": 11282710,
+          "estimatedNodeImprovement": 0.25339754367523404,
+          "highCuts": 22,
+          "lowCuts": 17,
+          "n": 128,
+          "probeNodes": 129708,
+          "savedDeepNodes": 2988719,
+          "weightedProbeRatio": 0.011496174234736159,
+          "wrongCuts": 2
+        },
+        "description": "held-out root proxy, NWS [-1,0)"
+      }
+    },
+    {
+      "aggregateSplitTails": {
+        "calibration": {
+          "1.5": {
+            "high": {
+              "count": 12,
+              "n": 192,
+              "rate": 0.0625,
+              "wilsonUpper95": 0.1060526040369538
+            },
+            "low": {
+              "count": 9,
+              "n": 192,
+              "rate": 0.046875,
+              "wilsonUpper95": 0.08667199268356185
+            }
+          },
+          "1.75": {
+            "high": {
+              "count": 8,
+              "n": 192,
+              "rate": 0.041666666666666664,
+              "wilsonUpper95": 0.08005198794773237
+            },
+            "low": {
+              "count": 6,
+              "n": 192,
+              "rate": 0.03125,
+              "wilsonUpper95": 0.06648991719610431
+            }
+          },
+          "2.0": {
+            "high": {
+              "count": 6,
+              "n": 192,
+              "rate": 0.03125,
+              "wilsonUpper95": 0.06648991719610431
+            },
+            "low": {
+              "count": 1,
+              "n": 192,
+              "rate": 0.005208333333333333,
+              "wilsonUpper95": 0.02890749715674057
+            }
+          }
+        },
+        "heldOutCombined": {
+          "1.5": {
+            "high": {
+              "count": 6,
+              "n": 128,
+              "rate": 0.046875,
+              "wilsonUpper95": 0.09849752245094322
+            },
+            "low": {
+              "count": 2,
+              "n": 128,
+              "rate": 0.015625,
+              "wilsonUpper95": 0.0551809766798172
+            }
+          },
+          "1.75": {
+            "high": {
+              "count": 4,
+              "n": 128,
+              "rate": 0.03125,
+              "wilsonUpper95": 0.07759763126136075
+            },
+            "low": {
+              "count": 1,
+              "n": 128,
+              "rate": 0.0078125,
+              "wilsonUpper95": 0.04292625943886061
+            }
+          },
+          "2.0": {
+            "high": {
+              "count": 2,
+              "n": 128,
+              "rate": 0.015625,
+              "wilsonUpper95": 0.0551809766798172
+            },
+            "low": {
+              "count": 0,
+              "n": 128,
+              "rate": 0.0,
+              "wilsonUpper95": 0.029136956273508416
+            }
+          }
+        },
+        "test": {
+          "1.5": {
+            "high": {
+              "count": 3,
+              "n": 64,
+              "rate": 0.046875,
+              "wilsonUpper95": 0.12899653740093686
+            },
+            "low": {
+              "count": 1,
+              "n": 64,
+              "rate": 0.015625,
+              "wilsonUpper95": 0.08334101600094267
+            }
+          },
+          "1.75": {
+            "high": {
+              "count": 3,
+              "n": 64,
+              "rate": 0.046875,
+              "wilsonUpper95": 0.12899653740093686
+            },
+            "low": {
+              "count": 0,
+              "n": 64,
+              "rate": 0.0,
+              "wilsonUpper95": 0.05662405979280534
+            }
+          },
+          "2.0": {
+            "high": {
+              "count": 2,
+              "n": 64,
+              "rate": 0.03125,
+              "wilsonUpper95": 0.10697291770958313
+            },
+            "low": {
+              "count": 0,
+              "n": 64,
+              "rate": 0.0,
+              "wilsonUpper95": 0.05662405979280534
+            }
+          }
+        },
+        "tuning": {
+          "1.5": {
+            "high": {
+              "count": 3,
+              "n": 64,
+              "rate": 0.046875,
+              "wilsonUpper95": 0.12899653740093686
+            },
+            "low": {
+              "count": 1,
+              "n": 64,
+              "rate": 0.015625,
+              "wilsonUpper95": 0.08334101600094267
+            }
+          },
+          "1.75": {
+            "high": {
+              "count": 1,
+              "n": 64,
+              "rate": 0.015625,
+              "wilsonUpper95": 0.08334101600094267
+            },
+            "low": {
+              "count": 1,
+              "n": 64,
+              "rate": 0.015625,
+              "wilsonUpper95": 0.08334101600094267
+            }
+          },
+          "2.0": {
+            "high": {
+              "count": 0,
+              "n": 64,
+              "rate": 0.0,
+              "wilsonUpper95": 0.05662405979280534
+            },
+            "low": {
+              "count": 0,
+              "n": 64,
+              "rate": 0.0,
+              "wilsonUpper95": 0.05662405979280534
+            }
+          }
+        }
+      },
+      "bucketFits": [
+        {
+          "emptyBucket": "21-28",
+          "intercept": -22.651092521723612,
+          "nodeRatioMedian": 0.00024080624876654448,
+          "residualSigma": 625.5510313216793,
+          "slope": 0.8868571668736905,
+          "splitTails": {
+            "calibration": {
+              "1.5": {
+                "highCount": 3,
+                "highRate": 0.0625,
+                "lowCount": 3,
+                "lowRate": 0.0625
+              },
+              "1.75": {
+                "highCount": 3,
+                "highRate": 0.0625,
+                "lowCount": 1,
+                "lowRate": 0.020833333333333332
+              },
+              "2.0": {
+                "highCount": 2,
+                "highRate": 0.041666666666666664,
+                "lowCount": 0,
+                "lowRate": 0.0
+              }
+            },
+            "test": {
+              "1.5": {
+                "highCount": 0,
+                "highRate": 0.0,
+                "lowCount": 0,
+                "lowRate": 0.0
+              },
+              "1.75": {
+                "highCount": 0,
+                "highRate": 0.0,
+                "lowCount": 0,
+                "lowRate": 0.0
+              },
+              "2.0": {
+                "highCount": 0,
+                "highRate": 0.0,
+                "lowCount": 0,
+                "lowRate": 0.0
+              }
+            },
+            "tuning": {
+              "1.5": {
+                "highCount": 0,
+                "highRate": 0.0,
+                "lowCount": 0,
+                "lowRate": 0.0
+              },
+              "1.75": {
+                "highCount": 0,
+                "highRate": 0.0,
+                "lowCount": 0,
+                "lowRate": 0.0
+              },
+              "2.0": {
+                "highCount": 0,
+                "highRate": 0.0,
+                "lowCount": 0,
+                "lowRate": 0.0
+              }
+            }
+          }
+        },
+        {
+          "emptyBucket": "29-36",
+          "intercept": 22.90721841322501,
+          "nodeRatioMedian": 0.00010832172727141222,
+          "residualSigma": 678.3077717462495,
+          "slope": 0.7983456495945411,
+          "splitTails": {
+            "calibration": {
+              "1.5": {
+                "highCount": 3,
+                "highRate": 0.0625,
+                "lowCount": 2,
+                "lowRate": 0.041666666666666664
+              },
+              "1.75": {
+                "highCount": 2,
+                "highRate": 0.041666666666666664,
+                "lowCount": 2,
+                "lowRate": 0.041666666666666664
+              },
+              "2.0": {
+                "highCount": 1,
+                "highRate": 0.020833333333333332,
+                "lowCount": 0,
+                "lowRate": 0.0
+              }
+            },
+            "test": {
+              "1.5": {
+                "highCount": 2,
+                "highRate": 0.125,
+                "lowCount": 1,
+                "lowRate": 0.0625
+              },
+              "1.75": {
+                "highCount": 2,
+                "highRate": 0.125,
+                "lowCount": 0,
+                "lowRate": 0.0
+              },
+              "2.0": {
+                "highCount": 1,
+                "highRate": 0.0625,
+                "lowCount": 0,
+                "lowRate": 0.0
+              }
+            },
+            "tuning": {
+              "1.5": {
+                "highCount": 1,
+                "highRate": 0.0625,
+                "lowCount": 0,
+                "lowRate": 0.0
+              },
+              "1.75": {
+                "highCount": 1,
+                "highRate": 0.0625,
+                "lowCount": 0,
+                "lowRate": 0.0
+              },
+              "2.0": {
+                "highCount": 0,
+                "highRate": 0.0,
+                "lowCount": 0,
+                "lowRate": 0.0
+              }
+            }
+          }
+        },
+        {
+          "emptyBucket": "37-44",
+          "intercept": -122.01257216961221,
+          "nodeRatioMedian": 8.002875161126114e-05,
+          "residualSigma": 667.9867402269338,
+          "slope": 0.6766735440451822,
+          "splitTails": {
+            "calibration": {
+              "1.5": {
+                "highCount": 2,
+                "highRate": 0.041666666666666664,
+                "lowCount": 2,
+                "lowRate": 0.041666666666666664
+              },
+              "1.75": {
+                "highCount": 2,
+                "highRate": 0.041666666666666664,
+                "lowCount": 2,
+                "lowRate": 0.041666666666666664
+              },
+              "2.0": {
+                "highCount": 2,
+                "highRate": 0.041666666666666664,
+                "lowCount": 1,
+                "lowRate": 0.020833333333333332
+              }
+            },
+            "test": {
+              "1.5": {
+                "highCount": 0,
+                "highRate": 0.0,
+                "lowCount": 0,
+                "lowRate": 0.0
+              },
+              "1.75": {
+                "highCount": 0,
+                "highRate": 0.0,
+                "lowCount": 0,
+                "lowRate": 0.0
+              },
+              "2.0": {
+                "highCount": 0,
+                "highRate": 0.0,
+                "lowCount": 0,
+                "lowRate": 0.0
+              }
+            },
+            "tuning": {
+              "1.5": {
+                "highCount": 1,
+                "highRate": 0.0625,
+                "lowCount": 0,
+                "lowRate": 0.0
+              },
+              "1.75": {
+                "highCount": 0,
+                "highRate": 0.0,
+                "lowCount": 0,
+                "lowRate": 0.0
+              },
+              "2.0": {
+                "highCount": 0,
+                "highRate": 0.0,
+                "lowCount": 0,
+                "lowRate": 0.0
+              }
+            }
+          }
+        },
+        {
+          "emptyBucket": "45-52",
+          "intercept": -308.45658855938507,
+          "nodeRatioMedian": 8.184694221258949e-05,
+          "residualSigma": 770.9446378703542,
+          "slope": 0.30576486268458286,
+          "splitTails": {
+            "calibration": {
+              "1.5": {
+                "highCount": 4,
+                "highRate": 0.08333333333333333,
+                "lowCount": 2,
+                "lowRate": 0.041666666666666664
+              },
+              "1.75": {
+                "highCount": 1,
+                "highRate": 0.020833333333333332,
+                "lowCount": 1,
+                "lowRate": 0.020833333333333332
+              },
+              "2.0": {
+                "highCount": 1,
+                "highRate": 0.020833333333333332,
+                "lowCount": 0,
+                "lowRate": 0.0
+              }
+            },
+            "test": {
+              "1.5": {
+                "highCount": 1,
+                "highRate": 0.0625,
+                "lowCount": 0,
+                "lowRate": 0.0
+              },
+              "1.75": {
+                "highCount": 1,
+                "highRate": 0.0625,
+                "lowCount": 0,
+                "lowRate": 0.0
+              },
+              "2.0": {
+                "highCount": 1,
+                "highRate": 0.0625,
+                "lowCount": 0,
+                "lowRate": 0.0
+              }
+            },
+            "tuning": {
+              "1.5": {
+                "highCount": 1,
+                "highRate": 0.0625,
+                "lowCount": 1,
+                "lowRate": 0.0625
+              },
+              "1.75": {
+                "highCount": 0,
+                "highRate": 0.0,
+                "lowCount": 1,
+                "lowRate": 0.0625
+              },
+              "2.0": {
+                "highCount": 0,
+                "highRate": 0.0,
+                "lowCount": 0,
+                "lowRate": 0.0
+              }
+            }
+          }
+        }
+      ],
+      "deepDepth": 10,
+      "heldOutT15Pass": true,
+      "nodeRatioMaximumBucket": 0.00024080624876654448,
+      "nodeRatioMedianAcrossBuckets": 9.508433474200086e-05,
+      "selectionRank": [
+        0.09849752245094322,
+        673.1472559865916,
+        9.508433474200086e-05,
+        2
+      ],
+      "shallowDepth": 2,
+      "zeroWindowProxy": {
+        "byBucket": {
+          "21-28": {
+            "cutRate": 0.625,
+            "deepNodes": 8972270,
+            "estimatedNodeImprovement": 0.5641278071212747,
+            "highCuts": 11,
+            "lowCuts": 9,
+            "n": 32,
+            "probeNodes": 1919,
+            "savedDeepNodes": 5063426,
+            "weightedProbeRatio": 0.0002138812140071576,
+            "wrongCuts": 0
+          },
+          "29-36": {
+            "cutRate": 0.40625,
+            "deepNodes": 20229663,
+            "estimatedNodeImprovement": 0.38415355708100524,
+            "highCuts": 4,
+            "lowCuts": 9,
+            "n": 32,
+            "probeNodes": 2152,
+            "savedDeepNodes": 7773449,
+            "weightedProbeRatio": 0.00010637844041198313,
+            "wrongCuts": 0
+          },
+          "37-44": {
+            "cutRate": 0.28125,
+            "deepNodes": 29292101,
+            "estimatedNodeImprovement": 0.29096536981078963,
+            "highCuts": 2,
+            "lowCuts": 7,
+            "n": 32,
+            "probeNodes": 2318,
+            "savedDeepNodes": 8525305,
+            "weightedProbeRatio": 7.913396174620591e-05,
+            "wrongCuts": 0
+          },
+          "45-52": {
+            "cutRate": 0.03125,
+            "deepNodes": 27903502,
+            "estimatedNodeImprovement": 0.02910691998445213,
+            "highCuts": 1,
+            "lowCuts": 0,
+            "n": 32,
+            "probeNodes": 2143,
+            "savedDeepNodes": 814328,
+            "weightedProbeRatio": 7.680039587862484e-05,
+            "wrongCuts": 0
+          }
+        },
+        "combined": {
+          "cutRate": 0.3359375,
+          "deepNodes": 86397536,
+          "estimatedNodeImprovement": 0.2565811136095363,
+          "highCuts": 18,
+          "lowCuts": 25,
+          "n": 128,
+          "probeNodes": 8532,
+          "savedDeepNodes": 22176508,
+          "weightedProbeRatio": 9.875281628401996e-05,
+          "wrongCuts": 0
+        },
+        "description": "held-out root proxy, NWS [-1,0)"
+      }
+    },
+    {
+      "aggregateSplitTails": {
+        "calibration": {
+          "1.5": {
+            "high": {
+              "count": 10,
+              "n": 192,
+              "rate": 0.052083333333333336,
+              "wilsonUpper95": 0.09320511003604647
+            },
+            "low": {
+              "count": 11,
+              "n": 192,
+              "rate": 0.057291666666666664,
+              "wilsonUpper95": 0.09966238321611699
+            }
+          },
+          "1.75": {
+            "high": {
+              "count": 7,
+              "n": 192,
+              "rate": 0.036458333333333336,
+              "wilsonUpper95": 0.07333089508948057
+            },
+            "low": {
+              "count": 7,
+              "n": 192,
+              "rate": 0.036458333333333336,
+              "wilsonUpper95": 0.07333089508948057
+            }
+          },
+          "2.0": {
+            "high": {
+              "count": 4,
+              "n": 192,
+              "rate": 0.020833333333333332,
+              "wilsonUpper95": 0.05233373104846399
+            },
+            "low": {
+              "count": 4,
+              "n": 192,
+              "rate": 0.020833333333333332,
+              "wilsonUpper95": 0.05233373104846399
+            }
+          }
+        },
+        "heldOutCombined": {
+          "1.5": {
+            "high": {
+              "count": 8,
+              "n": 128,
+              "rate": 0.0625,
+              "wilsonUpper95": 0.11848791104425867
+            },
+            "low": {
+              "count": 7,
+              "n": 128,
+              "rate": 0.0546875,
+              "wilsonUpper95": 0.10858490029974709
+            }
+          },
+          "1.75": {
+            "high": {
+              "count": 5,
+              "n": 128,
+              "rate": 0.0390625,
+              "wilsonUpper95": 0.08818702076683688
+            },
+            "low": {
+              "count": 3,
+              "n": 128,
+              "rate": 0.0234375,
+              "wilsonUpper95": 0.06664374505143222
+            }
+          },
+          "2.0": {
+            "high": {
+              "count": 1,
+              "n": 128,
+              "rate": 0.0078125,
+              "wilsonUpper95": 0.04292625943886061
+            },
+            "low": {
+              "count": 2,
+              "n": 128,
+              "rate": 0.015625,
+              "wilsonUpper95": 0.0551809766798172
+            }
+          }
+        },
+        "test": {
+          "1.5": {
+            "high": {
+              "count": 8,
+              "n": 64,
+              "rate": 0.125,
+              "wilsonUpper95": 0.22774561821129943
+            },
+            "low": {
+              "count": 2,
+              "n": 64,
+              "rate": 0.03125,
+              "wilsonUpper95": 0.10697291770958313
+            }
+          },
+          "1.75": {
+            "high": {
+              "count": 5,
+              "n": 64,
+              "rate": 0.078125,
+              "wilsonUpper95": 0.17019537354162903
+            },
+            "low": {
+              "count": 2,
+              "n": 64,
+              "rate": 0.03125,
+              "wilsonUpper95": 0.10697291770958313
+            }
+          },
+          "2.0": {
+            "high": {
+              "count": 1,
+              "n": 64,
+              "rate": 0.015625,
+              "wilsonUpper95": 0.08334101600094267
+            },
+            "low": {
+              "count": 1,
+              "n": 64,
+              "rate": 0.015625,
+              "wilsonUpper95": 0.08334101600094267
+            }
+          }
+        },
+        "tuning": {
+          "1.5": {
+            "high": {
+              "count": 0,
+              "n": 64,
+              "rate": 0.0,
+              "wilsonUpper95": 0.05662405979280534
+            },
+            "low": {
+              "count": 5,
+              "n": 64,
+              "rate": 0.078125,
+              "wilsonUpper95": 0.17019537354162903
+            }
+          },
+          "1.75": {
+            "high": {
+              "count": 0,
+              "n": 64,
+              "rate": 0.0,
+              "wilsonUpper95": 0.05662405979280534
+            },
+            "low": {
+              "count": 1,
+              "n": 64,
+              "rate": 0.015625,
+              "wilsonUpper95": 0.08334101600094267
+            }
+          },
+          "2.0": {
+            "high": {
+              "count": 0,
+              "n": 64,
+              "rate": 0.0,
+              "wilsonUpper95": 0.05662405979280534
+            },
+            "low": {
+              "count": 1,
+              "n": 64,
+              "rate": 0.015625,
+              "wilsonUpper95": 0.08334101600094267
+            }
+          }
+        }
+      },
+      "bucketFits": [
+        {
+          "emptyBucket": "21-28",
+          "intercept": 183.86367916239848,
+          "nodeRatioMedian": 0.00067108821401056,
+          "residualSigma": 525.0283600142112,
+          "slope": 0.9757299632839567,
+          "splitTails": {
+            "calibration": {
+              "1.5": {
+                "highCount": 4,
+                "highRate": 0.08333333333333333,
+                "lowCount": 3,
+                "lowRate": 0.0625
+              },
+              "1.75": {
+                "highCount": 3,
+                "highRate": 0.0625,
+                "lowCount": 2,
+                "lowRate": 0.041666666666666664
+              },
+              "2.0": {
+                "highCount": 2,
+                "highRate": 0.041666666666666664,
+                "lowCount": 0,
+                "lowRate": 0.0
+              }
+            },
+            "test": {
+              "1.5": {
+                "highCount": 1,
+                "highRate": 0.0625,
+                "lowCount": 0,
+                "lowRate": 0.0
+              },
+              "1.75": {
+                "highCount": 1,
+                "highRate": 0.0625,
+                "lowCount": 0,
+                "lowRate": 0.0
+              },
+              "2.0": {
+                "highCount": 0,
+                "highRate": 0.0,
+                "lowCount": 0,
+                "lowRate": 0.0
+              }
+            },
+            "tuning": {
+              "1.5": {
+                "highCount": 0,
+                "highRate": 0.0,
+                "lowCount": 2,
+                "lowRate": 0.125
+              },
+              "1.75": {
+                "highCount": 0,
+                "highRate": 0.0,
+                "lowCount": 1,
+                "lowRate": 0.0625
+              },
+              "2.0": {
+                "highCount": 0,
+                "highRate": 0.0,
+                "lowCount": 1,
+                "lowRate": 0.0625
+              }
+            }
+          }
+        },
+        {
+          "emptyBucket": "29-36",
+          "intercept": 226.17285135311738,
+          "nodeRatioMedian": 0.000273233025892506,
+          "residualSigma": 583.4820376139797,
+          "slope": 0.8804962727519045,
+          "splitTails": {
+            "calibration": {
+              "1.5": {
+                "highCount": 1,
+                "highRate": 0.020833333333333332,
+                "lowCount": 2,
+                "lowRate": 0.041666666666666664
+              },
+              "1.75": {
+                "highCount": 1,
+                "highRate": 0.020833333333333332,
+                "lowCount": 1,
+                "lowRate": 0.020833333333333332
+              },
+              "2.0": {
+                "highCount": 1,
+                "highRate": 0.020833333333333332,
+                "lowCount": 1,
+                "lowRate": 0.020833333333333332
+              }
+            },
+            "test": {
+              "1.5": {
+                "highCount": 0,
+                "highRate": 0.0,
+                "lowCount": 2,
+                "lowRate": 0.125
+              },
+              "1.75": {
+                "highCount": 0,
+                "highRate": 0.0,
+                "lowCount": 2,
+                "lowRate": 0.125
+              },
+              "2.0": {
+                "highCount": 0,
+                "highRate": 0.0,
+                "lowCount": 1,
+                "lowRate": 0.0625
+              }
+            },
+            "tuning": {
+              "1.5": {
+                "highCount": 0,
+                "highRate": 0.0,
+                "lowCount": 1,
+                "lowRate": 0.0625
+              },
+              "1.75": {
+                "highCount": 0,
+                "highRate": 0.0,
+                "lowCount": 0,
+                "lowRate": 0.0
+              },
+              "2.0": {
+                "highCount": 0,
+                "highRate": 0.0,
+                "lowCount": 0,
+                "lowRate": 0.0
+              }
+            }
+          }
+        },
+        {
+          "emptyBucket": "37-44",
+          "intercept": -125.91644296481337,
+          "nodeRatioMedian": 0.00020486960021610516,
+          "residualSigma": 558.0051783223571,
+          "slope": 0.6732696179525064,
+          "splitTails": {
+            "calibration": {
+              "1.5": {
+                "highCount": 1,
+                "highRate": 0.020833333333333332,
+                "lowCount": 4,
+                "lowRate": 0.08333333333333333
+              },
+              "1.75": {
+                "highCount": 0,
+                "highRate": 0.0,
+                "lowCount": 3,
+                "lowRate": 0.0625
+              },
+              "2.0": {
+                "highCount": 0,
+                "highRate": 0.0,
+                "lowCount": 3,
+                "lowRate": 0.0625
+              }
+            },
+            "test": {
+              "1.5": {
+                "highCount": 1,
+                "highRate": 0.0625,
+                "lowCount": 0,
+                "lowRate": 0.0
+              },
+              "1.75": {
+                "highCount": 1,
+                "highRate": 0.0625,
+                "lowCount": 0,
+                "lowRate": 0.0
+              },
+              "2.0": {
+                "highCount": 0,
+                "highRate": 0.0,
+                "lowCount": 0,
+                "lowRate": 0.0
+              }
+            },
+            "tuning": {
+              "1.5": {
+                "highCount": 0,
+                "highRate": 0.0,
+                "lowCount": 1,
+                "lowRate": 0.0625
+              },
+              "1.75": {
+                "highCount": 0,
+                "highRate": 0.0,
+                "lowCount": 0,
+                "lowRate": 0.0
+              },
+              "2.0": {
+                "highCount": 0,
+                "highRate": 0.0,
+                "lowCount": 0,
+                "lowRate": 0.0
+              }
+            }
+          }
+        },
+        {
+          "emptyBucket": "45-52",
+          "intercept": -422.45907685376744,
+          "nodeRatioMedian": 0.0001820490030052664,
+          "residualSigma": 552.7339028496931,
+          "slope": 0.3735080876335079,
+          "splitTails": {
+            "calibration": {
+              "1.5": {
+                "highCount": 4,
+                "highRate": 0.08333333333333333,
+                "lowCount": 2,
+                "lowRate": 0.041666666666666664
+              },
+              "1.75": {
+                "highCount": 3,
+                "highRate": 0.0625,
+                "lowCount": 1,
+                "lowRate": 0.020833333333333332
+              },
+              "2.0": {
+                "highCount": 1,
+                "highRate": 0.020833333333333332,
+                "lowCount": 0,
+                "lowRate": 0.0
+              }
+            },
+            "test": {
+              "1.5": {
+                "highCount": 6,
+                "highRate": 0.375,
+                "lowCount": 0,
+                "lowRate": 0.0
+              },
+              "1.75": {
+                "highCount": 3,
+                "highRate": 0.1875,
+                "lowCount": 0,
+                "lowRate": 0.0
+              },
+              "2.0": {
+                "highCount": 1,
+                "highRate": 0.0625,
+                "lowCount": 0,
+                "lowRate": 0.0
+              }
+            },
+            "tuning": {
+              "1.5": {
+                "highCount": 0,
+                "highRate": 0.0,
+                "lowCount": 1,
+                "lowRate": 0.0625
+              },
+              "1.75": {
+                "highCount": 0,
+                "highRate": 0.0,
+                "lowCount": 0,
+                "lowRate": 0.0
+              },
+              "2.0": {
+                "highCount": 0,
+                "highRate": 0.0,
+                "lowCount": 0,
+                "lowRate": 0.0
+              }
+            }
+          }
+        }
+      ],
+      "deepDepth": 12,
+      "heldOutT15Pass": false,
+      "nodeRatioMaximumBucket": 0.00067108821401056,
+      "nodeRatioMedianAcrossBuckets": 0.0002390513130543056,
+      "selectionRank": [
+        0.11848791104425867,
+        555.3695405860251,
+        0.0002390513130543056,
+        4
+      ],
+      "shallowDepth": 4,
+      "zeroWindowProxy": {
+        "byBucket": {
+          "21-28": {
+            "cutRate": 0.5625,
+            "deepNodes": 49271851,
+            "estimatedNodeImprovement": 0.5065773964935882,
+            "highCuts": 12,
+            "lowCuts": 6,
+            "n": 32,
+            "probeNodes": 26191,
+            "savedDeepNodes": 24986197,
+            "weightedProbeRatio": 0.0005315611138700675,
+            "wrongCuts": 0
+          },
+          "29-36": {
+            "cutRate": 0.40625,
+            "deepNodes": 129523438,
+            "estimatedNodeImprovement": 0.3172538394170791,
+            "highCuts": 8,
+            "lowCuts": 5,
+            "n": 32,
+            "probeNodes": 31052,
+            "savedDeepNodes": 41122860,
+            "weightedProbeRatio": 0.00023974039354946708,
+            "wrongCuts": 1
+          },
+          "37-44": {
+            "cutRate": 0.28125,
+            "deepNodes": 207317642,
+            "estimatedNodeImprovement": 0.4206232530852343,
+            "highCuts": 4,
+            "lowCuts": 5,
+            "n": 32,
+            "probeNodes": 37935,
+            "savedDeepNodes": 87240556,
+            "weightedProbeRatio": 0.00018298008618099177,
+            "wrongCuts": 0
+          },
+          "45-52": {
+            "cutRate": 0.1875,
+            "deepNodes": 203573435,
+            "estimatedNodeImprovement": 0.14550181363300177,
+            "highCuts": 1,
+            "lowCuts": 5,
+            "n": 32,
+            "probeNodes": 34530,
+            "savedDeepNodes": 29654834,
+            "weightedProbeRatio": 0.00016961938083915516,
+            "wrongCuts": 1
+          }
+        },
+        "combined": {
+          "cutRate": 0.359375,
+          "deepNodes": 589686366,
+          "estimatedNodeImprovement": 0.31012204036611557,
+          "highCuts": 25,
+          "lowCuts": 21,
+          "n": 128,
+          "probeNodes": 129708,
+          "savedDeepNodes": 183004447,
+          "weightedProbeRatio": 0.00021996099533357703,
+          "wrongCuts": 2
+        },
+        "description": "held-out root proxy, NWS [-1,0)"
+      }
+    }
+  ],
+  "gate1": {
+    "criteria": [
+      {
+        "evidence": {
+          "maximumBucketMedianNodeRatio": 0.00024080624876654448
+        },
+        "id": 1,
+        "pass": true
+      },
+      {
+        "evidence": {
+          "high": {
+            "count": 6,
+            "n": 128,
+            "rate": 0.046875,
+            "wilsonUpper95": 0.09849752245094322
+          },
+          "low": {
+            "count": 2,
+            "n": 128,
+            "rate": 0.015625,
+            "wilsonUpper95": 0.0551809766798172
+          }
+        },
+        "id": 2,
+        "pass": true
+      },
+      {
+        "evidence": {
+          "maxMinSigmaRatio": 1.2324248530795063,
+          "maximumSigma": 770.9446378703542,
+          "minimumSigma": 625.5510313216793
+        },
+        "id": 3,
+        "pass": true
+      },
+      {
+        "evidence": {
+          "positiveSlopeBuckets": 4,
+          "proxyHighCuts": 18,
+          "proxyLowCuts": 25
+        },
+        "id": 4,
+        "pass": true
+      },
+      {
+        "evidence": {
+          "minimumCutRateForFivePercent": 0.0502529074629023,
+          "proxyCutRate": 0.3359375,
+          "proxyEstimatedNodeImprovement": 0.2565811136095363,
+          "proxyWeightedProbeRatio": 9.875281628401996e-05
+        },
+        "id": 5,
+        "pass": true
+      }
+    ],
+    "pass": true
+  },
+  "inputs": {
+    "groupCount": 264,
+    "measurements": "bench/edax-compare/t156_mpc_pilot_measurements.json",
+    "measurementsSha256": "d83bf1bc344c72f1602b999f135397255fed89e344838847799a61bda8601f78",
+    "positionsFingerprint": "fnv1a64:324b68e80969900e:335483",
+    "recordCount": 320,
+    "stats": "bench/edax-compare/t156_mpc_pilot_stats.json",
+    "statsSha256": "080fca766c57c622192f3656e9012ef2b383408b4f97aa5aed6af656b760bb49",
+    "weightsFingerprint": "fnv1a64:5fb188824abebe03:27986340"
+  },
+  "recommendation": {
+    "bucketMerge": "Keep four buckets separate in T156c; reassess with 1,200-position data.",
+    "initialPairs": [
+      {
+        "deepDepth": 6,
+        "shallowDepth": 3,
+        "t": 1.75
+      },
+      {
+        "deepDepth": 8,
+        "shallowDepth": 4,
+        "t": 1.75
+      },
+      {
+        "deepDepth": 10,
+        "shallowDepth": 2,
+        "t": 1.5
+      },
+      {
+        "deepDepth": 12,
+        "shallowDepth": 4,
+        "t": 1.75
+      }
+    ],
+    "primaryGatePair": {
+      "deepDepth": 10,
+      "shallowDepth": 2,
+      "t": 1.5
+    }
+  },
+  "schemaVersion": 1,
+  "selectionRule": "For each D, among common d <= D-3 with every bucket median node ratio <= 0.20, minimize (max held-out t=1.5 directional Wilson upper, median calibration sigma, median node ratio, d)."
+}
