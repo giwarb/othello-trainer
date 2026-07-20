@@ -167,6 +167,65 @@ pub fn split_by_position_hash(records: Vec<Sample>) -> (Vec<Sample>, Vec<Sample>
     (train, frozen)
 }
 
+/// T159b: 早期打ち切り(`--early-stop --simple-corpus`)向けの3分割
+/// (train/val/frozen)。簡易コーパスには対局(game)の概念が無い
+/// (`train/data/egaroucid/`実データを調査した結果、1行1局面で対局IDや
+/// 手順の連番情報は一切含まれず、隣接行の空きマス数もばらばらで復元可能な
+/// 順序性も無い)ため、`split_by_position_hash`と同じ考え方で局面
+/// (canonicalKeyのD4正規化後)単位のハッシュ分割にする。
+///
+/// frozen判定は`split_by_position_hash`と全く同じ式(`fnv1a(canonicalKey)%10==9`)
+/// を使い、同一poolに対しては`split_by_position_hash`が返すfrozenと常に一致する
+/// (frozen成果物の意味をOFF経路と揃えるため)。frozen以外(残り約90%)から、
+/// 別のsalt付きハッシュ(`fnv1a(canonicalKey)`とは独立に計算)で
+/// `val_percent`ぶんを検証splitとして切り出す。
+///
+/// **メモリ**: `records`(所有権を受け取る)を1回だけ消費してtrain/val/frozenの
+/// 3つのVecへ振り分ける(cloneなし)。WTHOR経路の`split_early_stop_validation`
+/// (対局Vecをclone+flattenするためピーク約3倍メモリになる)とは異なり、
+/// Egaroucid全量25.5M局面のような規模でも追加メモリはほぼ発生しない
+/// (レビュー中3指摘への対処)。
+///
+/// **既知の制約(局面単位split)**: 対局境界が無いため、同一対局(または
+/// 類似局面)由来のサンプルがtrainとvalに跨って入りうる(D4対称の完全重複は
+/// canonicalKeyで防いでいるが、それ以外の近縁局面はこの分割では検出できない)。
+/// これは検証MAEを楽観側に歪め、早期打ち切りの停止判定を遅らせる方向の
+/// バイアスであり、致命的ではないが記録が必要(T159bタスクの要件1)。
+pub fn split_for_early_stop(
+    records: Vec<Sample>,
+    val_percent: f64,
+) -> (Vec<Sample>, Vec<Sample>, Vec<Sample>) {
+    let threshold = ((val_percent / 100.0) * 1_000_000.0)
+        .round()
+        .clamp(0.0, 1_000_000.0) as u64;
+    let mut train = Vec::new();
+    let mut val = Vec::new();
+    let mut frozen = Vec::new();
+    for sample in records {
+        let (key, _) = experiment::canonicalize(&sample);
+        let mut frozen_hash = 0xcbf29ce484222325u64;
+        frozen_hash = fnv_update(frozen_hash, &key.0.to_le_bytes());
+        frozen_hash = fnv_update(frozen_hash, &key.1.to_le_bytes());
+        frozen_hash = fnv_update(frozen_hash, &[key.2]);
+        if frozen_hash % 10 == 9 {
+            frozen.push(sample);
+            continue;
+        }
+        // frozen判定のハッシュ(seed=FNV基本オフセットバイアス)とは異なる
+        // 開始値を使い、frozen/val割当が相関しないようにする。
+        let mut es_hash = 0x84222325_cbf29ce4_u64;
+        es_hash = fnv_update(es_hash, &key.0.to_le_bytes());
+        es_hash = fnv_update(es_hash, &key.1.to_le_bytes());
+        es_hash = fnv_update(es_hash, &[key.2]);
+        if es_hash % 1_000_000 < threshold {
+            val.push(sample);
+        } else {
+            train.push(sample);
+        }
+    }
+    (train, val, frozen)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -350,5 +409,84 @@ mod tests {
         assert_eq!(key_a, key_b, "test fixture must be symmetric duplicates");
         let (train, frozen) = split_by_position_hash(vec![sample_a, sample_b]);
         assert!(train.len() == 2 || frozen.len() == 2);
+    }
+
+    /// `fixture_lines`は先頭からのXの連続個数(`i % 60`)だけで盤面を決めるため
+    /// распределение(distinct canonicalKey数)が乏しい。`split_for_early_stop`の
+    /// 決定性/網羅性/frozen一致テストでは、より多様な(ほぼ全件が異なる盤面の)
+    /// フィクスチャを使う。
+    fn diverse_lines(count: usize) -> Vec<String> {
+        (0..count)
+            .map(|i| {
+                let mut state = (i as u64 + 1).wrapping_mul(0x9E3779B97F4A7C15);
+                let mut cells = [b'-'; 64];
+                for cell in cells.iter_mut() {
+                    state ^= state << 13;
+                    state ^= state >> 7;
+                    state ^= state << 17;
+                    *cell = match state % 3 {
+                        0 => b'-',
+                        1 => b'X',
+                        _ => b'O',
+                    };
+                }
+                let board: String = cells.iter().map(|&b| b as char).collect();
+                format!("{board} {}", (i % 40) as i64 - 20)
+            })
+            .collect()
+    }
+
+    #[test]
+    fn split_for_early_stop_is_deterministic_and_partitions_all_records() {
+        let dir = temp_dir("split-earlystop-determinism");
+        let file = dir.join("a.txt");
+        write_lines(&file, &diverse_lines(3000));
+        let (records, _hash, _total) = load_simple_corpus(&[file], None, 1).unwrap();
+        let (train1, val1, frozen1) = split_for_early_stop(records.clone(), 5.0);
+        let (train2, val2, frozen2) = split_for_early_stop(records.clone(), 5.0);
+        assert_eq!(train1, train2);
+        assert_eq!(val1, val2);
+        assert_eq!(frozen1, frozen2);
+        assert_eq!(
+            train1.len() + val1.len() + frozen1.len(),
+            records.len()
+        );
+        assert!(!train1.is_empty());
+        assert!(!val1.is_empty(), "expected some validation records at 5%");
+        assert!(!frozen1.is_empty(), "expected some frozen records at ~10%");
+        fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn split_for_early_stop_frozen_matches_split_by_position_hash() {
+        // frozenの意味をOFF経路(`split_by_position_hash`)と揃えるため、
+        // 同一poolに対しては両者のfrozenが完全に一致すること
+        // (要素の内容だけでなく、同じ入力順で処理するため順序も含めて一致する)。
+        let dir = temp_dir("split-earlystop-frozen-consistency");
+        let file = dir.join("a.txt");
+        write_lines(&file, &diverse_lines(2000));
+        let (records, _hash, _total) = load_simple_corpus(&[file], None, 1).unwrap();
+        let (_train_a, frozen_a) = split_by_position_hash(records.clone());
+        let (_train_b, _val_b, frozen_b) = split_for_early_stop(records, 5.0);
+        assert_eq!(frozen_a, frozen_b);
+        fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn split_for_early_stop_keeps_symmetric_duplicates_in_the_same_bucket() {
+        let board_text = "X".repeat(4) + &"-".repeat(60);
+        let sample_a = parse_simple_line(&format!("{board_text} 1")).unwrap();
+        let rotated_text: String = board_text.chars().rev().collect();
+        let sample_b = parse_simple_line(&format!("{rotated_text} 1")).unwrap();
+        let key_a = experiment::canonicalize(&sample_a).0;
+        let key_b = experiment::canonicalize(&sample_b).0;
+        assert_eq!(key_a, key_b, "test fixture must be symmetric duplicates");
+        let (train, val, frozen) = split_for_early_stop(vec![sample_a, sample_b], 50.0);
+        let buckets_hit = [train.len() == 2, val.len() == 2, frozen.len() == 2];
+        assert_eq!(
+            buckets_hit.iter().filter(|&&hit| hit).count(),
+            1,
+            "both symmetric duplicates must land in exactly one shared bucket"
+        );
     }
 }

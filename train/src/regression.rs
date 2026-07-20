@@ -196,6 +196,42 @@ impl Model {
         }
     }
 
+    /// T159b: `train_epochs`と全く同じシャッフル順序・更新ロジックで1エポック分
+    /// SGD学習を行い、追加で(平均二乗誤差, 平均絶対誤差)を返す。既存の
+    /// `train`/`train_epochs`/`sgd_step`の挙動・シグネチャは一切変更していない
+    /// (このメソッドは追加のみで、既存呼び出し元の出力に影響しない)。
+    ///
+    /// 返す誤差は「そのサンプルを処理する直前(=このエポック内でそれまでに
+    /// 処理済みのサンプルによる更新は反映済み、未処理サンプルによる更新は
+    /// 未反映)の予測」に基づく集計であり、エポック完了後に全サンプルを
+    /// 再評価する`mean_squared_error`/`mean_absolute_error`とは厳密には異なる
+    /// (オンラインSGDの一般的な「学習中損失」の定義)。25.5M件規模のデータで
+    /// 「学習後に別途もう一度全量を評価し直す」という追加フルパスを避けるために
+    /// 使う(T159bレビュー中2指摘への対処)。
+    pub fn train_epoch_with_running_loss(
+        &mut self,
+        samples: &[Sample],
+        cfg: &TrainConfig,
+        epoch: u32,
+    ) -> (f64, f64) {
+        if samples.is_empty() {
+            return (0.0, 0.0);
+        }
+        let order = shuffle_indices(samples.len(), cfg.seed ^ (epoch as u64));
+        let mut sum_squared = 0.0f64;
+        let mut sum_absolute = 0.0f64;
+        for &i in &order {
+            let sample = &samples[i];
+            let prediction = self.predict(&sample.board, sample.mover) as f64;
+            let error = prediction - sample.outcome as f64;
+            sum_squared += error * error;
+            sum_absolute += error.abs();
+            self.sgd_step(sample, cfg);
+        }
+        let count = samples.len() as f64;
+        (sum_squared / count, sum_absolute / count)
+    }
+
     /// 呼び出し側で生成したsampling順を1 epochだけ学習する。
     pub fn train_order(&mut self, samples: &[Sample], cfg: &TrainConfig, order: &[usize]) {
         for &i in order {
@@ -469,6 +505,75 @@ mod tests {
         assert!(
             mse.predict(&sample.board, sample.mover)
                 > huber.predict(&sample.board, sample.mover) * 4.9
+        );
+    }
+
+    #[test]
+    fn train_epoch_with_running_loss_updates_weights_identically_to_train_epochs() {
+        // T159b: `train_epoch_with_running_loss`の重み更新は`train_epochs`と
+        // ビット同一でなければならない(追加するのは誤差集計だけで、更新ロジックは
+        // 一切変えていないため)。
+        let samples = [
+            Sample {
+                board: asymmetric_test_board(),
+                mover: Side::Black,
+                outcome: 10.0,
+                last_move_kind: crate::train_data::LastMoveKind::Other,
+                vulnerable_xc: false,
+            },
+            Sample {
+                board: Board::initial(),
+                mover: Side::White,
+                outcome: -3.0,
+                last_move_kind: crate::train_data::LastMoveKind::Other,
+                vulnerable_xc: false,
+            },
+        ];
+        let cfg = TrainConfig {
+            learning_rate: 0.01,
+            l2: 1e-5,
+            epochs: 3,
+            seed: 11,
+            loss: Loss::Mse,
+        };
+        let patterns = patterns::generate_patterns();
+        let mut via_train_epochs = Model::new(patterns.clone());
+        via_train_epochs.train_epochs(&samples, &cfg, 0, 3);
+
+        let mut via_running_loss = Model::new(patterns);
+        for epoch in 0..3 {
+            via_running_loss.train_epoch_with_running_loss(&samples, &cfg, epoch);
+        }
+        assert_eq!(via_train_epochs.to_bytes(), via_running_loss.to_bytes());
+    }
+
+    #[test]
+    fn train_epoch_with_running_loss_reports_decreasing_error_as_training_progresses() {
+        // 集計する誤差は「更新前」の予測に基づくオンライン損失なので、
+        // 学習が進むにつれてエポックごとの集計誤差もおおむね縮小していくはず
+        // (収束が確認されている既存の`training_converges_close_to_target_...`と
+        // 同じ設定を使う)。
+        let patterns = patterns::generate_patterns();
+        let mut model = Model::new(patterns);
+        let sample = Sample {
+            board: asymmetric_test_board(),
+            mover: Side::Black,
+            outcome: 8.0,
+            last_move_kind: crate::train_data::LastMoveKind::Other,
+            vulnerable_xc: false,
+        };
+        let cfg = TrainConfig {
+            learning_rate: 0.05,
+            l2: 0.0,
+            epochs: 1,
+            seed: 42,
+            loss: Loss::Mse,
+        };
+        let (_, first_mae) = model.train_epoch_with_running_loss(&[sample], &cfg, 0);
+        let (_, last_mae) = model.train_epoch_with_running_loss(&[sample], &cfg, 30);
+        assert!(
+            last_mae < first_mae,
+            "expected running-loss MAE to shrink as training progresses: first={first_mae} last={last_mae}"
         );
     }
 
