@@ -1,7 +1,7 @@
 ---
 id: T153
 title: Egaroucid公開学習データの取得・変換・同量対照の品質確認(軽ステップ)
-status: todo # todo | in_progress | review | redo | done | blocked
+status: done # verifier合格(全数値独立再集計一致・データ非コミット履歴確認)、2026-07-20。代替レビュー省略裁定(新モードは早期分岐で既定挙動不変をverifierがコード確認済み。フル学習に進む場合はその検収で精査)
 assignee: implementer(Sonnet)
 attempts: 0
 ---
