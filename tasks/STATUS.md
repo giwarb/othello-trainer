@@ -32,7 +32,8 @@
 
 | ID | タスク | 担当 | 状態 | 試行 |
 |---|---|---|---|---|
-| T155 | Egaroucidデータ×本番トレーナー(train_patterns_v3取込+学習+oracle) | implementer(Sonnet) | in_progress(委譲中。E1=@443万×3seed。事前登録: ≤1.0で対局ゲート提案/1.3超で路線保留) | 0 |
+| T155 | Egaroucidデータ×本番トレーナー(取込+学習+oracle) | implementer(Sonnet) | in_progress(E1学習3seed完走済み、oracle評価を再開指示。事前登録: ≤1.0で対局ゲート提案/1.3超で路線保留) | 0 |
+| T156a | MPC再校正(1/7): 校正コーパス+測定基盤+pilot320測定 | **Codex gpt-5.6-sol**(復帰後初委譲) | in_progress(委譲中。設計=T156レポート採用、裁定9件記録済み。**重要発見: 現行MPCはカット境界の符号が逆で構造的不発**) | 0 |
 
 ## 有効な方針・申し送り(今後のタスクに効くもの)
 
