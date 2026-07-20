@@ -1,9 +1,9 @@
 ---
 id: T156d
 title: MPC再校正(4/7): 同一バイナリA/B CLIとGate 2(固定深さ)/Gate 3(160k本番相当)の軽量ゲート
-status: redo # codex-review不合格(2026-07-20): 測定条件の機械検証欠如。下記フィードバック参照
+status: redo # redo#2(2026-07-20): canonical SHA検証がreturn直後の到達不能コードでfail-closed未達(他は全て解消済み)
 assignee: Codex gpt-5.6-sol
-attempts: 1
+attempts: 2
 ---
 
 # T156d: A/B CLIと軽量ゲート
@@ -53,6 +53,13 @@ attempts: 1
 
 - **Gate 3の初回実測8ファイルはコミット済みコード(81c6207)からバイト単位で完全再現された**(verifierがログのコマンドを再実行しmeta記録のSHA-256と全一致)。したがってredoの再実測はこれらと一致するはず。不一致が出た場合は原因を調査すること。
 - **4石loss基準の文言不整合**: 設計レポート§7は「4石以上のloss局面増加が60局面あたり2件以下」(許容差あり)、本タスクファイル初版は「同等以下」(増加ゼロ)と厳格化していた。**redoでは設計レポート§7の基準(60局面あたり2件以下相当、120局面なら4件以下)を正とし**、両解釈での判定を併記すること(初回はどちらでも他基準で不合格のため結論に影響なし)。
+
+## フィードバック(redo #2、2026-07-20 再レビューによる)
+
+redo#1でフィードバック7項目はほぼ解消(レビュー評価: config/policy/schema検査・ID集合検査・resume固定・重複拒否・exact会計・meta保存・loss4併記はすべて適切)。**残るブロッカーは1件のみ**:
+
+- `bench/edax-compare/compare_mpc.py` の `validate_checkpoint()` 113行目付近で、canonical SHA-256検証(Gate 2 corpus・oracle positions・oracle labels・v4 weightsの4件の `require_equal(digest(...), EXPECTED_...)`)が **`return` 文の直後に記述されており到達不能(デッドコード)**。このため改変されたoracle labels等でも集計を通過できる。
+- 修正: 4件の検証を `validate_inputs()` の到達可能な先頭部分へ移動し、**各canonical入力を1バイト改変すると拒否されることの回帰テスト**を追加する。既存の測定結果・レポート数値は変わらないはずなので再実測は不要(meta記録のSHAは既に期待値と一致している)。テスト実行(`python -B -m unittest bench/edax-compare/test_compare_mpc.py` と `cargo test -p engine`)で確認し、レポート再生成(数値不変の確認込み)まで。
 
 ## 作業ログ
 
