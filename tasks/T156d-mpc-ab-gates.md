@@ -1,9 +1,9 @@
 ---
 id: T156d
 title: MPC再校正(4/7): 同一バイナリA/B CLIとGate 2(固定深さ)/Gate 3(160k本番相当)の軽量ゲート
-status: todo # todo | in_progress | review | redo | done | blocked
+status: redo # codex-review不合格(2026-07-20): 測定条件の機械検証欠如。下記フィードバック参照
 assignee: Codex gpt-5.6-sol
-attempts: 0
+attempts: 1
 ---
 
 # T156d: A/B CLIと軽量ゲート
@@ -36,6 +36,18 @@ attempts: 0
 ## コミット規律
 
 - `tasks/` と `CLAUDE.md` は変更しない(作業ログ追記は行う)
+
+## フィードバック(redo #1、2026-07-20 codex-review不合格による)
+
+レビュー(tasks/review/T156d-mpc-ab-gates-codex-review.md)のブロッカー: **Gate 2/3の測定条件が機械検証されておらず、コミット済み成果物から実測条件を監査・再現できない**。実測値と撤退提言は妥当と評価されているが、検証チェーンが欠けている。以下を修正すること:
+
+1. **compare_mpc.py に入力検証を追加**: checkpointの`config`を読み、(a)Gate 2=depth 8/10/12・test split 240局面・exact/history/aspiration OFF・MPCのみ切替 (b)Gate 3=v4重み(fingerprint照合)・160k・quota60%・exact_from_empties=16 (c)A〜Dのpolicyが規定どおり (d)全構成が同一の局面ID集合 (e)空き20以下除外 (f)oracle positions(t157_oracle_positions.json)とlabelsの対応・fingerprint (g)schemaVersion、を検証し、不一致なら集計せずエラー終了。
+2. **metaへ検証済みconfigを保存**: 削除済み一時checkpointのパス+SHAだけでなく、各checkpointのconfig・positions/weights fingerprint・レコード集合サマリをmetaに残し、監査・再現可能にする。
+3. **GateConfigに--max-positions(または選択済みID集合fingerprint)を含める**(中1)。
+4. **重複レコード検出**: 辞書化前にレコード数=キー数を検証(compare_mpc.pyのby_key/oracle_regrets)(中2)。
+5. **exact会計検査の拡充**: root完走/試行・bound proof/leaf・quota abort・exactNodes/midgameNodes/総ノードの整合、構成間偏り(中3)。
+6. **回帰テスト追加**: 新CLIの設定拒否・resume・merge異常入力・集計境界(軽微)。
+7. **Gate 2/3を再実測**し(検証付きパイプラインで)、監査可能な成果物一式でレポートを再生成する。判定基準・条件は元仕様のまま。
 
 ## 作業ログ
 
