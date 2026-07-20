@@ -36,7 +36,7 @@
 
 | ID | タスク | 担当 | 状態 | 試行 |
 |---|---|---|---|---|
-| T164 | canonical学習の配線(トレーナー対応+B3スカラー対応+前段修正3件、重大バグ修正2/3) | implementer | review(93f085e、verifier+代替レビュー並列検収中。PWV6追加・4経路対応・スモーク3種完走〔全て決定的SHA+学習済み重み全8対称一致〕。**T159bまでブロックだったB3×Egaroucidが動作確認済み**) | 0 |
+| T165 | canonical全量再学習(3構成×3seed=9run、重大バグ修正3/3) | implementer | in_progress(A=WTHOR v4-canonical、B=Egaroucid25.5M v4-canonical、C=同B3-canonical。事前登録: seed選定=frozen MAE最小、構成間比較無効、決定性確認はB seed1のみ。総所要2-3h見込み) | 0 |
 
 ## 有効な方針・申し送り(今後のタスクに効くもの)
 
@@ -152,6 +152,7 @@
 | T158c | 評価特徴追加(3/4): スクリーニング+候補確定 | **完了**(5d1dd4d、verifier〔再集計・hash実測・resume実地再現〕/代替レビュー〔中2=T158d申し送り〕両合格、Codex実装、redo 0回)。害検出でseed1/3除外・**seed2を候補確定**、oracle180害なし(mean +0.067)・NPS on/off 0.92-0.94・24局smoke異常0(12W1D11L)。60局ゲートmanifest完備 |
 | T158d | 評価特徴追加(4/4): 対Edax 60局paired最終ゲート | **不採用裁定=現行v4維持**(cc88739ほか、verifier2回〔全統計・SHA・決定性の独立再現〕合格、Sonnet実装、redo 0回、ユーザー指示で段階実行)。候補9勝1分50敗(-22.67) vs v4 4勝2分54敗(-24.12)、ペア差+1.45石・CI[-1.57,+4.60]・p=0.57で有意差なし。パイロットの乖離非対称は不再現。ゲート一式約30分の運用を確立。B3特徴実装はT160で再利用 |
 | T159 | 本番トレーナーへ早期打ち切り導入(Egaroucidシリーズ1/3) | **完了**(8372aa2、verifier〔OFF時ビット一致をworktree独立追試でSHA完全一致〕/代替レビュー〔重大0・中3・軽微7〕両合格、Sonnet実装、redo 0回)。opt-in・対局単位検証split(frozen holdout不使用)・patienceベスト復元・resume対応。180kスモークでbest_epoch=4復元を実証。中3件と--simple-corpus対応はT159bへ |
+| T164 | canonical学習の配線(PWV6・4経路対応・前段修正3件、重大バグ修正2/3) | **完了**(93f085e、verifier〔スモークSHA完全再現・不変worktree追試・独自手法の対称一致320局面〕/代替レビュー〔重大0・中1・軽微4〕両合格、Sonnet実装、redo 0回)。B3×Egaroucidのブロック解消・全4経路canonical対応。中1=レガシーidentity変更で旧runのresume非互換(明示エラー、安全側)→T165は新規dirで回避。軽微2件はT165前提修正 |
 | T163 | D4 canonical化(重大バグ修正1/3、新旧共存PWV5) | **完了**(ccb93eb、verifier〔regression-catching独立追試・テスト数142=+5純増確認・FFO不変〕/代替レビュー〔重大0・中2・軽微4、数学的正当性を独立導出で検証〕両合格、Sonnet実装、redo 0回)。安定化群canonical index方式+証明スケッチ。全8対称完全一致(ランダム300+実WTHOR+学習後)・レガシーgolden bit不変・NPS 97.5%。中2件はT164前段で修正 |
 | T162 | v3 vs v4 対局再対決(対Edax 60局paired) | **有意差なし=現状維持v4が裁定**(d19aedc、verifier全項目独立再現で合格、redo 0回)。v3 3勝3分54敗-21.20 vs v4 4勝2分54敗-24.12、ペア差+2.92石(v3方向)・CI[-2.13,+7.97]・p=0.26。v4側はT158d結果をSHA完全一致で再利用(v3側60局のみ12分)。v3結果はT121/T125と勝敗完全一致。D4修正後の再学習で上書き予定。申し送り: bootstrap配列並び順のmeta明記 |
 | T159b | 早期打ち切りのsimple-corpus対応+T159中3件対処(シリーズ1.5/3) | **完了**(fa448f0、verifier〔OFF不変2種worktree追試SHA一致・137テスト〕/代替レビュー〔重大0・中1・軽微6〕両合格、Sonnet実装、redo 0回)。**実測: 25.5M全量1エポック約60秒・1構成15-30分**。Egaroucidは対局境界なし→局面ハッシュsplit(リーク=停止遅延方向のバイアスと記録)。resume脆弱窓の自己修復・1パス評価・インデックス分割も導入。**T160注意: t158系config+simple-corpusの既存ガード解除が必要**。申し送り: T159形式6列metricsの中断runは新コードでresume不能(影響母集団は実質空、fail-loud) |
