@@ -46,4 +46,65 @@ T154の結論(トレーナー差が支配的+Egaroucidデータは同量でWTHOR
 
 ## 作業ログ
 
-(ワーカーが節目ごとに追記)
+### 2026-07-20 実装開始・取り込み機能実装完了・E1学習起動
+
+- 既存調査: `train_patterns_v3.rs`(本番トレーナー)は`--configs`/`--seeds`ごとに
+  対局リストからサンプル抽出→SGD 20エポック→checkpoint保存という単純な
+  逐次(シングルスレッド)ループ。T124で`v4×WTHOR`のoracle regret 1.1111を
+  出したのはこのバイナリ。一方T154は`t090_distillation.rs`の`--simple-corpus`
+  (T153導入)を使っており、同一データ(WTHOR全量4,431,504件)でもトレーナーが
+  違うと1.5000に悪化することを実測済み(トレーナー差が支配的)。そのため本タスクは
+  `t090_distillation.rs`には一切触れず、`train_patterns_v3.rs`本体に簡易コーパス
+  読み込みを追加する方針とした。
+- 新規モジュール`train/src/simple_corpus.rs`を追加: `parse_simple_line`(64文字盤面+
+  スコア1行→`train_data::Sample`、mover=Black固定、t090の`parse_simple_record`と
+  同じ規約だが完全に独立した実装)、`list_simple_corpus_files`(ディレクトリなら
+  `*.txt`をソート列挙/ファイルならそのまま)、`load_simple_corpus`(Algorithm R
+  reservoir samplingで`--simple-max-records`件を決定的抽出、内容ハッシュ算出、
+  数千万行でも採用されなかった行はパースしない)、`split_by_position_hash`
+  (対局概念が無いため、`experiment::canonicalize`のD4正規化canonicalKeyの
+  fnv1aハッシュ%10==9をfrozen、それ以外をtrainとする局面ハッシュ分割。
+  対称重複が必ず同じ側に入ることをテストで確認)。ユニットテスト12件追加。
+  `lib.rs`に`pub mod simple_corpus;`を追加(他モジュール無改修)。
+- `train_patterns_v3.rs`: `--simple-corpus <path> [--simple-max-records N]`を追加。
+  既定挙動(WTHOR学習)を完全不変に保つため、(a)per-(config,seed)の
+  checkpoint保存/resume/frozen評価ループを`run_config_seed`関数として
+  そのまま切り出し(ロジック無変更)、(b)`main`はWTHOR経路(従来コード、
+  identity文字列生成含めバイト単位で不変)と新規simple-corpus経路(schema=
+  "schema=2-simple"で完全に別のidentity名前空間、局面ハッシュ分割を使用)の
+  2分岐にした。`--simple-corpus`指定時に`--max-games`/`--train-subset-size`を
+  併用するとエラー終了する誤用ガードを追加。`--subset-seed`(既定42)は
+  simple-corpus経路ではreservoir samplingのseedとして流用(T154 Run Bの
+  `--subset-seed 42`既定値踏襲)。
+- 既定挙動不変の検証: `--configs v2 --seeds 1 --epochs 1 --max-games 20`を
+  リファクタ前後で実行し、`results.tsv`が完全一致(diffなし)、出力重みファイルの
+  SHA-256が完全一致(`6be188ab7cc818b076e81bfa274b3c2bf016250297b7960382dcfbefa6d2d0d5`)
+  することを確認した。resume経路(完成run再実行でエポックループスキップ)も
+  従来どおり動作することを確認した。
+- `--simple-corpus`の新規動作確認: 合成コーパス(500行)でファイル指定/ディレクトリ
+  指定(2ファイル分割)が同じcorpus_hashを出すこと、`--simple-max-records`で
+  reservoir samplingが件数どおり動作すること、`--max-games`/`--train-subset-size`
+  併用時のエラー終了、`--simple-max-records`単独指定(--simple-corpus無し)時の
+  エラー終了を確認した。
+- `cargo test -p train --release`: **99件(既存87 lib+12 simple_corpus新規を含む) +
+  train_patterns_v3 bin 3件 + 他bin 18件 + real_data 1件、全パス、0 failed**。
+- Egaroucidデータでの実測タイミング: `--simple-max-records 1`(corpus scanのみ、
+  25,514,097行を全ストリーム読み+ハッシュ)で約5.7秒、`--simple-max-records
+  200000`(1エポック学習込み)で約7.1秒 → 1エポックのSGD学習は約174,938件/1.4秒
+  ≈ 125,000件/秒(v4パターンセット、シングルスレッド)。この実測値から
+  E1(pool 4,431,504、train≈399万、20エポック、3seed)を1コマンド
+  (`--seeds 1,2,3`、コーパスロードは1回のみ共有)で実行した場合、
+  corpus scan約6秒 + 3seed×20epoch×(399万/125,000)秒 ≈ 6秒+3×638秒
+  ≈ 32分程度と見積もった(--seeds引数はシングルプロセス内で逐次実行されるため、
+  1コマンド全体で「1run」とみなすか、seedごとに「1run」とみなすかで30分基準の
+  解釈が変わる。本タスクでは seed単独の学習時間(見積り約10.6分)が30分を
+  明確に下回るため、3seed一括コマンドをそのまま実行する判断とした。
+  実測時間は完了後に本ログへ追記する)。
+- E1学習をdetached起動(PowerShell `Start-Process`、PID 22768):
+  `target/release/train_patterns_v3.exe --simple-corpus
+  train/data/egaroucid/extracted/0001_egaroucid_7_5_1_lv17 --simple-max-records
+  4431504 --configs v4 --seeds 1,2,3 --epochs 20 --output-dir
+  train/data/t155/egaroucid-v4-e1`。ログ`logs/t155-egaroucid-v4-e1.stdout.log`
+  (+`.stderr.log`)。Bashツールの`run_in_background`で`results.tsv`に3行揃うまで
+  30秒間隔でポーリングするラッパースクリプトを起動(Monitor通知への依存を避け、
+  45分の安全上限を設定)。
