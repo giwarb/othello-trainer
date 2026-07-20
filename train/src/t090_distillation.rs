@@ -155,6 +155,18 @@ pub struct DistillRecord {
     pairs: Vec<usize>,
 }
 
+/// T153: `--simple-corpus`で読み込む「(盤面, スコア)」だけの最小レコード。
+/// Egaroucid公開学習データ(64文字盤面+手番側スコア)のような、候補手・
+/// ランキング情報を持たない教師データをteacher-only損失で直接学習するための型。
+/// `DistillRecord`とは完全に独立しており、既存の蒸留コーパス経路
+/// (`load_corpus`・`DistillRecord`・`run_one`等)には一切触れない。
+#[derive(Debug, Clone)]
+struct SimpleRecord {
+    key: CanonicalKey,
+    board: Board,
+    teacher_value: f32,
+}
+
 #[derive(Debug, Clone, Copy)]
 struct Mix {
     name: &'static str,
@@ -805,6 +817,50 @@ fn metrics(model: &Model, records: &[DistillRecord], mix: Mix) -> Metrics {
     out
 }
 
+/// T153: `SimpleRecord`(盤面+手番側スコアのみ)向けのteacher-only一本勝負の
+/// 学習ステップ。`record.board`は常に`Side::Black`視点(X=own)で格納されている
+/// (`parse_simple_record`参照)ため、`mover`は固定でよい。既存の`train_step`
+/// (ranking/outcome項・mix係数を持つ)とは完全に独立した経路であり、
+/// 既存コーパスの学習には一切影響しない。
+fn simple_train_step(model: &mut Model, record: &SimpleRecord, learning_rate: f32, l2: f32) -> f32 {
+    let parent_features = features(model, &record.board, Side::Black);
+    let prediction = prediction_from_features(model, &parent_features);
+    let (loss, gradient) = huber(prediction - record.teacher_value);
+    let mut gradient_map = HashMap::new();
+    add_gradient(&mut gradient_map, &parent_features, gradient);
+    for ((class, stage, state), value) in gradient_map {
+        let weight = &mut model.weights.class_tables[class].stage_tables[stage][state];
+        *weight -= learning_rate * (value + l2 * *weight);
+    }
+    loss
+}
+
+#[derive(Default)]
+struct SimpleMetrics {
+    loss: f64,
+    teacher_mae: f64,
+}
+
+/// T153: `SimpleRecord`集合に対するteacher-only huber損失とMAE。
+/// `metrics`(ranking/outcome/agreement/regretを含む)と違い、候補手情報が
+/// 無いため教師値との誤差だけを見る。
+fn simple_metrics(model: &Model, records: &[SimpleRecord]) -> SimpleMetrics {
+    if records.is_empty() {
+        return SimpleMetrics::default();
+    }
+    let mut out = SimpleMetrics::default();
+    for record in records {
+        let prediction = model.predict(&record.board, Side::Black);
+        let (loss, _) = huber(prediction - record.teacher_value);
+        out.loss += loss as f64;
+        out.teacher_mae += (prediction - record.teacher_value).abs() as f64;
+    }
+    let count = records.len() as f64;
+    out.loss /= count;
+    out.teacher_mae /= count;
+    out
+}
+
 fn shuffle(count: usize, seed: u64) -> Vec<usize> {
     let mut order: Vec<_> = (0..count).collect();
     let mut state = seed.max(1);
@@ -879,6 +935,154 @@ fn select_train_subset(
     }
     selected.sort_unstable();
     let mut slots: Vec<Option<DistillRecord>> = records.into_iter().map(Some).collect();
+    selected
+        .into_iter()
+        .map(|index| slots[index].take().expect("subset index selected twice"))
+        .collect()
+}
+
+/// T153: 単純コーパスの1行(`<64文字盤面> <スコア>`、Egaroucid公開学習データの
+/// 生の形式)を`SimpleRecord`へ変換する。盤面は`X`=手番側(own)/`O`=相手
+/// (opponent)/`-`=空きなので、`parse_board`が返す`Board{black,white}`をそのまま
+/// `mover=Side::Black`固定として扱えば、`pattern_state_index`が内部で
+/// own/opponentへ正規化する(`engine::patterns`のcell_trit)ため実際の手番色が
+/// 黒か白かは問題にならない。
+fn parse_simple_record(line: &str) -> Result<SimpleRecord, String> {
+    let (board_text, score_text) = line
+        .split_once(' ')
+        .ok_or_else(|| format!("missing score field: {line}"))?;
+    let board = parse_board(board_text)?;
+    let teacher_value: f32 = score_text
+        .trim()
+        .parse()
+        .map_err(|_| format!("invalid score {score_text:?}"))?;
+    let sample = train_data::Sample {
+        board,
+        mover: Side::Black,
+        outcome: 0.0,
+        last_move_kind: train_data::LastMoveKind::Other,
+        vulnerable_xc: false,
+    };
+    let key = experiment::canonicalize(&sample).0;
+    Ok(SimpleRecord {
+        key,
+        board,
+        teacher_value,
+    })
+}
+
+/// T153: `--simple-corpus`に渡されたパスから入力ファイル一覧を決定する。
+/// ディレクトリなら直下の`*.txt`をファイル名でソートして列挙し(Egaroucid配布物の
+/// `0000000.txt`..`0000025.txt`のような複数ファイル構成を1本の決定的なストリームとして
+/// 扱うため)、ファイルならそれ単体を返す。
+fn list_simple_corpus_files(path: &Path) -> Result<Vec<PathBuf>, String> {
+    if path.is_dir() {
+        let mut files: Vec<PathBuf> = fs::read_dir(path)
+            .map_err(|e| format!("{}: {e}", path.display()))?
+            .flatten()
+            .map(|entry| entry.path())
+            .filter(|p| p.extension().is_some_and(|ext| ext == "txt"))
+            .collect();
+        files.sort();
+        if files.is_empty() {
+            return Err(format!("no .txt files found in {}", path.display()));
+        }
+        Ok(files)
+    } else {
+        Ok(vec![path.to_path_buf()])
+    }
+}
+
+fn xorshift_next(state: &mut u64) -> u64 {
+    *state ^= *state << 13;
+    *state ^= *state >> 7;
+    *state ^= *state << 17;
+    *state
+}
+
+/// T153: `files`を1本の決定的なストリームとして順に読み、`max_records`が
+/// `Some(k)`ならAlgorithm R(reservoir sampling)でちょうど`min(合計行数, k)`件を
+/// 決定的に抽出する。`max_records`が`None`なら全件を読み込む(将来のフル
+/// スケール学習向けの経路。本タスクの実runでは`Some`を使う)。
+///
+/// 内容ハッシュ(`corpus_hash`)は採否に関わらず全行の生バイトから計算するため、
+/// `--simple-max-records`の値によらず同一入力ファイル集合なら同じ値になる
+/// (resume identityの安定性のため)。採用されなかった行は盤面パースをスキップする
+/// (盤面パース+D4正規化は採用された行だけに対して行うため、2551万行規模でも
+/// 実際にパースするのは`max_records`件程度で済む)。
+fn load_simple_corpus(
+    files: &[PathBuf],
+    max_records: Option<usize>,
+    reservoir_seed: u64,
+) -> Result<(Vec<SimpleRecord>, String, usize), String> {
+    use std::io::BufRead;
+    let mut hash = 0xcbf29ce484222325u64;
+    let mut total_lines = 0usize;
+    let mut state = reservoir_seed.max(1);
+    let mut reservoir: Vec<SimpleRecord> = Vec::with_capacity(max_records.unwrap_or(0));
+    for file in files {
+        let handle = fs::File::open(file).map_err(|e| format!("{}: {e}", file.display()))?;
+        for line in std::io::BufReader::new(handle).lines() {
+            let line = line.map_err(|e| format!("{}: {e}", file.display()))?;
+            let trimmed = line.trim_end_matches(['\r', '\n']);
+            if trimmed.is_empty() {
+                continue;
+            }
+            hash = fnv_update(hash, trimmed.as_bytes());
+            match max_records {
+                None => reservoir.push(parse_simple_record(trimmed)?),
+                Some(k) => {
+                    if total_lines < k {
+                        reservoir.push(parse_simple_record(trimmed)?);
+                    } else {
+                        let slot = (xorshift_next(&mut state) % (total_lines as u64 + 1)) as usize;
+                        if slot < k {
+                            reservoir[slot] = parse_simple_record(trimmed)?;
+                        }
+                    }
+                }
+            }
+            total_lines += 1;
+        }
+    }
+    Ok((reservoir, format!("{hash:016x}"), total_lines))
+}
+
+/// T153: `select_train_subset`と同じ入れ子(nested)層化サブサンプリングを
+/// `SimpleRecord`に対して行う(`DistillRecord`版とロジックは同一だが、
+/// 型が完全に独立しているため既存の蒸留コーパス経路を一切変更せずに追加できる)。
+fn select_simple_subset(
+    records: Vec<SimpleRecord>,
+    target: usize,
+    seed: u64,
+    pattern_set: PatternSet,
+) -> Vec<SimpleRecord> {
+    let total = records.len();
+    if target >= total {
+        return records;
+    }
+    let (num_stages, stage_empty_divisor) = stage_definition_for(pattern_set);
+    let mut by_phase: Vec<Vec<usize>> = vec![Vec::new(); num_stages];
+    for (index, record) in records.iter().enumerate() {
+        let phase =
+            ((record.board.empty_count() / stage_empty_divisor) as usize).min(num_stages - 1);
+        by_phase[phase].push(index);
+    }
+    let mut selected = Vec::with_capacity(target);
+    for (phase, mut group) in by_phase.into_iter().enumerate() {
+        if group.is_empty() {
+            continue;
+        }
+        group.sort_by_key(|&index| records[index].key);
+        let phase_seed = subset_seed_for_phase(seed, phase);
+        let order = shuffle(group.len(), phase_seed);
+        let cutpoint = ((target as u128 * group.len() as u128) / total as u128) as usize;
+        for &local in &order[..cutpoint] {
+            selected.push(group[local]);
+        }
+    }
+    selected.sort_unstable();
+    let mut slots: Vec<Option<SimpleRecord>> = records.into_iter().map(Some).collect();
     selected
         .into_iter()
         .map(|index| slots[index].take().expect("subset index selected twice"))
@@ -1158,6 +1362,386 @@ fn run_all(
     Ok(())
 }
 
+/// T153: `SimpleRecord`をteacher-only損失で学習する1シードぶんのrun。
+/// checkpoint/resume(`latest_checkpoint`/`ensure_metrics_header`/
+/// `truncate_metrics_after`/`atomic_write`)は既存の`run_one`と全く同じ関数を
+/// そのまま再利用しており、これらの関数自体には一切変更を加えていない。
+/// `metrics.tsv`の列数は既存ヘッダ`METRICS_HEADER`と揃えるため、ranking項が
+/// 存在しない単純コーパスでは`validation_ranking_mae`列に常に`0.0`を書く。
+#[allow(clippy::too_many_arguments)]
+fn simple_run_one(
+    seed: u64,
+    train: &[SimpleRecord],
+    validation: &[SimpleRecord],
+    root: &Path,
+    identity_base: &str,
+    max_epochs: u32,
+    l2: f32,
+    pattern_set: PatternSet,
+) -> Result<(), String> {
+    let dir = root.join(format!("teacher-only-seed-{seed}"));
+    fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    let identity =
+        format!("schema=simple-1\n{identity_base}mix=teacher-only\nseed={seed}\nmax_epochs={max_epochs}\nl2={l2}\n");
+    let identity_path = dir.join("identity.txt");
+    if identity_path.exists()
+        && fs::read_to_string(&identity_path).map_err(|e| e.to_string())? != identity
+    {
+        return Err(format!(
+            "run identity mismatch for simple-corpus seed {seed}; refusing resume"
+        ));
+    }
+    atomic_write(&identity_path, identity.as_bytes())?;
+
+    let mut model = new_model(pattern_set);
+    let mut epoch = 0u32;
+    let mut learning_rate = DEFAULT_LR;
+    let mut best_loss = f64::INFINITY;
+    let mut patience_loss = f64::INFINITY;
+    let mut best_epoch = 0u32;
+    let mut stale = 0u32;
+    let mut since_decay = 0u32;
+    let mut previous_checkpoint = None;
+    if let Some((checkpoint_epoch, weights_path, state_path)) = latest_checkpoint(&dir) {
+        model = Model::from_bytes(&fs::read(&weights_path).map_err(|e| e.to_string())?)?;
+        let saved = parse_state(&fs::read_to_string(&state_path).map_err(|e| e.to_string())?);
+        epoch = saved["epoch"].parse().map_err(|_| "bad epoch")?;
+        if epoch != checkpoint_epoch {
+            return Err(format!("checkpoint epoch mismatch for simple-corpus seed {seed}"));
+        }
+        learning_rate = saved["learning_rate"]
+            .parse()
+            .map_err(|_| "bad learning rate")?;
+        best_loss = saved["best_loss"].parse().map_err(|_| "bad best loss")?;
+        patience_loss = saved["patience_loss"]
+            .parse()
+            .map_err(|_| "bad patience loss")?;
+        best_epoch = saved["best_epoch"].parse().map_err(|_| "bad best epoch")?;
+        stale = saved["stale"].parse().map_err(|_| "bad stale")?;
+        since_decay = saved["since_decay"].parse().map_err(|_| "bad decay")?;
+        previous_checkpoint = Some((weights_path, state_path));
+        println!("resume simple-corpus seed={seed} epoch={epoch}");
+    }
+    let metrics_path = dir.join("metrics.tsv");
+    ensure_metrics_header(&metrics_path)?;
+    truncate_metrics_after(&metrics_path, epoch)?;
+    while epoch < max_epochs && stale < 5 {
+        println!(
+            "start simple-corpus seed={seed} epoch={}/{}",
+            epoch + 1,
+            max_epochs
+        );
+        let mut train_loss = 0.0;
+        for index in shuffle(train.len(), seed ^ epoch as u64) {
+            train_loss += simple_train_step(&mut model, &train[index], learning_rate, l2) as f64;
+        }
+        train_loss /= train.len().max(1) as f64;
+        epoch += 1;
+        let train_metrics = simple_metrics(&model, train);
+        let validation_metrics = simple_metrics(&model, validation);
+        let absolute_best = validation_metrics.loss < best_loss;
+        let meaningful = validation_metrics.loss + 0.02 <= patience_loss;
+        if absolute_best {
+            best_loss = validation_metrics.loss;
+            best_epoch = epoch;
+            atomic_write(&dir.join("best.bin"), &model.to_bytes_v3())?;
+        }
+        if meaningful {
+            patience_loss = validation_metrics.loss;
+            stale = 0;
+            since_decay = 0;
+        } else {
+            stale += 1;
+            since_decay += 1;
+        }
+        if since_decay >= 2 && learning_rate > MIN_LR {
+            learning_rate = (learning_rate * 0.5).max(MIN_LR);
+            since_decay = 0;
+        }
+        let mut table = fs::read_to_string(&metrics_path).map_err(|e| e.to_string())?;
+        table.push_str(&format!(
+            "{epoch}\t{learning_rate:.7}\t{train_loss:.6}\t{:.6}\t{:.6}\t{:.6}\t0.000000\n",
+            train_metrics.teacher_mae, validation_metrics.loss, validation_metrics.teacher_mae,
+        ));
+        let saved = format!("epoch={epoch}\nlearning_rate={learning_rate}\nbest_loss={best_loss}\npatience_loss={patience_loss}\nbest_epoch={best_epoch}\nstale={stale}\nsince_decay={since_decay}\n");
+        let weights_path = dir.join(format!("epoch-{epoch:02}.bin"));
+        let state_path = weights_path.with_extension("state");
+        atomic_write(&metrics_path, table.as_bytes())?;
+        // Publish the weights last: latest_checkpoint only accepts complete pairs.
+        atomic_write(&state_path, saved.as_bytes())?;
+        atomic_write(&weights_path, &model.to_bytes_v3())?;
+        if let Some((old_weights, old_state)) =
+            previous_checkpoint.replace((weights_path, state_path))
+        {
+            fs::remove_file(old_weights).ok();
+            fs::remove_file(old_state).ok();
+        }
+        println!(
+            "saved simple-corpus seed={seed} epoch={epoch} validation_loss={:.6}",
+            validation_metrics.loss
+        );
+    }
+    let best_model =
+        Model::from_bytes(&fs::read(dir.join("best.bin")).map_err(|e| e.to_string())?)?;
+    let train_metrics = simple_metrics(&best_model, train);
+    let validation_metrics = simple_metrics(&best_model, validation);
+    let bytes = best_model.to_bytes_v3();
+    atomic_write(&dir.join("final.bin"), &bytes)?;
+    atomic_write(&dir.join("complete.txt"), identity.as_bytes())?;
+    let result = format!(
+        "mix\tseed\tbest_epoch\tepochs\ttrain_size\ttrain_teacher_mae\tvalidation_loss\tvalidation_teacher_mae\tbytes\nteacher-only\t{seed}\t{best_epoch}\t{epoch}\t{}\t{:.6}\t{:.6}\t{:.6}\t{}\n",
+        train.len(),
+        train_metrics.teacher_mae,
+        validation_metrics.loss,
+        validation_metrics.teacher_mae,
+        bytes.len()
+    );
+    atomic_write(&dir.join("result.tsv"), result.as_bytes())
+}
+
+/// T153: `simple_run_one`をシードごとに`--jobs`並列で実行する(`run_all`の
+/// 単純コーパス版)。
+#[allow(clippy::too_many_arguments)]
+fn run_all_simple(
+    seeds: &[u64],
+    jobs: usize,
+    train: &[SimpleRecord],
+    validation: &[SimpleRecord],
+    root: &Path,
+    identity: &str,
+    max_epochs: u32,
+    l2: f32,
+    pattern_set: PatternSet,
+) -> Result<(), String> {
+    for batch in seeds.chunks(jobs) {
+        thread::scope(|scope| -> Result<(), String> {
+            let handles: Vec<_> = batch
+                .iter()
+                .map(|&seed| {
+                    scope.spawn(move || {
+                        simple_run_one(
+                            seed, train, validation, root, identity, max_epochs, l2, pattern_set,
+                        )
+                    })
+                })
+                .collect();
+            for handle in handles {
+                match handle.join() {
+                    Ok(result) => result?,
+                    Err(_) => return Err("simple_distillation_worker_panicked".into()),
+                }
+            }
+            Ok(())
+        })?;
+    }
+    Ok(())
+}
+
+/// T153: `--simple-corpus`が指定されたときの実行経路。既存の`run()`本体
+/// (`load_corpus`/`DistillRecord`/`run_one`/`run_all`を使う経路)には一切触れず、
+/// `pub fn run()`の冒頭で早期リターンすることでのみ分岐する。
+fn run_simple(corpus_path: PathBuf) -> ExitCode {
+    let root = match arg("--checkpoint-dir") {
+        Some(value) => PathBuf::from(value),
+        None => {
+            eprintln!("--checkpoint-dir is required");
+            return ExitCode::FAILURE;
+        }
+    };
+    let seeds: Result<Vec<u64>, _> = arg("--seeds")
+        .unwrap_or_else(|| "1".into())
+        .split(',')
+        .map(str::parse)
+        .collect();
+    let seeds = match seeds {
+        Ok(value) => value,
+        Err(error) => {
+            eprintln!("invalid --seeds: {error}");
+            return ExitCode::FAILURE;
+        }
+    };
+    if let Some(seed) = find_duplicate_seed(&seeds) {
+        eprintln!("duplicate --seeds entry: {seed}");
+        return ExitCode::FAILURE;
+    }
+    let default_jobs = thread::available_parallelism()
+        .map_or(1, usize::from)
+        .min(seeds.len().max(1));
+    let jobs = match arg("--jobs").map(|value| value.parse::<usize>()) {
+        Some(Ok(0)) => {
+            eprintln!("--jobs_must_be_positive");
+            return ExitCode::FAILURE;
+        }
+        Some(Ok(value)) => value.min(seeds.len().max(1)),
+        Some(Err(error)) => {
+            eprintln!("invalid_--jobs:{error}");
+            return ExitCode::FAILURE;
+        }
+        None => default_jobs,
+    };
+    let max_epochs = match arg("--max-epochs").map(|value| value.parse()) {
+        Some(Ok(value)) => value,
+        Some(Err(error)) => {
+            eprintln!("invalid --max-epochs: {error}");
+            return ExitCode::FAILURE;
+        }
+        None => 60,
+    };
+    let l2 = match arg("--l2").map(|value| value.parse()) {
+        Some(Ok(value)) => value,
+        Some(Err(error)) => {
+            eprintln!("invalid --l2: {error}");
+            return ExitCode::FAILURE;
+        }
+        None => 1e-5,
+    };
+    let train_subset_size = match arg("--train-subset-size").map(|value| value.parse::<usize>()) {
+        Some(Ok(value)) => Some(value),
+        Some(Err(error)) => {
+            eprintln!("invalid --train-subset-size: {error}");
+            return ExitCode::FAILURE;
+        }
+        None => None,
+    };
+    let subset_seed = match arg("--subset-seed").map(|value| value.parse::<u64>()) {
+        Some(Ok(value)) => value,
+        Some(Err(error)) => {
+            eprintln!("invalid --subset-seed: {error}");
+            return ExitCode::FAILURE;
+        }
+        None => 42,
+    };
+    let simple_max_records = match arg("--simple-max-records").map(|value| value.parse::<usize>())
+    {
+        Some(Ok(0)) => {
+            eprintln!("--simple-max-records must be positive");
+            return ExitCode::FAILURE;
+        }
+        Some(Ok(value)) => Some(value),
+        Some(Err(error)) => {
+            eprintln!("invalid --simple-max-records: {error}");
+            return ExitCode::FAILURE;
+        }
+        None => None,
+    };
+    let pattern_set = match parse_pattern_set(arg("--pattern-set")) {
+        Ok(value) => value,
+        Err(error) => {
+            eprintln!("{error}");
+            return ExitCode::FAILURE;
+        }
+    };
+    let files = match list_simple_corpus_files(&corpus_path) {
+        Ok(value) => value,
+        Err(error) => {
+            eprintln!("{error}");
+            return ExitCode::FAILURE;
+        }
+    };
+    // reservoirの採否はseedに依存するが、`subset_seed`(層化サブセット用)と
+    // 値をずらして混ぜることで、subset-seedそのものを流用しつつ2つのサンプリング
+    // 段階(reservoir選抜→層化サブセット)が同じ乱数系列を共有しないようにする。
+    let reservoir_seed = fnv_update(subset_seed, b"simple-corpus-reservoir");
+    let (records, corpus_hash, total_lines) =
+        match load_simple_corpus(&files, simple_max_records, reservoir_seed) {
+            Ok(value) => value,
+            Err(error) => {
+                eprintln!("{error}");
+                return ExitCode::FAILURE;
+            }
+        };
+    if records.is_empty() {
+        eprintln!("--simple-corpus produced no records");
+        return ExitCode::FAILURE;
+    }
+    let pool_size = records.len();
+    let mut train = Vec::new();
+    let mut validation = Vec::new();
+    let mut frozen_count = 0usize;
+    for record in records {
+        match key_hash(record.key) % 100 {
+            0..=89 => train.push(record),
+            90..=94 => validation.push(record),
+            _ => frozen_count += 1,
+        }
+    }
+    if train.is_empty() || validation.is_empty() {
+        eprintln!("train and validation splits must both be non-empty");
+        return ExitCode::FAILURE;
+    }
+    let full_train_len = train.len();
+    if let Some(target) = train_subset_size {
+        if target == 0 {
+            eprintln!("--train-subset-size must be positive");
+            return ExitCode::FAILURE;
+        }
+        train = select_simple_subset(train, target, subset_seed, pattern_set);
+        if train.is_empty() {
+            eprintln!("--train-subset-size produced an empty train split");
+            return ExitCode::FAILURE;
+        }
+    }
+    if let Err(error) = fs::create_dir_all(&root) {
+        eprintln!("{error}");
+        return ExitCode::FAILURE;
+    }
+    let subset_manifest_line = match train_subset_size {
+        Some(target) => format!(
+            "train_subset_size_target={target}\ntrain_subset_seed={subset_seed}\ntrain_full_size={full_train_len}\n"
+        ),
+        None => format!("train_subset_size_target=full\ntrain_full_size={full_train_len}\n"),
+    };
+    let pattern_set_manifest_line = format!(
+        "pattern_set={}\n",
+        match pattern_set {
+            PatternSet::V2 => "v2",
+            PatternSet::V3 => "v3",
+            PatternSet::V4 => "v4",
+        }
+    );
+    let simple_max_records_line = simple_max_records.map_or("none".to_string(), |v| v.to_string());
+    let manifest = format!(
+        "mode=simple-corpus\nsimple_corpus_path={}\nsimple_corpus_files={}\nsimple_corpus_total_lines={total_lines}\nsimple_corpus_pool_size={pool_size}\nsimple_corpus_hash={corpus_hash}\nsimple_max_records={simple_max_records_line}\nsplit=fnv1a(canonicalKey)%100:train0-89,validation90-94,frozen95-99(discarded)\ntrain={}\nvalidation={}\nfrozen_discarded={frozen_count}\n{subset_manifest_line}{pattern_set_manifest_line}",
+        corpus_path.display(),
+        files.len(),
+        train.len(),
+        validation.len()
+    );
+    if let Err(error) = atomic_write(&root.join("manifest.txt"), manifest.as_bytes()) {
+        eprintln!("{error}");
+        return ExitCode::FAILURE;
+    }
+    print!("{manifest}");
+    let subset_identity = match train_subset_size {
+        Some(target) => {
+            format!("train_subset_size_target={target}\ntrain_subset_seed={subset_seed}\n")
+        }
+        None => String::new(),
+    };
+    let identity = format!(
+        "mode=simple-corpus\nsimple_corpus_hash={corpus_hash}\nsimple_max_records={simple_max_records_line}\ntrain={}\nvalidation={}\n{subset_identity}{}",
+        train.len(),
+        validation.len(),
+        pattern_set_identity_line(pattern_set)
+    );
+    println!("distillation_jobs={jobs}");
+    if let Err(error) = run_all_simple(
+        &seeds,
+        jobs,
+        &train,
+        &validation,
+        &root,
+        &identity,
+        max_epochs,
+        l2,
+        pattern_set,
+    ) {
+        eprintln!("{error}");
+        return ExitCode::FAILURE;
+    }
+    ExitCode::SUCCESS
+}
+
 /// `--mixes`内の重複したmix名を検出する。重複したmix/seedの組はrun_all内の
 /// 直積で同一checkpoint dirへの競合書き込みを引き起こすため、runより前に拒否する。
 fn find_duplicate_mix(mixes: &[Mix]) -> Option<&'static str> {
@@ -1175,6 +1759,12 @@ fn find_duplicate_seed(seeds: &[u64]) -> Option<u64> {
 }
 
 pub fn run() -> ExitCode {
+    // T153: `--simple-corpus`が指定された場合は、既存の蒸留コーパス経路
+    // (このif以降の全て)に一切触れず`run_simple`へ完全に分岐する。
+    // 未指定時(既定)はこの分岐は成立せず、以降は従来どおりの処理になる。
+    if let Some(value) = arg("--simple-corpus") {
+        return run_simple(PathBuf::from(value));
+    }
     let corpus = PathBuf::from(
         arg("--corpus").unwrap_or_else(|| "train/data/teacher/corpus_primary.jsonl".into()),
     );
@@ -2139,6 +2729,282 @@ mod tests {
             before, after,
             "T112 M1': header mismatch must be rejected before truncate_metrics_after mutates the file"
         );
+        fs::remove_dir_all(&root).ok();
+    }
+
+    // -----------------------------------------------------------------
+    // T153: `--simple-corpus`(単純(盤面,スコア)入力モード)のテスト。
+    // -----------------------------------------------------------------
+
+    /// テスト用の最小`SimpleRecord`。`select_simple_subset`は`board`(の空きマス数
+    /// から求まるphase)と`key`しか見ないため、他フィールドはダミー値でよい
+    /// (`fixture_record`と同じ流儀)。
+    fn fixture_simple_record(index: u64, phase: usize) -> SimpleRecord {
+        let filled = 64usize.saturating_sub(phase * 5);
+        let black = if filled >= 64 {
+            u64::MAX
+        } else {
+            (1u64 << filled) - 1
+        };
+        SimpleRecord {
+            key: CanonicalKey(index, 0, 0),
+            board: Board { black, white: 0 },
+            teacher_value: 0.0,
+        }
+    }
+
+    fn board_to_simple_text(board: &Board) -> String {
+        (0..64)
+            .map(|i| {
+                if board.black & (1u64 << i) != 0 {
+                    'X'
+                } else if board.white & (1u64 << i) != 0 {
+                    'O'
+                } else {
+                    '-'
+                }
+            })
+            .collect()
+    }
+
+    #[test]
+    fn parse_simple_record_reads_board_and_score_with_x_as_own_stones() {
+        let board = Board::initial();
+        let line = format!("{} 4", board_to_simple_text(&board));
+        let record = parse_simple_record(&line).unwrap();
+        assert_eq!(record.board, board);
+        assert_eq!(record.teacher_value, 4.0);
+        // key is the D4-canonicalized key for (board, mover=Black), matching
+        // how `experiment::canonicalize` is used everywhere else in this file.
+        let sample = train_data::Sample {
+            board,
+            mover: Side::Black,
+            outcome: 0.0,
+            last_move_kind: train_data::LastMoveKind::Other,
+            vulnerable_xc: false,
+        };
+        assert_eq!(record.key, experiment::canonicalize(&sample).0);
+    }
+
+    #[test]
+    fn parse_simple_record_accepts_negative_scores() {
+        let board = Board::initial();
+        let line = format!("{} -28", board_to_simple_text(&board));
+        let record = parse_simple_record(&line).unwrap();
+        assert_eq!(record.teacher_value, -28.0);
+    }
+
+    #[test]
+    fn parse_simple_record_rejects_missing_score_field() {
+        let board = Board::initial();
+        let line = board_to_simple_text(&board);
+        assert!(parse_simple_record(&line).unwrap_err().contains("missing score"));
+    }
+
+    #[test]
+    fn parse_simple_record_propagates_board_validation_errors() {
+        // Reuses `parse_board`'s existing validation (64 ASCII cells of X/O/-);
+        // a too-short board string must be rejected the same way.
+        let error = parse_simple_record("XO- 4").unwrap_err();
+        assert!(error.contains("64 ASCII cells"));
+    }
+
+    #[test]
+    fn list_simple_corpus_files_returns_single_file_path_unchanged() {
+        let path = env::temp_dir().join(format!("t153-simple-corpus-file-{}.txt", std::process::id()));
+        fs::write(&path, "unused\n").unwrap();
+        let files = list_simple_corpus_files(&path).unwrap();
+        fs::remove_file(&path).unwrap();
+        assert_eq!(files, vec![path]);
+    }
+
+    #[test]
+    fn list_simple_corpus_files_sorts_directory_txt_entries_by_name() {
+        let dir = env::temp_dir().join(format!("t153-simple-corpus-dir-{}", std::process::id()));
+        fs::create_dir_all(&dir).unwrap();
+        fs::write(dir.join("0000002.txt"), "b\n").unwrap();
+        fs::write(dir.join("0000000.txt"), "a\n").unwrap();
+        fs::write(dir.join("0000001.txt"), "c\n").unwrap();
+        fs::write(dir.join("README.md"), "ignored\n").unwrap();
+        let files = list_simple_corpus_files(&dir).unwrap();
+        let names: Vec<_> = files
+            .iter()
+            .map(|p| p.file_name().unwrap().to_str().unwrap().to_string())
+            .collect();
+        fs::remove_dir_all(&dir).ok();
+        assert_eq!(
+            names,
+            vec!["0000000.txt", "0000001.txt", "0000002.txt"]
+        );
+    }
+
+    fn write_synthetic_simple_corpus(path: &Path, count: usize) {
+        let board = Board::initial();
+        let text = board_to_simple_text(&board);
+        let mut contents = String::new();
+        for i in 0..count {
+            contents.push_str(&format!("{text} {}\n", i as i64 - (count as i64 / 2)));
+        }
+        fs::write(path, contents).unwrap();
+    }
+
+    #[test]
+    fn load_simple_corpus_without_cap_reads_every_line() {
+        let path = env::temp_dir().join(format!("t153-load-uncapped-{}.txt", std::process::id()));
+        write_synthetic_simple_corpus(&path, 500);
+        let (records, _hash, total_lines) = load_simple_corpus(&[path.clone()], None, 1).unwrap();
+        fs::remove_file(&path).unwrap();
+        assert_eq!(total_lines, 500);
+        assert_eq!(records.len(), 500);
+    }
+
+    #[test]
+    fn load_simple_corpus_with_cap_returns_exact_reservoir_size_and_is_deterministic() {
+        let path = env::temp_dir().join(format!("t153-load-capped-{}.txt", std::process::id()));
+        write_synthetic_simple_corpus(&path, 2000);
+        let (a, hash_a, total_a) = load_simple_corpus(&[path.clone()], Some(200), 7).unwrap();
+        let (b, hash_b, total_b) = load_simple_corpus(&[path.clone()], Some(200), 7).unwrap();
+        fs::remove_file(&path).unwrap();
+        assert_eq!(a.len(), 200);
+        assert_eq!(b.len(), 200);
+        assert_eq!(total_a, 2000);
+        assert_eq!(total_b, 2000);
+        // The content hash covers every line regardless of the cap, so it must
+        // be identical across both (equal-seed) runs.
+        assert_eq!(hash_a, hash_b);
+        assert_eq!(
+            a.iter().map(|r| r.teacher_value.to_bits()).collect::<Vec<_>>(),
+            b.iter().map(|r| r.teacher_value.to_bits()).collect::<Vec<_>>()
+        );
+    }
+
+    #[test]
+    fn load_simple_corpus_cap_at_or_above_total_keeps_every_record() {
+        let path = env::temp_dir().join(format!("t153-load-cap-over-{}.txt", std::process::id()));
+        write_synthetic_simple_corpus(&path, 50);
+        let (records, _hash, total_lines) = load_simple_corpus(&[path.clone()], Some(1000), 3).unwrap();
+        fs::remove_file(&path).unwrap();
+        assert_eq!(total_lines, 50);
+        assert_eq!(records.len(), 50);
+    }
+
+    #[test]
+    fn load_simple_corpus_content_hash_does_not_depend_on_the_cap() {
+        let path = env::temp_dir().join(format!("t153-load-hash-{}.txt", std::process::id()));
+        write_synthetic_simple_corpus(&path, 300);
+        let (_records_capped, hash_capped, _) =
+            load_simple_corpus(&[path.clone()], Some(50), 11).unwrap();
+        let (_records_full, hash_full, _) = load_simple_corpus(&[path.clone()], None, 11).unwrap();
+        fs::remove_file(&path).unwrap();
+        assert_eq!(hash_capped, hash_full);
+    }
+
+    #[test]
+    fn select_simple_subset_target_at_or_above_total_returns_all_records_unchanged() {
+        let records: Vec<_> = (0..10).map(|i| fixture_simple_record(i, (i % 4) as usize)).collect();
+        let total = records.len();
+        let subset = select_simple_subset(records.clone(), total, 1, PatternSet::V4);
+        assert_eq!(subset.len(), total);
+        let subset_over = select_simple_subset(records, total + 5, 1, PatternSet::V4);
+        assert_eq!(subset_over.len(), total);
+    }
+
+    #[test]
+    fn select_simple_subset_is_deterministic_for_same_seed() {
+        let records: Vec<_> = (0..500)
+            .map(|i| fixture_simple_record(i, (i % 13) as usize))
+            .collect();
+        let a = select_simple_subset(records.clone(), 120, 7, PatternSet::V4);
+        let b = select_simple_subset(records, 120, 7, PatternSet::V4);
+        assert_eq!(
+            a.iter().map(|r| r.key).collect::<Vec<_>>(),
+            b.iter().map(|r| r.key).collect::<Vec<_>>()
+        );
+    }
+
+    #[test]
+    fn select_simple_subset_nests_across_increasing_sizes() {
+        let records: Vec<_> = (0..900)
+            .map(|i| fixture_simple_record(i, (i % 13) as usize))
+            .collect();
+        let seed = 99;
+        let small = select_simple_subset(records.clone(), 90, seed, PatternSet::V4);
+        let medium = select_simple_subset(records.clone(), 300, seed, PatternSet::V4);
+        let large = select_simple_subset(records, 700, seed, PatternSet::V4);
+        let small_keys: HashSet<_> = small.iter().map(|r| r.key).collect();
+        let medium_keys: HashSet<_> = medium.iter().map(|r| r.key).collect();
+        let large_keys: HashSet<_> = large.iter().map(|r| r.key).collect();
+        assert!(
+            small_keys.is_subset(&medium_keys),
+            "small subset must be nested inside the medium subset"
+        );
+        assert!(
+            medium_keys.is_subset(&large_keys),
+            "medium subset must be nested inside the large subset"
+        );
+    }
+
+    #[test]
+    fn simple_train_step_moves_prediction_toward_teacher_value() {
+        let mut model = new_model(PatternSet::V4);
+        let record = SimpleRecord {
+            key: CanonicalKey(0, 0, 0),
+            board: Board::initial(),
+            teacher_value: 6.0,
+        };
+        let before = model.predict(&record.board, Side::Black);
+        for _ in 0..20 {
+            simple_train_step(&mut model, &record, 0.01, 1e-5);
+        }
+        let after = model.predict(&record.board, Side::Black);
+        assert!(
+            (after - record.teacher_value).abs() < (before - record.teacher_value).abs(),
+            "repeated simple_train_step calls must move the prediction closer to the teacher value \
+             (before={before}, after={after}, target={})",
+            record.teacher_value
+        );
+    }
+
+    #[test]
+    fn simple_run_one_trains_and_writes_checkpoint_artifacts() {
+        let root = env::temp_dir().join(format!("t153-simple-run-one-{}", std::process::id()));
+        fs::remove_dir_all(&root).ok();
+        let train: Vec<_> = (0..8)
+            .map(|i| fixture_simple_record(i, (i % 4) as usize))
+            .collect();
+        let validation: Vec<_> = (100..104)
+            .map(|i| fixture_simple_record(i, (i % 4) as usize))
+            .collect();
+        let result = simple_run_one(1, &train, &validation, &root, "", 2, 1e-5, PatternSet::V4);
+        assert!(result.is_ok(), "{result:?}");
+        let dir = root.join("teacher-only-seed-1");
+        assert!(dir.join("identity.txt").exists());
+        assert!(dir.join("best.bin").exists());
+        assert!(dir.join("final.bin").exists());
+        assert!(dir.join("complete.txt").exists());
+        let result_tsv = fs::read_to_string(dir.join("result.tsv")).unwrap();
+        assert!(result_tsv.starts_with("mix\tseed\tbest_epoch"));
+        assert!(result_tsv.contains("teacher-only\t1\t"));
+        // metrics.tsv reuses the exact same shared header/format as the existing
+        // distillation path (`ensure_metrics_header`/`METRICS_HEADER` untouched);
+        // the unused ranking column is always written as 0.0 for simple-corpus runs.
+        let metrics = fs::read_to_string(dir.join("metrics.tsv")).unwrap();
+        assert_eq!(metrics.lines().next().unwrap(), METRICS_HEADER);
+        assert!(metrics.lines().last().unwrap().ends_with("\t0.000000"));
+        fs::remove_dir_all(&root).ok();
+    }
+
+    #[test]
+    fn simple_run_one_rejects_resume_with_mismatched_identity() {
+        let root = env::temp_dir().join(format!("t153-simple-run-one-identity-{}", std::process::id()));
+        fs::remove_dir_all(&root).ok();
+        let train: Vec<_> = (0..4).map(|i| fixture_simple_record(i, 0)).collect();
+        let validation: Vec<_> = (50..52).map(|i| fixture_simple_record(i, 0)).collect();
+        simple_run_one(1, &train, &validation, &root, "corpus_hash=aaa\n", 1, 1e-5, PatternSet::V4)
+            .unwrap();
+        let error = simple_run_one(1, &train, &validation, &root, "corpus_hash=bbb\n", 1, 1e-5, PatternSet::V4)
+            .unwrap_err();
+        assert!(error.contains("refusing resume"));
         fs::remove_dir_all(&root).ok();
     }
 }
