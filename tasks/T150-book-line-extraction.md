@@ -1,7 +1,7 @@
 ---
 id: T150
 title: bookフェーズ2(1/2): WTHOR頻出定石ラインの抽出+頻度重みスキーマ拡張(公開はまだしない)
-status: todo # todo | in_progress | review | redo | done | blocked
+status: done # verifier合格(決定性SHA独立再現・joseki.json再生成一致・vitest787/cargo74全パス)、2026-07-20。代替レビューはT151検収に統合(buildDb重みロジックはT151で本番使用時に精査)
 assignee: implementer(Sonnet)
 attempts: 0
 ---
@@ -91,4 +91,16 @@ attempts: 0
 - ノード数(898、トライ上の閾値通過プレフィックス数)は「1万を大きく超える」水準に遠く及ばないため、`--min-games`のデフォルト値100のまま調整不要と判断した(タスク仕様どおり)。
 - `RawJosekiLine.gameCount`から`JosekiBookMove.frequencyCount`への積算は、抽出ツールが「末端(葉)ラインのみ」を出力する設計(中間ノードの分岐別出現数は出力しない)であるため、`buildDb.ts`側でライン再生時に葉の`gameCount`を経由する全エッジへ加算する形で実現している。トライの不変量(内部ノードのcountは子countの合計)により、これは実質的に各エッジの真の出現局数を再構成する(ごく短い対局が16手未満で終わる極端なケースを除く)。この設計判断により、要件3の「各plyの分岐別出現数があれば尚可」を追加データなしで実質満たせるため、その拡張フィールド(ply別ブランチカウント配列)は追加しなかった。
 - `app/public/joseki.json`の再生成・公開は行っていない(スコープ外、T151で実施予定)。
+
+### 2026-07-20 verifier検証結果(合格)
+
+commit dd32f78 を対象に受け入れ基準5項目を独立実行して検証した。
+
+1. `bookgen/wthor-lines.json`機械検証(Python、独立スクリプト): 251ライン全件が `depth<=16`(最大16)、`moves.length==depth`、`gameCount>=100`(最小100)、name重複なし → OK。
+2. 決定性: `cargo run -p train --release --bin wthor_lines -- --out <scratchpad>` を2回独立実行し、両方とも出力SHA-256が `ad247a838a2db737cd3cd6a8ead6d0d9bb3570ddbd0ac668d547a38d72e1ddd9` でコミット済み `bookgen/wthor-lines.json` と完全一致 → OK。
+3. `npx vitest run`(app/): 96 test files / 787 tests 全パス。`npx tsc --noEmit`(app/): エラーなし(exit 0)。`git diff --stat -- app/public/joseki.json`: 空。さらに `app/public/joseki.json` をscratchpadへ退避後 `npm run joseki:build` を実行し、再生成結果が既存ファイルとSHA-256完全一致(`02fd6f1c0f7e3661fa08d6bd6e1d3dcc863a3ae30383b5ce72810a504028c864`)・`git diff`/`git status`とも無変化であることを確認(buildDb.ts変更後も既定挙動が不変であることを実証)→ OK。
+4. `cargo test -p train --release`: 全バイナリ合計74テスト(wthor_lines.rsの10テスト含む)、0 failed → OK。
+5. `git show dd32f78 --stat`: 5ファイルのみ(train/src/bin/wthor_lines.rs, bookgen/wthor-lines.json, app/src/joseki/{types.ts,buildDb.ts,buildDb.test.ts})。`git log origin/main..HEAD`は空(push済み、originと同期)。`git status --short`はクリーン(tasks/含め差分なし)→ OK。
+
+**判定: 合格**。コード修正は一切行っていない(検証用の一時出力はすべてscratchpad配下、`app/public/joseki.json`退避分も比較後に差分なし・再書き込み不要と確認済み)。
 
