@@ -1,9 +1,9 @@
 ---
 id: T158b
 title: 評価特徴追加(2/4): trainer拡張とpilot/full学習(Gate 2/3判定)
-status: todo # todo | in_progress | review | redo | done | blocked
+status: redo # codex-review不合格(2026-07-21): Gate 3のstage別判定が帯集約に置換されていた。下記フィードバック参照
 assignee: Codex gpt-5.6-sol
-attempts: 0
+attempts: 1
 ---
 
 # T158b: trainer拡張と学習
@@ -36,6 +36,14 @@ attempts: 0
 ## コミット規律
 
 - `tasks/` と `CLAUDE.md` は変更しない(作業ログ追記は行う)。学習中は他の重い処理と並行しない
+
+## フィードバック(redo #1、2026-07-21 codex-review不合格による)
+
+レビュー(tasks/review/T158b-eval-features-training-codex-review.md)。学習・数値自体は問題なし。修正点(再学習不要):
+
+1. **[ブロッカー] Gate 3のstage別再集計と両解釈の提示**: 現レポートは61段を5帯に集約した値(+0.014)のみで「stage別」判定を置換していた。空き数別(61段)のB3−B0を再集計し、(a)**seed別×空き数別**の最大悪化(現データでseed1 empty=43が+0.229等) (b)**3seed平均×空き数別**の最大悪化(+0.059)の両方をレポートに明記する。**オーケストレーター裁定(タスクファイル本節に記録)**: 判定単位は(b)=3seed平均の空き数別で+0.10以内を正とする(seed単体61段×3の+0.10適用は多重比較過剰のため)。この解釈確定が事後である旨をレポートに正直に記載し、(a)の悪化上位(seed・empty・値)を**T158cへの申し送り表**として添付する(T158cでseed別害検出を必須化する補償)。
+2. **[中] 集計・bootstrapの再現スクリプトのコミット**: stage帯加重集計・100,000回paired bootstrapを再現するスクリプト(決定的)をbench/edax-compare/へコミットし、レポートの全数値がそこから再生成できるようにする。
+3. Gate 3の総合合否を裁定基準で更新(現データなら合格見込みだが、再集計の結果に従う)。
 
 ## 作業ログ
 
