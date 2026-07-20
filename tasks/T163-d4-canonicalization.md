@@ -1,7 +1,7 @@
 ---
 id: T163
 title: D4 canonical化(対称局面の評価値不一致の根本修正) — 重大バグ修正(1/3)
-status: todo
+status: done # verifier(全項目+regression-catching独立追試+テスト数実態142=+5純増確認)+代替レビュー(重大0・中2・軽微4、数学的正当性を独立導出で検証)両合格、2026-07-21。中2件(to_bytesのcanonical黙殺ガード欠落・corner5x2カバー記述誤り)はT164前段で修正
 assignee: implementer
 attempts: 0
 ---
