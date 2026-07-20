@@ -1,7 +1,7 @@
 ---
 id: T156a
 title: MPC再校正(1/7): WTHOR校正コーパスと再開可能な深さ別測定基盤
-status: todo # todo | in_progress | review | redo | done | blocked
+status: done # verifier(抽出決定性・仕様機械検証・スポット再測定・統計フル再実行)+codex-review(中1=merge検証強化はT156d前に対応)両合格、2026-07-20
 assignee: Codex gpt-5.6-sol(エンジン系・設計レポート起点のためルーティング基準5)
 attempts: 0
 ---
