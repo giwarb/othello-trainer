@@ -6,17 +6,9 @@ edition = "2021"
 [lib]
 crate-type = ["cdylib", "rlib"]
 
-# T048: MPC(Multi-ProbCut)を有効化するためのコンパイル時フィーチャフラグ。
-# デフォルト(フィーチャ無効)ではMPCは無効(`src/mpc.rs::margin_centidisc`
-# 参照)。実測の結果(`src/mpc.rs`冒頭のドキュメント・T048作業ログ参照)、
-# 本エンジンの現在の評価関数ではMPCが同一深さでの総ノード数・同一時間予算
-# での到達深さのいずれも改善しなかった(むしろわずかに悪化した)ため、
-# 既定では無効化し、`mpc_enabled`フィーチャで明示的に有効化しない限り
-# 従来どおりの探索(MPCなし)のままにしている。MPC有無での比較検証
-# (`bin/calibrate_mpc.rs`のbenchサブコマンド・`bench/edax-compare/`の
-# 自己対戦スクリプト)は、通常ビルドと
-# `cargo build --release --features mpc_enabled` の2種類の実行ファイルを
-# 使い分けることで行う。
+# T156c: MPCコードを比較用バイナリへ含める互換feature。実行時の有効化は
+# SearchPolicy.enable_mpcで別に制御し、featureを指定しても既存公開経路は
+# default OFFのまま。テストビルドはGate 0検証のためコードを常に含める。
 [features]
 mpc_enabled = []
 

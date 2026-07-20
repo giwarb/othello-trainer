@@ -150,6 +150,51 @@ pub struct SearchLimit {
     pub exact_from_empties: u8,
 }
 
+/// 同一バイナリ内で探索施策を経路別に切り替えるポリシー。
+///
+/// 既定値は全てOFF。既存公開経路は従来のhistory/aspiration設定を明示して
+/// MPCだけをOFFに保つ。
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct SearchPolicy {
+    pub enable_history: bool,
+    pub enable_aspiration: bool,
+    pub enable_mpc: bool,
+}
+
+/// MPCの比較・Gate検証用テレメトリ。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MpcStats {
+    pub eligible_nodes: u64,
+    pub probe_attempts_high: u64,
+    pub probe_attempts_low: u64,
+    pub probe_nodes: u64,
+    pub cuts_high: u64,
+    pub cuts_low: u64,
+    pub skipped_pv_window: u64,
+    pub skipped_exact_boundary: u64,
+    pub skipped_uncalibrated: u64,
+    pub cut_depth_histogram: [u64; 65],
+    pub probe_depth_histogram: [u64; 65],
+}
+
+impl Default for MpcStats {
+    fn default() -> Self {
+        Self {
+            eligible_nodes: 0,
+            probe_attempts_high: 0,
+            probe_attempts_low: 0,
+            probe_nodes: 0,
+            cuts_high: 0,
+            cuts_low: 0,
+            skipped_pv_window: 0,
+            skipped_exact_boundary: 0,
+            skipped_uncalibrated: 0,
+            cut_depth_histogram: [0; 65],
+            probe_depth_histogram: [0; 65],
+        }
+    }
+}
+
 /// 探索結果。
 #[derive(Debug, Clone)]
 pub struct SearchResult {
@@ -242,6 +287,7 @@ pub struct SearchResult {
     /// T089a(要件10): aspiration windowがfail-highした回数の累計。
     /// `aspiration_fail_low`と同じ理由で、aspiration無効経路では常に`0`。
     pub aspiration_fail_high: u32,
+    pub mpc_stats: MpcStats,
 }
 
 const EXACT_POLICY_VERSION: &str = "t107-v3";
@@ -403,7 +449,7 @@ pub fn search_with_eval(
         true,
         None,
         EXACT_QUOTA_PERCENT,
-        false,
+        SearchPolicy::default(),
     )
 }
 
@@ -452,7 +498,38 @@ pub fn search_with_eval_with_node_limit_and_exact_quota(
         true,
         Some(max_nodes),
         exact_quota_percent,
+        SearchPolicy {
+            enable_history: true,
+            enable_aspiration: true,
+            enable_mpc: false,
+        },
+    )
+}
+
+/// 比較・校正用に探索施策を明示する入口。MPCは `mpc_enabled` featureを
+/// 含むビルド（またはテストビルド）で、かつ `policy.enable_mpc` の場合
+/// だけ動作する。既存APIの既定は引き続きOFF。
+pub fn search_with_eval_with_policy(
+    board: &Board,
+    side_to_move: Side,
+    limit: &SearchLimit,
+    tt: &mut TranspositionTable,
+    weights: Option<&PatternWeights>,
+    max_nodes: Option<u64>,
+    exact_quota_percent: u8,
+    policy: SearchPolicy,
+) -> SearchResult {
+    assert!(exact_quota_percent <= 100);
+    search_with_eval_inner(
+        board,
+        side_to_move,
+        limit,
+        tt,
+        weights,
         true,
+        max_nodes,
+        exact_quota_percent,
+        policy,
     )
 }
 
@@ -463,15 +540,8 @@ pub fn search_with_eval_with_node_limit_and_exact_quota(
 /// (ETCは正しく実装されていれば探索結果を一切変えない安全な枝刈りであり、
 /// MPCと異なり本番で無効化する理由がない)。
 ///
-/// `enable_heuristics`(T089a)は、history heuristic + aspiration window
-/// (要件7-10)を有効にするかどうかを切り替える。`enable_etc`と異なり
-/// これは「テスト専用の切り替え口」ではなく、**本番コードも呼び出し元に
-/// よって異なる値を渡す**(ノード予算探索の経路のみ`true`、[`search`]/
-/// [`search_with_eval`]等の従来経路は常に`false`)。この使い分けにより、
-/// 既存のfixed-depth回帰テスト([`search`]系のノード数を固定している
-/// テスト)を一切変更せずに両立させている。ablation比較・一致テストは
-/// このテスト用モジュールから直接この関数を呼び、同じ`max_nodes`で
-/// `enable_heuristics`だけを切り替えて結果を比較する。
+/// `policy`はhistory、aspiration、MPCを独立に切り替える。既存fixed-depth
+/// 経路は全OFF、既存ノード予算経路はhistory/aspirationのみONでMPCはOFF。
 fn search_with_eval_inner(
     board: &Board,
     side_to_move: Side,
@@ -481,7 +551,7 @@ fn search_with_eval_inner(
     enable_etc: bool,
     max_nodes: Option<u64>,
     exact_quota_percent: u8,
-    enable_heuristics: bool,
+    policy: SearchPolicy,
 ) -> SearchResult {
     // TTスケール混同防止(T007): 同じ `tt` に対して過去に異なる
     // `exact_from_empties` で探索していた場合、その古いエントリは
@@ -507,6 +577,7 @@ fn search_with_eval_inner(
     let mut baseline_nodes = 0;
     let mut exact_quota_remaining = 0;
     let mut exact_stats = ExactStats::default();
+    let mut mpc_stats = MpcStats::default();
     let mut fallback_reason = None;
 
     if max_nodes.is_none() && empties <= limit.exact_from_empties as u32 {
@@ -597,6 +668,7 @@ fn search_with_eval_inner(
                 // aspiration windowは一切実行されていない。
                 aspiration_fail_low: 0,
                 aspiration_fail_high: 0,
+                mpc_stats,
             };
         }
         // T034: `exact`が`None`(タイムアウト)だった場合はここで`return`せず
@@ -616,10 +688,9 @@ fn search_with_eval_inner(
 
     let mut last_result: Option<SearchResult> = None;
     // T089a: history heuristic表とaspiration windowの中心値(前
-    // イテレーションのscore)。どちらも`enable_heuristics`が`true`の
-    // 呼び出し(ノード予算探索の経路)でのみ実際に使われる
+    // イテレーションのscore)。各施策は`policy`で独立に有効化される
     // ([`HistoryTable`]・[`search_with_eval_inner`]のドキュメント参照)。
-    let mut history: Option<HistoryTable> = enable_heuristics.then(HistoryTable::new);
+    let mut history: Option<HistoryTable> = policy.enable_history.then(HistoryTable::new);
     let mut prev_score: Option<i32> = None;
     let mut aspiration_fail_low: u32 = 0;
     let mut aspiration_fail_high: u32 = 0;
@@ -648,6 +719,8 @@ fn search_with_eval_inner(
                 timed_out: &mut timed_out,
                 weights,
                 suppress_mpc: false,
+                enable_mpc: policy.enable_mpc && (cfg!(feature = "mpc_enabled") || cfg!(test)),
+                mpc_stats: &mut mpc_stats,
                 enable_etc,
                 exact_enabled: max_nodes.is_none() || depth > 1,
                 exact_quota_remaining: &mut exact_quota_remaining,
@@ -660,7 +733,7 @@ fn search_with_eval_inner(
             // 要件8によりfull-window探索と完全一致する)。depth==1・前
             // イテレーション未完走(`prev_score`が`None`)・機能無効時は
             // 常にfull window(`-INF..INF`)で探索する(従来と同じ)。
-            match (enable_heuristics && depth >= 2, prev_score) {
+            match (policy.enable_aspiration && depth >= 2, prev_score) {
                 (true, Some(center)) => aspiration_search(
                     board,
                     side_to_move,
@@ -737,6 +810,7 @@ fn search_with_eval_inner(
             exact_policy_version: EXACT_POLICY_VERSION,
             aspiration_fail_low,
             aspiration_fail_high,
+            mpc_stats: mpc_stats.clone(),
         });
 
         if max_nodes.is_some() && depth == 1 {
@@ -798,6 +872,7 @@ fn search_with_eval_inner(
                         // aspiration(depth>=2のみ)は一切実行されていない。
                         aspiration_fail_low: 0,
                         aspiration_fail_high: 0,
+                        mpc_stats: mpc_stats.clone(),
                     };
                 }
                 match outcome.abort_reason {
@@ -865,6 +940,7 @@ fn search_with_eval_inner(
             // 揃える(`exact_stats`系フィールドと同じ理由)。
             result.aspiration_fail_low = aspiration_fail_low;
             result.aspiration_fail_high = aspiration_fail_high;
+            result.mpc_stats = mpc_stats;
             result
         }
         None => SearchResult {
@@ -904,6 +980,7 @@ fn search_with_eval_inner(
             exact_policy_version: EXACT_POLICY_VERSION,
             aspiration_fail_low,
             aspiration_fail_high,
+            mpc_stats,
         },
     }
 }
@@ -1204,6 +1281,7 @@ pub fn search_all_moves_with_eval(
                 let mut timed_out = false;
                 let mut exact_quota = u64::MAX;
                 let mut exact_stats = ExactStats::default();
+                let mut mpc_stats = MpcStats::default();
                 let candidate = {
                     let mut ctx = SearchCtx {
                         limit: &per_move_limit,
@@ -1215,6 +1293,8 @@ pub fn search_all_moves_with_eval(
                         timed_out: &mut timed_out,
                         weights,
                         suppress_mpc: false,
+                        enable_mpc: false,
+                        mpc_stats: &mut mpc_stats,
                         enable_etc: true,
                         exact_enabled: true,
                         exact_quota_remaining: &mut exact_quota,
@@ -1391,6 +1471,9 @@ struct SearchCtx<'a> {
     /// MPCを「1段だけ」に制限する(プローブ自体は通常のNegaScoutと同じ
     /// 精度で探索する)。
     suppress_mpc: bool,
+    /// 探索ポリシーでMPCを有効にし、コード包含featureも満たした場合だけtrue。
+    enable_mpc: bool,
+    mpc_stats: &'a mut MpcStats,
     /// T051: `true`の間、`negascout`は候補手を1つずつ実際に再帰探索する
     /// 前に、ETC(Enhanced Transposition Cutoff、[`etc_try_cutoff`]参照)を
     /// 試みる。
@@ -1593,11 +1676,11 @@ fn negascout(
 
     // T048: MPC(Multi-ProbCut)。TT探索で確定しなかった場合のみ試す
     // (置換表で既に済んでいるノードに追加の浅い探索を行うのは無駄なため)。
-    // `depth >= mpc::MIN_DEPTH` かつ実測済みのσがある深さでのみ発動する。
+    // 空き帯×目的深さに対応するT156b校正エントリがある場合だけ発動する。
     // `ctx.suppress_mpc`が立っている(=現在プローブ探索のサブツリー内に
     // いる)間は、MPCの再帰適用による誤差の積み重ねを避けるため試みない
     // (`mpc_try_cutoff`のドキュメント・`SearchCtx::suppress_mpc`参照)。
-    if !ctx.suppress_mpc {
+    if ctx.enable_mpc && !ctx.suppress_mpc {
         if let Some(cut) = mpc_try_cutoff(board, side, depth, alpha, beta, ctx) {
             return cut;
         }
@@ -1783,16 +1866,13 @@ fn etc_try_cutoff(
 
 /// MPC(Multi-ProbCut、T048)によるカットオフ判定。
 ///
-/// `depth`(現在のノードでの残り探索深さ)が `mpc::MIN_DEPTH` 以上で、かつ
-/// `mpc::sigma_for(depth)` が実測済みの値を返す場合のみ試みる。それ以外
-/// (深さが浅すぎる、または実測範囲外の深さ)は常に `None` を返し、
-/// 呼び出し元(`negascout`)は通常どおり合法手ループへ進む。
+/// `(empty_bucket, target_depth, probe_depth)` のT156b校正エントリがあり、
+/// PV番兵窓外かつ `empties > exact_from_empties + target_depth` の場合だけ
+/// 試みる。それ以外は `None` を返して通常探索へ進む。
 ///
-/// 判定方法: 現在の局面(`board`, `side`)自体を `mpc::REDUCTION` だけ浅い
-/// 深さでnull-window探索し、その結果が
-/// `beta - margin`(ベータ側)または `alpha + margin`(アルファ側)を
-/// 超えていれば、本来の深さでの探索を省略して `beta`/`alpha` をそのまま
-/// 返す(`margin = round(mpc::T * sigma)`、centi-disc単位)。
+/// affine係数と方向別marginからQ16整数演算で外向きshallow閾値を作り、
+/// その閾値を幅1のnull-windowでプローブする。プローブ中はrecursive MPCと
+/// exactを無効化し、終了・中断のどちらでもcontextを復元する。
 ///
 /// 浅い探索自体は通常の `negascout` をそのまま再帰呼び出しするため、
 /// ノード数カウント・置換表・T034の時間予算チェック
@@ -1809,8 +1889,7 @@ fn etc_try_cutoff(
 /// 意図的に格納しない)。
 ///
 /// # 再帰的MPCを禁止する理由(T048作業ログ参照)
-/// `probe_depth`(=`depth - mpc::REDUCTION`)自体が`mpc::MIN_DEPTH`以上に
-/// なりうる(例: `depth=8`なら`probe_depth=6`)ため、何もしなければこの
+/// probe深さ自体が別の校正対象になった場合でも、何もしなければこの
 /// 関数が呼ぶ浅い探索(プローブ)の**内部**でもさらにMPCが再帰的に
 /// 適用され、近似誤差が何重にも積み重なる。実測の自己対戦検証で、この
 /// 再帰的MPCを許可すると(`depth>=7`が絡む条件、すなわち`probe_depth>=5`
@@ -1853,19 +1932,29 @@ fn mpc_try_cutoff(
     // 実際の値に基づいて確定している(番兵値でない)ノードでのみMPCを
     // 試みるようにする。
     if alpha <= -INF || beta >= INF {
+        ctx.mpc_stats.skipped_pv_window += 1;
         return None;
     }
 
-    let probe_depth = depth.checked_sub(mpc::REDUCTION)?;
-    let margin = mpc::margin_centidisc(depth)?;
+    let empties = board.empty_count();
+    let Some(calibration) = mpc::calibration_for(empties, depth) else {
+        ctx.mpc_stats.skipped_uncalibrated += 1;
+        return None;
+    };
+    if empties <= ctx.limit.exact_from_empties as u32 + depth as u32 {
+        ctx.mpc_stats.skipped_exact_boundary += 1;
+        return None;
+    }
+    ctx.mpc_stats.eligible_nodes += 1;
 
-    // この関数は`ctx.suppress_mpc == false`のときのみ呼ばれる
-    // (呼び出し元`negascout`のガード参照)ため、ここで`true`にして
-    // プローブ探索(と、それが再帰的に呼ぶ子孫の`negascout`呼び出し
-    // すべて)でMPCを無効化し、抜ける前に必ず`false`に戻す。
+    // プローブの全return経路で再帰MPCとexactを元の状態へ復元する。
+    let old_suppress_mpc = ctx.suppress_mpc;
+    let old_exact_enabled = ctx.exact_enabled;
     ctx.suppress_mpc = true;
-    let cut = mpc_try_cutoff_inner(board, side, probe_depth, margin, alpha, beta, ctx);
-    ctx.suppress_mpc = false;
+    ctx.exact_enabled = false;
+    let cut = mpc_try_cutoff_inner(board, side, calibration, alpha, beta, ctx);
+    ctx.exact_enabled = old_exact_enabled;
+    ctx.suppress_mpc = old_suppress_mpc;
     cut
 }
 
@@ -1874,41 +1963,47 @@ fn mpc_try_cutoff(
 fn mpc_try_cutoff_inner(
     board: &Board,
     side: Side,
-    probe_depth: u8,
-    margin: i32,
+    calibration: &mpc::Calibration,
     alpha: i32,
     beta: i32,
     ctx: &mut SearchCtx,
 ) -> Option<i32> {
-    // ベータ側: 浅い探索でも `beta - margin` 以上ならこのノードは
-    // fail-high(相手はこの局面を避ける)とみなし、深い探索を省略して
-    // `beta` を返す。
-    if beta < INF {
-        let bound = beta.saturating_sub(margin);
-        if bound > alpha {
-            let probe = negascout(board, side, probe_depth, bound - 1, bound, ctx);
-            if *ctx.timed_out {
-                return None;
-            }
-            if probe >= bound {
-                return Some(beta);
-            }
+    let probe_depth = calibration.probe_depth;
+    let histogram_index = probe_depth.min(64) as usize;
+
+    // 外向きfail-high: a*shallow+b-margin_high >= beta。
+    let high_bound = mpc::high_probe_bound(calibration, beta);
+    if high_bound > -INF && high_bound < INF {
+        ctx.mpc_stats.probe_attempts_high += 1;
+        ctx.mpc_stats.probe_depth_histogram[histogram_index] += 1;
+        let nodes_before = *ctx.nodes;
+        let probe = negascout(board, side, probe_depth, high_bound - 1, high_bound, ctx);
+        ctx.mpc_stats.probe_nodes += ctx.nodes.saturating_sub(nodes_before);
+        if *ctx.timed_out {
+            return None;
+        }
+        if probe >= high_bound {
+            ctx.mpc_stats.cuts_high += 1;
+            ctx.mpc_stats.cut_depth_histogram[calibration.target_depth.min(64) as usize] += 1;
+            return Some(beta);
         }
     }
 
-    // アルファ側: 浅い探索でも `alpha + margin` 以下ならこのノードは
-    // fail-low(このノードではalphaを更新できない)とみなし、深い探索を
-    // 省略して `alpha` を返す。
-    if alpha > -INF {
-        let bound = alpha.saturating_add(margin);
-        if bound < beta {
-            let probe = negascout(board, side, probe_depth, bound, bound + 1, ctx);
-            if *ctx.timed_out {
-                return None;
-            }
-            if probe <= bound {
-                return Some(alpha);
-            }
+    // 外向きfail-low: a*shallow+b+margin_low <= alpha。
+    let low_bound = mpc::low_probe_bound(calibration, alpha);
+    if low_bound > -INF && low_bound < INF {
+        ctx.mpc_stats.probe_attempts_low += 1;
+        ctx.mpc_stats.probe_depth_histogram[histogram_index] += 1;
+        let nodes_before = *ctx.nodes;
+        let probe = negascout(board, side, probe_depth, low_bound, low_bound + 1, ctx);
+        ctx.mpc_stats.probe_nodes += ctx.nodes.saturating_sub(nodes_before);
+        if *ctx.timed_out {
+            return None;
+        }
+        if probe <= low_bound {
+            ctx.mpc_stats.cuts_low += 1;
+            ctx.mpc_stats.cut_depth_histogram[calibration.target_depth.min(64) as usize] += 1;
+            return Some(alpha);
         }
     }
 
@@ -2797,7 +2892,7 @@ mod tests {
                     true,
                     None,
                     EXACT_QUOTA_PERCENT,
-                    false,
+                    SearchPolicy::default(),
                 );
 
                 let mut tt_off = TranspositionTable::new(4);
@@ -2810,7 +2905,7 @@ mod tests {
                     false,
                     None,
                     EXACT_QUOTA_PERCENT,
-                    false,
+                    SearchPolicy::default(),
                 );
 
                 total_nodes_with_etc += result_on.nodes;
@@ -2907,7 +3002,7 @@ mod tests {
                     true,
                     None,
                     EXACT_QUOTA_PERCENT,
-                    false,
+                    SearchPolicy::default(),
                 );
 
                 let mut tt_off = TranspositionTable::new(16);
@@ -2920,7 +3015,7 @@ mod tests {
                     false,
                     None,
                     EXACT_QUOTA_PERCENT,
-                    false,
+                    SearchPolicy::default(),
                 );
 
                 total_nodes_with_etc += result_on.nodes;
@@ -3030,7 +3125,11 @@ mod tests {
                     true,
                     Some(generous_max_nodes),
                     EXACT_QUOTA_PERCENT,
-                    true,
+                    SearchPolicy {
+                        enable_history: true,
+                        enable_aspiration: true,
+                        enable_mpc: false,
+                    },
                 );
 
                 let mut tt_off = TranspositionTable::new(4);
@@ -3043,7 +3142,7 @@ mod tests {
                     true,
                     Some(generous_max_nodes),
                     EXACT_QUOTA_PERCENT,
-                    false,
+                    SearchPolicy::default(),
                 );
 
                 assert!(
@@ -3741,5 +3840,159 @@ mod tests {
             );
             assert_eq!(result_with_limit.pv[0], best_move_b);
         }
+    }
+
+    #[test]
+    fn mpc_pv_and_exact_boundary_guards_are_telemetried() {
+        let (board, side) = play_until_empties(28, first_move_strategy);
+        let limit = default_limit(6, 22);
+        let mut tt = TranspositionTable::new(1);
+        let mut nodes = 0;
+        let mut timed_out = false;
+        let mut quota = 1234;
+        let mut exact_stats = ExactStats::default();
+        let mut mpc_stats = MpcStats::default();
+        let mut ctx = SearchCtx {
+            limit: &limit,
+            tt: &mut tt,
+            nodes: &mut nodes,
+            nodes_before: 0,
+            max_nodes: None,
+            start: Instant::now(),
+            timed_out: &mut timed_out,
+            weights: None,
+            suppress_mpc: false,
+            enable_mpc: true,
+            mpc_stats: &mut mpc_stats,
+            enable_etc: true,
+            exact_enabled: true,
+            exact_quota_remaining: &mut quota,
+            exact_stats: &mut exact_stats,
+            history: None,
+        };
+        assert_eq!(mpc_try_cutoff(&board, side, 6, -INF, 0, &mut ctx), None);
+        assert_eq!(ctx.mpc_stats.skipped_pv_window, 1);
+        assert_eq!(mpc_try_cutoff(&board, side, 6, -1, 0, &mut ctx), None);
+        assert_eq!(ctx.mpc_stats.skipped_exact_boundary, 1);
+        assert_eq!(*ctx.exact_quota_remaining, 1234);
+    }
+
+    #[test]
+    fn mpc_probe_abort_restores_context_flags_and_exact_quota() {
+        let (board, side) = play_until_empties(45, first_move_strategy);
+        let limit = default_limit(6, 0);
+        let mut tt = TranspositionTable::new(1);
+        let mut nodes = 0;
+        let mut timed_out = false;
+        let mut quota = 4321;
+        let mut exact_stats = ExactStats::default();
+        let mut mpc_stats = MpcStats::default();
+        let mut ctx = SearchCtx {
+            limit: &limit,
+            tt: &mut tt,
+            nodes: &mut nodes,
+            nodes_before: 0,
+            max_nodes: Some(1),
+            start: Instant::now(),
+            timed_out: &mut timed_out,
+            weights: None,
+            suppress_mpc: false,
+            enable_mpc: true,
+            mpc_stats: &mut mpc_stats,
+            enable_etc: true,
+            exact_enabled: true,
+            exact_quota_remaining: &mut quota,
+            exact_stats: &mut exact_stats,
+            history: None,
+        };
+        assert_eq!(mpc_try_cutoff(&board, side, 6, -1, 0, &mut ctx), None);
+        assert!(*ctx.timed_out);
+        assert!(!ctx.suppress_mpc);
+        assert!(ctx.exact_enabled);
+        assert_eq!(*ctx.exact_quota_remaining, 4321);
+        assert_eq!(ctx.exact_stats.leaf_attempts, 0);
+    }
+
+    #[test]
+    fn mpc_cut_does_not_store_a_target_depth_tt_entry() {
+        let (board, side) = play_until_empties(45, first_move_strategy);
+        let limit = default_limit(6, 0);
+        let mut tt = TranspositionTable::new(1);
+        let mut nodes = 0;
+        let mut timed_out = false;
+        let mut quota = u64::MAX;
+        let mut exact_stats = ExactStats::default();
+        let mut mpc_stats = MpcStats::default();
+        let mut ctx = SearchCtx {
+            limit: &limit,
+            tt: &mut tt,
+            nodes: &mut nodes,
+            nodes_before: 0,
+            max_nodes: None,
+            start: Instant::now(),
+            timed_out: &mut timed_out,
+            weights: None,
+            suppress_mpc: false,
+            enable_mpc: true,
+            mpc_stats: &mut mpc_stats,
+            enable_etc: true,
+            exact_enabled: true,
+            exact_quota_remaining: &mut quota,
+            exact_stats: &mut exact_stats,
+            history: None,
+        };
+        assert_eq!(
+            mpc_try_cutoff(&board, side, 6, -5001, -5000, &mut ctx),
+            Some(-5000)
+        );
+        assert_eq!(
+            ctx.mpc_stats.eligible_nodes, 1,
+            "recursive MPC must remain suppressed"
+        );
+        assert_eq!(*ctx.exact_quota_remaining, u64::MAX);
+        let entry = ctx
+            .tt
+            .probe(zobrist_hash(&board, side), TTDomain::Midgame)
+            .unwrap();
+        assert!(
+            entry.depth < 6,
+            "MPC may store the shallow probe, never target depth D"
+        );
+    }
+
+    #[test]
+    fn mpc_runtime_policy_is_deterministic_and_default_is_off() {
+        let (board, side) = play_until_empties(45, first_move_strategy);
+        let limit = default_limit(8, 0);
+        let policy = SearchPolicy {
+            enable_history: false,
+            enable_aspiration: false,
+            enable_mpc: true,
+        };
+        let run = || {
+            let mut tt = TranspositionTable::new(4);
+            search_with_eval_with_policy(
+                &board,
+                side,
+                &limit,
+                &mut tt,
+                None,
+                None,
+                EXACT_QUOTA_PERCENT,
+                policy,
+            )
+        };
+        let first = run();
+        let second = run();
+        assert_eq!(first.best_move, second.best_move);
+        assert_eq!(first.score, second.score);
+        assert_eq!(first.depth, second.depth);
+        assert_eq!(first.nodes, second.nodes);
+        assert_eq!(first.mpc_stats, second.mpc_stats);
+        assert!(first.mpc_stats.eligible_nodes > 0);
+
+        let mut tt = TranspositionTable::new(4);
+        let off = search(&board, side, &limit, &mut tt);
+        assert_eq!(off.mpc_stats, MpcStats::default());
     }
 }
