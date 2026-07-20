@@ -36,7 +36,7 @@
 
 | ID | タスク | 担当 | 状態 | 試行 |
 |---|---|---|---|---|
-| T159 | 本番トレーナーへ早期打ち切り導入(Egaroucidシリーズ1/3) | implementer | in_progress(Codexフォールバック中のためSonnet+検証強化。OFF時ビット一致必須・検証split新設・frozen holdoutは報告専用のまま) | 0 |
+| T159b | 早期打ち切りの--simple-corpus(Egaroucid)経路対応+レビュー中3件対処(シリーズ1.5/3) | implementer | in_progress(split単位はワーカーが実データ調査で決定。25.5M全量の時間見積りも本タスクの成果物=T160仕様に使う) | 0 |
 
 ## 有効な方針・申し送り(今後のタスクに効くもの)
 
@@ -151,6 +151,7 @@
 | T127f/g/h | 生成高速化(ハッシュA/B→warm A/B→親またぎ乗り換え) | **完了**(f=ハッシュ拡大は効果なし・値全一致/g=warm方式1.32倍・値全一致/h=32親束で乗り換え実施、292,679件全保持でresume成功、Claude代替レビュー合格・実地検証込み)。ETA約16時間短縮(7/19昼→7/18夜) |
 | T158c | 評価特徴追加(3/4): スクリーニング+候補確定 | **完了**(5d1dd4d、verifier〔再集計・hash実測・resume実地再現〕/代替レビュー〔中2=T158d申し送り〕両合格、Codex実装、redo 0回)。害検出でseed1/3除外・**seed2を候補確定**、oracle180害なし(mean +0.067)・NPS on/off 0.92-0.94・24局smoke異常0(12W1D11L)。60局ゲートmanifest完備 |
 | T158d | 評価特徴追加(4/4): 対Edax 60局paired最終ゲート | **不採用裁定=現行v4維持**(cc88739ほか、verifier2回〔全統計・SHA・決定性の独立再現〕合格、Sonnet実装、redo 0回、ユーザー指示で段階実行)。候補9勝1分50敗(-22.67) vs v4 4勝2分54敗(-24.12)、ペア差+1.45石・CI[-1.57,+4.60]・p=0.57で有意差なし。パイロットの乖離非対称は不再現。ゲート一式約30分の運用を確立。B3特徴実装はT160で再利用 |
+| T159 | 本番トレーナーへ早期打ち切り導入(Egaroucidシリーズ1/3) | **完了**(8372aa2、verifier〔OFF時ビット一致をworktree独立追試でSHA完全一致〕/代替レビュー〔重大0・中3・軽微7〕両合格、Sonnet実装、redo 0回)。opt-in・対局単位検証split(frozen holdout不使用)・patienceベスト復元・resume対応。180kスモークでbest_epoch=4復元を実証。中3件と--simple-corpus対応はT159bへ |
 | T158b | 評価特徴追加(2/4): trainer+pilot/full学習 | **完了・Gate 2/3合格**(60c2b27+037306f、redo1回=stage別判定の61段化+事後裁定明記。verifier/最終codex-review合格、Codex実装)。**B3(両特徴)full 443万×3seed: frozen MAE -0.062石(基準-0.05)・3/3seed改善・CI[-0.073,-0.053]・3seed平均61段最大悪化+0.059**。seed別退行(seed1 empty43 +0.229等)はT158cで害検出必須化 |
 | T158a | 評価特徴追加(1/4): engine特徴・PWV4・純コスト計測 | **完了・Gate 1合格**(138217b+2bd6214+4cce290、redo2回=計測カバレッジとnative/WASM相互golden強化。verifier/最終codex-review合格、Codex実装)。ゼロ係数純コスト: **WASM層化8局面NPS比96.58%(帯別最低95.94%)・全帯ノード上限支配**=特徴コストは許容圏。本番PWV3完全不変 |
 | T156d | MPC A/B CLI+Gate 2/3計測 | **完了・Gate 3不合格で撤退確定**(81c6207+4fccc73+c95a6e3、redo2回=監査可能性の強化。最終codex-review指摘ゼロ、verifierがGate 3実測のバイト単位再現を確認)。**Gate 2=ノード40-57%削減(修理成功)/Gate 3=160k予算で深さ+1率5.8%・regret+0.18(基準未達)**。事前登録どおり本番MPC OFF維持、T156e-g中止 |

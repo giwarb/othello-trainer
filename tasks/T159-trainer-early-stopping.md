@@ -1,7 +1,7 @@
 ---
 id: T159
 title: 本番トレーナーへの早期打ち切り(early stopping)導入 — Egaroucid全量学習シリーズ(1/3)
-status: review # 実装完了(8372aa2)、verifier+Claude代替レビュー並列検収中。判明した仕様の穴: --simple-corpus(Egaroucid経路)と--early-stopが併用不可 → T159bで対応(オーケストレーターの仕様ミス、redoではない)
+status: done # verifier(OFF時ビット一致をworktree方式で独立追試・SHA一致)+Claude代替レビュー(重大0・中3・軽微7)両合格、2026-07-21。中3件(resume脆弱窓・エポック評価コスト・splitメモリ)と--simple-corpus非対応はT159bで対応
 assignee: implementer
 attempts: 0
 ---
@@ -95,3 +95,17 @@ attempts: 0
 - OFF時ビット一致: 変更前後でSHA-256完全一致(`5228350a01ded3cdb27093bfc0c8c78b70d63251827f94412b8c7748e4c2d687`)を`git stash`による前後比較で実証。
 - 180kスモークで早期打ち切りの実動作(非単調val_mae・patience打ち切り・ベストエポック復元・checkpoint cleanup)を確認。
 - `git status --short`: 本タスク由来の差分は`train/src/bin/train_patterns_v3.rs`のみ(一時ファイル・スモーク成果物は全て削除済み)。
+
+### 2026-07-21 verifier検証
+
+- **基準1(cargo test)**: `cargo test -p train` 全125件パス(`train_patterns_v3`バイナリ内9件の新規テスト含む、内訳: `early_stop_patience_tracks_best_and_stale_counts` / `early_stop_validation_split_is_order_independent` / `early_stop_validation_split_is_deterministic` / `early_stop_restores_best_checkpoint_and_stops_before_max_epochs` / `early_stop_resume_matches_uninterrupted_run` / `off_path_matches_direct_model_training_bit_for_bit` / 既存3件)。`cargo test -p engine` も216件中210 passed・6 ignored(release-only/heavy指定の既知ignore)で全パス、regressionなし(engine未変更のため参考確認)。
+- **基準2(OFF時ビット一致の独立追試、最重要)**: `git worktree add <scratchpad>/t159-before 8372aa2~1`(=4cb1e83時点)で変更前ツリーを用意。`train/data/*.wtb`はgitignore対象でworktreeにチェックアウトされないため、メインリポジトリから手動でコピーして補完(WTHORデータ自体は無変更なので検証の同一性に影響なし)。変更前・変更後(HEAD=861510f、8372aa2との`git diff`は0行差分で同一コード)双方をreleaseビルドし、`--configs v3 --seeds 1 --epochs 2 --max-games 30`を同一条件で実行。結果:
+  - dataset統計・`result`行の数値(frozen_mse/mae/bytes)が完全一致
+  - `v3-seed-1.bin`のSHA-256が両者とも`5228350a01ded3cdb27093bfc0c8c78b70d63251827f94412b8c7748e4c2d687`で完全一致(実装者の主張と独立に同一値を再現)
+  - `results.tsv`・`v3-seed-1.meta`・チェックポイントサブディレクトリ`v3-seed-1/`の中身も`diff`で差分ゼロを確認
+  - 検証後、worktreeは`git worktree remove --force`で削除、scratchpad出力も削除済み
+- **基準3(180kスモーク記録)**: 作業ログのエポック推移表(epoch1-7、is_best/stale列)・`best_epoch=4`(最終エポード7ではなく4の重みを復元)・checkpoint cleanup(`run_dir`に`best.bin`/`best.meta`/`state.txt`のみ残存)の記述内容を確認。要件(エポック推移・ベストエポック・打ち切りエポックの記録)を満たすことを確認(再実行はせず記録内容の妥当性確認のみ、指示通り)。
+- **基準4(--early-stopと--simple-corpusの併用エラー、既知の仕様の穴)**: コード上`simple_corpus_arg.is_some() && early_stop`のガードを確認(該当行: `if early_stop { eprintln!("--early-stop is not supported together with --simple-corpus"); return ExitCode::FAILURE; }`)。実際に`--configs v3 --seeds 1 --simple-corpus train/data --early-stop`を実行し、stderrに`--early-stop is not supported together with --simple-corpus`が出力されexit code 1(`ExitCode::FAILURE`)で即終了することを確認。T159bで対応予定の既知事項として記録(redo対象ではない)。
+- **基準5(リポジトリ清潔性)**: `git status --short`はクリーン(この検証セッション中に別コミット`fd58c66`=STATUS.mdへのバックログ登録がオーケストレーターにより追加されたが、T159差分とは無関係)。`train/data/`・`logs/`にt159スモーク成果物の残置なし。verifier自身が作成した`git worktree`・scratchpad出力・コピーしたWTHORデータは検証後にすべて削除済み。
+- **コード修正**: 一切行っていない(タスクファイルの作業ログ追記のみ)。
+- **総合判定**: 合格。全受け入れ基準(1〜4)を満たし、特に最重要項目の基準2は実装者の主張とは独立にworktree+手動コピーで再現し、SHA-256値まで完全一致することを確認できた。
