@@ -48,4 +48,18 @@ manifest: `bench/edax-compare/t158c_screening_report.meta.json` の `deferredT15
 
 ## 作業ログ
 
-(ワーカーが節目ごとに追記)
+### 2026-07-21 実装完了(implementer)
+
+1. **前提SHA-256実測**: `t158c_screening_report.meta.json`の`deferredT158d`節と、候補重み(`train/data/t158/full/t158-b3-seed-2.bin`)・baseline重み(`train/weights/pattern_v4.bin`)・Edax実行ファイル・`eval.dat`・`openings.json`の5点をすべて`certutil -hashfile`で実測し、manifest記載値と完全一致を確認(不一致なし、停止条件に該当せず続行)。
+2. **T125再利用可否の検証**: `endgame-results/t125-vs-edax-results.json`のmeta/runKeyを確認。開幕セットSHA・Edax実行ファイルSHA・eval.dat SHA・v4重みSHA・プロトコルパラメータは一致したが、**gitCommit・evalCliSha256(エンジンバイナリ)が不一致**。`git log --oneline ed22fd27b9..HEAD -- engine/`でT125以降に10件のengine/変更コミットがあることを確認し、「機械的完全一致」不成立と判定 → 要件どおりv4側も新規に6局を実行することにした(候補6局のみでは済まさなかった)。
+3. **ハーネス改修**: `bench/edax-compare/vs_edax.py`に`--opening-limit N`(既定None、対局(match play)のopeningを先頭N件に制限、fixed-depth/node-budget決定性チェックには不影響、settingsに記録)と、各対局の`wallClockSec`(壁時計所要時間、進捗print行にも表示)を追加。既存呼び出しの挙動は不変(自己テスト`--self-test-checkpoint`で確認)。コミット`04dd37a8`(vs_edax.py単体、`git add`はパス明示)。
+4. **候補パイロット実行**: `--opening-set primary --opening-limit 3 --engine-modes single-root --levels 10 --engine-depth 12 --engine-exact-from-empties 16 --engine-time-ms 1500 --engine-max-nodes 160000 --engine-exact-quota-percent 60 --unlimited-exact-empties 20 --engine-tt-mb 64 --weights train/data/t158/full/t158-b3-seed-2.bin --skip-loss-analysis`をPowerShell `Start-Process`でdetached起動、ログ/checkpointをポーリングして完走確認(fixed-depth 40/40 PASSED、node-budget 10/10 PASSED、6局完走、所要95秒)。結果: 1勝5敗、平均石差-17.00。
+5. **v4パイロット実行**: 同条件で`--weights train/weights/pattern_v4.bin`のみ変更して逐次実行(候補実行完了後に開始、CPU競合回避のため並行実行せず)。fixed-depth/node-budget決定性ともPASSED、6局完走、所要104秒。結果: 0勝6敗、平均石差-24.67。
+6. **中断→再開の実地確認**: scratchpad上で候補重み・1開幕(2局計画)の別実行を用意し、1局完了後に`Stop-Process -Force`で強制終了 → 結果ファイルに1局のみ永続化されていることを確認 → 同一コマンドで再実行し`[resume] loaded 1 already-completed game(s)`・fixed-depth/node-budget決定性チェックのスキップ・2局目のみの新規対局・最終2/2完走(1局目の値が中断前と不変)を確認。PASSED。
+7. **watch-point定性確認**: 12局全ての空き16〜22区間の`discDiff`推移を確認。空き20到達で完全読みに切り替わり最終石差に収束する想定どおりの挙動。候補固有の不審な悪手・石差急落は確認されず(唯一の大きい乖離局面はv4側も同開幕で敗北しており開幕自体の不利と判断)。
+8. **60局本実行の所要時間見積り**: 候補6局80.4秒(平均13.39秒/局)、v4 6局89.6秒(平均14.93秒/局)、固定オーバーヘッド約14〜15秒/実行から、60局本実行は候補側約818秒(13.6分)+v4側約911秒(15.2分)=**合計約29分(逐次実行)**と見積もり、安全側30〜45分を推奨する旨をレポートに明記。両実行の逐次実行の必要性(wall-clock時間予算の並行実行によるCPU競合汚染リスク)も明記。
+9. **レポート作成**: `bench/edax-compare/t158d_pilot_report.md`・`.meta.json`を作成。判定は行わず(要件どおり)、n=3ペアでは結論を出さない旨を明記。
+10. **コミット**: `bench/edax-compare/vs_edax.py`(コミット`04dd37a8`)と`bench/edax-compare/t158d_pilot_report.md`+`.meta.json`(コミット`ec411a3`)を別々に、パス明示で`git add`しコミット(`git add .`/`-A`は使用せず)。生の対局ログ(`bench/edax-compare/endgame-results/t158d-candidate-vs-edax-results.json`等)は既存の`.gitignore`ルール(T098由来、`bench/edax-compare/endgame-results/`全体を除外、報告用の`-report.md`のみ個別に過去force-add済み)に従いローカルのみとし、force-addしなかった(T107/T108/T121/T125の前例と同じ扱い)。
+11. **受け入れ基準確認**: 完了時点で`git status --short`はクリーン(`tasks/`配下の本ファイル編集分を除く)。`tasks/`・`CLAUDE.md`はコミットしていない(オーケストレーター担当のため)。
+
+実行コマンド・結果の詳細・SHA-256全文は`bench/edax-compare/t158d_pilot_report.md`・`.meta.json`を参照。
