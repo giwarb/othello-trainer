@@ -40,3 +40,8 @@ attempts: 0
 ## 作業ログ
 
 (ワーカーが節目ごとに追記)
+
+- 2026-07-20 20:04 JST Codex実装: `calibrate_mpc gate` に同一バイナリA〜D/独立policy切替、固定深さ・node budget・exact quota、局面別JSON（best move/score/depth/nodes/exact/aspiration/MPC全統計）、設定fingerprint付き局面単位atomic checkpoint/resume・逐次進捗を追加。`merge` は実positions fingerprint、schemaVersion、pilotOnly、depth集合、record metadata（empties/bucket/split/gameId）と重複内容を検証するよう強化し、usageへshard/merge/gate引数を追記。`compare_mpc.py` でゲーム単位bootstrap、A〜D 2回完全一致、oracle regret、exact会計、report/meta生成を機械化。
+- 実測: Gate 2はtest 240局面で合格（D10 node ratio 0.6025/U95 0.6416/median 0.6104/p90 0.9573、D12 0.4348/0.4696/0.4105/0.8409）。Gate 3は空き21〜26のoracle 120局面で不合格。A〜D全構成2回完全一致、wallLimitHit=0だが、B-Aはmedian depth +0、+1率5.83%、浅化8.33%、regret +0.1833石、paired U95 +0.6167石、4石loss +1件。default OFF維持・T156eへ進まない提言をレポート化。
+- 検証: `cargo build --release -p engine --bin calibrate_mpc --features mpc_enabled` 成功。gate smoke（独立ON/OFF・A構成）成功。既存pilot 320件の`merge`成功。`python -B bench/edax-compare/compare_mpc.py --help`成功。`cargo test -p engine` は204 passed/0 failed（binテストも全pass）。`cargo test -p engine --release --test ffo_bench -- --nocapture` はFFO fast #40〜#44全問正解（641,077,417 nodes、59.382s）。`git diff --check`成功。一時checkpoint/smoke/pycは削除済み。
+- コミット: 未実施（`.git`書き込み禁止のため、オーケストレーター代行予定）。
