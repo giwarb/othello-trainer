@@ -1,7 +1,7 @@
 ---
 id: T158c
 title: 評価特徴追加(3/4): スクリーニング(害検出・NPS・決定性・smoke)と候補確定
-status: todo # todo | in_progress | review | redo | done | blocked
+status: done # verifier(全数値独立再集計・候補hash実測・resume実地再現)+Claude代替レビュー(中2はT158d申し送り)両合格、2026-07-21
 assignee: Codex gpt-5.6-sol
 attempts: 0
 ---
