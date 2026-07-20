@@ -92,3 +92,21 @@ redo#1で計測カバレッジは解消(層化8局面・Gate 1合格96.58%は妥
   (641,077,417 nodes, 59.674s, 10,743,009 NPS)。詳細は
   `bench/edax-compare/t158a_engine_cost_report.md`と`.meta.json`。
   コミットハッシュ: なし（`.git`書き込み禁止のためオーケストレーターが代行）。
+
+- 2026-07-21 00:26:32 +09:00 Codex (redo #2): 層化8局面JSONに固定深さ・
+  160k探索の共通golden（move/score/depth/nodes）を追加し、native releaseテストと
+  WASMベンチの双方が同じgoldenへ照合するよう修正。WASM protocolの座標・disc表現は
+  照合時に盤index・centi-discへ正規化した。metaへ局面別探索結果、fixture SHA-256、
+  WASM artifactの正規ビルド入口・展開コマンド・release/wasm-opt条件・toolchainを固定。
+  `cargo test -p engine`=engine library 210 passed/0 failed/2 ignored、各bin/integration PASS、
+  `cargo test -p engine --release --test eval_features_nps_bench stratified_corpus_cost_is_reported -- --nocapture`=PASS
+  （8局面×固定深さ/160kのnative共通golden照合、7反復決定性、PWV3/PWV4一致）、
+  `node bench/edax-compare/t158a_engine_cost_bench.mjs ...`=PASS
+  （同じ8局面共通goldenをWASMで照合、7反復）、
+  `cargo test -p engine --release --test pattern_eval_nps_bench -- --nocapture`=PASS
+  （pattern/heuristic NPS比0.867）、
+  `cargo test -p engine --release --test ffo_bench -- --nocapture`=FFO #40〜44全問PASS
+  （641,077,417 nodes、59.538s、10,767,539 NPS）。`npm --prefix app run wasm:build`の
+  展開コマンドとartifact SHA-256一致を確認したが、sandbox外cacheへのtemp作成は権限拒否。
+  一時PWV4は削除済み。コミットハッシュ: なし（`.git`書き込み禁止のため
+  オーケストレーターが代行）。
