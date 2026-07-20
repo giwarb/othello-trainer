@@ -41,3 +41,12 @@ attempts: 0
 ## 作業ログ
 
 (ワーカーが節目ごとに追記)
+
+### 2026-07-21 02:02 JST - Codex implementation worker
+
+- Implemented `t158c_screening.py`, its unit tests, and the learned-weight WASM NPS runner. Oracle and smoke persist atomic per-position/per-game checkpoints, reject stale resume identities, print progress, and verify deterministic fresh-TT repetitions plus move legality.
+- Screened all three B3 seeds using all 61 frozen stages and T157 oracle empties bins. Seeds 1 and 3 were excluded for frozen local regressions over +0.10; seed 2 passed Gate 4 and was fixed as the sole candidate (`dae9af0b4d9e3322c6e2181071b095bca1f2272e69ba85d0e828f21e29c7c5ec`).
+- Measured actual learned coefficients on the stratified 8 positions: native on/off NPS ratio 0.9160, WASM 0.9417; both modes deterministic. Completed Gate 5 vs same-seed B0 at 12W/1D/11L, mean margin -3.083, anomalies 0. One-game intentional stop/resume and completed 24-game resume-skip were verified.
+- Generated `t158c_screening_report.md` and meta with the deferred T158d 60-game manifest. Updated T158b Markdown pass labels to derive from computed values; T158b numeric meta remained unchanged.
+- Commands/results: `cargo build --release -p engine --bin eval_cli` PASS; `python -m unittest bench/edax-compare/test_t158c_screening.py` PASS (3); `python bench/edax-compare/t158b_analyze.py --check` PASS; `cargo test -p engine` PASS; `cargo test -p train` PASS; `node --check bench/edax-compare/t158c_wasm_nps.mjs` PASS; `git diff --check` PASS; report/meta finalize reproduction PASS; smoke completed resume-skip in 0.58s.
+- Commit: not created (`.git` is read-only); orchestrator will commit the implementation artifacts. This task log is not a commit target.
