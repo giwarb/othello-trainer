@@ -8,6 +8,13 @@
  * (c) そのノードの `bookMoves` に「次の一手」を追加する(複数ラインが
  *     同じ局面を経由する場合はここで合流し、複数の候補手が集まる)。
  *
+ * T150: `RawJosekiLine.gameCount`(WTHOR頻出ライン抽出、`bookgen/wthor-lines.json`)
+ * が設定されているラインでは、そのラインが通過する各分岐(局面→手)に
+ * `gameCount`を積算し(`JosekiBookMove.frequencyCount`)、ノードの全分岐が
+ * 頻度データを持つ場合は頻度比例の重みを計算する(`assignWeights`参照)。
+ * `gameCount`を持たないライン(T016由来の手作業データ)だけで構成される
+ * ノードでは、これまでどおり均等重みのままになる(既定挙動不変)。
+ *
  * 初期局面(`initialBoard()`)は `identity`/`rot180`/`flipDiag`/`flipAntiDiag`
  * のいずれの変換でも不動点になる(中心対称な配置のため)。したがって
  * 「初手を正規化してから初期局面に対して順に適用していく」のと
@@ -20,7 +27,6 @@ import { applyMove, initialBoard, notationToSquare, opposite, type Side } from '
 import { opForFirstMove, hashBoard } from './normalize.ts'
 import { transformSquare } from './symmetry.ts'
 import type {
-  JosekiBookMove,
   JosekiDb,
   JosekiLine,
   JosekiNode,
@@ -48,7 +54,7 @@ export function buildJosekiDb(rawLines: readonly RawJosekiLine[]): JosekiDb {
       aliases: raw.aliases ?? [],
       moveSeq: normalizedSquares,
       depth: raw.depth,
-      popularity: undefined,
+      popularity: raw.gameCount,
     })
 
     let board = initialBoard()
@@ -57,7 +63,7 @@ export function buildJosekiDb(rawLines: readonly RawJosekiLine[]): JosekiDb {
     for (const move of normalizedSquares) {
       const node = getOrCreateNode(nodes, hashBoard(board, side))
       addName(node, raw.name)
-      addBookMove(node, move)
+      addBookMove(node, move, raw.gameCount)
 
       board = applyMove(board, side, move)
       side = opposite(side)
@@ -72,7 +78,7 @@ export function buildJosekiDb(rawLines: readonly RawJosekiLine[]): JosekiDb {
     leafNode.isLeaf = true
   }
 
-  assignEqualWeights(nodes)
+  assignWeights(nodes)
 
   return { nodes, lines }
 }
@@ -89,21 +95,55 @@ function addName(node: JosekiNode, name: string): void {
   if (!node.names.includes(name)) node.names.push(name)
 }
 
-function addBookMove(node: JosekiNode, move: number): void {
-  if (node.bookMoves.some((bm) => bm.move === move)) return
-  const bookMove: JosekiBookMove = { move, weight: 0, eval: null }
-  node.bookMoves.push(bookMove)
+/**
+ * ノード(局面)に分岐候補手 `move` を追加する。既に同じ手が登録済みなら
+ * 追加しない(複数ラインが同じ分岐を共有する場合の重複防止)。
+ *
+ * T150: `gameCount`(呼び出し元のラインが持つ`RawJosekiLine.gameCount`)が
+ * 渡された場合、その分岐(局面→手)の`frequencyCount`に加算する。同じ
+ * (ノード,手)の組を複数のラインが経由する場合はここで積算される。
+ * `gameCount`が`undefined`のライン(T016由来の手作業データ)は
+ * `frequencyCount`に触れない(既存の手がまだ頻度データを持っていなければ
+ * `undefined`のまま = 頻度データが無いことを表す)。
+ */
+function addBookMove(node: JosekiNode, move: number, gameCount: number | undefined): void {
+  let bookMove = node.bookMoves.find((bm) => bm.move === move)
+  if (!bookMove) {
+    bookMove = { move, weight: 0, eval: null }
+    node.bookMoves.push(bookMove)
+  }
+  if (gameCount !== undefined) {
+    bookMove.frequencyCount = (bookMove.frequencyCount ?? 0) + gameCount
+  }
 }
 
 /**
- * T016のデータには着手頻度(出現数)の情報が無いため、同一局面から分岐する
- * bookMovesは暫定的に均等重みとする(例: 選択肢が2つなら各0.5)。
- * 将来WTHOR等の高段者局データが使えるようになったら実頻度で再計算する想定
- * (`tasks/T017-joseki-dag.md` 要件4参照)。
+ * 各ノードのbookMovesに重みを割り当てる。
+ *
+ * ノード内の全bookMovesが`frequencyCount`(出現局数の合計、T150で追加)を
+ * 持ち、かつその合計が0より大きい場合は、頻度比例の重みを計算する
+ * (`weight = frequencyCount / 合計`)。それ以外(T016由来の手作業データの
+ * ように`frequencyCount`が無い手が1つでも混ざる場合を含む)は、これまで
+ * どおり均等重みにする(例: 選択肢が2つなら各0.5)。T016のみのデータ
+ * (`bookgen/joseki-research.json`)は`gameCount`を持たないため、常に
+ * この均等重み分岐を通り既定挙動は変わらない
+ * (`tasks/T017-joseki-dag.md` 要件4、`tasks/T150-book-line-extraction.md` 参照)。
  */
-function assignEqualWeights(nodes: ReadonlyMap<string, JosekiNode>): void {
+function assignWeights(nodes: ReadonlyMap<string, JosekiNode>): void {
   for (const node of nodes.values()) {
     if (node.bookMoves.length === 0) continue
+
+    const hasFullFrequencyData = node.bookMoves.every(
+      (bm) => bm.frequencyCount !== undefined && bm.frequencyCount > 0,
+    )
+    if (hasFullFrequencyData) {
+      const total = node.bookMoves.reduce((sum, bm) => sum + bm.frequencyCount!, 0)
+      for (const bookMove of node.bookMoves) {
+        bookMove.weight = bookMove.frequencyCount! / total
+      }
+      continue
+    }
+
     const weight = 1 / node.bookMoves.length
     for (const bookMove of node.bookMoves) {
       bookMove.weight = weight

@@ -133,4 +133,88 @@ describe('buildJosekiDb with the real bookgen/joseki-research.json', () => {
       expect(normalizeBoard(board, 'identity')).toEqual(board)
     }
   })
+
+  it('T150: gameCount-less lines never populate frequencyCount or JosekiLine.popularity', () => {
+    // bookgen/joseki-research.json はT150時点でもgameCountを持たないため、
+    // 全bookMoveのfrequencyCountはundefinedのまま(既定挙動不変)。
+    for (const node of db.nodes.values()) {
+      for (const bookMove of node.bookMoves) {
+        expect(bookMove.frequencyCount).toBeUndefined()
+      }
+    }
+    for (const line of db.lines) {
+      expect(line.popularity).toBeUndefined()
+    }
+  })
+})
+
+describe('T150: frequency-proportional weights (RawJosekiLine.gameCount)', () => {
+  it('a node whose bookMoves all have gameCount data gets frequency-proportional weights', () => {
+    // 両ラインともf5の後で分岐する: d6行き300局、c3行き100局
+    // (ルートノードの分岐は両ラインとも共通の"f5"1つだけなので、
+    // 分岐を見るには f5 を打った後のノードを見る必要がある)。
+    const rawLines: RawJosekiLine[] = [
+      { name: 'freq-a', moves: ['f5', 'd6'], firstMoveBasis: 'f5', depth: 2, gameCount: 300 },
+      { name: 'freq-b', moves: ['f5', 'c3'], firstMoveBasis: 'f5', depth: 2, gameCount: 100 },
+    ]
+    const db = buildJosekiDb(rawLines)
+    const { board, side } = playSequence(['f5'])
+    const node = db.nodes.get(hashBoard(board, side))!
+    expect(node.bookMoves.length).toBe(2)
+
+    const d6Move = node.bookMoves.find((bm) => bm.move === notationToSquare('d6'))!
+    const c3Move = node.bookMoves.find((bm) => bm.move === notationToSquare('c3'))!
+    expect(d6Move.frequencyCount).toBe(300)
+    expect(c3Move.frequencyCount).toBe(100)
+    expect(d6Move.weight).toBeCloseTo(300 / 400, 10)
+    expect(c3Move.weight).toBeCloseTo(100 / 400, 10)
+
+    // JosekiLine.popularity にもgameCountがそのまま反映される。
+    expect(db.lines.find((l) => l.name === 'freq-a')!.popularity).toBe(300)
+    expect(db.lines.find((l) => l.name === 'freq-b')!.popularity).toBe(100)
+  })
+
+  it('multiple lines sharing the same (node, move) edge accumulate frequencyCount', () => {
+    // 2本のラインが「f5,d6」という同じ分岐を共有する(合流)。
+    const rawLines: RawJosekiLine[] = [
+      { name: 'freq-c', moves: ['f5', 'd6', 'c3'], firstMoveBasis: 'f5', depth: 3, gameCount: 120 },
+      { name: 'freq-d', moves: ['f5', 'd6', 'c4'], firstMoveBasis: 'f5', depth: 3, gameCount: 180 },
+    ]
+    const db = buildJosekiDb(rawLines)
+    const rootKey = hashBoard(initialBoard(), 'black')
+    const rootNode = db.nodes.get(rootKey)!
+    // f5への分岐は2本のラインが両方通過するので120+180=300に積算される。
+    expect(rootNode.bookMoves.length).toBe(1)
+    expect(rootNode.bookMoves[0]!.frequencyCount).toBe(300)
+    expect(rootNode.bookMoves[0]!.weight).toBeCloseTo(1, 10)
+  })
+
+  it('falls back to equal weight when only some bookMoves at a node have gameCount', () => {
+    // 混在データ: d6行きはgameCount付き、c3行きはgameCount無し(T016由来相当)。
+    const rawLines: RawJosekiLine[] = [
+      { name: 'mixed-a', moves: ['f5', 'd6'], firstMoveBasis: 'f5', depth: 2, gameCount: 300 },
+      { name: 'mixed-b', moves: ['f5', 'c3'], firstMoveBasis: 'f5', depth: 2 },
+    ]
+    const db = buildJosekiDb(rawLines)
+    const { board, side } = playSequence(['f5'])
+    const node = db.nodes.get(hashBoard(board, side))!
+    expect(node.bookMoves.length).toBe(2)
+    for (const bookMove of node.bookMoves) {
+      expect(bookMove.weight).toBeCloseTo(0.5, 10)
+    }
+  })
+
+  it('falls back to equal weight when gameCount is present but zero', () => {
+    const rawLines: RawJosekiLine[] = [
+      { name: 'zero-a', moves: ['f5', 'd6'], firstMoveBasis: 'f5', depth: 2, gameCount: 0 },
+      { name: 'zero-b', moves: ['f5', 'c3'], firstMoveBasis: 'f5', depth: 2, gameCount: 0 },
+    ]
+    const db = buildJosekiDb(rawLines)
+    const { board, side } = playSequence(['f5'])
+    const node = db.nodes.get(hashBoard(board, side))!
+    expect(node.bookMoves.length).toBe(2)
+    for (const bookMove of node.bookMoves) {
+      expect(bookMove.weight).toBeCloseTo(0.5, 10)
+    }
+  })
 })

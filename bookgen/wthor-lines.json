@@ -1,0 +1,5941 @@
+{
+  "$schemaNote": "T150: WTHOR実戦棋譜(2000-2024)から初手f5正規化した頻出序盤進行(深さ<=maxDepth・出現>=minGames局)を train::bin::wthor_lines で機械抽出したライン集合。bookgen/joseki-research.json(T016系の手作業データ)とは独立のソース。app/public/joseki.json には未反映(T151でEdax評価値によるフィルタ後に反映予定)。",
+  "lines": [
+    {
+      "depth": 5,
+      "firstMoveBasis": "f5",
+      "gameCount": 144,
+      "moves": [
+        "f5",
+        "f4",
+        "e3",
+        "d6",
+        "f3"
+      ],
+      "name": "WTHOR-0001",
+      "notes": "T150: WTHOR頻出ライン抽出。出現144局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 5,
+      "firstMoveBasis": "f5",
+      "gameCount": 211,
+      "moves": [
+        "f5",
+        "f4",
+        "e3",
+        "f6",
+        "d3"
+      ],
+      "name": "WTHOR-0002",
+      "notes": "T150: WTHOR頻出ライン抽出。出現211局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 9,
+      "firstMoveBasis": "f5",
+      "gameCount": 103,
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "d3",
+        "c4",
+        "b3",
+        "c6",
+        "f4",
+        "e6"
+      ],
+      "name": "WTHOR-0003",
+      "notes": "T150: WTHOR頻出ライン抽出。出現103局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 8,
+      "firstMoveBasis": "f5",
+      "gameCount": 103,
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "d3",
+        "c4",
+        "b3",
+        "c6",
+        "b6"
+      ],
+      "name": "WTHOR-0004",
+      "notes": "T150: WTHOR頻出ライン抽出。出現103局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 7,
+      "firstMoveBasis": "f5",
+      "gameCount": 194,
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "d3",
+        "c4",
+        "f3",
+        "f4"
+      ],
+      "name": "WTHOR-0005",
+      "notes": "T150: WTHOR頻出ライン抽出。出現194局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 10,
+      "firstMoveBasis": "f5",
+      "gameCount": 141,
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "d3",
+        "c4",
+        "f4",
+        "e3",
+        "f3",
+        "g4",
+        "f6"
+      ],
+      "name": "WTHOR-0006",
+      "notes": "T150: WTHOR頻出ライン抽出。出現141局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 11,
+      "firstMoveBasis": "f5",
+      "gameCount": 165,
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "d3",
+        "c4",
+        "f4",
+        "e3",
+        "f3",
+        "e6",
+        "f6",
+        "g4"
+      ],
+      "name": "WTHOR-0007",
+      "notes": "T150: WTHOR頻出ライン抽出。出現165局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 11,
+      "firstMoveBasis": "f5",
+      "gameCount": 146,
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "d3",
+        "c4",
+        "f4",
+        "e3",
+        "f6",
+        "c6",
+        "c5",
+        "d7"
+      ],
+      "name": "WTHOR-0008",
+      "notes": "T150: WTHOR頻出ライン抽出。出現146局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 10,
+      "firstMoveBasis": "f5",
+      "gameCount": 131,
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "d3",
+        "c4",
+        "f4",
+        "c5",
+        "b3",
+        "c2",
+        "d2"
+      ],
+      "name": "WTHOR-0009",
+      "notes": "T150: WTHOR頻出ライン抽出。出現131局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 13,
+      "firstMoveBasis": "f5",
+      "gameCount": 112,
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "d3",
+        "c4",
+        "f4",
+        "c5",
+        "b3",
+        "c2",
+        "e3",
+        "d2",
+        "b4",
+        "c6"
+      ],
+      "name": "WTHOR-0010",
+      "notes": "T150: WTHOR頻出ライン抽出。出現112局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 14,
+      "firstMoveBasis": "f5",
+      "gameCount": 143,
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "d3",
+        "c4",
+        "f4",
+        "c5",
+        "b3",
+        "c2",
+        "e3",
+        "d2",
+        "b6",
+        "b4",
+        "e6"
+      ],
+      "name": "WTHOR-0011",
+      "notes": "T150: WTHOR頻出ライン抽出。出現143局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 13,
+      "firstMoveBasis": "f5",
+      "gameCount": 110,
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "d3",
+        "c4",
+        "f4",
+        "c5",
+        "b3",
+        "c2",
+        "e3",
+        "d2",
+        "c6",
+        "f2"
+      ],
+      "name": "WTHOR-0012",
+      "notes": "T150: WTHOR頻出ライン抽出。出現110局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 16,
+      "firstMoveBasis": "f5",
+      "gameCount": 106,
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "d3",
+        "c4",
+        "f4",
+        "c5",
+        "b3",
+        "c2",
+        "e3",
+        "d2",
+        "c6",
+        "b4",
+        "a3",
+        "g3",
+        "f3"
+      ],
+      "name": "WTHOR-0013",
+      "notes": "T150: WTHOR頻出ライン抽出。出現106局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 16,
+      "firstMoveBasis": "f5",
+      "gameCount": 374,
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "d3",
+        "c4",
+        "f4",
+        "c5",
+        "b3",
+        "c2",
+        "e3",
+        "d2",
+        "c6",
+        "b4",
+        "a3",
+        "g3",
+        "g4"
+      ],
+      "name": "WTHOR-0014",
+      "notes": "T150: WTHOR頻出ライン抽出。出現374局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 16,
+      "firstMoveBasis": "f5",
+      "gameCount": 145,
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "d3",
+        "c4",
+        "f4",
+        "c5",
+        "b3",
+        "c2",
+        "e3",
+        "d2",
+        "c6",
+        "b4",
+        "a3",
+        "g4",
+        "f3"
+      ],
+      "name": "WTHOR-0015",
+      "notes": "T150: WTHOR頻出ライン抽出。出現145局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 16,
+      "firstMoveBasis": "f5",
+      "gameCount": 289,
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "d3",
+        "c4",
+        "f4",
+        "c5",
+        "b3",
+        "c2",
+        "e3",
+        "d2",
+        "c6",
+        "b4",
+        "a4",
+        "b5",
+        "b6"
+      ],
+      "name": "WTHOR-0016",
+      "notes": "T150: WTHOR頻出ライン抽出。出現289局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 15,
+      "firstMoveBasis": "f5",
+      "gameCount": 126,
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "d3",
+        "c4",
+        "f4",
+        "c5",
+        "b3",
+        "c2",
+        "e3",
+        "d2",
+        "c6",
+        "b4",
+        "b5",
+        "f2"
+      ],
+      "name": "WTHOR-0017",
+      "notes": "T150: WTHOR頻出ライン抽出。出現126局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 14,
+      "firstMoveBasis": "f5",
+      "gameCount": 134,
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "d3",
+        "c4",
+        "f4",
+        "c5",
+        "b3",
+        "c2",
+        "e3",
+        "d2",
+        "c6",
+        "b4",
+        "f6"
+      ],
+      "name": "WTHOR-0018",
+      "notes": "T150: WTHOR頻出ライン抽出。出現134局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 16,
+      "firstMoveBasis": "f5",
+      "gameCount": 190,
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "d3",
+        "c4",
+        "f4",
+        "c5",
+        "b3",
+        "c2",
+        "b4",
+        "e3",
+        "e2",
+        "d2",
+        "f3",
+        "b6",
+        "g6"
+      ],
+      "name": "WTHOR-0019",
+      "notes": "T150: WTHOR頻出ライン抽出。出現190局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 15,
+      "firstMoveBasis": "f5",
+      "gameCount": 206,
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "d3",
+        "c4",
+        "f4",
+        "c5",
+        "b3",
+        "c2",
+        "b4",
+        "e3",
+        "e6",
+        "b6",
+        "c6",
+        "b5"
+      ],
+      "name": "WTHOR-0020",
+      "notes": "T150: WTHOR頻出ライン抽出。出現206局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 16,
+      "firstMoveBasis": "f5",
+      "gameCount": 273,
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "d3",
+        "c4",
+        "f4",
+        "c5",
+        "b3",
+        "c2",
+        "b4",
+        "e3",
+        "e6",
+        "c6",
+        "g4",
+        "f6",
+        "b6"
+      ],
+      "name": "WTHOR-0021",
+      "notes": "T150: WTHOR頻出ライン抽出。出現273局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 16,
+      "firstMoveBasis": "f5",
+      "gameCount": 422,
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "d3",
+        "c4",
+        "f4",
+        "c5",
+        "b3",
+        "c2",
+        "b4",
+        "e3",
+        "e6",
+        "c6",
+        "f6",
+        "a5",
+        "a4"
+      ],
+      "name": "WTHOR-0022",
+      "notes": "T150: WTHOR頻出ライン抽出。出現422局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 16,
+      "firstMoveBasis": "f5",
+      "gameCount": 171,
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "d3",
+        "c4",
+        "f4",
+        "c5",
+        "b3",
+        "c2",
+        "b4",
+        "c6",
+        "d2",
+        "e6",
+        "b5",
+        "a5",
+        "a6"
+      ],
+      "name": "WTHOR-0023",
+      "notes": "T150: WTHOR頻出ライン抽出。出現171局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 14,
+      "firstMoveBasis": "f5",
+      "gameCount": 127,
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "d3",
+        "c4",
+        "f4",
+        "c5",
+        "b3",
+        "c2",
+        "e6",
+        "b4",
+        "f3",
+        "e3",
+        "e2"
+      ],
+      "name": "WTHOR-0024",
+      "notes": "T150: WTHOR頻出ライン抽出。出現127局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 16,
+      "firstMoveBasis": "f5",
+      "gameCount": 807,
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "d3",
+        "c4",
+        "f4",
+        "c5",
+        "b3",
+        "c2",
+        "e6",
+        "c6",
+        "b4",
+        "b5",
+        "d2",
+        "e3",
+        "a6"
+      ],
+      "name": "WTHOR-0025",
+      "notes": "T150: WTHOR頻出ライン抽出。出現807局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 12,
+      "firstMoveBasis": "f5",
+      "gameCount": 100,
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "d3",
+        "c4",
+        "f4",
+        "c5",
+        "b3",
+        "c2",
+        "f6",
+        "a3",
+        "b5"
+      ],
+      "name": "WTHOR-0026",
+      "notes": "T150: WTHOR頻出ライン抽出。出現100局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 10,
+      "firstMoveBasis": "f5",
+      "gameCount": 122,
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "d3",
+        "c4",
+        "f4",
+        "c5",
+        "b3",
+        "d2",
+        "c6"
+      ],
+      "name": "WTHOR-0027",
+      "notes": "T150: WTHOR頻出ライン抽出。出現122局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 11,
+      "firstMoveBasis": "f5",
+      "gameCount": 147,
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "d3",
+        "c4",
+        "f4",
+        "c5",
+        "b3",
+        "e2",
+        "e3",
+        "c2"
+      ],
+      "name": "WTHOR-0028",
+      "notes": "T150: WTHOR頻出ライン抽出。出現147局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 10,
+      "firstMoveBasis": "f5",
+      "gameCount": 103,
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "d3",
+        "c4",
+        "f4",
+        "c5",
+        "b3",
+        "e2",
+        "c6"
+      ],
+      "name": "WTHOR-0029",
+      "notes": "T150: WTHOR頻出ライン抽出。出現103局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 16,
+      "firstMoveBasis": "f5",
+      "gameCount": 111,
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "d3",
+        "c4",
+        "f4",
+        "c5",
+        "b4",
+        "b3",
+        "c2",
+        "d7",
+        "c6",
+        "e6",
+        "b5",
+        "a5",
+        "a6"
+      ],
+      "name": "WTHOR-0030",
+      "notes": "T150: WTHOR頻出ライン抽出。出現111局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 10,
+      "firstMoveBasis": "f5",
+      "gameCount": 115,
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "d3",
+        "c4",
+        "f4",
+        "c5",
+        "b4",
+        "b3",
+        "c6"
+      ],
+      "name": "WTHOR-0031",
+      "notes": "T150: WTHOR頻出ライン抽出。出現115局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 11,
+      "firstMoveBasis": "f5",
+      "gameCount": 100,
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "d3",
+        "c4",
+        "f4",
+        "c5",
+        "b4",
+        "b5",
+        "c6",
+        "f3"
+      ],
+      "name": "WTHOR-0032",
+      "notes": "T150: WTHOR頻出ライン抽出。出現100局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 10,
+      "firstMoveBasis": "f5",
+      "gameCount": 243,
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "d3",
+        "c4",
+        "f4",
+        "c5",
+        "b4",
+        "c6",
+        "e6"
+      ],
+      "name": "WTHOR-0033",
+      "notes": "T150: WTHOR頻出ライン抽出。出現243局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 10,
+      "firstMoveBasis": "f5",
+      "gameCount": 108,
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "d3",
+        "c4",
+        "f4",
+        "c5",
+        "b5",
+        "b4",
+        "b3"
+      ],
+      "name": "WTHOR-0034",
+      "notes": "T150: WTHOR頻出ライン抽出。出現108局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 8,
+      "firstMoveBasis": "f5",
+      "gameCount": 111,
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "d3",
+        "c4",
+        "f4",
+        "c5",
+        "f6"
+      ],
+      "name": "WTHOR-0035",
+      "notes": "T150: WTHOR頻出ライン抽出。出現111局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 9,
+      "firstMoveBasis": "f5",
+      "gameCount": 123,
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "d3",
+        "c4",
+        "f4",
+        "e6",
+        "b3",
+        "c2"
+      ],
+      "name": "WTHOR-0036",
+      "notes": "T150: WTHOR頻出ライン抽出。出現123局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 13,
+      "firstMoveBasis": "f5",
+      "gameCount": 119,
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "d3",
+        "c4",
+        "f4",
+        "e6",
+        "b3",
+        "e2",
+        "e3",
+        "f3",
+        "c5",
+        "b4"
+      ],
+      "name": "WTHOR-0037",
+      "notes": "T150: WTHOR頻出ライン抽出。出現119局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 14,
+      "firstMoveBasis": "f5",
+      "gameCount": 131,
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "d3",
+        "c4",
+        "f4",
+        "e6",
+        "b3",
+        "e2",
+        "c5",
+        "c6",
+        "e3",
+        "d2",
+        "f6"
+      ],
+      "name": "WTHOR-0038",
+      "notes": "T150: WTHOR頻出ライン抽出。出現131局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 15,
+      "firstMoveBasis": "f5",
+      "gameCount": 165,
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "d3",
+        "c4",
+        "f4",
+        "e6",
+        "f6",
+        "e3",
+        "c5",
+        "c6",
+        "b5",
+        "d7",
+        "e7",
+        "b6"
+      ],
+      "name": "WTHOR-0039",
+      "notes": "T150: WTHOR頻出ライン抽出。出現165局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 15,
+      "firstMoveBasis": "f5",
+      "gameCount": 104,
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "d3",
+        "c4",
+        "f4",
+        "e6",
+        "f6",
+        "e3",
+        "c5",
+        "c6",
+        "b6",
+        "c7",
+        "b5",
+        "e7"
+      ],
+      "name": "WTHOR-0040",
+      "notes": "T150: WTHOR頻出ライン抽出。出現104局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 13,
+      "firstMoveBasis": "f5",
+      "gameCount": 131,
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "d3",
+        "c4",
+        "f4",
+        "f6",
+        "f3",
+        "e3",
+        "b4",
+        "b5",
+        "e6",
+        "e7"
+      ],
+      "name": "WTHOR-0041",
+      "notes": "T150: WTHOR頻出ライン抽出。出現131局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 12,
+      "firstMoveBasis": "f5",
+      "gameCount": 229,
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "d3",
+        "c4",
+        "f4",
+        "f6",
+        "f3",
+        "g4",
+        "g3",
+        "e6",
+        "b3"
+      ],
+      "name": "WTHOR-0042",
+      "notes": "T150: WTHOR頻出ライン抽出。出現229局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 12,
+      "firstMoveBasis": "f5",
+      "gameCount": 113,
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "d3",
+        "c4",
+        "f4",
+        "f6",
+        "f3",
+        "g4",
+        "g5",
+        "e3",
+        "h3"
+      ],
+      "name": "WTHOR-0043",
+      "notes": "T150: WTHOR頻出ライン抽出。出現113局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 11,
+      "firstMoveBasis": "f5",
+      "gameCount": 105,
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "d3",
+        "c4",
+        "f4",
+        "f6",
+        "f3",
+        "e6",
+        "c6",
+        "c5"
+      ],
+      "name": "WTHOR-0044",
+      "notes": "T150: WTHOR頻出ライン抽出。出現105局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 15,
+      "firstMoveBasis": "f5",
+      "gameCount": 136,
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "d3",
+        "c4",
+        "f4",
+        "f6",
+        "f3",
+        "e6",
+        "e7",
+        "c6",
+        "g5",
+        "d2",
+        "d7",
+        "f8"
+      ],
+      "name": "WTHOR-0045",
+      "notes": "T150: WTHOR頻出ライン抽出。出現136局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 14,
+      "firstMoveBasis": "f5",
+      "gameCount": 180,
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "d3",
+        "c4",
+        "f4",
+        "f6",
+        "f3",
+        "e6",
+        "e7",
+        "c6",
+        "g6",
+        "g5",
+        "f7"
+      ],
+      "name": "WTHOR-0046",
+      "notes": "T150: WTHOR頻出ライン抽出。出現180局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 15,
+      "firstMoveBasis": "f5",
+      "gameCount": 101,
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "d3",
+        "c4",
+        "f4",
+        "f6",
+        "f3",
+        "e6",
+        "e7",
+        "c6",
+        "g6",
+        "f8",
+        "c5",
+        "b4"
+      ],
+      "name": "WTHOR-0047",
+      "notes": "T150: WTHOR頻出ライン抽出。出現101局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 14,
+      "firstMoveBasis": "f5",
+      "gameCount": 209,
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "d3",
+        "c4",
+        "f4",
+        "f6",
+        "f3",
+        "e6",
+        "e7",
+        "c6",
+        "g6",
+        "f8",
+        "f7"
+      ],
+      "name": "WTHOR-0048",
+      "notes": "T150: WTHOR頻出ライン抽出。出現209局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 13,
+      "firstMoveBasis": "f5",
+      "gameCount": 169,
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "d3",
+        "c4",
+        "f4",
+        "f6",
+        "f3",
+        "e6",
+        "e7",
+        "d7",
+        "c5",
+        "b6"
+      ],
+      "name": "WTHOR-0049",
+      "notes": "T150: WTHOR頻出ライン抽出。出現169局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 16,
+      "firstMoveBasis": "f5",
+      "gameCount": 110,
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "d3",
+        "c4",
+        "f4",
+        "f6",
+        "f3",
+        "e6",
+        "e7",
+        "d7",
+        "c5",
+        "c6",
+        "g6",
+        "f8",
+        "c7"
+      ],
+      "name": "WTHOR-0050",
+      "notes": "T150: WTHOR頻出ライン抽出。出現110局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 16,
+      "firstMoveBasis": "f5",
+      "gameCount": 334,
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "d3",
+        "c4",
+        "f4",
+        "f6",
+        "f3",
+        "e6",
+        "e7",
+        "d7",
+        "g6",
+        "g5",
+        "c5",
+        "b6",
+        "c6"
+      ],
+      "name": "WTHOR-0051",
+      "notes": "T150: WTHOR頻出ライン抽出。出現334局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 16,
+      "firstMoveBasis": "f5",
+      "gameCount": 102,
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "d3",
+        "c4",
+        "f4",
+        "f6",
+        "f3",
+        "e6",
+        "e7",
+        "d7",
+        "g6",
+        "g5",
+        "c5",
+        "c6",
+        "f7"
+      ],
+      "name": "WTHOR-0052",
+      "notes": "T150: WTHOR頻出ライン抽出。出現102局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 16,
+      "firstMoveBasis": "f5",
+      "gameCount": 103,
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "d3",
+        "c4",
+        "f4",
+        "f6",
+        "f3",
+        "e6",
+        "e7",
+        "d7",
+        "g6",
+        "g5",
+        "f7",
+        "e2",
+        "c5"
+      ],
+      "name": "WTHOR-0053",
+      "notes": "T150: WTHOR頻出ライン抽出。出現103局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 13,
+      "firstMoveBasis": "f5",
+      "gameCount": 105,
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "d3",
+        "c4",
+        "f4",
+        "f6",
+        "f3",
+        "e6",
+        "e7",
+        "d7",
+        "g6",
+        "f7"
+      ],
+      "name": "WTHOR-0054",
+      "notes": "T150: WTHOR頻出ライン抽出。出現105局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 16,
+      "firstMoveBasis": "f5",
+      "gameCount": 527,
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "d3",
+        "c4",
+        "f4",
+        "f6",
+        "f3",
+        "e6",
+        "e7",
+        "d7",
+        "g6",
+        "d8",
+        "c5",
+        "c6",
+        "c7"
+      ],
+      "name": "WTHOR-0055",
+      "notes": "T150: WTHOR頻出ライン抽出。出現527局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 14,
+      "firstMoveBasis": "f5",
+      "gameCount": 103,
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "d3",
+        "c4",
+        "f4",
+        "f6",
+        "f3",
+        "e6",
+        "e7",
+        "d7",
+        "g6",
+        "d8",
+        "f7"
+      ],
+      "name": "WTHOR-0056",
+      "notes": "T150: WTHOR頻出ライン抽出。出現103局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 16,
+      "firstMoveBasis": "f5",
+      "gameCount": 143,
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "d3",
+        "c4",
+        "f4",
+        "f6",
+        "f3",
+        "e6",
+        "e7",
+        "d7",
+        "g6",
+        "f8",
+        "c5",
+        "c6",
+        "c7"
+      ],
+      "name": "WTHOR-0057",
+      "notes": "T150: WTHOR頻出ライン抽出。出現143局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 16,
+      "firstMoveBasis": "f5",
+      "gameCount": 401,
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "d3",
+        "c4",
+        "f4",
+        "f6",
+        "f3",
+        "e6",
+        "e7",
+        "d7",
+        "g6",
+        "f8",
+        "f7",
+        "g5",
+        "g4"
+      ],
+      "name": "WTHOR-0058",
+      "notes": "T150: WTHOR頻出ライン抽出。出現401局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 16,
+      "firstMoveBasis": "f5",
+      "gameCount": 671,
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "d3",
+        "c4",
+        "f4",
+        "f6",
+        "f3",
+        "e6",
+        "e7",
+        "d7",
+        "g6",
+        "f8",
+        "f7",
+        "g5",
+        "h6"
+      ],
+      "name": "WTHOR-0059",
+      "notes": "T150: WTHOR頻出ライン抽出。出現671局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 15,
+      "firstMoveBasis": "f5",
+      "gameCount": 155,
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "d3",
+        "c4",
+        "f4",
+        "f6",
+        "f3",
+        "e6",
+        "e7",
+        "d7",
+        "g6",
+        "f8",
+        "f7",
+        "h6"
+      ],
+      "name": "WTHOR-0060",
+      "notes": "T150: WTHOR頻出ライン抽出。出現155局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 14,
+      "firstMoveBasis": "f5",
+      "gameCount": 187,
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "d3",
+        "c4",
+        "f4",
+        "f6",
+        "f3",
+        "e6",
+        "e7",
+        "f7",
+        "c5",
+        "e3",
+        "e2"
+      ],
+      "name": "WTHOR-0061",
+      "notes": "T150: WTHOR頻出ライン抽出。出現187局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 15,
+      "firstMoveBasis": "f5",
+      "gameCount": 106,
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "d3",
+        "c4",
+        "f4",
+        "f6",
+        "f3",
+        "e6",
+        "e7",
+        "f7",
+        "c5",
+        "b6",
+        "b5",
+        "e3"
+      ],
+      "name": "WTHOR-0062",
+      "notes": "T150: WTHOR頻出ライン抽出。出現106局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 16,
+      "firstMoveBasis": "f5",
+      "gameCount": 183,
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "d3",
+        "c4",
+        "f4",
+        "f6",
+        "f3",
+        "e6",
+        "e7",
+        "f7",
+        "c5",
+        "b6",
+        "g6",
+        "e3",
+        "e2"
+      ],
+      "name": "WTHOR-0063",
+      "notes": "T150: WTHOR頻出ライン抽出。出現183局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 16,
+      "firstMoveBasis": "f5",
+      "gameCount": 154,
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "d3",
+        "c4",
+        "f4",
+        "f6",
+        "f3",
+        "e6",
+        "e7",
+        "f7",
+        "c5",
+        "b6",
+        "g6",
+        "g5",
+        "c6"
+      ],
+      "name": "WTHOR-0064",
+      "notes": "T150: WTHOR頻出ライン抽出。出現154局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 16,
+      "firstMoveBasis": "f5",
+      "gameCount": 119,
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "d3",
+        "c4",
+        "f4",
+        "f6",
+        "b4",
+        "f3",
+        "e6",
+        "e3",
+        "f2",
+        "d2",
+        "g5",
+        "g6",
+        "g4"
+      ],
+      "name": "WTHOR-0065",
+      "notes": "T150: WTHOR頻出ライン抽出。出現119局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 16,
+      "firstMoveBasis": "f5",
+      "gameCount": 241,
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "d3",
+        "c4",
+        "f4",
+        "f6",
+        "b4",
+        "f3",
+        "e6",
+        "e3",
+        "g5",
+        "g6",
+        "g4",
+        "h4",
+        "h5"
+      ],
+      "name": "WTHOR-0066",
+      "notes": "T150: WTHOR頻出ライン抽出。出現241局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 13,
+      "firstMoveBasis": "f5",
+      "gameCount": 131,
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "d3",
+        "c4",
+        "f4",
+        "f6",
+        "g5",
+        "e3",
+        "f3",
+        "g4",
+        "e2",
+        "d2"
+      ],
+      "name": "WTHOR-0067",
+      "notes": "T150: WTHOR頻出ライン抽出。出現131局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 14,
+      "firstMoveBasis": "f5",
+      "gameCount": 101,
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "d3",
+        "c4",
+        "f4",
+        "f6",
+        "g5",
+        "e3",
+        "f3",
+        "g4",
+        "h3",
+        "e6",
+        "g3"
+      ],
+      "name": "WTHOR-0068",
+      "notes": "T150: WTHOR頻出ライン抽出。出現101局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 16,
+      "firstMoveBasis": "f5",
+      "gameCount": 105,
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "d3",
+        "c4",
+        "f4",
+        "f6",
+        "g5",
+        "e3",
+        "f3",
+        "g6",
+        "e2",
+        "h5",
+        "c5",
+        "g4",
+        "d2"
+      ],
+      "name": "WTHOR-0069",
+      "notes": "T150: WTHOR頻出ライン抽出。出現105局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 16,
+      "firstMoveBasis": "f5",
+      "gameCount": 139,
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "d3",
+        "c4",
+        "f4",
+        "f6",
+        "g5",
+        "e3",
+        "f3",
+        "g6",
+        "e2",
+        "h5",
+        "c5",
+        "g4",
+        "g3"
+      ],
+      "name": "WTHOR-0070",
+      "notes": "T150: WTHOR頻出ライン抽出。出現139局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 11,
+      "firstMoveBasis": "f5",
+      "gameCount": 136,
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "d3",
+        "c4",
+        "f4",
+        "f6",
+        "g5",
+        "c6",
+        "e3",
+        "d7"
+      ],
+      "name": "WTHOR-0071",
+      "notes": "T150: WTHOR頻出ライン抽出。出現136局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 14,
+      "firstMoveBasis": "f5",
+      "gameCount": 108,
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "d3",
+        "c4",
+        "f4",
+        "f6",
+        "g5",
+        "e6",
+        "c5",
+        "f3",
+        "e3",
+        "g4",
+        "f7"
+      ],
+      "name": "WTHOR-0072",
+      "notes": "T150: WTHOR頻出ライン抽出。出現108局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 12,
+      "firstMoveBasis": "f5",
+      "gameCount": 184,
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "d3",
+        "c4",
+        "f4",
+        "f6",
+        "g5",
+        "e6",
+        "c5",
+        "f3",
+        "b5"
+      ],
+      "name": "WTHOR-0073",
+      "notes": "T150: WTHOR頻出ライン抽出。出現184局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 12,
+      "firstMoveBasis": "f5",
+      "gameCount": 109,
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "d3",
+        "c4",
+        "f4",
+        "f6",
+        "g5",
+        "e6",
+        "c5",
+        "f3",
+        "f7"
+      ],
+      "name": "WTHOR-0074",
+      "notes": "T150: WTHOR頻出ライン抽出。出現109局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 16,
+      "firstMoveBasis": "f5",
+      "gameCount": 229,
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "d3",
+        "c4",
+        "f4",
+        "f6",
+        "g5",
+        "e6",
+        "d7",
+        "e3",
+        "c5",
+        "f3",
+        "e7",
+        "h5",
+        "e2"
+      ],
+      "name": "WTHOR-0075",
+      "notes": "T150: WTHOR頻出ライン抽出。出現229局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 16,
+      "firstMoveBasis": "f5",
+      "gameCount": 137,
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "d3",
+        "c4",
+        "f4",
+        "f6",
+        "g5",
+        "e6",
+        "d7",
+        "e3",
+        "c5",
+        "f3",
+        "e7",
+        "b6",
+        "b5"
+      ],
+      "name": "WTHOR-0076",
+      "notes": "T150: WTHOR頻出ライン抽出。出現137局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 13,
+      "firstMoveBasis": "f5",
+      "gameCount": 193,
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "d3",
+        "c4",
+        "f4",
+        "f6",
+        "g5",
+        "e6",
+        "f7",
+        "d7",
+        "c5",
+        "g3"
+      ],
+      "name": "WTHOR-0077",
+      "notes": "T150: WTHOR頻出ライン抽出。出現193局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 10,
+      "firstMoveBasis": "f5",
+      "gameCount": 126,
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "d3",
+        "c4",
+        "b5",
+        "b4",
+        "f4",
+        "c5",
+        "b3"
+      ],
+      "name": "WTHOR-0078",
+      "notes": "T150: WTHOR頻出ライン抽出。出現126局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 10,
+      "firstMoveBasis": "f5",
+      "gameCount": 112,
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "d3",
+        "c4",
+        "b5",
+        "b4",
+        "f4",
+        "f6",
+        "f3"
+      ],
+      "name": "WTHOR-0079",
+      "notes": "T150: WTHOR頻出ライン抽出。出現112局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 7,
+      "firstMoveBasis": "f5",
+      "gameCount": 100,
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "d3",
+        "c5",
+        "f4",
+        "f3"
+      ],
+      "name": "WTHOR-0080",
+      "notes": "T150: WTHOR頻出ライン抽出。出現100局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 6,
+      "firstMoveBasis": "f5",
+      "gameCount": 122,
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "d3",
+        "c6",
+        "f4"
+      ],
+      "name": "WTHOR-0081",
+      "notes": "T150: WTHOR頻出ライン抽出。出現122局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 5,
+      "firstMoveBasis": "f5",
+      "gameCount": 122,
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "f3",
+        "d3"
+      ],
+      "name": "WTHOR-0082",
+      "notes": "T150: WTHOR頻出ライン抽出。出現122局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 5,
+      "firstMoveBasis": "f5",
+      "gameCount": 107,
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "f3",
+        "f4"
+      ],
+      "name": "WTHOR-0083",
+      "notes": "T150: WTHOR頻出ライン抽出。出現107局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 5,
+      "firstMoveBasis": "f5",
+      "gameCount": 181,
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "f4",
+        "e6"
+      ],
+      "name": "WTHOR-0084",
+      "notes": "T150: WTHOR頻出ライン抽出。出現181局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 8,
+      "firstMoveBasis": "f5",
+      "gameCount": 130,
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "f4",
+        "f6",
+        "d3",
+        "f3",
+        "b3"
+      ],
+      "name": "WTHOR-0085",
+      "notes": "T150: WTHOR頻出ライン抽出。出現130局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 7,
+      "firstMoveBasis": "f5",
+      "gameCount": 164,
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "f4",
+        "f6",
+        "d3",
+        "c4"
+      ],
+      "name": "WTHOR-0086",
+      "notes": "T150: WTHOR頻出ライン抽出。出現164局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 10,
+      "firstMoveBasis": "f5",
+      "gameCount": 111,
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "f4",
+        "f6",
+        "f3",
+        "d3",
+        "c4",
+        "e3",
+        "e2"
+      ],
+      "name": "WTHOR-0087",
+      "notes": "T150: WTHOR頻出ライン抽出。出現111局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 6,
+      "firstMoveBasis": "f5",
+      "gameCount": 103,
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "f4",
+        "f6",
+        "c4"
+      ],
+      "name": "WTHOR-0088",
+      "notes": "T150: WTHOR頻出ライン抽出。出現103局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 7,
+      "firstMoveBasis": "f5",
+      "gameCount": 160,
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "f4",
+        "f6",
+        "g5",
+        "e6"
+      ],
+      "name": "WTHOR-0089",
+      "notes": "T150: WTHOR頻出ライン抽出。出現160局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 6,
+      "firstMoveBasis": "f5",
+      "gameCount": 108,
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "g5",
+        "c6",
+        "c5"
+      ],
+      "name": "WTHOR-0090",
+      "notes": "T150: WTHOR頻出ライン抽出。出現108局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 6,
+      "firstMoveBasis": "f5",
+      "gameCount": 129,
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "g5",
+        "c6",
+        "b6"
+      ],
+      "name": "WTHOR-0091",
+      "notes": "T150: WTHOR頻出ライン抽出。出現129局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 4,
+      "firstMoveBasis": "f5",
+      "gameCount": 108,
+      "moves": [
+        "f5",
+        "d6",
+        "c4",
+        "b3"
+      ],
+      "name": "WTHOR-0092",
+      "notes": "T150: WTHOR頻出ライン抽出。出現108局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 8,
+      "firstMoveBasis": "f5",
+      "gameCount": 132,
+      "moves": [
+        "f5",
+        "d6",
+        "c4",
+        "d3",
+        "c3",
+        "f4",
+        "e3",
+        "f3"
+      ],
+      "name": "WTHOR-0093",
+      "notes": "T150: WTHOR頻出ライン抽出。出現132局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 15,
+      "firstMoveBasis": "f5",
+      "gameCount": 104,
+      "moves": [
+        "f5",
+        "d6",
+        "c4",
+        "d3",
+        "c3",
+        "f4",
+        "c5",
+        "b3",
+        "c2",
+        "e3",
+        "d2",
+        "c6",
+        "b4",
+        "a3",
+        "g3"
+      ],
+      "name": "WTHOR-0094",
+      "notes": "T150: WTHOR頻出ライン抽出。出現104局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 13,
+      "firstMoveBasis": "f5",
+      "gameCount": 107,
+      "moves": [
+        "f5",
+        "d6",
+        "c4",
+        "d3",
+        "c3",
+        "f4",
+        "c5",
+        "b3",
+        "c2",
+        "b4",
+        "e3",
+        "e6",
+        "b6"
+      ],
+      "name": "WTHOR-0095",
+      "notes": "T150: WTHOR頻出ライン抽出。出現107局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 14,
+      "firstMoveBasis": "f5",
+      "gameCount": 116,
+      "moves": [
+        "f5",
+        "d6",
+        "c4",
+        "d3",
+        "c3",
+        "f4",
+        "c5",
+        "b3",
+        "c2",
+        "b4",
+        "e3",
+        "e6",
+        "c6",
+        "f6"
+      ],
+      "name": "WTHOR-0096",
+      "notes": "T150: WTHOR頻出ライン抽出。出現116局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 16,
+      "firstMoveBasis": "f5",
+      "gameCount": 202,
+      "moves": [
+        "f5",
+        "d6",
+        "c4",
+        "d3",
+        "c3",
+        "f4",
+        "c5",
+        "b3",
+        "c2",
+        "e6",
+        "c6",
+        "b4",
+        "b5",
+        "d2",
+        "e3",
+        "a6"
+      ],
+      "name": "WTHOR-0097",
+      "notes": "T150: WTHOR頻出ライン抽出。出現202局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 9,
+      "firstMoveBasis": "f5",
+      "gameCount": 124,
+      "moves": [
+        "f5",
+        "d6",
+        "c4",
+        "d3",
+        "c3",
+        "f4",
+        "c5",
+        "b3",
+        "e2"
+      ],
+      "name": "WTHOR-0098",
+      "notes": "T150: WTHOR頻出ライン抽出。出現124局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 9,
+      "firstMoveBasis": "f5",
+      "gameCount": 127,
+      "moves": [
+        "f5",
+        "d6",
+        "c4",
+        "d3",
+        "c3",
+        "f4",
+        "c5",
+        "b4",
+        "b3"
+      ],
+      "name": "WTHOR-0099",
+      "notes": "T150: WTHOR頻出ライン抽出。出現127局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 13,
+      "firstMoveBasis": "f5",
+      "gameCount": 103,
+      "moves": [
+        "f5",
+        "d6",
+        "c4",
+        "d3",
+        "c3",
+        "f4",
+        "e6",
+        "b3",
+        "e2",
+        "c5",
+        "c6",
+        "e3",
+        "d2"
+      ],
+      "name": "WTHOR-0100",
+      "notes": "T150: WTHOR頻出ライン抽出。出現103局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 10,
+      "firstMoveBasis": "f5",
+      "gameCount": 115,
+      "moves": [
+        "f5",
+        "d6",
+        "c4",
+        "d3",
+        "c3",
+        "f4",
+        "e6",
+        "f6",
+        "e3",
+        "c5"
+      ],
+      "name": "WTHOR-0101",
+      "notes": "T150: WTHOR頻出ライン抽出。出現115局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 12,
+      "firstMoveBasis": "f5",
+      "gameCount": 106,
+      "moves": [
+        "f5",
+        "d6",
+        "c4",
+        "d3",
+        "c3",
+        "f4",
+        "f6",
+        "f3",
+        "e6",
+        "e7",
+        "c6",
+        "g6"
+      ],
+      "name": "WTHOR-0102",
+      "notes": "T150: WTHOR頻出ライン抽出。出現106局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 12,
+      "firstMoveBasis": "f5",
+      "gameCount": 115,
+      "moves": [
+        "f5",
+        "d6",
+        "c4",
+        "d3",
+        "c3",
+        "f4",
+        "f6",
+        "f3",
+        "e6",
+        "e7",
+        "d7",
+        "c5"
+      ],
+      "name": "WTHOR-0103",
+      "notes": "T150: WTHOR頻出ライン抽出。出現115局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 14,
+      "firstMoveBasis": "f5",
+      "gameCount": 102,
+      "moves": [
+        "f5",
+        "d6",
+        "c4",
+        "d3",
+        "c3",
+        "f4",
+        "f6",
+        "f3",
+        "e6",
+        "e7",
+        "d7",
+        "g6",
+        "g5",
+        "c5"
+      ],
+      "name": "WTHOR-0104",
+      "notes": "T150: WTHOR頻出ライン抽出。出現102局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 14,
+      "firstMoveBasis": "f5",
+      "gameCount": 132,
+      "moves": [
+        "f5",
+        "d6",
+        "c4",
+        "d3",
+        "c3",
+        "f4",
+        "f6",
+        "f3",
+        "e6",
+        "e7",
+        "d7",
+        "g6",
+        "g5",
+        "f7"
+      ],
+      "name": "WTHOR-0105",
+      "notes": "T150: WTHOR頻出ライン抽出。出現132局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 14,
+      "firstMoveBasis": "f5",
+      "gameCount": 117,
+      "moves": [
+        "f5",
+        "d6",
+        "c4",
+        "d3",
+        "c3",
+        "f4",
+        "f6",
+        "f3",
+        "e6",
+        "e7",
+        "d7",
+        "g6",
+        "f8",
+        "f7"
+      ],
+      "name": "WTHOR-0106",
+      "notes": "T150: WTHOR頻出ライン抽出。出現117局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 12,
+      "firstMoveBasis": "f5",
+      "gameCount": 158,
+      "moves": [
+        "f5",
+        "d6",
+        "c4",
+        "d3",
+        "c3",
+        "f4",
+        "f6",
+        "f3",
+        "e6",
+        "e7",
+        "f7",
+        "c5"
+      ],
+      "name": "WTHOR-0107",
+      "notes": "T150: WTHOR頻出ライン抽出。出現158局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 14,
+      "firstMoveBasis": "f5",
+      "gameCount": 107,
+      "moves": [
+        "f5",
+        "d6",
+        "c4",
+        "d3",
+        "c3",
+        "f4",
+        "f6",
+        "g5",
+        "e6",
+        "d7",
+        "e3",
+        "c5",
+        "f3",
+        "e7"
+      ],
+      "name": "WTHOR-0108",
+      "notes": "T150: WTHOR頻出ライン抽出。出現107局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 6,
+      "firstMoveBasis": "f5",
+      "gameCount": 138,
+      "moves": [
+        "f5",
+        "d6",
+        "c4",
+        "d3",
+        "c5",
+        "b4"
+      ],
+      "name": "WTHOR-0109",
+      "notes": "T150: WTHOR頻出ライン抽出。出現138局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 8,
+      "firstMoveBasis": "f5",
+      "gameCount": 138,
+      "moves": [
+        "f5",
+        "d6",
+        "c4",
+        "d3",
+        "c5",
+        "f4",
+        "e3",
+        "c3"
+      ],
+      "name": "WTHOR-0110",
+      "notes": "T150: WTHOR頻出ライン抽出。出現138局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 15,
+      "firstMoveBasis": "f5",
+      "gameCount": 144,
+      "moves": [
+        "f5",
+        "d6",
+        "c4",
+        "d3",
+        "c5",
+        "f4",
+        "e3",
+        "f3",
+        "c2",
+        "c6",
+        "e6",
+        "d2",
+        "g4",
+        "b6",
+        "b5"
+      ],
+      "name": "WTHOR-0111",
+      "notes": "T150: WTHOR頻出ライン抽出。出現144局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 9,
+      "firstMoveBasis": "f5",
+      "gameCount": 125,
+      "moves": [
+        "f5",
+        "d6",
+        "c4",
+        "d3",
+        "c5",
+        "f4",
+        "e3",
+        "f3",
+        "e2"
+      ],
+      "name": "WTHOR-0112",
+      "notes": "T150: WTHOR頻出ライン抽出。出現125局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 9,
+      "firstMoveBasis": "f5",
+      "gameCount": 127,
+      "moves": [
+        "f5",
+        "d6",
+        "c4",
+        "d3",
+        "c5",
+        "f4",
+        "e3",
+        "f3",
+        "g4"
+      ],
+      "name": "WTHOR-0113",
+      "notes": "T150: WTHOR頻出ライン抽出。出現127局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 9,
+      "firstMoveBasis": "f5",
+      "gameCount": 102,
+      "moves": [
+        "f5",
+        "d6",
+        "c4",
+        "d3",
+        "e6",
+        "f4",
+        "e3",
+        "f3",
+        "c3"
+      ],
+      "name": "WTHOR-0114",
+      "notes": "T150: WTHOR頻出ライン抽出。出現102局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 13,
+      "firstMoveBasis": "f5",
+      "gameCount": 166,
+      "moves": [
+        "f5",
+        "d6",
+        "c4",
+        "d3",
+        "e6",
+        "f4",
+        "e3",
+        "f3",
+        "c6",
+        "f6",
+        "g5",
+        "g6",
+        "e7"
+      ],
+      "name": "WTHOR-0115",
+      "notes": "T150: WTHOR頻出ライン抽出。出現166局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 6,
+      "firstMoveBasis": "f5",
+      "gameCount": 112,
+      "moves": [
+        "f5",
+        "d6",
+        "c4",
+        "f4",
+        "c5",
+        "d3"
+      ],
+      "name": "WTHOR-0116",
+      "notes": "T150: WTHOR頻出ライン抽出。出現112局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 7,
+      "firstMoveBasis": "f5",
+      "gameCount": 108,
+      "moves": [
+        "f5",
+        "d6",
+        "c4",
+        "f4",
+        "c5",
+        "f6",
+        "g5"
+      ],
+      "name": "WTHOR-0117",
+      "notes": "T150: WTHOR頻出ライン抽出。出現108局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 5,
+      "firstMoveBasis": "f5",
+      "gameCount": 110,
+      "moves": [
+        "f5",
+        "d6",
+        "c4",
+        "f4",
+        "f6"
+      ],
+      "name": "WTHOR-0118",
+      "notes": "T150: WTHOR頻出ライン抽出。出現110局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 7,
+      "firstMoveBasis": "f5",
+      "gameCount": 113,
+      "moves": [
+        "f5",
+        "d6",
+        "c4",
+        "g5",
+        "c6",
+        "c5",
+        "b6"
+      ],
+      "name": "WTHOR-0119",
+      "notes": "T150: WTHOR頻出ライン抽出。出現113局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 13,
+      "firstMoveBasis": "f5",
+      "gameCount": 107,
+      "moves": [
+        "f5",
+        "d6",
+        "c4",
+        "g5",
+        "c6",
+        "c5",
+        "f6",
+        "f4",
+        "e6",
+        "f7",
+        "g4",
+        "f3",
+        "h5"
+      ],
+      "name": "WTHOR-0120",
+      "notes": "T150: WTHOR頻出ライン抽出。出現107局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 16,
+      "firstMoveBasis": "f5",
+      "gameCount": 124,
+      "moves": [
+        "f5",
+        "d6",
+        "c4",
+        "g5",
+        "c6",
+        "c5",
+        "d7",
+        "d3",
+        "b4",
+        "c3",
+        "e3",
+        "f3",
+        "e2",
+        "c2",
+        "g4",
+        "h3"
+      ],
+      "name": "WTHOR-0121",
+      "notes": "T150: WTHOR頻出ライン抽出。出現124局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 16,
+      "firstMoveBasis": "f5",
+      "gameCount": 145,
+      "moves": [
+        "f5",
+        "d6",
+        "c4",
+        "g5",
+        "c6",
+        "c5",
+        "d7",
+        "d3",
+        "b4",
+        "c3",
+        "e3",
+        "b5",
+        "a4",
+        "f2",
+        "c2",
+        "a6"
+      ],
+      "name": "WTHOR-0122",
+      "notes": "T150: WTHOR頻出ライン抽出。出現145局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 12,
+      "firstMoveBasis": "f5",
+      "gameCount": 120,
+      "moves": [
+        "f5",
+        "d6",
+        "c4",
+        "g5",
+        "f6",
+        "f4",
+        "f3",
+        "d3",
+        "c3",
+        "g6",
+        "e3",
+        "g3"
+      ],
+      "name": "WTHOR-0123",
+      "notes": "T150: WTHOR頻出ライン抽出。出現120局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 14,
+      "firstMoveBasis": "f5",
+      "gameCount": 131,
+      "moves": [
+        "f5",
+        "d6",
+        "c4",
+        "g5",
+        "f6",
+        "f4",
+        "f3",
+        "d3",
+        "c3",
+        "g6",
+        "e3",
+        "e6",
+        "c5",
+        "e2"
+      ],
+      "name": "WTHOR-0124",
+      "notes": "T150: WTHOR頻出ライン抽出。出現131局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 15,
+      "firstMoveBasis": "f5",
+      "gameCount": 130,
+      "moves": [
+        "f5",
+        "d6",
+        "c4",
+        "g5",
+        "f6",
+        "f4",
+        "f3",
+        "d3",
+        "c3",
+        "g6",
+        "e3",
+        "e6",
+        "h6",
+        "e2",
+        "f2"
+      ],
+      "name": "WTHOR-0125",
+      "notes": "T150: WTHOR頻出ライン抽出。出現130局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 9,
+      "firstMoveBasis": "f5",
+      "gameCount": 139,
+      "moves": [
+        "f5",
+        "d6",
+        "c5",
+        "f4",
+        "d3",
+        "e3",
+        "g4",
+        "g3",
+        "e6"
+      ],
+      "name": "WTHOR-0126",
+      "notes": "T150: WTHOR頻出ライン抽出。出現139局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 10,
+      "firstMoveBasis": "f5",
+      "gameCount": 103,
+      "moves": [
+        "f5",
+        "d6",
+        "c5",
+        "f4",
+        "d3",
+        "e3",
+        "g4",
+        "g5",
+        "e2",
+        "c4"
+      ],
+      "name": "WTHOR-0127",
+      "notes": "T150: WTHOR頻出ライン抽出。出現103局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 11,
+      "firstMoveBasis": "f5",
+      "gameCount": 201,
+      "moves": [
+        "f5",
+        "d6",
+        "c5",
+        "f4",
+        "d3",
+        "e3",
+        "g4",
+        "g5",
+        "e6",
+        "c4",
+        "g3"
+      ],
+      "name": "WTHOR-0128",
+      "notes": "T150: WTHOR頻出ライン抽出。出現201局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 8,
+      "firstMoveBasis": "f5",
+      "gameCount": 108,
+      "moves": [
+        "f5",
+        "d6",
+        "c5",
+        "f4",
+        "d3",
+        "e3",
+        "f6",
+        "e6"
+      ],
+      "name": "WTHOR-0129",
+      "notes": "T150: WTHOR頻出ライン抽出。出現108局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 8,
+      "firstMoveBasis": "f5",
+      "gameCount": 116,
+      "moves": [
+        "f5",
+        "d6",
+        "c5",
+        "f4",
+        "d3",
+        "c4",
+        "c3",
+        "c6"
+      ],
+      "name": "WTHOR-0130",
+      "notes": "T150: WTHOR頻出ライン抽出。出現116局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 7,
+      "firstMoveBasis": "f5",
+      "gameCount": 126,
+      "moves": [
+        "f5",
+        "d6",
+        "c5",
+        "f4",
+        "d3",
+        "c4",
+        "e3"
+      ],
+      "name": "WTHOR-0131",
+      "notes": "T150: WTHOR頻出ライン抽出。出現126局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 7,
+      "firstMoveBasis": "f5",
+      "gameCount": 135,
+      "moves": [
+        "f5",
+        "d6",
+        "c5",
+        "f4",
+        "e3",
+        "d3",
+        "e6"
+      ],
+      "name": "WTHOR-0132",
+      "notes": "T150: WTHOR頻出ライン抽出。出現135局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 8,
+      "firstMoveBasis": "f5",
+      "gameCount": 123,
+      "moves": [
+        "f5",
+        "d6",
+        "c5",
+        "f4",
+        "e3",
+        "c4",
+        "e6",
+        "c6"
+      ],
+      "name": "WTHOR-0133",
+      "notes": "T150: WTHOR頻出ライン抽出。出現123局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 8,
+      "firstMoveBasis": "f5",
+      "gameCount": 225,
+      "moves": [
+        "f5",
+        "d6",
+        "c5",
+        "f4",
+        "e3",
+        "c6",
+        "d3",
+        "e2"
+      ],
+      "name": "WTHOR-0134",
+      "notes": "T150: WTHOR頻出ライン抽出。出現225局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 9,
+      "firstMoveBasis": "f5",
+      "gameCount": 139,
+      "moves": [
+        "f5",
+        "d6",
+        "c5",
+        "f4",
+        "e3",
+        "c6",
+        "d3",
+        "f3",
+        "g4"
+      ],
+      "name": "WTHOR-0135",
+      "notes": "T150: WTHOR頻出ライン抽出。出現139局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 16,
+      "firstMoveBasis": "f5",
+      "gameCount": 130,
+      "moves": [
+        "f5",
+        "d6",
+        "c5",
+        "f4",
+        "e3",
+        "c6",
+        "d3",
+        "f3",
+        "e6",
+        "f6",
+        "g4",
+        "g3",
+        "g5",
+        "h5",
+        "h4",
+        "h3"
+      ],
+      "name": "WTHOR-0136",
+      "notes": "T150: WTHOR頻出ライン抽出。出現130局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 11,
+      "firstMoveBasis": "f5",
+      "gameCount": 130,
+      "moves": [
+        "f5",
+        "d6",
+        "c5",
+        "f4",
+        "e3",
+        "c6",
+        "d3",
+        "f3",
+        "e6",
+        "f7",
+        "g4"
+      ],
+      "name": "WTHOR-0137",
+      "notes": "T150: WTHOR頻出ライン抽出。出現130局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 14,
+      "firstMoveBasis": "f5",
+      "gameCount": 170,
+      "moves": [
+        "f5",
+        "d6",
+        "c5",
+        "f4",
+        "e3",
+        "c6",
+        "d3",
+        "g5",
+        "e6",
+        "f6",
+        "g3",
+        "c4",
+        "b4",
+        "b3"
+      ],
+      "name": "WTHOR-0138",
+      "notes": "T150: WTHOR頻出ライン抽出。出現170局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 11,
+      "firstMoveBasis": "f5",
+      "gameCount": 102,
+      "moves": [
+        "f5",
+        "d6",
+        "c5",
+        "f4",
+        "e3",
+        "c6",
+        "d3",
+        "g5",
+        "f6",
+        "f3",
+        "g6"
+      ],
+      "name": "WTHOR-0139",
+      "notes": "T150: WTHOR頻出ライン抽出。出現102局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 16,
+      "firstMoveBasis": "f5",
+      "gameCount": 102,
+      "moves": [
+        "f5",
+        "d6",
+        "c5",
+        "f4",
+        "e3",
+        "c6",
+        "d3",
+        "f6",
+        "e6",
+        "d7",
+        "g3",
+        "c4",
+        "b4",
+        "b3",
+        "b5",
+        "a4"
+      ],
+      "name": "WTHOR-0140",
+      "notes": "T150: WTHOR頻出ライン抽出。出現102局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 16,
+      "firstMoveBasis": "f5",
+      "gameCount": 583,
+      "moves": [
+        "f5",
+        "d6",
+        "c5",
+        "f4",
+        "e3",
+        "c6",
+        "d3",
+        "f6",
+        "e6",
+        "d7",
+        "g3",
+        "c4",
+        "b4",
+        "b3",
+        "g5",
+        "c3"
+      ],
+      "name": "WTHOR-0141",
+      "notes": "T150: WTHOR頻出ライン抽出。出現583局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 16,
+      "firstMoveBasis": "f5",
+      "gameCount": 137,
+      "moves": [
+        "f5",
+        "d6",
+        "c5",
+        "f4",
+        "e3",
+        "c6",
+        "d3",
+        "f6",
+        "e6",
+        "d7",
+        "g3",
+        "c4",
+        "b4",
+        "b3",
+        "b6",
+        "c3"
+      ],
+      "name": "WTHOR-0142",
+      "notes": "T150: WTHOR頻出ライン抽出。出現137局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 15,
+      "firstMoveBasis": "f5",
+      "gameCount": 130,
+      "moves": [
+        "f5",
+        "d6",
+        "c5",
+        "f4",
+        "e3",
+        "c6",
+        "d3",
+        "f6",
+        "e6",
+        "d7",
+        "g3",
+        "c4",
+        "g5",
+        "c3",
+        "b4"
+      ],
+      "name": "WTHOR-0143",
+      "notes": "T150: WTHOR頻出ライン抽出。出現130局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 16,
+      "firstMoveBasis": "f5",
+      "gameCount": 145,
+      "moves": [
+        "f5",
+        "d6",
+        "c5",
+        "f4",
+        "e3",
+        "c6",
+        "d3",
+        "f6",
+        "e6",
+        "d7",
+        "g3",
+        "c4",
+        "g5",
+        "c3",
+        "f7",
+        "d2"
+      ],
+      "name": "WTHOR-0144",
+      "notes": "T150: WTHOR頻出ライン抽出。出現145局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 16,
+      "firstMoveBasis": "f5",
+      "gameCount": 140,
+      "moves": [
+        "f5",
+        "d6",
+        "c5",
+        "f4",
+        "e3",
+        "c6",
+        "d3",
+        "f6",
+        "e6",
+        "d7",
+        "g3",
+        "c4",
+        "g6",
+        "c3",
+        "f7",
+        "d2"
+      ],
+      "name": "WTHOR-0145",
+      "notes": "T150: WTHOR頻出ライン抽出。出現140局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 13,
+      "firstMoveBasis": "f5",
+      "gameCount": 146,
+      "moves": [
+        "f5",
+        "d6",
+        "c5",
+        "f4",
+        "e3",
+        "c6",
+        "d3",
+        "f6",
+        "e6",
+        "d7",
+        "g4",
+        "g3",
+        "g6"
+      ],
+      "name": "WTHOR-0146",
+      "notes": "T150: WTHOR頻出ライン抽出。出現146局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 16,
+      "firstMoveBasis": "f5",
+      "gameCount": 100,
+      "moves": [
+        "f5",
+        "d6",
+        "c5",
+        "f4",
+        "e3",
+        "c6",
+        "d3",
+        "f6",
+        "e6",
+        "d7",
+        "g4",
+        "c4",
+        "g5",
+        "c3",
+        "b4",
+        "b3"
+      ],
+      "name": "WTHOR-0147",
+      "notes": "T150: WTHOR頻出ライン抽出。出現100局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 16,
+      "firstMoveBasis": "f5",
+      "gameCount": 484,
+      "moves": [
+        "f5",
+        "d6",
+        "c5",
+        "f4",
+        "e3",
+        "c6",
+        "d3",
+        "f6",
+        "e6",
+        "d7",
+        "g4",
+        "c4",
+        "g5",
+        "c3",
+        "f7",
+        "d2"
+      ],
+      "name": "WTHOR-0148",
+      "notes": "T150: WTHOR頻出ライン抽出。出現484局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 13,
+      "firstMoveBasis": "f5",
+      "gameCount": 100,
+      "moves": [
+        "f5",
+        "d6",
+        "c5",
+        "f4",
+        "e3",
+        "c6",
+        "d3",
+        "f6",
+        "e6",
+        "d7",
+        "e7",
+        "c3",
+        "c4"
+      ],
+      "name": "WTHOR-0149",
+      "notes": "T150: WTHOR頻出ライン抽出。出現100局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 16,
+      "firstMoveBasis": "f5",
+      "gameCount": 300,
+      "moves": [
+        "f5",
+        "d6",
+        "c5",
+        "f4",
+        "e3",
+        "c6",
+        "d3",
+        "f6",
+        "e6",
+        "d7",
+        "e7",
+        "c7",
+        "c4",
+        "f3",
+        "d8",
+        "c8"
+      ],
+      "name": "WTHOR-0150",
+      "notes": "T150: WTHOR頻出ライン抽出。出現300局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 16,
+      "firstMoveBasis": "f5",
+      "gameCount": 161,
+      "moves": [
+        "f5",
+        "d6",
+        "c5",
+        "f4",
+        "e3",
+        "c6",
+        "d3",
+        "f6",
+        "e6",
+        "d7",
+        "e7",
+        "c7",
+        "c4",
+        "f8",
+        "b6",
+        "b5"
+      ],
+      "name": "WTHOR-0151",
+      "notes": "T150: WTHOR頻出ライン抽出。出現161局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 7,
+      "firstMoveBasis": "f5",
+      "gameCount": 361,
+      "moves": [
+        "f5",
+        "d6",
+        "c5",
+        "f4",
+        "e3",
+        "c6",
+        "f3"
+      ],
+      "name": "WTHOR-0152",
+      "notes": "T150: WTHOR頻出ライン抽出。出現361局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 9,
+      "firstMoveBasis": "f5",
+      "gameCount": 112,
+      "moves": [
+        "f5",
+        "d6",
+        "c5",
+        "f4",
+        "e3",
+        "c6",
+        "e6",
+        "f3",
+        "d3"
+      ],
+      "name": "WTHOR-0153",
+      "notes": "T150: WTHOR頻出ライン抽出。出現112局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 9,
+      "firstMoveBasis": "f5",
+      "gameCount": 170,
+      "moves": [
+        "f5",
+        "d6",
+        "c5",
+        "f4",
+        "e3",
+        "c6",
+        "e6",
+        "f6",
+        "g4"
+      ],
+      "name": "WTHOR-0154",
+      "notes": "T150: WTHOR頻出ライン抽出。出現170局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 11,
+      "firstMoveBasis": "f5",
+      "gameCount": 104,
+      "moves": [
+        "f5",
+        "d6",
+        "c5",
+        "f4",
+        "e3",
+        "c6",
+        "e6",
+        "f6",
+        "d7",
+        "c7",
+        "e7"
+      ],
+      "name": "WTHOR-0155",
+      "notes": "T150: WTHOR頻出ライン抽出。出現104局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 9,
+      "firstMoveBasis": "f5",
+      "gameCount": 181,
+      "moves": [
+        "f5",
+        "d6",
+        "c5",
+        "f4",
+        "e3",
+        "c6",
+        "e6",
+        "f7",
+        "d7"
+      ],
+      "name": "WTHOR-0156",
+      "notes": "T150: WTHOR頻出ライン抽出。出現181局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 9,
+      "firstMoveBasis": "f5",
+      "gameCount": 100,
+      "moves": [
+        "f5",
+        "d6",
+        "c5",
+        "f4",
+        "e3",
+        "c6",
+        "e6",
+        "f7",
+        "e7"
+      ],
+      "name": "WTHOR-0157",
+      "notes": "T150: WTHOR頻出ライン抽出。出現100局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 10,
+      "firstMoveBasis": "f5",
+      "gameCount": 113,
+      "moves": [
+        "f5",
+        "d6",
+        "c5",
+        "f4",
+        "e3",
+        "c6",
+        "d7",
+        "e6",
+        "f6",
+        "d3"
+      ],
+      "name": "WTHOR-0158",
+      "notes": "T150: WTHOR頻出ライン抽出。出現113局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 7,
+      "firstMoveBasis": "f5",
+      "gameCount": 126,
+      "moves": [
+        "f5",
+        "d6",
+        "c5",
+        "f4",
+        "e3",
+        "f6",
+        "f3"
+      ],
+      "name": "WTHOR-0159",
+      "notes": "T150: WTHOR頻出ライン抽出。出現126局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 8,
+      "firstMoveBasis": "f5",
+      "gameCount": 145,
+      "moves": [
+        "f5",
+        "d6",
+        "c5",
+        "f4",
+        "f3",
+        "e3",
+        "c4",
+        "d3"
+      ],
+      "name": "WTHOR-0160",
+      "notes": "T150: WTHOR頻出ライン抽出。出現145局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 6,
+      "firstMoveBasis": "f5",
+      "gameCount": 139,
+      "moves": [
+        "f5",
+        "d6",
+        "c5",
+        "f4",
+        "d7",
+        "f6"
+      ],
+      "name": "WTHOR-0161",
+      "notes": "T150: WTHOR頻出ライン抽出。出現139局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 6,
+      "firstMoveBasis": "f5",
+      "gameCount": 116,
+      "moves": [
+        "f5",
+        "d6",
+        "c5",
+        "f6",
+        "e6",
+        "f4"
+      ],
+      "name": "WTHOR-0162",
+      "notes": "T150: WTHOR頻出ライン抽出。出現116局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 6,
+      "firstMoveBasis": "f5",
+      "gameCount": 140,
+      "moves": [
+        "f5",
+        "d6",
+        "c6",
+        "f4",
+        "e6",
+        "c5"
+      ],
+      "name": "WTHOR-0163",
+      "notes": "T150: WTHOR頻出ライン抽出。出現140局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 6,
+      "firstMoveBasis": "f5",
+      "gameCount": 145,
+      "moves": [
+        "f5",
+        "d6",
+        "c6",
+        "f4",
+        "e6",
+        "g5"
+      ],
+      "name": "WTHOR-0164",
+      "notes": "T150: WTHOR頻出ライン抽出。出現145局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 3,
+      "firstMoveBasis": "f5",
+      "gameCount": 113,
+      "moves": [
+        "f5",
+        "d6",
+        "c7"
+      ],
+      "name": "WTHOR-0165",
+      "notes": "T150: WTHOR頻出ライン抽出。出現113局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 3,
+      "firstMoveBasis": "f5",
+      "gameCount": 180,
+      "moves": [
+        "f5",
+        "f6",
+        "d3"
+      ],
+      "name": "WTHOR-0166",
+      "notes": "T150: WTHOR頻出ライン抽出。出現180局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 3,
+      "firstMoveBasis": "f5",
+      "gameCount": 199,
+      "moves": [
+        "f5",
+        "f6",
+        "c4"
+      ],
+      "name": "WTHOR-0167",
+      "notes": "T150: WTHOR頻出ライン抽出。出現199局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 7,
+      "firstMoveBasis": "f5",
+      "gameCount": 213,
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "c3",
+        "c4",
+        "d3"
+      ],
+      "name": "北陸バッファロー・基本形",
+      "notes": "T150: WTHOR頻出ライン抽出。出現213局(最大深さ16手)。既存bookgen/joseki-research.jsonの同名ラインと着手列が完全一致(名前継承)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 13,
+      "firstMoveBasis": "f5",
+      "gameCount": 112,
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "c3",
+        "d6",
+        "f3",
+        "c4",
+        "c5",
+        "b4",
+        "a5",
+        "a3",
+        "c6"
+      ],
+      "name": "WTHOR-0168",
+      "notes": "T150: WTHOR頻出ライン抽出。出現112局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 9,
+      "firstMoveBasis": "f5",
+      "gameCount": 132,
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "c3",
+        "d6",
+        "f3",
+        "c5",
+        "g4"
+      ],
+      "name": "WTHOR-0169",
+      "notes": "T150: WTHOR頻出ライン抽出。出現132局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 9,
+      "firstMoveBasis": "f5",
+      "gameCount": 101,
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "c3",
+        "d7",
+        "e3",
+        "d6",
+        "e7"
+      ],
+      "name": "WTHOR-0170",
+      "notes": "T150: WTHOR頻出ライン抽出。出現101局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 11,
+      "firstMoveBasis": "f5",
+      "gameCount": 112,
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "c3",
+        "d7",
+        "f3",
+        "d6",
+        "g5",
+        "e3",
+        "g4"
+      ],
+      "name": "WTHOR-0171",
+      "notes": "T150: WTHOR頻出ライン抽出。出現112局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 7,
+      "firstMoveBasis": "f5",
+      "gameCount": 185,
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "c3",
+        "e7",
+        "f3"
+      ],
+      "name": "WTHOR-0172",
+      "notes": "T150: WTHOR頻出ライン抽出。出現185局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 7,
+      "firstMoveBasis": "f5",
+      "gameCount": 106,
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "d3",
+        "d6",
+        "f3"
+      ],
+      "name": "WTHOR-0173",
+      "notes": "T150: WTHOR頻出ライン抽出。出現106局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 8,
+      "firstMoveBasis": "f5",
+      "gameCount": 131,
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "e3",
+        "d3",
+        "f3",
+        "d2"
+      ],
+      "name": "WTHOR-0174",
+      "notes": "T150: WTHOR頻出ライン抽出。出現131局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 8,
+      "firstMoveBasis": "f5",
+      "gameCount": 215,
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "e3",
+        "d3",
+        "f3",
+        "c5"
+      ],
+      "name": "WTHOR-0175",
+      "notes": "T150: WTHOR頻出ライン抽出。出現215局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 10,
+      "firstMoveBasis": "f5",
+      "gameCount": 198,
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "e3",
+        "c5",
+        "c4",
+        "d3",
+        "c3",
+        "f2"
+      ],
+      "name": "WTHOR-0176",
+      "notes": "T150: WTHOR頻出ライン抽出。出現198局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 11,
+      "firstMoveBasis": "f5",
+      "gameCount": 114,
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "e3",
+        "c5",
+        "c4",
+        "d3",
+        "f3",
+        "e2",
+        "c3"
+      ],
+      "name": "WTHOR-0177",
+      "notes": "T150: WTHOR頻出ライン抽出。出現114局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 16,
+      "firstMoveBasis": "f5",
+      "gameCount": 156,
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "e3",
+        "c5",
+        "c4",
+        "d6",
+        "b5",
+        "d3",
+        "c3",
+        "e2",
+        "f2",
+        "c2",
+        "f1",
+        "b4"
+      ],
+      "name": "WTHOR-0178",
+      "notes": "T150: WTHOR頻出ライン抽出。出現156局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 14,
+      "firstMoveBasis": "f5",
+      "gameCount": 169,
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "e3",
+        "c5",
+        "c4",
+        "d6",
+        "b6",
+        "b5",
+        "c6",
+        "d7",
+        "c7",
+        "a6"
+      ],
+      "name": "WTHOR-0179",
+      "notes": "T150: WTHOR頻出ライン抽出。出現169局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 10,
+      "firstMoveBasis": "f5",
+      "gameCount": 151,
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "e3",
+        "c5",
+        "c4",
+        "d6",
+        "c6",
+        "b3"
+      ],
+      "name": "WTHOR-0180",
+      "notes": "T150: WTHOR頻出ライン抽出。出現151局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 14,
+      "firstMoveBasis": "f5",
+      "gameCount": 112,
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "e3",
+        "c5",
+        "c4",
+        "d6",
+        "c6",
+        "b5",
+        "d7",
+        "e7",
+        "b6",
+        "c8"
+      ],
+      "name": "WTHOR-0181",
+      "notes": "T150: WTHOR頻出ライン抽出。出現112局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 16,
+      "firstMoveBasis": "f5",
+      "gameCount": 139,
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "e3",
+        "c5",
+        "c4",
+        "d7",
+        "c6",
+        "e2",
+        "f3",
+        "d3",
+        "c3",
+        "d2",
+        "e1",
+        "f2"
+      ],
+      "name": "WTHOR-0182",
+      "notes": "T150: WTHOR頻出ライン抽出。出現139局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 10,
+      "firstMoveBasis": "f5",
+      "gameCount": 184,
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "e3",
+        "c5",
+        "c4",
+        "e7",
+        "g4",
+        "f3"
+      ],
+      "name": "WTHOR-0183",
+      "notes": "T150: WTHOR頻出ライン抽出。出現184局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 10,
+      "firstMoveBasis": "f5",
+      "gameCount": 121,
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "e3",
+        "c5",
+        "c4",
+        "e7",
+        "g4",
+        "g3"
+      ],
+      "name": "WTHOR-0184",
+      "notes": "T150: WTHOR頻出ライン抽出。出現121局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 10,
+      "firstMoveBasis": "f5",
+      "gameCount": 187,
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "e3",
+        "c5",
+        "c4",
+        "e7",
+        "b5",
+        "e2"
+      ],
+      "name": "WTHOR-0185",
+      "notes": "T150: WTHOR頻出ライン抽出。出現187局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 13,
+      "firstMoveBasis": "f5",
+      "gameCount": 108,
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "e3",
+        "c5",
+        "c4",
+        "e7",
+        "c6",
+        "d2",
+        "e2",
+        "c3",
+        "d3"
+      ],
+      "name": "WTHOR-0186",
+      "notes": "T150: WTHOR頻出ライン抽出。出現108局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 14,
+      "firstMoveBasis": "f5",
+      "gameCount": 100,
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "e3",
+        "c5",
+        "c4",
+        "e7",
+        "c6",
+        "e2",
+        "f2",
+        "d2",
+        "f3",
+        "d3"
+      ],
+      "name": "WTHOR-0187",
+      "notes": "T150: WTHOR頻出ライン抽出。出現100局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 14,
+      "firstMoveBasis": "f5",
+      "gameCount": 127,
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "e3",
+        "c5",
+        "c4",
+        "e7",
+        "c6",
+        "e2",
+        "f3",
+        "f2",
+        "g4",
+        "g5"
+      ],
+      "name": "WTHOR-0188",
+      "notes": "T150: WTHOR頻出ライン抽出。出現127局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 16,
+      "firstMoveBasis": "f5",
+      "gameCount": 272,
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "e3",
+        "c5",
+        "c4",
+        "e7",
+        "c6",
+        "e2",
+        "f3",
+        "f2",
+        "g5",
+        "g4",
+        "g6",
+        "d6"
+      ],
+      "name": "WTHOR-0189",
+      "notes": "T150: WTHOR頻出ライン抽出。出現272局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 16,
+      "firstMoveBasis": "f5",
+      "gameCount": 318,
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "e3",
+        "c5",
+        "c4",
+        "e7",
+        "c6",
+        "e2",
+        "f3",
+        "d3",
+        "c3",
+        "d2",
+        "e1",
+        "c1"
+      ],
+      "name": "WTHOR-0190",
+      "notes": "T150: WTHOR頻出ライン抽出。出現318局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 14,
+      "firstMoveBasis": "f5",
+      "gameCount": 129,
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "e3",
+        "c5",
+        "c4",
+        "e7",
+        "c6",
+        "e2",
+        "f3",
+        "g4",
+        "g5",
+        "d6"
+      ],
+      "name": "WTHOR-0191",
+      "notes": "T150: WTHOR頻出ライン抽出。出現129局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 9,
+      "firstMoveBasis": "f5",
+      "gameCount": 138,
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "e3",
+        "c5",
+        "g5",
+        "d3",
+        "d6"
+      ],
+      "name": "WTHOR-0192",
+      "notes": "T150: WTHOR頻出ライン抽出。出現138局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 8,
+      "firstMoveBasis": "f5",
+      "gameCount": 168,
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "e3",
+        "c5",
+        "g5",
+        "f3"
+      ],
+      "name": "WTHOR-0193",
+      "notes": "T150: WTHOR頻出ライン抽出。出現168局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 11,
+      "firstMoveBasis": "f5",
+      "gameCount": 138,
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "e3",
+        "c5",
+        "g5",
+        "g3",
+        "g4",
+        "f3",
+        "c4"
+      ],
+      "name": "WTHOR-0194",
+      "notes": "T150: WTHOR頻出ライン抽出。出現138局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 14,
+      "firstMoveBasis": "f5",
+      "gameCount": 104,
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "e3",
+        "c5",
+        "g5",
+        "g3",
+        "g4",
+        "f3",
+        "g6",
+        "d3",
+        "f2",
+        "h4"
+      ],
+      "name": "WTHOR-0195",
+      "notes": "T150: WTHOR頻出ライン抽出。出現104局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 12,
+      "firstMoveBasis": "f5",
+      "gameCount": 102,
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "e3",
+        "c5",
+        "g5",
+        "g3",
+        "g6",
+        "f3",
+        "d3",
+        "e2"
+      ],
+      "name": "WTHOR-0196",
+      "notes": "T150: WTHOR頻出ライン抽出。出現102局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 9,
+      "firstMoveBasis": "f5",
+      "gameCount": 101,
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "e3",
+        "c5",
+        "g5",
+        "d6",
+        "g6"
+      ],
+      "name": "WTHOR-0197",
+      "notes": "T150: WTHOR頻出ライン抽出。出現101局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 9,
+      "firstMoveBasis": "f5",
+      "gameCount": 143,
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "e3",
+        "c5",
+        "c6",
+        "d3",
+        "f3"
+      ],
+      "name": "WTHOR-0198",
+      "notes": "T150: WTHOR頻出ライン抽出。出現143局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 11,
+      "firstMoveBasis": "f5",
+      "gameCount": 147,
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "e3",
+        "c5",
+        "c6",
+        "d6",
+        "e7",
+        "d7",
+        "c3"
+      ],
+      "name": "WTHOR-0199",
+      "notes": "T150: WTHOR頻出ライン抽出。出現147局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 11,
+      "firstMoveBasis": "f5",
+      "gameCount": 112,
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "e3",
+        "c5",
+        "c6",
+        "d6",
+        "e7",
+        "f7",
+        "c3"
+      ],
+      "name": "WTHOR-0200",
+      "notes": "T150: WTHOR頻出ライン抽出。出現112局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 12,
+      "firstMoveBasis": "f5",
+      "gameCount": 105,
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "e3",
+        "c5",
+        "g6",
+        "f3",
+        "g5",
+        "g3",
+        "d3",
+        "e2"
+      ],
+      "name": "WTHOR-0201",
+      "notes": "T150: WTHOR頻出ライン抽出。出現105局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 15,
+      "firstMoveBasis": "f5",
+      "gameCount": 147,
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "e3",
+        "d6",
+        "c4",
+        "e2",
+        "f7",
+        "c6",
+        "d7",
+        "e7",
+        "g5",
+        "g6",
+        "h6"
+      ],
+      "name": "WTHOR-0202",
+      "notes": "T150: WTHOR頻出ライン抽出。出現147局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 11,
+      "firstMoveBasis": "f5",
+      "gameCount": 221,
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "e3",
+        "d6",
+        "c4",
+        "f3",
+        "g3",
+        "c3",
+        "c5"
+      ],
+      "name": "WTHOR-0203",
+      "notes": "T150: WTHOR頻出ライン抽出。出現221局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 11,
+      "firstMoveBasis": "f5",
+      "gameCount": 107,
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "e3",
+        "d6",
+        "g4",
+        "d3",
+        "c3",
+        "g3",
+        "g5"
+      ],
+      "name": "WTHOR-0204",
+      "notes": "T150: WTHOR頻出ライン抽出。出現107局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 16,
+      "firstMoveBasis": "f5",
+      "gameCount": 115,
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "e3",
+        "d6",
+        "g4",
+        "d3",
+        "c3",
+        "h3",
+        "c4",
+        "g3",
+        "g5",
+        "g6",
+        "c7",
+        "c6"
+      ],
+      "name": "WTHOR-0205",
+      "notes": "T150: WTHOR頻出ライン抽出。出現115局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 16,
+      "firstMoveBasis": "f5",
+      "gameCount": 101,
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "e3",
+        "d6",
+        "g4",
+        "d3",
+        "c3",
+        "h3",
+        "c4",
+        "g3",
+        "g5",
+        "g6",
+        "e7",
+        "d7"
+      ],
+      "name": "WTHOR-0206",
+      "notes": "T150: WTHOR頻出ライン抽出。出現101局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 15,
+      "firstMoveBasis": "f5",
+      "gameCount": 177,
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "e3",
+        "d6",
+        "g4",
+        "d3",
+        "c3",
+        "h3",
+        "c4",
+        "g3",
+        "c6",
+        "c5",
+        "g5"
+      ],
+      "name": "WTHOR-0207",
+      "notes": "T150: WTHOR頻出ライン抽出。出現177局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 7,
+      "firstMoveBasis": "f5",
+      "gameCount": 124,
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "e3",
+        "d6",
+        "c5"
+      ],
+      "name": "WTHOR-0208",
+      "notes": "T150: WTHOR頻出ライン抽出。出現124局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 7,
+      "firstMoveBasis": "f5",
+      "gameCount": 122,
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "e3",
+        "d6",
+        "g5"
+      ],
+      "name": "WTHOR-0209",
+      "notes": "T150: WTHOR頻出ライン抽出。出現122局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 9,
+      "firstMoveBasis": "f5",
+      "gameCount": 129,
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "e3",
+        "d6",
+        "c6",
+        "c5",
+        "e7"
+      ],
+      "name": "WTHOR-0210",
+      "notes": "T150: WTHOR頻出ライン抽出。出現129局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 7,
+      "firstMoveBasis": "f5",
+      "gameCount": 245,
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "e3",
+        "d6",
+        "e7"
+      ],
+      "name": "WTHOR-0211",
+      "notes": "T150: WTHOR頻出ライン抽出。出現245局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 8,
+      "firstMoveBasis": "f5",
+      "gameCount": 153,
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "e3",
+        "d7",
+        "g4",
+        "f3"
+      ],
+      "name": "WTHOR-0212",
+      "notes": "T150: WTHOR頻出ライン抽出。出現153局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 8,
+      "firstMoveBasis": "f5",
+      "gameCount": 138,
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "f3",
+        "c5",
+        "c6",
+        "e3"
+      ],
+      "name": "WTHOR-0213",
+      "notes": "T150: WTHOR頻出ライン抽出。出現138局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 6,
+      "firstMoveBasis": "f5",
+      "gameCount": 128,
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "g3",
+        "d6"
+      ],
+      "name": "WTHOR-0214",
+      "notes": "T150: WTHOR頻出ライン抽出。出現128局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 8,
+      "firstMoveBasis": "f5",
+      "gameCount": 102,
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "g4",
+        "e7",
+        "f7",
+        "g5"
+      ],
+      "name": "WTHOR-0215",
+      "notes": "T150: WTHOR頻出ライン抽出。出現102局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 8,
+      "firstMoveBasis": "f5",
+      "gameCount": 132,
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "g5",
+        "d6",
+        "f3",
+        "g6"
+      ],
+      "name": "WTHOR-0216",
+      "notes": "T150: WTHOR頻出ライン抽出。出現132局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 13,
+      "firstMoveBasis": "f5",
+      "gameCount": 104,
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "g5",
+        "d6",
+        "d7",
+        "e7",
+        "f3",
+        "g6",
+        "g4",
+        "f7",
+        "f8"
+      ],
+      "name": "WTHOR-0217",
+      "notes": "T150: WTHOR頻出ライン抽出。出現104局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 11,
+      "firstMoveBasis": "f5",
+      "gameCount": 134,
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "g5",
+        "d6",
+        "e7",
+        "g4",
+        "f3",
+        "h5",
+        "e3"
+      ],
+      "name": "WTHOR-0218",
+      "notes": "T150: WTHOR頻出ライン抽出。出現134局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 11,
+      "firstMoveBasis": "f5",
+      "gameCount": 139,
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "g5",
+        "d6",
+        "e7",
+        "g6",
+        "c5",
+        "c4",
+        "f3"
+      ],
+      "name": "白裏大量　8-g6型",
+      "notes": "T150: WTHOR頻出ライン抽出。出現139局(最大深さ16手)。既存bookgen/joseki-research.jsonの同名ラインと着手列が完全一致(名前継承)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 8,
+      "firstMoveBasis": "f5",
+      "gameCount": 158,
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "g5",
+        "d6",
+        "f7",
+        "g4"
+      ],
+      "name": "WTHOR-0219",
+      "notes": "T150: WTHOR頻出ライン抽出。出現158局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 8,
+      "firstMoveBasis": "f5",
+      "gameCount": 208,
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "g5",
+        "g6",
+        "g4",
+        "h6"
+      ],
+      "name": "WTHOR-0220",
+      "notes": "T150: WTHOR頻出ライン抽出。出現208局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 9,
+      "firstMoveBasis": "f5",
+      "gameCount": 153,
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "g5",
+        "g6",
+        "g4",
+        "e7",
+        "f3"
+      ],
+      "name": "WTHOR-0221",
+      "notes": "T150: WTHOR頻出ライン抽出。出現153局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 14,
+      "firstMoveBasis": "f5",
+      "gameCount": 107,
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "g5",
+        "e7",
+        "e3",
+        "f3",
+        "d3",
+        "c3",
+        "f7",
+        "d7",
+        "d8",
+        "c4"
+      ],
+      "name": "WTHOR-0222",
+      "notes": "T150: WTHOR頻出ライン抽出。出現107局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 10,
+      "firstMoveBasis": "f5",
+      "gameCount": 151,
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "g5",
+        "e7",
+        "e3",
+        "f3",
+        "d3",
+        "h6"
+      ],
+      "name": "WTHOR-0223",
+      "notes": "T150: WTHOR頻出ライン抽出。出現151局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 13,
+      "firstMoveBasis": "f5",
+      "gameCount": 116,
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "g5",
+        "e7",
+        "e3",
+        "f3",
+        "c5",
+        "d3",
+        "g4",
+        "g3",
+        "g6"
+      ],
+      "name": "WTHOR-0224",
+      "notes": "T150: WTHOR頻出ライン抽出。出現116局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 16,
+      "firstMoveBasis": "f5",
+      "gameCount": 157,
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "g5",
+        "e7",
+        "e3",
+        "f3",
+        "c5",
+        "c4",
+        "g3",
+        "c6",
+        "d6",
+        "d7",
+        "c7",
+        "g4"
+      ],
+      "name": "WTHOR-0225",
+      "notes": "T150: WTHOR頻出ライン抽出。出現157局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 16,
+      "firstMoveBasis": "f5",
+      "gameCount": 159,
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "g5",
+        "e7",
+        "e3",
+        "g6",
+        "d3",
+        "c5",
+        "d6",
+        "c6",
+        "f7",
+        "c4",
+        "e8",
+        "d2"
+      ],
+      "name": "WTHOR-0226",
+      "notes": "T150: WTHOR頻出ライン抽出。出現159局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 11,
+      "firstMoveBasis": "f5",
+      "gameCount": 206,
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "g5",
+        "e7",
+        "e3",
+        "g6",
+        "f3",
+        "d6",
+        "c5"
+      ],
+      "name": "WTHOR-0227",
+      "notes": "T150: WTHOR頻出ライン抽出。出現206局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 12,
+      "firstMoveBasis": "f5",
+      "gameCount": 121,
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "g5",
+        "e7",
+        "e3",
+        "g6",
+        "d6",
+        "c4",
+        "c5",
+        "f3"
+      ],
+      "name": "WTHOR-0228",
+      "notes": "T150: WTHOR頻出ライン抽出。出現121局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 13,
+      "firstMoveBasis": "f5",
+      "gameCount": 112,
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "g5",
+        "e7",
+        "e3",
+        "g6",
+        "d6",
+        "c4",
+        "c5",
+        "b5",
+        "f7"
+      ],
+      "name": "WTHOR-0229",
+      "notes": "T150: WTHOR頻出ライン抽出。出現112局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 11,
+      "firstMoveBasis": "f5",
+      "gameCount": 100,
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "g5",
+        "e7",
+        "e3",
+        "g6",
+        "d6",
+        "c4",
+        "f7"
+      ],
+      "name": "WTHOR-0230",
+      "notes": "T150: WTHOR頻出ライン抽出。出現100局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 11,
+      "firstMoveBasis": "f5",
+      "gameCount": 123,
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "g5",
+        "e7",
+        "d7",
+        "d6",
+        "f3",
+        "g6",
+        "g4"
+      ],
+      "name": "WTHOR-0231",
+      "notes": "T150: WTHOR頻出ライン抽出。出現123局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 10,
+      "firstMoveBasis": "f5",
+      "gameCount": 105,
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "g5",
+        "e7",
+        "d7",
+        "g6",
+        "g4",
+        "h5"
+      ],
+      "name": "WTHOR-0232",
+      "notes": "T150: WTHOR頻出ライン抽出。出現105局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 9,
+      "firstMoveBasis": "f5",
+      "gameCount": 162,
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "g5",
+        "e7",
+        "d7",
+        "g6",
+        "e8"
+      ],
+      "name": "WTHOR-0233",
+      "notes": "T150: WTHOR頻出ライン抽出。出現162局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 9,
+      "firstMoveBasis": "f5",
+      "gameCount": 138,
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "g5",
+        "e7",
+        "f7",
+        "c5",
+        "f3"
+      ],
+      "name": "WTHOR-0234",
+      "notes": "T150: WTHOR頻出ライン抽出。出現138局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 13,
+      "firstMoveBasis": "f5",
+      "gameCount": 176,
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "g5",
+        "e7",
+        "f7",
+        "h5",
+        "e3",
+        "d3",
+        "g4",
+        "h4",
+        "h3"
+      ],
+      "name": "WTHOR-0235",
+      "notes": "T150: WTHOR頻出ライン抽出。出現176局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 11,
+      "firstMoveBasis": "f5",
+      "gameCount": 162,
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "g5",
+        "e7",
+        "f7",
+        "h5",
+        "g4",
+        "g6",
+        "e3"
+      ],
+      "name": "WTHOR-0236",
+      "notes": "T150: WTHOR頻出ライン抽出。出現162局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 16,
+      "firstMoveBasis": "f5",
+      "gameCount": 159,
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "g5",
+        "e7",
+        "f7",
+        "d6",
+        "f3",
+        "g6",
+        "d8",
+        "h5",
+        "e3",
+        "d7",
+        "c3",
+        "d3"
+      ],
+      "name": "WTHOR-0237",
+      "notes": "T150: WTHOR頻出ライン抽出。出現159局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 10,
+      "firstMoveBasis": "f5",
+      "gameCount": 113,
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "g5",
+        "e7",
+        "f7",
+        "d6",
+        "c5",
+        "g6"
+      ],
+      "name": "WTHOR-0238",
+      "notes": "T150: WTHOR頻出ライン抽出。出現113局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 9,
+      "firstMoveBasis": "f5",
+      "gameCount": 109,
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "g5",
+        "e7",
+        "f7",
+        "g6",
+        "h5"
+      ],
+      "name": "WTHOR-0239",
+      "notes": "T150: WTHOR頻出ライン抽出。出現109局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 8,
+      "firstMoveBasis": "f5",
+      "gameCount": 141,
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "g6",
+        "c5",
+        "f3",
+        "g4"
+      ],
+      "name": "WTHOR-0240",
+      "notes": "T150: WTHOR頻出ライン抽出。出現141局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 10,
+      "firstMoveBasis": "f5",
+      "gameCount": 155,
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "g6",
+        "c5",
+        "g4",
+        "g5",
+        "e3",
+        "f3"
+      ],
+      "name": "WTHOR-0241",
+      "notes": "T150: WTHOR頻出ライン抽出。出現155局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 13,
+      "firstMoveBasis": "f5",
+      "gameCount": 157,
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "g6",
+        "c5",
+        "g4",
+        "g5",
+        "f3",
+        "e3",
+        "c4",
+        "g3",
+        "h5"
+      ],
+      "name": "WTHOR-0242",
+      "notes": "T150: WTHOR頻出ライン抽出。出現157局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 11,
+      "firstMoveBasis": "f5",
+      "gameCount": 100,
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "g6",
+        "c5",
+        "g4",
+        "g5",
+        "h4",
+        "h3",
+        "h2"
+      ],
+      "name": "WTHOR-0243",
+      "notes": "T150: WTHOR頻出ライン抽出。出現100局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 16,
+      "firstMoveBasis": "f5",
+      "gameCount": 122,
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "g6",
+        "c5",
+        "g4",
+        "g5",
+        "h4",
+        "h3",
+        "f3",
+        "h5",
+        "h6",
+        "h7",
+        "d6",
+        "e3"
+      ],
+      "name": "WTHOR-0244",
+      "notes": "T150: WTHOR頻出ライン抽出。出現122局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 8,
+      "firstMoveBasis": "f5",
+      "gameCount": 184,
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "g6",
+        "c6",
+        "g5",
+        "d6"
+      ],
+      "name": "WTHOR-0245",
+      "notes": "T150: WTHOR頻出ライン抽出。出現184局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 9,
+      "firstMoveBasis": "f5",
+      "gameCount": 115,
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "g6",
+        "d6",
+        "e3",
+        "d3",
+        "g4"
+      ],
+      "name": "WTHOR-0246",
+      "notes": "T150: WTHOR頻出ライン抽出。出現115局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 11,
+      "firstMoveBasis": "f5",
+      "gameCount": 122,
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "g6",
+        "d6",
+        "e3",
+        "f3",
+        "g4",
+        "g5",
+        "d3"
+      ],
+      "name": "WTHOR-0247",
+      "notes": "T150: WTHOR頻出ライン抽出。出現122局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 8,
+      "firstMoveBasis": "f5",
+      "gameCount": 104,
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "g6",
+        "d6",
+        "g4",
+        "f7"
+      ],
+      "name": "WTHOR-0248",
+      "notes": "T150: WTHOR頻出ライン抽出。出現104局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    },
+    {
+      "depth": 7,
+      "firstMoveBasis": "f5",
+      "gameCount": 116,
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "g6",
+        "f7",
+        "g5"
+      ],
+      "name": "WTHOR-0249",
+      "notes": "T150: WTHOR頻出ライン抽出。出現116局(最大深さ16手)。既存bookgen/joseki-research.jsonに一致するラインなし(自動命名)。",
+      "sources": [
+        "WTHOR game archive, years 2000-2024 (train/data)"
+      ]
+    }
+  ],
+  "meta": {
+    "autoNamedCount": 249,
+    "dataDir": "train/data",
+    "depthHistogram": {
+      "10": 22,
+      "11": 25,
+      "12": 12,
+      "13": 21,
+      "14": 24,
+      "15": 14,
+      "16": 49,
+      "3": 3,
+      "4": 1,
+      "5": 6,
+      "6": 11,
+      "7": 17,
+      "8": 22,
+      "9": 24
+    },
+    "emptyGamesSkipped": 0,
+    "existingLinesFile": "bookgen/joseki-research.json",
+    "existingLinesPresentAtOrAboveMinGames": 76,
+    "existingLinesPresentInWthorAny": 112,
+    "existingLinesTotal": 112,
+    "filesUsed": [
+      "train/data\\WTH_2000.wtb",
+      "train/data\\WTH_2001.wtb",
+      "train/data\\WTH_2002.wtb",
+      "train/data\\WTH_2003.wtb",
+      "train/data\\WTH_2004.wtb",
+      "train/data\\WTH_2005.wtb",
+      "train/data\\WTH_2006.wtb",
+      "train/data\\WTH_2007.wtb",
+      "train/data\\WTH_2008.wtb",
+      "train/data\\WTH_2009.wtb",
+      "train/data\\WTH_2010.wtb",
+      "train/data\\WTH_2011.wtb",
+      "train/data\\WTH_2012.wtb",
+      "train/data\\WTH_2013.wtb",
+      "train/data\\WTH_2014.wtb",
+      "train/data\\WTH_2015.wtb",
+      "train/data\\WTH_2016.wtb",
+      "train/data\\WTH_2017.wtb",
+      "train/data\\WTH_2018.wtb",
+      "train/data\\WTH_2019.wtb",
+      "train/data\\WTH_2020.wtb",
+      "train/data\\WTH_2021.wtb",
+      "train/data\\WTH_2022.wtb",
+      "train/data\\WTH_2023.wtb",
+      "train/data\\WTH_2024.wtb"
+    ],
+    "inheritedNameCount": 2,
+    "invalidGamesSkipped": 0,
+    "maxDepth": 16,
+    "minGames": 100,
+    "tool": "train::bin::wthor_lines",
+    "totalGamesScanned": 74024,
+    "totalGamesUsed": 74024,
+    "totalLines": 251,
+    "totalQualifyingTrieNodes": 898,
+    "years": "2000-2024"
+  }
+}

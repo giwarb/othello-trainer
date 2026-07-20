@@ -20,8 +20,10 @@ export interface JosekiBookMove {
    * この局面から分岐する候補手の中でのこの手の重み(合計1になるよう正規化)。
    * T016のデータ(`bookgen/joseki-research.json`)には着手頻度の情報が無いため、
    * 本タスク(T017)では同一局面から分岐するbookMovesは暫定的に均等重みとする
-   * (`buildDb.ts` の `buildJosekiDb` 参照)。将来WTHOR等の高段者局データが
-   * 使えるようになったら実頻度で再計算する想定。
+   * (`buildDb.ts` の `buildJosekiDb` 参照)。T150でWTHOR由来の`gameCount`
+   * (`RawJosekiLine.gameCount`)を持つラインが混ざる場合は、`frequencyCount`
+   * を使って頻度比例の重みを計算できるようにした(`buildDb.ts` の
+   * `assignWeights` 参照。`gameCount`の無い既存データでは従来どおり均等重み)。
    */
   weight: number
   /**
@@ -29,6 +31,15 @@ export interface JosekiBookMove {
    * 常に `null`。
    */
   eval: number | null
+  /**
+   * この分岐(局面からこの手へ)に対応する出現局数の合計。複数の
+   * `RawJosekiLine`(いずれも`gameCount`を持つもの)がこの局面からこの手へ
+   * 分岐する場合、それらの`gameCount`を合算した値になる(`buildDb.ts` の
+   * `addBookMove` 参照)。`gameCount`を持たないライン(T016由来の手作業
+   * データ)しかこの手を経由しない場合は`undefined`のまま
+   * (頻度データが無いことを表す)。T150で追加。
+   */
+  frequencyCount?: number
 }
 
 /** 定石DB内の1局面(ノード)。 */
@@ -86,6 +97,15 @@ export interface RawJosekiLine {
   readonly depth: number
   readonly sources?: readonly string[]
   readonly notes?: string
+  /**
+   * このライン(着手列)がWTHOR等の実戦棋譜データ中に出現した局数。
+   * T016由来の手作業データ(`bookgen/joseki-research.json`)には出現頻度の
+   * 情報が無いため常に`undefined`。T150で追加した`bookgen/wthor-lines.json`
+   * (WTHOR頻出ライン抽出、公開はT151以降)ではこの値が設定される。
+   * `buildDb.ts` はこの値がある場合のみ`JosekiBookMove.frequencyCount`に
+   * 積算し、頻度比例の重み付けに使う(`assignWeights`参照)。
+   */
+  readonly gameCount?: number
 }
 
 /** `bookgen/joseki-research.json` 全体の型(本タスクで使うフィールドのみ)。 */
