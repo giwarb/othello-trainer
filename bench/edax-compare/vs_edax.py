@@ -1741,6 +1741,16 @@ def main() -> None:
         help="対局に使うopeningセット(既定smoke=10局面=20局/レベル/モード。primary=30局面=60局、将来の一次判定用)",
     )
     ap.add_argument(
+        "--opening-limit",
+        type=int,
+        default=None,
+        help=(
+            "T158d: 対局(match play)に使うopeningを--opening-setで選んだ集合の先頭N件に制限する"
+            "(パイロット等の小規模実行用)。fixed-depth/node-budget決定性回帰チェックには影響しない。"
+            "既定は制限なし(全件)"
+        ),
+    )
+    ap.add_argument(
         "--engine-modes",
         type=str,
         default="single-root,allmoves",
@@ -1854,6 +1864,11 @@ def main() -> None:
     openings_doc = load_openings(args.openings)
     openings = opening_set(openings_doc, args.opening_set)
     print(f"Loaded {len(openings)} start position(s) from {args.openings.name} (set={args.opening_set!r})")
+    if args.opening_limit is not None:
+        if args.opening_limit <= 0:
+            ap.error("--opening-limit must be greater than zero")
+        openings = openings[: args.opening_limit]
+        print(f"  --opening-limit applied: match play restricted to the first {len(openings)} opening(s)")
 
     meta = build_run_metadata(args.weights)
 
@@ -1870,6 +1885,7 @@ def main() -> None:
         "openings_sha256": sha256_of_file(args.openings),
         "opening_set": args.opening_set,
         "opening_count": len(openings),
+        "opening_limit": args.opening_limit,
         "levels": args.levels,
         "engine_modes": args.engine_modes,
         "high_level": args.high_level,
@@ -1933,6 +1949,7 @@ def main() -> None:
                     game_id += 1
                     if checkpoint.is_game_done(mode, level, start["id"], engine_is_black):
                         continue
+                    game_started_at = time.monotonic()
                     game = play_game(
                         engine_mode=mode,
                         engine_is_black=engine_is_black,
@@ -1951,12 +1968,14 @@ def main() -> None:
                         game_id=game_id,
                         level=level,
                     )
+                    game["wallClockSec"] = round(time.monotonic() - game_started_at, 3)  # T158d要件3: 1局ごとの所要時間
                     checkpoint.add_game(game, start["id"])  # 1局ごとにチェックポイント保存(要件8)
                     print(
                         f"  [{len(checkpoint.games)}/{total_planned}] mode={mode} level={level} "
                         f"opening={start['id']} engine={'black' if engine_is_black else 'white'}: "
                         f"black={game['black_discs']:2d} white={game['white_discs']:2d} plies={game['plies']:3d} "
-                        f"-> winner={game['winner']} (margin={game['margin_engine_minus_edax']:+d})"
+                        f"-> winner={game['winner']} (margin={game['margin_engine_minus_edax']:+d}) "
+                        f"[{game['wallClockSec']:.1f}s]"
                     )
     print(f"Wrote {args.results_output.name} (checkpoint: {len(checkpoint.games)}/{total_planned} games)")
 
