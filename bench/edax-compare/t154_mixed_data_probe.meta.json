@@ -1,0 +1,158 @@
+{
+  "task": "T154",
+  "generatedAt": "2026-07-20T14:30:00+09:00",
+  "provenance": {
+    "gitCommit": "7bec0b0",
+    "gitCommitNote": "trainer/tooling code commit for this task's two new bins (wthor_to_simple, egaroucid_filter_stones); no changes to t090_distillation.rs/train_data.rs. Report/meta committed separately per repository commit discipline.",
+    "oracleCorpusSha256": "eec09e7a3c194a71cbb60f25ce13e1887204bbbc4a9ba052cb19c61507786356",
+    "v2WeightsSha256": "b916c29e4f84692610a65b75c1692132628de5ba2b27b71bf2e8b94426b76c2a",
+    "evalCliSha256": "31798f28c667671a5b18227b7719fe0ce67120cc2b17554ca0d323e4ab8d9563",
+    "edaxSha256": "aabb5ac7d3f9a872fc0e7388ab1eee1d23c687f76c28642122524dc318b322b1",
+    "edaxEvalSha256": "f8b2299612d9fa4414157e70e932636e33111c2602d0c2fc382a7d90ef21b792",
+    "hashesMatchT153": true
+  },
+  "comparisonBenchmarks": {
+    "v2xWTHORFull": 1.5666666666666667,
+    "v4xWTHORFull_train_patterns_v3_T124": 1.1111111111111112,
+    "v4xEgaroucidSubset900k_T153": 1.8666666666666667
+  },
+  "dataPrep": {
+    "wthorToSimple": {
+      "tool": "train/src/bin/wthor_to_simple.rs",
+      "command": "target/release/wthor_to_simple.exe --data-dir train/data --out train/data/t154/wthor_all.txt",
+      "samplesWritten": 4431504,
+      "gamesUsed": 74024,
+      "gamesScanned": 74024,
+      "invalidGamesSkipped": 0,
+      "emptyGamesSkipped": 0,
+      "filesUsed": 25,
+      "countReconciliation": {
+        "trainPatternsV3Total": 4431504,
+        "trainPatternsV3Train": 3988509,
+        "trainPatternsV3Frozen": 442995,
+        "totalMatchesExactly": true,
+        "splitSchemeDifference": "train_patterns_v3 splits by game (last 10% of games -> frozen holdout, game-count basis, exactly 90.0%/10.0%); t090_distillation.rs simple-corpus mode splits by individual record via fnv1a(canonicalKey)%100 (0-89 train / 90-94 validation / 95-99 frozen-discarded). Both are ~90% train by construction but not numerically identical because one is per-game and the other is per-position-hash.",
+        "runAActualTrain": 4011443,
+        "runAActualTrainFraction": 0.9053
+      }
+    },
+    "egaroucidFilterStones": {
+      "tool": "train/src/bin/egaroucid_filter_stones.rs",
+      "command": "target/release/egaroucid_filter_stones.exe --in-dir train/data/egaroucid/extracted/0001_egaroucid_7_5_1_lv17 --out train/data/t154/egaroucid_le15.txt --max-stones 15",
+      "linesScanned": 25514097,
+      "linesMatched": 1514097,
+      "malformedLinesSkipped": 0,
+      "filesUsed": 26,
+      "stoneHistogram": {
+        "4": 1, "5": 1, "6": 3, "7": 14, "8": 60, "9": 322, "10": 1773,
+        "11": 10649, "12": 67245, "13": 434029, "14": 500000, "15": 500000
+      },
+      "note": "4-13 stone counts match the README population table cited in T153 exactly (e.g. 13 stones = 434029). Measured total (1,514,097) is ~84k above the task's rough pre-registered estimate (~1.43M) because both the 14- and 15-stone buckets are capped at the full 500,000."
+    },
+    "mixedPoolC": {
+      "command": "cat train/data/t154/wthor_all.txt train/data/t154/egaroucid_le15.txt > train/data/t154/mixed_c.txt",
+      "totalLines": 5945601,
+      "wthorLines": 4431504,
+      "egaroucidLe15Lines": 1514097,
+      "deduplicated": false
+    }
+  },
+  "trainerChange": {
+    "filesModified": [],
+    "newFiles": ["train/src/bin/wthor_to_simple.rs", "train/src/bin/egaroucid_filter_stones.rs"],
+    "note": "t090_distillation.rs and train_data.rs are byte-for-byte unchanged from T153; both new tools only produce plain-text files consumed by the existing, unmodified --simple-corpus path.",
+    "cargoTest": {
+      "command": "cargo test -p train --release",
+      "result": "PASS (99 passed; 0 failed) - 90 pre-existing tests unchanged and green + 9 new tests (5 wthor_to_simple, 4 egaroucid_filter_stones)"
+    }
+  },
+  "runs": {
+    "A_wthorFull": {
+      "command": "target/release/train_distillation.exe --simple-corpus train/data/t154/wthor_all.txt --checkpoint-dir train/data/t154/wthor-v4 --pattern-set v4 --seeds 1 --jobs 1 --max-epochs 60",
+      "poolSize": 4431504,
+      "trainActual": 4011443,
+      "validation": 196581,
+      "frozenDiscarded": 223480,
+      "bestEpoch": 23,
+      "completedEpoch": 25,
+      "trainTeacherMae": 13.197257,
+      "validationLoss": 47.87721,
+      "validationTeacherMae": 13.763418,
+      "finalWeightsSha256": "426af4b8d163b01791d0dbfd7c665c525a02e8c3bbdc8572aa388ace51bb17a1",
+      "oracle": {
+        "v2MeanRegret": 1.5666666666666667,
+        "m2GuardPass": true,
+        "candidateMeanRegret": 1.5,
+        "differenceFromV2": -0.06666666666666667,
+        "ci95VsV2": [-0.7666666666666667, 0.6666666666666666],
+        "classification": "no_significant_difference",
+        "rawOutputFile": "train/data/t154/oracle/wthor-v4-seed-1.json"
+      },
+      "comparisonToTrainPatternsV3_T124": {
+        "referenceMeanRegret": 1.1111111111111112,
+        "differenceDiscs": 0.3888888888888888,
+        "note": "Same 4,431,504 WTHOR samples, same v4 pattern set, same teacher signal; only the trainer differs (t090_distillation.rs simple-corpus vs train_patterns_v3). +0.39 regret gap isolates the trainer as the dominant source of the T153 Egaroucid-vs-WTHOR confound."
+      }
+    },
+    "B_egaroucidMatchedPool": {
+      "command": "target/release/train_distillation.exe --simple-corpus train/data/egaroucid/extracted/0001_egaroucid_7_5_1_lv17 --checkpoint-dir train/data/t154/egaroucid-v4 --pattern-set v4 --seeds 1 --jobs 1 --max-epochs 60 --simple-max-records 4431504 --subset-seed 42",
+      "reservoirPoolSizeSource": 25514097,
+      "reservoirPoolSizeTarget": 4431504,
+      "subsetSeed": 42,
+      "trainActual": 3982785,
+      "validation": 210235,
+      "frozenDiscarded": 238484,
+      "bestEpoch": 42,
+      "completedEpoch": 42,
+      "trainTeacherMae": 4.212934,
+      "validationLoss": 14.918887,
+      "validationTeacherMae": 5.364459,
+      "finalWeightsSha256": "8bc5977f834911bbaa055fd98c7462509e3e4e231c56aa80a559314de7da846b",
+      "oracle": {
+        "v2MeanRegret": 1.5666666666666667,
+        "m2GuardPass": true,
+        "candidateMeanRegret": 1.2333333333333334,
+        "differenceFromV2": -0.3333333333333333,
+        "ci95VsV2": [-0.9666666666666667, 0.3333333333333333],
+        "classification": "no_significant_difference",
+        "rawOutputFile": "train/data/t154/oracle/egaroucid-v4-seed-1.json"
+      },
+      "comparisonToRunA": {
+        "differenceDiscs": -0.26666666666666666,
+        "note": "Same trainer, same pool size (4,431,504) as Run A; B's regret (1.2333) is lower (better) than A's (1.5000) by 0.2667. Point-estimate data-quality signal, secondary per this task's pre-registered interpretation since the trainer gap (Run A vs T124) dominates."
+      }
+    },
+    "C_mixedWthorPlusEgaroucidLe15": {
+      "command": "target/release/train_distillation.exe --simple-corpus train/data/t154/mixed_c.txt --checkpoint-dir train/data/t154/mixed-v4 --pattern-set v4 --seeds 1 --jobs 1 --max-epochs 60",
+      "poolSize": 5945601,
+      "trainActual": 5368814,
+      "validation": 260795,
+      "frozenDiscarded": 315992,
+      "bestEpoch": 17,
+      "completedEpoch": 22,
+      "trainTeacherMae": 10.733194,
+      "validationLoss": 37.615572,
+      "validationTeacherMae": 11.115042,
+      "finalWeightsSha256": "df82ca4808c91c5e5f546c64ffe54314d431a40b671100bc3dcbb35a2f8f6a55",
+      "oracle": {
+        "v2MeanRegret": 1.5666666666666667,
+        "m2GuardPass": true,
+        "candidateMeanRegret": 1.4333333333333333,
+        "differenceFromV2": -0.13333333333333333,
+        "ci95VsV2": [-0.8, 0.5333333333333333],
+        "classification": "no_significant_difference",
+        "rawOutputFile": "train/data/t154/oracle/mixed-v4-seed-1.json"
+      },
+      "comparisonToRunA": {
+        "differenceDiscs": -0.06666666666666667,
+        "note": "Run C (mixed) beats Run A (WTHOR-only) by 0.0667 regret but falls short of Run B (Egaroucid-only matched pool, 1.2333); plausibly because C is 74.5% WTHOR by sample count (4,431,504 of 5,945,601) so the Egaroucid quality contribution is diluted, and because the Egaroucid stones<=15 subset skews toward opening-phase positions rather than covering all game phases the way B's full reservoir sample does."
+      }
+    }
+  },
+  "interpretationApplied": {
+    "preRegisteredBranch": "(2): A is clearly worse (1.5000, in the 1.5-1.9 band) than the known 1.1111 point, so the t090_distillation.rs trainer itself (not the data) is judged the dominant gap source; B and C's absolute values are treated as reference-only, not evidence for scaling t090_distillation.rs + Egaroucid to full size.",
+    "relativeOrderingWithinTrainer": "B (1.2333) < C (1.4333) < A (1.5000): Egaroucid data does not underperform WTHOR under this trainer at matched/added scale, but this is a secondary signal per the applied branch.",
+    "recommendedNextStep": "Out of scope for this task: investigate what specifically differs between t090_distillation.rs's simple-corpus teacher-only training and train_patterns_v3 on identical data (loss shape, LR schedule, regularization, phase-stage computation), and/or bring good external data into train_patterns_v3's own pipeline instead of t090_distillation.rs."
+  },
+  "scopeNote": "This task covers a diagnostic same-trainer probe only (WTHOR-simple-conversion tooling, Egaroucid stone-count filter tooling, three matched-scale trainings, oracle comparison). Full 25.5M-record training, game-play gating, train_patterns_v3 code changes, and production adoption are explicitly out of scope."
+}
