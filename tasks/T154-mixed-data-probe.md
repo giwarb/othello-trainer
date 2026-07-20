@@ -49,4 +49,41 @@ attempts: 0
 
 ## 作業ログ
 
-(ワーカーが節目ごとに追記)
+### 2026-07-20 実装開始・データ準備完了
+
+- 既存コード調査: `train/src/t090_distillation.rs`の`--simple-corpus`(T153導入)は既に
+  `<64文字盤面> <スコア>`テキストを読み、`fnv1a(canonicalKey)%100`でtrain0-89/
+  validation90-94/frozen95-99(discarded)に分割する。改修不要、そのまま3run全てに使う。
+- `train/src/bin/wthor_to_simple.rs`(新規)を実装: `train::train_data::samples_from_game`
+  (既存、改修なし)を再利用し、WTHOR全`.wtb`(`train/data/*.wtb`、`train_patterns_v3`の
+  `data_files()`と同じファイル列挙規則)を`--simple-corpus`互換のテキストへ決定的に変換。
+  5件のユニットテスト(64文字盤面・整数スコア出力、mover視点でのX/O入れ替わり確認、
+  盤面+outcomeの往復一致、決定性)を追加。
+- `train/src/bin/egaroucid_filter_stones.rs`(新規)を実装: Egaroucid公開データ
+  (25,514,097行)から盤面上の石数(X+O)が`--max-stones`(既定15)以下の行を決定的に
+  抽出する(行の書式は変更しない、そのまま`--simple-corpus`に食わせられる)。4件の
+  ユニットテストを追加。
+- `cargo test -p train --release`: **99 passed, 0 failed**(既存99件中訳: 74(t090_distillation)
+  +4(train_data)+2(regression)+3(train_patterns_v3)+10(wthor_lines)+1(real_data統合) に
+  新規9件(wthor_to_simple 5件 + egaroucid_filter_stones 4件)を加えた合計)。既定挙動不変
+  (`t090_distillation.rs`・`train_data.rs`は無改修)。
+- 実データ変換実行(コミット対象外、`train/data/`は既存gitignore):
+  - `wthor_to_simple.exe --data-dir train/data --out train/data/t154/wthor_all.txt`
+    → **4,431,504件**(74,024局・invalid 0・empty 0、25ファイル)。
+    `train_patterns_v3`実績の train 3,988,509 + frozen 442,995 = **4,431,504と完全一致**
+    (両ツールとも同じ`data_files()`列挙規則・同じ`samples_from_game`を使うため当然の一致。
+    ただし内訳の分割方法は異なる: `train_patterns_v3`は対局単位で末尾10%を frozen に
+    ホールドアウトする一方、t090 simpleモードは局面(canonicalKey)単位の
+    `fnv1a%100`分割で train90%/validation5%/frozen(discarded)5%にする。Run Aの
+    実際のtrain件数は後者の規則で決まるため、3,988,509とは近似するが完全一致はしない
+    見込み — 学習実行後の`manifest.txt`で実測し、レポートに整合説明を記載する)。
+  - `egaroucid_filter_stones.exe --in-dir train/data/egaroucid/extracted/0001_egaroucid_7_5_1_lv17
+    --out train/data/t154/egaroucid_le15.txt --max-stones 15`
+    → **1,514,097行**(scanned 25,514,097・malformed 0)。石数別内訳:
+    4:1, 5:1, 6:3, 7:14, 8:60, 9:322, 10:1,773, 11:10,649, 12:67,245, 13:434,029(T153報告の
+    README引用値と一致), 14:500,000, 15:500,000。事前見積り(README表からの概算約143万件)
+    よりやや多い実測値(151万件、14石・15石が満杯500,000ずつ含まれるため)。
+  - `cat wthor_all.txt egaroucid_le15.txt > mixed_c.txt` → **5,945,601行**
+    (4,431,504+1,514,097、Run C用連結プール。重複除去はしない、要件どおり)。
+- 次: Run A(WTHOR全量、`--checkpoint-dir train/data/t154/wthor-v4`)をPowerShell
+  Start-Process detachedで起動し、ログ`logs/t154-wthor-v4.stdout.log`をポーリングする。
