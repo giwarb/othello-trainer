@@ -1,0 +1,139 @@
+{
+  "task": "T155",
+  "generatedAt": "2026-07-20T16:45:00+09:00",
+  "provenance": {
+    "gitParentCommit": "f7079c0",
+    "oracleCorpusSha256": "eec09e7a3c194a71cbb60f25ce13e1887204bbbc4a9ba052cb19c61507786356",
+    "v2WeightsSha256": "b916c29e4f84692610a65b75c1692132628de5ba2b27b71bf2e8b94426b76c2a",
+    "evalCliSha256": "31798f28c667671a5b18227b7719fe0ce67120cc2b17554ca0d323e4ab8d9563",
+    "edaxSha256": "aabb5ac7d3f9a872fc0e7388ab1eee1d23c687f76c28642122524dc318b322b1",
+    "edaxEvalSha256": "f8b2299612d9fa4414157e70e932636e33111c2602d0c2fc382a7d90ef21b792",
+    "hashesMatchT154": true
+  },
+  "comparisonBenchmarks": {
+    "v2Baseline": 1.5666666666666667,
+    "v4xWTHORFull_train_patterns_v3_T124_3seedMean": 1.1111111111111112,
+    "v4xEgaroucid4431504_t090_distillation_T154RunB": 1.2333333333333334
+  },
+  "implementation": {
+    "newFiles": ["train/src/simple_corpus.rs"],
+    "modifiedFiles": ["train/src/lib.rs", "train/src/bin/train_patterns_v3.rs"],
+    "note": "t090_distillation.rs and train_data.rs are untouched. train_patterns_v3.rs gained a --simple-corpus / --simple-max-records mode (new schema=2-simple identity namespace) plus a pure code-motion refactor (run_config_seed) extracting the existing per-(config,seed) training loop unchanged so both the WTHOR default path and the new simple-corpus path share it.",
+    "defaultPathInvarianceCheck": {
+      "method": "ran `--configs v2 --seeds 1 --epochs 1 --max-games 20` before and after the refactor",
+      "resultsTsvIdentical": true,
+      "outputWeightsSha256Identical": true,
+      "sha256": "6be188ab7cc818b076e81bfa274b3c2bf016250297b7960382dcfbefa6d2d0d5",
+      "resumeOnCompletedRunReverified": true
+    },
+    "holdoutScheme": "split_by_position_hash: fnv1a hash of the D4-canonicalized position key (experiment::canonicalize), hash % 10 == 9 -> frozen (~10% nominal, ~12.5% observed on Egaroucid data), else train. Canonicalizing before hashing keeps symmetric duplicate positions on the same side of the split (unit-tested).",
+    "cargoTest": {
+      "command": "cargo test -p train --release",
+      "result": "PASS, 0 failed (87 lib tests incl. 12 new in simple_corpus.rs; train_patterns_v3/t090_distillation/wthor_lines/real_data suites unmodified and green)"
+    }
+  },
+  "runs": {
+    "E1_egaroucid4431504_3seed": {
+      "command": "target/release/train_patterns_v3.exe --simple-corpus train/data/egaroucid/extracted/0001_egaroucid_7_5_1_lv17 --simple-max-records 4431504 --configs v4 --seeds 1,2,3 --epochs 20 --output-dir train/data/t155/egaroucid-v4-e1",
+      "corpusTotalLines": 25514097,
+      "poolSize": 4431504,
+      "reservoirSeed": 42,
+      "corpusHash": "8e14d3751185a95c",
+      "trainActual": 3877551,
+      "frozenActual": 553953,
+      "frozenFraction": 0.125,
+      "wallTimeApprox": "~8 minutes total for 3 seeds in one process (corpus scanned once; seed-to-seed checkpoint gaps ~2.5 min each)",
+      "seeds": [
+        {
+          "seed": 1,
+          "frozenMse": 49.436191,
+          "frozenMae": 5.229859,
+          "weightsSha256": "578186597816f76a0c98e1f432843623bbc1f61e41a63d1247c8e84820d3f315",
+          "oracle": {
+            "v2MeanRegret": 1.5666666666666667,
+            "m2GuardPass": true,
+            "candidateMeanRegret": 1.5333333333333334,
+            "differenceFromV2": -0.03333333333333333,
+            "ci95VsV2": [-0.6666666666666666, 0.6333333333333333],
+            "classification": "no_significant_difference",
+            "rawOutputFile": "train/data/t155/oracle/egaroucid-v4trainer-e1-seed-1.json"
+          }
+        },
+        {
+          "seed": 2,
+          "frozenMse": 49.410315,
+          "frozenMae": 5.217922,
+          "weightsSha256": "0c03dc720f1648bb37b1794f58ad13b1a1def936ab018ada9e5082b70202c1cd",
+          "oracle": {
+            "v2MeanRegret": 1.5666666666666667,
+            "m2GuardPass": true,
+            "candidateMeanRegret": 1.4666666666666666,
+            "differenceFromV2": -0.1,
+            "ci95VsV2": [-0.8333333333333334, 0.7],
+            "classification": "no_significant_difference",
+            "rawOutputFile": "train/data/t155/oracle/egaroucid-v4trainer-e1-seed-2.json"
+          }
+        },
+        {
+          "seed": 3,
+          "frozenMse": 49.299256,
+          "frozenMae": 5.209128,
+          "weightsSha256": "7407323de07f7fcf370e3572daa617735eec7774231675c0616b428515d97d7f",
+          "oracle": {
+            "v2MeanRegret": 1.5666666666666667,
+            "m2GuardPass": true,
+            "candidateMeanRegret": 1.6666666666666667,
+            "differenceFromV2": 0.1,
+            "ci95VsV2": [-0.6666666666666666, 0.9333333333333333],
+            "classification": "no_significant_difference",
+            "rawOutputFile": "train/data/t155/oracle/egaroucid-v4trainer-e1-seed-3.json"
+          }
+        }
+      ],
+      "meanOracleRegret": 1.5555555555555556,
+      "seedSampleSd": 0.10183501544346318,
+      "differenceFromV4xWTHOR_T124": 0.4444444444444444,
+      "differenceFromT154RunB": 0.3222222222222222,
+      "differenceFromV2Baseline": -0.011111111111111072
+    },
+    "E2_egaroucid8000000_1seed_reference": {
+      "command": "target/release/train_patterns_v3.exe --simple-corpus train/data/egaroucid/extracted/0001_egaroucid_7_5_1_lv17 --simple-max-records 8000000 --configs v4 --seeds 1 --epochs 20 --output-dir train/data/t155/egaroucid-v4-e2",
+      "corpusTotalLines": 25514097,
+      "poolSize": 8000000,
+      "reservoirSeed": 42,
+      "corpusHash": "8e14d3751185a95c",
+      "trainActual": 6999893,
+      "frozenActual": 1000107,
+      "frozenFraction": 0.125013375,
+      "wallTimeApprox": "~15-20 minutes, single seed, well under the 45-minute cap",
+      "seed": 1,
+      "frozenMse": 45.820308,
+      "frozenMae": 5.043209,
+      "weightsSha256": "123db23b6b43c5c9a98f78dba78d8496affece0b05876a96b58ad90b7097c3b4",
+      "oracle": {
+        "v2MeanRegret": 1.5666666666666667,
+        "m2GuardPass": true,
+        "candidateMeanRegret": 1.3666666666666667,
+        "differenceFromV2": -0.2,
+        "ci95VsV2": [-0.7, 0.3],
+        "classification": "no_significant_difference",
+        "rawOutputFile": "train/data/t155/oracle/egaroucid-v4trainer-e2-seed-1.json"
+      },
+      "differenceFromE1Mean": -0.18888888888888899,
+      "note": "Single-seed reference point per the task's '1 run' scope for E2; directionally consistent with 'more data reduces overfitting under train_patterns_v3's fixed 20-epoch schedule' but still past the 1.3 pre-registered threshold, not statistically robust on its own (n=1 seed)."
+    }
+  },
+  "preRegisteredInterpretation": {
+    "rule": "E1 3-seed mean <=1.0 -> propose game-play gate. 1.1-1.3 -> comparable, consider scaling (E2/full). >1.3 -> production trainer still favors WTHOR data; shelve data route, pivot to MPC.",
+    "e1ThreeSeedMean": 1.5555555555555556,
+    "bandApplied": ">1.3",
+    "decision": "data_route_shelved_pivot_to_mpc",
+    "gamePlayGateProposed": false
+  },
+  "discussion": {
+    "counterIntuitiveFinding": "T154 isolated the trainer (not the data) as the dominant gap between t090_distillation.rs and train_patterns_v3 on WTHOR data (1.5000 vs 1.1111). The natural follow-up hypothesis -- that Egaroucid data would also do well on train_patterns_v3 -- is falsified by this task: Egaroucid-on-train_patterns_v3 (1.5556) is worse than Egaroucid-on-t090_distillation.rs (1.2333), the reverse of the WTHOR-data direction.",
+    "leadingHypothesis": "train_patterns_v3's fixed, unconditional 20-epoch schedule (no early stopping) likely overfits Egaroucid's smoother/faster-converging teacher signal, whereas t090_distillation.rs's validation-loss-driven early stopping (T154 Run B stopped at best_epoch=42 of a 60-epoch budget) avoids this. E2's improvement at 2x pool size (1.3667 vs E1's 1.5556) is directionally consistent with this (more distinct positions per fixed gradient-step budget slows memorization) but is not a controlled test (no epoch-count variation or early-stopping addition was run in this task, per scope).",
+    "recommendedFollowUp": "Out of scope for T155: if Egaroucid data is revisited, try early stopping or a smaller fixed epoch count within train_patterns_v3 before trying more data or more seeds at epochs=20."
+  },
+  "scopeNote": "No game-play gate, no production wiring, no full 25.5M-record training, and no changes to t090_distillation.rs or train_data.rs were performed. app/ and engine/ are unchanged. train/data/t155/ (pools, checkpoints, weights, oracle outputs) is not committed (existing train/data/ gitignore rule)."
+}

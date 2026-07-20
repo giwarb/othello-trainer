@@ -10,6 +10,7 @@ use engine::pattern_eval::{
 };
 use engine::patterns::{self, PatternConfig};
 use train::regression::{Model, TrainConfig};
+use train::simple_corpus;
 use train::train_data::{self, Sample};
 use train::wthor;
 
@@ -240,6 +241,96 @@ fn append_result(path: &Path, row: &str) -> Result<(), String> {
     Ok(())
 }
 
+/// T155: 1つの(config, seed)についての学習ループ本体(checkpoint保存/resume・
+/// epochループ・最終frozen評価・results.tsv追記)。従来`main`に直接書かれていた
+/// 処理をそのまま関数として切り出しただけで、ロジックは一切変更していない
+/// (WTHOR既定経路からの呼び出しでは、この抽出前後でidentity文字列・保存内容・
+/// 出力とも完全に同一になる)。`--simple-corpus`モードもこの同じ関数を呼ぶことで、
+/// checkpoint/resume・atomic保存等の挙動を1箇所に保つ。
+fn run_config_seed(
+    config: TrainingConfig,
+    seed: u64,
+    epochs: u32,
+    identity: &str,
+    output_dir: &Path,
+    train_samples: &[Sample],
+    frozen_samples: &[Sample],
+) -> Result<(), String> {
+    let name = config_name(config);
+    let cfg = TrainConfig {
+        seed,
+        ..TrainConfig::default()
+    };
+    let run_dir = output_dir.join(format!("{name}-seed-{seed}"));
+    fs::create_dir_all(&run_dir).map_err(|e| e.to_string())?;
+    let final_path = output_dir.join(format!("{name}-seed-{seed}.bin"));
+    let (mut model, start_epoch, previous) = if final_path.exists() {
+        verify_identity(&final_path, identity)?;
+        (
+            Model::from_bytes(&fs::read(&final_path).unwrap()).unwrap(),
+            epochs,
+            None,
+        )
+    } else if let Some((epoch, path)) = latest_checkpoint(&run_dir) {
+        verify_identity(&path, identity)?;
+        println!("resume config={name} seed={seed} epoch={epoch}");
+        (
+            Model::from_bytes(&fs::read(&path).unwrap()).unwrap(),
+            epoch,
+            Some(path),
+        )
+    } else {
+        (
+            Model::new_with_stage_definition(
+                patterns::generate_patterns_for(config.pattern_config),
+                config.num_stages,
+                config.stage_empty_divisor,
+            ),
+            0,
+            None,
+        )
+    };
+    let mut previous = previous;
+    for epoch in start_epoch..epochs {
+        println!(
+            "start config={name} seed={seed} epoch={}/{}",
+            epoch + 1,
+            epochs
+        );
+        model.train_epochs(train_samples, &cfg, epoch, 1);
+        let checkpoint = run_dir.join(format!("epoch-{:02}.bin", epoch + 1));
+        save_artifact(&checkpoint, &model.to_bytes_v3(), identity)?;
+        if let Some(old) = previous.take() {
+            if old != checkpoint {
+                fs::remove_file(metadata_path(&old)).ok();
+                fs::remove_file(old).ok();
+            }
+        }
+        previous = Some(checkpoint);
+        println!(
+            "saved config={name} seed={seed} epoch={}/{}",
+            epoch + 1,
+            epochs
+        );
+    }
+    let bytes = model.to_bytes_v3();
+    save_artifact(&final_path, &bytes, identity)?;
+    if let Some(old) = previous {
+        fs::remove_file(metadata_path(&old)).ok();
+        fs::remove_file(old).ok();
+    }
+    let mse = model.mean_squared_error(frozen_samples);
+    let mae = model.mean_absolute_error(frozen_samples);
+    println!(
+        "result config={name} seed={seed} frozen_mse={mse:.6} frozen_mae={mae:.6} bytes={}",
+        bytes.len()
+    );
+    append_result(
+        &output_dir.join("results.tsv"),
+        &format!("{name}\t{seed}\t{mse:.6}\t{mae:.6}\t{}\n", bytes.len()),
+    )
+}
+
 fn main() -> ExitCode {
     let epochs: u32 = arg_value("--epochs").map_or(20, |v| v.parse().unwrap());
     let configs: Vec<_> = arg_value("--configs")
@@ -261,6 +352,92 @@ fn main() -> ExitCode {
     }
     let output_dir =
         PathBuf::from(arg_value("--output-dir").unwrap_or_else(|| "train/data/t087".to_string()));
+    let simple_corpus_arg = arg_value("--simple-corpus");
+    let simple_max_records = arg_value("--simple-max-records").map(|v| v.parse::<usize>().unwrap());
+
+    // T155: `--simple-corpus`(簡易レコード: 64文字盤面+スコア)モード。
+    // WTHOR学習(既定挙動)とは完全に独立した分岐であり、`--max-games`/
+    // `--train-subset-size`(WTHOR側のフィルタ)とは意味が異なるため、
+    // 組み合わせての指定は誤用として拒否する(黙って無視すると気付きにくい
+    // ミスに繋がるため)。
+    if simple_corpus_arg.is_some() {
+        if max_games.is_some() {
+            eprintln!("--max-games is not supported together with --simple-corpus");
+            return ExitCode::FAILURE;
+        }
+        if train_subset_size.is_some() {
+            eprintln!("--train-subset-size is not supported together with --simple-corpus");
+            return ExitCode::FAILURE;
+        }
+    } else if simple_max_records.is_some() {
+        eprintln!("--simple-max-records requires --simple-corpus");
+        return ExitCode::FAILURE;
+    }
+
+    fs::create_dir_all(&output_dir).unwrap();
+
+    if let Some(simple_corpus_path) = simple_corpus_arg {
+        // T155簡易コーパス経路: 対局概念が無いため、局面ハッシュ分割
+        // (`simple_corpus::split_by_position_hash`)でtrain/frozenを分ける。
+        // `--subset-seed`(既定42)はここではreservoir samplingのseedとして
+        // 流用する(WTHOR経路の層化サブセットseedと同じCLI引数を、意味の異なる
+        // 別モードで再利用しているだけで、両モードは同時に有効にならない)。
+        let path = PathBuf::from(&simple_corpus_path);
+        let files = match simple_corpus::list_simple_corpus_files(&path) {
+            Ok(v) => v,
+            Err(e) => {
+                eprintln!("{e}");
+                return ExitCode::FAILURE;
+            }
+        };
+        let (pool, corpus_hash, total_lines) =
+            match simple_corpus::load_simple_corpus(&files, simple_max_records, subset_seed) {
+                Ok(v) => v,
+                Err(e) => {
+                    eprintln!("{e}");
+                    return ExitCode::FAILURE;
+                }
+            };
+        let pool_size = pool.len();
+        let (train_samples, frozen_samples) = simple_corpus::split_by_position_hash(pool);
+        println!(
+            "simple_corpus_dataset path={simple_corpus_path} total_lines={total_lines} pool_size={pool_size} max_records={simple_max_records:?} reservoir_seed={subset_seed} corpus_hash={corpus_hash} train_samples={} frozen_samples={}",
+            train_samples.len(),
+            frozen_samples.len(),
+        );
+
+        for config in configs {
+            for &seed in &seeds {
+                let name = config_name(config);
+                let cfg = TrainConfig {
+                    seed,
+                    ..TrainConfig::default()
+                };
+                let identity = format!(
+                    "schema=2-simple\nsimple_corpus_path={simple_corpus_path}\nsimple_corpus_hash={corpus_hash}\nsimple_corpus_total_lines={total_lines}\nsimple_max_records={simple_max_records:?}\nreservoir_seed={subset_seed}\nconfig={name}\nseed={seed}\nepochs={epochs}\nlearning_rate={}\nl2={}\nloss={:?}\ntrain_samples={}\nfrozen_samples={}\n",
+                    cfg.learning_rate,
+                    cfg.l2,
+                    cfg.loss,
+                    train_samples.len(),
+                    frozen_samples.len(),
+                );
+                if let Err(e) = run_config_seed(
+                    config,
+                    seed,
+                    epochs,
+                    &identity,
+                    &output_dir,
+                    &train_samples,
+                    &frozen_samples,
+                ) {
+                    eprintln!("{e}");
+                    return ExitCode::FAILURE;
+                }
+            }
+        }
+        return ExitCode::SUCCESS;
+    }
+
     let files = data_files();
     let data_hash = match hash_files(&files) {
         Ok(v) => v,
@@ -302,7 +479,6 @@ fn main() -> ExitCode {
         train_subset_size,
         subset_seed,
     );
-    fs::create_dir_all(&output_dir).unwrap();
 
     for config in configs {
         for &seed in &seeds {
@@ -321,81 +497,18 @@ fn main() -> ExitCode {
                     train_samples.len()
                 ))
             );
-            let run_dir = output_dir.join(format!("{name}-seed-{seed}"));
-            fs::create_dir_all(&run_dir).unwrap();
-            let final_path = output_dir.join(format!("{name}-seed-{seed}.bin"));
-            let (mut model, start_epoch, previous) = if final_path.exists() {
-                if let Err(e) = verify_identity(&final_path, &identity) {
-                    eprintln!("{e}");
-                    return ExitCode::FAILURE;
-                }
-                (
-                    Model::from_bytes(&fs::read(&final_path).unwrap()).unwrap(),
-                    epochs,
-                    None,
-                )
-            } else if let Some((epoch, path)) = latest_checkpoint(&run_dir) {
-                if let Err(e) = verify_identity(&path, &identity) {
-                    eprintln!("{e}");
-                    return ExitCode::FAILURE;
-                }
-                println!("resume config={name} seed={seed} epoch={epoch}");
-                (
-                    Model::from_bytes(&fs::read(&path).unwrap()).unwrap(),
-                    epoch,
-                    Some(path),
-                )
-            } else {
-                (
-                    Model::new_with_stage_definition(
-                        patterns::generate_patterns_for(config.pattern_config),
-                        config.num_stages,
-                        config.stage_empty_divisor,
-                    ),
-                    0,
-                    None,
-                )
-            };
-            let mut previous = previous;
-            for epoch in start_epoch..epochs {
-                println!(
-                    "start config={name} seed={seed} epoch={}/{}",
-                    epoch + 1,
-                    epochs
-                );
-                model.train_epochs(&train_samples, &cfg, epoch, 1);
-                let checkpoint = run_dir.join(format!("epoch-{:02}.bin", epoch + 1));
-                save_artifact(&checkpoint, &model.to_bytes_v3(), &identity).unwrap();
-                if let Some(old) = previous.take() {
-                    if old != checkpoint {
-                        fs::remove_file(metadata_path(&old)).ok();
-                        fs::remove_file(old).ok();
-                    }
-                }
-                previous = Some(checkpoint);
-                println!(
-                    "saved config={name} seed={seed} epoch={}/{}",
-                    epoch + 1,
-                    epochs
-                );
+            if let Err(e) = run_config_seed(
+                config,
+                seed,
+                epochs,
+                &identity,
+                &output_dir,
+                &train_samples,
+                &frozen_samples,
+            ) {
+                eprintln!("{e}");
+                return ExitCode::FAILURE;
             }
-            let bytes = model.to_bytes_v3();
-            save_artifact(&final_path, &bytes, &identity).unwrap();
-            if let Some(old) = previous {
-                fs::remove_file(metadata_path(&old)).ok();
-                fs::remove_file(old).ok();
-            }
-            let mse = model.mean_squared_error(&frozen_samples);
-            let mae = model.mean_absolute_error(&frozen_samples);
-            println!(
-                "result config={name} seed={seed} frozen_mse={mse:.6} frozen_mae={mae:.6} bytes={}",
-                bytes.len()
-            );
-            append_result(
-                &output_dir.join("results.tsv"),
-                &format!("{name}\t{seed}\t{mse:.6}\t{mae:.6}\t{}\n", bytes.len()),
-            )
-            .unwrap();
         }
     }
     ExitCode::SUCCESS
