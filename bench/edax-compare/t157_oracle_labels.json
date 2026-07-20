@@ -1,0 +1,3456 @@
+{
+  "metadata": {
+    "schema": 1,
+    "corpusSha256": "4419fb5120c2ba1d07b6d277473dfb4d9638de504255644254468e418469fb57",
+    "movesWeightsSha256": "b916c29e4f84692610a65b75c1692132628de5ba2b27b71bf2e8b94426b76c2a",
+    "evalCliSha256": "66e05abd136c426340ce73ca645f0fc9d1aa6ccd01ca1cdd4c2c8bfb7dc572b2",
+    "edaxSha256": "aabb5ac7d3f9a872fc0e7388ab1eee1d23c687f76c28642122524dc318b322b1",
+    "edaxEvalSha256": "f8b2299612d9fa4414157e70e932636e33111c2602d0c2fc382a7d90ef21b792",
+    "oracleMethod": "Edax -l 60 -book-usage off, same pipeline as T096 compare_pattern_v3.py"
+  },
+  "totalPositions": 180,
+  "rows": [
+    {
+      "id": "t096-exact-01",
+      "empties": 18,
+      "cohort": "t096",
+      "oracleScore": 28,
+      "moves": {
+        "b8": 28,
+        "a6": 18,
+        "a4": 28,
+        "a5": 20,
+        "f1": 12,
+        "b6": 12,
+        "b7": 2,
+        "g2": -2,
+        "c7": -12,
+        "b2": -30
+      },
+      "bestMoveFromTable": 28,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t096-exact-02",
+      "empties": 18,
+      "cohort": "t096",
+      "oracleScore": 42,
+      "moves": {
+        "g8": 42,
+        "c2": 34,
+        "f1": 32,
+        "h2": 30,
+        "b2": 32,
+        "d1": 4,
+        "g2": 10,
+        "d2": 14,
+        "h8": 10,
+        "f2": 2,
+        "b7": -12,
+        "h7": -12
+      },
+      "bestMoveFromTable": 42,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t096-exact-03",
+      "empties": 19,
+      "cohort": "t096",
+      "oracleScore": 12,
+      "moves": {
+        "a8": 8,
+        "g8": 12,
+        "g7": 2,
+        "a1": 6,
+        "e8": 2,
+        "a2": -18,
+        "a7": -10
+      },
+      "bestMoveFromTable": 12,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t096-exact-04",
+      "empties": 19,
+      "cohort": "t096",
+      "oracleScore": 8,
+      "moves": {
+        "f8": 6,
+        "d8": 8,
+        "b1": 2,
+        "e8": -4,
+        "f7": -4,
+        "c1": -22,
+        "b2": -50,
+        "g2": -46
+      },
+      "bestMoveFromTable": 8,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t096-exact-05",
+      "empties": 19,
+      "cohort": "t096",
+      "oracleScore": -24,
+      "moves": {
+        "a4": -24,
+        "b2": -32,
+        "g1": -38,
+        "g2": -56
+      },
+      "bestMoveFromTable": -24,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t096-exact-06",
+      "empties": 19,
+      "cohort": "t096",
+      "oracleScore": -10,
+      "moves": {
+        "h7": -10,
+        "g2": -26,
+        "b7": -20,
+        "b2": -30,
+        "a2": -30,
+        "a7": -30,
+        "g7": -36
+      },
+      "bestMoveFromTable": -10,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t096-exact-07",
+      "empties": 19,
+      "cohort": "t096",
+      "oracleScore": 10,
+      "moves": {
+        "c2": 10,
+        "a5": 6,
+        "e8": -22,
+        "b5": -2,
+        "b7": -8,
+        "b6": 2,
+        "g2": -14
+      },
+      "bestMoveFromTable": 10,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t096-exact-08",
+      "empties": 19,
+      "cohort": "t096",
+      "oracleScore": 16,
+      "moves": {
+        "g2": 12,
+        "c8": 16,
+        "a2": 8,
+        "b7": 10,
+        "f2": 12,
+        "b8": 10,
+        "a5": 2,
+        "h7": -12,
+        "a7": -22
+      },
+      "bestMoveFromTable": 16,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t096-exact-09",
+      "empties": 19,
+      "cohort": "t096",
+      "oracleScore": 10,
+      "moves": {
+        "h6": 10,
+        "g7": -2,
+        "d1": 0,
+        "f7": -4,
+        "c1": -6,
+        "h7": -2,
+        "b7": 2,
+        "b1": -30,
+        "a7": -42
+      },
+      "bestMoveFromTable": 10,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t096-exact-10",
+      "empties": 19,
+      "cohort": "t096",
+      "oracleScore": 32,
+      "moves": {
+        "b1": 32,
+        "d1": 24,
+        "g7": 22,
+        "f8": 18,
+        "h6": -4,
+        "e8": 18,
+        "b8": 10,
+        "c8": 10,
+        "f7": 4
+      },
+      "bestMoveFromTable": 32,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t096-exact-11",
+      "empties": 19,
+      "cohort": "t096",
+      "oracleScore": 4,
+      "moves": {
+        "c7": 4,
+        "e8": 2,
+        "g7": 4,
+        "d8": 0,
+        "h2": -8,
+        "f8": -4,
+        "g6": -12,
+        "h3": -2,
+        "f7": -6,
+        "a1": -16,
+        "a2": -32
+      },
+      "bestMoveFromTable": 4,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t096-exact-12",
+      "empties": 19,
+      "cohort": "t096",
+      "oracleScore": 12,
+      "moves": {
+        "h6": 10,
+        "g3": 12,
+        "h4": 6,
+        "h7": 2,
+        "a5": 2,
+        "g7": -22,
+        "b6": -18,
+        "b7": -18,
+        "g8": -10,
+        "b8": -18
+      },
+      "bestMoveFromTable": 12,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t096-exact-13",
+      "empties": 19,
+      "cohort": "t096",
+      "oracleScore": 10,
+      "moves": {
+        "b1": 2,
+        "h8": 4,
+        "a2": 10,
+        "a4": -6,
+        "e1": -22,
+        "a3": -22,
+        "h6": -26,
+        "b2": -32,
+        "h7": -28,
+        "g8": -36
+      },
+      "bestMoveFromTable": 10,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t096-exact-14",
+      "empties": 20,
+      "cohort": "t096",
+      "oracleScore": 20,
+      "moves": {
+        "b6": 20,
+        "g2": 18,
+        "a3": -2,
+        "a4": 6,
+        "h7": 0,
+        "b1": -6,
+        "b2": -14,
+        "g7": -10
+      },
+      "bestMoveFromTable": 20,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t096-exact-15",
+      "empties": 20,
+      "cohort": "t096",
+      "oracleScore": -60,
+      "moves": {
+        "b1": -60
+      },
+      "bestMoveFromTable": -60,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t096-exact-16",
+      "empties": 20,
+      "cohort": "t096",
+      "oracleScore": -24,
+      "moves": {
+        "e8": -24,
+        "a3": -40,
+        "b4": -34,
+        "b2": -42,
+        "b1": -38,
+        "h2": -46,
+        "c1": -48
+      },
+      "bestMoveFromTable": -24,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t096-exact-17",
+      "empties": 20,
+      "cohort": "t096",
+      "oracleScore": 4,
+      "moves": {
+        "e2": 0,
+        "b8": 4,
+        "e1": 0,
+        "c1": 0,
+        "a2": 2,
+        "h2": -6,
+        "b1": -4,
+        "b2": -4,
+        "h7": -10,
+        "g7": -40
+      },
+      "bestMoveFromTable": 4,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t096-exact-18",
+      "empties": 20,
+      "cohort": "t096",
+      "oracleScore": 26,
+      "moves": {
+        "b3": 26,
+        "b2": 8,
+        "d2": 20,
+        "a8": 6,
+        "c1": 12,
+        "e2": 12,
+        "g7": 6,
+        "g2": 6,
+        "b1": -20,
+        "g1": 4,
+        "h2": -4,
+        "h7": 4
+      },
+      "bestMoveFromTable": 26,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t096-exact-19",
+      "empties": 20,
+      "cohort": "t096",
+      "oracleScore": -42,
+      "moves": {
+        "c2": -44,
+        "d8": -42,
+        "b2": -52,
+        "e8": -48
+      },
+      "bestMoveFromTable": -42,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t096-exact-20",
+      "empties": 20,
+      "cohort": "t096",
+      "oracleScore": -8,
+      "moves": {
+        "e8": -8,
+        "a2": -14,
+        "h5": -12,
+        "b7": -22,
+        "g2": -20,
+        "h7": -32,
+        "g7": -24,
+        "g1": -24,
+        "b1": -26,
+        "b2": -34
+      },
+      "bestMoveFromTable": -8,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t096-exact-21",
+      "empties": 21,
+      "cohort": "t096",
+      "oracleScore": 16,
+      "moves": {
+        "b1": 16,
+        "a7": 12,
+        "g3": 12,
+        "g4": 6,
+        "h5": 0,
+        "a6": 4,
+        "g7": 4,
+        "h7": -10,
+        "b7": -16,
+        "b2": -8
+      },
+      "bestMoveFromTable": 16,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t096-exact-22",
+      "empties": 21,
+      "cohort": "t096",
+      "oracleScore": -2,
+      "moves": {
+        "a6": -2,
+        "h4": -2,
+        "a5": -12,
+        "b7": -12,
+        "b2": -24,
+        "c7": -16,
+        "b6": -28,
+        "g8": -40,
+        "g7": -40
+      },
+      "bestMoveFromTable": -2,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t096-exact-23",
+      "empties": 21,
+      "cohort": "t096",
+      "oracleScore": -32,
+      "moves": {
+        "b1": -32,
+        "e8": -36,
+        "b2": -34,
+        "b3": -36,
+        "f7": -36,
+        "c2": -34
+      },
+      "bestMoveFromTable": -32,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t096-exact-24",
+      "empties": 21,
+      "cohort": "t096",
+      "oracleScore": 50,
+      "moves": {
+        "b7": 42,
+        "h6": 48,
+        "f3": 44,
+        "e1": 50,
+        "f8": 24,
+        "g4": 42,
+        "f1": 44,
+        "g7": 28,
+        "g5": 34,
+        "f2": 32,
+        "h7": 22
+      },
+      "bestMoveFromTable": 50,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t096-exact-25",
+      "empties": 22,
+      "cohort": "t096",
+      "oracleScore": -8,
+      "moves": {
+        "g7": -14,
+        "g8": -8,
+        "b7": -16,
+        "g1": -26,
+        "g2": -26,
+        "h7": -28,
+        "b8": -28
+      },
+      "bestMoveFromTable": -8,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t096-exact-26",
+      "empties": 22,
+      "cohort": "t096",
+      "oracleScore": -2,
+      "moves": {
+        "e8": -8,
+        "a6": -12,
+        "a3": -14,
+        "c8": -8,
+        "b6": -8,
+        "b7": -10,
+        "g1": -2,
+        "f8": -14,
+        "a2": -12,
+        "a5": -16,
+        "c7": -8,
+        "h7": -14,
+        "g2": -16,
+        "h2": -24
+      },
+      "bestMoveFromTable": -2,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t096-exact-27",
+      "empties": 22,
+      "cohort": "t096",
+      "oracleScore": 16,
+      "moves": {
+        "c1": 16,
+        "a6": -10,
+        "a3": -22,
+        "b6": -34,
+        "d8": -36,
+        "f8": -36,
+        "c7": -34,
+        "c6": -40,
+        "a4": -40,
+        "e8": -42,
+        "d7": -46
+      },
+      "bestMoveFromTable": 16,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t096-exact-28",
+      "empties": 22,
+      "cohort": "t096",
+      "oracleScore": 22,
+      "moves": {
+        "e1": 22,
+        "b4": 16,
+        "g2": 6,
+        "b6": 10,
+        "c7": 18,
+        "h2": -10,
+        "b5": 8,
+        "c6": 12,
+        "b2": -8,
+        "b8": -6,
+        "g7": 0,
+        "a2": 2,
+        "g8": -4,
+        "b1": -14
+      },
+      "bestMoveFromTable": 22,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t096-exact-29",
+      "empties": 22,
+      "cohort": "t096",
+      "oracleScore": 38,
+      "moves": {
+        "c7": 32,
+        "b1": 30,
+        "a4": 32,
+        "c1": 38,
+        "b5": 32,
+        "b7": 16,
+        "b6": 4,
+        "g2": -8,
+        "g8": -26
+      },
+      "bestMoveFromTable": 38,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t096-exact-30",
+      "empties": 22,
+      "cohort": "t096",
+      "oracleScore": -20,
+      "moves": {
+        "b6": -20,
+        "a6": -24,
+        "d8": -22,
+        "b7": -20,
+        "e8": -32,
+        "g8": -44,
+        "b8": -40
+      },
+      "bestMoveFromTable": -20,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t096-exact-31",
+      "empties": 22,
+      "cohort": "t096",
+      "oracleScore": 24,
+      "moves": {
+        "c1": 24,
+        "a4": 14,
+        "c2": 10,
+        "g8": 4,
+        "b3": -2,
+        "f1": -2,
+        "g1": -8,
+        "g2": -4,
+        "b2": 0,
+        "d1": -10,
+        "g7": -18
+      },
+      "bestMoveFromTable": 24,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t096-exact-32",
+      "empties": 22,
+      "cohort": "t096",
+      "oracleScore": 20,
+      "moves": {
+        "a4": 10,
+        "a5": 20,
+        "c1": 10,
+        "a3": 14,
+        "a7": 14,
+        "g2": -2,
+        "a6": 8,
+        "b2": -2,
+        "b1": -6,
+        "h2": -2,
+        "a2": -2,
+        "g1": -6,
+        "b7": -20
+      },
+      "bestMoveFromTable": 20,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t096-exact-33",
+      "empties": 22,
+      "cohort": "t096",
+      "oracleScore": -42,
+      "moves": {
+        "d1": -42,
+        "h2": -50,
+        "g1": -48,
+        "c1": -50,
+        "f1": -58,
+        "c2": -56
+      },
+      "bestMoveFromTable": -42,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t096-exact-34",
+      "empties": 22,
+      "cohort": "t096",
+      "oracleScore": -24,
+      "moves": {
+        "f2": -24,
+        "g3": -26,
+        "b7": -28,
+        "a2": -32,
+        "a7": -44
+      },
+      "bestMoveFromTable": -24,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t096-exact-35",
+      "empties": 23,
+      "cohort": "t096",
+      "oracleScore": 2,
+      "moves": {
+        "f1": 2,
+        "g2": -6,
+        "d1": -8,
+        "h7": -8,
+        "d8": -18,
+        "e2": -14,
+        "b7": -26
+      },
+      "bestMoveFromTable": 2,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t096-exact-36",
+      "empties": 23,
+      "cohort": "t096",
+      "oracleScore": 22,
+      "moves": {
+        "g6": 22,
+        "d7": 22,
+        "c7": 22,
+        "b7": 10,
+        "e7": 14,
+        "g1": 12,
+        "f1": 6,
+        "a7": -14,
+        "g2": -14
+      },
+      "bestMoveFromTable": 22,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t096-exact-37",
+      "empties": 23,
+      "cohort": "t096",
+      "oracleScore": 16,
+      "moves": {
+        "b8": 14,
+        "b4": 16,
+        "a5": 14,
+        "b7": 2,
+        "a6": 8,
+        "h5": 2,
+        "g2": -8,
+        "h7": -22
+      },
+      "bestMoveFromTable": 16,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t096-exact-38",
+      "empties": 23,
+      "cohort": "t096",
+      "oracleScore": 4,
+      "moves": {
+        "f8": 0,
+        "d1": 4,
+        "a5": 4,
+        "h2": -8,
+        "h6": 4,
+        "g7": -8,
+        "a7": -22,
+        "g2": -16,
+        "b8": -20,
+        "b7": -52
+      },
+      "bestMoveFromTable": 4,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t096-exact-39",
+      "empties": 23,
+      "cohort": "t096",
+      "oracleScore": 4,
+      "moves": {
+        "e2": 4,
+        "h7": 2,
+        "g8": 0,
+        "b6": 4,
+        "h2": -6,
+        "b8": -18,
+        "b7": -20,
+        "g2": -24,
+        "g1": -20
+      },
+      "bestMoveFromTable": 4,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t096-exact-40",
+      "empties": 23,
+      "cohort": "t096",
+      "oracleScore": 30,
+      "moves": {
+        "d7": 26,
+        "f2": 30,
+        "c7": 28,
+        "g8": -10,
+        "b2": 10,
+        "a7": 6,
+        "g7": -14,
+        "a2": -8
+      },
+      "bestMoveFromTable": 30,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t096-exact-41",
+      "empties": 24,
+      "cohort": "t096",
+      "oracleScore": 16,
+      "moves": {
+        "a3": 8,
+        "f7": 16,
+        "b7": 4,
+        "g2": 0,
+        "h7": -8,
+        "b1": 2,
+        "g7": -18
+      },
+      "bestMoveFromTable": 16,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t096-exact-42",
+      "empties": 24,
+      "cohort": "t096",
+      "oracleScore": 24,
+      "moves": {
+        "a1": 24,
+        "a7": 6,
+        "g5": 10,
+        "f7": 4,
+        "g1": 6,
+        "e8": -4,
+        "b2": -10,
+        "h7": -4,
+        "b8": -8,
+        "h6": 0,
+        "d8": -12,
+        "b1": -12
+      },
+      "bestMoveFromTable": 24,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t096-exact-43",
+      "empties": 24,
+      "cohort": "t096",
+      "oracleScore": -10,
+      "moves": {
+        "c6": -10,
+        "g2": -26,
+        "c5": -32,
+        "b7": -32,
+        "g8": -34,
+        "g7": -48
+      },
+      "bestMoveFromTable": -10,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t096-exact-44",
+      "empties": 24,
+      "cohort": "t096",
+      "oracleScore": -18,
+      "moves": {
+        "d8": -18,
+        "b8": -30,
+        "g8": -30,
+        "b7": -24,
+        "c1": -20,
+        "b2": -34,
+        "h7": -26,
+        "h6": -36,
+        "h5": -40,
+        "g7": -44
+      },
+      "bestMoveFromTable": -18,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t096-exact-45",
+      "empties": 24,
+      "cohort": "t096",
+      "oracleScore": 50,
+      "moves": {
+        "d8": 44,
+        "f8": 50,
+        "h3": 46,
+        "a6": 46,
+        "g5": 44,
+        "b1": 44,
+        "h5": 46,
+        "e8": 44,
+        "b2": 40,
+        "g6": 38,
+        "h2": 32,
+        "a2": 32,
+        "f7": 20
+      },
+      "bestMoveFromTable": 50,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t096-exact-46",
+      "empties": 24,
+      "cohort": "t096",
+      "oracleScore": -12,
+      "moves": {
+        "h1": -12,
+        "c8": -14,
+        "a7": -24,
+        "a6": -22,
+        "a5": -16,
+        "f8": -16,
+        "e8": -30,
+        "d8": -20,
+        "b7": -28,
+        "g1": -48
+      },
+      "bestMoveFromTable": -12,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t096-exact-47",
+      "empties": 24,
+      "cohort": "t096",
+      "oracleScore": -46,
+      "moves": {
+        "c1": -46,
+        "b7": -52
+      },
+      "bestMoveFromTable": -46,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t096-exact-48",
+      "empties": 25,
+      "cohort": "t096",
+      "oracleScore": 32,
+      "moves": {
+        "g3": 32,
+        "g8": 24,
+        "h6": 14,
+        "e1": 22,
+        "c1": 10,
+        "b3": 16,
+        "d1": 20,
+        "h4": 16,
+        "f1": 12,
+        "h5": 4,
+        "b2": -12,
+        "g7": -22
+      },
+      "bestMoveFromTable": 32,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t096-exact-49",
+      "empties": 25,
+      "cohort": "t096",
+      "oracleScore": 4,
+      "moves": {
+        "e1": 4,
+        "d1": 2,
+        "g1": 2,
+        "g2": -4,
+        "h3": -48,
+        "g7": -46
+      },
+      "bestMoveFromTable": 4,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t096-exact-50",
+      "empties": 25,
+      "cohort": "t096",
+      "oracleScore": 10,
+      "moves": {
+        "b3": 10,
+        "c2": 2,
+        "f2": -6,
+        "b2": -8,
+        "h2": -6,
+        "f1": -10,
+        "c1": -2,
+        "d1": -14,
+        "e8": -12,
+        "g2": -12,
+        "g7": -24
+      },
+      "bestMoveFromTable": 10,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t096-exact-51",
+      "empties": 25,
+      "cohort": "t096",
+      "oracleScore": 32,
+      "moves": {
+        "f8": 32,
+        "e1": 18,
+        "e8": 16,
+        "g4": 22,
+        "d1": 18,
+        "h3": 16,
+        "g1": 8,
+        "f1": 14,
+        "h6": 20,
+        "h5": 10,
+        "b2": 2,
+        "g2": 4,
+        "b7": 2
+      },
+      "bestMoveFromTable": 32,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t096-exact-52",
+      "empties": 25,
+      "cohort": "t096",
+      "oracleScore": 10,
+      "moves": {
+        "c2": 4,
+        "a3": 4,
+        "g7": 10,
+        "h2": 2,
+        "b3": 8,
+        "a4": 0,
+        "b7": -6,
+        "b2": -4,
+        "g2": -16,
+        "a7": -14
+      },
+      "bestMoveFromTable": 10,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t096-exact-53",
+      "empties": 25,
+      "cohort": "t096",
+      "oracleScore": -22,
+      "moves": {
+        "e2": -28,
+        "g1": -28,
+        "f1": -32,
+        "a1": -22,
+        "g2": -28,
+        "a2": -50,
+        "g7": -32,
+        "c1": -40,
+        "b1": -46,
+        "h7": -38
+      },
+      "bestMoveFromTable": -22,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t096-exact-54",
+      "empties": 25,
+      "cohort": "t096",
+      "oracleScore": -40,
+      "moves": {
+        "a4": -40,
+        "b6": -42,
+        "a3": -48,
+        "a2": -58,
+        "b5": -50
+      },
+      "bestMoveFromTable": -40,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t096-exact-55",
+      "empties": 26,
+      "cohort": "t096",
+      "oracleScore": 20,
+      "moves": {
+        "d2": 20,
+        "h4": 12,
+        "b8": 12,
+        "c2": 12,
+        "e1": 12,
+        "b2": -2,
+        "a6": 2,
+        "d1": 0,
+        "f1": 0,
+        "g3": -4,
+        "b7": -20
+      },
+      "bestMoveFromTable": 20,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t096-exact-56",
+      "empties": 26,
+      "cohort": "t096",
+      "oracleScore": -14,
+      "moves": {
+        "g5": -14,
+        "g6": -14,
+        "f8": -18,
+        "c8": -22,
+        "b8": -26,
+        "f7": -18,
+        "g2": -26,
+        "g7": -26,
+        "e8": -28,
+        "b2": -24
+      },
+      "bestMoveFromTable": -14,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t096-exact-57",
+      "empties": 26,
+      "cohort": "t096",
+      "oracleScore": 16,
+      "moves": {
+        "c2": 16,
+        "c1": 8,
+        "c8": 4,
+        "b5": 16,
+        "c6": 16,
+        "b4": 8,
+        "b6": 14,
+        "b3": 0,
+        "g2": 2,
+        "g1": -6
+      },
+      "bestMoveFromTable": 16,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t096-exact-58",
+      "empties": 26,
+      "cohort": "t096",
+      "oracleScore": 2,
+      "moves": {
+        "f8": -6,
+        "f7": -4,
+        "f1": 0,
+        "f3": -2,
+        "h6": -4,
+        "e8": 2,
+        "c1": -8,
+        "h7": -12,
+        "d1": -2,
+        "g1": -12,
+        "g7": -12,
+        "b7": -30,
+        "g2": -30,
+        "b8": -32,
+        "e1": -32
+      },
+      "bestMoveFromTable": 2,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t096-exact-59",
+      "empties": 26,
+      "cohort": "t096",
+      "oracleScore": 6,
+      "moves": {
+        "h4": 6,
+        "c1": -2,
+        "e1": -6,
+        "d1": -12,
+        "g2": -20,
+        "h5": -8,
+        "g7": -20,
+        "h7": -20,
+        "h6": -24,
+        "b2": -22,
+        "a7": -30,
+        "h2": -32,
+        "c2": -20
+      },
+      "bestMoveFromTable": 6,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t096-exact-60",
+      "empties": 26,
+      "cohort": "t096",
+      "oracleScore": 38,
+      "moves": {
+        "b4": 38,
+        "h5": 26,
+        "g3": 32,
+        "b3": 32,
+        "b5": 24,
+        "g7": 28,
+        "g6": 16,
+        "g5": 20,
+        "b7": -2,
+        "a7": 10,
+        "b2": -10
+      },
+      "bestMoveFromTable": 38,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t157-exact-061",
+      "empties": 18,
+      "cohort": "t157ext",
+      "oracleScore": -36,
+      "moves": {
+        "g7": -38,
+        "b4": -36,
+        "b8": -36,
+        "b3": -40,
+        "b2": -42
+      },
+      "bestMoveFromTable": -36,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t157-exact-062",
+      "empties": 18,
+      "cohort": "t157ext",
+      "oracleScore": 32,
+      "moves": {
+        "f8": 32,
+        "f3": 16,
+        "b7": -2,
+        "f2": 10,
+        "g3": 14,
+        "f1": 14,
+        "b1": 0,
+        "e1": 2,
+        "g7": 8
+      },
+      "bestMoveFromTable": 32,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t157-exact-063",
+      "empties": 18,
+      "cohort": "t157ext",
+      "oracleScore": -20,
+      "moves": {
+        "c8": -20,
+        "b5": -26,
+        "d8": -28,
+        "g2": -24,
+        "g8": -36,
+        "a5": -34,
+        "g1": -40,
+        "g7": -40
+      },
+      "bestMoveFromTable": -20,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t157-exact-064",
+      "empties": 18,
+      "cohort": "t157ext",
+      "oracleScore": -46,
+      "moves": {
+        "e3": -46,
+        "d3": -50,
+        "h2": -62,
+        "f2": -54,
+        "g2": -62
+      },
+      "bestMoveFromTable": -46,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t157-exact-065",
+      "empties": 18,
+      "cohort": "t157ext",
+      "oracleScore": -26,
+      "moves": {
+        "f1": -26,
+        "d1": -32,
+        "g7": -30,
+        "b7": -32,
+        "f2": -34,
+        "e1": -36,
+        "a7": -48
+      },
+      "bestMoveFromTable": -26,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t157-exact-066",
+      "empties": 18,
+      "cohort": "t157ext",
+      "oracleScore": 24,
+      "moves": {
+        "e3": 24,
+        "g7": 6,
+        "c2": 12,
+        "f3": -4,
+        "a2": -22,
+        "b2": -18
+      },
+      "bestMoveFromTable": 24,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t157-exact-067",
+      "empties": 18,
+      "cohort": "t157ext",
+      "oracleScore": -18,
+      "moves": {
+        "g4": -18,
+        "g2": -18,
+        "g8": -24,
+        "h3": -26,
+        "f8": -26,
+        "g7": -22,
+        "h2": -36,
+        "b2": -34
+      },
+      "bestMoveFromTable": -18,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t157-exact-068",
+      "empties": 18,
+      "cohort": "t157ext",
+      "oracleScore": 56,
+      "moves": {
+        "b3": 56,
+        "c1": 46,
+        "g5": 56,
+        "d2": 42,
+        "f2": 52,
+        "f3": 46,
+        "b2": 38,
+        "g3": 44,
+        "b1": 20,
+        "g4": 18
+      },
+      "bestMoveFromTable": 56,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t157-exact-069",
+      "empties": 18,
+      "cohort": "t157ext",
+      "oracleScore": 58,
+      "moves": {
+        "h3": 58,
+        "e2": 28,
+        "b2": 42,
+        "c1": 32,
+        "a2": 38,
+        "f3": 18,
+        "d1": 14,
+        "g3": -6
+      },
+      "bestMoveFromTable": 58,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t157-exact-070",
+      "empties": 18,
+      "cohort": "t157ext",
+      "oracleScore": -30,
+      "moves": {
+        "f1": -36,
+        "c8": -30,
+        "g8": -42,
+        "b2": -48
+      },
+      "bestMoveFromTable": -30,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t157-exact-071",
+      "empties": 18,
+      "cohort": "t157ext",
+      "oracleScore": -8,
+      "moves": {
+        "g5": -10,
+        "g6": -18,
+        "g2": -20,
+        "g7": -8,
+        "g8": -22,
+        "a7": -24,
+        "g1": -30,
+        "a2": -34,
+        "b2": -34
+      },
+      "bestMoveFromTable": -8,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t157-exact-072",
+      "empties": 18,
+      "cohort": "t157ext",
+      "oracleScore": -2,
+      "moves": {
+        "f7": -2,
+        "h2": -4,
+        "e1": -8,
+        "b7": -12,
+        "a7": -16,
+        "g1": -20,
+        "g2": -22
+      },
+      "bestMoveFromTable": -2,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t157-exact-073",
+      "empties": 18,
+      "cohort": "t157ext",
+      "oracleScore": -6,
+      "moves": {
+        "g7": -10,
+        "f1": -6,
+        "g1": -10,
+        "c1": -6,
+        "b1": -22,
+        "e8": -18,
+        "d1": -18,
+        "a7": -28,
+        "a2": -26,
+        "b2": -42
+      },
+      "bestMoveFromTable": -6,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t157-exact-074",
+      "empties": 18,
+      "cohort": "t157ext",
+      "oracleScore": 18,
+      "moves": {
+        "b4": 18,
+        "g2": 12,
+        "a6": 12,
+        "b3": 8,
+        "g8": -6,
+        "b7": -4,
+        "b2": -8,
+        "g1": -2
+      },
+      "bestMoveFromTable": 18,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t157-exact-075",
+      "empties": 18,
+      "cohort": "t157ext",
+      "oracleScore": 12,
+      "moves": {
+        "b1": 12,
+        "h7": 8,
+        "h5": 6,
+        "b2": 8,
+        "g2": 8,
+        "g7": 2,
+        "h4": 8,
+        "g8": 8,
+        "a5": -12,
+        "b7": -20,
+        "a7": -16
+      },
+      "bestMoveFromTable": 12,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t157-exact-076",
+      "empties": 18,
+      "cohort": "t157ext",
+      "oracleScore": 0,
+      "moves": {
+        "g2": -2,
+        "g8": -6,
+        "g1": 0,
+        "a4": -2,
+        "a2": -2,
+        "a3": -6,
+        "h6": -16,
+        "b2": -14,
+        "g7": -32
+      },
+      "bestMoveFromTable": 0,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t157-exact-077",
+      "empties": 18,
+      "cohort": "t157ext",
+      "oracleScore": 34,
+      "moves": {
+        "d8": 34,
+        "e8": 28,
+        "g7": 30,
+        "a6": 26,
+        "f8": 26,
+        "a7": 20,
+        "c8": 22,
+        "g2": 18,
+        "b7": 16,
+        "h7": 0,
+        "b2": 6
+      },
+      "bestMoveFromTable": 34,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t157-exact-078",
+      "empties": 18,
+      "cohort": "t157ext",
+      "oracleScore": -18,
+      "moves": {
+        "a2": -18,
+        "c2": -18,
+        "g1": -22,
+        "h7": -26,
+        "g2": -32,
+        "h2": -28,
+        "b2": -34
+      },
+      "bestMoveFromTable": -18,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t157-exact-079",
+      "empties": 18,
+      "cohort": "t157ext",
+      "oracleScore": -22,
+      "moves": {
+        "g8": -22,
+        "g7": -28,
+        "g1": -34,
+        "b2": -34,
+        "g6": -30
+      },
+      "bestMoveFromTable": -22,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t157-exact-080",
+      "empties": 18,
+      "cohort": "t157ext",
+      "oracleScore": -44,
+      "moves": {
+        "h2": -44,
+        "b7": -48,
+        "h3": -52
+      },
+      "bestMoveFromTable": -44,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t157-exact-081",
+      "empties": 18,
+      "cohort": "t157ext",
+      "oracleScore": 38,
+      "moves": {
+        "h1": 38,
+        "a6": 38,
+        "f7": 26,
+        "g7": 30,
+        "c7": 22,
+        "b6": 20,
+        "d7": 22,
+        "e7": 16
+      },
+      "bestMoveFromTable": 38,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t157-exact-082",
+      "empties": 18,
+      "cohort": "t157ext",
+      "oracleScore": 24,
+      "moves": {
+        "g5": 12,
+        "g7": 18,
+        "h6": 24,
+        "a3": -4,
+        "a2": 0,
+        "g8": -22,
+        "h7": -28,
+        "g2": -24,
+        "b2": -24
+      },
+      "bestMoveFromTable": 24,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t157-exact-083",
+      "empties": 19,
+      "cohort": "t157ext",
+      "oracleScore": 4,
+      "moves": {
+        "h4": 4,
+        "h3": -2,
+        "g4": -20,
+        "b7": -8,
+        "g7": -14,
+        "b1": -26,
+        "a2": -30,
+        "h7": -22,
+        "h6": -28
+      },
+      "bestMoveFromTable": 4,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t157-exact-084",
+      "empties": 19,
+      "cohort": "t157ext",
+      "oracleScore": -24,
+      "moves": {
+        "g2": -24,
+        "b2": -26,
+        "a2": -28,
+        "b1": -32
+      },
+      "bestMoveFromTable": -24,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t157-exact-085",
+      "empties": 19,
+      "cohort": "t157ext",
+      "oracleScore": -36,
+      "moves": {
+        "g1": -36,
+        "h2": -62,
+        "b8": -54,
+        "h1": -54
+      },
+      "bestMoveFromTable": -36,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t157-exact-086",
+      "empties": 19,
+      "cohort": "t157ext",
+      "oracleScore": 32,
+      "moves": {
+        "b7": 32,
+        "b6": 30,
+        "g8": 18,
+        "b2": 30,
+        "g7": 18,
+        "c1": 26,
+        "b1": 22,
+        "h2": 8,
+        "h7": 10,
+        "b8": 16
+      },
+      "bestMoveFromTable": 32,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t157-exact-087",
+      "empties": 19,
+      "cohort": "t157ext",
+      "oracleScore": 34,
+      "moves": {
+        "d1": 28,
+        "c8": 34,
+        "e8": 26,
+        "a6": 24,
+        "a4": 14,
+        "a3": 22,
+        "a7": 8,
+        "g7": 6,
+        "g2": -12
+      },
+      "bestMoveFromTable": 34,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t157-exact-088",
+      "empties": 19,
+      "cohort": "t157ext",
+      "oracleScore": -26,
+      "moves": {
+        "d8": -26,
+        "e7": -28,
+        "c8": -36,
+        "g2": -36,
+        "g7": -50,
+        "h2": -46
+      },
+      "bestMoveFromTable": -26,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t157-exact-089",
+      "empties": 19,
+      "cohort": "t157ext",
+      "oracleScore": 34,
+      "moves": {
+        "h8": 34,
+        "a7": 32,
+        "a4": 20,
+        "a6": 30,
+        "c8": 26,
+        "c7": 26,
+        "g1": 26,
+        "b7": 18,
+        "b2": 6,
+        "d8": 10,
+        "e1": 2,
+        "g2": -10,
+        "g8": 2,
+        "f8": 6
+      },
+      "bestMoveFromTable": 34,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t157-exact-090",
+      "empties": 19,
+      "cohort": "t157ext",
+      "oracleScore": -48,
+      "moves": {
+        "b7": -48,
+        "a6": -58
+      },
+      "bestMoveFromTable": -48,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t157-exact-091",
+      "empties": 19,
+      "cohort": "t157ext",
+      "oracleScore": -4,
+      "moves": {
+        "c7": -4,
+        "f8": -8,
+        "b2": -8,
+        "c8": -14,
+        "g8": -14,
+        "e8": -14,
+        "b7": -18
+      },
+      "bestMoveFromTable": -4,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t157-exact-092",
+      "empties": 19,
+      "cohort": "t157ext",
+      "oracleScore": 64,
+      "moves": {
+        "h1": 60,
+        "g6": 58,
+        "g7": 54,
+        "g5": 62,
+        "e8": 64,
+        "f7": 56,
+        "b7": 56,
+        "f8": 62,
+        "c8": 62,
+        "g2": 36,
+        "a7": 30,
+        "d8": 36
+      },
+      "bestMoveFromTable": 64,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t157-exact-093",
+      "empties": 19,
+      "cohort": "t157ext",
+      "oracleScore": -28,
+      "moves": {
+        "h7": -30,
+        "a4": -28,
+        "a3": -40,
+        "g3": -34,
+        "a5": -32,
+        "a7": -44,
+        "b7": -42
+      },
+      "bestMoveFromTable": -28,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t157-exact-094",
+      "empties": 20,
+      "cohort": "t157ext",
+      "oracleScore": -12,
+      "moves": {
+        "h3": -16,
+        "g6": -12,
+        "a5": -12,
+        "f8": -22,
+        "h5": -20,
+        "g5": -22,
+        "g7": -30,
+        "b2": -38
+      },
+      "bestMoveFromTable": -12,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t157-exact-095",
+      "empties": 20,
+      "cohort": "t157ext",
+      "oracleScore": -14,
+      "moves": {
+        "d1": -20,
+        "h8": -16,
+        "f1": -24,
+        "g2": -14,
+        "b8": -30,
+        "e1": -36,
+        "g8": -36,
+        "f2": -40
+      },
+      "bestMoveFromTable": -14,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t157-exact-096",
+      "empties": 20,
+      "cohort": "t157ext",
+      "oracleScore": -42,
+      "moves": {
+        "a8": -42,
+        "b8": -48
+      },
+      "bestMoveFromTable": -42,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t157-exact-097",
+      "empties": 20,
+      "cohort": "t157ext",
+      "oracleScore": -10,
+      "moves": {
+        "b4": -14,
+        "a6": -12,
+        "g3": -10,
+        "b5": -16,
+        "b7": -16,
+        "g2": -34
+      },
+      "bestMoveFromTable": -10,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t157-exact-098",
+      "empties": 20,
+      "cohort": "t157ext",
+      "oracleScore": -16,
+      "moves": {
+        "g3": -16,
+        "h4": -20,
+        "b2": -32,
+        "h5": -36
+      },
+      "bestMoveFromTable": -16,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t157-exact-099",
+      "empties": 20,
+      "cohort": "t157ext",
+      "oracleScore": -24,
+      "moves": {
+        "d8": -24,
+        "g7": -38,
+        "b7": -38,
+        "b8": -44,
+        "h2": -54,
+        "g8": -38,
+        "g2": -38
+      },
+      "bestMoveFromTable": -24,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t157-exact-100",
+      "empties": 20,
+      "cohort": "t157ext",
+      "oracleScore": -2,
+      "moves": {
+        "h5": -2,
+        "b2": -6,
+        "e8": -8,
+        "b1": -12,
+        "h7": -12,
+        "h6": -10,
+        "g7": -28
+      },
+      "bestMoveFromTable": -2,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t157-exact-101",
+      "empties": 21,
+      "cohort": "t157ext",
+      "oracleScore": 6,
+      "moves": {
+        "a4": 2,
+        "a5": 0,
+        "h8": 4,
+        "b6": 6,
+        "g2": 6,
+        "b2": -8,
+        "e8": -2,
+        "f8": -12,
+        "h7": -20,
+        "g8": -22,
+        "g1": -28
+      },
+      "bestMoveFromTable": 6,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t157-exact-102",
+      "empties": 21,
+      "cohort": "t157ext",
+      "oracleScore": 56,
+      "moves": {
+        "g2": 56,
+        "e8": 54,
+        "g3": 48,
+        "a6": 46,
+        "a4": 50,
+        "b3": 46,
+        "e1": 38,
+        "b2": 46,
+        "b4": 32,
+        "d1": 36,
+        "d2": 32,
+        "c2": 34,
+        "b7": 10
+      },
+      "bestMoveFromTable": 56,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t157-exact-103",
+      "empties": 21,
+      "cohort": "t157ext",
+      "oracleScore": 36,
+      "moves": {
+        "f1": 36,
+        "b7": 30,
+        "h2": 28,
+        "h3": 34,
+        "d2": 32,
+        "a4": 26,
+        "f8": 24,
+        "c1": 34,
+        "d1": 32,
+        "b3": 30,
+        "g1": 18,
+        "b1": 22,
+        "h6": -2
+      },
+      "bestMoveFromTable": 36,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t157-exact-104",
+      "empties": 21,
+      "cohort": "t157ext",
+      "oracleScore": 56,
+      "moves": {
+        "e7": 52,
+        "g5": 52,
+        "b8": 56,
+        "g4": 54,
+        "b7": 56,
+        "g2": 26,
+        "f7": 38,
+        "h3": 52,
+        "h2": 28,
+        "g6": 46,
+        "b2": 28
+      },
+      "bestMoveFromTable": 56,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t157-exact-105",
+      "empties": 21,
+      "cohort": "t157ext",
+      "oracleScore": 44,
+      "moves": {
+        "b2": 44,
+        "e8": 32,
+        "c5": 40,
+        "b1": 34,
+        "b7": 32,
+        "b3": 36,
+        "b8": 36,
+        "b6": 36,
+        "d7": 22,
+        "g8": 24
+      },
+      "bestMoveFromTable": 44,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t157-exact-106",
+      "empties": 21,
+      "cohort": "t157ext",
+      "oracleScore": 16,
+      "moves": {
+        "a6": 12,
+        "g2": 10,
+        "d7": 16,
+        "e1": 8,
+        "f1": -10,
+        "b7": -8,
+        "g7": 0,
+        "d8": 0,
+        "h2": -4,
+        "b8": -18,
+        "a7": -12,
+        "b2": -10
+      },
+      "bestMoveFromTable": 16,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t157-exact-107",
+      "empties": 21,
+      "cohort": "t157ext",
+      "oracleScore": -20,
+      "moves": {
+        "h5": -20,
+        "g2": -24,
+        "b2": -40,
+        "g7": -32
+      },
+      "bestMoveFromTable": -20,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t157-exact-108",
+      "empties": 21,
+      "cohort": "t157ext",
+      "oracleScore": -2,
+      "moves": {
+        "f2": -2,
+        "b3": -10,
+        "d1": -14,
+        "e1": -22,
+        "b2": -20,
+        "c1": -18,
+        "c2": -26,
+        "a7": -22,
+        "b7": -40
+      },
+      "bestMoveFromTable": -2,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t157-exact-109",
+      "empties": 21,
+      "cohort": "t157ext",
+      "oracleScore": 8,
+      "moves": {
+        "b2": 8,
+        "g1": -16,
+        "a6": -8,
+        "d1": -10,
+        "c1": -18,
+        "g7": -18,
+        "f1": -10,
+        "e1": -18,
+        "g8": -26,
+        "b7": -38
+      },
+      "bestMoveFromTable": 8,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t157-exact-110",
+      "empties": 21,
+      "cohort": "t157ext",
+      "oracleScore": 10,
+      "moves": {
+        "b7": 2,
+        "g6": 10,
+        "f7": 4,
+        "g5": -4,
+        "e8": -2,
+        "g7": -16,
+        "b8": -16,
+        "b2": -22
+      },
+      "bestMoveFromTable": 10,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t157-exact-111",
+      "empties": 21,
+      "cohort": "t157ext",
+      "oracleScore": -14,
+      "moves": {
+        "g4": -20,
+        "h5": -16,
+        "f1": -16,
+        "g8": -14,
+        "g7": -14,
+        "d2": -22,
+        "h2": -26,
+        "f3": -22,
+        "b2": -14
+      },
+      "bestMoveFromTable": -14,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t157-exact-112",
+      "empties": 21,
+      "cohort": "t157ext",
+      "oracleScore": -22,
+      "moves": {
+        "b4": -30,
+        "h1": -22,
+        "g7": -26,
+        "d8": -28,
+        "c7": -26,
+        "h2": -46,
+        "g1": -42
+      },
+      "bestMoveFromTable": -22,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t157-exact-113",
+      "empties": 22,
+      "cohort": "t157ext",
+      "oracleScore": -4,
+      "moves": {
+        "e2": -4,
+        "f1": -8,
+        "b7": -16,
+        "g7": -18,
+        "g1": -26,
+        "g2": -20,
+        "h3": -26
+      },
+      "bestMoveFromTable": -4,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t157-exact-114",
+      "empties": 22,
+      "cohort": "t157ext",
+      "oracleScore": 24,
+      "moves": {
+        "e8": 24,
+        "f2": 22,
+        "a4": 16,
+        "h4": 0,
+        "h2": 16,
+        "b2": -10,
+        "c7": -10,
+        "a3": -14,
+        "g2": -26
+      },
+      "bestMoveFromTable": 24,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t157-exact-115",
+      "empties": 22,
+      "cohort": "t157ext",
+      "oracleScore": -44,
+      "moves": {
+        "b7": -44,
+        "c8": -46,
+        "c3": -46
+      },
+      "bestMoveFromTable": -44,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t157-exact-116",
+      "empties": 22,
+      "cohort": "t157ext",
+      "oracleScore": -2,
+      "moves": {
+        "c1": -8,
+        "f7": -2,
+        "a2": -14,
+        "g7": -14,
+        "f8": -10,
+        "a3": -18,
+        "b1": -20,
+        "b2": -20
+      },
+      "bestMoveFromTable": -2,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t157-exact-117",
+      "empties": 22,
+      "cohort": "t157ext",
+      "oracleScore": -2,
+      "moves": {
+        "a3": -2,
+        "a4": -6,
+        "b3": -8,
+        "b2": -6,
+        "b1": -24,
+        "g7": -20,
+        "h2": -16,
+        "g2": -24,
+        "g1": -30
+      },
+      "bestMoveFromTable": -2,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t157-exact-118",
+      "empties": 22,
+      "cohort": "t157ext",
+      "oracleScore": 2,
+      "moves": {
+        "c1": 2,
+        "c7": -4,
+        "c2": -4,
+        "e2": -6,
+        "d1": -4,
+        "b2": -14,
+        "b7": -14,
+        "g8": -14,
+        "e1": -16,
+        "g7": -30
+      },
+      "bestMoveFromTable": 2,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t157-exact-119",
+      "empties": 22,
+      "cohort": "t157ext",
+      "oracleScore": 0,
+      "moves": {
+        "h4": 0,
+        "g2": 0,
+        "f1": -2,
+        "b1": -4,
+        "a2": 0,
+        "g1": -8,
+        "c1": -8,
+        "b2": -10,
+        "g7": -6,
+        "e1": -8,
+        "b8": -12,
+        "g8": -20
+      },
+      "bestMoveFromTable": 0,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t157-exact-120",
+      "empties": 22,
+      "cohort": "t157ext",
+      "oracleScore": -14,
+      "moves": {
+        "g8": -14,
+        "e1": -20,
+        "g7": -30,
+        "g2": -34,
+        "g1": -40
+      },
+      "bestMoveFromTable": -14,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t157-exact-121",
+      "empties": 22,
+      "cohort": "t157ext",
+      "oracleScore": 64,
+      "moves": {
+        "d1": 64,
+        "h4": 64,
+        "g8": 64,
+        "g5": 64,
+        "c2": 62,
+        "e2": 64,
+        "e1": 60,
+        "g4": 62,
+        "g2": 56,
+        "h7": 46,
+        "g3": 48,
+        "f2": 30
+      },
+      "bestMoveFromTable": 64,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t157-exact-122",
+      "empties": 22,
+      "cohort": "t157ext",
+      "oracleScore": 30,
+      "moves": {
+        "a2": 30,
+        "g3": 14,
+        "h6": 20,
+        "e8": 6,
+        "g7": 12,
+        "g6": 0,
+        "f7": 6,
+        "b2": -20,
+        "h5": -2
+      },
+      "bestMoveFromTable": 30,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t157-exact-123",
+      "empties": 22,
+      "cohort": "t157ext",
+      "oracleScore": 10,
+      "moves": {
+        "a5": 10,
+        "h8": 2,
+        "b4": 8,
+        "b6": 10,
+        "d1": 0,
+        "e1": -2,
+        "g4": 0,
+        "f3": 0,
+        "b1": -12,
+        "b2": -20,
+        "h7": -30
+      },
+      "bestMoveFromTable": 10,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t157-exact-124",
+      "empties": 22,
+      "cohort": "t157ext",
+      "oracleScore": 12,
+      "moves": {
+        "g6": 12,
+        "e8": 2,
+        "g5": 4,
+        "c8": -2,
+        "h3": 4,
+        "g7": -4,
+        "b8": -8,
+        "h2": -6,
+        "b7": 0,
+        "b2": -22,
+        "f7": -14
+      },
+      "bestMoveFromTable": 12,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t157-exact-125",
+      "empties": 22,
+      "cohort": "t157ext",
+      "oracleScore": 24,
+      "moves": {
+        "g1": 22,
+        "d8": 20,
+        "h3": 24,
+        "b5": 18,
+        "f8": 12,
+        "a5": 12,
+        "b7": 8,
+        "g8": 10,
+        "a6": 10,
+        "g7": 4,
+        "b1": 0,
+        "a2": 0,
+        "g2": -6,
+        "a3": 0,
+        "a7": -4
+      },
+      "bestMoveFromTable": 24,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t157-exact-126",
+      "empties": 22,
+      "cohort": "t157ext",
+      "oracleScore": 16,
+      "moves": {
+        "e1": 14,
+        "d2": 10,
+        "h6": 16,
+        "e2": 10,
+        "b7": 4,
+        "a6": 12,
+        "f1": 8,
+        "g8": -24,
+        "g7": -28
+      },
+      "bestMoveFromTable": 16,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t157-exact-127",
+      "empties": 22,
+      "cohort": "t157ext",
+      "oracleScore": -50,
+      "moves": {
+        "g7": -50
+      },
+      "bestMoveFromTable": -50,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t157-exact-128",
+      "empties": 22,
+      "cohort": "t157ext",
+      "oracleScore": 10,
+      "moves": {
+        "f1": 4,
+        "c3": 10,
+        "h3": 0,
+        "g7": 6,
+        "d1": 2,
+        "b7": -12,
+        "b8": -18,
+        "h2": -10,
+        "g8": -38,
+        "g2": -26
+      },
+      "bestMoveFromTable": 10,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t157-exact-129",
+      "empties": 22,
+      "cohort": "t157ext",
+      "oracleScore": -4,
+      "moves": {
+        "f8": -4,
+        "h7": -14,
+        "a5": -4,
+        "a7": -8,
+        "f7": -12,
+        "b2": -6,
+        "c8": -16,
+        "h6": -22,
+        "g2": -22,
+        "b7": -26,
+        "h4": -20,
+        "h5": -28,
+        "g7": -30
+      },
+      "bestMoveFromTable": -4,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t157-exact-130",
+      "empties": 23,
+      "cohort": "t157ext",
+      "oracleScore": -34,
+      "moves": {
+        "f8": -34,
+        "b3": -42,
+        "a4": -40,
+        "a5": -40,
+        "a3": -38,
+        "e1": -44
+      },
+      "bestMoveFromTable": -34,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t157-exact-131",
+      "empties": 23,
+      "cohort": "t157ext",
+      "oracleScore": 4,
+      "moves": {
+        "b5": 4,
+        "g8": -6,
+        "b6": -8,
+        "f8": -2,
+        "g2": -2,
+        "b7": -14,
+        "g7": -12,
+        "b8": -22
+      },
+      "bestMoveFromTable": 4,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t157-exact-132",
+      "empties": 23,
+      "cohort": "t157ext",
+      "oracleScore": 32,
+      "moves": {
+        "a6": 32,
+        "b6": 32,
+        "h3": 28,
+        "d7": 16,
+        "f8": 18,
+        "b1": 22,
+        "h5": 2,
+        "h7": 2,
+        "g2": 8,
+        "b2": 0,
+        "g7": -12
+      },
+      "bestMoveFromTable": 32,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t157-exact-133",
+      "empties": 23,
+      "cohort": "t157ext",
+      "oracleScore": -4,
+      "moves": {
+        "f2": -4,
+        "a4": -4,
+        "a2": -18,
+        "h7": -12,
+        "h3": -8,
+        "g7": -12,
+        "h6": -24,
+        "h5": -18,
+        "g2": -20,
+        "h2": -28,
+        "b2": -28
+      },
+      "bestMoveFromTable": -4,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t157-exact-134",
+      "empties": 23,
+      "cohort": "t157ext",
+      "oracleScore": 40,
+      "moves": {
+        "a1": 38,
+        "b6": 40,
+        "d7": 26,
+        "b5": 26,
+        "b7": 22,
+        "h1": 22,
+        "h6": 18,
+        "f7": 20,
+        "h5": 20,
+        "g7": 16,
+        "f8": 22,
+        "b2": 14,
+        "c8": 16,
+        "h7": 10
+      },
+      "bestMoveFromTable": 40,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t157-exact-135",
+      "empties": 23,
+      "cohort": "t157ext",
+      "oracleScore": -10,
+      "moves": {
+        "a6": -10,
+        "c2": -12,
+        "b3": -16,
+        "e2": -24,
+        "d2": -20,
+        "a7": -14,
+        "b7": -38,
+        "g8": -36
+      },
+      "bestMoveFromTable": -10,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t157-exact-136",
+      "empties": 23,
+      "cohort": "t157ext",
+      "oracleScore": 50,
+      "moves": {
+        "a8": 46,
+        "c8": 50,
+        "g4": 42,
+        "g2": 22,
+        "d1": 22,
+        "g3": 20,
+        "g7": 10,
+        "h6": 22,
+        "g6": 20,
+        "h4": 18,
+        "h5": 26,
+        "a2": 20,
+        "f7": 14,
+        "b2": -12,
+        "b8": -20
+      },
+      "bestMoveFromTable": 50,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t157-exact-137",
+      "empties": 23,
+      "cohort": "t157ext",
+      "oracleScore": -8,
+      "moves": {
+        "g7": -16,
+        "d8": -8,
+        "f8": -12,
+        "b2": -22,
+        "b8": -28,
+        "h6": -16,
+        "b7": -34,
+        "g2": -30,
+        "g1": -30
+      },
+      "bestMoveFromTable": -8,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t157-exact-138",
+      "empties": 23,
+      "cohort": "t157ext",
+      "oracleScore": 2,
+      "moves": {
+        "f7": -2,
+        "b3": -8,
+        "a4": -2,
+        "c7": -4,
+        "c8": 0,
+        "e8": -8,
+        "g7": 2,
+        "c6": -4,
+        "d8": -6,
+        "f1": -32
+      },
+      "bestMoveFromTable": 2,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t157-exact-139",
+      "empties": 23,
+      "cohort": "t157ext",
+      "oracleScore": 20,
+      "moves": {
+        "g7": 20,
+        "g6": 10,
+        "a6": 14,
+        "e8": 8,
+        "a7": 10,
+        "b8": 10,
+        "g2": -12,
+        "b7": -24,
+        "h4": -40,
+        "h2": -30
+      },
+      "bestMoveFromTable": 20,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t157-exact-140",
+      "empties": 23,
+      "cohort": "t157ext",
+      "oracleScore": 30,
+      "moves": {
+        "a8": 28,
+        "h8": 22,
+        "b5": 30,
+        "b3": 28,
+        "a7": 24,
+        "b4": 30,
+        "e8": 18,
+        "b2": 20,
+        "c7": 22,
+        "g1": 8,
+        "g2": 14,
+        "a6": 2,
+        "h7": -12,
+        "g8": -4
+      },
+      "bestMoveFromTable": 30,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t157-exact-141",
+      "empties": 24,
+      "cohort": "t157ext",
+      "oracleScore": -40,
+      "moves": {
+        "a4": -42,
+        "g2": -42,
+        "a6": -42,
+        "b2": -48,
+        "b3": -40
+      },
+      "bestMoveFromTable": -40,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t157-exact-142",
+      "empties": 24,
+      "cohort": "t157ext",
+      "oracleScore": -16,
+      "moves": {
+        "g8": -18,
+        "e1": -24,
+        "h4": -26,
+        "g2": -26,
+        "f1": -16,
+        "h6": -26,
+        "c1": -24,
+        "g1": -26,
+        "b2": -32,
+        "d1": -32,
+        "g7": -52
+      },
+      "bestMoveFromTable": -16,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t157-exact-143",
+      "empties": 24,
+      "cohort": "t157ext",
+      "oracleScore": -28,
+      "moves": {
+        "e7": -30,
+        "g1": -28,
+        "h7": -36,
+        "g2": -34,
+        "g7": -38,
+        "h6": -40,
+        "a5": -36,
+        "b7": -42,
+        "a7": -38,
+        "f7": -36
+      },
+      "bestMoveFromTable": -28,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t157-exact-144",
+      "empties": 24,
+      "cohort": "t157ext",
+      "oracleScore": -6,
+      "moves": {
+        "h4": -6,
+        "f1": -16,
+        "f8": -32,
+        "g8": -22,
+        "a4": -28,
+        "a6": -24,
+        "a3": -22,
+        "g1": -22,
+        "g7": -26,
+        "b8": -38,
+        "b6": -30
+      },
+      "bestMoveFromTable": -6,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t157-exact-145",
+      "empties": 24,
+      "cohort": "t157ext",
+      "oracleScore": 8,
+      "moves": {
+        "a4": 6,
+        "e8": 0,
+        "c7": 2,
+        "c6": 0,
+        "d7": 8,
+        "f7": 2,
+        "d8": 4,
+        "g7": -2,
+        "g1": -10,
+        "g2": -6,
+        "b1": -18,
+        "b2": -14,
+        "a2": -22
+      },
+      "bestMoveFromTable": 8,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t157-exact-146",
+      "empties": 24,
+      "cohort": "t157ext",
+      "oracleScore": -14,
+      "moves": {
+        "f2": -18,
+        "h4": -14,
+        "f8": -22,
+        "h5": -22,
+        "g2": -18,
+        "g8": -28,
+        "g3": -24,
+        "b7": -28
+      },
+      "bestMoveFromTable": -14,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t157-exact-147",
+      "empties": 24,
+      "cohort": "t157ext",
+      "oracleScore": -4,
+      "moves": {
+        "d1": -8,
+        "a3": -6,
+        "e7": -8,
+        "b1": -6,
+        "a4": -4,
+        "c1": -14,
+        "f8": -12,
+        "b7": -16,
+        "a5": -14,
+        "b8": -28,
+        "g7": -36,
+        "b2": -38
+      },
+      "bestMoveFromTable": -4,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t157-exact-148",
+      "empties": 24,
+      "cohort": "t157ext",
+      "oracleScore": 8,
+      "moves": {
+        "f7": 8,
+        "h4": 0,
+        "h7": -14,
+        "b1": -22,
+        "d1": -14,
+        "h2": -6,
+        "g1": -26,
+        "g7": -34,
+        "a2": -34
+      },
+      "bestMoveFromTable": 8,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t157-exact-149",
+      "empties": 24,
+      "cohort": "t157ext",
+      "oracleScore": -10,
+      "moves": {
+        "b2": -10,
+        "a2": -14,
+        "e1": -14,
+        "d1": -12,
+        "a3": -34,
+        "b1": -36
+      },
+      "bestMoveFromTable": -10,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t157-exact-150",
+      "empties": 24,
+      "cohort": "t157ext",
+      "oracleScore": 30,
+      "moves": {
+        "h6": 30,
+        "a2": 16,
+        "b2": 6,
+        "d7": 12,
+        "f7": 14,
+        "c7": 10,
+        "g2": 8,
+        "e7": 2,
+        "g7": -4,
+        "g1": 0,
+        "b7": -10,
+        "a7": -8
+      },
+      "bestMoveFromTable": 30,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t157-exact-151",
+      "empties": 24,
+      "cohort": "t157ext",
+      "oracleScore": -14,
+      "moves": {
+        "c8": -14,
+        "h2": -18,
+        "g4": -18,
+        "f8": -14,
+        "b7": -14,
+        "b2": -20,
+        "g2": -22,
+        "d8": -24,
+        "c7": -34,
+        "a7": -30,
+        "a2": -34
+      },
+      "bestMoveFromTable": -14,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t157-exact-152",
+      "empties": 24,
+      "cohort": "t157ext",
+      "oracleScore": 0,
+      "moves": {
+        "d1": -4,
+        "c3": -4,
+        "b6": 0,
+        "a2": -12,
+        "c7": -12,
+        "e1": -8,
+        "g2": -6,
+        "b7": -26,
+        "b5": -20,
+        "g1": -22,
+        "b1": -20,
+        "b2": -26
+      },
+      "bestMoveFromTable": 0,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t157-exact-153",
+      "empties": 24,
+      "cohort": "t157ext",
+      "oracleScore": 34,
+      "moves": {
+        "h2": 34,
+        "a4": 30,
+        "c1": 26,
+        "b2": 18,
+        "d8": 24,
+        "d7": 20,
+        "g7": 16,
+        "a7": 12,
+        "e8": 16,
+        "c7": 18,
+        "b7": 12,
+        "g2": 8,
+        "a6": 22
+      },
+      "bestMoveFromTable": 34,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t157-exact-154",
+      "empties": 24,
+      "cohort": "t157ext",
+      "oracleScore": -10,
+      "moves": {
+        "a4": -12,
+        "h2": -10,
+        "a6": -26,
+        "b8": -22,
+        "a7": -30,
+        "g2": -10,
+        "g8": -26,
+        "b7": -34
+      },
+      "bestMoveFromTable": -10,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t157-exact-155",
+      "empties": 24,
+      "cohort": "t157ext",
+      "oracleScore": -58,
+      "moves": {
+        "g7": -58,
+        "c7": -60
+      },
+      "bestMoveFromTable": -58,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t157-exact-156",
+      "empties": 24,
+      "cohort": "t157ext",
+      "oracleScore": -4,
+      "moves": {
+        "h2": -8,
+        "d8": -8,
+        "g8": -14,
+        "f8": -4,
+        "h3": -10,
+        "a4": -18,
+        "a6": -16,
+        "b7": -16,
+        "a7": -28,
+        "a5": -20,
+        "e8": -22,
+        "g2": -30,
+        "g7": -28
+      },
+      "bestMoveFromTable": -4,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t157-exact-157",
+      "empties": 24,
+      "cohort": "t157ext",
+      "oracleScore": -6,
+      "moves": {
+        "c2": -6,
+        "f2": -6,
+        "b8": -10,
+        "e1": -10,
+        "e2": -20,
+        "h6": -24,
+        "e3": -18,
+        "a7": -24,
+        "b2": -26,
+        "b7": -30,
+        "g7": -40
+      },
+      "bestMoveFromTable": -6,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t157-exact-158",
+      "empties": 25,
+      "cohort": "t157ext",
+      "oracleScore": 12,
+      "moves": {
+        "g7": 12,
+        "f1": 10,
+        "f2": 12,
+        "f3": 2,
+        "a7": 2,
+        "g4": 4,
+        "h5": -4,
+        "h6": 2,
+        "h2": -4,
+        "b8": -16,
+        "d8": -18,
+        "b7": -34
+      },
+      "bestMoveFromTable": 12,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t157-exact-159",
+      "empties": 25,
+      "cohort": "t157ext",
+      "oracleScore": 4,
+      "moves": {
+        "h1": 2,
+        "d2": 4,
+        "d1": 4,
+        "b5": -2,
+        "b4": -2,
+        "b3": -6,
+        "g1": -12,
+        "e8": -14,
+        "c2": -16,
+        "h2": -30,
+        "g7": -30
+      },
+      "bestMoveFromTable": 4,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t157-exact-160",
+      "empties": 25,
+      "cohort": "t157ext",
+      "oracleScore": -8,
+      "moves": {
+        "a2": -8,
+        "h2": -8,
+        "d2": -10,
+        "e2": -16,
+        "g8": -14,
+        "b2": -20,
+        "f2": -22,
+        "g2": -26,
+        "g7": -32
+      },
+      "bestMoveFromTable": -8,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t157-exact-161",
+      "empties": 25,
+      "cohort": "t157ext",
+      "oracleScore": 0,
+      "moves": {
+        "c7": 0,
+        "h7": -14,
+        "d7": -8,
+        "h4": -4,
+        "b2": -18,
+        "g2": -24,
+        "h6": -18,
+        "a2": -24,
+        "g7": -34,
+        "b7": -32
+      },
+      "bestMoveFromTable": 0,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t157-exact-162",
+      "empties": 25,
+      "cohort": "t157ext",
+      "oracleScore": 12,
+      "moves": {
+        "f7": 12,
+        "c1": 8,
+        "b7": 0,
+        "f8": 2,
+        "f6": 6,
+        "b2": 4,
+        "d1": 6,
+        "a2": 0,
+        "b1": 4,
+        "b8": -14
+      },
+      "bestMoveFromTable": 12,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t157-exact-163",
+      "empties": 25,
+      "cohort": "t157ext",
+      "oracleScore": 4,
+      "moves": {
+        "f7": 2,
+        "d8": 4,
+        "g7": -2,
+        "g3": -2,
+        "h6": -8,
+        "h4": -2,
+        "g2": -6,
+        "a3": -8,
+        "g1": -18,
+        "a2": -20,
+        "b2": -18,
+        "h7": -18,
+        "b8": -20,
+        "b7": -18
+      },
+      "bestMoveFromTable": 4,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t157-exact-164",
+      "empties": 25,
+      "cohort": "t157ext",
+      "oracleScore": 2,
+      "moves": {
+        "e1": 2,
+        "c1": 2,
+        "a3": -2,
+        "c3": -6,
+        "g2": -12,
+        "h7": -8,
+        "g8": -8,
+        "a4": -20,
+        "a2": -16,
+        "f2": -12,
+        "d1": -26
+      },
+      "bestMoveFromTable": 2,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t157-exact-165",
+      "empties": 25,
+      "cohort": "t157ext",
+      "oracleScore": -12,
+      "moves": {
+        "c2": -12,
+        "d1": -16,
+        "g1": -12,
+        "b4": -24,
+        "a3": -18,
+        "b2": -22,
+        "g7": -26,
+        "a2": -28,
+        "h2": -32,
+        "g2": -36
+      },
+      "bestMoveFromTable": -12,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t157-exact-166",
+      "empties": 25,
+      "cohort": "t157ext",
+      "oracleScore": 6,
+      "moves": {
+        "b2": 2,
+        "b3": 6,
+        "b4": 2,
+        "a6": 0,
+        "h8": 4,
+        "b7": -4,
+        "b5": -2,
+        "a7": -2,
+        "b1": -4,
+        "h5": -12,
+        "b8": -20,
+        "g8": -48
+      },
+      "bestMoveFromTable": 6,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t157-exact-167",
+      "empties": 25,
+      "cohort": "t157ext",
+      "oracleScore": -2,
+      "moves": {
+        "h4": -2,
+        "b7": -4,
+        "a6": -12,
+        "g2": -16,
+        "a7": -6,
+        "f7": -14,
+        "h3": -14,
+        "g6": -10,
+        "e8": -24
+      },
+      "bestMoveFromTable": -2,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t157-exact-168",
+      "empties": 26,
+      "cohort": "t157ext",
+      "oracleScore": 48,
+      "moves": {
+        "h7": 48,
+        "c2": 34,
+        "a6": -14,
+        "b3": -16,
+        "e2": -16,
+        "a5": -18,
+        "c1": -18,
+        "b5": -14,
+        "f1": -20,
+        "d1": -22,
+        "c3": -20,
+        "g2": -22,
+        "b4": -24
+      },
+      "bestMoveFromTable": 48,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t157-exact-169",
+      "empties": 26,
+      "cohort": "t157ext",
+      "oracleScore": 22,
+      "moves": {
+        "g4": 22,
+        "g7": 8,
+        "g3": 2,
+        "h4": 6,
+        "e1": 0,
+        "f2": -6,
+        "h5": -6,
+        "b7": -14
+      },
+      "bestMoveFromTable": 22,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t157-exact-170",
+      "empties": 26,
+      "cohort": "t157ext",
+      "oracleScore": 4,
+      "moves": {
+        "h8": 0,
+        "c8": -4,
+        "g2": 0,
+        "b6": 4,
+        "c7": 2,
+        "h7": -4,
+        "a5": -6,
+        "c6": -2,
+        "b4": -2,
+        "h6": -4,
+        "h2": -12,
+        "g8": -24
+      },
+      "bestMoveFromTable": 4,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t157-exact-171",
+      "empties": 26,
+      "cohort": "t157ext",
+      "oracleScore": 18,
+      "moves": {
+        "h7": 18,
+        "a6": 16,
+        "d1": 12,
+        "b4": 10,
+        "b8": 0,
+        "c2": 0,
+        "b3": 6,
+        "a5": 2,
+        "c6": 0,
+        "e8": -16,
+        "g7": -6,
+        "g8": -38
+      },
+      "bestMoveFromTable": 18,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t157-exact-172",
+      "empties": 26,
+      "cohort": "t157ext",
+      "oracleScore": -48,
+      "moves": {
+        "c2": -48,
+        "b2": -64,
+        "b3": -62,
+        "g8": -62
+      },
+      "bestMoveFromTable": -48,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t157-exact-173",
+      "empties": 26,
+      "cohort": "t157ext",
+      "oracleScore": 34,
+      "moves": {
+        "g7": 34,
+        "b5": 20,
+        "f1": 10,
+        "a5": 24,
+        "d8": 24,
+        "h5": 14,
+        "a4": 20,
+        "g8": 0,
+        "b7": 14,
+        "c7": 12,
+        "b6": 16,
+        "e8": 6,
+        "a2": 10,
+        "g2": -20
+      },
+      "bestMoveFromTable": 34,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t157-exact-174",
+      "empties": 26,
+      "cohort": "t157ext",
+      "oracleScore": -10,
+      "moves": {
+        "a7": -10,
+        "b2": -16,
+        "c7": -16,
+        "a4": -20,
+        "b7": -26,
+        "a2": -24
+      },
+      "bestMoveFromTable": -10,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t157-exact-175",
+      "empties": 26,
+      "cohort": "t157ext",
+      "oracleScore": 6,
+      "moves": {
+        "e1": 2,
+        "a3": 0,
+        "f8": 2,
+        "g8": -2,
+        "a7": 6,
+        "e8": -2,
+        "a6": -2,
+        "g1": -6,
+        "h3": 0,
+        "h2": -18,
+        "f1": -4,
+        "a4": -6,
+        "g7": -22,
+        "a5": -12,
+        "g2": -18,
+        "b7": -32
+      },
+      "bestMoveFromTable": 6,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t157-exact-176",
+      "empties": 26,
+      "cohort": "t157ext",
+      "oracleScore": -18,
+      "moves": {
+        "g1": -18,
+        "h4": -36,
+        "a5": -30,
+        "f8": -28,
+        "g7": -26,
+        "b1": -32,
+        "h3": -30,
+        "f7": -30,
+        "a3": -30,
+        "g5": -42,
+        "b2": -42
+      },
+      "bestMoveFromTable": -18,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t157-exact-177",
+      "empties": 26,
+      "cohort": "t157ext",
+      "oracleScore": 2,
+      "moves": {
+        "c1": 2,
+        "f8": -4,
+        "d1": -2,
+        "a7": -4,
+        "g8": -22,
+        "e1": -10,
+        "e8": -16,
+        "c2": -4,
+        "b2": -28,
+        "c8": -12,
+        "b8": -20,
+        "d8": -18,
+        "g7": -28,
+        "b7": -40
+      },
+      "bestMoveFromTable": 2,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t157-exact-178",
+      "empties": 26,
+      "cohort": "t157ext",
+      "oracleScore": 2,
+      "moves": {
+        "b6": 2,
+        "d8": 2,
+        "a3": 0,
+        "h7": -10,
+        "a5": -4,
+        "f8": -8,
+        "b8": -14,
+        "b5": -8,
+        "h2": -26,
+        "b7": -28,
+        "g2": -30
+      },
+      "bestMoveFromTable": 2,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t157-exact-179",
+      "empties": 26,
+      "cohort": "t157ext",
+      "oracleScore": -16,
+      "moves": {
+        "a4": -16,
+        "e8": -18,
+        "a6": -18,
+        "b7": -22,
+        "b6": -26,
+        "a5": -28,
+        "g8": -30,
+        "g7": -36
+      },
+      "bestMoveFromTable": -16,
+      "consistentWithRoot": true
+    },
+    {
+      "id": "t157-exact-180",
+      "empties": 26,
+      "cohort": "t157ext",
+      "oracleScore": 22,
+      "moves": {
+        "e1": 22,
+        "g1": 2,
+        "g3": 6,
+        "g7": -2,
+        "g8": 2,
+        "g5": 6,
+        "g4": 6,
+        "g6": 4,
+        "e8": 8,
+        "g2": -12,
+        "f1": -30
+      },
+      "bestMoveFromTable": 22,
+      "consistentWithRoot": true
+    }
+  ],
+  "gitTreeAtLastWrite": "4fd3f0ee093656e61223ef21f717f17d1c0eec9b"
+}

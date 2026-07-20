@@ -1,0 +1,107 @@
+{
+  "task": "T157",
+  "provenance": {
+    "schema": 1,
+    "corpusSha256": "4419fb5120c2ba1d07b6d277473dfb4d9638de504255644254468e418469fb57",
+    "labelsSha256": "8859c779cff35be32d197b1d4bc45bf537a4afd980afe1037c88d3fbed8bec82",
+    "evalCliSha256": "6c6e21af9f1b8cae5ed7ff24912e70ce86009a2d44a25b406a1836b9553d5ef3",
+    "edaxSha256": "aabb5ac7d3f9a872fc0e7388ab1eee1d23c687f76c28642122524dc318b322b1",
+    "edaxEvalSha256": "f8b2299612d9fa4414157e70e932636e33111c2602d0c2fc382a7d90ef21b792",
+    "weightsSha256": {
+      "v2": "b916c29e4f84692610a65b75c1692132628de5ba2b27b71bf2e8b94426b76c2a",
+      "v3": "d815dd6fbfd3e426ec9f05a3cd0b3d6b5963e518d918bee85301ad83dbc0de92",
+      "v4_prod": "c372b83366c4006023ae05f3af5b68dda5929aca7ff7308d1b398a89639e383f",
+      "t124_seed1": "56dccc2403beb3ab90a4f570a6ad9926271e908e68d74d0571ee4158994b2178",
+      "t124_seed2": "d1607701269672fe4b9e83994a41e47d33d42b4dc08517b50a85b08adc7d8b76",
+      "t154_runB": "8bc5977f834911bbaa055fd98c7462509e3e4e231c56aa80a559314de7da846b",
+      "t155_e1_seed1": "578186597816f76a0c98e1f432843623bbc1f61e41a63d1247c8e84820d3f315",
+      "t155_e1_seed2": "0c03dc720f1648bb37b1794f58ad13b1a1def936ab018ada9e5082b70202c1cd",
+      "t155_e1_seed3": "7407323de07f7fcf370e3572daa617735eec7774231675c0616b428515d97d7f",
+      "t155_e2_seed1": "123db23b6b43c5c9a98f78dba78d8496affece0b05876a96b58ad90b7097c3b4"
+    }
+  },
+  "gitTreeAtReportTime": "c7a83ca82fdb0c4472ac58de20648b4b7e71b3a4",
+  "corpusSha256": "4419fb5120c2ba1d07b6d277473dfb4d9638de504255644254468e418469fb57",
+  "labelsSha256": "8859c779cff35be32d197b1d4bc45bf537a4afd980afe1037c88d3fbed8bec82",
+  "resultsSha256": "b711d50e14d650b1cdee135526900739b9c58c19f4e04994b328edf15e926fe2",
+  "m2GuardPass": true,
+  "allCrossChecksPass": true,
+  "crossChecks": [
+    {
+      "label": "v2",
+      "expected": 1.5666666666666667,
+      "actual": 1.5666666666666667,
+      "match": true
+    },
+    {
+      "label": "v3",
+      "expected": 1.4000000000000001,
+      "actual": 1.4,
+      "match": true
+    },
+    {
+      "label": "v4_prod",
+      "expected": 0.9666666666666667,
+      "actual": 0.9666666666666667,
+      "match": true
+    },
+    {
+      "label": "t124_seed1",
+      "expected": 0.7,
+      "actual": 0.7,
+      "match": true
+    },
+    {
+      "label": "t124_seed2",
+      "expected": 1.6666666666666667,
+      "actual": 1.6666666666666667,
+      "match": true
+    },
+    {
+      "label": "t154_runB",
+      "expected": 1.2333333333333334,
+      "actual": 1.2333333333333334,
+      "match": true
+    },
+    {
+      "label": "t155_e1_seed1",
+      "expected": 1.5333333333333334,
+      "actual": 1.5333333333333334,
+      "match": true
+    },
+    {
+      "label": "t155_e1_seed2",
+      "expected": 1.4666666666666666,
+      "actual": 1.4666666666666666,
+      "match": true
+    },
+    {
+      "label": "t155_e1_seed3",
+      "expected": 1.6666666666666667,
+      "actual": 1.6666666666666667,
+      "match": true
+    },
+    {
+      "label": "t155_e2_seed1",
+      "expected": 1.3666666666666667,
+      "actual": 1.3666666666666667,
+      "match": true
+    }
+  ],
+  "rankingByN180": [
+    "t124_seed1",
+    "v4_prod",
+    "t155_e1_seed1",
+    "v2",
+    "t155_e1_seed2",
+    "t155_e2_seed1",
+    "t154_runB",
+    "t124_seed2",
+    "t155_e1_seed3",
+    "v3"
+  ],
+  "v4Family3SeedAverage": {
+    "n60": 1.111111111111111,
+    "n180": 1.3962962962962964
+  }
+}

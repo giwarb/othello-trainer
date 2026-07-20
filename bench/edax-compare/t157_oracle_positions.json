@@ -1,0 +1,2922 @@
+{
+  "schemaVersion": 1,
+  "purpose": "T157 combined 180-position independent exact-oracle regret gate (T096's 60 + T157's +120 extension); Edax -l 60 only, book off.",
+  "provenance": {
+    "t096Sha256": "eec09e7a3c194a71cbb60f25ce13e1887204bbbc4a9ba052cb19c61507786356",
+    "t157NewSha256": "ddd84ebc339b04f6a6244c1d03d58fe2b9d771b796216e54671f6d93423e340f",
+    "teacherCorpusSha256": "b4215bcd01b7d085851b6b7311007451edc11bf87efd3c910f74712ced9a5d47",
+    "t156CorpusSha256": "e86bf2383490cc356589c85307cdc85556288bd23cae1a2594932cd70ad748da"
+  },
+  "verification": {
+    "total": 180,
+    "uniqueCanonicalKeys": 180,
+    "uniqueIds": 180,
+    "teacherCorpusOverlap": 0,
+    "cohortCounts": {
+      "t096": 60,
+      "t157ext": 120
+    }
+  },
+  "oracle": {
+    "kind": "exact",
+    "edaxLevel": 60,
+    "bookUsage": "off",
+    "primaryDecisionSeries": true
+  },
+  "counts": {
+    "total": 180,
+    "byEmpties": {
+      "18": 24,
+      "19": 22,
+      "20": 14,
+      "21": 16,
+      "22": 27,
+      "23": 17,
+      "24": 24,
+      "25": 17,
+      "26": 19
+    }
+  },
+  "positions": [
+    {
+      "id": "t096-exact-01",
+      "board": "-OOOO-----OOOO-OXXOXOXOO-OOOOOXO-OOXXXXO--OOXXXO---OOXX---OOOOX-",
+      "side_to_move": "black",
+      "empties": 18,
+      "canonicalKey": [
+        47555898531904,
+        2214879031525644348,
+        0
+      ],
+      "source": "wthor",
+      "year": 2017,
+      "gameIndex": 948,
+      "auditFilteredIndex": 4452,
+      "cohort": "t096"
+    },
+    {
+      "id": "t096-exact-02",
+      "board": "----O---X---O---XXOOOOOXXXXXXOOXXOXXOXOXXXOXXXOXX-XXXOO--XXXXX--",
+      "side_to_move": "black",
+      "empties": 18,
+      "canonicalKey": [
+        426196814470462,
+        1157561857373134848,
+        0
+      ],
+      "source": "wthor",
+      "year": 2023,
+      "gameIndex": 2458,
+      "auditFilteredIndex": 14683,
+      "cohort": "t096"
+    },
+    {
+      "id": "t096-exact-03",
+      "board": "-XOO-----XXOOO--XXXOOO--OXOOXO-XOXOOXOO-XXOOXXOO-XXXXX---XXX-O--",
+      "side_to_move": "white",
+      "empties": 19,
+      "canonicalKey": [
+        145812361888087566,
+        880515494917701664,
+        1
+      ],
+      "source": "wthor",
+      "year": 2017,
+      "gameIndex": 226,
+      "auditFilteredIndex": 3786,
+      "cohort": "t096"
+    },
+    {
+      "id": "t096-exact-04",
+      "board": "---XXXX---XXOX-OOOXXXOXOOOOOXOOOOOOOXOOOOOOOXOOOO--OX--O--------",
+      "side_to_move": "white",
+      "empties": 19,
+      "canonicalKey": [
+        6629231887616,
+        8952092247390435454,
+        1
+      ],
+      "source": "wthor",
+      "year": 2017,
+      "gameIndex": 582,
+      "auditFilteredIndex": 4108,
+      "cohort": "t096"
+    },
+    {
+      "id": "t096-exact-05",
+      "board": "-XXXXX----XOXX---OOXOXOO-OXXXOO-OXOXOOO-XXXXXO--OOOOOO----OXXO--",
+      "side_to_move": "white",
+      "empties": 19,
+      "canonicalKey": [
+        8434194526496,
+        296384716281760848,
+        1
+      ],
+      "source": "wthor",
+      "year": 2017,
+      "gameIndex": 2176,
+      "auditFilteredIndex": 5590,
+      "cohort": "t096"
+    },
+    {
+      "id": "t096-exact-06",
+      "board": "--OOOOO---OXXO-XXXXXXXXXXOXXXXOXXOOOOXOXXXOOOXXX----OO--------O-",
+      "side_to_move": "white",
+      "empties": 19,
+      "canonicalKey": [
+        219377232189696,
+        147554985540854846,
+        1
+      ],
+      "source": "wthor",
+      "year": 2019,
+      "gameIndex": 429,
+      "auditFilteredIndex": 8401,
+      "cohort": "t096"
+    },
+    {
+      "id": "t096-exact-07",
+      "board": "--XXXXX----OXX-O-OOXXOOOXXXXOOOO--XXOOOO--XXXOOO--XXXX---OOO-XX-",
+      "side_to_move": "white",
+      "empties": 19,
+      "canonicalKey": [
+        36525121249806344,
+        4484525404920775680,
+        1
+      ],
+      "source": "wthor",
+      "year": 2022,
+      "gameIndex": 191,
+      "auditFilteredIndex": 11455,
+      "cohort": "t096"
+    },
+    {
+      "id": "t096-exact-08",
+      "board": "X--OOO---XOOX--XXXXXXXXXXXXXXXXX-XOOXXXXXXOOOOXX--XOOO-----O----",
+      "side_to_move": "white",
+      "empties": 19,
+      "canonicalKey": [
+        1341348351283713,
+        592289373236497464,
+        1
+      ],
+      "source": "wthor",
+      "year": 2023,
+      "gameIndex": 24,
+      "auditFilteredIndex": 12535,
+      "cohort": "t096"
+    },
+    {
+      "id": "t096-exact-09",
+      "board": "----XO--XXOXXO--XXXOXOO-XOXXXOO-XOOOXOOOXXOOXXX---OOX----OOOOO--",
+      "side_to_move": "white",
+      "empties": 19,
+      "canonicalKey": [
+        1131390220395644,
+        592497134483216640,
+        1
+      ],
+      "source": "wthor",
+      "year": 2023,
+      "gameIndex": 548,
+      "auditFilteredIndex": 13004,
+      "cohort": "t096"
+    },
+    {
+      "id": "t096-exact-10",
+      "board": "O-O-XXX-O-XXXX--OOOOXOOOOOOOOXO-OOXOXXXXOOOXXXO--OXXX------X----",
+      "side_to_move": "white",
+      "empties": 19,
+      "canonicalKey": [
+        81672810563592,
+        18176163298995614752,
+        1
+      ],
+      "source": "wthor",
+      "year": 2023,
+      "gameIndex": 1165,
+      "auditFilteredIndex": 13548,
+      "cohort": "t096"
+    },
+    {
+      "id": "t096-exact-11",
+      "board": "-XXXOO-O-XXOOOO-OXXOOOX-OXXOOOXOOOXOXXXXOOOXXX-OO--OX-----------",
+      "side_to_move": "white",
+      "empties": 19,
+      "canonicalKey": [
+        2282789653340272,
+        40780682760035853,
+        1
+      ],
+      "source": "wthor",
+      "year": 2024,
+      "gameIndex": 408,
+      "auditFilteredIndex": 15067,
+      "cohort": "t096"
+    },
+    {
+      "id": "t096-exact-12",
+      "board": "-OOOOOO---OOXO--OOOOXO-XOOOOXXX--XXOOXOOX-XOXXX---XXOX----XXXX--",
+      "side_to_move": "white",
+      "empties": 19,
+      "canonicalKey": [
+        2261757237015612,
+        9094162859651237888,
+        1
+      ],
+      "source": "wthor",
+      "year": 2024,
+      "gameIndex": 648,
+      "auditFilteredIndex": 15292,
+      "cohort": "t096"
+    },
+    {
+      "id": "t096-exact-13",
+      "board": "--XO------XXOO---XXOOOOX-XXOOOOXOOOXOOOXOOOOOOX-O-OOOXX---OOOO--",
+      "side_to_move": "white",
+      "empties": 19,
+      "canonicalKey": [
+        1691123531722784,
+        4375525137628138512,
+        1
+      ],
+      "source": "wthor",
+      "year": 2024,
+      "gameIndex": 2520,
+      "auditFilteredIndex": 16972,
+      "cohort": "t096"
+    },
+    {
+      "id": "t096-exact-14",
+      "board": "--OOOOO---OXOO---OOOXXXO-OOXOXXOOOOOXXOO--XXOOOO--XXOO-----XXX--",
+      "side_to_move": "black",
+      "empties": 20,
+      "canonicalKey": [
+        6971423535104,
+        592496755040750652,
+        0
+      ],
+      "source": "wthor",
+      "year": 2015,
+      "gameIndex": 357,
+      "auditFilteredIndex": 335,
+      "cohort": "t096"
+    },
+    {
+      "id": "t096-exact-15",
+      "board": "O-O-----OOOX----OOOXXX--OOOOOX--OOOXOX--OOOXXX--OOXXXXX-OOOOOOO-",
+      "side_to_move": "black",
+      "empties": 20,
+      "canonicalKey": [
+        2672111256064,
+        18410712051589644544,
+        0
+      ],
+      "source": "wthor",
+      "year": 2018,
+      "gameIndex": 1815,
+      "auditFilteredIndex": 7450,
+      "cohort": "t096"
+    },
+    {
+      "id": "t096-exact-16",
+      "board": "------X---OXXXX--OOOXXXO--OOXXXXXXXOXXXX-XXXOXXX--XXXOOX---X-OOO",
+      "side_to_move": "black",
+      "empties": 20,
+      "canonicalKey": [
+        152574898982041872,
+        9131650496071175,
+        0
+      ],
+      "source": "wthor",
+      "year": 2018,
+      "gameIndex": 2157,
+      "auditFilteredIndex": 7756,
+      "cohort": "t096"
+    },
+    {
+      "id": "t096-exact-17",
+      "board": "---O------OO----OOXOXXXOOXOOXXXXXOOOXOXXXXXOOOOO-XOOOO----OOOO--",
+      "side_to_move": "black",
+      "empties": 20,
+      "canonicalKey": [
+        50919184023552,
+        1166662859281611836,
+        0
+      ],
+      "source": "wthor",
+      "year": 2022,
+      "gameIndex": 224,
+      "auditFilteredIndex": 11485,
+      "cohort": "t096"
+    },
+    {
+      "id": "t096-exact-18",
+      "board": "-----O----O--O--X-OOOOOOOXOOOOOOOXXXXXOOOXXXOOOOO-XXOO----XXXXX-",
+      "side_to_move": "black",
+      "empties": 20,
+      "canonicalKey": [
+        1109142670460,
+        2316254275186012416,
+        0
+      ],
+      "source": "wthor",
+      "year": 2023,
+      "gameIndex": 714,
+      "auditFilteredIndex": 13158,
+      "cohort": "t096"
+    },
+    {
+      "id": "t096-exact-19",
+      "board": "---X----X--XXX--XOXXXXXXXOOXXXXXXOOOOOXXXXXOOXXXX-XOXX----X--X--",
+      "side_to_move": "black",
+      "empties": 20,
+      "canonicalKey": [
+        592784075117770020,
+        2225834821632,
+        0
+      ],
+      "source": "wthor",
+      "year": 2023,
+      "gameIndex": 1911,
+      "auditFilteredIndex": 14193,
+      "cohort": "t096"
+    },
+    {
+      "id": "t096-exact-20",
+      "board": "--OOOO----OOXO--OOOOOXXXOOOXXXXXOXOOXXX-XXOXXXOO---XXX----XO----",
+      "side_to_move": "black",
+      "empties": 20,
+      "canonicalKey": [
+        2259630862113824,
+        4338365984976076816,
+        0
+      ],
+      "source": "wthor",
+      "year": 2024,
+      "gameIndex": 2867,
+      "auditFilteredIndex": 17287,
+      "cohort": "t096"
+    },
+    {
+      "id": "t096-exact-21",
+      "board": "--XOOO--X-XXOO--XXXOXO--XOXOXX--XXOXXXX--XXOXXXX--OXXO---O-XXX--",
+      "side_to_move": "white",
+      "empties": 21,
+      "canonicalKey": [
+        291640233566678136,
+        249317282156800,
+        1
+      ],
+      "source": "wthor",
+      "year": 2015,
+      "gameIndex": 651,
+      "auditFilteredIndex": 606,
+      "cohort": "t096"
+    },
+    {
+      "id": "t096-exact-22",
+      "board": "--OOOOO---OXXO---OXXOOOOOOXOOOO--XXXOOXX--XXXOXX---OOX-X--OO-X--",
+      "side_to_move": "white",
+      "empties": 21,
+      "canonicalKey": [
+        2318235508870158,
+        1166645143730434080,
+        1
+      ],
+      "source": "wthor",
+      "year": 2015,
+      "gameIndex": 959,
+      "auditFilteredIndex": 875,
+      "cohort": "t096"
+    },
+    {
+      "id": "t096-exact-23",
+      "board": "--XOOO-----XOO----XOXOOOOOOXOOOOOOXXXOXOOOOXOOOO--OXX-----OX-X--",
+      "side_to_move": "white",
+      "empties": 21,
+      "canonicalKey": [
+        24164903686144,
+        4051242973717802044,
+        1
+      ],
+      "source": "wthor",
+      "year": 2018,
+      "gameIndex": 1526,
+      "auditFilteredIndex": 7206,
+      "cohort": "t096"
+    },
+    {
+      "id": "t096-exact-24",
+      "board": "XXXX----XXXOO---XOXOO---XOOXOO--XOOXOO--XOOOXOO-X-OXOO---OOOO-X-",
+      "side_to_move": "black",
+      "empties": 21,
+      "canonicalKey": [
+        281494755000574,
+        1159415233199360,
+        0
+      ],
+      "source": "wthor",
+      "year": 2023,
+      "gameIndex": 456,
+      "auditFilteredIndex": 12909,
+      "cohort": "t096"
+    },
+    {
+      "id": "t096-exact-25",
+      "board": "-----O----XXXO-O--XXXOOO-XXXXOXO-XOOOOOOXXXXXOOO--OXXO----OOXO--",
+      "side_to_move": "black",
+      "empties": 22,
+      "canonicalKey": [
+        2252823864424480,
+        4482487975754596352,
+        0
+      ],
+      "source": "wthor",
+      "year": 2018,
+      "gameIndex": 899,
+      "auditFilteredIndex": 6644,
+      "cohort": "t096"
+    },
+    {
+      "id": "t096-exact-26",
+      "board": "--XXXX----XOOO---OXXOOOOOOOOOOOO-OXXXOOX--OOXXXO---OOXX----O--X-",
+      "side_to_move": "black",
+      "empties": 22,
+      "canonicalKey": [
+        25379790250000,
+        584387038449376300,
+        0
+      ],
+      "source": "wthor",
+      "year": 2018,
+      "gameIndex": 983,
+      "auditFilteredIndex": 6734,
+      "cohort": "t096"
+    },
+    {
+      "id": "t096-exact-27",
+      "board": "-O-XXXXOO-OOOOO--OXOXOXX-OOXOOXXOOOOXOXX---OOXXX----OOX---------",
+      "side_to_move": "black",
+      "empties": 22,
+      "canonicalKey": [
+        4437055733052,
+        1305228288022413825,
+        0
+      ],
+      "source": "wthor",
+      "year": 2018,
+      "gameIndex": 2005,
+      "auditFilteredIndex": 7620,
+      "cohort": "t096"
+    },
+    {
+      "id": "t096-exact-28",
+      "board": "--OO-X----OOXX--XOXXOXOOX-OOOOXOX-OOXOOO---OXOOO---OXX-O--OXXO--",
+      "side_to_move": "black",
+      "empties": 22,
+      "canonicalKey": [
+        2330906736197660,
+        8949980723244893184,
+        0
+      ],
+      "source": "wthor",
+      "year": 2022,
+      "gameIndex": 770,
+      "auditFilteredIndex": 11987,
+      "cohort": "t096"
+    },
+    {
+      "id": "t096-exact-29",
+      "board": "---OOOO---OOOO-X-XOOXOXX-OOOXOXX--OOOOXX--OOOOXX---OOO----OOOO--",
+      "side_to_move": "black",
+      "empties": 22,
+      "canonicalKey": [
+        3311609250048,
+        4331403171968859166,
+        0
+      ],
+      "source": "wthor",
+      "year": 2023,
+      "gameIndex": 1323,
+      "auditFilteredIndex": 13667,
+      "cohort": "t096"
+    },
+    {
+      "id": "t096-exact-30",
+      "board": "--XXXX-----XOX-X-XXXXXXX-XXXXXOXOOOXOOXX--OOOXXX--OOOO----O--O--",
+      "side_to_move": "black",
+      "empties": 22,
+      "canonicalKey": [
+        7780291253564,
+        2611024470265038848,
+        0
+      ],
+      "source": "wthor",
+      "year": 2023,
+      "gameIndex": 1614,
+      "auditFilteredIndex": 13923,
+      "cohort": "t096"
+    },
+    {
+      "id": "t096-exact-31",
+      "board": "----O------OOO--X-OXXOXX-OOXOXXXOXOXOOXX-XXXOOOX--XXOO-X--XXXX--",
+      "side_to_move": "black",
+      "empties": 22,
+      "canonicalKey": [
+        170524486480188,
+        584382083633122304,
+        0
+      ],
+      "source": "wthor",
+      "year": 2024,
+      "gameIndex": 809,
+      "auditFilteredIndex": 15432,
+      "cohort": "t096"
+    },
+    {
+      "id": "t096-exact-32",
+      "board": "---OOO----OOOO---OXOOOOO-XXXXXXX-OXOXXX--OOXOXXX--OXXX---OOOO---",
+      "side_to_move": "black",
+      "empties": 22,
+      "canonicalKey": [
+        5490929580032,
+        4052388642802762782,
+        0
+      ],
+      "source": "wthor",
+      "year": 2024,
+      "gameIndex": 1604,
+      "auditFilteredIndex": 16160,
+      "cohort": "t096"
+    },
+    {
+      "id": "t096-exact-33",
+      "board": "----O------OOOX-XXXOXXXOXXOOXXXX-XXOXOX---XXOXXX---XXOX---OOOOO-",
+      "side_to_move": "black",
+      "empties": 22,
+      "canonicalKey": [
+        825524561058304,
+        584360949843493950,
+        0
+      ],
+      "source": "wthor",
+      "year": 2024,
+      "gameIndex": 2622,
+      "auditFilteredIndex": 17066,
+      "cohort": "t096"
+    },
+    {
+      "id": "t096-exact-34",
+      "board": "-OOOOO---XXXO---OOXOOO--XOOOOXX-XOOOOX--OOOOOX----XXXX----XXXX--",
+      "side_to_move": "black",
+      "empties": 22,
+      "canonicalKey": [
+        2525306598851096,
+        5769168239908,
+        0
+      ],
+      "source": "wthor",
+      "year": 2024,
+      "gameIndex": 2852,
+      "auditFilteredIndex": 17273,
+      "cohort": "t096"
+    },
+    {
+      "id": "t096-exact-35",
+      "board": "----------OX-X-----OXXXXOOOXOXXXOOXOXXXXOXOXOXXX--XOXO---XX-OOO-",
+      "side_to_move": "white",
+      "empties": 23,
+      "canonicalKey": [
+        1419831001496636,
+        2024460572220915968,
+        1
+      ],
+      "source": "wthor",
+      "year": 2015,
+      "gameIndex": 572,
+      "auditFilteredIndex": 537,
+      "cohort": "t096"
+    },
+    {
+      "id": "t096-exact-36",
+      "board": "--XXX---X-OXXX-XXXOOXXXXXXOOOXXXXXOOXXXXXXXXXO-------O-------O--",
+      "side_to_move": "white",
+      "empties": 23,
+      "canonicalKey": [
+        35132361914652,
+        2314885444850680832,
+        1
+      ],
+      "source": "wthor",
+      "year": 2017,
+      "gameIndex": 2195,
+      "auditFilteredIndex": 5609,
+      "cohort": "t096"
+    },
+    {
+      "id": "t096-exact-37",
+      "board": "---XXXX---OOOX----OOXOXO--OXXXXX-XXXXOX--XXXXOXX--XXXO----XXXO--",
+      "side_to_move": "white",
+      "empties": 23,
+      "canonicalKey": [
+        3394878512872468,
+        123558695993376,
+        1
+      ],
+      "source": "wthor",
+      "year": 2019,
+      "gameIndex": 165,
+      "auditFilteredIndex": 8174,
+      "cohort": "t096"
+    },
+    {
+      "id": "t096-exact-38",
+      "board": "----XO------OO--OOOOOOXXOOOOOOXX-XOXXOXOXXXOXXO---XXXO----XXX---",
+      "side_to_move": "white",
+      "empties": 23,
+      "canonicalKey": [
+        291615822097692720,
+        3472337110587540488,
+        1
+      ],
+      "source": "wthor",
+      "year": 2024,
+      "gameIndex": 419,
+      "auditFilteredIndex": 15076,
+      "cohort": "t096"
+    },
+    {
+      "id": "t096-exact-39",
+      "board": "---O-X----OO-X----OOXXXX-OOOOXXX-OXXOXXXO-XXOOXX--XXXXO---XXXX--",
+      "side_to_move": "white",
+      "empties": 23,
+      "canonicalKey": [
+        16557702593596,
+        295109952157254144,
+        1
+      ],
+      "source": "wthor",
+      "year": 2024,
+      "gameIndex": 1025,
+      "auditFilteredIndex": 15627,
+      "cohort": "t096"
+    },
+    {
+      "id": "t096-exact-40",
+      "board": "-XXX-O----XOO---XXXXXX-OXXOOXXO-XXOXXXOXXXXXXXXX----OX-X----O---",
+      "side_to_move": "white",
+      "empties": 23,
+      "canonicalKey": [
+        1688702975484016,
+        578712698984929284,
+        1
+      ],
+      "source": "wthor",
+      "year": 2024,
+      "gameIndex": 1207,
+      "auditFilteredIndex": 15799,
+      "cohort": "t096"
+    },
+    {
+      "id": "t096-exact-41",
+      "board": "--OOOO----OOOO-O--OOOO-OOOOOXOXOOOOOOXOOOOOOOOOO---XX-----------",
+      "side_to_move": "black",
+      "empties": 24,
+      "canonicalKey": [
+        8892452864,
+        2025772095647255676,
+        0
+      ],
+      "source": "wthor",
+      "year": 2017,
+      "gameIndex": 859,
+      "auditFilteredIndex": 4374,
+      "cohort": "t096"
+    },
+    {
+      "id": "t096-exact-42",
+      "board": "--OXXO--O-OXX---OOOOXX--OXOOXXX-XXXXOO--XXOOOOO--OOOX---O-O-----",
+      "side_to_move": "black",
+      "empties": 24,
+      "canonicalKey": [
+        2265333575465008,
+        9061283310552206,
+        0
+      ],
+      "source": "wthor",
+      "year": 2018,
+      "gameIndex": 2254,
+      "auditFilteredIndex": 7846,
+      "cohort": "t096"
+    },
+    {
+      "id": "t096-exact-43",
+      "board": "--XXXXX---XOOX----XOOOXX--XXOOX----XOOXO---OOXOO--OXXO-O-OOOOO--",
+      "side_to_move": "black",
+      "empties": 24,
+      "canonicalKey": [
+        16876019326212,
+        36240619418165360,
+        0
+      ],
+      "source": "wthor",
+      "year": 2019,
+      "gameIndex": 1156,
+      "auditFilteredIndex": 9056,
+      "cohort": "t096"
+    },
+    {
+      "id": "t096-exact-44",
+      "board": "-X-O-X----XOX---OOOXXX--OOOXXXX-OXOOXOX--XXOOOO-X-OOXO----O-XO--",
+      "side_to_move": "black",
+      "empties": 24,
+      "canonicalKey": [
+        6770646778523968,
+        9271221428161564,
+        0
+      ],
+      "source": "wthor",
+      "year": 2020,
+      "gameIndex": 268,
+      "auditFilteredIndex": 10083,
+      "cohort": "t096"
+    },
+    {
+      "id": "t096-exact-45",
+      "board": "--OX------OOXX--OOOOOXO-OOOOXOOOOOXXOO---OXXOO--XOOOO---XOO-----",
+      "side_to_move": "black",
+      "empties": 24,
+      "canonicalKey": [
+        6640844669120,
+        579900524213566492,
+        0
+      ],
+      "source": "wthor",
+      "year": 2020,
+      "gameIndex": 397,
+      "auditFilteredIndex": 10206,
+      "cohort": "t096"
+    },
+    {
+      "id": "t096-exact-46",
+      "board": "---XXX-----XXOOX--XXOOOXXXXOOXXX-XXOXXXX-OXOXXXX--XOOX----------",
+      "side_to_move": "black",
+      "empties": 24,
+      "canonicalKey": [
+        10185256828213532,
+        6843429494326784,
+        0
+      ],
+      "source": "wthor",
+      "year": 2021,
+      "gameIndex": 5,
+      "auditFilteredIndex": 10662,
+      "cohort": "t096"
+    },
+    {
+      "id": "t096-exact-47",
+      "board": "OX-OO----OOO----OXOXX---OXXOXXX-OXOOOX--OOXOXX--O-XXXX----XXXX--",
+      "side_to_move": "black",
+      "empties": 24,
+      "canonicalKey": [
+        2525495613201664,
+        74005750397,
+        0
+      ],
+      "source": "wthor",
+      "year": 2023,
+      "gameIndex": 1170,
+      "auditFilteredIndex": 13552,
+      "cohort": "t096"
+    },
+    {
+      "id": "t096-exact-48",
+      "board": "----------XXXO--X-XXXO--XXXOXXO-XOOXXXX-XOOXOXX-X-OOXX----OOOO--",
+      "side_to_move": "white",
+      "empties": 25,
+      "canonicalKey": [
+        3411210874654782,
+        4610274049854464,
+        1
+      ],
+      "source": "wthor",
+      "year": 2016,
+      "gameIndex": 69,
+      "auditFilteredIndex": 1811,
+      "cohort": "t096"
+    },
+    {
+      "id": "t096-exact-49",
+      "board": "--X--X----OXXX-O---OXXX----OOXXX---OOXXX-OOOOXXX--OOOO-X-OOOOOO-",
+      "side_to_move": "white",
+      "empties": 25,
+      "canonicalKey": [
+        1108206369912,
+        45285572406706178,
+        1
+      ],
+      "source": "wthor",
+      "year": 2018,
+      "gameIndex": 568,
+      "auditFilteredIndex": 6372,
+      "cohort": "t096"
+    },
+    {
+      "id": "t096-exact-50",
+      "board": "----X------XX-----XXXXXXOXXXXXXO-OXOOOOOX-OXXOO---OOXX---OOO-XX-",
+      "side_to_move": "white",
+      "empties": 25,
+      "canonicalKey": [
+        292796050776994080,
+        1155462523358284824,
+        1
+      ],
+      "source": "wthor",
+      "year": 2018,
+      "gameIndex": 1629,
+      "auditFilteredIndex": 7300,
+      "cohort": "t096"
+    },
+    {
+      "id": "t096-exact-51",
+      "board": "--X-------XXOX--OOXXXXX-XOXXXX--XOXOXXX-OOXXOXX---XXXO---XXX----",
+      "side_to_move": "white",
+      "empties": 25,
+      "canonicalKey": [
+        12521489538416920,
+        2491215264804,
+        1
+      ],
+      "source": "wthor",
+      "year": 2019,
+      "gameIndex": 1508,
+      "auditFilteredIndex": 9379,
+      "cohort": "t096"
+    },
+    {
+      "id": "t096-exact-52",
+      "board": "------------------XOOOXX-XXOOOXXXXOOOXOOXXOXXXOO--XOXX---XXXXXX-",
+      "side_to_move": "white",
+      "empties": 25,
+      "canonicalKey": [
+        38911411498110,
+        30907576815616,
+        1
+      ],
+      "source": "wthor",
+      "year": 2019,
+      "gameIndex": 1598,
+      "auditFilteredIndex": 9466,
+      "cohort": "t096"
+    },
+    {
+      "id": "t096-exact-53",
+      "board": "---O-----XOO-X-XOOXXXXXXOOOXXXOXOOOXXXXXOOOOOOXXO---------------",
+      "side_to_move": "white",
+      "empties": 25,
+      "canonicalKey": [
+        3432169555200,
+        36306839826083856,
+        1
+      ],
+      "source": "wthor",
+      "year": 2023,
+      "gameIndex": 171,
+      "auditFilteredIndex": 12655,
+      "cohort": "t096"
+    },
+    {
+      "id": "t096-exact-54",
+      "board": "-XXXX-O--OXOOO-X-XXOOOXX-XXOXXXXX-XOXXXX--OOOOXX-------X--------",
+      "side_to_move": "white",
+      "empties": 25,
+      "canonicalKey": [
+        285526999638392,
+        66039687437314,
+        1
+      ],
+      "source": "wthor",
+      "year": 2024,
+      "gameIndex": 958,
+      "auditFilteredIndex": 15562,
+      "cohort": "t096"
+    },
+    {
+      "id": "t096-exact-55",
+      "board": "--------O---OO--OXOOOO-OOOXOOOO-OOOOOOXX-OOXXXXX--OXXX----X--X--",
+      "side_to_move": "black",
+      "empties": 26,
+      "canonicalKey": [
+        2219440617508,
+        14000610894808064,
+        0
+      ],
+      "source": "wthor",
+      "year": 2016,
+      "gameIndex": 1526,
+      "auditFilteredIndex": 3136,
+      "cohort": "t096"
+    },
+    {
+      "id": "t096-exact-56",
+      "board": "-OOOOOO---OOXO--XXXOOX--XXXOXXXXXXXOXO----XOXO----OOO------O----",
+      "side_to_move": "black",
+      "empties": 26,
+      "canonicalKey": [
+        22093163335680,
+        584386204050926718,
+        0
+      ],
+      "source": "wthor",
+      "year": 2018,
+      "gameIndex": 2016,
+      "auditFilteredIndex": 7628,
+      "cohort": "t096"
+    },
+    {
+      "id": "t096-exact-57",
+      "board": "---OOO-----OOO----OOXOOX--OOOOXO--OOOXOO---OXOXO--OOOO-O----XXXX",
+      "side_to_move": "black",
+      "empties": 26,
+      "canonicalKey": [
+        621352225,
+        64866269669406,
+        0
+      ],
+      "source": "wthor",
+      "year": 2022,
+      "gameIndex": 117,
+      "auditFilteredIndex": 11382,
+      "cohort": "t096"
+    },
+    {
+      "id": "t096-exact-58",
+      "board": "--------X-XOOO--XXXOO-X-XOOOXXX-XXOXXXOOXXXOXOO---OXO-----OO----",
+      "side_to_move": "black",
+      "empties": 26,
+      "canonicalKey": [
+        1485926531794944,
+        15789050399560716,
+        0
+      ],
+      "source": "wthor",
+      "year": 2023,
+      "gameIndex": 1388,
+      "auditFilteredIndex": 13731,
+      "cohort": "t096"
+    },
+    {
+      "id": "t096-exact-59",
+      "board": "-----X--O--OOX--OOOOOOOOOOOOOX--OOXXXXX-OOXXXXO---XXXX-----X----",
+      "side_to_move": "black",
+      "empties": 26,
+      "canonicalKey": [
+        15457836730368,
+        8952083418781328416,
+        0
+      ],
+      "source": "wthor",
+      "year": 2024,
+      "gameIndex": 444,
+      "auditFilteredIndex": 15103,
+      "cohort": "t096"
+    },
+    {
+      "id": "t096-exact-60",
+      "board": "-XXXXXX---XOXX----OXXX-O--OOOOO---OOXO---OOOOO----OOOO---OOOOO--",
+      "side_to_move": "black",
+      "empties": 26,
+      "canonicalKey": [
+        34361584766,
+        8952166723128201216,
+        0
+      ],
+      "source": "wthor",
+      "year": 2024,
+      "gameIndex": 800,
+      "auditFilteredIndex": 15422,
+      "cohort": "t096"
+    },
+    {
+      "id": "t157-exact-061",
+      "board": "--OOOO----OOXXXO--OOOXOO--OOOOOO-XOXXOOO-XXOXOOO-XXXXX----OOXXX-",
+      "side_to_move": "black",
+      "empties": 18,
+      "canonicalKey": [
+        3945049203702798,
+        4337313058559295536,
+        0
+      ],
+      "source": "wthor",
+      "year": 2015,
+      "gameIndex": 725,
+      "auditFilteredIndex": 677,
+      "cohort": "t157ext"
+    },
+    {
+      "id": "t157-exact-062",
+      "board": "O-OO-----OOOO---XXOOO--OOXOOOOOOXXXOOOXOXXOOOXOO--OXXO--XXXX--O-",
+      "side_to_move": "black",
+      "empties": 18,
+      "canonicalKey": [
+        3308318300175,
+        945365585336476736,
+        0
+      ],
+      "source": "wthor",
+      "year": 2015,
+      "gameIndex": 1576,
+      "auditFilteredIndex": 1438,
+      "cohort": "t157ext"
+    },
+    {
+      "id": "t157-exact-063",
+      "board": "O-OOOO--OXOOOO-XOOXOOOXXOOOOOXOX--XXXOOX--XXOXOX--XOXO------OX--",
+      "side_to_move": "black",
+      "empties": 18,
+      "canonicalKey": [
+        690700813861950,
+        1084254047161497600,
+        0
+      ],
+      "source": "wthor",
+      "year": 2016,
+      "gameIndex": 1269,
+      "auditFilteredIndex": 2902,
+      "cohort": "t157ext"
+    },
+    {
+      "id": "t157-exact-064",
+      "board": "----------------OOO--XXXXXOOXXXXXXOXXXOXXXXOXOOXXXXXXXXXXXXXXXXX",
+      "side_to_move": "white",
+      "empties": 18,
+      "canonicalKey": [
+        8589362724863,
+        246497334919168,
+        1
+      ],
+      "source": "wthor",
+      "year": 2017,
+      "gameIndex": 846,
+      "auditFilteredIndex": 4362,
+      "cohort": "t157ext"
+    },
+    {
+      "id": "t157-exact-065",
+      "board": "--X------XXOO---OXXOOXX-OXXXOXXXOXXOXXXXOOXXOXXX--XXXO---OOOOOO-",
+      "side_to_move": "black",
+      "empties": 18,
+      "canonicalKey": [
+        8141844653671940,
+        9088284977696151552,
+        0
+      ],
+      "source": "wthor",
+      "year": 2018,
+      "gameIndex": 1568,
+      "auditFilteredIndex": 7243,
+      "cohort": "t157ext"
+    },
+    {
+      "id": "t157-exact-066",
+      "board": "---O-------O-X--OOOO--XXOOOOOOOXOOOOOOOXOOXOXOOX-XOXOX-XXXXXXXX-",
+      "side_to_move": "black",
+      "empties": 18,
+      "canonicalKey": [
+        1129202756179454,
+        1157690082222024704,
+        0
+      ],
+      "source": "wthor",
+      "year": 2018,
+      "gameIndex": 1826,
+      "auditFilteredIndex": 7460,
+      "cohort": "t157ext"
+    },
+    {
+      "id": "t157-exact-067",
+      "board": "-XXXXXX-X-OXOX--XXOOXOO-XOXOOO-XXXOOOOXXXXXOOOXX--XXXO------X---",
+      "side_to_move": "black",
+      "empties": 18,
+      "canonicalKey": [
+        592473780371625086,
+        1156945477511168,
+        0
+      ],
+      "source": "wthor",
+      "year": 2019,
+      "gameIndex": 57,
+      "auditFilteredIndex": 8066,
+      "cohort": "t157ext"
+    },
+    {
+      "id": "t157-exact-068",
+      "board": "----OOO-X-O-O---X-OOO---XOOOOO--XOOOOO--XXOOXXXOXXXXXXXOXXXXXXXO",
+      "side_to_move": "black",
+      "empties": 18,
+      "canonicalKey": [
+        282578807652223,
+        8076111085445087360,
+        0
+      ],
+      "source": "wthor",
+      "year": 2019,
+      "gameIndex": 430,
+      "auditFilteredIndex": 8402,
+      "cohort": "t157ext"
+    },
+    {
+      "id": "t157-exact-069",
+      "board": "----------OO----XOOOO---XOOOOOOOOOOOXOOOOOXXOOOOOOOOOOO-XXXXXXXX",
+      "side_to_move": "black",
+      "empties": 18,
+      "canonicalKey": [
+        1104075817215,
+        3411780016766720,
+        0
+      ],
+      "source": "wthor",
+      "year": 2020,
+      "gameIndex": 39,
+      "auditFilteredIndex": 9863,
+      "cohort": "t157ext"
+    },
+    {
+      "id": "t157-exact-070",
+      "board": "-OOOO---O-OOOX--OOOOXXXXOXXXOXXXOXXOOXXX-XXXOXXX---OOO-----OOX--",
+      "side_to_move": "black",
+      "empties": 18,
+      "canonicalKey": [
+        1142905418219524,
+        8698967149722999832,
+        0
+      ],
+      "source": "wthor",
+      "year": 2021,
+      "gameIndex": 182,
+      "auditFilteredIndex": 10817,
+      "cohort": "t157ext"
+    },
+    {
+      "id": "t157-exact-071",
+      "board": "-OOOOO----OXOO--OOXXXXX-OOOXXXXXOOOXOO--OOXXOO---XXOOO---XXXOO--",
+      "side_to_move": "black",
+      "empties": 18,
+      "canonicalKey": [
+        887843562991632,
+        4376610994241077248,
+        0
+      ],
+      "source": "wthor",
+      "year": 2021,
+      "gameIndex": 560,
+      "auditFilteredIndex": 11170,
+      "cohort": "t157ext"
+    },
+    {
+      "id": "t157-exact-072",
+      "board": "OXXO-O--OXXOOO--OXXXOOOOOOXXXXOXOOXOXOX-OOXXOXX---XXX-----X--X--",
+      "side_to_move": "black",
+      "empties": 18,
+      "canonicalKey": [
+        2251165645942792,
+        4555391105328679940,
+        0
+      ],
+      "source": "wthor",
+      "year": 2021,
+      "gameIndex": 602,
+      "auditFilteredIndex": 11205,
+      "cohort": "t157ext"
+    },
+    {
+      "id": "t157-exact-073",
+      "board": "----O-----OOOOX-OOOOOXXXOOOXXXXXOOOXXOXXOOXOXOX--XXXOX---OOO-X--",
+      "side_to_move": "black",
+      "empties": 18,
+      "canonicalKey": [
+        569659165473848,
+        4340759094350315520,
+        0
+      ],
+      "source": "wthor",
+      "year": 2022,
+      "gameIndex": 148,
+      "auditFilteredIndex": 11416,
+      "cohort": "t157ext"
+    },
+    {
+      "id": "t157-exact-074",
+      "board": "-OOOOO----OOOO-X--OOXOXX--OXXXOX-O-XOXXX-OOOXXXX--OOOOXX-OOOOO--",
+      "side_to_move": "black",
+      "empties": 18,
+      "canonicalKey": [
+        103821112446,
+        50084849847306240,
+        0
+      ],
+      "source": "wthor",
+      "year": 2022,
+      "gameIndex": 1159,
+      "auditFilteredIndex": 12329,
+      "cohort": "t157ext"
+    },
+    {
+      "id": "t157-exact-075",
+      "board": "--OX-X--X-XXXX--XXOOXOOOXOXXOOO--OXXOOO-OOOOXOOO--OXXO---OOOOO--",
+      "side_to_move": "black",
+      "empties": 18,
+      "canonicalKey": [
+        3738149979150,
+        2611239616499791904,
+        0
+      ],
+      "source": "wthor",
+      "year": 2023,
+      "gameIndex": 17,
+      "auditFilteredIndex": 12529,
+      "cohort": "t157ext"
+    },
+    {
+      "id": "t157-exact-076",
+      "board": "--XOOO----XXOO-X-OOOXOXX-OOXOXOXOOOOXOXX-XOXXOO---XOXO-O--XXXO--",
+      "side_to_move": "black",
+      "empties": 18,
+      "canonicalKey": [
+        1340670536067192,
+        592290055346656258,
+        0
+      ],
+      "source": "wthor",
+      "year": 2023,
+      "gameIndex": 812,
+      "auditFilteredIndex": 13248,
+      "cohort": "t157ext"
+    },
+    {
+      "id": "t157-exact-077",
+      "board": "-OOOOOO-O-OOXO--OOXXXXOOOOOOXOXOOOXOOOOO-OOOOOOO--OOOX----------",
+      "side_to_move": "black",
+      "empties": 18,
+      "canonicalKey": [
+        22007651764224,
+        2179015972642043196,
+        0
+      ],
+      "source": "wthor",
+      "year": 2023,
+      "gameIndex": 1195,
+      "auditFilteredIndex": 13570,
+      "cohort": "t157ext"
+    },
+    {
+      "id": "t157-exact-078",
+      "board": "--XOOX-----OXO--XOOXXOOXXOOOXXOOXXXOOXOOXXXXXOOX--XXXXO-----XX--",
+      "side_to_move": "black",
+      "empties": 18,
+      "canonicalKey": [
+        881854387064473636,
+        569664923374616,
+        0
+      ],
+      "source": "wthor",
+      "year": 2023,
+      "gameIndex": 1387,
+      "auditFilteredIndex": 13730,
+      "cohort": "t157ext"
+    },
+    {
+      "id": "t157-exact-079",
+      "board": "-OOOOO----OOOOXX-XXOXXXXXXXOXXOX-XXOXOOO--XOOO-X--XOOO----XOOO--",
+      "side_to_move": "black",
+      "empties": 18,
+      "canonicalKey": [
+        967490375065632,
+        8952047829188877340,
+        0
+      ],
+      "source": "wthor",
+      "year": 2023,
+      "gameIndex": 2139,
+      "auditFilteredIndex": 14395,
+      "cohort": "t157ext"
+    },
+    {
+      "id": "t157-exact-080",
+      "board": "-OOOOOOO-XOXXOO--XXXXXO-XXXXOX-OXXOOXX--XXOXXX----XXXX---XXXX---",
+      "side_to_move": "black",
+      "empties": 18,
+      "canonicalKey": [
+        68648462155036,
+        10439555663247736832,
+        0
+      ],
+      "source": "wthor",
+      "year": 2023,
+      "gameIndex": 2418,
+      "auditFilteredIndex": 14648,
+      "cohort": "t157ext"
+    },
+    {
+      "id": "t157-exact-081",
+      "board": "XXXXXXO-OOOOOOOXXOXOOOXXXOOOOXXXXOOOXXXX--OOOOXX-------X--------",
+      "side_to_move": "black",
+      "empties": 18,
+      "canonicalKey": [
+        285389967524348,
+        66453753363970,
+        0
+      ],
+      "source": "wthor",
+      "year": 2024,
+      "gameIndex": 958,
+      "auditFilteredIndex": 15563,
+      "cohort": "t157ext"
+    },
+    {
+      "id": "t157-exact-082",
+      "board": "-OOOOOO---OOOO-O-OXXOOOO-XXXXXOO-XXXXO-OXXXXOOO---XXXO----OOOO--",
+      "side_to_move": "black",
+      "empties": 18,
+      "canonicalKey": [
+        9176138659872,
+        2174666493927818496,
+        0
+      ],
+      "source": "wthor",
+      "year": 2024,
+      "gameIndex": 1942,
+      "auditFilteredIndex": 16465,
+      "cohort": "t157ext"
+    },
+    {
+      "id": "t157-exact-083",
+      "board": "--OOOOO--XOOOO--OOXOOOX--OOXOX---OOOXXXX-OOXXXX---XOXX---XXXXXX-",
+      "side_to_move": "white",
+      "empties": 19,
+      "canonicalKey": [
+        637892577211518,
+        8952095125216299008,
+        1
+      ],
+      "source": "wthor",
+      "year": 2016,
+      "gameIndex": 344,
+      "auditFilteredIndex": 2052,
+      "cohort": "t157ext"
+    },
+    {
+      "id": "t157-exact-084",
+      "board": "--XXXXX---XXOO-X-XXXXXXX--OOXXOX--OOOOOX--OOOOOX--OOOOOX--OXXO--",
+      "side_to_move": "white",
+      "empties": 19,
+      "canonicalKey": [
+        1134178675262846,
+        273196208257024,
+        1
+      ],
+      "source": "wthor",
+      "year": 2016,
+      "gameIndex": 356,
+      "auditFilteredIndex": 2062,
+      "cohort": "t157ext"
+    },
+    {
+      "id": "t157-exact-085",
+      "board": "--OOOO----OOOOX---OOOOXO--OOOOXX--OOXOXX--OOOXXX--XXXXXX--XXXOOX",
+      "side_to_move": "white",
+      "empties": 19,
+      "canonicalKey": [
+        3311604760095,
+        278163371917600,
+        1
+      ],
+      "source": "wthor",
+      "year": 2016,
+      "gameIndex": 1597,
+      "auditFilteredIndex": 3199,
+      "cohort": "t157ext"
+    },
+    {
+      "id": "t157-exact-086",
+      "board": "---XXX--X-XXXO--XXOOOOXX-OXOOXXXOOOXOOXX--XXXOXX--XOOX----XOXX--",
+      "side_to_move": "white",
+      "empties": 19,
+      "canonicalKey": [
+        433728971646516284,
+        1159699772000829440,
+        1
+      ],
+      "source": "wthor",
+      "year": 2017,
+      "gameIndex": 851,
+      "auditFilteredIndex": 4367,
+      "cohort": "t157ext"
+    },
+    {
+      "id": "t157-exact-087",
+      "board": "--X-XXX-X-OXXX---XOOXXOO-XXOOOOOXXOXOXOO-XOOXOOO--OXXX-O---O-X--",
+      "side_to_move": "white",
+      "empties": 19,
+      "canonicalKey": [
+        518313734650898,
+        8952074245743443968,
+        1
+      ],
+      "source": "wthor",
+      "year": 2017,
+      "gameIndex": 2074,
+      "auditFilteredIndex": 5502,
+      "cohort": "t157ext"
+    },
+    {
+      "id": "t157-exact-088",
+      "board": "--OOOO----OOOO--X-OOXOXX-OOXOOOXOOOXXXOXOOOXXOXX--OX-X-X----XXX-",
+      "side_to_move": "white",
+      "empties": 19,
+      "canonicalKey": [
+        152905619019022,
+        4340401791735963648,
+        1
+      ],
+      "source": "wthor",
+      "year": 2018,
+      "gameIndex": 802,
+      "auditFilteredIndex": 6560,
+      "cohort": "t157ext"
+    },
+    {
+      "id": "t157-exact-089",
+      "board": "-OOO-X--X-OOXX--XXOOOXOO-OXOOOOOOOOOXXOO-XXXXXXO---XXXXX----X---",
+      "side_to_move": "white",
+      "empties": 19,
+      "canonicalKey": [
+        146066061107930208,
+        4339236043491940360,
+        1
+      ],
+      "source": "wthor",
+      "year": 2018,
+      "gameIndex": 1628,
+      "auditFilteredIndex": 7299,
+      "cohort": "t157ext"
+    },
+    {
+      "id": "t157-exact-090",
+      "board": "---O------OOOO--OOOOOO--XXXXXO--XXXOOOO--XXOOOOOX-XXXOO-XXXXXXOO",
+      "side_to_move": "white",
+      "empties": 19,
+      "canonicalKey": [
+        133261827391,
+        593418659607109824,
+        1
+      ],
+      "source": "wthor",
+      "year": 2019,
+      "gameIndex": 1740,
+      "auditFilteredIndex": 9599,
+      "cohort": "t157ext"
+    },
+    {
+      "id": "t157-exact-091",
+      "board": "--OOOO--X-OXOO--XXXXXOOOXXOXOOOOXOXXXOOOXXOXOOOOX--X-X-----X----",
+      "side_to_move": "white",
+      "empties": 19,
+      "canonicalKey": [
+        2372955288702,
+        4340622130502961152,
+        1
+      ],
+      "source": "wthor",
+      "year": 2021,
+      "gameIndex": 296,
+      "auditFilteredIndex": 10924,
+      "cohort": "t157ext"
+    },
+    {
+      "id": "t157-exact-092",
+      "board": "XXXXXXX-XXXXXX-OXXXXXXOXXXXXXOXXXXXXOO-X-OOOOO----OOO-----------",
+      "side_to_move": "black",
+      "empties": 19,
+      "canonicalKey": [
+        617934176127,
+        7949675768348672,
+        0
+      ],
+      "source": "wthor",
+      "year": 2022,
+      "gameIndex": 110,
+      "auditFilteredIndex": 11376,
+      "cohort": "t157ext"
+    },
+    {
+      "id": "t157-exact-093",
+      "board": "--OOOO--O-OOOO---OOXOO-X-XOOXXXX-XOOXXXXXXOXOOXX--OXOO----OOOO--",
+      "side_to_move": "white",
+      "empties": 19,
+      "canonicalKey": [
+        19032339320832,
+        4376491892119710780,
+        1
+      ],
+      "source": "wthor",
+      "year": 2022,
+      "gameIndex": 1227,
+      "auditFilteredIndex": 12388,
+      "cohort": "t157ext"
+    },
+    {
+      "id": "t157-exact-094",
+      "board": "--XXXXX-O-XXOX--OOXXXXX-OOOOOOOO-OXOXO--XXXXOO----XOOO---XXXX---",
+      "side_to_move": "black",
+      "empties": 20,
+      "canonicalKey": [
+        1415714233098272,
+        578844950255901710,
+        0
+      ],
+      "source": "wthor",
+      "year": 2016,
+      "gameIndex": 553,
+      "auditFilteredIndex": 2238,
+      "cohort": "t157ext"
+    },
+    {
+      "id": "t157-exact-095",
+      "board": "--O-----X-XOO---XXXXOOX-XOXXXOXXXXXXXXOX-XXXXOOX---XOOOX--OXXO--",
+      "side_to_move": "black",
+      "empties": 20,
+      "canonicalKey": [
+        1495188704757784,
+        295038699259850788,
+        0
+      ],
+      "source": "wthor",
+      "year": 2016,
+      "gameIndex": 643,
+      "auditFilteredIndex": 2328,
+      "cohort": "t157ext"
+    },
+    {
+      "id": "t157-exact-096",
+      "board": "X-------XXX-----OXXXX-X-OOXXXXX-OOXOXX--OOOOXXXXOOOOOXX---XOOOOO",
+      "side_to_move": "black",
+      "empties": 20,
+      "canonicalKey": [
+        74131806432026628,
+        1112582070264,
+        0
+      ],
+      "source": "wthor",
+      "year": 2017,
+      "gameIndex": 112,
+      "auditFilteredIndex": 3676,
+      "cohort": "t157ext"
+    },
+    {
+      "id": "t157-exact-097",
+      "board": "--XXXX----XXXO-O--XXOO-O--XOXOXO--OOOOXO-OOOOOXO--OOXOX--OOOOOO-",
+      "side_to_move": "black",
+      "empties": 20,
+      "canonicalKey": [
+        16523997575168,
+        45300947252838462,
+        0
+      ],
+      "source": "wthor",
+      "year": 2018,
+      "gameIndex": 303,
+      "auditFilteredIndex": 6133,
+      "cohort": "t157ext"
+    },
+    {
+      "id": "t157-exact-098",
+      "board": "--OOOOO---OOOX--XXOOOX-OXXXXOOO--XXXXOO--XXXXXOO--XXXX----XXXX--",
+      "side_to_move": "black",
+      "empties": 20,
+      "canonicalKey": [
+        113314644311088,
+        2638151642064617472,
+        0
+      ],
+      "source": "wthor",
+      "year": 2024,
+      "gameIndex": 600,
+      "auditFilteredIndex": 15245,
+      "cohort": "t157ext"
+    },
+    {
+      "id": "t157-exact-099",
+      "board": "--X-X-----XXXX--XXXOXOOOXXXXOXXO-XXOOOXO-XXXOXOO--OXOO-O--X-OX--",
+      "side_to_move": "black",
+      "empties": 20,
+      "canonicalKey": [
+        6849821461527600,
+        4477750242816688128,
+        0
+      ],
+      "source": "wthor",
+      "year": 2024,
+      "gameIndex": 1265,
+      "auditFilteredIndex": 15853,
+      "cohort": "t157ext"
+    },
+    {
+      "id": "t157-exact-100",
+      "board": "--OXX-----OXXX--OOXOXXXXOOOXOXXOOOOOXXO-OOXOOOO-O-XXOO----X--O--",
+      "side_to_move": "black",
+      "empties": 20,
+      "canonicalKey": [
+        43786796806176,
+        4484697012813892624,
+        0
+      ],
+      "source": "wthor",
+      "year": 2024,
+      "gameIndex": 2105,
+      "auditFilteredIndex": 16614,
+      "cohort": "t157ext"
+    },
+    {
+      "id": "t157-exact-101",
+      "board": "-XXXXX----XOOX-OXOOOOOOO-XOOXOXO-OXXXXOOO-OOOXXO---OOXX---------",
+      "side_to_move": "white",
+      "empties": 21,
+      "canonicalKey": [
+        1695705877980284,
+        6959097752525056,
+        1
+      ],
+      "source": "wthor",
+      "year": 2016,
+      "gameIndex": 143,
+      "auditFilteredIndex": 1876,
+      "cohort": "t157ext"
+    },
+    {
+      "id": "t157-exact-102",
+      "board": "-----X------XX-O--XXXX-O--XXXXXOXXXOXXOO-XOOOXOOX-XXXXXO-XXX-OXO",
+      "side_to_move": "white",
+      "empties": 21,
+      "canonicalKey": [
+        5627825356475658,
+        9154693259430461440,
+        1
+      ],
+      "source": "wthor",
+      "year": 2016,
+      "gameIndex": 723,
+      "auditFilteredIndex": 2408,
+      "cohort": "t157ext"
+    },
+    {
+      "id": "t157-exact-103",
+      "board": "----X-----X-XX--O-XXXOX--XXXXOXXXXOXXOXX-OOOOXX-O-XOOXXO-OOOO-X-",
+      "side_to_move": "white",
+      "empties": 21,
+      "canonicalKey": [
+        154818776925875208,
+        8690109052077998080,
+        1
+      ],
+      "source": "wthor",
+      "year": 2017,
+      "gameIndex": 947,
+      "auditFilteredIndex": 4450,
+      "cohort": "t157ext"
+    },
+    {
+      "id": "t157-exact-104",
+      "board": "-OOOOOO-X-OXXO--XOOOOOO-XXXOOO--XXXXOO--XOOXOO--X-OO----X-OOO---",
+      "side_to_move": "black",
+      "empties": 21,
+      "canonicalKey": [
+        9430374654,
+        1477459319399680,
+        0
+      ],
+      "source": "wthor",
+      "year": 2019,
+      "gameIndex": 30,
+      "auditFilteredIndex": 8041,
+      "cohort": "t157ext"
+    },
+    {
+      "id": "t157-exact-105",
+      "board": "--XXXXXO--XXXXOO--XXOOOO--OXOOXO---XXOXO--XXXXXO--X-XXXO--XO-X--",
+      "side_to_move": "white",
+      "empties": 21,
+      "canonicalKey": [
+        254259713243392,
+        9346051999359,
+        1
+      ],
+      "source": "wthor",
+      "year": 2019,
+      "gameIndex": 170,
+      "auditFilteredIndex": 8179,
+      "cohort": "t157ext"
+    },
+    {
+      "id": "t157-exact-106",
+      "board": "-XXX--X-O-XXOX--OOXXXOXXOXOOXXOXOOOOOXOX-XXOOOXX--X----X--X-----",
+      "side_to_move": "white",
+      "empties": 21,
+      "canonicalKey": [
+        11794491498964348,
+        2167383950310512640,
+        1
+      ],
+      "source": "wthor",
+      "year": 2019,
+      "gameIndex": 222,
+      "auditFilteredIndex": 8226,
+      "cohort": "t157ext"
+    },
+    {
+      "id": "t157-exact-107",
+      "board": "--XXXXX-O-XOOO---OXXXXO--OOOXXOO-OOOXXX---OOXOXX---OOX----XXXXX-",
+      "side_to_move": "white",
+      "empties": 21,
+      "canonicalKey": [
+        149008485822752,
+        152058585170447368,
+        1
+      ],
+      "source": "wthor",
+      "year": 2019,
+      "gameIndex": 1262,
+      "auditFilteredIndex": 9165,
+      "cohort": "t157ext"
+    },
+    {
+      "id": "t157-exact-108",
+      "board": "--------X--XO---X-XXXOOOXOXXOXOOXOOOXOXOXXOOOOOO--XOOO---XXXXX--",
+      "side_to_move": "white",
+      "empties": 21,
+      "canonicalKey": [
+        2270669504185724,
+        4338143288202369024,
+        1
+      ],
+      "source": "wthor",
+      "year": 2023,
+      "gameIndex": 779,
+      "auditFilteredIndex": 13214,
+      "cohort": "t157ext"
+    },
+    {
+      "id": "t157-exact-109",
+      "board": "--------O-XXXX--OOXXOOOOOOOXXOO-OOXOOXO--XOOOXXXX-OOXX---O-XXX--",
+      "side_to_move": "white",
+      "empties": 21,
+      "canonicalKey": [
+        16901796440191288,
+        549100212456450,
+        1
+      ],
+      "source": "wthor",
+      "year": 2023,
+      "gameIndex": 1221,
+      "auditFilteredIndex": 13594,
+      "cohort": "t157ext"
+    },
+    {
+      "id": "t157-exact-110",
+      "board": "-XXXXX--X-XXXXO-XXOXXOOOXXXXOXOOXXXXOX-OX-XXXX----XXX-----X-----",
+      "side_to_move": "white",
+      "empties": 21,
+      "canonicalKey": [
+        65315714833726,
+        2021557783861919744,
+        1
+      ],
+      "source": "wthor",
+      "year": 2023,
+      "gameIndex": 1621,
+      "auditFilteredIndex": 13929,
+      "cohort": "t157ext"
+    },
+    {
+      "id": "t157-exact-111",
+      "board": "--O-X---X-O-XX--XXOOX-X-XXOXXX-XXXXOXXX-XXOOXXOOXO-OXO----OOXX--",
+      "side_to_move": "white",
+      "empties": 21,
+      "canonicalKey": [
+        582295856352345214,
+        2314920581317738496,
+        1
+      ],
+      "source": "wthor",
+      "year": 2024,
+      "gameIndex": 1279,
+      "auditFilteredIndex": 15865,
+      "cohort": "t157ext"
+    },
+    {
+      "id": "t157-exact-112",
+      "board": "---OOO-----OOXX--OOOOXOOO-OOXXOO-OXXOXOO-OOXXXOO---XOX-O--X-OOO-",
+      "side_to_move": "white",
+      "empties": 21,
+      "canonicalKey": [
+        9956078010368,
+        1165364612930026814,
+        1
+      ],
+      "source": "wthor",
+      "year": 2024,
+      "gameIndex": 2135,
+      "auditFilteredIndex": 16638,
+      "cohort": "t157ext"
+    },
+    {
+      "id": "t157-exact-113",
+      "board": "--X-----O-XX-O-OOXXOOOO-OXXOOOX-OXXXOOXOO-XOXXOO--OXXX-O--X--X--",
+      "side_to_move": "black",
+      "empties": 22,
+      "canonicalKey": [
+        6763123050362880,
+        5630757616906010748,
+        0
+      ],
+      "source": "wthor",
+      "year": 2015,
+      "gameIndex": 916,
+      "auditFilteredIndex": 838,
+      "cohort": "t157ext"
+    },
+    {
+      "id": "t157-exact-114",
+      "board": "--O-XX----OXX----OOOOOOX-OOXOOO-OXXOXOOOXXXXOXOO---OOOX---OO-X--",
+      "side_to_move": "black",
+      "empties": 22,
+      "canonicalKey": [
+        289062053887416332,
+        3466658558190166048,
+        0
+      ],
+      "source": "wthor",
+      "year": 2015,
+      "gameIndex": 1245,
+      "auditFilteredIndex": 1132,
+      "cohort": "t157ext"
+    },
+    {
+      "id": "t157-exact-115",
+      "board": "---XX------XXX-----XXXXX-XXOOXXOXXOOXXXO-XOOOOXX--XOOXX--X-OXXX-",
+      "side_to_move": "black",
+      "empties": 22,
+      "canonicalKey": [
+        584644283827175204,
+        13327652880408,
+        0
+      ],
+      "source": "wthor",
+      "year": 2016,
+      "gameIndex": 1072,
+      "auditFilteredIndex": 2725,
+      "cohort": "t157ext"
+    },
+    {
+      "id": "t157-exact-116",
+      "board": "---OOX----OOXX-X-OOXOXXX-XXXXXXX--XOOXXX-XXOOOXX--OOO----OOOO---",
+      "side_to_move": "black",
+      "empties": 22,
+      "canonicalKey": [
+        109021287091460,
+        8662704772658769944,
+        0
+      ],
+      "source": "wthor",
+      "year": 2016,
+      "gameIndex": 1410,
+      "auditFilteredIndex": 3028,
+      "cohort": "t157ext"
+    },
+    {
+      "id": "t157-exact-117",
+      "board": "--OOOO----OOOO----OOXOOO-OOXXOX---XOXXXX-XXXXXXX--XXXO-X---OOOO-",
+      "side_to_move": "black",
+      "empties": 22,
+      "canonicalKey": [
+        8908559038720,
+        4340405043783009310,
+        0
+      ],
+      "source": "wthor",
+      "year": 2016,
+      "gameIndex": 1765,
+      "auditFilteredIndex": 3358,
+      "cohort": "t157ext"
+    },
+    {
+      "id": "t157-exact-118",
+      "board": "--------X--O-X--XXOOXXX-XOXXOOOOXOOOXOOOXXOOOOOO---OXO-O--OOOO--",
+      "side_to_move": "black",
+      "empties": 22,
+      "canonicalKey": [
+        1132857888613438,
+        8662947287824340992,
+        0
+      ],
+      "source": "wthor",
+      "year": 2017,
+      "gameIndex": 1494,
+      "auditFilteredIndex": 4975,
+      "cohort": "t157ext"
+    },
+    {
+      "id": "t157-exact-119",
+      "board": "---O------OOOO--OOXOOOX-OXOOXOO-XXXXXOX--XXOOOXXO-XOXO----OXXO--",
+      "side_to_move": "black",
+      "empties": 22,
+      "canonicalKey": [
+        37696833792024,
+        1170052677520626724,
+        0
+      ],
+      "source": "wthor",
+      "year": 2017,
+      "gameIndex": 1705,
+      "auditFilteredIndex": 5160,
+      "cohort": "t157ext"
+    },
+    {
+      "id": "t157-exact-120",
+      "board": "--XO-O----XOOO-X--XOOOXX--XOOOOX-XXXOXOX--XOOOXX--XXOO-X--XOOO--",
+      "side_to_move": "black",
+      "empties": 22,
+      "canonicalKey": [
+        2532218228974718,
+        1054413887488,
+        0
+      ],
+      "source": "wthor",
+      "year": 2018,
+      "gameIndex": 585,
+      "auditFilteredIndex": 6385,
+      "cohort": "t157ext"
+    },
+    {
+      "id": "t157-exact-121",
+      "board": "--------X--O----XXOOOO--XXXOOO--XXXXOO-OXXOXXOOXXXXXXOO-XXXXXX--",
+      "side_to_move": "black",
+      "empties": 22,
+      "canonicalKey": [
+        284803838189375,
+        2318013988888576,
+        0
+      ],
+      "source": "wthor",
+      "year": 2018,
+      "gameIndex": 818,
+      "auditFilteredIndex": 6576,
+      "cohort": "t157ext"
+    },
+    {
+      "id": "t157-exact-122",
+      "board": "-XXXXXX---OXXX--OOXOOO-OOOOOOOO-XOOOOOO-XXOOOO----OOO-----OO----",
+      "side_to_move": "black",
+      "empties": 22,
+      "canonicalKey": [
+        3302830127230,
+        872638941809542144,
+        0
+      ],
+      "source": "wthor",
+      "year": 2018,
+      "gameIndex": 1168,
+      "auditFilteredIndex": 6909,
+      "cohort": "t157ext"
+    },
+    {
+      "id": "t157-exact-123",
+      "board": "--O-------OOOX--XXOOO-X-X-OXOO-X-OOOOOXXO-XXXOXX--XXOOO--XXXXXX-",
+      "side_to_move": "black",
+      "empties": 22,
+      "canonicalKey": [
+        1339827987099774,
+        2321667371628236288,
+        0
+      ],
+      "source": "wthor",
+      "year": 2018,
+      "gameIndex": 1305,
+      "auditFilteredIndex": 7015,
+      "cohort": "t157ext"
+    },
+    {
+      "id": "t157-exact-124",
+      "board": "-OOOOO--O-OXXOX-OOXOOXO-OOOOXOXOOOOXXO-XO-XOXO----OXO--------O--",
+      "side_to_move": "black",
+      "empties": 22,
+      "canonicalKey": [
+        39901791801352,
+        8987173525779193872,
+        0
+      ],
+      "source": "wthor",
+      "year": 2018,
+      "gameIndex": 1686,
+      "auditFilteredIndex": 7343,
+      "cohort": "t157ext"
+    },
+    {
+      "id": "t157-exact-125",
+      "board": "--XOOO----OOOO-O-OOOXXO-OOXOOXXO--XOOXXO-OOOXOXX--XXOO----X-O---",
+      "side_to_move": "black",
+      "empties": 22,
+      "canonicalKey": [
+        170433499896836,
+        1167669240577531992,
+        0
+      ],
+      "source": "wthor",
+      "year": 2019,
+      "gameIndex": 522,
+      "auditFilteredIndex": 8478,
+      "cohort": "t157ext"
+    },
+    {
+      "id": "t157-exact-126",
+      "board": "--X---O---X--O---XXOOXXXXXXOOXXXOOOOXXXX-OOXOXO---XOOO-O--OOOO--",
+      "side_to_move": "black",
+      "empties": 22,
+      "canonicalKey": [
+        1170915054715908,
+        4375341660819169344,
+        0
+      ],
+      "source": "wthor",
+      "year": 2022,
+      "gameIndex": 533,
+      "auditFilteredIndex": 11757,
+      "cohort": "t157ext"
+    },
+    {
+      "id": "t157-exact-127",
+      "board": "-O-XXXXX--OOOOOX--OOXOOX--OXXXOX--OOXXXX--OOOOXX--OOOO-X----X---",
+      "side_to_move": "white",
+      "empties": 22,
+      "canonicalKey": [
+        41290379647,
+        420521898806784,
+        1
+      ],
+      "source": "wthor",
+      "year": 2023,
+      "gameIndex": 898,
+      "auditFilteredIndex": 13327,
+      "cohort": "t157ext"
+    },
+    {
+      "id": "t157-exact-128",
+      "board": "--X-O------XOO-----XOOO--XXOXOOXOXOXOOXXOOXXXXXXO-OXOO-X--OXXO--",
+      "side_to_move": "black",
+      "empties": 22,
+      "canonicalKey": [
+        6801538800431224,
+        8079686465755155456,
+        0
+      ],
+      "source": "wthor",
+      "year": 2023,
+      "gameIndex": 1143,
+      "auditFilteredIndex": 13531,
+      "cohort": "t157ext"
+    },
+    {
+      "id": "t157-exact-129",
+      "board": "-XXXXX----OXXX-XXXXXOOXX-XXXOXO--XOXXOO-XOOXOOO---XOO------XO---",
+      "side_to_move": "black",
+      "empties": 22,
+      "canonicalKey": [
+        433483643576196388,
+        15820787989749760,
+        0
+      ],
+      "source": "wthor",
+      "year": 2023,
+      "gameIndex": 1684,
+      "auditFilteredIndex": 13986,
+      "cohort": "t157ext"
+    },
+    {
+      "id": "t157-exact-130",
+      "board": "---X-O----O-X--X--OOOOOX-XOOXOOX-OOXOOOX--OXXOOX--OXXOOX--OXX-O-",
+      "side_to_move": "white",
+      "empties": 23,
+      "canonicalKey": [
+        2252838826672254,
+        4782927464233984,
+        1
+      ],
+      "source": "wthor",
+      "year": 2015,
+      "gameIndex": 1419,
+      "auditFilteredIndex": 1298,
+      "cohort": "t157ext"
+    },
+    {
+      "id": "t157-exact-131",
+      "board": "---OOO----OOOO-X--OOOOXX-OOOXXOX--XOXOOX--XOOOXX--XXXX-X--XXX---",
+      "side_to_move": "white",
+      "empties": 23,
+      "canonicalKey": [
+        16506013492350,
+        4627831102117888,
+        1
+      ],
+      "source": "wthor",
+      "year": 2016,
+      "gameIndex": 303,
+      "auditFilteredIndex": 2015,
+      "cohort": "t157ext"
+    },
+    {
+      "id": "t157-exact-132",
+      "board": "--XOO---X-XOOO-XXXXOXOX-XXXXOXOOXXXOXOX---OXXXXX----OX------O-X-",
+      "side_to_move": "white",
+      "empties": 23,
+      "canonicalKey": [
+        145276181974524192,
+        578747822574410776,
+        1
+      ],
+      "source": "wthor",
+      "year": 2017,
+      "gameIndex": 705,
+      "auditFilteredIndex": 4224,
+      "cohort": "t157ext"
+    },
+    {
+      "id": "t157-exact-133",
+      "board": "--OOOOO---OOX----XXXXXX--OOOXXXX--OOOXX--OOOOXX---OOXO----OOOOO-",
+      "side_to_move": "white",
+      "empties": 23,
+      "canonicalKey": [
+        1130316445793288,
+        11536057506038016,
+        1
+      ],
+      "source": "wthor",
+      "year": 2017,
+      "gameIndex": 963,
+      "auditFilteredIndex": 4469,
+      "cohort": "t157ext"
+    },
+    {
+      "id": "t157-exact-134",
+      "board": "--OOOO--X-OOOOXXOXOOOXXXOOXXXXXXO-XOXXX---XXXXX---X-X-------X---",
+      "side_to_move": "white",
+      "empties": 23,
+      "canonicalKey": [
+        36951558633433096,
+        4340547278067466240,
+        1
+      ],
+      "source": "wthor",
+      "year": 2017,
+      "gameIndex": 1232,
+      "auditFilteredIndex": 4735,
+      "cohort": "t157ext"
+    },
+    {
+      "id": "t157-exact-135",
+      "board": "-----O-------O--X-XXXOOOXXOXOOOOXOXXXXXO-XOXOXOO--XXXX---XXXXX--",
+      "side_to_move": "white",
+      "empties": 23,
+      "canonicalKey": [
+        31935181765694,
+        2315097549240008704,
+        1
+      ],
+      "source": "wthor",
+      "year": 2017,
+      "gameIndex": 1363,
+      "auditFilteredIndex": 4851,
+      "cohort": "t157ext"
+    },
+    {
+      "id": "t157-exact-136",
+      "board": "--X-OOO---XXXO--XXXXOX--XOOOXX--XXOOXXX-XXXOXX--XXXXX------OXO--",
+      "side_to_move": "white",
+      "empties": 23,
+      "canonicalKey": [
+        2318180192497214,
+        36241690446008320,
+        1
+      ],
+      "source": "wthor",
+      "year": 2017,
+      "gameIndex": 1366,
+      "auditFilteredIndex": 4854,
+      "cohort": "t157ext"
+    },
+    {
+      "id": "t157-exact-137",
+      "board": "-OOO-X----OXOX-X-OXOXXXXO-OOOXXX--OOXXXX---OXXX---XXXO-O--X-X-O-",
+      "side_to_move": "white",
+      "empties": 23,
+      "canonicalKey": [
+        38767179873400,
+        1198195804188311810,
+        1
+      ],
+      "source": "wthor",
+      "year": 2021,
+      "gameIndex": 448,
+      "auditFilteredIndex": 11069,
+      "cohort": "t157ext"
+    },
+    {
+      "id": "t157-exact-138",
+      "board": "-XXXX-O---OOXO-XX-OOOOOX-XOOOOOXOOXXXXXXOO-XXXOX---XX-----------",
+      "side_to_move": "white",
+      "empties": 23,
+      "canonicalKey": [
+        6787556960176504,
+        214130933773314,
+        1
+      ],
+      "source": "wthor",
+      "year": 2024,
+      "gameIndex": 57,
+      "auditFilteredIndex": 14757,
+      "cohort": "t157ext"
+    },
+    {
+      "id": "t157-exact-139",
+      "board": "-OOOOOO---OOOO----OOOXXX--OOOOX---OOXXXX-XXXOX-O--XXXO----XX-OO-",
+      "side_to_move": "white",
+      "empties": 23,
+      "canonicalKey": [
+        7705430603824,
+        9096207178536649734,
+        1
+      ],
+      "source": "wthor",
+      "year": 2024,
+      "gameIndex": 2080,
+      "auditFilteredIndex": 16587,
+      "cohort": "t157ext"
+    },
+    {
+      "id": "t157-exact-140",
+      "board": "---XXX----OOXX-O--XOOXOO--XXOOOO--XXXOOO-XXXOOXO-X-OXXX---OO-X--",
+      "side_to_move": "white",
+      "empties": 23,
+      "canonicalKey": [
+        1755493976704512,
+        71894331832444,
+        1
+      ],
+      "source": "wthor",
+      "year": 2024,
+      "gameIndex": 2452,
+      "auditFilteredIndex": 16912,
+      "cohort": "t157ext"
+    },
+    {
+      "id": "t157-exact-141",
+      "board": "---XX-----XXXX-OX-OOXXOO-XOXXOXOOOXOOXOO-XXXXXXO---X---O--O-X---",
+      "side_to_move": "black",
+      "empties": 24,
+      "canonicalKey": [
+        5749302652310560,
+        9090533475067430920,
+        0
+      ],
+      "source": "wthor",
+      "year": 2015,
+      "gameIndex": 1895,
+      "auditFilteredIndex": 1720,
+      "cohort": "t157ext"
+    },
+    {
+      "id": "t157-exact-142",
+      "board": "----------OOXO--XXXOXXX-XXXXOXX--XXOOOOO-XXXXXO---XOXO---XXXXX--",
+      "side_to_move": "black",
+      "empties": 24,
+      "canonicalKey": [
+        2514541761800316,
+        14654325854966784,
+        0
+      ],
+      "source": "wthor",
+      "year": 2016,
+      "gameIndex": 1015,
+      "auditFilteredIndex": 2676,
+      "cohort": "t157ext"
+    },
+    {
+      "id": "t157-exact-143",
+      "board": "--XOOO--X-XXOO--XXXOXOX-XXOXOXX--OOOOOXXOOOXOOO---XX-------X----",
+      "side_to_move": "black",
+      "empties": 24,
+      "canonicalKey": [
+        291985671143820296,
+        4048780132418519040,
+        0
+      ],
+      "source": "wthor",
+      "year": 2016,
+      "gameIndex": 1815,
+      "auditFilteredIndex": 3406,
+      "cohort": "t157ext"
+    },
+    {
+      "id": "t157-exact-144",
+      "board": "--OOO------OOO---X-XOXXX-OXOOOO-OOXXOOOO--XXOOOO--XXXO-X--OXO---",
+      "side_to_move": "black",
+      "empties": 24,
+      "canonicalKey": [
+        95795759036688,
+        4043115768765678632,
+        0
+      ],
+      "source": "wthor",
+      "year": 2016,
+      "gameIndex": 1882,
+      "auditFilteredIndex": 3466,
+      "cohort": "t157ext"
+    },
+    {
+      "id": "t157-exact-145",
+      "board": "--OOOO----OOXO--OOOXOOXX-OXXXOOXXXOOXXOXXX-OOOXX----O--X--------",
+      "side_to_move": "black",
+      "empties": 24,
+      "canonicalKey": [
+        496761169971200,
+        2282802077512764,
+        0
+      ],
+      "source": "wthor",
+      "year": 2017,
+      "gameIndex": 1384,
+      "auditFilteredIndex": 4869,
+      "cohort": "t157ext"
+    },
+    {
+      "id": "t157-exact-146",
+      "board": "----X---X-XXX---XXXXOO-OXXXOXOO-XOOOOOX-XXOOOXX---OOOO----OOO---",
+      "side_to_move": "black",
+      "empties": 24,
+      "canonicalKey": [
+        109131210890512,
+        2034532186034536448,
+        0
+      ],
+      "source": "wthor",
+      "year": 2017,
+      "gameIndex": 1973,
+      "auditFilteredIndex": 5409,
+      "cohort": "t157ext"
+    },
+    {
+      "id": "t157-exact-147",
+      "board": "----XX----OOXX-X-OOXXXXX-OOOOXXX-XOOOOX-XXOOOOOO--OX-O-O---X----",
+      "side_to_move": "black",
+      "empties": 24,
+      "canonicalKey": [
+        291608229969934448,
+        13649732954883078,
+        0
+      ],
+      "source": "wthor",
+      "year": 2017,
+      "gameIndex": 2295,
+      "auditFilteredIndex": 5713,
+      "cohort": "t157ext"
+    },
+    {
+      "id": "t157-exact-148",
+      "board": "--O-OX---OOOOOX-XXOXXXOX-XXOXOO-XXXXOOOO--XXXOOO---XX--------X--",
+      "side_to_move": "black",
+      "empties": 24,
+      "canonicalKey": [
+        288940026957929492,
+        3475716865870201344,
+        0
+      ],
+      "source": "wthor",
+      "year": 2018,
+      "gameIndex": 1263,
+      "auditFilteredIndex": 6979,
+      "cohort": "t157ext"
+    },
+    {
+      "id": "t157-exact-149",
+      "board": "--O-------OOO----OOOOXX-OOOOOXXXOOOOOXX-OOXOOXX---XXOX-----XXXX-",
+      "side_to_move": "black",
+      "empties": 24,
+      "canonicalKey": [
+        6609975590160,
+        2034774345238183936,
+        0
+      ],
+      "source": "wthor",
+      "year": 2018,
+      "gameIndex": 1687,
+      "auditFilteredIndex": 7345,
+      "cohort": "t157ext"
+    },
+    {
+      "id": "t157-exact-150",
+      "board": "--OOOO----OXOO-XOOXOXOXXOXOXOXOXOOXXXOOXOOOOOOO-----------------",
+      "side_to_move": "black",
+      "empties": 24,
+      "canonicalKey": [
+        246242021632,
+        280129223011388,
+        0
+      ],
+      "source": "wthor",
+      "year": 2018,
+      "gameIndex": 1692,
+      "auditFilteredIndex": 7350,
+      "cohort": "t157ext"
+    },
+    {
+      "id": "t157-exact-151",
+      "board": "---XXXX---XXOX--OOOXOOXOOOOXOX-XOOOXOXX-OOOXOX-----OOX------O---",
+      "side_to_move": "black",
+      "empties": 24,
+      "canonicalKey": [
+        2469631038728,
+        4340410390715564036,
+        0
+      ],
+      "source": "wthor",
+      "year": 2019,
+      "gameIndex": 776,
+      "auditFilteredIndex": 8728,
+      "cohort": "t157ext"
+    },
+    {
+      "id": "t157-exact-152",
+      "board": "--O--O----OOXO-X-O-XXOXX-XOXXOOX--XOXOOX--OXXXXX---OXX----XXXXX-",
+      "side_to_move": "black",
+      "empties": 24,
+      "canonicalKey": [
+        2410872498594878,
+        1173531096193024,
+        0
+      ],
+      "source": "wthor",
+      "year": 2019,
+      "gameIndex": 905,
+      "auditFilteredIndex": 8828,
+      "cohort": "t157ext"
+    },
+    {
+      "id": "t157-exact-153",
+      "board": "-X-OX-----OOOX--OOOOOOXO-OOXXOXXXOOOOOXX-OOOOOXX----OO-------O--",
+      "side_to_move": "black",
+      "empties": 24,
+      "canonicalKey": [
+        3861628716104,
+        291744949584345104,
+        0
+      ],
+      "source": "wthor",
+      "year": 2021,
+      "gameIndex": 650,
+      "auditFilteredIndex": 11248,
+      "cohort": "t157ext"
+    },
+    {
+      "id": "t157-exact-154",
+      "board": "-----X------XX--O--X-OOO-OXXXXOOOOOXXXOO-OOOOXOO--OOOOXO--OOOO--",
+      "side_to_move": "black",
+      "empties": 24,
+      "canonicalKey": [
+        8916792197120,
+        1457179328088652924,
+        0
+      ],
+      "source": "wthor",
+      "year": 2022,
+      "gameIndex": 330,
+      "auditFilteredIndex": 11586,
+      "cohort": "t157ext"
+    },
+    {
+      "id": "t157-exact-155",
+      "board": "-XXXXX----XXXX----XOOXXO--XOOOX---XOXOOX--XOXOXX---OOX-X--OOOO--",
+      "side_to_move": "black",
+      "empties": 24,
+      "canonicalKey": [
+        350757954464880,
+        141823254728708,
+        0
+      ],
+      "source": "wthor",
+      "year": 2022,
+      "gameIndex": 1323,
+      "auditFilteredIndex": 12468,
+      "cohort": "t157ext"
+    },
+    {
+      "id": "t157-exact-156",
+      "board": "--XXXX----XXXX--O-XXXXO--OXOOXOX-OOOXXXX-OOOXXXX--XXOO----X-----",
+      "side_to_move": "black",
+      "empties": 24,
+      "canonicalKey": [
+        227904776515640,
+        304045993135967232,
+        0
+      ],
+      "source": "wthor",
+      "year": 2024,
+      "gameIndex": 2294,
+      "auditFilteredIndex": 16784,
+      "cohort": "t157ext"
+    },
+    {
+      "id": "t157-exact-157",
+      "board": "-----------O---XXXOO-OXX-XOOOXXXXXXOXOXXOOOOOXO---OOXX-O--OOXX--",
+      "side_to_move": "black",
+      "empties": 24,
+      "canonicalKey": [
+        496188629715980,
+        4561015102124336,
+        0
+      ],
+      "source": "wthor",
+      "year": 2024,
+      "gameIndex": 2389,
+      "auditFilteredIndex": 16863,
+      "cohort": "t157ext"
+    },
+    {
+      "id": "t157-exact-158",
+      "board": "---OX-----OXX---OOOOX-X--OOOOX--OOOOXXX-XOOOOXX---XXXO-X--X-OOO-",
+      "side_to_move": "white",
+      "empties": 25,
+      "canonicalKey": [
+        156531879506542596,
+        284866868165672,
+        1
+      ],
+      "source": "wthor",
+      "year": 2015,
+      "gameIndex": 8,
+      "auditFilteredIndex": 7,
+      "cohort": "t157ext"
+    },
+    {
+      "id": "t157-exact-159",
+      "board": "----XO------XOX---XXXOOO--XXXOOO--XXXOOO-OOOXXOO--OOXX---OOO-XX-",
+      "side_to_move": "white",
+      "empties": 25,
+      "canonicalKey": [
+        30908730081792,
+        45283248953048124,
+        1
+      ],
+      "source": "wthor",
+      "year": 2016,
+      "gameIndex": 174,
+      "auditFilteredIndex": 1905,
+      "cohort": "t157ext"
+    },
+    {
+      "id": "t157-exact-160",
+      "board": "----------O-----XXOOXXXOXXOXOXXOXOOXOXOOOOOOXXOO--OOOX------OX--",
+      "side_to_move": "white",
+      "empties": 25,
+      "canonicalKey": [
+        126904089714720,
+        1280470793788432,
+        1
+      ],
+      "source": "wthor",
+      "year": 2016,
+      "gameIndex": 500,
+      "auditFilteredIndex": 2195,
+      "cohort": "t157ext"
+    },
+    {
+      "id": "t157-exact-161",
+      "board": "--O-XXX---OOOX--XXOOXOO-XXXXOOO-XOXXOOXXXXXOOXX-----OO----------",
+      "side_to_move": "white",
+      "empties": 25,
+      "canonicalKey": [
+        114130418868336,
+        13537403795676164,
+        1
+      ],
+      "source": "wthor",
+      "year": 2017,
+      "gameIndex": 60,
+      "auditFilteredIndex": 3631,
+      "cohort": "t157ext"
+    },
+    {
+      "id": "t157-exact-162",
+      "board": "----XXX---XXXX--XXXOXO--OOOOOOO--OXOXOO-OOXXX-OO--XXX-----XXX---",
+      "side_to_move": "white",
+      "empties": 25,
+      "canonicalKey": [
+        285838176289796,
+        2321636429065107496,
+        1
+      ],
+      "source": "wthor",
+      "year": 2018,
+      "gameIndex": 296,
+      "auditFilteredIndex": 6126,
+      "cohort": "t157ext"
+    },
+    {
+      "id": "t157-exact-163",
+      "board": "--OOO-----OOOX---XOXO--XXXOXXOX-XXXXXXXXOOXXOXX---XXO-----X-O---",
+      "side_to_move": "white",
+      "empties": 25,
+      "canonicalKey": [
+        1215900933304352,
+        4051031999916804104,
+        1
+      ],
+      "source": "wthor",
+      "year": 2019,
+      "gameIndex": 1841,
+      "auditFilteredIndex": 9689,
+      "cohort": "t157ext"
+    },
+    {
+      "id": "t157-exact-164",
+      "board": "----------OXX----X-XXXOO-XXXOOOOXXXXXOOO--OOOXOO--OOOOX---OOOO--",
+      "side_to_move": "white",
+      "empties": 25,
+      "canonicalKey": [
+        568415036905472,
+        4340409042380988416,
+        1
+      ],
+      "source": "wthor",
+      "year": 2023,
+      "gameIndex": 13,
+      "auditFilteredIndex": 12526,
+      "cohort": "t157ext"
+    },
+    {
+      "id": "t157-exact-165",
+      "board": "----OX-----OXX---XXXOXXO--XOOOOXOOOXOOOO-OOOOXO----OXO-----OOOO-",
+      "side_to_move": "white",
+      "empties": 25,
+      "canonicalKey": [
+        1139181055575048,
+        1166486088254535700,
+        1
+      ],
+      "source": "wthor",
+      "year": 2023,
+      "gameIndex": 1846,
+      "auditFilteredIndex": 14132,
+      "cohort": "t157ext"
+    },
+    {
+      "id": "t157-exact-166",
+      "board": "--X-------X-OO-O--XOOOOO--XXOOOO--XXOXO--XXOXXXX--XXXXXX--XXOX--",
+      "side_to_move": "white",
+      "empties": 25,
+      "canonicalKey": [
+        1406391437690374,
+        156656220272,
+        1
+      ],
+      "source": "wthor",
+      "year": 2024,
+      "gameIndex": 1587,
+      "auditFilteredIndex": 16144,
+      "cohort": "t157ext"
+    },
+    {
+      "id": "t157-exact-167",
+      "board": "----O---X---OO--XXOOOXO-XXXXOOX-XXXXOXXX-XXXXO-O--OXX----OOO-X--",
+      "side_to_move": "white",
+      "empties": 25,
+      "canonicalKey": [
+        320301197826080,
+        1166533664996066318,
+        1
+      ],
+      "source": "wthor",
+      "year": 2024,
+      "gameIndex": 1661,
+      "auditFilteredIndex": 16208,
+      "cohort": "t157ext"
+    },
+    {
+      "id": "t157-exact-168",
+      "board": "-----------O-O-O---OOOOO--OOOOXO--OOOXXO-OOOXOXO--XOXXO---XXXXXO",
+      "side_to_move": "black",
+      "empties": 26,
+      "canonicalKey": [
+        8691264574,
+        5945322328363521,
+        0
+      ],
+      "source": "wthor",
+      "year": 2015,
+      "gameIndex": 1624,
+      "auditFilteredIndex": 1476,
+      "cohort": "t157ext"
+    },
+    {
+      "id": "t157-exact-169",
+      "board": "---O-X-----OO-----XOOO--XXXOOO--XXOOOOO-XOOOOOOO--XXXX---XXXXX--",
+      "side_to_move": "black",
+      "empties": 26,
+      "canonicalKey": [
+        144048961820956,
+        291674583374496768,
+        0
+      ],
+      "source": "wthor",
+      "year": 2015,
+      "gameIndex": 1680,
+      "auditFilteredIndex": 1522,
+      "cohort": "t157ext"
+    },
+    {
+      "id": "t157-exact-170",
+      "board": "--OOOO----XXOX----XOOOXO--OXXOXX-OOOOOXO---OOOO----OOOO----XXX--",
+      "side_to_move": "black",
+      "empties": 26,
+      "canonicalKey": [
+        7192065481736,
+        4531591933943828,
+        0
+      ],
+      "source": "wthor",
+      "year": 2018,
+      "gameIndex": 615,
+      "auditFilteredIndex": 6408,
+      "cohort": "t157ext"
+    },
+    {
+      "id": "t157-exact-171",
+      "board": "--O-XX-----OXX----XXOXXX--OOOOXX-OOOOXXX-X-OXXOX--OOOO----XX-O--",
+      "side_to_move": "black",
+      "empties": 26,
+      "canonicalKey": [
+        1162328828295228,
+        2421529305613312,
+        0
+      ],
+      "source": "wthor",
+      "year": 2018,
+      "gameIndex": 2247,
+      "auditFilteredIndex": 7838,
+      "cohort": "t157ext"
+    },
+    {
+      "id": "t157-exact-172",
+      "board": "--OOOOOO---OOX----OXXXXX--XXXOXX--XXOXXX--XXXXXX---X-X----X-XO--",
+      "side_to_move": "black",
+      "empties": 26,
+      "canonicalKey": [
+        32153021594684,
+        176749859143808,
+        0
+      ],
+      "source": "wthor",
+      "year": 2019,
+      "gameIndex": 602,
+      "auditFilteredIndex": 8558,
+      "cohort": "t157ext"
+    },
+    {
+      "id": "t157-exact-173",
+      "board": "--XX------XXXO-OOOXXOOOO-OXOXOOO--OOOXO---OOOOXX---OOO----O--O--",
+      "side_to_move": "black",
+      "empties": 26,
+      "canonicalKey": [
+        3316389001264,
+        2602020905992258816,
+        0
+      ],
+      "source": "wthor",
+      "year": 2019,
+      "gameIndex": 764,
+      "auditFilteredIndex": 8718,
+      "cohort": "t157ext"
+    },
+    {
+      "id": "t157-exact-174",
+      "board": "--XXXX----XOXX--OOOXXX---OOXXX--XOOOXX--XOOOXX-----OXX----XOOX--",
+      "side_to_move": "black",
+      "empties": 26,
+      "canonicalKey": [
+        280921152618544,
+        553819847684,
+        0
+      ],
+      "source": "wthor",
+      "year": 2019,
+      "gameIndex": 1916,
+      "auditFilteredIndex": 9756,
+      "cohort": "t157ext"
+    },
+    {
+      "id": "t157-exact-175",
+      "board": "--XO------X-OO---XXXXOO--OOOXXOO-OOOXXOO-OXXXXXX--XOOO----XO----",
+      "side_to_move": "black",
+      "empties": 26,
+      "canonicalKey": [
+        1380042721992736,
+        15789920094657560,
+        0
+      ],
+      "source": "wthor",
+      "year": 2022,
+      "gameIndex": 153,
+      "auditFilteredIndex": 11419,
+      "cohort": "t157ext"
+    },
+    {
+      "id": "t157-exact-176",
+      "board": "--XOOO----OOO----OOOX-X-OOOOXXO--OXOXO--XXXOOOX--XXOO-----XXO---",
+      "side_to_move": "black",
+      "empties": 26,
+      "canonicalKey": [
+        10142017676992544,
+        2306652972653576,
+        0
+      ],
+      "source": "wthor",
+      "year": 2023,
+      "gameIndex": 451,
+      "auditFilteredIndex": 12904,
+      "cohort": "t157ext"
+    },
+    {
+      "id": "t157-exact-177",
+      "board": "--------X--OXX--XXOXXX--XXXOXXX-XOXOOOXOXOOOOXOO--OOXO-O--------",
+      "side_to_move": "black",
+      "empties": 26,
+      "canonicalKey": [
+        2397635140684800,
+        15053813398376448,
+        0
+      ],
+      "source": "wthor",
+      "year": 2023,
+      "gameIndex": 2209,
+      "auditFilteredIndex": 14462,
+      "cohort": "t157ext"
+    },
+    {
+      "id": "t157-exact-178",
+      "board": "----XXX-----XX----XXXOOOOOOOOOOO--XOXXOO--OXOXOO--OOOOX---O-X---",
+      "side_to_move": "black",
+      "empties": 26,
+      "canonicalKey": [
+        22147388096768,
+        578968018521701436,
+        0
+      ],
+      "source": "wthor",
+      "year": 2024,
+      "gameIndex": 71,
+      "auditFilteredIndex": 14771,
+      "cohort": "t157ext"
+    },
+    {
+      "id": "t157-exact-179",
+      "board": "-XXXXX----XXOX--XXXXXXX--OOOXX---OOOXXX---OOOX----XOOO----XO-O--",
+      "side_to_move": "black",
+      "empties": 26,
+      "canonicalKey": [
+        5698893451298052,
+        211531303753728,
+        0
+      ],
+      "source": "wthor",
+      "year": 2024,
+      "gameIndex": 2198,
+      "auditFilteredIndex": 16700,
+      "cohort": "t157ext"
+    },
+    {
+      "id": "t157-exact-180",
+      "board": "--XO------XXOO--XXXXXO--XXXOXO--XXOXXO--XXXXXO----OOOO---OOO-X--",
+      "side_to_move": "black",
+      "empties": 26,
+      "canonicalKey": [
+        1359037611068,
+        138824399913216,
+        0
+      ],
+      "source": "wthor",
+      "year": 2024,
+      "gameIndex": 2319,
+      "auditFilteredIndex": 16805,
+      "cohort": "t157ext"
+    }
+  ]
+}
