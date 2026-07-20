@@ -1,7 +1,7 @@
 ---
 id: T158d
 title: 評価特徴追加(4/4): 対Edax対局ゲート — 段階1: パイロット6局(3ペア)/段階2: 60局本実行
-status: in_progress # 段階1(パイロット3ペア12局)done: verifier合格、誤記追修正済み(13c2e32)。段階2=60局本実行をユーザー承認(2026-07-21「すすめて」)、委譲中
+status: done # 段階2verifier合格(全統計・watch-point・SHA・決定性を独立再現、指摘=軽微1件のみ)。最終裁定(2026-07-21): ペア差+1.45石・CI[-1.57,+4.60]・p=0.57=有意差なし → 事前登録規準により**B3 seed2不採用、現行v4維持**。codex-review省略(段階2のコミットはレポート2件のみ、vs_edax.py改修は段階1でverifier差分確認済みの+20/-1行)
 assignee: implementer
 attempts: 0
 ---
