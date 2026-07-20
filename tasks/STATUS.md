@@ -32,7 +32,8 @@
 
 | ID | タスク | 担当 | 状態 | 試行 |
 |---|---|---|---|---|
-| T154 | 混合データ対照(WTHOR/Egaroucid/混合を同一トレーナーで@443万) | implementer(Sonnet) | in_progress(委譲中。3run×20-40分。トレーナー差とデータ差の分離が目的、事前登録あり) | 0 |
+| T154 | 混合データ対照(同一トレーナー@443万) | implementer(Sonnet) | review(完了f2c6c88: **A=WTHOR@t090 1.500/B=Egaroucid 1.233/C=混合 1.433、M2 3/3**。トレーナー差(vs本番1.111で+0.39)が支配的=解釈(2)。verifier検収中) | 0 |
+| T155 | Egaroucidデータ×本番トレーナー(train_patterns_v3取込+学習+oracle) | implementer(Sonnet) | in_progress(委譲中。E1=@443万×3seed。事前登録: ≤1.0で対局ゲート提案/1.3超で路線保留) | 0 |
 
 ## 有効な方針・申し送り(今後のタスクに効くもの)
 
