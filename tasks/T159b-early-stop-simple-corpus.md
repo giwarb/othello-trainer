@@ -121,3 +121,19 @@ T159で本番トレーナー(train_patterns_v3)に導入した早期打ち切り
 - **複数seed/複数configをまとめて1プロセス起動で回す場合**(`--configs`/`--seeds`にカンマ区切りで複数指定): データ読込(約64秒)は起動1回につき1回だけで、以降の(config, seed)の組ごとに上表のエポックコストが積み上がる(例: v4を3 seedで回すなら、64秒 + 3×(15〜30分) ≈ 46〜91分)。
 
 **T160向けの重要な申し送り(B3設定のブロッカー)**: `main`の既存ガード(T155由来、本タスクでは変更していない)が「`configs.iter().any(|config| config.t158)`なら`--simple-corpus`を拒否」としているため、**B3特徴(`t158-b3`)設定は現状`--simple-corpus`と一切併用できない**(`--early-stop`の有無に関わらず)。T159bのスコープ外(「B3特徴側の変更」は対象外と明記)のため本タスクでは対処していないが、**T160の計画「素のv4構成+B3特徴あり構成の両方をEgaroucid全量で学習」はこのガードにより素のv4構成しか実行できない状態**。B3をEgaroucidデータで学習するには、別途このガード(および対応するfeature-distribution出力等)を見直す小タスクが必要になる。
+
+### 2026-07-21 verifier検証
+
+対象コミット: fa448f0(train/src/bin/train_patterns_v3.rs、train/src/regression.rs、train/src/simple_corpus.rs)。作業ツリーはfa448f0 + tasks:のみのコミット(b424f78)、コード差分はfa448f0時点のまま。
+
+1. `cargo test -p train --release`: 全11バイナリ/テスト群を合計 **137 passed; 0 failed**(96+4+3+2+0+0+0+16+10+5+1=137、内訳は`train_patterns_v3`16件・`wthor_lines`10件・`wthor_to_simple`5件・`real_data`1件・lib側96+4+3+2件)。実装者申告の137件と一致。参考: `cargo test -p engine`は本タスクスコープ外のため未再実行(前回タスクで確認済み、engine側ファイル変更なし)。
+2. **OFF時不変の独立追試**: `git worktree add <scratchpad>/before fa448f0~1`(=f7523cc、コード差分としてはT159時点相当)で変更前ツリーをreleaseビルドし、変更後(現HEAD)のreleaseビルドと比較。
+   - WTHOR OFF(`--configs v3 --seeds 1 --epochs 2 --max-games 30`): 前後とも標準出力(`dataset games=30 ... frozen_mse=820.721583 frozen_mae=25.634342 bytes=5964708`)が完全一致し、`v3-seed-1.bin`のSHA-256は前後とも `5228350a01ded3cdb27093bfc0c8c78b70d63251827f94412b8c7748e4c2d687` で実装者申告値と一致。
+   - simple-corpus OFF(`train/data/egaroucid/extracted/0001_egaroucid_7_5_1_lv17/0000000.txt`の先頭2000行を切り出し、`--configs v3 --seeds 1 --epochs 2 --simple-corpus <2000行ファイル>`): 前後とも標準出力(`corpus_hash=ad398f0d69ea0596 ... frozen_mse=455.377495 frozen_mae=16.971660`)が一致し、`v3-seed-1.bin`のSHA-256は前後とも `f7508ab5e197a49a907c24e25dd070c18e56e9b39bb797b4a5a74552dee7d790` で実装者申告値と一致。
+   - 検証後 `git worktree remove --force` でworktreeを除去し、生成物・切り出しファイルはscratchpad配下ごと削除。
+3. 時間見積りの記録確認: 作業ログに180kスモーク(実測約14.8秒、val_mae 10.21→8.43、best_epoch=22でpatience発火、epoch=25打ち切り)、25.5M全量1エポック実測(総所要時間123.36秒、内訳・ピークメモリ約0.8〜1.2GB)、エポックあたりコスト推定(≈59.5秒/エポック)・固定オーバーヘッド推定(約64秒)、および10/15/20/25/30エポック打ち切り時の想定総時間表(約11分〜約31分)・複数seed/config時の合算例が記載されていることを確認(再実行はしていない)。
+4. B3併用ガード: `./target/release/train_patterns_v3.exe --configs t158-b3 --seeds 1 --epochs 2 --simple-corpus <2000行ファイル>` を実行し、`T158 configs require the WTHOR game split` を出力して終了コード1で拒否されることを確認(T160の既知ブロッカーとして作業ログの記載と一致)。
+5. リポジトリ清潔性: `git status --short` は完全にクリーン(差分・未追跡ファイルなし)。`train/data/`配下は`.gitignore`(`train/data/`)で全体除外済みのためgit管理上の残置懸念はなく、`train/data`内にt159b固有の残骸ディレクトリ(`*t159b*`等)は見当たらない(既存の他タスク由来ディレクトリ`t087`/`t126`/`t127d`/`t144`/`t153`/`egaroucid`のみで、いずれも本タスク以前からのもの)。検証で使った切り出しファイル・worktree・出力はすべてscratchpadに作成し、検証終了時に削除済み。
+6. コード修正: 行っていない(Read/Bash/git worktreeによる検証のみ)。
+
+**総合判定: 合格**。5項目の受け入れ基準すべてを満たすことを独立に確認した。気づいた問題点: なし(申し送りのB3併用ガード制約はT159bのスコープ外として明記済みで、T160側課題として妥当に記録されている)。
