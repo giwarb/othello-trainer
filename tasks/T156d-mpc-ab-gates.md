@@ -1,7 +1,7 @@
 ---
 id: T156d
 title: MPC再校正(4/7): 同一バイナリA/B CLIとGate 2(固定深さ)/Gate 3(160k本番相当)の軽量ゲート
-status: redo # redo#2(2026-07-20): canonical SHA検証がreturn直後の到達不能コードでfail-closed未達(他は全て解消済み)
+status: done # redo#2で決着(2026-07-20): 最終codex-review指摘ゼロ+改変拒否テスト10件OK(オーケストレーター実行確認)。Gate 2合格/Gate 3不合格=事前登録どおり撤退
 assignee: Codex gpt-5.6-sol
 attempts: 2
 ---
