@@ -21,6 +21,23 @@ struct CostPositionJson {
     black: String,
     white: String,
     turn: String,
+    expected: ExpectedSearches,
+}
+
+#[derive(Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ExpectedSearch {
+    move_index: Option<u8>,
+    score_centi_disc: i32,
+    depth: u8,
+    nodes: u64,
+}
+
+#[derive(Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ExpectedSearches {
+    fixed_depth: ExpectedSearch,
+    production160k: ExpectedSearch,
 }
 
 #[derive(Clone)]
@@ -29,6 +46,7 @@ struct CostPosition {
     bucket: String,
     board: Board,
     side: Side,
+    expected: ExpectedSearches,
 }
 
 fn cost_positions() -> Vec<CostPosition> {
@@ -59,6 +77,7 @@ fn cost_position(fixture: CostPositionJson) -> CostPosition {
         bucket: fixture.bucket,
         board,
         side,
+        expected: fixture.expected,
     }
 }
 
@@ -106,6 +125,13 @@ fn assert_same_result(a: &SearchResult, b: &SearchResult) {
     assert_eq!(a.pv, b.pv);
     assert_eq!(a.node_limit_hit, b.node_limit_hit);
     assert_eq!(a.timed_out, b.timed_out);
+}
+
+fn assert_golden(result: &SearchResult, expected: &ExpectedSearch, label: &str) {
+    assert_eq!(result.best_move, expected.move_index, "{label} move");
+    assert_eq!(result.score, expected.score_centi_disc, "{label} score");
+    assert_eq!(result.depth, expected.depth, "{label} depth");
+    assert_eq!(result.nodes, expected.nodes, "{label} nodes");
 }
 
 fn median(values: &[u128]) -> u128 {
@@ -360,6 +386,18 @@ fn stratified_corpus_cost_is_reported() {
     }
     let fixed_reference = fixed_reference.unwrap();
     let prod_reference = prod_reference.unwrap();
+    for (i, position) in positions.iter().enumerate() {
+        assert_golden(
+            &fixed_reference[i],
+            &position.expected.fixed_depth,
+            &format!("{} fixed-depth golden", position.id),
+        );
+        assert_golden(
+            &prod_reference[i],
+            &position.expected.production160k,
+            &format!("{} production golden", position.id),
+        );
+    }
     let all = (0..positions.len()).collect::<Vec<_>>();
     let fixed_all_base = aggregate_repetitions(&fixed_base, &all);
     let fixed_all_candidate = aggregate_repetitions(&fixed_candidate, &all);

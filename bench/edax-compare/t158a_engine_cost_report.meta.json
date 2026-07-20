@@ -5,13 +5,37 @@
   "order": "alternating baseline/candidate, reversed every repetition",
   "corpus": {
     "path": "bench/edax-compare/t158a_engine_cost_positions.json",
+    "sha256": "c0de419041adde5094142a74f9b879787dc2d7deefbad2e4eedcb02f8972f2fe",
     "source": "first two pilot calibration positions in each t156_mpc_positions.json empty bucket",
     "positions": 8,
     "buckets": ["45-52", "37-44", "29-36", "21-28"]
   },
+  "sharedGolden": {
+    "fields": ["moveIndex", "scoreCentiDisc", "depth", "nodes"],
+    "verifiedBy": ["native release test", "WASM benchmark"],
+    "fixtures": [
+      { "id": "mpc-45-52-calibration-001", "fixedDepth": { "moveIndex": 53, "scoreCentiDisc": 1976, "depth": 9, "nodes": 575085 }, "production160k": { "moveIndex": 53, "scoreCentiDisc": 2221, "depth": 7, "nodes": 160000 } },
+      { "id": "mpc-45-52-calibration-002", "fixedDepth": { "moveIndex": 9, "scoreCentiDisc": 1429, "depth": 9, "nodes": 405768 }, "production160k": { "moveIndex": 12, "scoreCentiDisc": 163, "depth": 8, "nodes": 160000 } },
+      { "id": "mpc-37-44-calibration-001", "fixedDepth": { "moveIndex": 24, "scoreCentiDisc": -264, "depth": 9, "nodes": 152316 }, "production160k": { "moveIndex": 24, "scoreCentiDisc": -264, "depth": 9, "nodes": 160000 } },
+      { "id": "mpc-37-44-calibration-002", "fixedDepth": { "moveIndex": 13, "scoreCentiDisc": -2338, "depth": 9, "nodes": 124188 }, "production160k": { "moveIndex": 13, "scoreCentiDisc": -2338, "depth": 9, "nodes": 160000 } },
+      { "id": "mpc-29-36-calibration-001", "fixedDepth": { "moveIndex": 34, "scoreCentiDisc": -946, "depth": 9, "nodes": 85117 }, "production160k": { "moveIndex": 34, "scoreCentiDisc": -946, "depth": 9, "nodes": 160000 } },
+      { "id": "mpc-29-36-calibration-002", "fixedDepth": { "moveIndex": 51, "scoreCentiDisc": 43, "depth": 9, "nodes": 169003 }, "production160k": { "moveIndex": 51, "scoreCentiDisc": -944, "depth": 8, "nodes": 160000 } },
+      { "id": "mpc-21-28-calibration-001", "fixedDepth": { "moveIndex": 6, "scoreCentiDisc": -931, "depth": 9, "nodes": 88355 }, "production160k": { "moveIndex": 6, "scoreCentiDisc": -931, "depth": 9, "nodes": 160000 } },
+      { "id": "mpc-21-28-calibration-002", "fixedDepth": { "moveIndex": 39, "scoreCentiDisc": 66, "depth": 9, "nodes": 57036 }, "production160k": { "moveIndex": 39, "scoreCentiDisc": 87, "depth": 10, "nodes": 160002 } }
+    ]
+  },
   "baselineSha256": "c372b83366c4006023ae05f3af5b68dda5929aca7ff7308d1b398a89639e383f",
   "zeroFeaturePwv4Sha256": "3d4bdb7aa58ae0116983c47052230c26886a9823a981b28614eae47b397f6dd1",
   "wasmSha256": "c51b1d7c7c563352daf01c9a93890e998043352a3daebec9f9ba624809c1d4f2",
+  "wasmBuild": {
+    "command": "npm --prefix app run wasm:build",
+    "expandedCommand": "wasm-pack build <repo>/engine --target web --out-dir <repo>/app/src/engine/pkg --out-name engine",
+    "profile": "release (wasm-pack build default)",
+    "wasmOpt": false,
+    "wasmPackVersion": "0.15.0",
+    "wasmBindgenVersion": "0.2.126",
+    "rustc": "1.96.1 (31fca3adb 2026-06-26), x86_64-pc-windows-msvc, LLVM 22.1.2"
+  },
   "gate1": {
     "metric": "wasm stratified-corpus fixed-depth aggregate NPS ratio",
     "ratio": 0.9657976016398293,

@@ -83,6 +83,20 @@ function sameResult(reference, current, label) {
   }
 }
 
+function assertGolden(actual, expected, label) {
+  const moveIndex = actual.move === null ? null
+    : (Number(actual.move[1]) - 1) * 8 + actual.move.charCodeAt(0) - 'a'.charCodeAt(0)
+  const deterministic = {
+    moveIndex,
+    scoreCentiDisc: Math.round(actual.score.discDiff * 100),
+    depth: actual.depth,
+    nodes: actual.nodes,
+  }
+  if (JSON.stringify(deterministic) !== JSON.stringify(expected)) {
+    throw new Error(`${label} differs from shared golden: ${JSON.stringify({ expected, actual: deterministic })}`)
+  }
+}
+
 runModel(baselineBytes)
 runModel(candidateBytes)
 const microBase = []
@@ -127,6 +141,11 @@ for (let repetition = 0; repetition < repetitions; repetition += 1) {
   microBase.push(baseRun.micro)
   microCandidate.push(candidateRun.micro)
   console.error(`[t158a wasm] repetition=${repetition + 1} complete`)
+}
+
+for (let i = 0; i < positions.length; i += 1) {
+  assertGolden(fixedReference[i], positions[i].expected.fixedDepth, `${positions[i].id} fixed-depth`)
+  assertGolden(productionReference[i], positions[i].expected.production160k, `${positions[i].id} production`)
 }
 
 function aggregate(matrix, indices) {
