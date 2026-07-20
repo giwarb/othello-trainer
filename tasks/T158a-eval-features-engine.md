@@ -1,0 +1,43 @@
+---
+id: T158a
+title: 評価特徴追加(1/4): engine側特徴計算・PWV4形式・評価統合・純コスト計測
+status: todo # todo | in_progress | review | redo | done | blocked
+assignee: Codex gpt-5.6-sol
+attempts: 0
+---
+
+# T158a: engine側特徴とコスト計測
+
+## 目的
+
+設計レポート(tasks/design/T158-eval-features-report.md、裁定は同request.md冒頭)の第1段。**スカラー特徴(正確なモビリティ差・8近傍接触辺数の囲い度差)の計算・PWV4形式・評価統合を、既定挙動完全不変で実装**し、**ゼロ係数モデルによる純粋なNPSコストを計測**してGate 1判定の材料を出す。
+
+## 要件(設計レポート§(c)T158a節・§3〜6・§9に忠実に)
+
+1. **特徴primitive**(bitboard.rs): 8近傍接触辺数(空きビットボードを8方向シフト×両色popcount)。モビリティは既存 legal_moves_relative を利用。色交換で符号反転・D4変換で不変。整数演算のみ(決定性・native/WASM整合)。
+2. **PWV4形式**(pattern_eval.rs): 新magic "PWV4"、num_scalar_features + featureごと(kind u8/scale_shift u8/reserved u16/weights f32×61)。kind 1=ExactMobilityAdvantage(scale_shift=3)、2=EmptyAdjacencyExposureAdvantage(scale_shift=5)。schema hashに特徴情報を含める。未知kind・重複・非finite・stage数不一致・余剰bytesは拒否。**PWV1〜3のloader/scoreは演算順含め完全不変**。
+3. **評価統合**(search.rs等): PWV4ロード時のみscalar項をパターン和の後に固定順で加算。比較用の--disable-eval-features(別プロセス/fresh TT前提)。評価モード切替時のTT混入への配慮は設計§5.2どおり(初期実験は別プロセス条件の明示でよい)。
+4. **Gate 0テスト**(設計§8): PWV1-3全既存テストPASS・現行pattern_v4.binのスコア完全一致・PWV4 round-trip/破損拒否・ゼロ係数でPWV3と評価値完全一致・符号反転/D4不変・囲い度の独立8×8二重ループ実装とのfixture比較・決定性・native/WASM fixture一致。
+5. **純コスト計測(Gate 1材料)**: ゼロ係数PWV4モデル(baseline PWV3と全評価値・best move・nodes一致、elapsedのみ増)で、(a)評価関数単体throughput(black_box) (b)固定深さ探索NPS (c)160kノード本番相当elapsed、をnative/WASM双方・設計§6.3の計測規律(専有・交互順・7反復中央値)で計測。**ノード上限と時間上限のどちらが支配的かを併記**(裁定22の最終決定材料)。判定: WASM NPS比90%以上→Gate 2へ/85-90%条件付き/85%未満→exact mobility停止(line-LUT近似は別タスク)。
+6. レポート: bench/edax-compare/t158a_engine_cost_report.md(+meta)にGate 0結果・計測値・Gate 1判定。
+
+## スコープ外
+
+- trainer拡張・学習(T158b)、スクリーニング(T158c)、本番採用(T158d、後回し)
+- app変更・ANALYSIS_ENGINE_VERSION変更(本番はPWV3のpattern_v4.binのまま完全不変)
+- line-LUT近似モビリティ(不合格時の別タスク)
+
+## 受け入れ基準
+
+1. `cargo test -p engine` 全パス(Gate 0テスト込み)、FFO fast不変、既存NPSベンチ不変
+2. ゼロ係数モデルの「baseline完全一致(値・move・nodes)」が機械検証されている
+3. NPS計測結果(native/WASM、3層)とGate 1判定・支配要因(ノードvs時間)がレポートにある
+4. 変更ファイル一覧と検証結果を完了報告に明記(コミットはオーケストレーター代行)。一時ファイル不残置
+
+## コミット規律
+
+- `tasks/` と `CLAUDE.md` は変更しない(作業ログ追記は行う)。計測は専有状態で(現在他の重い処理なし)
+
+## 作業ログ
+
+(ワーカーが節目ごとに追記)
