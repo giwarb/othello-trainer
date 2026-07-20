@@ -32,7 +32,7 @@
 
 | ID | タスク | 担当 | 状態 | 試行 |
 |---|---|---|---|---|
-| T156d | MPC再校正(4/7): A/B CLI+Gate 2/3軽量ゲート | Codex gpt-5.6-sol | in_progress(委譲中。Gate 3のoracleはT157の180局面版を使用。T156a申し送りのmerge検証強化を同梱) | 0 |
+| T156d | MPC再校正(4/7): A/B CLI+Gate 2/3計測 | Codex gpt-5.6-sol | review(完了81c6207代行コミット: **Gate 2合格(ノード40-57%削減)/Gate 3不合格(深さ+1率5.8%・regret+0.18石)→事前登録に従い本番OFF維持・撤退提言**。verifier+codex-review検収中) | 0 |
 
 ## 有効な方針・申し送り(今後のタスクに効くもの)
 
