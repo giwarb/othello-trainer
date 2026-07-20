@@ -1,7 +1,7 @@
 ---
 id: T158b
 title: 評価特徴追加(2/4): trainer拡張とpilot/full学習(Gate 2/3判定)
-status: redo # codex-review不合格(2026-07-21): Gate 3のstage別判定が帯集約に置換されていた。下記フィードバック参照
+status: done # redo#1で決着(2026-07-21): 最終codex-review合格。Gate 2/3合格(B3=-0.062石、3/3seed改善、3seed平均61段最大悪化+0.059≤+0.10の裁定基準)。中1(スクリプト表示)はT158cへ
 assignee: Codex gpt-5.6-sol
 attempts: 1
 ---

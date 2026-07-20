@@ -1,64 +1,61 @@
 # 最終レビューレポート
 
-対象コミット: `60c2b27`  
-総合判定: **不合格**
+対象コミット: `037306f`  
+対象差分: `037306f~1..037306f`
 
 ## (a) 重大（done を止めるブロッカー）
 
-### Gate 3 の stage 判定が仕様より粗く、重大退行を隠している
+該当なし。
 
-タスク仕様は Gate 3 で「stage別重大退行なし」を要求しています。しかしレポートと meta は、61個の empty-count stage を5つの広い帯へ集約した `maxStageBandRegression` だけで判定しています。
+前回のブロッカーだった Gate 3 の stage 別判定は修正されている。
 
-- `t158b_training_report.md:60-62`
-- `t158b_training_report.meta.json:34,51,63`
-
-レポートは最大悪化を `+0.014026` としていますが、生成済みの空き数別 raw metrics を B3−B0 で再計算すると、次の局所退行があります。
-
-- seed 1、empty=43: **+0.228951**
-- seed 1、empty=53: **+0.197828**
-- seed 1、empty=54: **+0.137782**
-- seed 3、empty=46: **+0.140260**
-
-各 stage は7,402サンプルあり、少数サンプルだけによる値ではありません。Gate 2 の仕様は明示的に「stage帯別」ですが、Gate 3 は「stage別」であり、この差を事後的に帯集約へ置き換える根拠は示されていません。
-
-なお、3seed平均を空き数別に評価すると最大悪化は empty=54 の `+0.059454` です。したがって「3seed平均の各stageを判定対象とする」という事前定義なら合格する可能性はあります。しかし現在のレポートにはその定義も数値もなく、「最大悪化 +0.014026」という記述は stage 別評価としては正しくありません。
-
-Gate 3 の合否が本タスクの中心であり、受け入れ基準「全判定基準の数値と合否」に未達です。判定単位を仕様に沿って確定し、空き数別の数値を再集計したうえで Gate 3 の合否を更新する必要があります。
+- seed 別×空き数別の最大悪化を提示している。
+  - seed 1: empty=43、`+0.228951`
+  - seed 2: empty=49、`+0.012201`
+  - seed 3: empty=46、`+0.140260`
+- 3seed平均×空き数別の最大悪化を empty=54、`+0.059454` と再集計している。
+- 判定単位を「3seed平均×61空き数、最大悪化 `+0.10` 以下」とする事後裁定を明記している。
+- seed別悪化上位をT158cへの申し送りとして掲載している。
+- 裁定基準では、平均MAE改善、3/3 seed非悪化、paired bootstrap、stage別退行の全条件を満たしており、Gate 3合格という結論は正しい。
 
 ## (b) 中（次タスクで対応すべき）
 
-### Gate 集計・bootstrap の再現手段がコミットされていない
+### 解析スクリプトの表示用判定が計算結果から生成されていない
 
-trainer は per-game MAE と空き数別 MAE を JSON に出力しますが、次の処理を再現するスクリプトまたはコマンドがありません。
+[t158b_analyze.py](C:/Users/yoshi/work/othello-trainer/bench/edax-compare/t158b_analyze.py:111) はmeta内の `pass` を計算している一方、Markdownの合否表示を固定文字列で生成している。
 
-- stage帯の加重集計
-- 100,000回 paired bootstrap
-- 3seed pooled bootstrap
-- Gate 2/3 の機械的な合否判定
-- report/meta の生成
+- Gate 2の各候補をB0以外すべて「合格」と表示する。
+- Gate 3の各seedを常に `yes`、集計を常に `3/3` と表示する。
+- 結論と本文を常に「Gate 2/3 合格」と表示する。
+- Gate 2全体の `pass` は「候補のうち最良構成が条件を満たすか」ではなく、B1～B3すべての合格を要求している。
 
-meta には乱数 seed はありますが、PRNGや抽出アルゴリズムまでは定義されていません。レポートの「再現コマンド」も学習コマンドだけで、報告値の生成までは再現できません。
-
-今回の stage 判定問題も手集計部分で発生しています。次タスクでは、判定基準をコード化した解析スクリプトとテストを追加し、raw metrics から report/meta を決定的に再生成できるようにすべきです。
+したがって、将来raw metricsが変わった場合、metaの機械判定とMarkdownの表示が矛盾する可能性がある。今回のデータではB1～B3がすべてGate 2条件を満たし、Gate 3も3/3 seedで改善しているため、現在のレポート内容には影響しない。次回同種の解析では、選定構成・seed非悪化数・合否文言を計算済みフィールドから描画すべきである。
 
 ## (c) 軽微（記録のみ）
 
-該当なし。
+### 一部の実験条件がraw metricsではなく定数として記録されている
 
-## 正しく実装されている点
+スクリプト内のcorpus hash、局数、サンプル数、学習率、epoch数などはraw metricsやidentityから検証せず固定値として出力される。そのため `--check` が保証するのは「現在のスクリプト出力とコミット済みreport/metaの一致」であり、全実験条件のraw artifactとの一致までは保証しない。
 
-- scalar 勾配は `loss_gradient * normalized_feature_value + L2` になっている。
-- prediction と特徴抽出は engine の `PatternWeights::score`／`scalar_features` を使用し、train側に合法手・exposure計算を褧製していない。
-- B0～B3はゼロ初期化で、warm-startしていない。
-- T158 configだけ `schema=3-t158` identityを使用し、既存configは従来の `schema=2` 組み立てを維持している。
-- PWV4 round-trip、resume同一性、特徴なしPWV3同一性、scalar勾配のテストが追加されている。
-- epoch単位の原子的checkpoint、identity検証、進捗flushが実装されている。
-- 学習成果物は `train/data/t158/` にあり、`train/weights/` への誤配置はない。
-- pilot/full の overall MAE、seed別非悪化、報告された成果物SHA-256は確認した範囲で raw artifacts と一致している。
-- `git diff --check 60c2b27~1..60c2b27` は成功した。
+今回のredo対象である61段集計、bootstrap、重みSHA-256、Gate判定の主要数値はraw metrics/binariesから再生成されており、受け入れを妨げる問題ではない。
+
+## 確認結果
+
+- `git log 037306f~1..037306f` を確認した。
+- `git diff 037306f~1..037306f` を確認した。
+- `git diff --check 037306f~1..037306f` は成功した。
+- `python bench/edax-compare/t158b_analyze.py --check` は成功した。
+- stage帯は件数加重平均で集計されている。
+- 61段はempty count 0～60の存在とB0/B3間の件数一致を検証している。
+- full bootstrapは、同じfrozen gameについてseedごとの差を平均してから100,000回resampleしている。
+- NumPy PCG64、固定seed、固定chunk、linear percentileが記録され、再実行結果も一致した。
+- Git管理対象に `train/data/t158/` や新しい `train/weights/` 成果物の混入はない。
+- Rust/engine側の変更はないため、本redoに起因するエンジン回帰リスクはない。
 
 ## (d) 総合判定
 
-**不合格。**
+**合格。**
 
-trainer拡張自体にはブロッカー級の実装不良は見つかりませんでした。しかし、Gate 3 の stage 別退行判定を仕様より粗い帯集約へ変更し、実際に存在する `+0.10` 超の空き数別退行をレポートしていません。Gate 3 合格という本タスクの主要結論を現状のレポートから確定できないため、done には進められません。
+前回のdoneブロッカーだったGate 3のstage別評価は、指定どおりseed別×空き数別と3seed平均×空き数別の両方が提示された。裁定が事後確定である点も明記され、T158cへの補償的な申し送りも含まれている。再集計結果は裁定閾値 `+0.10` を満たし、Gate 3合格という結論と整合する。
+
+解析スクリプトの合否表示には今後修正すべき設計上の問題があるが、今回の固定データに対する数値・合否を誤らせてはいないため、T158bのdoneを止める理由にはならない。
