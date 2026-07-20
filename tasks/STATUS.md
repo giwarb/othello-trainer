@@ -36,7 +36,7 @@
 
 | ID | タスク | 担当 | 状態 | 試行 |
 |---|---|---|---|---|
-| T163 | D4 canonical化(重大バグ修正1/3、新旧共存方式) | implementer | in_progress(ユーザー重大バグ指定。絶対条件: レガシー重みビット不変+新スキーム全8対称完全一致。regression-catching実証必須) | 0 |
+| T163 | D4 canonical化(重大バグ修正1/3、新旧共存方式) | implementer | review(ccb93eb、verifier+代替レビュー並列検収中。安定化群canonical index方式+証明スケッチ・regression-catching実証済み・レガシーgolden bit不変・NPS 97.5%。**検収確認点: trainテスト数137→101報告の実態、証明の数学的正当性、PWV5にスカラー特徴ブロック無し→B3構成canonical学習への影響**) | 0 |
 
 ## 有効な方針・申し送り(今後のタスクに効くもの)
 
