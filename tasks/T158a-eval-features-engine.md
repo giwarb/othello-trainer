@@ -1,9 +1,9 @@
 ---
 id: T158a
 title: 評価特徴追加(1/4): engine側特徴計算・PWV4形式・評価統合・純コスト計測
-status: redo # codex-review不合格(2026-07-20): Gate 1計測が単一序盤局面のみ。下記フィードバック参照
+status: redo # redo#2(2026-07-21): native/WASM相互一致の機械検証欠如(redo#1で共通goldenが削除された)
 assignee: Codex gpt-5.6-sol
-attempts: 1
+attempts: 2
 ---
 
 # T158a: engine側特徴とコスト計測
@@ -46,6 +46,14 @@ attempts: 1
 2. **[中] PWV3不変のgolden fixture**: 現行pattern_v4.binの複数stage局面の静的評価値f32::to_bits()を親コミット由来のgolden値として固定fixture化し、変更後loaderとの完全一致を機械検証(現行テストはPWV3→PWV4ゼロ係数の相対比較のみで、PWV3自体の不変を独立証明していない)。
 3. **[中] 反復間決定性の直接比較**: baseline結果が7反復を通じて同一であることの直接比較(native)、WASM 160kのproductionReferenceと後続反復の比較。
 4. [軽微・任意] benchmark_pattern_evalのwasm_bindgen公開APIをベンチ用feature条件付きにする検討(見送り可、理由記録)。
+
+## フィードバック(redo #2、2026-07-21 再レビューによる)
+
+redo#1で計測カバレッジは解消(層化8局面・Gate 1合格96.58%は妥当と評価)。残るブロッカー1件+中1件:
+
+1. **[ブロッカー] native/WASMの探索結果相互一致の機械検証**: 現状は各ランタイム内(baseline vs ゼロ係数、反復間)の一致のみで、nativeとWASMの結果を突き合わせる検証がない(redo#1で旧単一局面の共通golden assertが削除され、8局面の代替が未追加)。対処: 層化8局面の探索結果(move/score/depth/nodes)を**共通goldenとしてコミット**(例: t158a_engine_cost_positions.jsonへexpected欄追加 or 専用fixture)し、nativeテストとWASMベンチの両方がこのgoldenと照合するようにする。metaにも局面別探索結果を保存し再検証可能に。
+2. **[中] WASM計測artifactの来歴**: metaのwasm SHA-256が親コミットレポートと異なるのに、ビルドコマンドがレポートから削除されている。クリーンcheckoutから再生成できる正確なコマンド・条件(wasm-pack build引数等)をレポート/metaへ復元・固定する。
+3. [軽微] 旧単一局面ベンチの無条件#[ignore]は整理対象として記録(対応任意)。
 
 ## 作業ログ
 

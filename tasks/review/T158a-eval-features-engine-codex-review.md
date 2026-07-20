@@ -1,60 +1,49 @@
-# 最終レビューレポート — T158a
+# 最終レビューレポート — T158a redo #1
 
-対象コミット: `138217bb981d520a3cdfb2bef76e0c6aec88b34c`
+対象コミット: `2bd6214fde4284e5c9f260dba46ebccd1fc8e101`
 
 ## (a) 重大（done を止めるブロッカー）
 
-### 1. Gate 1の探索計測が単一の序盤局面だけで、設計§6.3の計測条件を満たしていない
+### native/WASM 間の探索結果一致が機械検証されていない
 
-固定深さNPSと160kノード計測は、native/WASMとも同じ1局面だけを使用しています。
+タスク仕様の Gate 0 は、native/WASM の固定 fixture について score・best move・nodes の一致を要求しています。しかし今回の実装は、それぞれのランタイム内で以下だけを検証しています。
 
-- native: [eval_features_nps_bench.rs:153](C:/Users/yoshi/work/othello-trainer/engine/tests/eval_features_nps_bench.rs:153)
-- WASM: [t158a_engine_cost_bench.mjs:53](C:/Users/yoshi/work/othello-trainer/bench/edax-compare/t158a_engine_cost_bench.mjs:53)
+- baseline とゼロ係数PWV4の一致
+- baselineの7反復間の一致
 
-この局面は黒6石・白10石、空き48マスの序盤局面です。設計§6.3は「序盤・中盤・終盤接続前を含む複数局面」を明示的に要求しています。exact mobilityの実行コストは石配置や合法手生成の展開状況に依存するため、この単一局面の95.94%だけでは本番WASMのGate 1判定材料として不足しています。
+WASM側は [t158a_engine_cost_bench.mjs](C:/Users/yoshi/work/othello-trainer/bench/edax-compare/t158a_engine_cost_bench.mjs:123) でWASM内の反復を比較し、native側も [eval_features_nps_bench.rs](C:/Users/yoshi/work/othello-trainer/engine/tests/eval_features_nps_bench.rs:338) でnative内の反復を比較していますが、両者のreferenceを相互比較する処理はありません。
 
-microbenchには複数局面がありますが、Gate判定に使用した固定深さ探索NPSは単一局面です。また160k層も同じ序盤局面なので、中盤・終盤接続前の時間上限対ノード上限の支配性も確認できていません。
+さらに、以前WASMスクリプトにあった既知のnative fixture値とのassertが削除され、今回の8局面については代替の共通goldenも追加されていません。レポートは「native/WASMの8局面すべてでmove・score・depth・nodesが一致」と記載していますが、[meta.json](C:/Users/yoshi/work/othello-trainer/bench/edax-compare/t158a_engine_cost_report.meta.json) に局面別探索結果が保存されておらず、コミット内容からその一致を再検証できません。
 
-したがって、複数stageの固定コーパスを用いてnative/WASMの固定深さNPSと160k/1500msを7反復交互順で再計測し、その集計値でGate 1を再判定する必要があります。
+nativeとWASMが共通で検査する探索結果goldenを追加するか、両方の出力を比較する機械検証が必要です。明示されたGate 0要件を満たしていないためブロッカーと判定します。
 
 ## (b) 中（次タスクで対応すべき）
 
-### 1. 現行 `pattern_v4.bin` の「変更前スコアとの完全一致」が独立したgolden値で機械検証されていない
+### WASM計測artifactの再現手順と来歴が不足している
 
-[pattern_eval.rs:1091](C:/Users/yoshi/work/othello-trainer/engine/src/pattern_eval.rs:1091) のテストは、変更後loaderで読み込んだPWV3と、そこから生成したゼロ係数PWV4を比較しています。この比較はPWV4ゼロ係数の検証にはなりますが、PWV3 loader/score自体が変更前コミットと一致することは独立には証明しません。
+WASMバイナリはgit管理外であり、レポートの再現コマンドからWASM build手順も削除されています。[レポート](C:/Users/yoshi/work/othello-trainer/bench/edax-compare/t158a_engine_cost_report.md:111) は「前回T158aで生成済みのrelease artifact」としていますが、今回のmetaに記載されたSHA-256は親コミットのレポートに記載されたSHA-256と異なります。
 
-固定探索には `score=1109`、`nodes=183318` のgolden値がありますが、現行モデルの複数局面における静的評価値のbit-exact golden fixtureはありません。受け入れ条件に明記された「現行 `pattern_v4.bin` のスコア完全一致」を確実にするため、親コミットで採取した複数stageの `f32::to_bits()` を固定fixtureとして比較すべきです。
-
-### 2. fresh TTでの反復決定性チェックが一部、反復間比較になっていない
-
-native計測では各反復内のbaseline/candidate一致は検証していますが、baselineの結果が7反復を通じて同一であることは直接比較していません。[eval_features_nps_bench.rs:156](C:/Users/yoshi/work/othello-trainer/engine/tests/eval_features_nps_bench.rs:156)
-
-WASMも固定深さbaselineは反復間比較しますが、160k結果の `productionReference` は保存するだけで、その後の反復と比較していません。[t158a_engine_cost_bench.mjs:121](C:/Users/yoshi/work/othello-trainer/bench/edax-compare/t158a_engine_cost_bench.mjs:121)
-
-現在の結果はノード上限支配なので実害が出る可能性は低いものの、Gate 0の「同一入力・fresh TTで反復一致」を直接満たす検証へ補強するのが妥当です。
+現ワークスペースの `engine_bg.wasm` は今回記載されたSHA-256と一致しましたが、クリーンcheckoutから同じartifactを再生成するための正確なコマンド・オプションが残っていません。Gate判定の測定物として、ビルドコマンドと生成条件をレポートまたはmetaへ固定すべきです。
 
 ## (c) 軽微（記録のみ）
 
-### 1. 計測専用メソッドが通常のWASM公開APIに追加されている
+- 旧単一局面ベンチ `zero_feature_model_is_identical_and_native_cost_is_reported` が無条件の `#[ignore]` に変更されたまま残っています。層化ベンチへ完全移行したのであれば、将来の整理対象です。
+- PWV3 golden fixtureは有効な回帰防止になっています。ただしコメントの「parent commit before PWV4/scalar-feature integration」は、レビュー対象コミットの直接の親には既にPWV4実装が存在するため、どのコミットから採取した値かハッシュを明記すると来歴が明確になります。
 
-[lib.rs:115](C:/Users/yoshi/work/othello-trainer/engine/src/lib.rs:115) の `benchmark_pattern_eval` は計測専用ですが、`#[wasm_bindgen] impl Engine` 内にあり通常ビルドの公開APIを増やします。設計上ベンチ入口は必要で、既定解析結果にも影響しないためブロッカーではありません。ただし本番API面を最小化するなら、将来ベンチ用featureで条件付きコンパイルする余地があります。
+## 確認できた妥当な点
 
-### 2. レビュー環境ではテストを再実行できなかった
-
-`cargo test -p engine` を試行しましたが、read-onlyレビュー環境のため `target/debug/.cargo-build-lock` へのアクセスが拒否されました。したがってテスト結果はコミット内の作業ログおよび計測レポートを確認したもので、今回のレビュー環境による独立再実行結果ではありません。
-
-なお、`git diff --check 138217b~1..138217b` は問題なく、作業ツリーもクリーンでした。
-
-## 実装評価
-
-特徴primitive、符号規約、D4不変性、PWV4の形式、schema hash、未知kind・重複・scale・reserved・非finite・余剰bytesの拒否、PWV4のみの固定順加算は仕様に沿っています。PWV1～3はscalar配列が空なら従来のpattern加算後に追加演算へ入らず、既定のPWV3本番経路を維持する構造も妥当です。
-
-`--disable-eval-features` はモデル読込直後に適用され、各探索がfresh TTを生成するベンチ経路も適切です。報告されたbaseline SHA-256もリポジトリ内 `pattern_v4.bin` と一致しました。
+- `t156_mpc_positions.json`の4空き帯から各2局面を固定し、序盤・中盤・終盤接続前を含む8局面へ層化されています。
+- native/WASMともfresh TT、7反復、反復ごとのbaseline/candidate先行順反転を実装しています。
+- 固定深さと160k層の両方でbaseline/candidate一致および反復間決定性を直接検査しています。
+- PWV3の8局面 `f32::to_bits()` golden fixtureが追加されています。
+- レポートとmetaには帯別・集計比率および帯別の支配要因が記載され、WASM固定深さ集計96.58%、帯別最低95.94%というGate 1判定自体は規定の90%基準を満たしています。
+- 160k/1500ms層は全帯でノード上限支配、時間切れ0件と記録されています。
+- appおよび本番評価コードへの追加変更はなく、redoの変更範囲は概ね適切です。
 
 ## (d) 総合判定
 
 **不合格**
 
-主要実装の正しさと後方互換性には明白な機能バグを認めません。しかし、Gate 1の主判定値が設計で必須とされた複数stageの局面集合ではなく、空き48マスの単一局面から算出されています。この状態では95.94%を本番WASM全体のGate通過根拠にできず、タスクの中心成果である純コスト判定が未完了です。
+redo #1の中心課題だった複数ステージ計測、PWV3 golden、ランタイム内の反復間決定性は適切に補強されています。Gate 1の性能値も合格基準を満たしています。
 
-複数の序盤・中盤・終盤接続前局面で3層の計測を再実施し、Gate 1判定と支配要因を更新した後に再レビューが必要です。
+一方、必須のGate 0項目であるnative/WASM間の探索結果一致が機械検証されず、裏付けとなる局面別結果もコミットされていません。レポートの一致主張をコードまたは保存済み測定データから再確認できないため、この点を修正するまでdoneにはできません。
