@@ -33,7 +33,7 @@
 | ID | タスク | 担当 | 状態 | 試行 |
 |---|---|---|---|---|
 | T156c | MPC再校正(3/7): カット式修正・runtime制御(default OFF) | Codex gpt-5.6-sol | review(完了c9aa39e代行コミット: 外向きmargin・Q16表・SearchPolicy・Gate 0テスト、engine 204テスト+FFO全問正解・OFF時既存挙動全パス。verifier+codex-review検収中) | 0 |
-| T157 | oracle拡張(60→180局面)+既存重み一括再採点 | implementer(Sonnet) | in_progress(委譲中。ユーザー指摘起点: 1.111の頑健性検証・60局面ノイズ±0.4-0.5石の低減。以後のスクリーニング標準を180局面へ) | 0 |
+| T157 | oracle拡張(180局面)+一括再採点 | implementer(Sonnet) | review(完了14af610: **v4=1.111は幸運な引きと確定**(@180でv4系1.396 vs v2 1.411、差0.015石・9重み全て有意差なし)。v3は@180で最下位1.722。WTHOR/Egaroucid系は団子、蒸留系との1石差は本物。verifier検収中) | 0 |
 
 ## 有効な方針・申し送り(今後のタスクに効くもの)
 
