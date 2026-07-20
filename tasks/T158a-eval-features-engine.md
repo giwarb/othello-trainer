@@ -41,3 +41,20 @@ attempts: 0
 ## 作業ログ
 
 (ワーカーが節目ごとに追記)
+
+- 2026-07-20 23:20:44 +09:00 Codex: 8近傍接触辺数primitive、exact mobility差・
+  exposure差、PWV4 scalar schema/serialize/loader、pattern和後の固定順評価統合、
+  `eval_cli --disable-eval-features`とゼロ係数PWV4生成、native/WASM計測入口を実装。
+  Gate 0としてPWV1〜3既存テスト、PWV4 round-trip/破損拒否、ゼロ係数bit-exact、
+  色交換/D4、独立8×8二重ループ、fresh TT探索の値/move/depth/nodes/PV一致、
+  native/WASM共通fixture一致(move=d6, score=11.09, depth=9, nodes=183318)を確認。
+  `cargo test -p engine`=209 passed/0 failed/2 ignored、
+  `cargo test -p engine --release --test eval_features_nps_bench -- --nocapture`=PASS、
+  `cargo test -p engine --release --test pattern_eval_nps_bench -- --nocapture`=PASS
+  (既存pattern/heuristic NPS比0.835)、
+  `cargo test -p engine --release --test ffo_bench -- --nocapture`=FFO #40〜44全問PASS
+  (641,077,417 nodes, 59.496s, 10,775,072 NPS)。7反復交互順中央値はnative固定深さ
+  NPS比94.67%、WASM固定深さ95.94%。WASMが90%を上回るためGate 1合格、Gate 2へ。
+  160k/1500msはnative/WASMとも`nodeLimitHit=true`, `timedOut=false`でノード上限支配。
+  詳細は`bench/edax-compare/t158a_engine_cost_report.md`と`.meta.json`。
+  コミットハッシュ: なし（`.git`書き込み禁止のためオーケストレーターが代行）。
