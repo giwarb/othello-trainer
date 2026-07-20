@@ -32,6 +32,21 @@
 //! (`"PWV1"`)・新フォーマット(`"PWV2"`)の両方を読み込める。新規に書き出す
 //! ([`PatternWeights::to_bytes`])のは常に新フォーマット(v2)。
 //!
+//! # T163: D4 canonical化スキーム(PWV5)
+//!
+//! T044のクラス分類(`crate::patterns::compute_pattern_classes`)は、各インスタンスの
+//! `aligned_cells`(状態計算に使うセル順序)の選択が全域のD4対称変換と一貫せず、
+//! 回転・鏡映で互いに写り合う局面同士で`score`の値がズレる不具合があった
+//! (詳細は`crate::patterns`モジュール冒頭のT163節、および
+//! `tasks/T163-d4-canonicalization.md`参照)。本タスクでは、既存の重みファイル
+//! (PWV1〜PWV4)の評価値をビット単位で不変に保ったまま、新しい重み形式
+//! (マジック`"PWV5"`)を追加する。新形式では、パターン形状から構築時に一度だけ
+//! 計算した「canonical indexテーブル」(`crate::patterns::build_canonical_index_table`)
+//! を介して状態インデックスを正規化し([`PatternWeights::table_index`])、
+//! 全8対称変換で評価値が完全一致するようにする。`canonical_tables`が`Some`か
+//! `None`かで新旧スキームを切り替える([`PatternWeights::zeroed_canonical`]で
+//! 新スキームを有効化、`zeroed`/`zeroed_with_stage_definition`はレガシーのまま)。
+//!
 //! # スケールについて
 //!
 //! [`PatternWeights::score`]は「mover視点の最終石差の予測値」(素の石差、
@@ -148,6 +163,12 @@ pub struct PatternWeights {
     /// Empty for PWV1-PWV3. PWV4 stores at most one entry of each known kind.
     pub scalar_feature_weights: Vec<ScalarFeatureWeights>,
     scalar_features_enabled: bool,
+    /// T163: D4 canonical化スキームが有効な場合のみ`Some`。
+    /// `canonical_tables[class_id][raw_state]`がそのクラスのcanonical index
+    /// (`patterns::build_canonical_index_table`、構築時に一度だけ計算)。
+    /// レガシースキーム(PWV1〜PWV4)は常に`None`で、[`Self::table_index`]は
+    /// 状態インデックスをそのまま返す(評価値のビット不変性を保証するため)。
+    canonical_tables: Option<Vec<Vec<u32>>>,
 }
 
 fn sha256(input: &[u8]) -> [u8; 32] {
@@ -302,6 +323,52 @@ impl PatternWeights {
             stage_empty_divisor,
             scalar_feature_weights: Vec::new(),
             scalar_features_enabled: true,
+            canonical_tables: None,
+        }
+    }
+
+    /// T163: D4 canonical化スキームを有効にした状態で、全重みを0初期化したモデルを
+    /// 作る(`train::regression::Model::new_canonical`が学習開始時に使う)。
+    /// レガシー([`Self::zeroed`]/[`Self::zeroed_with_stage_definition`])とは
+    /// `canonical_tables`が`Some`である点だけが異なる。`score`・SGD更新
+    /// (`train`クレート)は、ここで構築したcanonical indexテーブルを介して
+    /// 状態インデックスを正規化するため、全8対称変換で評価値が完全一致する。
+    pub fn zeroed_canonical(
+        patterns: Vec<PatternCells>,
+        num_stages: usize,
+        stage_empty_divisor: u32,
+    ) -> Self {
+        let mut model =
+            Self::zeroed_with_stage_definition(patterns, num_stages, stage_empty_divisor);
+        model.canonical_tables = Some(model.build_canonical_tables());
+        model
+    }
+
+    /// 現在の`patterns`/`class_info`から、各クラスのcanonical indexテーブル
+    /// (`patterns::build_canonical_index_table`)を構築する。クラスの代表
+    /// インスタンスの自然順セル(`aligned_cells[rep_idx]`、恒等変換なので
+    /// `patterns[rep_idx]`と同じ)のみから決まる(盤面に依存しない)。
+    fn build_canonical_tables(&self) -> Vec<Vec<u32>> {
+        self.class_info
+            .representative_of_class
+            .iter()
+            .map(|&rep_idx| patterns::build_canonical_index_table(&self.patterns[rep_idx]))
+            .collect()
+    }
+
+    /// この重みがD4 canonical化スキーム(PWV5)を使っているかどうか。
+    pub fn is_canonical(&self) -> bool {
+        self.canonical_tables.is_some()
+    }
+
+    /// `score`・SGD更新(`train::regression::Model::sgd_step`)で実際に使う
+    /// テーブルインデックスを返す。新スキーム(canonical_tablesが`Some`)では
+    /// `raw_state`をcanonical indexへ変換し、レガシー(`None`)では`raw_state`を
+    /// そのまま返す(既存重みファイルの評価値をビット単位で変えないため)。
+    pub fn table_index(&self, class_id: usize, raw_state: u32) -> usize {
+        match &self.canonical_tables {
+            Some(tables) => tables[class_id][raw_state as usize] as usize,
+            None => raw_state as usize,
         }
     }
 
@@ -351,7 +418,8 @@ impl PatternWeights {
             let class_id = self.class_info.class_of[i];
             let cells = &self.class_info.aligned_cells[i];
             let state = patterns::pattern_state_index(cells, board, mover);
-            sum += self.class_tables[class_id].stage_tables[stage][state as usize];
+            let index = self.table_index(class_id, state);
+            sum += self.class_tables[class_id].stage_tables[stage][index];
         }
         if self.scalar_features_enabled() {
             let values = scalar_features(board, mover);
@@ -423,9 +491,29 @@ impl PatternWeights {
     /// T087の自己記述形式(PWV3)にシリアライズする。旧trainerがPWV2を
     /// 出力し続けられるよう、既存の[`to_bytes`](Self::to_bytes)とは分離する。
     pub fn to_bytes_v3(&self) -> Vec<u8> {
+        self.to_bytes_self_describing(b"PWV3", 3)
+    }
+
+    /// T163: D4 canonical化スキーム版の自己記述形式(PWV5)にシリアライズする。
+    /// バイト列のレイアウトは[`to_bytes_v3`](Self::to_bytes_v3)(PWV3)と全く同じ
+    /// (マジック・バージョン番号のみ異なる)。canonical indexテーブル自体は
+    /// ファイルに保存せず、読み込み時にパターン形状から再計算する
+    /// ([`from_bytes_v5`](Self::from_bytes)、`class_info`をファイルへ保存せず
+    /// 読み込み時に再計算する既存方針と同じ)。
+    pub fn to_bytes_v5(&self) -> Vec<u8> {
+        assert!(
+            self.canonical_tables.is_some(),
+            "to_bytes_v5はD4 canonical化スキーム(zeroed_canonical由来)でのみ使えます"
+        );
+        self.to_bytes_self_describing(b"PWV5", 5)
+    }
+
+    /// [`to_bytes_v3`](Self::to_bytes_v3)/[`to_bytes_v5`](Self::to_bytes_v5)共通の
+    /// シリアライズ本体(マジック・バージョン番号のみ引数で変える)。
+    fn to_bytes_self_describing(&self, magic: &[u8; 4], version: u32) -> Vec<u8> {
         let mut buf = Vec::new();
-        buf.extend_from_slice(b"PWV3");
-        buf.extend_from_slice(&3u32.to_le_bytes());
+        buf.extend_from_slice(magic);
+        buf.extend_from_slice(&version.to_le_bytes());
         buf.extend_from_slice(&0u32.to_le_bytes());
         buf.extend_from_slice(&(self.num_stages as u32).to_le_bytes());
         buf.extend_from_slice(&self.stage_empty_divisor.to_le_bytes());
@@ -523,6 +611,7 @@ impl PatternWeights {
             return Err("重みファイルが短すぎます".to_string());
         }
         match &bytes[0..4] {
+            b"PWV5" => Self::from_bytes_v5(bytes),
             b"PWV4" => Self::from_bytes_v4(bytes),
             b"PWV3" => Self::from_bytes_v3(bytes),
             b"PWV2" => Self::from_bytes_v2(bytes),
@@ -680,6 +769,31 @@ impl PatternWeights {
     }
 
     fn from_bytes_v3(bytes: &[u8]) -> Result<PatternWeights, String> {
+        Self::from_bytes_self_describing(bytes, 3, "PWV3")
+    }
+
+    /// T163: D4 canonical化スキーム版の自己記述形式(PWV5)を読み込む。
+    /// バイト列のレイアウトは[`from_bytes_v3`](Self::from_bytes_v3)(PWV3)と全く
+    /// 同じで、パースロジック自体は共有する
+    /// ([`from_bytes_self_describing`](Self::from_bytes_self_describing))。
+    /// 読み込んだ後に`canonical_tables`を`Some`にする点だけが異なる
+    /// (canonical indexテーブルはファイルに保存せず、パターン形状から
+    /// 再計算する。既存の`class_info`の扱いと同じ方針)。
+    fn from_bytes_v5(bytes: &[u8]) -> Result<PatternWeights, String> {
+        let mut model = Self::from_bytes_self_describing(bytes, 5, "PWV5")?;
+        model.canonical_tables = Some(model.build_canonical_tables());
+        Ok(model)
+    }
+
+    /// [`from_bytes_v3`](Self::from_bytes_v3)/[`from_bytes_v5`](Self::from_bytes_v5)
+    /// 共通のパース本体(期待バージョン番号とエラーメッセージに使う形式名だけを
+    /// 引数で変える)。`canonical_tables`は常に`None`で返す(呼び出し元の
+    /// [`from_bytes_v5`](Self::from_bytes_v5)がその後で埋める)。
+    fn from_bytes_self_describing(
+        bytes: &[u8],
+        expected_version: u32,
+        format_label: &str,
+    ) -> Result<PatternWeights, String> {
         let mut pos = 0usize;
         let read_bytes = |pos: &mut usize, n: usize| -> Result<&[u8], String> {
             let end = pos
@@ -698,34 +812,38 @@ impl PatternWeights {
 
         let _magic = read_bytes(&mut pos, 4)?;
         let version = read_u32(&mut pos)?;
-        if version != 3 {
-            return Err(format!("未対応のv3バージョン: {version}"));
+        if version != expected_version {
+            return Err(format!(
+                "未対応の{format_label}バージョンです(期待={expected_version}, ファイル={version})"
+            ));
         }
         let _flags = read_u32(&mut pos)?;
         let num_stages = read_u32(&mut pos)?;
         let stage_divisor = read_u32(&mut pos)?;
         if !is_supported_stage_definition(num_stages as usize, stage_divisor) {
-            return Err("PWV3のステージ定義が一致しません".to_string());
+            return Err(format!("{format_label}のステージ定義が一致しません"));
         }
         let num_instances = read_u32(&mut pos)? as usize;
         let num_classes = read_u32(&mut pos)? as usize;
-        const MAX_PWV3_INSTANCES: usize = 256;
-        const MAX_PWV3_CLASSES: usize = 64;
+        const MAX_INSTANCES: usize = 256;
+        const MAX_CLASSES: usize = 64;
         if num_instances == 0
             || num_classes == 0
             || num_classes > num_instances
-            || num_instances > MAX_PWV3_INSTANCES
-            || num_classes > MAX_PWV3_CLASSES
+            || num_instances > MAX_INSTANCES
+            || num_classes > MAX_CLASSES
         {
-            return Err("PWV3のinstance/class数が不正です".to_string());
+            return Err(format!("{format_label}のinstance/class数が不正です"));
         }
         let stored_hash: [u8; 32] = read_bytes(&mut pos, 32)?.try_into().unwrap();
         let minimum_remaining = num_instances
             .checked_mul(4)
             .and_then(|n| num_classes.checked_mul(161).and_then(|c| n.checked_add(c)))
-            .ok_or_else(|| "PWV3の個数から必要byte数がオーバーフローしました".to_string())?;
+            .ok_or_else(|| format!("{format_label}の個数から必要byte数がオーバーフローしました"))?;
         if bytes.len() - pos < minimum_remaining {
-            return Err("PWV3のinstance/class数と残りbyte数が整合しません".to_string());
+            return Err(format!(
+                "{format_label}のinstance/class数と残りbyte数が整合しません"
+            ));
         }
 
         let mut pattern_defs = Vec::with_capacity(num_instances);
@@ -733,22 +851,24 @@ impl PatternWeights {
         for _ in 0..num_instances {
             let cell_count = read_bytes(&mut pos, 1)?[0] as usize;
             if cell_count == 0 || cell_count > 10 {
-                return Err(format!("PWV3のcell_countが不正です: {cell_count}"));
+                return Err(format!("{format_label}のcell_countが不正です: {cell_count}"));
             }
             let class_id =
                 u16::from_le_bytes(read_bytes(&mut pos, 2)?.try_into().unwrap()) as usize;
             if class_id >= num_classes {
-                return Err(format!("PWV3のclass_idが範囲外です: {class_id}"));
+                return Err(format!("{format_label}のclass_idが範囲外です: {class_id}"));
             }
             let raw_cells = read_bytes(&mut pos, cell_count)?;
             let mut seen = [false; 64];
             let mut cells = PatternCells::new();
             for &cell in raw_cells {
                 if cell >= 64 {
-                    return Err(format!("PWV3のcellが範囲外です: {cell}"));
+                    return Err(format!("{format_label}のcellが範囲外です: {cell}"));
                 }
                 if seen[cell as usize] {
-                    return Err(format!("PWV3のinstance内に重複cellがあります: {cell}"));
+                    return Err(format!(
+                        "{format_label}のinstance内に重複cellがあります: {cell}"
+                    ));
                 }
                 seen[cell as usize] = true;
                 cells.push(cell);
@@ -764,13 +884,15 @@ impl PatternWeights {
             stage_divisor,
         ) != stored_hash
         {
-            return Err("PWV3のschema hashが一致しません".to_string());
+            return Err(format!("{format_label}のschema hashが一致しません"));
         }
         let class_info = patterns::compute_pattern_classes(&pattern_defs);
         if class_info.representative_of_class.len() != num_classes
             || class_info.class_of != stored_class_of
         {
-            return Err("PWV3のD4クラス分類とclass_idが一致しません".to_string());
+            return Err(format!(
+                "{format_label}のD4クラス分類とclass_idが一致しません"
+            ));
         }
 
         let mut class_tables = Vec::with_capacity(num_classes);
@@ -784,13 +906,13 @@ impl PatternWeights {
                     .any(|(i, &id)| id == class_id && pattern_defs[i].len() != cell_count)
             {
                 return Err(format!(
-                    "PWV3の同一class内cell_countが一致しません: class={class_id}"
+                    "{format_label}の同一class内cell_countが一致しません: class={class_id}"
                 ));
             }
             let num_states = read_u32(&mut pos)?;
             if num_states != patterns::num_states(cell_count) {
                 return Err(format!(
-                    "PWV3のnum_statesが3^cell_countと一致しません: class={class_id}"
+                    "{format_label}のnum_statesが3^cell_countと一致しません: class={class_id}"
                 ));
             }
             let mut stage_tables = Vec::with_capacity(num_stages as usize);
@@ -799,7 +921,7 @@ impl PatternWeights {
                 for _ in 0..num_states {
                     let weight = f32::from_le_bytes(read_bytes(&mut pos, 4)?.try_into().unwrap());
                     if !weight.is_finite() {
-                        return Err("PWV3にfiniteでない重みがあります".to_string());
+                        return Err(format!("{format_label}にfiniteでない重みがあります"));
                     }
                     table.push(weight);
                 }
@@ -811,7 +933,7 @@ impl PatternWeights {
             });
         }
         if pos != bytes.len() {
-            return Err("PWV3に余剰bytesがあります".to_string());
+            return Err(format!("{format_label}に余剰bytesがあります"));
         }
 
         Ok(PatternWeights {
@@ -822,6 +944,7 @@ impl PatternWeights {
             stage_empty_divisor: stage_divisor,
             scalar_feature_weights: Vec::new(),
             scalar_features_enabled: true,
+            canonical_tables: None,
         })
     }
 
@@ -898,6 +1021,7 @@ impl PatternWeights {
             stage_empty_divisor: STAGE_EMPTY_DIVISOR,
             scalar_feature_weights: Vec::new(),
             scalar_features_enabled: true,
+            canonical_tables: None,
         })
     }
 
@@ -978,6 +1102,7 @@ impl PatternWeights {
             stage_empty_divisor: STAGE_EMPTY_DIVISOR,
             scalar_feature_weights: Vec::new(),
             scalar_features_enabled: true,
+            canonical_tables: None,
         })
     }
 }
@@ -1489,6 +1614,227 @@ mod tests {
                 );
             }
         }
+    }
+
+    // -----------------------------------------------------------------
+    // T163: D4 canonical化スキーム(PWV5)
+    // -----------------------------------------------------------------
+
+    /// テスト専用の決定的な疑似乱数生成器(xorshift64、`patterns.rs`のテスト用
+    /// RNGと同じ設計。乱数の質より再現性を優先する)。
+    struct T163Xorshift64 {
+        state: u64,
+    }
+
+    impl T163Xorshift64 {
+        fn new(seed: u64) -> Self {
+            T163Xorshift64 { state: seed.max(1) }
+        }
+
+        fn next_u64(&mut self) -> u64 {
+            let mut x = self.state;
+            x ^= x << 13;
+            x ^= x >> 7;
+            x ^= x << 17;
+            self.state = x;
+            x
+        }
+    }
+
+    /// 各セルを独立に空/黒石/白石のいずれかにランダムに割り当てた盤面を生成する
+    /// (合法性は問わない。D4不変性は盤面の合法性によらず成り立つはずの性質
+    /// なので、合法性を問わない方がむしろ検証範囲を広げる)。
+    fn t163_random_board(rng: &mut T163Xorshift64) -> Board {
+        let mut black = 0u64;
+        let mut white = 0u64;
+        for c in 0u8..64 {
+            let bit = 1u64 << c;
+            match rng.next_u64() % 3 {
+                0 => {}
+                1 => black |= bit,
+                _ => white |= bit,
+            }
+        }
+        Board { black, white }
+    }
+
+    /// canonical化スキームで、各クラス・各ステージ・各状態に異なる値を入れた
+    /// モデルを作る(たまたま値が揃って不変性の破れを見逃す事故を避けるため、
+    /// 直上のレガシー版テストと同じ手法)。
+    fn t163_distinguishing_canonical_model(
+        patterns: Vec<PatternCells>,
+        num_stages: usize,
+        stage_empty_divisor: u32,
+    ) -> PatternWeights {
+        let mut weights =
+            PatternWeights::zeroed_canonical(patterns, num_stages, stage_empty_divisor);
+        for (class_id, table) in weights.class_tables.iter_mut().enumerate() {
+            for (stage, stage_table) in table.stage_tables.iter_mut().enumerate() {
+                for (state, w) in stage_table.iter_mut().enumerate() {
+                    *w = (class_id * 100_000 + stage * 1_000 + state) as f32 * 0.0001;
+                }
+            }
+        }
+        weights
+    }
+
+    fn t163_assert_all_symmetries_agree(weights: &PatternWeights, board: &Board, label: &str) {
+        for &mover in &[Side::Black, Side::White] {
+            let base_score = weights.score(board, mover);
+            for sym in 0..patterns::NUM_SYMMETRIES {
+                let transformed = transform_board_for_test(board, sym);
+                let score = weights.score(&transformed, mover);
+                assert!(
+                    (score - base_score).abs() < 1e-2,
+                    "{label}: sym={sym} mover={mover:?}: canonical score should be exactly \
+                     D4-invariant, got {score} vs base {base_score} (board black={:#x} \
+                     white={:#x})",
+                    board.black,
+                    board.white
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn t163_canonical_score_is_invariant_under_all_eight_d4_symmetries_of_random_boards() {
+        // T163(重大バグ修正の性質テスト、最重要): レガシースキーム(直上の
+        // `score_is_invariant_under_all_eight_d4_symmetries_of_the_initial_position`)は
+        // 初期局面(本質的にD4対称)でしか不変性を確認できなかったが、canonical化
+        // スキーム(`zeroed_canonical`)は**任意の**局面(非対称含む)で全8対称変換に
+        // ついてscoreが完全一致するはず、というのが本タスクの核心的性質。
+        // 決定的seedで数百局面(疎な盤面・稠密な盤面を広くカバーするランダム
+        // 盤面)×全8対称で検証する。
+        let weights = t163_distinguishing_canonical_model(
+            patterns::generate_patterns(),
+            NUM_STAGES,
+            STAGE_EMPTY_DIVISOR,
+        );
+        let mut rng = T163Xorshift64::new(0x7163_D4C0_1234_5678);
+        const NUM_RANDOM_BOARDS: usize = 300;
+        for i in 0..NUM_RANDOM_BOARDS {
+            let board = t163_random_board(&mut rng);
+            t163_assert_all_symmetries_agree(&weights, &board, &format!("random board #{i}"));
+        }
+    }
+
+    #[test]
+    fn t163_canonical_score_is_invariant_across_self_play_games_including_near_endgame() {
+        // T163要件1(a): 「パスや終局近くを含む多様な局面」を、実際に合法手だけを
+        // 指す自己対戦(決定的疑似乱数で着手選択)で生成し、対局中の全局面
+        // (パスの発生・終局直前の空きマス数が少ない局面を含む)で検証する。
+        let weights = t163_distinguishing_canonical_model(
+            patterns::generate_patterns(),
+            NUM_STAGES,
+            STAGE_EMPTY_DIVISOR,
+        );
+        let mut rng = T163Xorshift64::new(0x5EED_C0FF_EE00_0001);
+        const NUM_GAMES: usize = 12;
+        let mut checked = 0usize;
+        for game in 0..NUM_GAMES {
+            let mut board = Board::initial();
+            let mut side = Side::Black;
+            loop {
+                t163_assert_all_symmetries_agree(&weights, &board, &format!("game #{game}"));
+                checked += 1;
+                let legal = board.legal_moves(side);
+                if legal == 0 {
+                    side = side.opposite();
+                    if board.legal_moves(side) == 0 {
+                        break; // 終局(両者とも着手不可)
+                    }
+                    continue;
+                }
+                let moves: Vec<u64> = (0..64).filter(|&i| legal & (1u64 << i) != 0).collect();
+                let choice = moves[(rng.next_u64() as usize) % moves.len()];
+                board = board.apply_move(side, 1u64 << choice);
+                side = side.opposite();
+            }
+        }
+        assert!(
+            checked > 200,
+            "expected to check a substantial number of self-play positions, got {checked}"
+        );
+    }
+
+    #[test]
+    fn t163_canonical_score_is_invariant_for_v3_pattern_shapes_including_non_square_orbits() {
+        // T163: V2以外のパターン形状(edge2x/対角オフセット5-6-7/隅5x2、
+        // 軌道サイズ4または8で非自明な安定化群を持つ)でもcanonical化が
+        // 正しく機能することを確認する(パターン形状に依存しない一般的な実装で
+        // あることの裏付け)。
+        let weights = t163_distinguishing_canonical_model(
+            patterns::generate_patterns_for(patterns::PatternConfig::V3),
+            NUM_STAGES,
+            STAGE_EMPTY_DIVISOR,
+        );
+        let mut rng = T163Xorshift64::new(0xA11D_45CA_9E5D_0001);
+        const NUM_RANDOM_BOARDS: usize = 80;
+        for i in 0..NUM_RANDOM_BOARDS {
+            let board = t163_random_board(&mut rng);
+            t163_assert_all_symmetries_agree(&weights, &board, &format!("v3 random board #{i}"));
+        }
+    }
+
+    #[test]
+    fn t163_zeroed_canonical_model_is_canonical_and_legacy_zeroed_is_not() {
+        assert!(!PatternWeights::zeroed(patterns::generate_patterns()).is_canonical());
+        assert!(PatternWeights::zeroed_canonical(
+            patterns::generate_patterns(),
+            NUM_STAGES,
+            STAGE_EMPTY_DIVISOR,
+        )
+        .is_canonical());
+    }
+
+    #[test]
+    #[should_panic(expected = "to_bytes_v5")]
+    fn t163_to_bytes_v5_panics_for_legacy_non_canonical_weights() {
+        let weights = PatternWeights::zeroed(patterns::generate_patterns());
+        let _ = weights.to_bytes_v5();
+    }
+
+    #[test]
+    fn t163_pwv5_roundtrip_preserves_canonical_scheme_and_scores() {
+        let weights = t163_distinguishing_canonical_model(
+            patterns::generate_patterns(),
+            NUM_STAGES,
+            STAGE_EMPTY_DIVISOR,
+        );
+        let bytes = weights.to_bytes_v5();
+        assert_eq!(&bytes[..4], b"PWV5");
+        let restored = PatternWeights::from_bytes(&bytes).unwrap();
+        assert!(restored.is_canonical());
+        for &mover in &[Side::Black, Side::White] {
+            assert_eq!(
+                weights.score(&Board::initial(), mover).to_bits(),
+                restored.score(&Board::initial(), mover).to_bits()
+            );
+        }
+        assert_eq!(restored.to_bytes_v5(), bytes);
+    }
+
+    #[test]
+    fn t163_pwv3_bytes_are_read_as_legacy_even_through_the_shared_parser() {
+        // 要件4: PWV3(レガシー)のバイト列はcanonical化スキームとして誤読
+        // されない(マジックバイトで新旧を明示的に振り分ける、
+        // `from_bytes_self_describing`のパース本体を共有していても
+        // `canonical_tables`を後付けするのは`from_bytes_v5`だけであることの確認)。
+        let legacy_bytes = PatternWeights::zeroed(patterns::generate_patterns()).to_bytes_v3();
+        let restored = PatternWeights::from_bytes(&legacy_bytes).unwrap();
+        assert!(!restored.is_canonical());
+    }
+
+    #[test]
+    fn t163_pwv5_rejects_schema_hash_mismatch() {
+        let weights = t163_distinguishing_canonical_model(
+            patterns::generate_patterns(),
+            NUM_STAGES,
+            STAGE_EMPTY_DIVISOR,
+        );
+        let mut bytes = weights.to_bytes_v5();
+        bytes[28] ^= 1; // schema_hashの先頭1byteを破壊する(PWV3と同じオフセット)
+        assert!(PatternWeights::from_bytes(&bytes).is_err());
     }
 
     #[test]

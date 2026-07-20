@@ -99,6 +99,20 @@ impl Model {
         }
     }
 
+    /// T163: D4 canonical化スキームを有効にした状態で、全重みを0初期化した
+    /// モデルを作る。`sgd_step`は`weights.table_index`を介して勾配更新を
+    /// canonicalエントリに集約するため、通常の[`Model::train`]/[`Model::train_epochs`]
+    /// をそのまま使って学習してよい(SGD側の特別扱いは不要)。
+    pub fn new_canonical(
+        patterns: Vec<PatternCells>,
+        num_stages: usize,
+        stage_empty_divisor: u32,
+    ) -> Self {
+        Model {
+            weights: PatternWeights::zeroed_canonical(patterns, num_stages, stage_empty_divisor),
+        }
+    }
+
     /// ステージ定義と学習対象のscalar特徴を明示して、全重みを0初期化する。
     /// 空sliceは従来の特徴なしモデルと同じPWV3モデルになる。
     pub fn new_with_scalar_features(
@@ -149,7 +163,15 @@ impl Model {
         for i in 0..self.weights.patterns.len() {
             let class_id = class_of[i];
             let state = pattern_state_index(&aligned_cells[i], &sample.board, sample.mover);
-            let w = &mut self.weights.class_tables[class_id].stage_tables[stage][state as usize];
+            // T163: D4 canonical化スキーム(`weights.is_canonical()`)では、
+            // `state`をそのままテーブル添字にせず`table_index`でcanonical index
+            // へ変換してから読み書きする(`PatternWeights::score`と同じ変換を
+            // 通すことで、勾配がcanonicalエントリに集約され、学習後の重みが
+            // D4対称のどのインスタンスからも同じ値を返すようになる)。
+            // レガシースキームでは`table_index`は`state`をそのまま返すため、
+            // 挙動は変わらない。
+            let index = self.weights.table_index(class_id, state);
+            let w = &mut self.weights.class_tables[class_id].stage_tables[stage][index];
             let grad = loss_gradient + cfg.l2 * *w;
             *w -= cfg.learning_rate * grad;
         }
@@ -282,6 +304,12 @@ impl Model {
 
     pub fn to_bytes_v4(&self) -> Vec<u8> {
         self.weights.to_bytes_v4()
+    }
+
+    /// T163: D4 canonical化スキーム版の自己記述形式(PWV5)にシリアライズする
+    /// (`weights.to_bytes_v5`への委譲。`new_canonical`由来のモデルでのみ使える)。
+    pub fn to_bytes_v5(&self) -> Vec<u8> {
+        self.weights.to_bytes_v5()
     }
 
     /// [`to_bytes`](Self::to_bytes)の逆変換(`PatternWeights::from_bytes`への委譲)。
@@ -701,5 +729,262 @@ mod tests {
         legacy.train(&samples, &cfg);
         featureless.train(&samples, &cfg);
         assert_eq!(legacy.to_bytes_v3(), featureless.to_bytes_v3());
+    }
+
+    // -----------------------------------------------------------------
+    // T163: D4 canonical化スキーム(PWV5)のSGD学習への追従
+    // -----------------------------------------------------------------
+
+    #[test]
+    fn canonical_sgd_step_reduces_error_on_repeated_single_sample() {
+        // T163要件4: SGDが新スキーム(`Model::new_canonical`)でも正しく動くこと
+        // (`sgd_step`が`table_index`経由でcanonicalエントリを読み書きしても、
+        // 通常のSGDと同じく誤差が縮小していく)。既存の
+        // `sgd_step_reduces_error_on_repeated_single_sample`のcanonical版。
+        let patterns = patterns::generate_patterns();
+        let mut model = Model::new_canonical(
+            patterns,
+            engine::pattern_eval::NUM_STAGES,
+            engine::pattern_eval::STAGE_EMPTY_DIVISOR,
+        );
+        let sample = Sample {
+            board: asymmetric_test_board(),
+            mover: Side::Black,
+            outcome: 10.0,
+            last_move_kind: crate::train_data::LastMoveKind::Other,
+            vulnerable_xc: false,
+        };
+        let cfg = TrainConfig {
+            learning_rate: 0.03,
+            l2: 0.0,
+            epochs: 1,
+            seed: 1,
+            loss: Loss::Mse,
+        };
+
+        let error_before =
+            (model.predict(&sample.board, sample.mover) - sample.outcome as f32).abs();
+        model.train(&[sample], &cfg);
+        let error_after =
+            (model.predict(&sample.board, sample.mover) - sample.outcome as f32).abs();
+        assert!(
+            error_after < error_before,
+            "error should shrink after training on a single sample (canonical): before={error_before}, after={error_after}"
+        );
+    }
+
+    #[test]
+    fn canonical_training_converges_close_to_target_on_single_repeated_sample() {
+        let patterns = patterns::generate_patterns();
+        let mut model = Model::new_canonical(
+            patterns,
+            engine::pattern_eval::NUM_STAGES,
+            engine::pattern_eval::STAGE_EMPTY_DIVISOR,
+        );
+        let sample = Sample {
+            board: asymmetric_test_board(),
+            mover: Side::Black,
+            outcome: 8.0,
+            last_move_kind: crate::train_data::LastMoveKind::Other,
+            vulnerable_xc: false,
+        };
+        let cfg = TrainConfig {
+            learning_rate: 0.05,
+            l2: 0.0,
+            epochs: 200,
+            seed: 42,
+            loss: Loss::Mse,
+        };
+        model.train(&[sample], &cfg);
+        let pred = model.predict(&sample.board, sample.mover);
+        assert!(
+            (pred - 8.0).abs() < 0.5,
+            "expected prediction close to 8.0 (canonical), got {pred}"
+        );
+    }
+
+    #[test]
+    fn canonical_model_predictions_stay_d4_invariant_after_training_on_asymmetric_samples() {
+        // T163要件4の核心: SGDで訓練した後の重みも(訓練前のゼロ重みだけでなく)
+        // D4不変性を保つこと。複数の非対称局面で数エポック学習した後、
+        // 各局面の8対称変換すべてで予測値が一致することを確認する。
+        let patterns = patterns::generate_patterns();
+        let mut model = Model::new_canonical(
+            patterns,
+            engine::pattern_eval::NUM_STAGES,
+            engine::pattern_eval::STAGE_EMPTY_DIVISOR,
+        );
+        let mut rng = Xorshift64::new(0xC0DE_1234_5678_9ABC);
+        let mut samples = Vec::new();
+        for i in 0..30 {
+            let mut black = 0u64;
+            let mut white = 0u64;
+            for c in 0u8..64 {
+                match rng.next_u64() % 3 {
+                    0 => {}
+                    1 => black |= 1u64 << c,
+                    _ => white |= 1u64 << c,
+                }
+            }
+            samples.push(Sample {
+                board: Board { black, white },
+                mover: if i % 2 == 0 { Side::Black } else { Side::White },
+                outcome: ((rng.next_u64() % 41) as f32) - 20.0,
+                last_move_kind: crate::train_data::LastMoveKind::Other,
+                vulnerable_xc: false,
+            });
+        }
+        let cfg = TrainConfig {
+            learning_rate: 0.01,
+            l2: 1e-5,
+            epochs: 20,
+            seed: 7,
+            loss: Loss::Mse,
+        };
+        model.train(&samples, &cfg);
+
+        fn transform_board(board: &Board, sym: usize) -> Board {
+            let mut black = 0u64;
+            let mut white = 0u64;
+            for c in 0u8..64 {
+                let bit = 1u64 << c;
+                let dest = patterns::apply_symmetry(sym, c);
+                if board.black & bit != 0 {
+                    black |= 1u64 << dest;
+                }
+                if board.white & bit != 0 {
+                    white |= 1u64 << dest;
+                }
+            }
+            Board { black, white }
+        }
+
+        for sample in &samples {
+            let base = model.predict(&sample.board, sample.mover);
+            for sym in 0..patterns::NUM_SYMMETRIES {
+                let transformed = transform_board(&sample.board, sym);
+                let predicted = model.predict(&transformed, sample.mover);
+                assert!(
+                    (predicted - base).abs() < 1e-2,
+                    "sym={sym}: trained canonical model should stay D4-invariant, got {predicted} vs {base}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn canonical_pwv5_roundtrip_preserves_weights_after_training() {
+        let patterns = patterns::generate_patterns();
+        let mut model = Model::new_canonical(
+            patterns,
+            engine::pattern_eval::NUM_STAGES,
+            engine::pattern_eval::STAGE_EMPTY_DIVISOR,
+        );
+        let sample = Sample {
+            board: asymmetric_test_board(),
+            mover: Side::Black,
+            outcome: 4.0,
+            last_move_kind: crate::train_data::LastMoveKind::Other,
+            vulnerable_xc: false,
+        };
+        let cfg = TrainConfig {
+            learning_rate: 0.05,
+            l2: 1e-4,
+            epochs: 5,
+            seed: 7,
+            loss: Loss::Mse,
+        };
+        model.train(&[sample], &cfg);
+
+        let bytes = model.to_bytes_v5();
+        assert_eq!(&bytes[..4], b"PWV5");
+        let restored = Model::from_bytes(&bytes).expect("PWV5 should parse");
+        assert!(restored.weights.is_canonical());
+
+        let pred_original = model.predict(&sample.board, sample.mover);
+        let pred_restored = restored.predict(&sample.board, sample.mover);
+        assert!((pred_original - pred_restored).abs() < 1e-6);
+    }
+
+    #[test]
+    fn t163_canonical_score_is_invariant_over_real_wthor_positions() {
+        // T163要件1(b): 実際のWTHOR公式棋譜(`train/data/WTH_2000.wtb`)から
+        // 着手列を再生して得た本物の対局局面(中盤〜終盤の幅広いステージを含む)
+        // で、canonical化スキームのD4不変性を検証する
+        // (`engine`クレートの性質テストは合成したランダム盤面が中心だったため、
+        // ここでは実データでも同じ性質が成り立つことを別途裏付ける)。
+        let path = concat!(env!("CARGO_MANIFEST_DIR"), "/data/WTH_2000.wtb");
+        let bytes = std::fs::read(path).expect("WTH_2000.wtb should be present in train/data");
+        let file = crate::wthor::parse(&bytes).expect("WTH_2000.wtb should parse");
+
+        let mut weights = PatternWeights::zeroed_canonical(
+            patterns::generate_patterns(),
+            engine::pattern_eval::NUM_STAGES,
+            engine::pattern_eval::STAGE_EMPTY_DIVISOR,
+        );
+        for (class_id, table) in weights.class_tables.iter_mut().enumerate() {
+            for (stage, stage_table) in table.stage_tables.iter_mut().enumerate() {
+                for (state, w) in stage_table.iter_mut().enumerate() {
+                    *w = (class_id * 100_000 + stage * 1_000 + state) as f32 * 0.0001;
+                }
+            }
+        }
+
+        fn transform_board(board: &Board, sym: usize) -> Board {
+            let mut black = 0u64;
+            let mut white = 0u64;
+            for c in 0u8..64 {
+                let bit = 1u64 << c;
+                let dest = patterns::apply_symmetry(sym, c);
+                if board.black & bit != 0 {
+                    black |= 1u64 << dest;
+                }
+                if board.white & bit != 0 {
+                    white |= 1u64 << dest;
+                }
+            }
+            Board { black, white }
+        }
+
+        let mut checked = 0usize;
+        'games: for game in file.games.iter().take(40) {
+            let mut board = Board::initial();
+            let mut side = Side::Black;
+            for (step, &mv_index) in game.moves.iter().enumerate() {
+                if !board.has_legal_move(side) {
+                    side = side.opposite();
+                }
+                if !board.has_legal_move(side) {
+                    continue 'games;
+                }
+                let mv_bit = 1u64 << mv_index;
+                if board.legal_moves(side) & mv_bit == 0 {
+                    continue 'games; // 想定外の着手(このテストの目的には無関係、スキップ)
+                }
+                board = board.apply_move(side, mv_bit);
+                side = side.opposite();
+
+                if step % 5 == 0 {
+                    for &mover in &[Side::Black, Side::White] {
+                        let base = weights.score(&board, mover);
+                        for sym in 0..patterns::NUM_SYMMETRIES {
+                            let transformed = transform_board(&board, sym);
+                            let score = weights.score(&transformed, mover);
+                            assert!(
+                                (score - base).abs() < 1e-2,
+                                "real WTHOR position (game moves[..{step}]) sym={sym} \
+                                 mover={mover:?}: canonical score should be D4-invariant, \
+                                 got {score} vs base {base}"
+                            );
+                        }
+                    }
+                    checked += 1;
+                }
+            }
+        }
+        assert!(
+            checked > 100,
+            "expected to check a substantial number of real WTHOR positions, got {checked}"
+        );
     }
 }

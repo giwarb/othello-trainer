@@ -431,6 +431,95 @@ pub fn compute_pattern_classes(patterns: &[PatternCells]) -> PatternClassInfo {
     }
 }
 
+// ---------------------------------------------------------------------------
+// T163: D4 canonical化(状態インデックスの正準化)
+// ---------------------------------------------------------------------------
+//
+// [`compute_pattern_classes`]は各パターンインスタンスの状態計算に使うセル順序
+// (`aligned_cells`)を「8対称変換を0..7の順で走査し、セル**集合**が最初に一致した
+// もの」で決めるが、現行の全パターン形状(行・列・対角線・隅3x3等)は自明でない
+// 安定化群を持つ(そのパターン自身のセル集合を保つ変換が恒等以外にも存在する)ため、
+// この「先着順」の選択は全域のD4対称変換と一貫しない。結果として、回転・鏡映で
+// 互いに写り合う局面同士で`PatternWeights::score`の値がズレる
+// (T044由来、T145実測、`tasks/T163-d4-canonicalization.md`参照)。
+//
+// 本節の関数群は、`aligned_cells`の選択自体は変えずに済ませる形でこれを解消する:
+// 各クラスの代表パターンの安定化群(そのセル集合を保つ変換の集合)が状態
+// インデックスの桁に誘導する置換を求め([`stabilizer_position_permutations`])、
+// 状態インデックスをその軌道の最小値に正規化する
+// ([`build_canonical_index_table`]、canonical index)。この正規化を状態計算の
+// 「後」に挟むことで、`aligned_cells`の選択が(安定化群の要素の分だけ)恣意的で
+// あっても、正規化後の値は常に一意に定まる(この事実の証明はタスクファイル
+// `tasks/T163-d4-canonicalization.md`の根本原因節・完了レポート参照)。
+//
+// レガシースキーム(PWV1〜PWV4)はこの正規化を適用しない
+// (`engine::pattern_eval::PatternWeights::table_index`参照)ため、評価値は
+// ビット単位で不変のまま(D4バグは残る)。新スキーム(PWV5)でのみ有効にする。
+
+/// `cells`(パターンの自然順セル列、通常は代表インスタンスの`generate_patterns()`
+/// 順セル)の安定化群(そのセル**集合**を保つD4変換の集合)が、状態インデックスの
+/// 桁(位置)に誘導する置換の一覧を返す。恒等置換(何もしない置換、`sym=0`由来)を
+/// 必ず1つ含む。
+pub fn stabilizer_position_permutations(cells: &[u8]) -> Vec<Vec<u8>> {
+    use std::collections::HashSet;
+    let target_set: HashSet<u8> = cells.iter().copied().collect();
+    let mut perms = Vec::new();
+    for sym in 0..NUM_SYMMETRIES {
+        let mapped: Vec<u8> = cells.iter().map(|&c| apply_symmetry(sym, c)).collect();
+        let mapped_set: HashSet<u8> = mapped.iter().copied().collect();
+        if mapped_set != target_set {
+            continue;
+        }
+        // 位置置換sigma: 位置pの桁を位置sigma[p]へ移す
+        // (`apply_symmetry(sym, cells[p]) == cells[sigma[p]]`となる`sigma[p]`)。
+        let sigma: Vec<u8> = mapped
+            .iter()
+            .map(|&mapped_cell| {
+                cells
+                    .iter()
+                    .position(|&c| c == mapped_cell)
+                    .expect("mapped_set == target_set implies mapped_cell is in cells") as u8
+            })
+            .collect();
+        perms.push(sigma);
+    }
+    perms
+}
+
+/// 状態インデックス`state`(`cells.len()`桁の3進数エンコード、[`pattern_state_index`]
+/// と同じ桁割当: 位置pの重みは3^p)に、位置置換`sigma`
+/// ([`stabilizer_position_permutations`]が返すもの、`sigma[p]`は「位置pの桁の
+/// 移動先」)を適用した状態を返す。
+fn permute_state_digits(state: u32, sigma: &[u8]) -> u32 {
+    let mut result = 0u32;
+    for (position, &dest) in sigma.iter().enumerate() {
+        let digit = (state / POW3[position]) % 3;
+        result += digit * POW3[dest as usize];
+    }
+    result
+}
+
+/// `cells`が定義するパターン(セル数`cells.len()`)の全状態(`0 .. num_states(cells.len())`)
+/// について、安定化群の軌道の最小値(canonical index)を求めたテーブルを返す。
+///
+/// `table[state]`が`state`のcanonical indexであり、同じ軌道に属す状態はすべて
+/// 同じcanonical indexに写る(証明・不変性の帰結は本節冒頭のコメント参照)。
+/// パターン形状のみから決まる(盤面に依存しない)ため、構築時に一度だけ計算して
+/// おけば、評価時は表引き1回で済む(T163設計方針3、実行時コスト最小化)。
+pub fn build_canonical_index_table(cells: &[u8]) -> Vec<u32> {
+    let perms = stabilizer_position_permutations(cells);
+    let total_states = num_states(cells.len());
+    (0..total_states)
+        .map(|state| {
+            perms
+                .iter()
+                .map(|sigma| permute_state_digits(state, sigma))
+                .min()
+                .unwrap_or(state)
+        })
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -812,6 +901,106 @@ mod tests {
                         "instance {i} (class {class_id}, symmetry {sym}) mismatch for mover={mover:?}"
                     );
                 }
+            }
+        }
+    }
+
+    // -----------------------------------------------------------------
+    // T163: D4 canonical化
+    // -----------------------------------------------------------------
+
+    #[test]
+    fn stabilizer_position_permutations_always_includes_identity() {
+        for cells in generate_patterns_for(PatternConfig::V3) {
+            let perms = stabilizer_position_permutations(&cells);
+            let identity: Vec<u8> = (0u8..cells.len() as u8).collect();
+            assert!(
+                perms.contains(&identity),
+                "stabilizer permutations of {cells:?} should include the identity"
+            );
+        }
+    }
+
+    #[test]
+    fn row_pattern_stabilizer_is_exactly_identity_and_reversal() {
+        // 行パターン(自然順セルは連続する8マス、file0=0..8)の安定化群は
+        // {恒等, 左右反転}の2要素のみ(row0=a1..h1が自身のセル集合へ写るのは
+        // sym=0の恒等とsym=4の左右反転だけで、90/180/270度回転・上下反転・
+        // 転置・反転転置はいずれも別の行/列/対角へ写す)。
+        let patterns = generate_patterns();
+        let row0 = &patterns[0];
+        let mut actual = stabilizer_position_permutations(row0);
+        let mut expected = vec![
+            (0u8..8).collect::<Vec<u8>>(),
+            (0u8..8).rev().collect::<Vec<u8>>(),
+        ];
+        actual.sort();
+        expected.sort();
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn main_diagonal_stabilizer_has_four_elements() {
+        // 主対角線(a1-h8)は恒等・180度回転・転置・反転転置の4変換で
+        // 自身のセル集合に写る(軌道サイズ2=8/4、対角線クラスが
+        // 主対角線・反対角線の2インスタンスだけであることと整合する)。
+        let patterns = generate_patterns();
+        let main_diagonal = &patterns[16];
+        assert_eq!(stabilizer_position_permutations(main_diagonal).len(), 4);
+    }
+
+    #[test]
+    fn corner_block_stabilizer_has_two_elements() {
+        // 隅3x3ブロックは恒等とその隅自身の対角線に関する反転(転置)の
+        // 2変換のみで自身のセル集合に写る(軌道サイズ4=8/2)。
+        let patterns = generate_patterns();
+        for i in 18..22 {
+            assert_eq!(
+                stabilizer_position_permutations(&patterns[i]).len(),
+                2,
+                "corner pattern #{i}"
+            );
+        }
+    }
+
+    #[test]
+    fn canonical_index_of_row_state_matches_min_with_digit_reversal() {
+        fn reverse_digits(mut x: u32, len: usize) -> u32 {
+            let mut digits = [0u32; 10];
+            for d in digits.iter_mut().take(len) {
+                *d = x % 3;
+                x /= 3;
+            }
+            let mut result = 0u32;
+            for (i, &digit) in digits.iter().take(len).enumerate() {
+                result += digit * POW3[len - 1 - i];
+            }
+            result
+        }
+        let patterns = generate_patterns();
+        let row0 = &patterns[0];
+        let table = build_canonical_index_table(row0);
+        for state in [0u32, 1, 8, 42, 1000, 6560] {
+            let expected = state.min(reverse_digits(state, 8));
+            assert_eq!(table[state as usize], expected, "state={state}");
+        }
+    }
+
+    #[test]
+    fn canonical_index_table_is_deterministic_never_exceeds_raw_and_is_a_fixed_point() {
+        for cells in generate_patterns_for(PatternConfig::V3) {
+            let table_a = build_canonical_index_table(&cells);
+            let table_b = build_canonical_index_table(&cells);
+            assert_eq!(table_a, table_b, "canonical index table must be deterministic");
+            for (state, &canon) in table_a.iter().enumerate() {
+                assert!(
+                    canon as usize <= state,
+                    "canonical index ({canon}) should never exceed the raw state ({state})"
+                );
+                assert_eq!(
+                    table_a[canon as usize], canon,
+                    "canonical index must be a fixed point of canonicalization (state={state})"
+                );
             }
         }
     }
