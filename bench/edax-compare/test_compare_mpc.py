@@ -1,4 +1,6 @@
 import importlib.util
+import shutil
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -31,6 +33,40 @@ def checkpoint(records=None):
 
 
 class CompareMpcValidationTests(unittest.TestCase):
+    def test_each_modified_canonical_input_is_rejected(self):
+        repository = MODULE_PATH.parents[2]
+        canonical = {
+            "gate2_positions_path": (
+                repository / "bench/edax-compare/t156_mpc_positions.json",
+                "Gate 2 positions canonical SHA-256",
+            ),
+            "oracle_positions_path": (
+                repository / "bench/edax-compare/t157_oracle_positions.json",
+                "oracle positions canonical SHA-256",
+            ),
+            "oracle_labels_path": (
+                repository / "bench/edax-compare/t157_oracle_labels.json",
+                "oracle labels canonical SHA-256",
+            ),
+            "weights_path": (
+                repository / "train/weights/pattern_v4.bin",
+                "v4 weights canonical SHA-256",
+            ),
+        }
+        original_paths = {name: value[0] for name, value in canonical.items()}
+        for modified_name, (source, error_name) in canonical.items():
+            with self.subTest(input=modified_name), tempfile.TemporaryDirectory() as directory:
+                modified = Path(directory) / source.name
+                shutil.copyfile(source, modified)
+                with modified.open("r+b") as file:
+                    first_byte = file.read(1)
+                    self.assertTrue(first_byte)
+                    file.seek(0)
+                    file.write(bytes([first_byte[0] ^ 0x01]))
+                paths = {**original_paths, modified_name: modified}
+                with self.assertRaisesRegex(ValueError, error_name):
+                    compare_mpc.validate_inputs(None, None, None, **paths)
+
     def test_duplicate_checkpoint_records_are_rejected(self):
         with self.assertRaisesRegex(ValueError, "duplicate"):
             compare_mpc.by_key(checkpoint([record(), record()]))

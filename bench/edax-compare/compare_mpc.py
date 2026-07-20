@@ -111,6 +111,10 @@ def validate_checkpoint(data, expected_config, expected_ids, name):
     require_equal(config.get("selectedPositionsCount"), len(expected_ids), f"{name} selected count")
     require_equal(config.get("selectedPositionsFingerprint"), ids_fingerprint(expected_ids), f"{name} selected fingerprint")
     return {"config": config, "records": record_summary(data)}
+
+
+def validate_inputs(gate2_off, gate2_on, runs, gate2_positions_path, oracle_positions_path,
+                    oracle_labels_path, weights_path):
     require_equal(digest(gate2_positions_path), EXPECTED_GATE2_POSITIONS_SHA256,
                   "Gate 2 positions canonical SHA-256")
     require_equal(digest(oracle_positions_path), EXPECTED_ORACLE_POSITIONS_SHA256,
@@ -119,10 +123,6 @@ def validate_checkpoint(data, expected_config, expected_ids, name):
                   "oracle labels canonical SHA-256")
     require_equal(digest(weights_path), EXPECTED_V4_WEIGHTS_SHA256,
                   "v4 weights canonical SHA-256")
-
-
-def validate_inputs(gate2_off, gate2_on, runs, gate2_positions_path, oracle_positions_path,
-                    oracle_labels_path, weights_path):
     gate2_positions = positions_array(load(gate2_positions_path), "Gate 2 positions")
     gate2_ids = [row["id"] for row in gate2_positions if row.get("split") == "test"]
     require_equal(len(gate2_ids), 240, "Gate 2 test position count")
