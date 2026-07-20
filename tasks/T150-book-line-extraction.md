@@ -52,4 +52,43 @@ attempts: 0
 
 ## 作業ログ
 
-(ワーカーが追記)
+### 2026-07-20 実装完了(implementer)
+
+**実装したもの**
+
+1. `train/src/bin/wthor_lines.rs`(新規Rust bin、`train`クレート)
+   - WTHOR全対局(`train/data/WTH_2000.wtb`〜`WTH_2024.wtb`、25ファイル)を`train::wthor::parse`でパースし、`train::wthor::replay`で合法性検証。
+   - 初手を`f5`に写す色保存対称変換(`engine::patterns::apply_symmetry`のインデックス0=identity/2=rot180/6=flipDiag/7=flipAntiDiag、`app/src/joseki/normalize.ts`の`FIRST_MOVE_TO_OP`と同じ対応)を、対局の初手だけから決定して全着手(先頭16手まで)に適用。初期局面がこれら4変換の不動点であるためこれで`normalize.ts`/`buildDb.ts`と同じ正規化になることを、虎定石(f5,d6,c3,d3,c4)を4通りの基準に変換してから正規化し直し元に戻ることを検証するテストで確認済み(`normalizing_alternate_basis_game_recovers_canonical_tora_line`)。
+   - 正規化後の着手列を接頭辞木(トライ、`BTreeMap`で決定的順序)に挿入し、`count >= 100`のノードだけを残して末端(葉)を「ライン」として列挙(深さ16に達したノード、またはそれ以上閾値を満たす子を持たないノードが葉)。
+   - 既存`bookgen/joseki-research.json`(112ライン)と着手列が完全一致すればその名前を継承、しなければ`WTHOR-####`で自動命名(決定的なDFS順)。
+   - 出力: `bookgen/wthor-lines.json`(`RawJosekiLine`互換 + `gameCount`)。CLI引数(`--data-dir --years --max-depth --min-games --existing-lines --out`)はすべて既定値ありで実行可能。
+   - 単体テスト10件(正規化の往復検証・トライの閾値枝刈り・分岐列挙・決定的順序・notation変換・lookup)。
+
+2. 抽出実行結果(既定値: `--years 2000-2024 --max-depth 16 --min-games 100`、実行時間: 約10秒(cargo build込み、release、74,024局全件))
+   - **251ライン、深さ≤16の閾値通過(qualifying)トライノード898個**(想定「数百〜千」の範囲内、1万を大きく超えないため閾値調整は不要と判断)。参考: `wthor-lines.json`の251ラインを実際に`buildJosekiDb`(既存のTS実装、scratchpad上の使い捨てスクリプトで検証。`app/public/joseki.json`は再生成していない)に通すと、局面の合流(手順違いの合流)によりトライノードよりやや少ない**DAGノード数820**になる(既存112ライン→615ノードと同程度のスケール)。
+   - 深さ分布: 3手=3, 4手=1, 5手=6, 6手=11, 7手=17, 8手=22, 9手=24, 10手=22, 11手=25, 12手=12, 13手=21, 14手=24, 15手=14, 16手=49(打ち切り上限で49ライン=最多)。
+   - 既存112ラインとの重複: **112/112(全ライン)がWTHORデータ中に1局以上出現**、**76/112が出現閾値100局以上に到達**(残り36は閾値未満=WTHORでは比較的稀な定石)。名前継承は2件(「北陸バッファロー・基本形」「白裏大量　8-g6型」が偶然WTHOR頻出ラインの着手列と完全一致)、残り249件は`WTHOR-0001`〜`WTHOR-0249`の自動命名。
+   - 決定性: 同一コマンドを2回実行し、出力ファイルのSHA-256が完全一致することを確認済み(`ad247a838a2db737cd3cd6a8ead6d0d9bb3570ddbd0ac668d547a38d72e1ddd9`)。
+   - `cargo test -p train`(全bin・統合テスト込み)全パス。
+
+3. `app/src/joseki/types.ts`: `RawJosekiLine`に`gameCount?: number`、`JosekiBookMove`に`frequencyCount?: number`を追加(型のみ、JSDocで用途を明記)。
+
+4. `app/src/joseki/buildDb.ts`: `addBookMove`が`gameCount`を受け取り、渡された場合は該当(ノード,手)の`frequencyCount`に積算するよう拡張。`assignEqualWeights`を`assignWeights`に置き換え、ノードの全bookMovesが`frequencyCount`(>0)を持つ場合のみ頻度比例重み(`weight = frequencyCount / 合計`)を計算し、それ以外(1つでも`gameCount`無しの手が混ざる場合を含む)は従来どおり均等重みにフォールバック。`gameCount`を`JosekiLine.popularity`にも反映(既存型に定義済みだが未使用だったフィールド)。
+   - `bookgen/joseki-research.json`(既存112ライン、`gameCount`なし)は常に均等重み分岐を通るため、`app/public/joseki.json`は**再生成しておらず、生成しても差分が出ない**ことを確認済み(既定挙動不変)。
+
+5. `app/src/joseki/buildDb.test.ts`: 新規4テスト追加(頻度比例重みの計算・複数ラインが同じ分岐を共有する場合の積算・一部のみ頻度データがある場合のフォールバック・`gameCount=0`時のフォールバック)+既存describeブロックへの回帰確認テスト(既存112ラインでは`frequencyCount`/`popularity`が常に`undefined`のまま)。
+
+**受け入れ基準の確認**
+
+1. `bookgen/wthor-lines.json`の機械検証(scratchpad上のPythonスクリプトで実施): 全251ラインが`depth<=16`かつ`moves.length===depth`、全ラインが`gameCount>=100`、名前の重複なし → OK。
+2. 決定性: 同一引数で2回実行しSHA-256完全一致 → OK。
+3. `npx vitest run`(app/): **787 test 全パス**(13ファイル中`joseki`関連13ファイル・99テストのうち新規追加分含め全パス)。`npx tsc --noEmit -p app`もエラーなし。`git diff --stat -- app/public/joseki.json`は空(差分なし)→ OK。
+4. サマリは本作業ログに記載のとおり(ノード数898・ライン数251・深さ分布・既存112との重複率)。
+5. コミット規律に従いパス明示でadd予定(`train/src/bin/wthor_lines.rs` `bookgen/wthor-lines.json` `app/src/joseki/types.ts` `app/src/joseki/buildDb.ts` `app/src/joseki/buildDb.test.ts`)、`tasks/`はコミットしない。
+
+**判断・注記**
+
+- ノード数(898、トライ上の閾値通過プレフィックス数)は「1万を大きく超える」水準に遠く及ばないため、`--min-games`のデフォルト値100のまま調整不要と判断した(タスク仕様どおり)。
+- `RawJosekiLine.gameCount`から`JosekiBookMove.frequencyCount`への積算は、抽出ツールが「末端(葉)ラインのみ」を出力する設計(中間ノードの分岐別出現数は出力しない)であるため、`buildDb.ts`側でライン再生時に葉の`gameCount`を経由する全エッジへ加算する形で実現している。トライの不変量(内部ノードのcountは子countの合計)により、これは実質的に各エッジの真の出現局数を再構成する(ごく短い対局が16手未満で終わる極端なケースを除く)。この設計判断により、要件3の「各plyの分岐別出現数があれば尚可」を追加データなしで実質満たせるため、その拡張フィールド(ply別ブランチカウント配列)は追加しなかった。
+- `app/public/joseki.json`の再生成・公開は行っていない(スコープ外、T151で実施予定)。
+
