@@ -1,0 +1,287 @@
+{
+  "analysis": "T156d MPC Gate 2/3",
+  "bootstrapSamples": 100000,
+  "bootstrapSeed": 156004,
+  "gate2": {
+    "depths": [
+      {
+        "aggregateNodeRatio": 0.8277523782602468,
+        "bootstrapRatioUpper95": 0.855189027339952,
+        "criteria": {
+          "aggregateReduction10Percent": true,
+          "bootstrapUpperBelow097": true,
+          "medianReduction5Percent": true,
+          "p90AtMost125": true
+        },
+        "depth": 8,
+        "games": 239,
+        "medianPositionRatio": 0.866133529565338,
+        "mpcAttempts": 14986,
+        "mpcCutRate": 0.27392232750567197,
+        "mpcCuts": 4105,
+        "mpcProbeNodeShare": 0.030925585271206788,
+        "mpcProbeNodes": 541906,
+        "offNodes": 21169256,
+        "onNodes": 17522902,
+        "p90PositionRatio": 1.0192836797067748,
+        "pass": true,
+        "positions": 240
+      },
+      {
+        "aggregateNodeRatio": 0.602534888366834,
+        "bootstrapRatioUpper95": 0.6416471142431234,
+        "criteria": {
+          "aggregateReduction10Percent": true,
+          "bootstrapUpperBelow097": true,
+          "medianReduction5Percent": true,
+          "p90AtMost125": true
+        },
+        "depth": 10,
+        "games": 239,
+        "medianPositionRatio": 0.6104483214907438,
+        "mpcAttempts": 141567,
+        "mpcCutRate": 0.2735807073682426,
+        "mpcCuts": 38730,
+        "mpcProbeNodeShare": 0.0693124662219205,
+        "mpcProbeNodes": 6459297,
+        "offNodes": 154664878,
+        "onNodes": 93190985,
+        "p90PositionRatio": 0.9573139276333392,
+        "pass": true,
+        "positions": 240
+      },
+      {
+        "aggregateNodeRatio": 0.43476479275000246,
+        "bootstrapRatioUpper95": 0.46960010593679125,
+        "criteria": {
+          "aggregateReduction10Percent": true,
+          "bootstrapUpperBelow097": true,
+          "medianReduction5Percent": true,
+          "p90AtMost125": true
+        },
+        "depth": 12,
+        "games": 239,
+        "medianPositionRatio": 0.4105107536904796,
+        "mpcAttempts": 910182,
+        "mpcCutRate": 0.28529568811512424,
+        "mpcCuts": 259671,
+        "mpcProbeNodeShare": 0.10700958330100954,
+        "mpcProbeNodes": 51050097,
+        "offNodes": 1097285224,
+        "onNodes": 477060983,
+        "p90PositionRatio": 0.8409478511029524,
+        "pass": true,
+        "positions": 240
+      }
+    ],
+    "pass": true
+  },
+  "gate3": {
+    "bMinusA": {
+      "depthPlusOneRate": 0.058333333333333334,
+      "loss4CountDifference": 1,
+      "meanRegretDifference": 0.18333333333333332,
+      "medianDepthDifference": 0.0,
+      "pairedBootstrapUpper95": 0.6166666666666667,
+      "shallowerRate": 0.08333333333333333
+    },
+    "configurations": {
+      "A": {
+        "aspirationFailHigh": 828,
+        "aspirationFailLow": 923,
+        "exact": {
+          "boundProofCompleted": 1132,
+          "completionRate": 0.9286300246103364,
+          "exactNodes": 7679309,
+          "invalidAccountingRows": 0,
+          "leafAttempts": 1219,
+          "leafCompleted": 1132,
+          "quotaAborts": 71,
+          "rootAttempts": 0,
+          "rootCompleted": 0,
+          "totalNodes": 19200018
+        },
+        "loss4Count": 28,
+        "loss4Rate": 0.23333333333333334,
+        "meanDepth": 8.783333333333333,
+        "meanNodes": 160000.15,
+        "meanRegret": 1.65,
+        "medianDepth": 9.0,
+        "mpcAttempts": 0,
+        "mpcCutRate": 0.0,
+        "mpcCuts": 0,
+        "mpcProbeNodeShare": 0.0,
+        "mpcProbeNodes": 0,
+        "positions": 120,
+        "wallLimitHits": 0
+      },
+      "B": {
+        "aspirationFailHigh": 0,
+        "aspirationFailLow": 0,
+        "exact": {
+          "boundProofCompleted": 329,
+          "completionRate": 0.8152866242038217,
+          "exactNodes": 7524131,
+          "invalidAccountingRows": 0,
+          "leafAttempts": 471,
+          "leafCompleted": 384,
+          "quotaAborts": 70,
+          "rootAttempts": 0,
+          "rootCompleted": 0,
+          "totalNodes": 19200031
+        },
+        "loss4Count": 29,
+        "loss4Rate": 0.24166666666666667,
+        "meanDepth": 8.758333333333333,
+        "meanNodes": 160000.25833333333,
+        "meanRegret": 1.8333333333333333,
+        "medianDepth": 9.0,
+        "mpcAttempts": 4951,
+        "mpcCutRate": 0.4570793779034538,
+        "mpcCuts": 2263,
+        "mpcProbeNodeShare": 0.005933480003235412,
+        "mpcProbeNodes": 113923,
+        "positions": 120,
+        "wallLimitHits": 0
+      },
+      "C": {
+        "aspirationFailHigh": 835,
+        "aspirationFailLow": 933,
+        "exact": {
+          "boundProofCompleted": 1131,
+          "completionRate": 0.9285714285714286,
+          "exactNodes": 7751442,
+          "invalidAccountingRows": 0,
+          "leafAttempts": 1218,
+          "leafCompleted": 1131,
+          "quotaAborts": 71,
+          "rootAttempts": 0,
+          "rootCompleted": 0,
+          "totalNodes": 19200020
+        },
+        "loss4Count": 27,
+        "loss4Rate": 0.225,
+        "meanDepth": 8.85,
+        "meanNodes": 160000.16666666666,
+        "meanRegret": 1.6666666666666667,
+        "medianDepth": 9.0,
+        "mpcAttempts": 7682,
+        "mpcCutRate": 0.3594116115594897,
+        "mpcCuts": 2761,
+        "mpcProbeNodeShare": 0.006794367922533414,
+        "mpcProbeNodes": 130452,
+        "positions": 120,
+        "wallLimitHits": 0
+      },
+      "D": {
+        "aspirationFailHigh": 0,
+        "aspirationFailLow": 0,
+        "exact": {
+          "boundProofCompleted": 328,
+          "completionRate": 0.8179871520342612,
+          "exactNodes": 7476174,
+          "invalidAccountingRows": 0,
+          "leafAttempts": 467,
+          "leafCompleted": 382,
+          "quotaAborts": 70,
+          "rootAttempts": 0,
+          "rootCompleted": 0,
+          "totalNodes": 19200026
+        },
+        "loss4Count": 28,
+        "loss4Rate": 0.23333333333333334,
+        "meanDepth": 8.683333333333334,
+        "meanNodes": 160000.21666666667,
+        "meanRegret": 1.7166666666666666,
+        "medianDepth": 9.0,
+        "mpcAttempts": 0,
+        "mpcCutRate": 0.0,
+        "mpcCuts": 0,
+        "mpcProbeNodeShare": 0.0,
+        "mpcProbeNodes": 0,
+        "positions": 120,
+        "wallLimitHits": 0
+      }
+    },
+    "criteria": {
+      "allConfigurationsDeterministic": true,
+      "depthGain": false,
+      "exactAccountingNormal": true,
+      "loss4RateNoIncrease": false,
+      "meanRegretDiffAtMost010": false,
+      "pairedBootstrapUpperAtMost050": false,
+      "shallowerAtMost10Percent": true,
+      "wallLimitHitZero": true
+    },
+    "determinism": {
+      "A": {
+        "mismatchCount": 0,
+        "mismatches": [],
+        "pass": true
+      },
+      "B": {
+        "mismatchCount": 0,
+        "mismatches": [],
+        "pass": true
+      },
+      "C": {
+        "mismatchCount": 0,
+        "mismatches": [],
+        "pass": true
+      },
+      "D": {
+        "mismatchCount": 0,
+        "mismatches": [],
+        "pass": true
+      }
+    },
+    "pass": false
+  },
+  "inputs": {
+    "gate2Off": {
+      "path": ".t156d-gate2-off.json",
+      "sha256": "f658dd8eec9b1ac4252117c6bbb00c5efd50362b505be8c1cbb32dbd8e31c91b"
+    },
+    "gate2On": {
+      "path": ".t156d-gate2-on.json",
+      "sha256": "e95c05c9423e4337732a7dc72dc63d846a311d172871d96c16eb652fe1edb39d"
+    },
+    "gate3A": {
+      "path": ".t156d-gate3-a.json",
+      "sha256": "76f31566b398757828c6c329c22f8f3cb3e080a1f345e0b4751997f1db326384"
+    },
+    "gate3ARepeat": {
+      "path": ".t156d-gate3-a-repeat.json",
+      "sha256": "76f31566b398757828c6c329c22f8f3cb3e080a1f345e0b4751997f1db326384"
+    },
+    "gate3B": {
+      "path": ".t156d-gate3-b.json",
+      "sha256": "07e6a6508ae902f52b3c9bcced95376c7e17d189deb9375c5372e666771ad0f7"
+    },
+    "gate3BRepeat": {
+      "path": ".t156d-gate3-b-repeat.json",
+      "sha256": "07e6a6508ae902f52b3c9bcced95376c7e17d189deb9375c5372e666771ad0f7"
+    },
+    "gate3C": {
+      "path": ".t156d-gate3-c.json",
+      "sha256": "6d8cb4baddeb76f12353fdcce7a1e0eaa9a95426a5c52cb8bec01d45c847b4d4"
+    },
+    "gate3CRepeat": {
+      "path": ".t156d-gate3-c-repeat.json",
+      "sha256": "6d8cb4baddeb76f12353fdcce7a1e0eaa9a95426a5c52cb8bec01d45c847b4d4"
+    },
+    "gate3D": {
+      "path": ".t156d-gate3-d.json",
+      "sha256": "f839855a8aaeb88546ad7a00e18c3d2d98b51ea72cbd4fc014051f9d5ad07cd9"
+    },
+    "gate3DRepeat": {
+      "path": ".t156d-gate3-d-repeat.json",
+      "sha256": "f839855a8aaeb88546ad7a00e18c3d2d98b51ea72cbd4fc014051f9d5ad07cd9"
+    },
+    "oracleLabels": {
+      "path": "bench/edax-compare/t157_oracle_labels.json",
+      "sha256": "8859c779cff35be32d197b1d4bc45bf537a4afd980afe1037c88d3fbed8bec82"
+    }
+  },
+  "schemaVersion": 1
+}

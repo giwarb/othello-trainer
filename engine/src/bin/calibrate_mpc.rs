@@ -41,7 +41,7 @@
 use engine::bitboard::{Board, Side};
 use engine::mpc;
 use engine::pattern_eval::PatternWeights;
-use engine::search::{self, SearchLimit};
+use engine::search::{self, SearchLimit, SearchPolicy};
 use engine::tt::TranspositionTable;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -150,6 +150,72 @@ struct MeasurementFile {
     records: Vec<PositionMeasurement>,
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+struct GateConfig {
+    positions_fingerprint: String,
+    weights_fingerprint: String,
+    depths: Vec<u8>,
+    max_nodes: Option<u64>,
+    exact_from_empties: u8,
+    exact_quota_percent: u8,
+    mpc: bool,
+    aspiration: bool,
+    history: bool,
+    split: Option<String>,
+    min_empties: u32,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+struct GateMpcStats {
+    eligible_nodes: u64,
+    probe_attempts_high: u64,
+    probe_attempts_low: u64,
+    probe_nodes: u64,
+    cuts_high: u64,
+    cuts_low: u64,
+    skipped_pv_window: u64,
+    skipped_exact_boundary: u64,
+    skipped_uncalibrated: u64,
+    cut_depth_histogram: Vec<u64>,
+    probe_depth_histogram: Vec<u64>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+struct GateRecord {
+    id: String,
+    game_id: String,
+    empties: u32,
+    depth_requested: u8,
+    best_move: Option<String>,
+    score: i32,
+    depth: u8,
+    nodes: u64,
+    node_limit_hit: bool,
+    wall_limit_hit: bool,
+    exact_root_attempts: u32,
+    exact_leaf_attempts: u32,
+    exact_root_completed: bool,
+    exact_bound_proof_completed: u32,
+    exact_leaf_completed: u32,
+    exact_aborted_by_quota: u32,
+    exact_nodes: u64,
+    midgame_nodes: u64,
+    aspiration_fail_low: u32,
+    aspiration_fail_high: u32,
+    mpc: GateMpcStats,
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct GateFile {
+    schema_version: u32,
+    config: GateConfig,
+    records: Vec<GateRecord>,
+}
+
 fn read_positions_from_stdin() -> Vec<Position> {
     let mut input = String::new();
     io::stdin()
@@ -191,10 +257,12 @@ fn main() {
         "bench" => cmd_bench(&args[2..]),
         "measure" => cmd_measure(&args[2..]),
         "merge" => cmd_merge(&args[2..]),
+        "gate" => cmd_gate(&args[2..]),
         _ => {
             eprintln!(
                 "usage:\n  calibrate_mpc calibrate --depths \"5,6,7,8,9,10,11,12\" [--reduction N] [--pattern-weights PATH]\n  calibrate_mpc bench [--depth N] [--time-ms MS] [--pattern-weights PATH]\n  calibrate_mpc measure --positions FILE --out FILE --pattern-weights FILE [--depths 1,2,...,12] [--pilot-only] [--max-positions N]"
             );
+            eprintln!("  calibrate_mpc measure ... [--shard-count N --shard-index I]\n  calibrate_mpc merge --positions FILE --inputs SHARD1,SHARD2,... --out FILE\n  calibrate_mpc gate --positions FILE --out FILE --pattern-weights FILE --depths 8,10,12 [--configuration A|B|C|D | --mpc on|off --aspiration on|off --history on|off] [--max-nodes N] [--exact-from-empties N] [--exact-quota-percent N] [--split test] [--min-empties N] [--max-positions N]");
             std::process::exit(2);
         }
     }
@@ -223,6 +291,75 @@ fn atomic_write_json(path: &Path, value: &MeasurementFile) -> Result<(), String>
         return Err(format!("replace {}: {e}", path.display()));
     }
     Ok(())
+}
+
+fn atomic_write_gate(path: &Path, value: &GateFile) -> Result<(), String> {
+    let mut bytes = serde_json::to_vec_pretty(value).map_err(|e| e.to_string())?;
+    bytes.push(b'\n');
+    let file_name = path
+        .file_name()
+        .ok_or("output path has no file name")?
+        .to_string_lossy();
+    let temp = path.with_file_name(format!(".{file_name}.tmp-{}", std::process::id()));
+    fs::write(&temp, bytes).map_err(|e| format!("write {}: {e}", temp.display()))?;
+    if let Err(e) = fs::rename(&temp, path) {
+        let _ = fs::remove_file(&temp);
+        return Err(format!("replace {}: {e}", path.display()));
+    }
+    Ok(())
+}
+
+fn square_to_notation(idx: u8) -> String {
+    format!("{}{}", (b'a' + idx % 8) as char, (b'1' + idx / 8) as char)
+}
+
+fn parse_on_off(args: &[String], name: &str) -> bool {
+    match get_arg(args, name).as_deref() {
+        Some("on") => true,
+        Some("off") => false,
+        Some(value) => panic!("invalid {name}: {value}; expected on or off"),
+        None => panic!("missing required arg {name}"),
+    }
+}
+
+fn gate_policy(args: &[String]) -> SearchPolicy {
+    if let Some(configuration) = get_arg(args, "--configuration") {
+        assert!(
+            !["--mpc", "--aspiration", "--history"]
+                .iter()
+                .any(|flag| has_flag(args, flag)),
+            "--configuration cannot be combined with independent policy switches"
+        );
+        match configuration.as_str() {
+            "A" => SearchPolicy {
+                enable_history: true,
+                enable_aspiration: true,
+                enable_mpc: false,
+            },
+            "B" => SearchPolicy {
+                enable_history: true,
+                enable_aspiration: false,
+                enable_mpc: true,
+            },
+            "C" => SearchPolicy {
+                enable_history: true,
+                enable_aspiration: true,
+                enable_mpc: true,
+            },
+            "D" => SearchPolicy {
+                enable_history: true,
+                enable_aspiration: false,
+                enable_mpc: false,
+            },
+            _ => panic!("invalid --configuration: {configuration}; expected A, B, C, or D"),
+        }
+    } else {
+        SearchPolicy {
+            enable_mpc: parse_on_off(args, "--mpc"),
+            enable_aspiration: parse_on_off(args, "--aspiration"),
+            enable_history: parse_on_off(args, "--history"),
+        }
+    }
 }
 
 fn parse_depths(args: &[String]) -> Vec<u8> {
@@ -380,17 +517,216 @@ fn cmd_measure(args: &[String]) {
     );
 }
 
+fn cmd_gate(args: &[String]) {
+    let positions_path = PathBuf::from(get_arg(args, "--positions").expect("missing --positions"));
+    let out_path = PathBuf::from(get_arg(args, "--out").expect("missing --out"));
+    let weights_path =
+        PathBuf::from(get_arg(args, "--pattern-weights").expect("missing --pattern-weights"));
+    let positions_bytes = fs::read(&positions_path).expect("failed to read positions");
+    let weights_bytes = fs::read(&weights_path).expect("failed to read pattern weights");
+    let weights = PatternWeights::from_bytes(&weights_bytes).expect("invalid pattern weights");
+    let depths = parse_depths(args);
+    let max_nodes = get_arg_u64(args, "--max-nodes");
+    assert!(
+        max_nodes != Some(0),
+        "--max-nodes must be greater than zero"
+    );
+    let exact_from_empties = get_arg(args, "--exact-from-empties")
+        .map(|s| s.parse::<u8>().expect("invalid --exact-from-empties"))
+        .unwrap_or(0);
+    let exact_quota_percent = get_arg(args, "--exact-quota-percent")
+        .map(|s| s.parse::<u8>().expect("invalid --exact-quota-percent"))
+        .unwrap_or(60);
+    assert!(
+        exact_quota_percent <= 100,
+        "exact quota must be at most 100"
+    );
+    let split = get_arg(args, "--split");
+    let min_empties = get_arg(args, "--min-empties")
+        .map(|s| s.parse::<u32>().expect("invalid --min-empties"))
+        .unwrap_or(0);
+    let max_positions = get_arg(args, "--max-positions")
+        .map(|s| s.parse::<usize>().expect("invalid --max-positions"));
+    let policy = gate_policy(args);
+    if policy.enable_mpc && !cfg!(feature = "mpc_enabled") {
+        panic!("--mpc on requires --features mpc_enabled");
+    }
+    let config = GateConfig {
+        positions_fingerprint: fingerprint(&positions_bytes),
+        weights_fingerprint: fingerprint(&weights_bytes),
+        depths: depths.clone(),
+        max_nodes,
+        exact_from_empties,
+        exact_quota_percent,
+        mpc: policy.enable_mpc,
+        aspiration: policy.enable_aspiration,
+        history: policy.enable_history,
+        split: split.clone(),
+        min_empties,
+    };
+    let parsed: Value = serde_json::from_slice(&positions_bytes).expect("invalid positions JSON");
+    let positions = parsed
+        .as_array()
+        .or_else(|| parsed.get("positions").and_then(Value::as_array))
+        .expect("positions JSON must be an array or contain a positions array");
+    let selected: Vec<&Value> = positions
+        .iter()
+        .filter(|position| {
+            let position_split = position.get("split").and_then(Value::as_str);
+            let empties = position
+                .get("empties")
+                .and_then(Value::as_u64)
+                .expect("position missing empties") as u32;
+            split
+                .as_deref()
+                .is_none_or(|wanted| position_split == Some(wanted))
+                && empties >= min_empties
+        })
+        .take(max_positions.unwrap_or(usize::MAX))
+        .collect();
+    assert!(!selected.is_empty(), "no positions selected");
+
+    let mut output = if out_path.exists() {
+        let existing: GateFile =
+            serde_json::from_slice(&fs::read(&out_path).expect("failed to read gate checkpoint"))
+                .expect("invalid gate checkpoint JSON");
+        assert_eq!(
+            existing.schema_version, 1,
+            "gate checkpoint schema mismatch"
+        );
+        assert_eq!(
+            existing.config, config,
+            "gate checkpoint configuration changed"
+        );
+        existing
+    } else {
+        GateFile {
+            schema_version: 1,
+            config,
+            records: Vec::new(),
+        }
+    };
+    let mut completed: HashSet<(String, u8)> = output
+        .records
+        .iter()
+        .map(|record| (record.id.clone(), record.depth_requested))
+        .collect();
+    let total = selected.len() * depths.len();
+    for position in selected {
+        let id = position
+            .get("id")
+            .and_then(Value::as_str)
+            .expect("position missing id");
+        let board_text = position
+            .get("board")
+            .and_then(Value::as_str)
+            .expect("position missing board");
+        assert_eq!(board_text.len(), 64, "invalid board for {id}");
+        let board = obf_to_board(board_text);
+        let empties = position
+            .get("empties")
+            .and_then(Value::as_u64)
+            .expect("position missing empties") as u32;
+        assert_eq!(board.empty_count(), empties, "empties mismatch for {id}");
+        let side_text = position
+            .get("side_to_move")
+            .or_else(|| position.get("sideToMove"))
+            .and_then(Value::as_str)
+            .expect("position missing side_to_move");
+        let side = parse_side(side_text);
+        let game_id = position
+            .get("gameId")
+            .or_else(|| position.get("game_id"))
+            .and_then(Value::as_str)
+            .unwrap_or(id);
+        for &depth in &depths {
+            if completed.contains(&(id.to_string(), depth)) {
+                continue;
+            }
+            let limit = SearchLimit {
+                max_depth: depth,
+                time_ms: None,
+                exact_from_empties,
+            };
+            let mut tt = TranspositionTable::new(16);
+            let result = search::search_with_eval_with_policy(
+                &board,
+                side,
+                &limit,
+                &mut tt,
+                Some(&weights),
+                max_nodes,
+                exact_quota_percent,
+                policy,
+            );
+            let m = &result.mpc_stats;
+            output.records.push(GateRecord {
+                id: id.to_string(),
+                game_id: game_id.to_string(),
+                empties,
+                depth_requested: depth,
+                best_move: result.best_move.map(square_to_notation),
+                score: result.score,
+                depth: result.depth,
+                nodes: result.nodes,
+                node_limit_hit: result.node_limit_hit,
+                wall_limit_hit: result.wall_limit_hit,
+                exact_root_attempts: result.exact_root_attempts,
+                exact_leaf_attempts: result.exact_leaf_attempts,
+                exact_root_completed: result.exact_root_completed,
+                exact_bound_proof_completed: result.exact_bound_proof_completed,
+                exact_leaf_completed: result.exact_leaf_completed,
+                exact_aborted_by_quota: result.exact_aborted_by_quota,
+                exact_nodes: result.exact_nodes,
+                midgame_nodes: result.midgame_nodes,
+                aspiration_fail_low: result.aspiration_fail_low,
+                aspiration_fail_high: result.aspiration_fail_high,
+                mpc: GateMpcStats {
+                    eligible_nodes: m.eligible_nodes,
+                    probe_attempts_high: m.probe_attempts_high,
+                    probe_attempts_low: m.probe_attempts_low,
+                    probe_nodes: m.probe_nodes,
+                    cuts_high: m.cuts_high,
+                    cuts_low: m.cuts_low,
+                    skipped_pv_window: m.skipped_pv_window,
+                    skipped_exact_boundary: m.skipped_exact_boundary,
+                    skipped_uncalibrated: m.skipped_uncalibrated,
+                    cut_depth_histogram: m.cut_depth_histogram.to_vec(),
+                    probe_depth_histogram: m.probe_depth_histogram.to_vec(),
+                },
+            });
+            completed.insert((id.to_string(), depth));
+            atomic_write_gate(&out_path, &output).unwrap_or_else(|e| panic!("{e}"));
+            eprintln!(
+                "[gate] completed={}/{} id={} requested_depth={} reached_depth={} nodes={}",
+                output.records.len(),
+                total,
+                id,
+                depth,
+                result.depth,
+                result.nodes
+            );
+        }
+    }
+    eprintln!(
+        "[gate] checkpoint={} completed={}/{}",
+        out_path.display(),
+        output.records.len(),
+        total
+    );
+}
+
 fn cmd_merge(args: &[String]) {
     let positions_path = PathBuf::from(get_arg(args, "--positions").expect("missing --positions"));
     let out_path = PathBuf::from(get_arg(args, "--out").expect("missing --out"));
     let input_paths = get_arg(args, "--inputs").expect("missing --inputs");
+    let positions_bytes = fs::read(positions_path).expect("failed to read positions");
+    let positions_fingerprint = fingerprint(&positions_bytes);
     let positions: Vec<CorpusPosition> =
-        serde_json::from_slice(&fs::read(positions_path).expect("failed to read positions"))
-            .expect("invalid positions");
-    let pilot_ids: Vec<String> = positions
-        .into_iter()
-        .filter(|p| p.pilot)
-        .map(|p| p.id)
+        serde_json::from_slice(&positions_bytes).expect("invalid positions");
+    let corpus: HashMap<&str, &CorpusPosition> = positions
+        .iter()
+        .map(|position| (position.id.as_str(), position))
         .collect();
     let mut header: Option<MeasurementFile> = None;
     let mut records = HashMap::new();
@@ -398,6 +734,15 @@ fn cmd_merge(args: &[String]) {
         let mut file: MeasurementFile =
             serde_json::from_slice(&fs::read(path).unwrap_or_else(|e| panic!("read {path}: {e}")))
                 .unwrap_or_else(|e| panic!("parse {path}: {e}"));
+        assert_eq!(file.schema_version, 1, "schemaVersion mismatch in {path}");
+        assert_eq!(
+            file.positions_fingerprint, positions_fingerprint,
+            "positions fingerprint does not match --positions in {path}"
+        );
+        assert!(
+            !file.depths.is_empty() && file.depths.windows(2).all(|window| window[0] < window[1]),
+            "invalid depth set in {path}"
+        );
         if let Some(first) = &header {
             assert_eq!(file.positions_fingerprint, first.positions_fingerprint);
             assert_eq!(file.weights_fingerprint, first.weights_fingerprint);
@@ -414,21 +759,71 @@ fn cmd_merge(args: &[String]) {
             });
         }
         for record in file.records.drain(..) {
+            let source = corpus
+                .get(record.id.as_str())
+                .unwrap_or_else(|| panic!("unknown position {} in {path}", record.id));
+            assert_eq!(
+                record.empties, source.empties,
+                "empties mismatch for {}",
+                record.id
+            );
+            assert_eq!(
+                record.empty_bucket, source.empty_bucket,
+                "bucket mismatch for {}",
+                record.id
+            );
+            assert_eq!(
+                record.split, source.split,
+                "split mismatch for {}",
+                record.id
+            );
+            assert_eq!(
+                record.game_id, source.game_id,
+                "gameId mismatch for {}",
+                record.id
+            );
+            let result_depths: Vec<u8> = record.results.iter().map(|result| result.depth).collect();
+            assert_eq!(
+                result_depths, file.depths,
+                "record depth set mismatch for {}",
+                record.id
+            );
             if let Some(previous) = records.insert(record.id.clone(), record.clone()) {
+                assert_eq!(
+                    previous.empties, record.empties,
+                    "duplicate empties mismatch"
+                );
+                assert_eq!(
+                    previous.empty_bucket, record.empty_bucket,
+                    "duplicate bucket mismatch"
+                );
+                assert_eq!(previous.split, record.split, "duplicate split mismatch");
+                assert_eq!(
+                    previous.game_id, record.game_id,
+                    "duplicate gameId mismatch"
+                );
                 assert_eq!(previous.results, record.results, "conflicting duplicate");
             }
         }
     }
     let mut merged = header.expect("no inputs");
-    merged.records = pilot_ids
+    let expected_ids: Vec<&str> = positions
+        .iter()
+        .filter(|position| !merged.pilot_only || position.pilot)
+        .map(|position| position.id.as_str())
+        .collect();
+    merged.records = expected_ids
         .iter()
         .map(|id| {
             records
-                .remove(id)
+                .remove(*id)
                 .unwrap_or_else(|| panic!("missing record {id}"))
         })
         .collect();
-    assert!(records.is_empty(), "unexpected non-pilot records");
+    assert!(
+        records.is_empty(),
+        "unexpected records for selected pilotOnly mode"
+    );
     atomic_write_json(&out_path, &merged).unwrap_or_else(|e| panic!("{e}"));
     eprintln!(
         "[merge] wrote {} records to {}",
