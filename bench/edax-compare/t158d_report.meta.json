@@ -1,0 +1,196 @@
+{
+  "schemaVersion": 1,
+  "task": "T158d",
+  "stage": "full_60_game_run",
+  "decision": "no_verdict_material_only",
+  "note": "Final adoption decision is left to the coordinator/user; this worker presents statistical facts only, per manifest adoptionRule.",
+  "pilotReportUnchanged": {
+    "files": [
+      "bench/edax-compare/t158d_pilot_report.md",
+      "bench/edax-compare/t158d_pilot_report.meta.json",
+      "bench/edax-compare/endgame-results/t158d-candidate-vs-edax-results.json",
+      "bench/edax-compare/endgame-results/t158d-v4-vs-edax-results.json"
+    ],
+    "verified": true
+  },
+  "provenanceVerification": {
+    "manifestSource": "bench/edax-compare/t158c_screening_report.meta.json#deferredT158d",
+    "verifiedImmediatelyBeforeStage2Execution": true,
+    "candidateWeightSha256Manifest": "dae9af0b4d9e3322c6e2181071b095bca1f2272e69ba85d0e828f21e29c7c5ec",
+    "candidateWeightSha256Measured": "dae9af0b4d9e3322c6e2181071b095bca1f2272e69ba85d0e828f21e29c7c5ec",
+    "baselineWeightSha256Manifest": "c372b83366c4006023ae05f3af5b68dda5929aca7ff7308d1b398a89639e383f",
+    "baselineWeightSha256Measured": "c372b83366c4006023ae05f3af5b68dda5929aca7ff7308d1b398a89639e383f",
+    "edaxExecutableSha256Manifest": "aabb5ac7d3f9a872fc0e7388ab1eee1d23c687f76c28642122524dc318b322b1",
+    "edaxExecutableSha256Measured": "aabb5ac7d3f9a872fc0e7388ab1eee1d23c687f76c28642122524dc318b322b1",
+    "edaxEvalDataSha256Manifest": "f8b2299612d9fa4414157e70e932636e33111c2602d0c2fc382a7d90ef21b792",
+    "edaxEvalDataSha256Measured": "f8b2299612d9fa4414157e70e932636e33111c2602d0c2fc382a7d90ef21b792",
+    "openingSetSha256Manifest": "7a340c17b02f85a29d5ff296b46ab19aac13f185de7bc03eaf574d6290be81e2",
+    "openingSetSha256Measured": "7a340c17b02f85a29d5ff296b46ab19aac13f185de7bc03eaf574d6290be81e2",
+    "gitCommitAtStage2": "4990bb98d23a00f233e6cf411e22131206073e2f",
+    "engineDirCommitsSinceT158cScreening": 0,
+    "evalCliSha256BothRuns": "c19f8633ce4f4346ca64a2b5a7c294d4d78e43a9be476de8e923e1056ec3570e",
+    "evalCliSha256MatchesT158cScreeningManifest": true,
+    "allMatched": true
+  },
+  "resumeFromStage1Checkpoint": {
+    "attempted": false,
+    "reason": "vs_edax.py's ResultsCheckpoint.try_resume() gates on exact runKey equality (JSON-serialized settings dict, which includes opening_count/opening_limit). Stage 1's checkpoint (opening_count=3, opening_limit=3) has a different runKey than stage 2 (opening_count=30, opening_limit=None), so pointing --results-output at the stage-1 file would trigger 'runKey mismatch, starting fresh' and discard the 6 saved games rather than skip them. Removing opening_count/opening_limit from the run_key to fix this would itself require editing vs_edax.py again, which changes harnessSha256 (part of PROVENANCE_IDENTITY_KEYS) and would ALSO invalidate resume against the stage-1 checkpoint via the provenance check. A harness-migration script (same pattern as migrate_t114_exact_threshold_20.py etc.) could work around this but was judged not worth the added risk/complexity for ~170s of recompute per side.",
+    "mitigation": "Ran the full 30-opening command (identical to stage 1 minus --opening-limit) against new output file names (*-full.json/*-full.md), which recomputes openings 1-3 as part of one coherent run rather than skipping them. Per-game atomic checkpoint/resume-on-interruption is still fully exercised WITHIN this stage-2 invocation (would resume correctly if this run itself were interrupted, same mechanism verified in stage 1's interrupt test) — only the specific carry-over from the stage-1 file was not used.",
+    "recomputeCostSec": {"candidate": 80.4, "v4": 89.6, "totalOfStage2RuntimeSec": {"candidate": 789.2, "v4": 816.0}, "fractionOfTotal": 0.058},
+    "determinismCrossCheck": {
+      "method": "compared stage-1 pilot's 6 games (per side) against the first 6 games of stage 2's full 30-opening run (same opening/color/weights)",
+      "result": "exact match on margin and ply count for all 12 comparisons (6 candidate + 6 v4)",
+      "candidatePairs": [
+        {"opening": "primary-01", "color": "black", "pilotMargin": -18, "fullRunMargin": -18, "pilotPlies": 49, "fullRunPlies": 49},
+        {"opening": "primary-01", "color": "white", "pilotMargin": -18, "fullRunMargin": -18, "pilotPlies": 49, "fullRunPlies": 49},
+        {"opening": "primary-02", "color": "black", "pilotMargin": -38, "fullRunMargin": -38, "pilotPlies": 50, "fullRunPlies": 50},
+        {"opening": "primary-02", "color": "white", "pilotMargin": -16, "fullRunMargin": -16, "pilotPlies": 50, "fullRunPlies": 50},
+        {"opening": "primary-03", "color": "black", "pilotMargin": -32, "fullRunMargin": -32, "pilotPlies": 49, "fullRunPlies": 49},
+        {"opening": "primary-03", "color": "white", "pilotMargin": 20, "fullRunMargin": 20, "pilotPlies": 49, "fullRunPlies": 49}
+      ],
+      "v4Pairs": [
+        {"opening": "primary-01", "color": "black", "pilotMargin": -36, "fullRunMargin": -36, "pilotPlies": 49, "fullRunPlies": 49},
+        {"opening": "primary-01", "color": "white", "pilotMargin": -22, "fullRunMargin": -22, "pilotPlies": 49, "fullRunPlies": 49},
+        {"opening": "primary-02", "color": "black", "pilotMargin": -44, "fullRunMargin": -44, "pilotPlies": 50, "fullRunPlies": 50},
+        {"opening": "primary-02", "color": "white", "pilotMargin": -8, "fullRunMargin": -8, "pilotPlies": 50, "fullRunPlies": 50},
+        {"opening": "primary-03", "color": "black", "pilotMargin": -32, "fullRunMargin": -32, "pilotPlies": 49, "fullRunPlies": 49},
+        {"opening": "primary-03", "color": "white", "pilotMargin": -6, "fullRunMargin": -6, "pilotPlies": 49, "fullRunPlies": 49}
+      ]
+    }
+  },
+  "protocol": {
+    "engineDepth": 12,
+    "engineExactFromEmpties": 16,
+    "engineExactQuotaPercent": 60,
+    "engineMaxNodes": 160000,
+    "engineTimeMs": 1500,
+    "engineTtMiB": 64,
+    "unlimitedExactEmpties": 20,
+    "engineModes": ["single-root"],
+    "edaxLevels": [10],
+    "openingSet": "primary",
+    "openingCount": 30,
+    "sourceOfTruth": "identical to T158d stage 1 / T125 production adoption gate"
+  },
+  "execution": {
+    "sequential": true,
+    "concurrencyAvoidedReason": "wall-clock (--engine-time-ms 1500) budgeted search phase; concurrent processes would cause CPU contention and silently alter search depth/results",
+    "candidate": {
+      "resultsPath": "bench/edax-compare/endgame-results/t158d-candidate-vs-edax-results-full.json",
+      "reportPath": "bench/edax-compare/endgame-results/t158d-candidate-vs-edax-report-full.md",
+      "startedAtLocal": "2026-07-21T04:05:25+09:00",
+      "finishedAtLocal": "2026-07-21T04:18:53+09:00",
+      "totalWallClockSec": 808,
+      "gamesWallClockSumSec": 789.175,
+      "gamesWallClockMeanSec": 13.153,
+      "gamesCompleted": 60,
+      "fixedDepthRegressionAllMatched": true,
+      "nodeBudgetRegressionAllMatched": true,
+      "stderrEmpty": true
+    },
+    "v4": {
+      "resultsPath": "bench/edax-compare/endgame-results/t158d-v4-vs-edax-results-full.json",
+      "reportPath": "bench/edax-compare/endgame-results/t158d-v4-vs-edax-report-full.md",
+      "startedAtLocal": "2026-07-21T04:19:15+09:00",
+      "finishedAtLocal": "2026-07-21T04:33:08+09:00",
+      "totalWallClockSec": 833,
+      "gamesWallClockSumSec": 816.042,
+      "gamesWallClockMeanSec": 13.601,
+      "gamesCompleted": 60,
+      "fixedDepthRegressionAllMatched": true,
+      "nodeBudgetRegressionAllMatched": true,
+      "stderrEmpty": true
+    },
+    "combinedTotalWallClockSec": 1641,
+    "combinedTotalWallClockMinutes": 27.4,
+    "stage1EstimateMinutes": 28.8,
+    "estimateAccuracy": "actual (27.4 min) came in slightly under the stage-1 estimate (28.8 min)"
+  },
+  "results": {
+    "candidate": {"wins": 9, "draws": 1, "losses": 50, "marginSum": -1360, "marginMean": -22.667, "marginMedian": -22},
+    "v4": {"wins": 4, "draws": 2, "losses": 54, "marginSum": -1447, "marginMean": -24.117, "marginMedian": -24},
+    "historicalT125V4Reference": {"wins": 4, "draws": 2, "losses": 54, "marginMean": -24.0167, "note": "informational only; different engine binary (evalCliSha256 differs), not a statistical comparison"}
+  },
+  "statistics": {
+    "openingLevel": {
+      "n": 30,
+      "meanDiff": 1.45,
+      "improved": 16,
+      "worsened": 12,
+      "tied": 2,
+      "bootstrap": {
+        "method": "paired bootstrap percentile CI, identical algorithm to bench/edax-compare/compare_pattern_v3.py#paired_bootstrap (random.Random(seed), resample-with-replacement len(diffs) draws per sample via rng.choice, mean each sample, sort, percentile 2.5/97.5)",
+        "seed": 158004,
+        "samples": 100000,
+        "ci95": [-1.5667, 4.6],
+        "classification": "no_significant_difference"
+      },
+      "signTest": {
+        "method": "scipy.stats.binomtest, two-sided, p=0.5, excluding ties",
+        "n": 28,
+        "improved": 16,
+        "pValue": 0.5715881884098053
+      }
+    },
+    "gameLevel": {
+      "n": 60,
+      "meanDiff": 1.45,
+      "improved": 28,
+      "worsened": 27,
+      "tied": 5,
+      "bootstrap": {
+        "seed": 158005,
+        "samples": 100000,
+        "ci95": [-1.8, 4.7667]
+      },
+      "signTest": {
+        "n": 55,
+        "improved": 28,
+        "pValue": 1.0
+      },
+      "note": "supplementary finer-grained view; mean matches opening-level exactly by linearity"
+    },
+    "adoptionRuleFacts": "manifest adoptionRule = 'retain production v4 absent significant or practically meaningful T158d improvement'. Point estimate (+1.45 discs/game favoring candidate) is small and positive, but both CIs straddle 0 and both sign tests are far from significant (p=0.57, p=1.00). No verdict rendered by this worker; facts only."
+  },
+  "watchPoint": {
+    "budgetedToExactDeviation": {
+      "description": "Deviation between the last budgeted-phase discDiff (empties 21-22) and the first unlimited-exact discDiff (empties 20/19), across all 120 games (60 candidate + 60 v4)",
+      "pilotAsymmetryReproduced": false,
+      "pilotFinding": "candidate max 21.17 vs v4 max 5.32 (n=3 pairs)",
+      "fullRunFinding": "candidate max 21.17 (same game, primary-02/black, reproduced exactly) vs v4 max 32.44 (primary-15/white) -- v4's max is now LARGER than candidate's at n=30; the pilot's apparent asymmetry was a small-sample artifact",
+      "candidate": {"n": 60, "meanAbsDelta": 6.609, "medianAbsDelta": 5.47, "maxAbsDelta": 21.17, "maxAbsDeltaOpening": "primary-02", "maxAbsDeltaColor": "black", "stdevAbsDelta": 5.36, "exactFallbackCount": 0},
+      "v4": {"n": 60, "meanAbsDelta": 5.139, "medianAbsDelta": 3.795, "maxAbsDelta": 32.44, "maxAbsDeltaOpening": "primary-15", "maxAbsDeltaColor": "white", "stdevAbsDelta": 5.383, "exactFallbackCount": 9},
+      "exactFallbackTrend": "pilot showed candidate 0/6 vs v4 2/6; full run reproduces and scales this: candidate 0/60 vs v4 9/60. Documented exactQuotaPercent protocol behavior, not an anomaly, but flagged as a follow-up efficiency observation."
+    },
+    "signFlips": {
+      "description": "Games where budgeted-phase discDiff sign differs from the first unlimited-exact discDiff sign (i.e. apparent lead/deficit reversed by full readout)",
+      "candidate": {"count": 4, "of": 60, "games": [
+        {"opening": "primary-16", "color": "white", "budgeted": 9.82, "exact": -10.0, "finalMargin": -10},
+        {"opening": "primary-19", "color": "white", "budgeted": -8.35, "exact": 4.0, "finalMargin": 4},
+        {"opening": "primary-15", "color": "white", "budgeted": 2.30, "exact": -8.0, "finalMargin": -8},
+        {"opening": "primary-26", "color": "white", "budgeted": 3.39, "exact": -6.0, "finalMargin": -6}
+      ]},
+      "v4": {"count": 4, "of": 60, "games": [
+        {"opening": "primary-19", "color": "white", "budgeted": 1.14, "exact": -16.0, "finalMargin": -16},
+        {"opening": "primary-11", "color": "white", "budgeted": 0.20, "exact": -14.0, "finalMargin": -14},
+        {"opening": "primary-14", "color": "black", "budgeted": 1.58, "exact": -4.0, "finalMargin": -4},
+        {"opening": "primary-22", "color": "white", "budgeted": 0.74, "exact": -2.0, "finalMargin": -2}
+      ]},
+      "conclusion": "identical flip count (4/60 each side); all flips originate from small near-zero budgeted values (largest magnitude 9.82 for candidate, 1.58 for v4) reversed by exact solve -- a generic property of shallow budgeted search near empties=21, not a candidate-specific defect. No catastrophic reversal (large apparent lead flipping to a large loss) observed on either side."
+    }
+  },
+  "anomalyCheck": {
+    "crashes": 0,
+    "illegalMoves": 0,
+    "nondeterminism": 0,
+    "fixedDepthRegression": {"candidate": "PASSED 40/40", "v4": "PASSED 40/40"},
+    "nodeBudgetRegression": {"candidate": "PASSED 10/10", "v4": "PASSED 10/10"},
+    "stderrLogsEmpty": true
+  },
+  "verdict": "none (material only, per task scope)",
+  "outOfScope": [
+    "final adoption/production decision",
+    "placing any weight file under train/weights/",
+    "engine/train code changes"
+  ]
+}
