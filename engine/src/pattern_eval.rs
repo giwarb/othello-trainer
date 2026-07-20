@@ -40,7 +40,7 @@
 //! ラベル単位である素の石差をそのまま返す方が`train`クレートとの対応が明確に
 //! なるため)。
 
-use crate::bitboard::{Board, Side};
+use crate::bitboard::{empty_adjacency_incidence, legal_moves_relative, Board, Side};
 use crate::patterns::{self, PatternCells, PatternClassInfo};
 
 /// ステージ数。`stage = empty_count / STAGE_EMPTY_DIVISOR`で、空きマス数0..60を
@@ -73,6 +73,59 @@ pub struct PatternWeightTable {
     pub stage_tables: Vec<Vec<f32>>,
 }
 
+/// PWV4 scalar feature identifiers. The numeric values are part of the file format.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[repr(u8)]
+pub enum ScalarFeatureKind {
+    ExactMobilityAdvantage = 1,
+    EmptyAdjacencyExposureAdvantage = 2,
+}
+
+impl ScalarFeatureKind {
+    fn from_u8(value: u8) -> Option<Self> {
+        match value {
+            1 => Some(Self::ExactMobilityAdvantage),
+            2 => Some(Self::EmptyAdjacencyExposureAdvantage),
+            _ => None,
+        }
+    }
+
+    pub fn scale_shift(self) -> u8 {
+        match self {
+            Self::ExactMobilityAdvantage => 3,
+            Self::EmptyAdjacencyExposureAdvantage => 5,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ScalarFeatureWeights {
+    pub kind: ScalarFeatureKind,
+    pub scale_shift: u8,
+    pub weights: Vec<f32>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ScalarFeatures {
+    pub exact_mobility_advantage: i32,
+    pub empty_adjacency_exposure_advantage: i32,
+}
+
+/// Compute both PWV4 scalar features using mover-relative integer bitboards.
+pub fn scalar_features(board: &Board, mover: Side) -> ScalarFeatures {
+    let (own, opp) = match mover {
+        Side::Black => (board.black, board.white),
+        Side::White => (board.white, board.black),
+    };
+    let empty = !(own | opp);
+    ScalarFeatures {
+        exact_mobility_advantage: legal_moves_relative(own, opp, empty).count_ones() as i32
+            - legal_moves_relative(opp, own, empty).count_ones() as i32,
+        empty_adjacency_exposure_advantage: empty_adjacency_incidence(opp, empty) as i32
+            - empty_adjacency_incidence(own, empty) as i32,
+    }
+}
+
 /// パターン形状の定義(`patterns`)・対称オービットのクラス分類(`class_info`)と、
 /// それに対応する重み一式(`class_tables`、`class_tables[class_id]`が
 /// そのクラスに属す全インスタンス共有の重み)を持つ、読み取り専用の
@@ -92,6 +145,9 @@ pub struct PatternWeights {
     pub class_tables: Vec<PatternWeightTable>,
     pub num_stages: usize,
     pub stage_empty_divisor: u32,
+    /// Empty for PWV1-PWV3. PWV4 stores at most one entry of each known kind.
+    pub scalar_feature_weights: Vec<ScalarFeatureWeights>,
+    scalar_features_enabled: bool,
 }
 
 fn sha256(input: &[u8]) -> [u8; 32] {
@@ -185,6 +241,29 @@ fn schema_hash(
     sha256(&schema)
 }
 
+fn schema_hash_v4(
+    patterns: &[PatternCells],
+    class_of: &[usize],
+    num_stages: usize,
+    stage_empty_divisor: u32,
+    scalar_features: &[ScalarFeatureWeights],
+) -> [u8; 32] {
+    let mut schema = Vec::new();
+    schema.extend_from_slice(&(num_stages as u32).to_le_bytes());
+    schema.extend_from_slice(&stage_empty_divisor.to_le_bytes());
+    for (cells, &class_id) in patterns.iter().zip(class_of) {
+        schema.extend_from_slice(&(class_id as u16).to_le_bytes());
+        schema.push(cells.len() as u8);
+        schema.extend_from_slice(cells);
+    }
+    schema.extend_from_slice(&(scalar_features.len() as u32).to_le_bytes());
+    for feature in scalar_features {
+        schema.push(feature.kind as u8);
+        schema.push(feature.scale_shift);
+    }
+    sha256(&schema)
+}
+
 impl PatternWeights {
     /// パターン定義から、対称オービットのクラス分類([`patterns::compute_pattern_classes`])
     /// を行い、全クラスの重みを0初期化したモデルを作る
@@ -221,7 +300,39 @@ impl PatternWeights {
             class_tables,
             num_stages,
             stage_empty_divisor,
+            scalar_feature_weights: Vec::new(),
+            scalar_features_enabled: true,
         }
+    }
+
+    /// Add the two T158 scalar features with zero coefficients.
+    pub fn with_zeroed_scalar_features(mut self) -> Self {
+        assert_eq!(self.num_stages, V4_NUM_STAGES);
+        assert_eq!(self.stage_empty_divisor, V4_STAGE_EMPTY_DIVISOR);
+        self.scalar_feature_weights = [
+            ScalarFeatureKind::ExactMobilityAdvantage,
+            ScalarFeatureKind::EmptyAdjacencyExposureAdvantage,
+        ]
+        .into_iter()
+        .map(|kind| ScalarFeatureWeights {
+            kind,
+            scale_shift: kind.scale_shift(),
+            weights: vec![0.0; self.num_stages],
+        })
+        .collect();
+        self
+    }
+
+    pub fn has_scalar_features(&self) -> bool {
+        !self.scalar_feature_weights.is_empty()
+    }
+
+    pub fn scalar_features_enabled(&self) -> bool {
+        self.has_scalar_features() && self.scalar_features_enabled
+    }
+
+    pub fn set_scalar_features_enabled(&mut self, enabled: bool) {
+        self.scalar_features_enabled = enabled;
     }
 
     /// この重みが持つステージ定義で空きマス数をステージ番号へ変換する。
@@ -241,6 +352,30 @@ impl PatternWeights {
             let cells = &self.class_info.aligned_cells[i];
             let state = patterns::pattern_state_index(cells, board, mover);
             sum += self.class_tables[class_id].stage_tables[stage][state as usize];
+        }
+        if self.scalar_features_enabled() {
+            let values = scalar_features(board, mover);
+            for kind in [
+                ScalarFeatureKind::ExactMobilityAdvantage,
+                ScalarFeatureKind::EmptyAdjacencyExposureAdvantage,
+            ] {
+                if let Some(feature) = self
+                    .scalar_feature_weights
+                    .iter()
+                    .find(|feature| feature.kind == kind)
+                {
+                    let raw = match kind {
+                        ScalarFeatureKind::ExactMobilityAdvantage => {
+                            values.exact_mobility_advantage
+                        }
+                        ScalarFeatureKind::EmptyAdjacencyExposureAdvantage => {
+                            values.empty_adjacency_exposure_advantage
+                        }
+                    };
+                    sum += feature.weights[stage]
+                        * (raw as f32 / (1u32 << feature.scale_shift) as f32);
+                }
+            }
         }
         sum
     }
@@ -322,6 +457,56 @@ impl PatternWeights {
         buf
     }
 
+    /// Serialize the self-describing PWV4 format with scalar feature metadata.
+    pub fn to_bytes_v4(&self) -> Vec<u8> {
+        assert!(!self.scalar_feature_weights.is_empty());
+        assert_eq!(self.num_stages, V4_NUM_STAGES);
+        assert_eq!(self.stage_empty_divisor, V4_STAGE_EMPTY_DIVISOR);
+        let mut buf = Vec::new();
+        buf.extend_from_slice(b"PWV4");
+        buf.extend_from_slice(&4u32.to_le_bytes());
+        buf.extend_from_slice(&0u32.to_le_bytes());
+        buf.extend_from_slice(&(self.num_stages as u32).to_le_bytes());
+        buf.extend_from_slice(&self.stage_empty_divisor.to_le_bytes());
+        buf.extend_from_slice(&(self.patterns.len() as u32).to_le_bytes());
+        buf.extend_from_slice(&(self.class_tables.len() as u32).to_le_bytes());
+        buf.extend_from_slice(&(self.scalar_feature_weights.len() as u32).to_le_bytes());
+        buf.extend_from_slice(&schema_hash_v4(
+            &self.class_info.aligned_cells,
+            &self.class_info.class_of,
+            self.num_stages,
+            self.stage_empty_divisor,
+            &self.scalar_feature_weights,
+        ));
+        for (i, cells) in self.class_info.aligned_cells.iter().enumerate() {
+            buf.push(cells.len() as u8);
+            buf.extend_from_slice(&(self.class_info.class_of[i] as u16).to_le_bytes());
+            buf.extend_from_slice(cells);
+        }
+        for (class_id, &rep_idx) in self.class_info.representative_of_class.iter().enumerate() {
+            let cells = &self.class_info.aligned_cells[rep_idx];
+            let table = &self.class_tables[class_id];
+            buf.push(cells.len() as u8);
+            buf.extend_from_slice(&table.num_states.to_le_bytes());
+            for stage_table in &table.stage_tables {
+                for &weight in stage_table {
+                    buf.extend_from_slice(&weight.to_le_bytes());
+                }
+            }
+        }
+        for feature in &self.scalar_feature_weights {
+            assert_eq!(feature.scale_shift, feature.kind.scale_shift());
+            assert_eq!(feature.weights.len(), self.num_stages);
+            buf.push(feature.kind as u8);
+            buf.push(feature.scale_shift);
+            buf.extend_from_slice(&0u16.to_le_bytes());
+            for &weight in &feature.weights {
+                buf.extend_from_slice(&weight.to_le_bytes());
+            }
+        }
+        buf
+    }
+
     /// [`to_bytes`](Self::to_bytes)の逆変換。マジックバイトで新旧フォーマットを
     /// 判別する:
     /// - `"PWV2"`(本タスクT044で導入): クラスごとの重みテーブルを読み込み、
@@ -338,11 +523,160 @@ impl PatternWeights {
             return Err("重みファイルが短すぎます".to_string());
         }
         match &bytes[0..4] {
+            b"PWV4" => Self::from_bytes_v4(bytes),
             b"PWV3" => Self::from_bytes_v3(bytes),
             b"PWV2" => Self::from_bytes_v2(bytes),
             b"PWV1" => Self::from_bytes_v1(bytes),
             magic => Err(format!("不正なマジックバイト: {magic:?}")),
         }
+    }
+
+    fn from_bytes_v4(bytes: &[u8]) -> Result<PatternWeights, String> {
+        let mut pos = 0usize;
+        let read_bytes = |pos: &mut usize, n: usize| -> Result<&[u8], String> {
+            let end = pos
+                .checked_add(n)
+                .ok_or_else(|| "PWV4の長さがオーバーフローしました".to_string())?;
+            if end > bytes.len() {
+                return Err("PWV4が途中で終わっています".to_string());
+            }
+            let slice = &bytes[*pos..end];
+            *pos = end;
+            Ok(slice)
+        };
+        let read_u32 = |pos: &mut usize| -> Result<u32, String> {
+            Ok(u32::from_le_bytes(read_bytes(pos, 4)?.try_into().unwrap()))
+        };
+
+        read_bytes(&mut pos, 4)?;
+        if read_u32(&mut pos)? != 4 {
+            return Err("未対応のPWV4バージョンです".to_string());
+        }
+        if read_u32(&mut pos)? != 0 {
+            return Err("PWV4のflagsが不正です".to_string());
+        }
+        let num_stages = read_u32(&mut pos)? as usize;
+        let stage_divisor = read_u32(&mut pos)?;
+        if num_stages != V4_NUM_STAGES || stage_divisor != V4_STAGE_EMPTY_DIVISOR {
+            return Err("PWV4のステージ定義が一致しません".to_string());
+        }
+        let num_instances = read_u32(&mut pos)? as usize;
+        let num_classes = read_u32(&mut pos)? as usize;
+        let num_scalar_features = read_u32(&mut pos)? as usize;
+        if num_instances == 0
+            || num_instances > 256
+            || num_classes == 0
+            || num_classes > num_instances
+            || num_classes > 64
+        {
+            return Err("PWV4のinstance/class数が不正です".to_string());
+        }
+        if !(1..=2).contains(&num_scalar_features) {
+            return Err("PWV4のscalar feature数が不正です".to_string());
+        }
+        let stored_hash: [u8; 32] = read_bytes(&mut pos, 32)?.try_into().unwrap();
+
+        let mut pattern_defs = Vec::with_capacity(num_instances);
+        let mut class_of = Vec::with_capacity(num_instances);
+        for _ in 0..num_instances {
+            let cell_count = read_bytes(&mut pos, 1)?[0] as usize;
+            if cell_count == 0 || cell_count > 10 {
+                return Err("PWV4のcell_countが不正です".to_string());
+            }
+            let class_id =
+                u16::from_le_bytes(read_bytes(&mut pos, 2)?.try_into().unwrap()) as usize;
+            if class_id >= num_classes {
+                return Err("PWV4のclass_idが範囲外です".to_string());
+            }
+            let raw_cells = read_bytes(&mut pos, cell_count)?;
+            let mut cells = PatternCells::new();
+            for &cell in raw_cells {
+                cells.push(cell);
+            }
+            pattern_defs.push(cells);
+            class_of.push(class_id);
+        }
+
+        for _ in 0..num_classes {
+            read_bytes(&mut pos, 1)?;
+            let num_states = read_u32(&mut pos)? as usize;
+            let weight_bytes = num_stages
+                .checked_mul(num_states)
+                .and_then(|n| n.checked_mul(4))
+                .ok_or_else(|| "PWV4の重み数がオーバーフローしました".to_string())?;
+            read_bytes(&mut pos, weight_bytes)?;
+        }
+        let scalar_start = pos;
+        let mut scalar_feature_weights = Vec::with_capacity(num_scalar_features);
+        let mut seen = [false; 3];
+        for _ in 0..num_scalar_features {
+            let kind_value = read_bytes(&mut pos, 1)?[0];
+            let kind = ScalarFeatureKind::from_u8(kind_value)
+                .ok_or_else(|| format!("PWV4の未知scalar feature kind: {kind_value}"))?;
+            if seen[kind_value as usize] {
+                return Err(format!(
+                    "PWV4に重複scalar feature kindがあります: {kind_value}"
+                ));
+            }
+            seen[kind_value as usize] = true;
+            let scale_shift = read_bytes(&mut pos, 1)?[0];
+            if scale_shift != kind.scale_shift() {
+                return Err(format!(
+                    "PWV4のscale_shiftがkindと一致しません: {kind_value}"
+                ));
+            }
+            let reserved = u16::from_le_bytes(read_bytes(&mut pos, 2)?.try_into().unwrap());
+            if reserved != 0 {
+                return Err("PWV4のreservedが0ではありません".to_string());
+            }
+            let mut weights = Vec::with_capacity(num_stages);
+            for _ in 0..num_stages {
+                let weight = f32::from_le_bytes(read_bytes(&mut pos, 4)?.try_into().unwrap());
+                if !weight.is_finite() {
+                    return Err("PWV4にfiniteでないscalar重みがあります".to_string());
+                }
+                weights.push(weight);
+            }
+            scalar_feature_weights.push(ScalarFeatureWeights {
+                kind,
+                scale_shift,
+                weights,
+            });
+        }
+        if pos != bytes.len() {
+            return Err("PWV4に余剰bytesがあります".to_string());
+        }
+        if schema_hash_v4(
+            &pattern_defs,
+            &class_of,
+            num_stages,
+            stage_divisor,
+            &scalar_feature_weights,
+        ) != stored_hash
+        {
+            return Err("PWV4のschema hashが一致しません".to_string());
+        }
+
+        // Reuse the unchanged PWV3 parser for the pattern portion and its D4 validation.
+        let mut pwv3 = Vec::with_capacity(scalar_start);
+        pwv3.extend_from_slice(b"PWV3");
+        pwv3.extend_from_slice(&3u32.to_le_bytes());
+        pwv3.extend_from_slice(&0u32.to_le_bytes());
+        pwv3.extend_from_slice(&(num_stages as u32).to_le_bytes());
+        pwv3.extend_from_slice(&stage_divisor.to_le_bytes());
+        pwv3.extend_from_slice(&(num_instances as u32).to_le_bytes());
+        pwv3.extend_from_slice(&(num_classes as u32).to_le_bytes());
+        pwv3.extend_from_slice(&schema_hash(
+            &pattern_defs,
+            &class_of,
+            num_stages,
+            stage_divisor,
+        ));
+        pwv3.extend_from_slice(&bytes[64..scalar_start]);
+        let mut model = Self::from_bytes_v3(&pwv3)?;
+        model.scalar_feature_weights = scalar_feature_weights;
+        model.scalar_features_enabled = true;
+        Ok(model)
     }
 
     fn from_bytes_v3(bytes: &[u8]) -> Result<PatternWeights, String> {
@@ -486,6 +820,8 @@ impl PatternWeights {
             class_tables,
             num_stages: num_stages as usize,
             stage_empty_divisor: stage_divisor,
+            scalar_feature_weights: Vec::new(),
+            scalar_features_enabled: true,
         })
     }
 
@@ -560,6 +896,8 @@ impl PatternWeights {
             class_tables,
             num_stages: NUM_STAGES,
             stage_empty_divisor: STAGE_EMPTY_DIVISOR,
+            scalar_feature_weights: Vec::new(),
+            scalar_features_enabled: true,
         })
     }
 
@@ -638,6 +976,8 @@ impl PatternWeights {
             class_tables,
             num_stages: NUM_STAGES,
             stage_empty_divisor: STAGE_EMPTY_DIVISOR,
+            scalar_feature_weights: Vec::new(),
+            scalar_features_enabled: true,
         })
     }
 }
@@ -670,6 +1010,130 @@ mod tests {
             pos += 3 + count;
         }
         pos
+    }
+
+    fn pwv4_model() -> PatternWeights {
+        PatternWeights::zeroed_with_stage_definition(
+            patterns::generate_patterns_for(patterns::PatternConfig::V3),
+            V4_NUM_STAGES,
+            V4_STAGE_EMPTY_DIVISOR,
+        )
+        .with_zeroed_scalar_features()
+    }
+
+    fn pwv4_scalar_block_offset(bytes: &[u8]) -> usize {
+        let instances = u32::from_le_bytes(bytes[20..24].try_into().unwrap()) as usize;
+        let classes = u32::from_le_bytes(bytes[24..28].try_into().unwrap()) as usize;
+        let stages = u32::from_le_bytes(bytes[12..16].try_into().unwrap()) as usize;
+        let mut pos = 64;
+        for _ in 0..instances {
+            let count = bytes[pos] as usize;
+            pos += 3 + count;
+        }
+        for _ in 0..classes {
+            let states = u32::from_le_bytes(bytes[pos + 1..pos + 5].try_into().unwrap()) as usize;
+            pos += 5 + stages * states * 4;
+        }
+        pos
+    }
+
+    #[test]
+    fn pwv4_roundtrip_preserves_scalar_schema_and_weights() {
+        let mut model = pwv4_model();
+        model.scalar_feature_weights[0].weights[17] = 1.25;
+        model.scalar_feature_weights[1].weights[60] = -2.5;
+        let bytes = model.to_bytes_v4();
+        assert_eq!(&bytes[..4], b"PWV4");
+        let restored = PatternWeights::from_bytes(&bytes).unwrap();
+        assert!(restored.scalar_features_enabled());
+        assert_eq!(
+            restored.scalar_feature_weights,
+            model.scalar_feature_weights
+        );
+        assert_eq!(restored.to_bytes_v4(), bytes);
+    }
+
+    #[test]
+    fn pwv4_rejects_corrupt_scalar_blocks_and_header() {
+        let bytes = pwv4_model().to_bytes_v4();
+        let scalar = pwv4_scalar_block_offset(&bytes);
+
+        let mut wrong_stage_count = bytes.clone();
+        wrong_stage_count[12..16].copy_from_slice(&13u32.to_le_bytes());
+        assert!(PatternWeights::from_bytes(&wrong_stage_count).is_err());
+
+        let mut unknown_kind = bytes.clone();
+        unknown_kind[scalar] = 99;
+        assert!(PatternWeights::from_bytes(&unknown_kind).is_err());
+
+        let second = scalar + 4 + V4_NUM_STAGES * 4;
+        let mut duplicate_kind = bytes.clone();
+        duplicate_kind[second] = duplicate_kind[scalar];
+        assert!(PatternWeights::from_bytes(&duplicate_kind).is_err());
+
+        let mut wrong_scale = bytes.clone();
+        wrong_scale[scalar + 1] ^= 1;
+        assert!(PatternWeights::from_bytes(&wrong_scale).is_err());
+
+        let mut nonzero_reserved = bytes.clone();
+        nonzero_reserved[scalar + 2] = 1;
+        assert!(PatternWeights::from_bytes(&nonzero_reserved).is_err());
+
+        let mut nonfinite = bytes.clone();
+        nonfinite[scalar + 4..scalar + 8].copy_from_slice(&f32::NAN.to_le_bytes());
+        assert!(PatternWeights::from_bytes(&nonfinite).is_err());
+
+        let mut trailing = bytes;
+        trailing.push(0);
+        assert!(PatternWeights::from_bytes(&trailing).is_err());
+    }
+
+    #[test]
+    fn zero_scalar_coefficients_are_bit_exact_with_pwv3_scores() {
+        let baseline_path = concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../train/weights/pattern_v4.bin"
+        );
+        let baseline_bytes = std::fs::read(baseline_path).unwrap();
+        let baseline = PatternWeights::from_bytes(&baseline_bytes).unwrap();
+        let candidate_bytes = {
+            let mut candidate = baseline.clone().with_zeroed_scalar_features();
+            candidate.scalar_features_enabled = true;
+            candidate.to_bytes_v4()
+        };
+        let candidate = PatternWeights::from_bytes(&candidate_bytes).unwrap();
+
+        let mut board = Board::initial();
+        let mut side = Side::Black;
+        for _ in 0..40 {
+            assert_eq!(
+                baseline.score(&board, side).to_bits(),
+                candidate.score(&board, side).to_bits()
+            );
+            let legal = board.legal_moves(side);
+            if legal == 0 {
+                side = side.opposite();
+                if board.legal_moves(side) == 0 {
+                    break;
+                }
+                continue;
+            }
+            board = board.apply_move(side, legal & legal.wrapping_neg());
+            side = side.opposite();
+        }
+    }
+
+    #[test]
+    fn disabling_scalar_features_restores_the_pattern_only_score() {
+        let mut model = pwv4_model();
+        model.scalar_feature_weights[1].weights.fill(32.0);
+        let board = Board {
+            black: 1u64 << 0,
+            white: 1u64 << 1,
+        };
+        assert_ne!(model.score(&board, Side::Black), 0.0);
+        model.set_scalar_features_enabled(false);
+        assert_eq!(model.score(&board, Side::Black).to_bits(), 0.0f32.to_bits());
     }
 
     #[test]
@@ -836,6 +1300,69 @@ mod tests {
             }
         }
         Board { black, white }
+    }
+
+    fn adjacency_incidence_reference(side_bits: u64, empty: u64) -> u32 {
+        let mut count = 0;
+        for side_square in 0..64u32 {
+            if side_bits & (1u64 << side_square) == 0 {
+                continue;
+            }
+            let sx = (side_square % 8) as i32;
+            let sy = (side_square / 8) as i32;
+            for empty_square in 0..64u32 {
+                if empty & (1u64 << empty_square) == 0 {
+                    continue;
+                }
+                let ex = (empty_square % 8) as i32;
+                let ey = (empty_square / 8) as i32;
+                if (sx - ex).abs() <= 1 && (sy - ey).abs() <= 1 {
+                    count += 1;
+                }
+            }
+        }
+        count
+    }
+
+    #[test]
+    fn scalar_features_match_reference_and_obey_color_and_d4_symmetry() {
+        let board = Board {
+            black: 0x0000_081c_3420_0000,
+            white: 0x0000_1020_081c_0000,
+        };
+        let empty = !(board.black | board.white);
+        assert_eq!(
+            empty_adjacency_incidence(board.black, empty),
+            adjacency_incidence_reference(board.black, empty)
+        );
+        assert_eq!(
+            empty_adjacency_incidence(board.white, empty),
+            adjacency_incidence_reference(board.white, empty)
+        );
+
+        let black = scalar_features(&board, Side::Black);
+        let swapped = Board {
+            black: board.white,
+            white: board.black,
+        };
+        let swapped_black = scalar_features(&swapped, Side::Black);
+        assert_eq!(
+            swapped_black.exact_mobility_advantage,
+            -black.exact_mobility_advantage
+        );
+        assert_eq!(
+            swapped_black.empty_adjacency_exposure_advantage,
+            -black.empty_adjacency_exposure_advantage
+        );
+
+        for sym in 0..patterns::NUM_SYMMETRIES {
+            let transformed = transform_board_for_test(&board, sym);
+            assert_eq!(
+                scalar_features(&transformed, Side::Black),
+                black,
+                "sym={sym}"
+            );
+        }
     }
 
     #[test]

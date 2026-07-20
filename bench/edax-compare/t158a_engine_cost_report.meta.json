@@ -1,0 +1,29 @@
+{
+  "task": "T158a",
+  "measuredAt": "2026-07-20T23:15:00+09:00",
+  "repetitions": 7,
+  "order": "alternating baseline/candidate, reversed every repetition",
+  "baselineSha256": "c372b83366c4006023ae05f3af5b68dda5929aca7ff7308d1b398a89639e383f",
+  "zeroFeaturePwv4Sha256": "3d4bdb7aa58ae0116983c47052230c26886a9823a981b28614eae47b397f6dd1",
+  "wasmSha256": "3df3c0eb583e6f08b819cd5df5f19ea3a7e775932543cff14d50007d8e449e98",
+  "gate1": {
+    "metric": "wasm fixed-depth NPS ratio",
+    "ratio": 0.959385109384709,
+    "threshold": 0.9,
+    "decision": "pass_to_gate_2",
+    "productionDominantLimit": "nodes",
+    "productionNodeLimitHit": true,
+    "productionTimedOut": false
+  },
+  "native": {
+    "micro": { "evaluations": 200000, "baselineMedianNs": 69696700, "baselineRangeNs": [69186400, 72470100], "candidateMedianNs": 87403700, "candidateRangeNs": [86736500, 90765600], "ratio": 0.797411 },
+    "fixedDepth": { "moveIndex": 43, "scoreCentiDisc": 1109, "depth": 9, "nodes": 183318, "baselineMedianNs": 241306500, "baselineRangeNs": [239493500, 245332400], "candidateMedianNs": 254882800, "candidateRangeNs": [250972200, 256521700], "ratio": 0.946735 },
+    "production160k": { "moveIndex": 43, "scoreCentiDisc": 1109, "depth": 9, "nodes": 160000, "nodeLimitHit": true, "timedOut": false, "baselineMedianNs": 346551000, "baselineRangeNs": [342664800, 355561400], "candidateMedianNs": 356650200, "candidateRangeNs": [349166700, 362222200], "ratio": 0.971683 }
+  },
+  "wasm": {
+    "runtime": { "node": "v22.13.0", "platform": "win32", "arch": "x64", "wasmBindgen": "0.2.126" },
+    "micro": { "evaluations": 150000, "baselineMedianMs": 58.6754, "baselineRangeMs": [57.3569, 60.5279], "candidateMedianMs": 66.4881, "candidateRangeMs": [63.6975, 71.4837], "ratio": 0.882494762220608 },
+    "fixedDepth": { "move": "d6", "scoreDiscDiff": 11.09, "depth": 9, "nodes": 183318, "baselineMedianMs": 215.8392, "baselineRangeMs": [214.1127, 228.333], "candidateMedianMs": 224.9766, "candidateRangeMs": [221.0549, 230.3511], "ratio": 0.959385109384709 },
+    "production160k": { "move": "d6", "scoreDiscDiff": 11.09, "depth": 9, "nodes": 160000, "nodeLimitHit": true, "timedOut": false, "baselineMedianMs": 317.5432, "baselineRangeMs": [309.0879, 344.0435], "candidateMedianMs": 318.0816, "candidateRangeMs": [314.4008, 325.0934], "ratio": 0.9983073525787096 }
+  }
+}

@@ -115,6 +115,51 @@ impl Engine {
     pub fn explain(&self, request_json: &str) -> String {
         explain::handle_explain(request_json)
     }
+
+    /// T158a measurement-only entry point for scalar-feature evaluation cost.
+    /// The loaded model is evaluated on fixed fixtures and the result is consumed through
+    /// `black_box`, so zero scalar coefficients cannot remove the feature computation.
+    pub fn benchmark_pattern_eval(&self, iterations: u32) -> Result<String, JsValue> {
+        let weights = self
+            .weights
+            .as_ref()
+            .ok_or_else(|| JsValue::from_str("pattern weights are not loaded"))?;
+        let fixtures = [
+            (
+                bitboard::Board {
+                    black: 0x0000_081c_3420_0000,
+                    white: 0x0000_1020_081c_0000,
+                },
+                bitboard::Side::Black,
+            ),
+            (
+                bitboard::Board {
+                    black: 0x1030_1000_0408_0000,
+                    white: 0x0000_241c_1810_0000,
+                },
+                bitboard::Side::White,
+            ),
+            (bitboard::Board::initial(), bitboard::Side::Black),
+        ];
+        let start = web_time::Instant::now();
+        let mut checksum = 0f32;
+        for _ in 0..iterations {
+            for (board, side) in &fixtures {
+                checksum += std::hint::black_box(
+                    weights.score(std::hint::black_box(board), std::hint::black_box(*side)),
+                );
+            }
+        }
+        let elapsed_ns = start.elapsed().as_nanos();
+        Ok(serde_json::json!({
+            "evaluations": u64::from(iterations) * fixtures.len() as u64,
+            "elapsedNs": elapsed_ns.to_string(),
+            "checksumBits": checksum.to_bits(),
+            "scalarFeaturesPresent": weights.has_scalar_features(),
+            "scalarFeaturesEnabled": weights.scalar_features_enabled(),
+        })
+        .to_string())
+    }
 }
 
 impl Default for Engine {

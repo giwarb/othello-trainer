@@ -173,6 +173,16 @@ pub(crate) fn legal_moves_relative(own: u64, opp: u64, empty: u64) -> u64 {
     moves
 }
 
+/// Count the eight-neighbor incidence edges between `side_bits` and `empty`.
+/// A disc adjacent to multiple empty squares is counted once per direction.
+pub fn empty_adjacency_incidence(side_bits: u64, empty: u64) -> u32 {
+    let mut incidence = 0u32;
+    for &dir in DIRECTIONS.iter() {
+        incidence += (side_bits & dir(empty)).count_ones();
+    }
+    incidence
+}
+
 /// 既に計算済みのflip maskから、着手後の(own, opp)ビットボードを直接
 /// 構築する(`flips_for_move`を呼び出し側で1回だけ計算し、その結果を
 /// 再利用するための薄いヘルパー。T105)。

@@ -72,10 +72,18 @@ fn load_pattern_weights(args: &[String]) -> Option<PatternWeights> {
         eprintln!("failed to read pattern weights file {path}: {e}");
         std::process::exit(1);
     });
-    let weights = PatternWeights::from_bytes(&bytes).unwrap_or_else(|e| {
+    let mut weights = PatternWeights::from_bytes(&bytes).unwrap_or_else(|e| {
         eprintln!("failed to parse pattern weights file {path}: {e}");
         std::process::exit(1);
     });
+    if args.iter().any(|arg| arg == "--disable-eval-features") {
+        weights.set_scalar_features_enabled(false);
+    }
+    eprintln!(
+        "[eval_cli weights] scalar_features_present={} scalar_features_enabled={}",
+        weights.has_scalar_features(),
+        weights.scalar_features_enabled()
+    );
     Some(weights)
 }
 
@@ -103,13 +111,24 @@ fn main() {
         "best" => cmd_best(&args[2..]),
         "solve" => cmd_solve(&args[2..]),
         "budget-regression" => cmd_budget_regression(&args[2..]),
+        "make-zero-feature-model" => cmd_make_zero_feature_model(&args[2..]),
         _ => {
             eprintln!(
-                "usage:\n  eval_cli gen --category NAME --min-empties N --max-empties M --count C --seed S\n  eval_cli eval --depth N --exact-from-empties M [--pattern-weights PATH]   (JSON配列を標準入力から読む)\n  eval_cli moves --depth N --exact-from-empties M [--pattern-weights PATH]  (単一局面のJSONオブジェクトを標準入力から読み、全合法手のスコアを返す)\n  eval_cli best --depth N [--time-ms T] [--max-nodes N] --exact-from-empties M [--exact-quota-percent 25|40|50|60|75] [--pattern-weights PATH]  (T084/T085: single-root探索で最善手1つとテレメトリを返す)\n  eval_cli solve [--alpha A] [--beta B] [--max-nodes N] [--time-ms T] [--tt-mb M]  (solve one endgame position with a full or custom window)\n  eval_cli budget-regression --depth N --max-nodes N --exact-from-empties M [--exact-quota-percent 25|40|50|60|75] [--pattern-weights PATH]  (同一局面群を2回探索して決定性を検証)"
+                "usage:\n  eval_cli gen --category NAME --min-empties N --max-empties M --count C --seed S\n  eval_cli eval --depth N --exact-from-empties M [--pattern-weights PATH] [--disable-eval-features]   (JSON配列を標準入力から読む)\n  eval_cli moves --depth N --exact-from-empties M [--pattern-weights PATH] [--disable-eval-features]  (単一局面のJSONオブジェクトを標準入力から読み、全合法手のスコアを返す)\n  eval_cli best --depth N [--time-ms T] [--max-nodes N] --exact-from-empties M [--exact-quota-percent 25|40|50|60|75] [--pattern-weights PATH] [--disable-eval-features]  (T084/T085: single-root探索で最善手1つとテレメトリを返す)\n  eval_cli solve [--alpha A] [--beta B] [--max-nodes N] [--time-ms T] [--tt-mb M]  (solve one endgame position with a full or custom window)\n  eval_cli budget-regression --depth N --max-nodes N --exact-from-empties M [--exact-quota-percent 25|40|50|60|75] [--pattern-weights PATH] [--disable-eval-features]  (同一局面群を2回探索して決定性を検証)"
             );
             std::process::exit(2);
         }
     }
+}
+
+fn cmd_make_zero_feature_model(args: &[String]) {
+    let output = get_arg(args, "--output").expect("missing --output");
+    let weights = load_pattern_weights(args).expect("missing --pattern-weights");
+    assert!(!weights.has_scalar_features(), "input must be PWV1-PWV3");
+    let candidate = weights.with_zeroed_scalar_features();
+    std::fs::write(&output, candidate.to_bytes_v4())
+        .unwrap_or_else(|e| panic!("failed to write {output}: {e}"));
+    eprintln!("[eval_cli make-zero-feature-model] wrote {output}");
 }
 
 fn get_arg(args: &[String], name: &str) -> Option<String> {
@@ -832,6 +851,8 @@ fn cmd_best(args: &[String]) {
             "nodes": result.nodes,
             "elapsedMs": result.elapsed_ms,
             "nps": nps,
+            "scalarFeaturesPresent": pattern_weights.as_ref().is_some_and(PatternWeights::has_scalar_features),
+            "scalarFeaturesEnabled": pattern_weights.as_ref().is_some_and(PatternWeights::scalar_features_enabled),
             "timedOut": result.timed_out,
             "nodeLimitHit": result.node_limit_hit,
             "requestedMaxNodes": result.requested_max_nodes,
