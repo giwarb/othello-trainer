@@ -1,0 +1,310 @@
+{
+  "native": {
+    "repetitions": 3,
+    "deterministic": true,
+    "featureOffMethod": "eval_cli --disable-eval-features on the same learned PWV4 model",
+    "modes": {
+      "on": {
+        "positions": [
+          {
+            "id": "mpc-45-52-calibration-001",
+            "bucket": "45-52",
+            "elapsedMedianMs": 423.33039999357425,
+            "depth": 7,
+            "nodes": 160000,
+            "move": "f7"
+          },
+          {
+            "id": "mpc-45-52-calibration-002",
+            "bucket": "45-52",
+            "elapsedMedianMs": 296.64459999185055,
+            "depth": 8,
+            "nodes": 160000,
+            "move": "b2"
+          },
+          {
+            "id": "mpc-37-44-calibration-001",
+            "bucket": "37-44",
+            "elapsedMedianMs": 416.8423000082839,
+            "depth": 9,
+            "nodes": 160001,
+            "move": "a4"
+          },
+          {
+            "id": "mpc-37-44-calibration-002",
+            "bucket": "37-44",
+            "elapsedMedianMs": 320.0324999925215,
+            "depth": 8,
+            "nodes": 160000,
+            "move": "b5"
+          },
+          {
+            "id": "mpc-29-36-calibration-001",
+            "bucket": "29-36",
+            "elapsedMedianMs": 334.8234000004595,
+            "depth": 9,
+            "nodes": 160000,
+            "move": "c5"
+          },
+          {
+            "id": "mpc-29-36-calibration-002",
+            "bucket": "29-36",
+            "elapsedMedianMs": 387.45660000131465,
+            "depth": 8,
+            "nodes": 160000,
+            "move": "d2"
+          },
+          {
+            "id": "mpc-21-28-calibration-001",
+            "bucket": "21-28",
+            "elapsedMedianMs": 344.01110000908375,
+            "depth": 9,
+            "nodes": 160000,
+            "move": "b7"
+          },
+          {
+            "id": "mpc-21-28-calibration-002",
+            "bucket": "21-28",
+            "elapsedMedianMs": 237.21479999949224,
+            "depth": 10,
+            "nodes": 160001,
+            "move": "h5"
+          }
+        ],
+        "aggregateElapsedMs": 2760.3556999965804,
+        "aggregateNodes": 1280002,
+        "aggregateNps": 463709.0792326459
+      },
+      "off": {
+        "positions": [
+          {
+            "id": "mpc-45-52-calibration-001",
+            "bucket": "45-52",
+            "elapsedMedianMs": 319.9090999987675,
+            "depth": 6,
+            "nodes": 160000,
+            "move": "b3"
+          },
+          {
+            "id": "mpc-45-52-calibration-002",
+            "bucket": "45-52",
+            "elapsedMedianMs": 291.5054000040982,
+            "depth": 7,
+            "nodes": 160000,
+            "move": "g4"
+          },
+          {
+            "id": "mpc-37-44-calibration-001",
+            "bucket": "37-44",
+            "elapsedMedianMs": 374.81079999997746,
+            "depth": 7,
+            "nodes": 160000,
+            "move": "c8"
+          },
+          {
+            "id": "mpc-37-44-calibration-002",
+            "bucket": "37-44",
+            "elapsedMedianMs": 276.6889999911655,
+            "depth": 7,
+            "nodes": 160000,
+            "move": "b5"
+          },
+          {
+            "id": "mpc-29-36-calibration-001",
+            "bucket": "29-36",
+            "elapsedMedianMs": 307.35299999651033,
+            "depth": 8,
+            "nodes": 160001,
+            "move": "c5"
+          },
+          {
+            "id": "mpc-29-36-calibration-002",
+            "bucket": "29-36",
+            "elapsedMedianMs": 384.2463000037242,
+            "depth": 7,
+            "nodes": 160000,
+            "move": "d2"
+          },
+          {
+            "id": "mpc-21-28-calibration-001",
+            "bucket": "21-28",
+            "elapsedMedianMs": 275.77300000120886,
+            "depth": 8,
+            "nodes": 160000,
+            "move": "g1"
+          },
+          {
+            "id": "mpc-21-28-calibration-002",
+            "bucket": "21-28",
+            "elapsedMedianMs": 298.143699998036,
+            "depth": 9,
+            "nodes": 160000,
+            "move": "h5"
+          }
+        ],
+        "aggregateElapsedMs": 2528.430299993488,
+        "aggregateNodes": 1280001,
+        "aggregateNps": 506243.3399897544
+      }
+    },
+    "onOffNpsRatio": 0.9159806018228915
+  },
+  "wasm": {
+    "repetitions": 3,
+    "deterministic": true,
+    "featureOffMethod": "same learned PWV4 pattern tables with both scalar coefficient arrays zeroed",
+    "candidateSha256": "dae9af0b4d9e3322c6e2181071b095bca1f2272e69ba85d0e828f21e29c7c5ec",
+    "featureOffSha256": "3a82b4fa2d1c603572a2679b1a735cd4aabdae5b42a622c0bbae4117edae5a35",
+    "wasmSha256": "c51b1d7c7c563352daf01c9a93890e998043352a3daebec9f9ba624809c1d4f2",
+    "runtime": {
+      "node": "v22.13.0",
+      "platform": "win32",
+      "arch": "x64"
+    },
+    "modes": {
+      "on": {
+        "positions": [
+          {
+            "id": "mpc-45-52-calibration-001",
+            "bucket": "45-52",
+            "elapsedMedianMs": 308.1967999999997,
+            "depth": 7,
+            "nodes": 160000,
+            "move": "f7"
+          },
+          {
+            "id": "mpc-45-52-calibration-002",
+            "bucket": "45-52",
+            "elapsedMedianMs": 211.41330000000016,
+            "depth": 8,
+            "nodes": 160000,
+            "move": "b2"
+          },
+          {
+            "id": "mpc-37-44-calibration-001",
+            "bucket": "37-44",
+            "elapsedMedianMs": 317.8796000000002,
+            "depth": 9,
+            "nodes": 160001,
+            "move": "a4"
+          },
+          {
+            "id": "mpc-37-44-calibration-002",
+            "bucket": "37-44",
+            "elapsedMedianMs": 230.86470000000008,
+            "depth": 8,
+            "nodes": 160000,
+            "move": "b5"
+          },
+          {
+            "id": "mpc-29-36-calibration-001",
+            "bucket": "29-36",
+            "elapsedMedianMs": 240.23519999999917,
+            "depth": 9,
+            "nodes": 160000,
+            "move": "c5"
+          },
+          {
+            "id": "mpc-29-36-calibration-002",
+            "bucket": "29-36",
+            "elapsedMedianMs": 280.76870000000054,
+            "depth": 8,
+            "nodes": 160000,
+            "move": "d2"
+          },
+          {
+            "id": "mpc-21-28-calibration-001",
+            "bucket": "21-28",
+            "elapsedMedianMs": 247.28050000000076,
+            "depth": 9,
+            "nodes": 160000,
+            "move": "b7"
+          },
+          {
+            "id": "mpc-21-28-calibration-002",
+            "bucket": "21-28",
+            "elapsedMedianMs": 160.16899999999987,
+            "depth": 10,
+            "nodes": 160001,
+            "move": "h5"
+          }
+        ],
+        "aggregateElapsedMs": 1996.8078000000005,
+        "aggregateNodes": 1280002,
+        "aggregateNps": 641024.1386276635
+      },
+      "off": {
+        "positions": [
+          {
+            "id": "mpc-45-52-calibration-001",
+            "bucket": "45-52",
+            "elapsedMedianMs": 231.3051000000014,
+            "depth": 6,
+            "nodes": 160000,
+            "move": "b3"
+          },
+          {
+            "id": "mpc-45-52-calibration-002",
+            "bucket": "45-52",
+            "elapsedMedianMs": 215.88280000000123,
+            "depth": 7,
+            "nodes": 160000,
+            "move": "g4"
+          },
+          {
+            "id": "mpc-37-44-calibration-001",
+            "bucket": "37-44",
+            "elapsedMedianMs": 280.27409999999963,
+            "depth": 7,
+            "nodes": 160000,
+            "move": "c8"
+          },
+          {
+            "id": "mpc-37-44-calibration-002",
+            "bucket": "37-44",
+            "elapsedMedianMs": 206.3721999999998,
+            "depth": 7,
+            "nodes": 160000,
+            "move": "b5"
+          },
+          {
+            "id": "mpc-29-36-calibration-001",
+            "bucket": "29-36",
+            "elapsedMedianMs": 230.6257999999998,
+            "depth": 8,
+            "nodes": 160001,
+            "move": "c5"
+          },
+          {
+            "id": "mpc-29-36-calibration-002",
+            "bucket": "29-36",
+            "elapsedMedianMs": 292.174500000001,
+            "depth": 7,
+            "nodes": 160000,
+            "move": "d2"
+          },
+          {
+            "id": "mpc-21-28-calibration-001",
+            "bucket": "21-28",
+            "elapsedMedianMs": 203.61989999999787,
+            "depth": 8,
+            "nodes": 160000,
+            "move": "g1"
+          },
+          {
+            "id": "mpc-21-28-calibration-002",
+            "bucket": "21-28",
+            "elapsedMedianMs": 220.15780000000086,
+            "depth": 9,
+            "nodes": 160000,
+            "move": "h5"
+          }
+        ],
+        "aggregateElapsedMs": 1880.4122000000016,
+        "aggregateNodes": 1280001,
+        "aggregateNps": 680702.3481340947
+      }
+    },
+    "onOffNpsRatio": 0.9417098977031664
+  }
+}

@@ -115,9 +115,16 @@ def render(m):
         r=p[name]; scalar={"B0":"なし","B1":"mobility","B2":"exposure","B3":"両方"}[name]
         ci="—" if r["bootstrap95"] is None else f'[{r["bootstrap95"][0]:.6f}, {r["bootstrap95"][1]:.6f}]'
         result="対照" if name=="B0" else ("合格・最良" if name=="B3" else "合格")
+        if name != "B0" and not r["pass"]:
+            result = "FAIL"
+        elif name != "B0" and name == g2["selected"]:
+            result = "PASS_SELECTED"
+        elif name != "B0":
+            result = "PASS"
         rows2.append(f'| {name} | {scalar} | {r["frozenMae"]:.6f} | {signed(r["maeDelta"])} | {signed(r["gameMeanDelta"])} | {ci} | {result} |')
-    rows3=[f'| {r["seed"]} | {r["baselineMae"]:.6f} | {r["candidateMae"]:.6f} | {signed(r["maeDelta"])} | {signed(r["gameMeanDelta"])} | [{r["bootstrap95"][0]:.6f}, {r["bootstrap95"][1]:.6f}] | yes |' for r in full]
+    rows3=[f'| {r["seed"]} | {r["baselineMae"]:.6f} | {r["candidateMae"]:.6f} | {signed(r["maeDelta"])} | {signed(r["gameMeanDelta"])} | [{r["bootstrap95"][0]:.6f}, {r["bootstrap95"][1]:.6f}] | {"yes" if r["maeDelta"] <= 0 else "no"} |' for r in full]
     rows3.append(f'| **平均** | **{g3["baselineMeanMae"]:.6f}** | **{g3["candidateMeanMae"]:.6f}** | **{signed(g3["meanMaeDelta"])}** | **{signed(g3["pooledGameMeanDelta"])}** | **[{g3["pooledBootstrap95"][0]:.6f}, {g3["pooledBootstrap95"][1]:.6f}]** | **3/3** |')
+    rows3[-1]=rows3[-1].replace("**3/3**",f'**{g3["nonRegressionSeeds"]}/3**')
     seedmax=[f'| {r["seed"]} | {r["maxEmptyCountRegression"]["emptyCount"]} | {signed(r["maxEmptyCountRegression"]["delta"])} |' for r in full]
     top=sorted(((r["emptyCountDeltas"][e],r["seed"],e) for r in full for e in range(61)),reverse=True)[:8]
     handoff=[f'| {i} | {s} | {e} | {signed(d)} |' for i,(d,s,e) in enumerate(top,1)]
