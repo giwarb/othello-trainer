@@ -1,7 +1,7 @@
 ---
 id: T157
 title: oracle拡張(60→180局面)と既存重みの一括再採点(ユーザー疑問起点)
-status: todo # todo | in_progress | review | redo | done | blocked
+status: done # verifier合格(再採点1800行完全一致・CI再実装一致・重複ゼロ再検証・Edaxスポット再評価一致)、2026-07-20
 assignee: implementer(Sonnet)
 attempts: 0
 ---
