@@ -43,8 +43,12 @@ use engine::mpc;
 use engine::pattern_eval::PatternWeights;
 use engine::search::{self, SearchLimit};
 use engine::tt::TranspositionTable;
+use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
+use std::collections::{HashMap, HashSet};
+use std::fs;
 use std::io::{self, Read};
+use std::path::{Path, PathBuf};
 use std::time::Instant;
 
 fn load_pattern_weights(args: &[String]) -> Option<PatternWeights> {
@@ -102,6 +106,50 @@ struct Position {
     side: Side,
 }
 
+#[derive(Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct CorpusPosition {
+    id: String,
+    board: String,
+    #[serde(alias = "side_to_move")]
+    side_to_move: String,
+    empties: u32,
+    empty_bucket: String,
+    split: String,
+    game_id: String,
+    pilot: bool,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+struct DepthMeasurement {
+    depth: u8,
+    score: i32,
+    nodes: u64,
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct PositionMeasurement {
+    id: String,
+    empties: u32,
+    empty_bucket: String,
+    split: String,
+    game_id: String,
+    results: Vec<DepthMeasurement>,
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct MeasurementFile {
+    schema_version: u32,
+    positions_fingerprint: String,
+    weights_fingerprint: String,
+    depths: Vec<u8>,
+    pilot_only: bool,
+    records: Vec<PositionMeasurement>,
+}
+
 fn read_positions_from_stdin() -> Vec<Position> {
     let mut input = String::new();
     io::stdin()
@@ -141,13 +189,252 @@ fn main() {
     match sub {
         "calibrate" => cmd_calibrate(&args[2..]),
         "bench" => cmd_bench(&args[2..]),
+        "measure" => cmd_measure(&args[2..]),
+        "merge" => cmd_merge(&args[2..]),
         _ => {
             eprintln!(
-                "usage:\n  calibrate_mpc calibrate --depths \"5,6,7,8,9,10,11,12\" [--reduction N] [--pattern-weights PATH]   (JSON配列を標準入力から読む)\n  calibrate_mpc bench [--depth N] [--time-ms MS] [--pattern-weights PATH]   (JSON配列を標準入力から読む)"
+                "usage:\n  calibrate_mpc calibrate --depths \"5,6,7,8,9,10,11,12\" [--reduction N] [--pattern-weights PATH]\n  calibrate_mpc bench [--depth N] [--time-ms MS] [--pattern-weights PATH]\n  calibrate_mpc measure --positions FILE --out FILE --pattern-weights FILE [--depths 1,2,...,12] [--pilot-only] [--max-positions N]"
             );
             std::process::exit(2);
         }
     }
+}
+
+fn fingerprint(bytes: &[u8]) -> String {
+    let mut hash = 0xcbf29ce484222325u64;
+    for &byte in bytes {
+        hash ^= byte as u64;
+        hash = hash.wrapping_mul(0x100000001b3);
+    }
+    format!("fnv1a64:{hash:016x}:{}", bytes.len())
+}
+
+fn atomic_write_json(path: &Path, value: &MeasurementFile) -> Result<(), String> {
+    let mut bytes = serde_json::to_vec_pretty(value).map_err(|e| e.to_string())?;
+    bytes.push(b'\n');
+    let file_name = path
+        .file_name()
+        .ok_or("output path has no file name")?
+        .to_string_lossy();
+    let temp = path.with_file_name(format!(".{file_name}.tmp-{}", std::process::id()));
+    fs::write(&temp, bytes).map_err(|e| format!("write {}: {e}", temp.display()))?;
+    if let Err(e) = fs::rename(&temp, path) {
+        let _ = fs::remove_file(&temp);
+        return Err(format!("replace {}: {e}", path.display()));
+    }
+    Ok(())
+}
+
+fn parse_depths(args: &[String]) -> Vec<u8> {
+    let text = get_arg(args, "--depths").unwrap_or_else(|| {
+        (1..=12)
+            .map(|d| d.to_string())
+            .collect::<Vec<_>>()
+            .join(",")
+    });
+    let depths: Vec<u8> = text
+        .split(',')
+        .map(|s| {
+            s.trim()
+                .parse()
+                .unwrap_or_else(|_| panic!("invalid depth: {s}"))
+        })
+        .collect();
+    assert!(!depths.is_empty() && depths.iter().all(|&d| (1..=12).contains(&d)));
+    assert!(
+        depths.windows(2).all(|w| w[0] < w[1]),
+        "depths must be sorted and unique"
+    );
+    depths
+}
+
+fn has_flag(args: &[String], flag: &str) -> bool {
+    args.iter().any(|arg| arg == flag)
+}
+
+fn cmd_measure(args: &[String]) {
+    if cfg!(feature = "mpc_enabled") {
+        panic!("measure must use a build without mpc_enabled");
+    }
+    let positions_path = PathBuf::from(get_arg(args, "--positions").expect("missing --positions"));
+    let out_path = PathBuf::from(get_arg(args, "--out").expect("missing --out"));
+    let weights_path =
+        PathBuf::from(get_arg(args, "--pattern-weights").expect("missing --pattern-weights"));
+    let positions_bytes = fs::read(&positions_path).expect("failed to read positions");
+    let weights_bytes = fs::read(&weights_path).expect("failed to read pattern weights");
+    let positions_fingerprint = fingerprint(&positions_bytes);
+    let weights_fingerprint = fingerprint(&weights_bytes);
+    let weights = PatternWeights::from_bytes(&weights_bytes).expect("invalid pattern weights");
+    let depths = parse_depths(args);
+    let pilot_only = has_flag(args, "--pilot-only");
+    let max_positions: Option<usize> =
+        get_arg(args, "--max-positions").map(|s| s.parse().expect("invalid --max-positions"));
+    let shard_count: usize = get_arg(args, "--shard-count")
+        .map(|s| s.parse().expect("invalid --shard-count"))
+        .unwrap_or(1);
+    let shard_index: usize = get_arg(args, "--shard-index")
+        .map(|s| s.parse().expect("invalid --shard-index"))
+        .unwrap_or(0);
+    assert!(
+        shard_count > 0 && shard_index < shard_count,
+        "invalid shard"
+    );
+    let positions: Vec<CorpusPosition> =
+        serde_json::from_slice(&positions_bytes).expect("invalid positions JSON");
+    let positions: Vec<_> = positions
+        .into_iter()
+        .filter(|position| !pilot_only || position.pilot)
+        .collect();
+
+    let mut output = if out_path.exists() {
+        let existing: MeasurementFile =
+            serde_json::from_slice(&fs::read(&out_path).expect("failed to read checkpoint"))
+                .expect("invalid checkpoint JSON");
+        assert_eq!(existing.schema_version, 1, "checkpoint schema mismatch");
+        assert_eq!(
+            existing.positions_fingerprint, positions_fingerprint,
+            "positions changed"
+        );
+        assert_eq!(
+            existing.weights_fingerprint, weights_fingerprint,
+            "weights changed"
+        );
+        assert_eq!(existing.depths, depths, "depths changed");
+        assert_eq!(existing.pilot_only, pilot_only, "pilot-only changed");
+        existing
+    } else {
+        MeasurementFile {
+            schema_version: 1,
+            positions_fingerprint,
+            weights_fingerprint,
+            depths: depths.clone(),
+            pilot_only,
+            records: Vec::new(),
+        }
+    };
+    let completed: HashSet<String> = output.records.iter().map(|r| r.id.clone()).collect();
+    let mut added = 0usize;
+    for (position_index, position) in positions.iter().enumerate() {
+        if position_index % shard_count != shard_index {
+            continue;
+        }
+        if completed.contains(&position.id) {
+            continue;
+        }
+        if max_positions.is_some_and(|limit| added >= limit) {
+            break;
+        }
+        assert_eq!(
+            position.board.len(),
+            64,
+            "invalid board for {}",
+            position.id
+        );
+        let board = obf_to_board(&position.board);
+        assert_eq!(
+            board.empty_count(),
+            position.empties,
+            "empties mismatch for {}",
+            position.id
+        );
+        let side = parse_side(&position.side_to_move);
+        let mut results = Vec::with_capacity(depths.len());
+        for &depth in &depths {
+            let limit = SearchLimit {
+                max_depth: depth,
+                time_ms: None,
+                exact_from_empties: 0,
+            };
+            let mut tt = TranspositionTable::new(16);
+            let result = search::search_with_eval(&board, side, &limit, &mut tt, Some(&weights));
+            results.push(DepthMeasurement {
+                depth,
+                score: result.score,
+                nodes: result.nodes,
+            });
+        }
+        output.records.push(PositionMeasurement {
+            id: position.id.clone(),
+            empties: position.empties,
+            empty_bucket: position.empty_bucket.clone(),
+            split: position.split.clone(),
+            game_id: position.game_id.clone(),
+            results,
+        });
+        atomic_write_json(&out_path, &output).unwrap_or_else(|e| panic!("{e}"));
+        added += 1;
+        eprintln!(
+            "[measure] completed={}/{} added_this_run={} id={}",
+            output.records.len(),
+            positions.len(),
+            added,
+            position.id
+        );
+    }
+    eprintln!(
+        "[measure] checkpoint={} completed={}/{} depths={:?}",
+        out_path.display(),
+        output.records.len(),
+        positions.len(),
+        depths
+    );
+}
+
+fn cmd_merge(args: &[String]) {
+    let positions_path = PathBuf::from(get_arg(args, "--positions").expect("missing --positions"));
+    let out_path = PathBuf::from(get_arg(args, "--out").expect("missing --out"));
+    let input_paths = get_arg(args, "--inputs").expect("missing --inputs");
+    let positions: Vec<CorpusPosition> =
+        serde_json::from_slice(&fs::read(positions_path).expect("failed to read positions"))
+            .expect("invalid positions");
+    let pilot_ids: Vec<String> = positions
+        .into_iter()
+        .filter(|p| p.pilot)
+        .map(|p| p.id)
+        .collect();
+    let mut header: Option<MeasurementFile> = None;
+    let mut records = HashMap::new();
+    for path in input_paths.split(',') {
+        let mut file: MeasurementFile =
+            serde_json::from_slice(&fs::read(path).unwrap_or_else(|e| panic!("read {path}: {e}")))
+                .unwrap_or_else(|e| panic!("parse {path}: {e}"));
+        if let Some(first) = &header {
+            assert_eq!(file.positions_fingerprint, first.positions_fingerprint);
+            assert_eq!(file.weights_fingerprint, first.weights_fingerprint);
+            assert_eq!(file.depths, first.depths);
+            assert_eq!(file.pilot_only, first.pilot_only);
+        } else {
+            header = Some(MeasurementFile {
+                schema_version: file.schema_version,
+                positions_fingerprint: file.positions_fingerprint.clone(),
+                weights_fingerprint: file.weights_fingerprint.clone(),
+                depths: file.depths.clone(),
+                pilot_only: file.pilot_only,
+                records: Vec::new(),
+            });
+        }
+        for record in file.records.drain(..) {
+            if let Some(previous) = records.insert(record.id.clone(), record.clone()) {
+                assert_eq!(previous.results, record.results, "conflicting duplicate");
+            }
+        }
+    }
+    let mut merged = header.expect("no inputs");
+    merged.records = pilot_ids
+        .iter()
+        .map(|id| {
+            records
+                .remove(id)
+                .unwrap_or_else(|| panic!("missing record {id}"))
+        })
+        .collect();
+    assert!(records.is_empty(), "unexpected non-pilot records");
+    atomic_write_json(&out_path, &merged).unwrap_or_else(|e| panic!("{e}"));
+    eprintln!(
+        "[merge] wrote {} records to {}",
+        merged.records.len(),
+        out_path.display()
+    );
 }
 
 /// 標本平均・標本標準偏差(n-1で割る不偏推定量)を返す。`values`が空または
@@ -171,10 +458,17 @@ fn cmd_calibrate(args: &[String]) {
     let depths_arg = get_arg(args, "--depths").unwrap_or_else(|| "5,6,7,8,9,10,11,12".to_string());
     let depths: Vec<u8> = depths_arg
         .split(',')
-        .map(|s| s.trim().parse().unwrap_or_else(|_| panic!("invalid --depths entry: {s}")))
+        .map(|s| {
+            s.trim()
+                .parse()
+                .unwrap_or_else(|_| panic!("invalid --depths entry: {s}"))
+        })
         .collect();
     let reduction = get_arg(args, "--reduction")
-        .map(|v| v.parse().unwrap_or_else(|_| panic!("invalid --reduction: {v}")))
+        .map(|v| {
+            v.parse()
+                .unwrap_or_else(|_| panic!("invalid --reduction: {v}"))
+        })
         .unwrap_or(mpc::REDUCTION);
     let weights = load_pattern_weights(args);
 
@@ -194,7 +488,9 @@ fn cmd_calibrate(args: &[String]) {
             continue;
         };
         if d_shallow == 0 {
-            eprintln!("skipping depth={d}: shallow depth would be 0 (no search to compare against)");
+            eprintln!(
+                "skipping depth={d}: shallow depth would be 0 (no search to compare against)"
+            );
             continue;
         }
 
@@ -206,7 +502,13 @@ fn cmd_calibrate(args: &[String]) {
                 exact_from_empties: 0,
             };
             let mut tt_deep = TranspositionTable::new(16);
-            let deep = search::search_with_eval(&pos.board, pos.side, &limit_deep, &mut tt_deep, weights.as_ref());
+            let deep = search::search_with_eval(
+                &pos.board,
+                pos.side,
+                &limit_deep,
+                &mut tt_deep,
+                weights.as_ref(),
+            );
 
             let limit_shallow = SearchLimit {
                 max_depth: d_shallow,
@@ -214,8 +516,13 @@ fn cmd_calibrate(args: &[String]) {
                 exact_from_empties: 0,
             };
             let mut tt_shallow = TranspositionTable::new(16);
-            let shallow =
-                search::search_with_eval(&pos.board, pos.side, &limit_shallow, &mut tt_shallow, weights.as_ref());
+            let shallow = search::search_with_eval(
+                &pos.board,
+                pos.side,
+                &limit_shallow,
+                &mut tt_shallow,
+                weights.as_ref(),
+            );
 
             diffs.push((deep.score - shallow.score) as f64);
         }
@@ -237,7 +544,10 @@ fn cmd_calibrate(args: &[String]) {
 }
 
 fn cmd_bench(args: &[String]) {
-    let depth = get_arg(args, "--depth").map(|v| v.parse::<u8>().unwrap_or_else(|_| panic!("invalid --depth: {v}")));
+    let depth = get_arg(args, "--depth").map(|v| {
+        v.parse::<u8>()
+            .unwrap_or_else(|_| panic!("invalid --depth: {v}"))
+    });
     let time_ms = get_arg_u64(args, "--time-ms");
     let weights = load_pattern_weights(args);
 
@@ -264,7 +574,8 @@ fn cmd_bench(args: &[String]) {
         };
         let mut tt = TranspositionTable::new(16);
         let start = Instant::now();
-        let result = search::search_with_eval(&pos.board, pos.side, &limit, &mut tt, weights.as_ref());
+        let result =
+            search::search_with_eval(&pos.board, pos.side, &limit, &mut tt, weights.as_ref());
         let elapsed = start.elapsed();
 
         total_nodes += result.nodes;
