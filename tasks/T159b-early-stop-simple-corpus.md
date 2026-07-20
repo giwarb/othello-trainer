@@ -52,4 +52,39 @@ T159で本番トレーナー(train_patterns_v3)に導入した早期打ち切り
 
 ## 作業ログ
 
-(ワーカーが節目ごとに追記)
+### 2026-07-21 着手・調査(要件1: 検証splitの単位決定)
+
+- `train/src/simple_corpus.rs`(既存T155実装)を精読: 簡易レコードは1行=`<64文字盤面> <スコア>`のみで、対局ID・手順連番・タイムスタンプ等の一切のメタデータを持たない。
+- `train/data/egaroucid/extracted/0001_egaroucid_7_5_1_lv17/`(26ファイル、各ファイル1,000,000行、合計約1.7GB)を実際に調査:
+  - `README_EN.md`(配布元ドキュメント)に明記されている形式も「1 million pairs of board and score」のみで、対局・セッションの概念自体が存在しない。
+  - 実データの隣接行を確認したところ空きマス数(手数の目安)がバラバラ(例: 30, 30, 50, 34, ...)で、対局の一連の手として連続している形跡もない(生成時点で既にシャッフル済みと判断)。
+- **結論: 対局境界は復元不可能。局面(position)単位のハッシュ分割を採用**(要件1で規定されたフォールバック方針どおり)。`train/src/simple_corpus.rs`に`split_for_early_stop`を新規追加(既存`split_by_position_hash`は無変更)。frozen判定は`split_by_position_hash`と全く同じ式(`fnv1a(canonicalKey)%10==9`)を再利用し、frozen以外から別salt付きハッシュで検証splitを切り出す(frozenとの相関を避けるため)。D4対称の完全重複はcanonicalKeyで確実に同じ側に入る(テスト`split_for_early_stop_keeps_symmetric_duplicates_in_the_same_bucket`で確認)。
+- **既知のリスク(致命的ではないが記録)**: 対局概念が無い以上、同一対局(または類似局面)由来のサンプルがtrain/valに跨って入りうる可能性は分割方式では検出できない。これは検証MAEを楽観側に歪め、早期打ち切りの停止判定を遅らせる方向のバイアスであり、致命的ではないがT160実行時に留意すること(コード内コメントにも明記)。
+
+### 実装(要件2〜6)
+
+- **要件2(メモリ、レビュー中3)**: `split_for_early_stop`はpoolの所有権を受け取り、1回の消費ループでtrain/val/frozenの3つのVecへ振り分ける(cloneなし)。WTHOR経路の`split_early_stop_validation`(対局Vecをclone+flattenしてピーク約3倍メモリになる、T159実装のまま無変更)とは異なり、25.5M局面規模でも追加メモリはほぼ発生しない。
+- **要件3(エポック評価コスト、レビュー中2)**: `train/src/regression.rs`に`Model::train_epoch_with_running_loss`を追加(既存`train`/`train_epochs`/`sgd_step`は無変更・追加のみ)。1エポック分のSGD学習と同じシャッフル順序で処理しながら、各サンプルの「更新前予測」による二乗誤差・絶対誤差を集計して返す(オンラインSGDの一般的な「学習中損失」)。新設の`run_config_seed_early_stop_simple`(simple-corpus専用、WTHOR経路の`run_config_seed_early_stop`は無変更)はこれを使い、毎エポックのフルパス評価を`val_mae`(`mean_absolute_error(val_samples)`)の1回だけに抑えた(WTHOR経路は従来どおり train_mse/train_mae/val_mae の3フルパスのまま、要件のスコープ外)。
+- **要件4(resume脆弱窓、レビュー中1)**: `metrics.tsv`のヘッダに`best_epoch`/`best_val_mae`列を追加(`EARLY_STOP_METRICS_HEADER`)し、各行が単独で`EarlyStopState`を再構成できる自己完結した記録にした。新設`recover_early_stop_state`が、checkpoint保存後・state.txt書き込み前のクラッシュ(state.epoch = checkpoint_epoch - 1)や、state.txt自体が無い(さらに早いクラッシュ)場合に、対応するmetrics行から状態を再構成してstate.txtを自己修復する。2エポック以上のズレなど復旧不能な破損は従来どおり明示エラー(手動復旧手順を含む)で停止する。WTHOR経路の`run_config_seed_early_stop`もこの共有ヘルパーを使うよう更新した(レビューが「安全に共有できるなら直してよい」としていたため。OFF経路は無変更)。
+- **要件5(identity/決定性)**: simple-corpus早期打ち切り用に新schema`schema=6-earlystop-simple`(corpus_hash・reservoir_seed・simple_max_records・early-stop全パラメータ・train/val/frozenサンプル数を含む)を追加。reservoir sampling後のpool分割なので、決定性はpoolの決定性(corpus_hash+reservoir_seed+max_records)に載ることをidentityに反映した。
+- **要件6(軽微修正)**: `append_result_earlystop`の重複判定キーを`starts_with(&key)`から`starts_with(&format!("{key}\t"))`に修正(seed 1 vs 12のプレフィックス衝突を解消。`append_result`(OFF経路)は変更していない)。`--early-stop`指定時に`--epochs`が同時指定されていたら警告を出す(`--max-epochs`を使うべき旨)よう`main`に追加。
+
+### テスト(要件7、cargo test -p train)
+
+- `train/src/simple_corpus.rs`: `split_for_early_stop`の決定性・網羅性・`split_by_position_hash`とのfrozen一致・D4対称重複の同居を確認する4件を追加。
+- `train/src/regression.rs`: `train_epoch_with_running_loss`が`train_epochs`と重み更新面でビット同一であること、および誤差が学習の進行とともに縮小することを確認する2件を追加。
+- `train/src/bin/train_patterns_v3.rs`: 以下7件を追加(既存9件は全てそのままパス):
+  - `simple_corpus_off_path_matches_direct_model_training_bit_for_bit`(7a)
+  - `recover_early_stop_state_heals_checkpoint_ahead_of_state_window` / `_heals_missing_state_file` / `_rejects_unrecoverable_gap`(4・7c基礎)
+  - `early_stop_resume_recovers_from_checkpoint_ahead_of_state_window`(7c、WTHOR経路共有ヘルパー経由の統合テスト)
+  - `simple_corpus_early_stop_restores_best_checkpoint_and_stops_before_max_epochs`(7d)
+  - `simple_corpus_early_stop_end_to_end_splits_and_trains`(CLI相当のエントリポイント`run_early_stop_simple_corpus`の疎通確認)
+- 結果: `cargo test -p train`(全バイナリ、計137件)全パス。`cargo test -p engine`(216件、2 ignore、本タスクでengineは無変更)全パス。
+
+### OFF時不変の実証(要件2の受け入れ基準)
+
+`git stash`でT159b差分(train_patterns_v3.rs/regression.rs/simple_corpus.rs)を退避しHEAD(T159時点)のバイナリをビルド→小規模スモークを実行→SHA-256記録→`git stash pop`で復元・再ビルド→同じコマンドを再実行して比較。
+
+- **WTHOR OFF**(`--configs v3 --seeds 1 --epochs 2 --max-games 30`): 前後とも`5228350a01ded3cdb27093bfc0c8c78b70d63251827f94412b8c7748e4c2d687`(T159時点の記録値とも一致)。
+- **simple-corpus OFF**(Egaroucid実データ先頭2000行を切り出し、`--configs v3 --seeds 1 --epochs 2 --simple-corpus <2000行ファイル>`): 前後とも`f7508ab5e197a49a907c24e25dd070c18e56e9b39bb797b4a5a74552dee7d790`。
+- **WTHOR ON**(`--early-stop`、小規模: `--max-games 60 --early-stop-val-percent 10 --early-stop-patience 3(実際は--early-stop-patience 2) --max-epochs 8`)を実行し、新しい`metrics.tsv`(8列)・`recover_early_stop_state`共有経路込みでCLIから正常完走することを確認(best_epoch=3, epochs_run=5, 最終binとbest.binのSHA-256一致)。
