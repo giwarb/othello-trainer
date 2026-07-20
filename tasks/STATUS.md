@@ -32,7 +32,7 @@
 
 | ID | タスク | 担当 | 状態 | 試行 |
 |---|---|---|---|---|
-| T156c | MPC再校正(3/7): カット式修正・runtime制御(default OFF) | Codex gpt-5.6-sol | review(完了c9aa39e代行コミット: 外向きmargin・Q16表・SearchPolicy・Gate 0テスト、engine 204テスト+FFO全問正解・OFF時既存挙動全パス。verifier+codex-review検収中) | 0 |
+| T156d | MPC再校正(4/7): A/B CLI+Gate 2/3軽量ゲート | Codex gpt-5.6-sol | in_progress(委譲中。Gate 3のoracleはT157の180局面版を使用。T156a申し送りのmerge検証強化を同梱) | 0 |
 | T157 | oracle拡張(180局面)+一括再採点 | implementer(Sonnet) | review(完了14af610: **v4=1.111は幸運な引きと確定**(@180でv4系1.396 vs v2 1.411、差0.015石・9重み全て有意差なし)。v3は@180で最下位1.722。WTHOR/Egaroucid系は団子、蒸留系との1石差は本物。verifier検収中) | 0 |
 
 ## 有効な方針・申し送り(今後のタスクに効くもの)
@@ -144,6 +144,7 @@
 | T125 | v4候補の頑健性確認+最終審査 | **採用見送りが結論**(913f183、verifier合格・codex-review内容合格〔形式指摘は裁定済〕、Codex実装)。6seed oracle 0.70-1.67(平均1.106、事前登録規準でseed3=0.967選定)だが**対Edax60局 -24.02でv3(-21.23)比悪化**(paired -2.78石、11勝18敗、CI跨ぎ)→v3維持。oracle(終盤帯のみ)と実戦の乖離が示された |
 | T126 | 蒸留100万規模化の切り分け実験 | **量が支配要因と確定**(953b15b、verifier/codex-review両合格、Codex実装)。同量18万の直接対決: v4×WTHOR 3.822 vs v4×蒸留2.87=**Edaxラベルが約1石優位**。v4蒸留曲線4.77→3.63→2.77(急峻)、外挿1M=1.4-1.63/4M=0.80-1.21(参考値)。推奨=段階投資(1M生成2日→1.4以下なら4M検討)。WTHORサブセット機能(--train-subset-size)も導入 |
 | T127f/g/h | 生成高速化(ハッシュA/B→warm A/B→親またぎ乗り換え) | **完了**(f=ハッシュ拡大は効果なし・値全一致/g=warm方式1.32倍・値全一致/h=32親束で乗り換え実施、292,679件全保持でresume成功、Claude代替レビュー合格・実地検証込み)。ETA約16時間短縮(7/19昼→7/18夜) |
+| T156c | MPCカット式修正・runtime制御(default OFF) | **完了**(c9aa39e代行コミット、verifier〔204テスト・FFO・Q16整合・空洞化チェック〕/codex-review〔**指摘ゼロ**〕両合格、Codex実装、redo 0回)。外向きmargin・(d,D)Q16表・SearchPolicy・MpcStats・Gate 0テスト一式。OFF時挙動完全不変 |
 | T156b | MPC pilot Gate 1判定 | **完了・合格**(2daf18c代行コミット、verifier〔誤カット率/Wilson/ノード比の独立再計算一致〕合格、Codex分析、redo 0回)。全5基準合格、候補(d,D)=(3,6)(4,8)(2,10)(4,12)・t=1.5。MPC修理の投資価値を数値で確認 |
 | T156a | MPC校正コーパス+測定基盤+pilot320測定 | **完了**(9749edb代行コミット、verifier〔決定性・仕様機械検証・スポット再測定・統計フル再実行〕/codex-review両合格、Codex実装、redo 0回)。1,200局面(WTHOR層化・ゲーム単位split)・pilot320×12深さ・統計264グループ。**申し送り(T156d前に対応)**: shard merge時の入力整合性検証強化(codex-review中1)、CLI usageへのmerge/shard記載 |
 | T155 | Egaroucid×本番トレーナー | **完了・データ路線保留確定**(18e2215、verifier〔SHA再現・スコア単位バグなし確認〕/codex-review〔中4軽微3、ブロッカーなし〕両合格、redo 0回)。E1@443万=1.556(3seed)/E2@800万=1.367、閾値1.3超。逆転の原因候補=固定20epochの過学習(未証明)。**申し送り**: 次にtrain_patterns_v3を触るタスクで①--simple-max-records 0等の空入力ガード②レポートの「同一データ」表現訂正③早期打ち切り比較(フル学習再挑戦の前提条件) |

@@ -1,7 +1,7 @@
 ---
 id: T156c
 title: MPC再校正(3/7): カット式・適用境界・runtime制御の修正実装(default OFF)
-status: todo # todo | in_progress | review | redo | done | blocked
+status: done # verifier(204テスト・FFO・決定性・空洞化チェック・Q16整合)+codex-review(指摘ゼロの満点)両合格、2026-07-20
 assignee: Codex gpt-5.6-sol
 attempts: 0
 ---
