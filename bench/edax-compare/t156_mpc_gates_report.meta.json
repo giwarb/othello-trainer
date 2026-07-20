@@ -77,6 +77,9 @@
     "pass": true
   },
   "gate3": {
+    "alternativeCriteria": {
+      "strictLoss4RateNoIncrease": false
+    },
     "bMinusA": {
       "depthPlusOneRate": 0.058333333333333334,
       "loss4CountDifference": 1,
@@ -92,10 +95,20 @@
         "exact": {
           "boundProofCompleted": 1132,
           "completionRate": 0.9286300246103364,
+          "exactNodeShare": 0.3999636354507584,
           "exactNodes": 7679309,
+          "invalidAccountingReasons": {
+            "boundProofExceedsLeafCompleted": 0,
+            "leafOutcomesExceedAttempts": 0,
+            "nodePartitionMismatch": 0,
+            "quotaAbortsExceedAttempts": 0,
+            "rootAttemptOutsideThreshold": 0,
+            "rootCompletedExceedsAttempts": 0
+          },
           "invalidAccountingRows": 0,
           "leafAttempts": 1219,
           "leafCompleted": 1132,
+          "midgameNodes": 11520709,
           "quotaAborts": 71,
           "rootAttempts": 0,
           "rootCompleted": 0,
@@ -121,10 +134,20 @@
         "exact": {
           "boundProofCompleted": 329,
           "completionRate": 0.8152866242038217,
+          "exactNodeShare": 0.3918811901918283,
           "exactNodes": 7524131,
+          "invalidAccountingReasons": {
+            "boundProofExceedsLeafCompleted": 0,
+            "leafOutcomesExceedAttempts": 0,
+            "nodePartitionMismatch": 0,
+            "quotaAbortsExceedAttempts": 0,
+            "rootAttemptOutsideThreshold": 0,
+            "rootCompletedExceedsAttempts": 0
+          },
           "invalidAccountingRows": 0,
           "leafAttempts": 471,
           "leafCompleted": 384,
+          "midgameNodes": 11675900,
           "quotaAborts": 70,
           "rootAttempts": 0,
           "rootCompleted": 0,
@@ -150,10 +173,20 @@
         "exact": {
           "boundProofCompleted": 1131,
           "completionRate": 0.9285714285714286,
+          "exactNodeShare": 0.4037205169577948,
           "exactNodes": 7751442,
+          "invalidAccountingReasons": {
+            "boundProofExceedsLeafCompleted": 0,
+            "leafOutcomesExceedAttempts": 0,
+            "nodePartitionMismatch": 0,
+            "quotaAbortsExceedAttempts": 0,
+            "rootAttemptOutsideThreshold": 0,
+            "rootCompletedExceedsAttempts": 0
+          },
           "invalidAccountingRows": 0,
           "leafAttempts": 1218,
           "leafCompleted": 1131,
+          "midgameNodes": 11448578,
           "quotaAborts": 71,
           "rootAttempts": 0,
           "rootCompleted": 0,
@@ -179,10 +212,20 @@
         "exact": {
           "boundProofCompleted": 328,
           "completionRate": 0.8179871520342612,
+          "exactNodeShare": 0.3893835352097961,
           "exactNodes": 7476174,
+          "invalidAccountingReasons": {
+            "boundProofExceedsLeafCompleted": 0,
+            "leafOutcomesExceedAttempts": 0,
+            "nodePartitionMismatch": 0,
+            "quotaAbortsExceedAttempts": 0,
+            "rootAttemptOutsideThreshold": 0,
+            "rootCompletedExceedsAttempts": 0
+          },
           "invalidAccountingRows": 0,
           "leafAttempts": 467,
           "leafCompleted": 382,
+          "midgameNodes": 11723852,
           "quotaAborts": 70,
           "rootAttempts": 0,
           "rootCompleted": 0,
@@ -207,7 +250,7 @@
       "allConfigurationsDeterministic": true,
       "depthGain": false,
       "exactAccountingNormal": true,
-      "loss4RateNoIncrease": false,
+      "loss4IncreaseAtMost2Per60": true,
       "meanRegretDiffAtMost010": false,
       "pairedBootstrapUpperAtMost050": false,
       "shallowerAtMost10Percent": true,
@@ -235,53 +278,418 @@
         "pass": true
       }
     },
+    "exactConfigurationBias": {
+      "A-C": {
+        "completionRateDelta": 5.859603890778775e-05,
+        "criteria": {
+          "completionRateDeltaAtMost5Points": true,
+          "exactNodeShareDeltaAtMost2Points": true,
+          "leafAttemptRelativeDeltaAtMost10Percent": true,
+          "quotaAbortRelativeDeltaAtMost10Percent": true
+        },
+        "exactNodeShareDelta": 0.0037568815070364026,
+        "leafAttemptRelativeDelta": 0.0008203445447087777,
+        "pass": true,
+        "quotaAbortRelativeDelta": 0.0
+      },
+      "B-D": {
+        "completionRateDelta": 0.002700527830439503,
+        "criteria": {
+          "completionRateDeltaAtMost5Points": true,
+          "exactNodeShareDeltaAtMost2Points": true,
+          "leafAttemptRelativeDeltaAtMost10Percent": true,
+          "quotaAbortRelativeDeltaAtMost10Percent": true
+        },
+        "exactNodeShareDelta": 0.002497654982032249,
+        "leafAttemptRelativeDelta": 0.008492569002123142,
+        "pass": true,
+        "quotaAbortRelativeDelta": 0.0
+      }
+    },
     "pass": false
   },
   "inputs": {
     "gate2Off": {
-      "path": ".t156d-gate2-off.json",
-      "sha256": "f658dd8eec9b1ac4252117c6bbb00c5efd50362b505be8c1cbb32dbd8e31c91b"
+      "path": ".t156d-redo-gate2-off.json",
+      "sha256": "6779983dccb47584c18c4f77db5faf223bedcd8c8b147248d66bd6b31fbecb39"
     },
     "gate2On": {
-      "path": ".t156d-gate2-on.json",
-      "sha256": "e95c05c9423e4337732a7dc72dc63d846a311d172871d96c16eb652fe1edb39d"
+      "path": ".t156d-redo-gate2-on.json",
+      "sha256": "e9e648e1612847ab847b0299adc6d09b08a102fd9347abcde40591e04419663d"
     },
     "gate3A": {
-      "path": ".t156d-gate3-a.json",
-      "sha256": "76f31566b398757828c6c329c22f8f3cb3e080a1f345e0b4751997f1db326384"
+      "path": ".t156d-redo-gate3-a-run1.json",
+      "sha256": "483f72a2f77f7ff9669f73319ceab9a87d6f15284f2199ca0d58e7d56359653d"
     },
     "gate3ARepeat": {
-      "path": ".t156d-gate3-a-repeat.json",
-      "sha256": "76f31566b398757828c6c329c22f8f3cb3e080a1f345e0b4751997f1db326384"
+      "path": ".t156d-redo-gate3-a-run2.json",
+      "sha256": "483f72a2f77f7ff9669f73319ceab9a87d6f15284f2199ca0d58e7d56359653d"
     },
     "gate3B": {
-      "path": ".t156d-gate3-b.json",
-      "sha256": "07e6a6508ae902f52b3c9bcced95376c7e17d189deb9375c5372e666771ad0f7"
+      "path": ".t156d-redo-gate3-b-run1.json",
+      "sha256": "3acc3cc865fd1b600dbf34d8c7c7aa57e661f0d18edd25d7b60d0c6fe4a51a3b"
     },
     "gate3BRepeat": {
-      "path": ".t156d-gate3-b-repeat.json",
-      "sha256": "07e6a6508ae902f52b3c9bcced95376c7e17d189deb9375c5372e666771ad0f7"
+      "path": ".t156d-redo-gate3-b-run2.json",
+      "sha256": "3acc3cc865fd1b600dbf34d8c7c7aa57e661f0d18edd25d7b60d0c6fe4a51a3b"
     },
     "gate3C": {
-      "path": ".t156d-gate3-c.json",
-      "sha256": "6d8cb4baddeb76f12353fdcce7a1e0eaa9a95426a5c52cb8bec01d45c847b4d4"
+      "path": ".t156d-redo-gate3-c-run1.json",
+      "sha256": "9f521f9d91f6f4dd5e3a69fc63f6795b60df903ca008e79ff929b9b9abe4f7b3"
     },
     "gate3CRepeat": {
-      "path": ".t156d-gate3-c-repeat.json",
-      "sha256": "6d8cb4baddeb76f12353fdcce7a1e0eaa9a95426a5c52cb8bec01d45c847b4d4"
+      "path": ".t156d-redo-gate3-c-run2.json",
+      "sha256": "9f521f9d91f6f4dd5e3a69fc63f6795b60df903ca008e79ff929b9b9abe4f7b3"
     },
     "gate3D": {
-      "path": ".t156d-gate3-d.json",
-      "sha256": "f839855a8aaeb88546ad7a00e18c3d2d98b51ea72cbd4fc014051f9d5ad07cd9"
+      "path": ".t156d-redo-gate3-d-run1.json",
+      "sha256": "e06d06fc0430b0947747c20b12dff0e57104ac53f3a3f74e95c715c994fe5a53"
     },
     "gate3DRepeat": {
-      "path": ".t156d-gate3-d-repeat.json",
-      "sha256": "f839855a8aaeb88546ad7a00e18c3d2d98b51ea72cbd4fc014051f9d5ad07cd9"
+      "path": ".t156d-redo-gate3-d-run2.json",
+      "sha256": "e06d06fc0430b0947747c20b12dff0e57104ac53f3a3f74e95c715c994fe5a53"
+    }
+  },
+  "schemaVersion": 2,
+  "validatedCheckpoints": {
+    "gate2Off": {
+      "config": {
+        "aspiration": false,
+        "depths": [
+          8,
+          10,
+          12
+        ],
+        "exactFromEmpties": 0,
+        "exactQuotaPercent": 60,
+        "history": false,
+        "maxNodes": null,
+        "maxPositions": null,
+        "minEmpties": 0,
+        "mpc": false,
+        "positionsFingerprint": "fnv1a64:324b68e80969900e:335483",
+        "selectedPositionsCount": 240,
+        "selectedPositionsFingerprint": "fnv1a64:62e7aa1cc3746239:4559",
+        "split": "test",
+        "weightsFingerprint": "fnv1a64:5fb188824abebe03:27986340"
+      },
+      "records": {
+        "depths": [
+          8,
+          10,
+          12
+        ],
+        "maxEmpties": 52,
+        "minEmpties": 21,
+        "positionCount": 240,
+        "positionIdsSha256": "cf545efbd474b831f0fcb04296a1f0f26e7b97e03eecc2c179b0d7bb72546581",
+        "recordCount": 720,
+        "uniqueKeyCount": 720
+      }
+    },
+    "gate2On": {
+      "config": {
+        "aspiration": false,
+        "depths": [
+          8,
+          10,
+          12
+        ],
+        "exactFromEmpties": 0,
+        "exactQuotaPercent": 60,
+        "history": false,
+        "maxNodes": null,
+        "maxPositions": null,
+        "minEmpties": 0,
+        "mpc": true,
+        "positionsFingerprint": "fnv1a64:324b68e80969900e:335483",
+        "selectedPositionsCount": 240,
+        "selectedPositionsFingerprint": "fnv1a64:62e7aa1cc3746239:4559",
+        "split": "test",
+        "weightsFingerprint": "fnv1a64:5fb188824abebe03:27986340"
+      },
+      "records": {
+        "depths": [
+          8,
+          10,
+          12
+        ],
+        "maxEmpties": 52,
+        "minEmpties": 21,
+        "positionCount": 240,
+        "positionIdsSha256": "cf545efbd474b831f0fcb04296a1f0f26e7b97e03eecc2c179b0d7bb72546581",
+        "recordCount": 720,
+        "uniqueKeyCount": 720
+      }
+    },
+    "gate3ARun1": {
+      "config": {
+        "aspiration": true,
+        "depths": [
+          12
+        ],
+        "exactFromEmpties": 16,
+        "exactQuotaPercent": 60,
+        "history": true,
+        "maxNodes": 160000,
+        "maxPositions": null,
+        "minEmpties": 21,
+        "mpc": false,
+        "positionsFingerprint": "fnv1a64:bdc49aadd9399a3a:76371",
+        "selectedPositionsCount": 120,
+        "selectedPositionsFingerprint": "fnv1a64:967d69e7e2558951:1759",
+        "split": null,
+        "weightsFingerprint": "fnv1a64:5fb188824abebe03:27986340"
+      },
+      "records": {
+        "depths": [
+          12
+        ],
+        "maxEmpties": 26,
+        "minEmpties": 21,
+        "positionCount": 120,
+        "positionIdsSha256": "885b7c1566e412985352fd5fe6b56dc28b03525c141378b2031859a0237ecd18",
+        "recordCount": 120,
+        "uniqueKeyCount": 120
+      }
+    },
+    "gate3ARun2": {
+      "config": {
+        "aspiration": true,
+        "depths": [
+          12
+        ],
+        "exactFromEmpties": 16,
+        "exactQuotaPercent": 60,
+        "history": true,
+        "maxNodes": 160000,
+        "maxPositions": null,
+        "minEmpties": 21,
+        "mpc": false,
+        "positionsFingerprint": "fnv1a64:bdc49aadd9399a3a:76371",
+        "selectedPositionsCount": 120,
+        "selectedPositionsFingerprint": "fnv1a64:967d69e7e2558951:1759",
+        "split": null,
+        "weightsFingerprint": "fnv1a64:5fb188824abebe03:27986340"
+      },
+      "records": {
+        "depths": [
+          12
+        ],
+        "maxEmpties": 26,
+        "minEmpties": 21,
+        "positionCount": 120,
+        "positionIdsSha256": "885b7c1566e412985352fd5fe6b56dc28b03525c141378b2031859a0237ecd18",
+        "recordCount": 120,
+        "uniqueKeyCount": 120
+      }
+    },
+    "gate3BRun1": {
+      "config": {
+        "aspiration": false,
+        "depths": [
+          12
+        ],
+        "exactFromEmpties": 16,
+        "exactQuotaPercent": 60,
+        "history": true,
+        "maxNodes": 160000,
+        "maxPositions": null,
+        "minEmpties": 21,
+        "mpc": true,
+        "positionsFingerprint": "fnv1a64:bdc49aadd9399a3a:76371",
+        "selectedPositionsCount": 120,
+        "selectedPositionsFingerprint": "fnv1a64:967d69e7e2558951:1759",
+        "split": null,
+        "weightsFingerprint": "fnv1a64:5fb188824abebe03:27986340"
+      },
+      "records": {
+        "depths": [
+          12
+        ],
+        "maxEmpties": 26,
+        "minEmpties": 21,
+        "positionCount": 120,
+        "positionIdsSha256": "885b7c1566e412985352fd5fe6b56dc28b03525c141378b2031859a0237ecd18",
+        "recordCount": 120,
+        "uniqueKeyCount": 120
+      }
+    },
+    "gate3BRun2": {
+      "config": {
+        "aspiration": false,
+        "depths": [
+          12
+        ],
+        "exactFromEmpties": 16,
+        "exactQuotaPercent": 60,
+        "history": true,
+        "maxNodes": 160000,
+        "maxPositions": null,
+        "minEmpties": 21,
+        "mpc": true,
+        "positionsFingerprint": "fnv1a64:bdc49aadd9399a3a:76371",
+        "selectedPositionsCount": 120,
+        "selectedPositionsFingerprint": "fnv1a64:967d69e7e2558951:1759",
+        "split": null,
+        "weightsFingerprint": "fnv1a64:5fb188824abebe03:27986340"
+      },
+      "records": {
+        "depths": [
+          12
+        ],
+        "maxEmpties": 26,
+        "minEmpties": 21,
+        "positionCount": 120,
+        "positionIdsSha256": "885b7c1566e412985352fd5fe6b56dc28b03525c141378b2031859a0237ecd18",
+        "recordCount": 120,
+        "uniqueKeyCount": 120
+      }
+    },
+    "gate3CRun1": {
+      "config": {
+        "aspiration": true,
+        "depths": [
+          12
+        ],
+        "exactFromEmpties": 16,
+        "exactQuotaPercent": 60,
+        "history": true,
+        "maxNodes": 160000,
+        "maxPositions": null,
+        "minEmpties": 21,
+        "mpc": true,
+        "positionsFingerprint": "fnv1a64:bdc49aadd9399a3a:76371",
+        "selectedPositionsCount": 120,
+        "selectedPositionsFingerprint": "fnv1a64:967d69e7e2558951:1759",
+        "split": null,
+        "weightsFingerprint": "fnv1a64:5fb188824abebe03:27986340"
+      },
+      "records": {
+        "depths": [
+          12
+        ],
+        "maxEmpties": 26,
+        "minEmpties": 21,
+        "positionCount": 120,
+        "positionIdsSha256": "885b7c1566e412985352fd5fe6b56dc28b03525c141378b2031859a0237ecd18",
+        "recordCount": 120,
+        "uniqueKeyCount": 120
+      }
+    },
+    "gate3CRun2": {
+      "config": {
+        "aspiration": true,
+        "depths": [
+          12
+        ],
+        "exactFromEmpties": 16,
+        "exactQuotaPercent": 60,
+        "history": true,
+        "maxNodes": 160000,
+        "maxPositions": null,
+        "minEmpties": 21,
+        "mpc": true,
+        "positionsFingerprint": "fnv1a64:bdc49aadd9399a3a:76371",
+        "selectedPositionsCount": 120,
+        "selectedPositionsFingerprint": "fnv1a64:967d69e7e2558951:1759",
+        "split": null,
+        "weightsFingerprint": "fnv1a64:5fb188824abebe03:27986340"
+      },
+      "records": {
+        "depths": [
+          12
+        ],
+        "maxEmpties": 26,
+        "minEmpties": 21,
+        "positionCount": 120,
+        "positionIdsSha256": "885b7c1566e412985352fd5fe6b56dc28b03525c141378b2031859a0237ecd18",
+        "recordCount": 120,
+        "uniqueKeyCount": 120
+      }
+    },
+    "gate3DRun1": {
+      "config": {
+        "aspiration": false,
+        "depths": [
+          12
+        ],
+        "exactFromEmpties": 16,
+        "exactQuotaPercent": 60,
+        "history": true,
+        "maxNodes": 160000,
+        "maxPositions": null,
+        "minEmpties": 21,
+        "mpc": false,
+        "positionsFingerprint": "fnv1a64:bdc49aadd9399a3a:76371",
+        "selectedPositionsCount": 120,
+        "selectedPositionsFingerprint": "fnv1a64:967d69e7e2558951:1759",
+        "split": null,
+        "weightsFingerprint": "fnv1a64:5fb188824abebe03:27986340"
+      },
+      "records": {
+        "depths": [
+          12
+        ],
+        "maxEmpties": 26,
+        "minEmpties": 21,
+        "positionCount": 120,
+        "positionIdsSha256": "885b7c1566e412985352fd5fe6b56dc28b03525c141378b2031859a0237ecd18",
+        "recordCount": 120,
+        "uniqueKeyCount": 120
+      }
+    },
+    "gate3DRun2": {
+      "config": {
+        "aspiration": false,
+        "depths": [
+          12
+        ],
+        "exactFromEmpties": 16,
+        "exactQuotaPercent": 60,
+        "history": true,
+        "maxNodes": 160000,
+        "maxPositions": null,
+        "minEmpties": 21,
+        "mpc": false,
+        "positionsFingerprint": "fnv1a64:bdc49aadd9399a3a:76371",
+        "selectedPositionsCount": 120,
+        "selectedPositionsFingerprint": "fnv1a64:967d69e7e2558951:1759",
+        "split": null,
+        "weightsFingerprint": "fnv1a64:5fb188824abebe03:27986340"
+      },
+      "records": {
+        "depths": [
+          12
+        ],
+        "maxEmpties": 26,
+        "minEmpties": 21,
+        "positionCount": 120,
+        "positionIdsSha256": "885b7c1566e412985352fd5fe6b56dc28b03525c141378b2031859a0237ecd18",
+        "recordCount": 120,
+        "uniqueKeyCount": 120
+      }
+    }
+  },
+  "validatedSources": {
+    "gate2Positions": {
+      "fnv1a64": "fnv1a64:324b68e80969900e:335483",
+      "path": "bench/edax-compare/t156_mpc_positions.json",
+      "sha256": "e86bf2383490cc356589c85307cdc85556288bd23cae1a2594932cd70ad748da"
     },
     "oracleLabels": {
       "path": "bench/edax-compare/t157_oracle_labels.json",
       "sha256": "8859c779cff35be32d197b1d4bc45bf537a4afd980afe1037c88d3fbed8bec82"
+    },
+    "oraclePositions": {
+      "fnv1a64": "fnv1a64:bdc49aadd9399a3a:76371",
+      "path": "bench/edax-compare/t157_oracle_positions.json",
+      "sha256": "4419fb5120c2ba1d07b6d277473dfb4d9638de504255644254468e418469fb57"
+    },
+    "patternWeights": {
+      "fnv1a64": "fnv1a64:5fb188824abebe03:27986340",
+      "path": "train/weights/pattern_v4.bin",
+      "sha256": "c372b83366c4006023ae05f3af5b68dda5929aca7ff7308d1b398a89639e383f"
     }
-  },
-  "schemaVersion": 1
+  }
 }

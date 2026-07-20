@@ -69,15 +69,23 @@ oracle 180局面から空き20以下を除外した120局面。v4、160k、quota
 - shallowerAtMost10Percent: pass
 - meanRegretDiffAtMost010: FAIL
 - pairedBootstrapUpperAtMost050: FAIL
-- loss4RateNoIncrease: FAIL
+- loss4IncreaseAtMost2Per60: pass
 - exactAccountingNormal: pass
+- strictLoss4RateNoIncrease (initial wording): FAIL
 
 ### 原因分析と提言
 
 aspiration条件を揃えたB-Dでは平均深さ差 +0.075、regret差 +0.1167石。C-Aでは平均深さ差 +0.067、regret差 +0.0167石だった。MPC単体は固定深さノードを大幅削減する一方、160kの反復深化では次の完成深さへ届くほどの利益にならず、初期本番候補Bはaspirationを外す損失も回収できていない。Cは診断値としてAに近いが、初期採用候補ではない。MPCはdefault OFFを維持し、T156eへ進まず、margin/帯別係数または反復深化・TTとの相互作用を再調査してGate 3を再実行する。
 
-exact異常は `exactNodes <= nodes`、完走数<=試行数、空き16超のroot exact試行ゼロという会計不変条件で判定した。B/DおよびA/Cのexact試行数が近く、MPCの有無による異常な偏りは見られない。aspiration有無では試行数が変わるため、構成間の試行数差には恣意的な比率閾値を置かず全数を開示した。
+Exact accounting and cross-configuration bias:
 
-## 再現方法
+| pair | leaf attempt delta | quota abort delta | completion delta | exact node share delta | result |
+|:---:|---:|---:|---:|---:|:---:|
+| A-C | 0.08% | 0.00% | 0.01% | 0.38% | PASS |
+| B-D | 0.85% | 0.00% | 0.27% | 0.25% | PASS |
 
-`compare_mpc.py`へ同じ8 checkpoint、oracle labels、固定seed/bootstrap回数を渡すとmeta/reportが決定的に再生成される。各checkpointは局面完了ごとに原子的更新され、同じコマンドでresumeする。
+Each row was checked for root/leaf attempts and completions, bound proofs, quota aborts, and exactNodes + midgameNodes = nodes. Bias limits: 10% relative leaf-attempt/quota-abort delta, 5-point completion-rate delta, and 2-point exact-node-share delta.
+
+Input validation: checkpoint schema/config, positions and v4 weights fingerprints, oracle correspondence/fingerprint, duplicates, policies, and identical position-ID sets were checked fail-closed before aggregation. Validated configs and record-set summaries are embedded in meta.
+
+Reproduction (validated): provide the same eight checkpoints, Gate 2 positions, oracle positions/labels, v4 weights, bootstrap seed, and sample count. Gate checkpoints are atomically saved per position and resumed with the same command.

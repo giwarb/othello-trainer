@@ -164,6 +164,9 @@ struct GateConfig {
     history: bool,
     split: Option<String>,
     min_empties: u32,
+    max_positions: Option<usize>,
+    selected_positions_count: usize,
+    selected_positions_fingerprint: String,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -551,19 +554,6 @@ fn cmd_gate(args: &[String]) {
     if policy.enable_mpc && !cfg!(feature = "mpc_enabled") {
         panic!("--mpc on requires --features mpc_enabled");
     }
-    let config = GateConfig {
-        positions_fingerprint: fingerprint(&positions_bytes),
-        weights_fingerprint: fingerprint(&weights_bytes),
-        depths: depths.clone(),
-        max_nodes,
-        exact_from_empties,
-        exact_quota_percent,
-        mpc: policy.enable_mpc,
-        aspiration: policy.enable_aspiration,
-        history: policy.enable_history,
-        split: split.clone(),
-        min_empties,
-    };
     let parsed: Value = serde_json::from_slice(&positions_bytes).expect("invalid positions JSON");
     let positions = parsed
         .as_array()
@@ -586,6 +576,39 @@ fn cmd_gate(args: &[String]) {
         .collect();
     assert!(!selected.is_empty(), "no positions selected");
 
+    let selected_ids: Vec<&str> = selected
+        .iter()
+        .map(|position| {
+            position
+                .get("id")
+                .and_then(Value::as_str)
+                .expect("position missing id")
+        })
+        .collect();
+    let unique_selected_ids: HashSet<&str> = selected_ids.iter().copied().collect();
+    assert_eq!(
+        unique_selected_ids.len(),
+        selected_ids.len(),
+        "selected positions contain duplicate ids"
+    );
+    let selected_positions_fingerprint = fingerprint(selected_ids.join("\n").as_bytes());
+    let config = GateConfig {
+        positions_fingerprint: fingerprint(&positions_bytes),
+        weights_fingerprint: fingerprint(&weights_bytes),
+        depths: depths.clone(),
+        max_nodes,
+        exact_from_empties,
+        exact_quota_percent,
+        mpc: policy.enable_mpc,
+        aspiration: policy.enable_aspiration,
+        history: policy.enable_history,
+        split: split.clone(),
+        min_empties,
+        max_positions,
+        selected_positions_count: selected_ids.len(),
+        selected_positions_fingerprint,
+    };
+
     let mut output = if out_path.exists() {
         let existing: GateFile =
             serde_json::from_slice(&fs::read(&out_path).expect("failed to read gate checkpoint"))
@@ -597,6 +620,24 @@ fn cmd_gate(args: &[String]) {
         assert_eq!(
             existing.config, config,
             "gate checkpoint configuration changed"
+        );
+        let expected_keys: HashSet<(&str, u8)> = selected_ids
+            .iter()
+            .flat_map(|id| depths.iter().map(move |depth| (*id, *depth)))
+            .collect();
+        let actual_keys: HashSet<(&str, u8)> = existing
+            .records
+            .iter()
+            .map(|record| (record.id.as_str(), record.depth_requested))
+            .collect();
+        assert_eq!(
+            actual_keys.len(),
+            existing.records.len(),
+            "gate checkpoint contains duplicate records"
+        );
+        assert!(
+            actual_keys.is_subset(&expected_keys),
+            "gate checkpoint contains records outside the selected positions/depths"
         );
         existing
     } else {
@@ -1011,4 +1052,117 @@ fn cmd_bench(args: &[String]) {
             "perPosition": per_position,
         })
     );
+}
+
+#[cfg(test)]
+mod gate_tests {
+    use super::*;
+
+    fn strings(values: &[&str]) -> Vec<String> {
+        values.iter().map(|value| (*value).to_string()).collect()
+    }
+
+    #[test]
+    fn named_gate_configurations_map_to_registered_policies() {
+        let cases = [
+            (
+                "A",
+                SearchPolicy {
+                    enable_history: true,
+                    enable_aspiration: true,
+                    enable_mpc: false,
+                },
+            ),
+            (
+                "B",
+                SearchPolicy {
+                    enable_history: true,
+                    enable_aspiration: false,
+                    enable_mpc: true,
+                },
+            ),
+            (
+                "C",
+                SearchPolicy {
+                    enable_history: true,
+                    enable_aspiration: true,
+                    enable_mpc: true,
+                },
+            ),
+            (
+                "D",
+                SearchPolicy {
+                    enable_history: true,
+                    enable_aspiration: false,
+                    enable_mpc: false,
+                },
+            ),
+        ];
+        for (name, expected) in cases {
+            assert_eq!(gate_policy(&strings(&["--configuration", name])), expected);
+        }
+    }
+
+    #[test]
+    fn named_and_independent_policy_switches_are_rejected() {
+        let args = strings(&["--configuration", "A", "--mpc", "off"]);
+        assert!(std::panic::catch_unwind(|| gate_policy(&args)).is_err());
+    }
+
+    #[test]
+    fn selected_position_fingerprint_is_order_and_limit_sensitive() {
+        let all = fingerprint(["p1", "p2"].join("\n").as_bytes());
+        let reversed = fingerprint(["p2", "p1"].join("\n").as_bytes());
+        let limited = fingerprint(["p1"].join("\n").as_bytes());
+        assert_ne!(all, reversed);
+        assert_ne!(all, limited);
+    }
+
+    #[test]
+    fn merge_rejects_record_metadata_mismatch() {
+        let dir = std::env::temp_dir().join(format!("t156d-merge-mismatch-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+        let positions_path = dir.join("positions.json");
+        let input_path = dir.join("input.json");
+        let out_path = dir.join("out.json");
+        let positions = json!([{
+            "id": "p1", "board": "-".repeat(64), "side_to_move": "black",
+            "empties": 30, "empty_bucket": "29-36", "split": "test",
+            "game_id": "g1", "pilot": false
+        }]);
+        let positions_bytes = serde_json::to_vec(&positions).unwrap();
+        fs::write(&positions_path, &positions_bytes).unwrap();
+        let invalid = MeasurementFile {
+            schema_version: 1,
+            positions_fingerprint: fingerprint(&positions_bytes),
+            weights_fingerprint: "test-weights".to_string(),
+            depths: vec![1],
+            pilot_only: false,
+            records: vec![PositionMeasurement {
+                id: "p1".to_string(),
+                empties: 29,
+                empty_bucket: "29-36".to_string(),
+                split: "test".to_string(),
+                game_id: "g1".to_string(),
+                results: vec![DepthMeasurement {
+                    depth: 1,
+                    score: 0,
+                    nodes: 1,
+                }],
+            }],
+        };
+        fs::write(&input_path, serde_json::to_vec(&invalid).unwrap()).unwrap();
+        let args = strings(&[
+            "--positions",
+            positions_path.to_str().unwrap(),
+            "--inputs",
+            input_path.to_str().unwrap(),
+            "--out",
+            out_path.to_str().unwrap(),
+        ]);
+        assert!(std::panic::catch_unwind(|| cmd_merge(&args)).is_err());
+        assert!(!out_path.exists());
+        fs::remove_dir_all(&dir).unwrap();
+    }
 }
