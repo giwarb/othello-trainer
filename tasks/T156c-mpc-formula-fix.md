@@ -41,3 +41,6 @@ attempts: 0
 ## 作業ログ
 
 (ワーカーが節目ごとに追記)
+
+- 2026-07-20 18:37 JST (Codex): T156bの4空き帯×候補4ペアをQ16 affine表として `engine/src/mpc.rs` に埋め込み、方向別marginとfail-high ceil / fail-low floorによる外向き閾値へ修正した。`SearchPolicy`（history/aspiration/MPC独立制御、既存経路はMPC OFF）と `MpcStats` を追加し、PV・未校正・exact境界ガード、プローブ中のrecursive MPC/exact無効化と全経路復元、深さDのMPC直接TT store禁止を実装。analyzeAllは構造的にMPC OFFを維持。Gate 0として式・方向別境界・NWS幅1・PV/exact境界・exact quota非消費・ノード上限中断時復元・TT深さ・recursive抑止・MPC ON決定性/default OFFをテストした。コミットハッシュ: 環境制約により未コミット（オーケストレーター代行待ち）。
+- 2026-07-20 18:37 JST (Codex): 検証結果: `cargo test -p engine` は204 passed / 0 failed / 2 ignored、`cargo test -p engine --release --test ffo_bench -- --nocapture` はFFO #40〜#44全問正解（1 passed / 1 heavy ignored）、`cargo test -p engine --features mpc_enabled mpc_ -- --nocapture` は4 passed、`cargo check -p engine` と `cargo check -p engine --features mpc_enabled`、`git diff --check` は成功。default OFFの既存決定性・analyzeAll・ノード予算テストを含め既存挙動は全パス。trainは変更していないため `cargo test -p train` は対象外。
