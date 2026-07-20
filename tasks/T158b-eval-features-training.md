@@ -40,3 +40,10 @@ attempts: 0
 ## 作業ログ
 
 (ワーカーが節目ごとに追記)
+
+- 2026-07-21 01:01:03 +09:00 — trainer に B0～B3、engine 共通 scalar prediction、`loss_gradient * feature_value + L2` 更新、PWV4 checkpoint/final、T158 専用 identity/metrics、WTHOR train 特徴分布、epoch 進捗 flush を追加。単一 sample 勾配・収束、PWV4 round-trip、resume 同一性、特徴なし PWV3 同一性をテストした。
+- 分布: WTHOR train 3,988,509 sample。mobility abs P50/P95/P99/max = 2/8/11/22、exposure = 7/23/32/71。scale `/8`, `/32` を維持。
+- Gate 2: 層化 target 180,000（actual 179,969）、seed 1、20 epoch。B0/B1/B2/B3 frozen MAE = 17.931125/17.643484/17.769553/17.617524。B3 を選定（B0差 -0.313601、game bootstrap 95% CI [-0.339482,-0.296038]、全 stage 帯改善、係数 finite・説明不能な極端振動なし）。B3 epoch 18 保存中に中断し、完全な epoch 17 PWV4 checkpoint から resume 完走を実測。
+- Gate 3: 全 74,024局、train 3,988,509 / frozen 442,995 sample、B0対照+B3のみ、3seed×20 epoch。平均 frozen MAE B0 15.952476 / B3 15.890416（差 -0.062059）、3/3seed改善、pooled game bootstrap 95% CI [-0.072528,-0.052858]、stage帯最大悪化 +0.014026 < +0.10。Gate 3 合格。成果物は `train/data/t158/` のみ。
+- 実行・結果: `cargo build --release -p train --bin train_patterns_v3` PASS、pilot/full コマンド完走、`python -m json.tool bench/edax-compare/t158b_training_report.meta.json` PASS、`cargo test -p train` PASS（全 test、lib 91件を含む）。engine側は未変更のため engine/FFO test は対象外。
+- レポート: `bench/edax-compare/t158b_training_report.md` と `.meta.json` を作成。コミットは `.git` 書き込み禁止のため未実施（オーケストレーター代行待ち）。
