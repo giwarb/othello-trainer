@@ -1,7 +1,7 @@
 ---
 id: T159b
 title: 早期打ち切りの--simple-corpus(Egaroucid)経路対応 — Egaroucid全量学習シリーズ(1.5/3)
-status: todo
+status: done # verifier(OFF不変2種のworktree独立追試SHA一致・137テスト・B3ガード実挙動確認)+代替レビュー(重大0・中1・軽微6)両合格、2026-07-21。中1(T159形式6列metricsの中断runがresume不能、影響母集団は実質空)は申し送りのみ
 assignee: implementer
 attempts: 0
 ---
