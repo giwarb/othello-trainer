@@ -1,7 +1,7 @@
 ---
 id: T158d
 title: 評価特徴追加(4/4): 対Edax対局ゲート — 段階1: パイロット6局(3ペア)
-status: in_progress
+status: done # 段階1(パイロット3ペア12局)完了: verifier合格(全数値独立再集計一致・SHA5点追試一致)、watch-point数値誤記はredoなしの追修正で解消(13c2e32)。段階2(60局本実行、約29分)はユーザー判断待ち、2026-07-21
 assignee: implementer
 attempts: 0
 ---
@@ -63,3 +63,14 @@ manifest: `bench/edax-compare/t158c_screening_report.meta.json` の `deferredT15
 11. **受け入れ基準確認**: 完了時点で`git status --short`はクリーン(`tasks/`配下の本ファイル編集分を除く)。`tasks/`・`CLAUDE.md`はコミットしていない(オーケストレーター担当のため)。
 
 実行コマンド・結果の詳細・SHA-256全文は`bench/edax-compare/t158d_pilot_report.md`・`.meta.json`を参照。
+
+### 2026-07-21 verifier検収後の修正(implementer)
+
+verifier合格後、コーディネーターより「セクション5(watch-point定性確認)の数値取り違え」の指摘を受けた。生JSON(`endgame-results/t158d-candidate-vs-edax-results.json`・`t158d-v4-vs-edax-results.json`)からbudgeted→exact乖離を全12局について再計算し確認した:
+
+- 候補側の実際の最大乖離: **primary-02/black、空き22で-16.83→空き20で-38.00、乖離21.17石**(初版の「候補側最大約7石(primary-01/black)」は誤り。指摘どおり初版の約3倍)。
+- 同一開幕(primary-02/black)でのv4側乖離は3.79石(初版の「v4側最大約4石(primary-01/black: -35.74→-36)」は誤り。この局は`exactFallback=true`で実際の乖離は0.26石)。
+- 追加確認: v4自身の全6局中の最大乖離は実際にはprimary-03/white(5.32石)であり、primary-02/blackの3.79石はv4の最大値ではない。候補側最大(21.17石)はv4自身の最大(5.32石)と比べても約4倍大きい。候補6局の乖離絶対値平均は約9.7石、v4は約1.9石。
+- `bench/edax-compare/t158d_pilot_report.md`のセクション5・8を上記の正しい数値・開幕対応に書き直し、候補側の乖離幅がv4よりはっきり大きいという非対称(初版で見落としていた点)を60局本実行の重点観察項目として明記した。結論の骨子(勝敗自体はv4も同局面で敗北しており候補固有の逆転負けではない)は維持。
+- `t158d_pilot_report.meta.json`の`watchPointEmpties19.finding`は元々primary-02/black(-16.83→-38)を正しく記載しており誤記がなかったため変更なし。修正後の`.md`と矛盾しないことを確認した。
+- 修正版をコミット`13c2e32`(`bench/edax-compare/t158d_pilot_report.md`のみ、パス明示でadd)。
