@@ -1,7 +1,7 @@
 ---
 id: T151
 title: bookフェーズ2(2/2): Edax評価値付与+悪手除外+対局専用拡張ブックの公開
-status: todo # todo | in_progress | review | redo | done | blocked
+status: done # v1両検収合格→検収データを受け仕様v2(命名済み保護)へ更新→v2再検収合格(112/112全生存・935ノードBFS一致・Pages実機)、2026-07-20
 assignee: implementer(Sonnet)(Codex usage limit中のフォールバック)
 attempts: 0
 ---
@@ -216,3 +216,49 @@ T150で抽出したWTHOR頻出251ライン+既存112ラインを統合し、Edax
 - 以上によりv2仕様での受け入れ基準1・6(Pages実機確認・デプロイ成功)、および
   今回の追加指示(命名済み112/112ライン全生存の確認・虎Dのf4がブック内でcap表示
   されることの実機確認)が完了。
+
+### 2026-07-20 verifier(Sonnet)v2差分の独立機械検証
+
+自分で完全に独立したNode.jsスクリプト(othello.ts/normalize.ts/buildOpeningBook.tsを
+一切importせず、盤面表現・合法手判定・着手適用・hashBoard生成をゼロから再実装、
+`node --experimental-strip-types`ではなく素のNode CommonJSで作成)により、
+`bd46763`のv2差分を検証した。コード修正は一切行っていない。
+
+1. **命名済み112ライン全生存(独立BFS/リプレイ)**: 112ライン・計1354手ステップを
+   自前リプレイエンジンで初期局面から再現し、各ステップ直前の局面キーを
+   独自hashBoardで算出、`app/public/opening-book.json`のbookMovesに実在するか
+   確認。**1354/1354ステップ・112/112ライン全生存を確認**(タスク仕様の主張と一致)。
+2. **除外/保護の独立検証**: `bookgen/opening-book-warnings.json`のflagged 135件
+   (excludedFromBook=76・kept(保護)=59)全件について、`bookgen/opening-book-eval-checkpoint.json`
+   の生Edax結果から独自にterminal/needsFlip分岐を再実装してbestValue/moveValue/lossを
+   再計算し、報告値と完全一致することを確認(135/135、うち5件は該当ノード自体が
+   到達不能で最終935ノードから消えていたため個別に再検証し一致を確認)。
+   保護判定(protectedByNamedLine)も独自collectNamedLineMoveKeys相当の集合と
+   完全一致。除外エントリは実際にbookMovesから消えている(または該当ノードごと
+   消えている)ことを確認、保護エントリは実際にbookMovesに残りevalも一致することを確認。
+   さらに935ノード中の全938件の生存bookMovesについて、eval値を独立再計算した値と
+   全件一致(0件不一致)、かつ非保護の生存手で loss>=2 のものは0件(除外漏れなし)を確認。
+3. **到達不能刈り(独立BFS)**: opening-book.json自身のnodes/bookMovesのみを入力に、
+   自前BFSでrootから到達可能な集合を計算した結果、935/935ノードと完全一致
+   (書籍外に残る到達不能ノード0件、bookMoveが指す先が書籍に存在しないダングリング
+   エッジ0件)。
+4. **isLeaf修正**: bookMoves=[]のノードは157件、うちisLeaf!==trueは0件
+   (全件isLeaf=trueへ補正済みであることを確認)。
+5. `cd app && npx vitest run` → 98ファイル832テスト全パス(報告値と一致)。
+   `git show bd46763 --stat` → `app/public/opening-book.json`
+   `app/src/joseki/{buildOpeningBook.test.ts,buildOpeningBook.ts,generateOpeningBook.ts,
+   lineNaming.ts,traceDisplay.ts}` `bookgen/opening-book-warnings.json`のみ、train/未変更
+   (train/を触っていないためcargo testは対象外)。`git status --short` →
+   `train/src/bin/egaroucid_filter_stones.rs`・`train/src/bin/wthor_to_simple.rs`の
+   未追跡2件のみ(T154由来と申告どおり、T151のスコープ外)、それ以外の差分・
+   未追跡ファイルは無し。`git rev-parse main`と`origin/main`が一致
+   (`729c7ab`)、push済みを確認。
+6. **Pages実機**: `curl`で`opening-book.json`が200・nodes数935であることを直接確認。
+   Playwright(scratchpadに一時npm installしchromiumで実行、リポジトリには何も追加せず)で
+   `https://giwarb.github.io/othello-trainer/` にアクセスし、対局モード・白番で開始→
+   CPU(黒)がf5自動着手(トレース「定石: 虎(他111)(1手目)」)→白がd6→CPU黒がc3自動応手
+   (トレース「定石: 虎(他41)(3手目)」)→**白が虎Dの手順どおりf4を着手**→着手が受理され
+   トレースが「定石: 龍定石(他2)(5手目)」に更新(離脱扱いにならず定石内進行を維持)
+   することを確認。実装の作業ログの記述と完全一致。
+
+**結論: 合格。** v2差分の5項目すべて独立検証で一致し、コード修正は不要。
