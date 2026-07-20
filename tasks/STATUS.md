@@ -32,7 +32,7 @@
 
 | ID | タスク | 担当 | 状態 | 試行 |
 |---|---|---|---|---|
-| T156c | MPC再校正(3/7): カット式修正・runtime制御(default OFF) | Codex gpt-5.6-sol | in_progress(委譲中。外向きmargin・(d,D)表・exact隔離・Gate 0テスト・OFF時完全不変) | 0 |
+| T156c | MPC再校正(3/7): カット式修正・runtime制御(default OFF) | Codex gpt-5.6-sol | review(完了c9aa39e代行コミット: 外向きmargin・Q16表・SearchPolicy・Gate 0テスト、engine 204テスト+FFO全問正解・OFF時既存挙動全パス。verifier+codex-review検収中) | 0 |
 | T157 | oracle拡張(60→180局面)+既存重み一括再採点 | implementer(Sonnet) | in_progress(委譲中。ユーザー指摘起点: 1.111の頑健性検証・60局面ノイズ±0.4-0.5石の低減。以後のスクリーニング標準を180局面へ) | 0 |
 
 ## 有効な方針・申し送り(今後のタスクに効くもの)
