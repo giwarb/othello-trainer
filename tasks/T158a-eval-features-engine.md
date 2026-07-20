@@ -67,3 +67,20 @@ attempts: 1
   160k/1500msはnative/WASMとも`nodeLimitHit=true`, `timedOut=false`でノード上限支配。
   詳細は`bench/edax-compare/t158a_engine_cost_report.md`と`.meta.json`。
   コミットハッシュ: なし（`.git`書き込み禁止のためオーケストレーターが代行）。
+
+- 2026-07-21 00:03:03 +09:00 Codex (redo #1): `t156_mpc_positions.json`から
+  4空き帯×2局面の固定corpusを追加し、native/WASMの固定深さ・160k層を
+  fresh TT、7反復、baseline/candidate交互順で再計測。baselineの固定深さ・
+  160k結果を全反復間で直接比較し、ゼロ係数PWV4との値・move・depth・nodes・
+  PV完全一致とnative/WASM一致を機械検証した。親コミット由来の現行PWV3
+  `f32::to_bits()` 8局面golden fixtureも追加。WASM固定深さ集計NPS比96.58%、
+  帯別最低95.94%でGate 1合格。native集計96.56%。160k/1500msはnative/WASM
+  とも8/8局面でノード上限支配、時間切れ0件。
+  `cargo test -p engine`=engine library 210 passed/0 failed/2 ignored、各bin/integration PASS、
+  `cargo test -p engine --release --test eval_features_nps_bench stratified_corpus_cost_is_reported -- --nocapture`=PASS、
+  `cargo test -p engine --release --test pattern_eval_nps_bench -- --nocapture`=PASS
+  (pattern/heuristic NPS比0.867)、
+  `cargo test -p engine --release --test ffo_bench -- --nocapture`=FFO #40〜44全問PASS
+  (641,077,417 nodes, 59.674s, 10,743,009 NPS)。詳細は
+  `bench/edax-compare/t158a_engine_cost_report.md`と`.meta.json`。
+  コミットハッシュ: なし（`.git`書き込み禁止のためオーケストレーターが代行）。
