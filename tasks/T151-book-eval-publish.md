@@ -51,4 +51,71 @@ T150で抽出したWTHOR頻出251ライン+既存112ラインを統合し、Edax
 
 ## 作業ログ
 
-(ワーカーが節目ごとに追記)
+### 2026-07-20 implementer(Sonnet)
+
+- 調査: 既存`app/src/joseki/{buildDb,types,lookup,normalize,selectCpuBookMove,traceDisplay,generate}.ts`、
+  `bench/edax-compare/vs_edax.py`(特に`edax_solve_batch`/`_edax_solve_batch`/`analyze_game_losses_v2`の
+  符号反転ロジック、T084)、`app.tsx`のPlayMode(josekiDb state・CPU着手/トレース/cap用useEffect)、
+  Service Worker(`app/public/sw.js`、joseki.json同様にランタイムfetch+cache-firstで
+  opening-book.jsonも自動対応することを確認、SW自体の変更不要)を確認。
+- 設計: hashBoard(`"<blackHex>_<whiteHex>_<side>"`)が可逆であることを利用し、DAG構築の再シミュレート
+  無しに`db.nodes`を直接走査して局面を復元する方式を採用(`openingBookPositions.ts`の`parseNodeKey`)。
+  T084の`analyze_game_losses_v2`と同じ「着手後局面をEdaxで評価し、相手番なら符号反転・パスなら反転無し・
+  終局ならEdaxを呼ばず確定石差」の3分岐を採用。
+- ステージ1実装: `app/src/joseki/openingBookPositions.ts`(collectMoveEvalRequests、boardToObf等)+
+  `generateOpeningBookEvalInput.ts`(CLI、`npm run openingBook:collect`)。テスト9件
+  (`openingBookPositions.test.ts`、実データ全件をothello.tsのオラクルと突き合わせる方式で
+  terminal/needsFlip/positionKeyの整合性を検証)。実行結果: 統合1111ノード、10745 move requests、
+  重複排除後10715局面(要件1の見込み「千数百局面」より一桁多いが、「全合法手」評価という要件上の
+  必然。詳細は下記メモ)。
+- ステージ2実装: `bench/edax-compare/eval_opening_book.py`(vs_edax.edax_solve_batchを流用、
+  level16固定・n_tasks=1は`EDAX_BATCH_TASKS=1`により既定で決定的、edax_exe=wEdax-x86-64-v3.exe、
+  バッチ単位でチェックポイント保存+進捗stdout出力、resume時は完了済みpositionKeyをスキップ)。
+  モックによる回帰テスト3件(`test_eval_opening_book.py`、初回全件評価・2回目resume時Edax不呼び出し・
+  バッチ途中失敗後も直前分のチェックポイントが残ることを検証)、全パス。
+  事前ベンチ(実データ40局面/300局面)で0.02〜0.04秒/局面を確認。
+- Edax評価実行: `python bench/edax-compare/eval_opening_book.py --batch-size 200`を
+  バックグラウンド実行、10715/10715局面を約8分で完走(進捗ログはbatch=200単位でstdout出力、
+  途中経過はチェックポイントファイルに逐次保存済み)。生成meta: level16, nTasks1,
+  edaxExe=wEdax-x86-64-v3.exe, edaxSha256=d85b7555...(bookgen/opening-book-eval-checkpoint.json参照)。
+- ステージ3・4実装: `app/src/joseki/buildOpeningBook.ts`(resolveMoveValue/filterOpeningBook/
+  pruneUnreachableNodes/buildOpeningBookDb、buildDb.tsの`assignWeights`をexportして重み再計算に再利用)+
+  `generateOpeningBook.ts`(CLI、`npm run openingBook:build`、ノード数/requests数の整合性チェック付き)。
+  テスト19件(`buildOpeningBook.test.ts`、フィルタ・namedOrigin判定・reachability刈り込み・
+  end-to-end配線を実データ規模のDAGで検証)、全パス。
+- 実行結果: 1111ノード -> フィルタ+刈り込み後460ノード(651ノードが到達不能として除去)、
+  除外bookMove 135件(うち116件が命名済み定石を経由するノード由来。ただし「その手自体が
+  命名済みラインの実際の推奨手」とは限らず「そのノードに命名済みラインも合流している」の意。
+  タスク仕様どおり除外は一律実施、除外自体は許容されている)。除外の最小lossは2(閾値境界の
+  検証済み)。root(初期局面)のbookMovesはf5のみ(既存仕様どおり)でeval=0(4つの初手いずれも
+  対称なため妥当)。「虎」ライン(f5-d6-c3-d3-c4)は全5手とも生存し、重みは各ノードで合計1に
+  正規化されていることを確認。
+- `traceDisplay.ts`に自動命名ライン(`WTHOR-####`)を除外して表示する`selectDisplayNames`を追加、
+  全命名済みなら`他N`のNは命名済みライン数のみでカウント、全て自動命名なら「頻出進行」に
+  フォールバック。テスト5件追加、全パス。
+- `lookup.ts`に`loadOpeningBookDb`(joseki.jsonとは独立キャッシュ、fetch先`opening-book.json`)を追加。
+  `loadDbFrom`共通ヘルパーへリファクタ。テスト2件追加、全パス。
+- `app.tsx`のPlayMode: `josekiDb` stateのロード元を`loadJosekiDb()`から`loadOpeningBookDb()`に
+  1箇所だけ変更(CPU着手・トレース・cap・悪手判定のjosekiHitはすべて同じstateを参照しているため
+  この1箇所の変更で全て反映される)。ホーム進捗(定石/中盤練習の実績行)・定石練習・中盤練習ステージは
+  引き続き`loadJosekiDb()`(joseki.json)のまま変更なし。
+  `vi.mock('./joseki/lookup.ts', ...)`で全体モックしている既存テスト8ファイル
+  (app.playmode.*.test.tsx / app.home.progress.test.tsx)に`loadOpeningBookDb`のダミー実装を追加。
+- 検証: `npx vitest run`(app/) 98ファイル822テスト全パス。`npm run typecheck`エラー無し。
+  `python -m pytest test_eval_opening_book.py`3件全パス。ローカル`vite dev`+Browser
+  MCPで対局モードをスモーク確認: opening-book.jsonが200で取得され、CPU初手f5即着手、
+  トレース「定石: 虎(他111)(1手目)」(WTHOR-####を生表示せず命名済み定石名を優先表示)、
+  白の合法手のうちbookMoves(cap対象)がeval0で表示、悪手を打つと「定石」+「悪手」ソース表示と
+  ロス・順位付き理由文が出ることを確認、さらに定石を外れると「(離脱)」サフィックスが付き
+  capが解除される(生の評価値に戻る)ことも確認。
+- コミット: `af144b3`(変更対象のみパス明示add、tasks/・CLAUDE.md・`.claude/launch.json`
+  (ローカルpreview用、スコープ外)は含めず)。`git push origin main`実行済み。
+- 残作業: GitHub Actionsのデプロイ成功確認・Pages実機確認(GitHub API一時的503のため確認中、
+  完了後追記する)。
+
+**設計判断メモ(要件1の時間見込みとの乖離)**: タスク要件1は「千数百局面」「0.2〜0.5秒/局面」
+「十数分」の見込みだったが、実際は「全ノードの全合法手」(要件1の明文どおり)を評価対象にした
+結果、重複排除後10715局面(見込みの一桁上)になった。ただし実測速度がv3バイナリ・level16で
+0.02〜0.04秒/局面と見込みの5〜10倍速かったため、総実行時間は約8分に収まり「十数分」の
+見込みの範囲内で完走した。要件を「bookMovesのみ評価」に狭める代替案は、除外判定の前提
+(「全合法手中の最善」との比較)を満たせなくなるため採用しなかった。
