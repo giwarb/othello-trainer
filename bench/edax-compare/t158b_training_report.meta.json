@@ -1,0 +1,66 @@
+{
+  "schemaVersion": 1,
+  "analysis": "T158b scalar feature training Gate 2/3",
+  "corpus": {
+    "hash": "1889787a62ae2242",
+    "games": 74024,
+    "trainGames": 66622,
+    "frozenGames": 7402,
+    "trainSamples": 3988509,
+    "frozenSamples": 442995
+  },
+  "training": {
+    "epochs": 20,
+    "learningRate": 0.005,
+    "l2": 0.00001,
+    "loss": "Mse",
+    "initialization": "all weights zero",
+    "subsetSeed": 42
+  },
+  "featureDistribution": {
+    "population": "WTHOR train split before optional stratified subset",
+    "count": 3988509,
+    "mobility": {"signedMin": -20, "signedMax": 22, "p50Abs": 2, "p95Abs": 8, "p99Abs": 11, "maxAbs": 22, "scaleShift": 3},
+    "exposure": {"signedMin": -65, "signedMax": 71, "p50Abs": 7, "p95Abs": 23, "p99Abs": 32, "maxAbs": 71, "scaleShift": 5}
+  },
+  "bootstrap": {
+    "unit": "frozen game",
+    "statistic": "mean per-game MAE difference, candidate minus same-seed B0",
+    "method": "percentile, resampling with replacement",
+    "samples": 100000,
+    "pilotSeeds": {"B1": 158003, "B2": 158004, "B3": 158005},
+    "fullSeeds": {"1": 158101, "2": 158102, "3": 158103, "pooled": 158200}
+  },
+  "stageBands": [[0, 14], [15, 24], [25, 34], [35, 44], [45, 60]],
+  "gate2": {
+    "subsetTarget": 180000,
+    "subsetActual": 179969,
+    "seed": 1,
+    "thresholds": {"overallMaeImprovementAtLeast": 0.05, "maxStageBandRegression": 0.10, "bootstrapDirection": "negative", "coefficientsFinite": true, "noUnexplainedExtremeOscillation": true},
+    "runs": [
+      {"config": "B0", "features": [], "frozenMse": 546.507774, "frozenMae": 17.9311253730653, "maeDelta": 0.0, "gameMeanDelta": 0.0, "bootstrap95": null, "sha256": "c44fb3615a728db42d47ac25d501a55439f0c611c12b537789d014cb9bd5814c"},
+      {"config": "B1", "features": ["mobility"], "frozenMse": 533.378230, "frozenMae": 17.643483868052343, "maeDelta": -0.2876415050129566, "gameMeanDelta": -0.2911780722106416, "bootstrap95": [-0.3112143940909511, -0.271183181754084], "stageBandDeltas": [-0.4370763151288255, -0.3923902553639316, -0.33417597618361583, -0.2657209869175219, -0.053463329117043656], "sha256": "b176afb7c8fb17f288473d1fee85c4980e85cea033240422b2e1fe9802b3ce86"},
+      {"config": "B2", "features": ["exposure"], "frozenMse": 539.256721, "frozenMae": 17.76955323033314, "maeDelta": -0.16157214273215814, "gameMeanDelta": -0.16389946268116462, "bootstrap95": [-0.17949149628753994, -0.14830855027956744], "stageBandDeltas": [-0.20097785722223627, -0.271324022382359, -0.22420292621665894, -0.12426971681798804, -0.03253692063314162], "sha256": "698ae8853cab44301551e8541054f25a695894ec52452353bf2508208ad33d18"},
+      {"config": "B3", "features": ["mobility", "exposure"], "frozenMse": 532.184337, "frozenMae": 17.61752405021571, "maeDelta": -0.3136013228495891, "gameMeanDelta": -0.31765010143813915, "bootstrap95": [-0.33948151817206107, -0.2960383562567909], "stageBandDeltas": [-0.44425324258808274, -0.4366896692084623, -0.38438906290756236, -0.29369341918483727, -0.06829177492983263], "coefficientsFinite": true, "maxAdjacentStageJump": {"mobility": 15.604502, "exposure": 5.7199613}, "sha256": "32858579c5d2fcff1e20f36ad90751dff373f3a34cb7cf911fccfccd2d2b640a"}
+    ],
+    "selected": "B3",
+    "pass": true
+  },
+  "gate3": {
+    "candidate": "B3",
+    "thresholds": {"meanMaeImprovementAtLeast": 0.05, "nonRegressionSeedsAtLeast": 2, "maxStageBandRegression": 0.10, "bootstrapDirection": "negative"},
+    "runs": [
+      {"seed": 1, "baselineMae": 16.18583105254268, "candidateMae": 16.133633223287358, "maeDelta": -0.05219782925532357, "gameMeanDelta": -0.052759187567121044, "bootstrap95": [-0.06294652690951882, -0.04246821812562517], "stageBandDeltas": [-0.07245202380348292, -0.045160689632330886, -0.08201174631327746, -0.09866919106507055, 0.014026154179269668], "baselineSha256": "56dccc2403beb3ab90a4f570a6ad9926271e908e68d74d0571ee4158994b2178", "candidateSha256": "b5e1f866796c172522cc2818e45883684ebb750d6c0a042153c2cc42f6d1b070"},
+      {"seed": 2, "baselineMae": 15.725285182849138, "candidateMae": 15.657503573006311, "maeDelta": -0.067781609842827, "gameMeanDelta": -0.06833531178305954, "bootstrap95": [-0.07826116745464115, -0.058417911261458635], "stageBandDeltas": [-0.07035036250324911, -0.059678852994107245, -0.07177261739271401, -0.12094593520477304, -0.032533418991651075], "baselineSha256": "d1607701269672fe4b9e83994a41e47d33d42b4dc08517b50a85b08adc7d8b76", "candidateSha256": "dae9af0b4d9e3322c6e2181071b095bca1f2272e69ba85d0e828f21e29c7c5ec"},
+      {"seed": 3, "baselineMae": 15.946311176391317, "candidateMae": 15.88011239482734, "maeDelta": -0.06619878156397796, "gameMeanDelta": -0.06689165805241788, "bootstrap95": [-0.07716373860406121, -0.056547811555750824], "stageBandDeltas": [-0.0691459241022514, -0.056186249472375493, -0.06318009465578456, -0.14051655250279538, -0.022419247181321822], "baselineSha256": "c372b83366c4006023ae05f3af5b68dda5929aca7ff7308d1b398a89639e383f", "candidateSha256": "5b7952a1755aeea852a9ce03f55535331d31cf8dd2ad27642434b8583d553a14"}
+    ],
+    "baselineMeanMae": 15.952475803927712,
+    "candidateMeanMae": 15.890416397040335,
+    "meanMaeDelta": -0.06205940688737677,
+    "nonRegressionSeeds": 3,
+    "pooledGameMeanDelta": -0.06266205246753281,
+    "pooledBootstrap95": [-0.07252760331495746, -0.052858338206674],
+    "maxStageBandRegression": 0.014026154179269668,
+    "pass": true
+  }
+}

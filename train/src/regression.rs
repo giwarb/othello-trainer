@@ -30,7 +30,7 @@
 //! (`engine::pattern_eval::stage_for_empty_count`)。
 
 use engine::bitboard::Board;
-use engine::pattern_eval::PatternWeights;
+use engine::pattern_eval::{scalar_features, PatternWeights, ScalarFeatureKind};
 use engine::patterns::{pattern_state_index, PatternCells};
 
 use crate::train_data::Sample;
@@ -99,6 +99,25 @@ impl Model {
         }
     }
 
+    /// ステージ定義と学習対象のscalar特徴を明示して、全重みを0初期化する。
+    /// 空sliceは従来の特徴なしモデルと同じPWV3モデルになる。
+    pub fn new_with_scalar_features(
+        patterns: Vec<PatternCells>,
+        num_stages: usize,
+        stage_empty_divisor: u32,
+        features: &[ScalarFeatureKind],
+    ) -> Self {
+        let mut weights =
+            PatternWeights::zeroed_with_stage_definition(patterns, num_stages, stage_empty_divisor);
+        if !features.is_empty() {
+            weights = weights.with_zeroed_scalar_features();
+            weights
+                .scalar_feature_weights
+                .retain(|feature| features.contains(&feature.kind));
+        }
+        Model { weights }
+    }
+
     /// 局面(`board`・`mover`)の予測値(mover視点の最終石差の予測)を返す。
     pub fn predict(&self, board: &Board, mover: engine::bitboard::Side) -> f32 {
         self.weights.score(board, mover)
@@ -115,14 +134,12 @@ impl Model {
             .weights
             .stage_for_empty_count(sample.board.empty_count());
 
+        // 推論式はengine側へ一本化する。scalar特徴の抽出・scale・加算順を
+        // trainer側で複製しないことで、学習時予測と実運用時予測を一致させる。
+        let prediction = self.predict(&sample.board, sample.mover);
+
         let class_of = &self.weights.class_info.class_of;
         let aligned_cells = &self.weights.class_info.aligned_cells;
-        let mut prediction = 0.0;
-        for i in 0..self.weights.patterns.len() {
-            let state = pattern_state_index(&aligned_cells[i], &sample.board, sample.mover);
-            prediction +=
-                self.weights.class_tables[class_of[i]].stage_tables[stage][state as usize];
-        }
 
         let error = prediction - sample.outcome;
         let loss_gradient = match cfg.loss {
@@ -135,6 +152,22 @@ impl Model {
             let w = &mut self.weights.class_tables[class_id].stage_tables[stage][state as usize];
             let grad = loss_gradient + cfg.l2 * *w;
             *w -= cfg.learning_rate * grad;
+        }
+        if !self.weights.scalar_feature_weights.is_empty() {
+            let values = scalar_features(&sample.board, sample.mover);
+            for feature in &mut self.weights.scalar_feature_weights {
+                let raw = match feature.kind {
+                    ScalarFeatureKind::ExactMobilityAdvantage => values.exact_mobility_advantage,
+                    ScalarFeatureKind::EmptyAdjacencyExposureAdvantage => {
+                        values.empty_adjacency_exposure_advantage
+                    }
+                };
+                let value = raw as f32 / (1u32 << feature.scale_shift) as f32;
+                let w = &mut feature.weights[stage];
+                // 線形項の勾配。loss_gradientだけではなく特徴値を必ず掛ける。
+                let grad = loss_gradient * value + cfg.l2 * *w;
+                *w -= cfg.learning_rate * grad;
+            }
         }
     }
 
@@ -209,6 +242,10 @@ impl Model {
 
     pub fn to_bytes_v3(&self) -> Vec<u8> {
         self.weights.to_bytes_v3()
+    }
+
+    pub fn to_bytes_v4(&self) -> Vec<u8> {
+        self.weights.to_bytes_v4()
     }
 
     /// [`to_bytes`](Self::to_bytes)の逆変換(`PatternWeights::from_bytes`への委譲)。
@@ -433,5 +470,131 @@ mod tests {
             mse.predict(&sample.board, sample.mover)
                 > huber.predict(&sample.board, sample.mover) * 4.9
         );
+    }
+
+    fn scalar_test_model(features: &[ScalarFeatureKind]) -> Model {
+        Model::new_with_scalar_features(
+            patterns::generate_patterns_for(patterns::PatternConfig::V3),
+            engine::pattern_eval::V4_NUM_STAGES,
+            engine::pattern_eval::V4_STAGE_EMPTY_DIVISOR,
+            features,
+        )
+    }
+
+    #[test]
+    fn scalar_gradient_multiplies_loss_gradient_by_feature_value() {
+        let sample = Sample {
+            board: asymmetric_test_board(),
+            mover: Side::Black,
+            outcome: 10.0,
+            last_move_kind: crate::train_data::LastMoveKind::Other,
+            vulnerable_xc: false,
+        };
+        let features = scalar_features(&sample.board, sample.mover);
+        assert_ne!(features.exact_mobility_advantage, 0);
+        let normalized = features.exact_mobility_advantage as f32 / 8.0;
+        let mut model = scalar_test_model(&[ScalarFeatureKind::ExactMobilityAdvantage]);
+        let cfg = TrainConfig {
+            learning_rate: 0.001,
+            l2: 0.0,
+            epochs: 1,
+            seed: 1,
+            loss: Loss::Mse,
+        };
+        let stage = model
+            .weights
+            .stage_for_empty_count(sample.board.empty_count());
+        model.train(&[sample], &cfg);
+        let actual = model.weights.scalar_feature_weights[0].weights[stage];
+        let expected = cfg.learning_rate * sample.outcome * normalized;
+        assert!(
+            (actual - expected).abs() < 1e-7,
+            "actual={actual} expected={expected}"
+        );
+    }
+
+    #[test]
+    fn scalar_single_sample_converges_and_pwv4_roundtrips() {
+        let sample = Sample {
+            board: asymmetric_test_board(),
+            mover: Side::Black,
+            outcome: 8.0,
+            last_move_kind: crate::train_data::LastMoveKind::Other,
+            vulnerable_xc: false,
+        };
+        let mut model = scalar_test_model(&[
+            ScalarFeatureKind::ExactMobilityAdvantage,
+            ScalarFeatureKind::EmptyAdjacencyExposureAdvantage,
+        ]);
+        let cfg = TrainConfig {
+            learning_rate: 0.02,
+            l2: 0.0,
+            epochs: 200,
+            seed: 42,
+            loss: Loss::Mse,
+        };
+        model.train(&[sample], &cfg);
+        assert!((model.predict(&sample.board, sample.mover) - sample.outcome).abs() < 0.5);
+        let bytes = model.to_bytes_v4();
+        assert_eq!(&bytes[..4], b"PWV4");
+        let restored = Model::from_bytes(&bytes).expect("PWV4 should parse");
+        assert_eq!(restored.to_bytes_v4(), bytes);
+    }
+
+    #[test]
+    fn scalar_resume_matches_uninterrupted_training() {
+        let samples = [Sample {
+            board: asymmetric_test_board(),
+            mover: Side::Black,
+            outcome: 6.0,
+            last_move_kind: crate::train_data::LastMoveKind::Other,
+            vulnerable_xc: false,
+        }];
+        let cfg = TrainConfig {
+            learning_rate: 0.01,
+            l2: 1e-5,
+            epochs: 2,
+            seed: 7,
+            loss: Loss::Mse,
+        };
+        let mut uninterrupted = scalar_test_model(&[ScalarFeatureKind::ExactMobilityAdvantage]);
+        uninterrupted.train_epochs(&samples, &cfg, 0, 2);
+
+        let mut first_epoch = scalar_test_model(&[ScalarFeatureKind::ExactMobilityAdvantage]);
+        first_epoch.train_epochs(&samples, &cfg, 0, 1);
+        let mut resumed = Model::from_bytes(&first_epoch.to_bytes_v4()).unwrap();
+        resumed.train_epochs(&samples, &cfg, 1, 1);
+        assert_eq!(resumed.to_bytes_v4(), uninterrupted.to_bytes_v4());
+    }
+
+    #[test]
+    fn featureless_constructor_and_training_are_pwv3_identical() {
+        let patterns = patterns::generate_patterns_for(patterns::PatternConfig::V3);
+        let mut legacy = Model::new_with_stage_definition(
+            patterns.clone(),
+            engine::pattern_eval::V4_NUM_STAGES,
+            engine::pattern_eval::V4_STAGE_EMPTY_DIVISOR,
+        );
+        let mut featureless = Model::new_with_scalar_features(
+            patterns,
+            engine::pattern_eval::V4_NUM_STAGES,
+            engine::pattern_eval::V4_STAGE_EMPTY_DIVISOR,
+            &[],
+        );
+        let samples = [Sample {
+            board: asymmetric_test_board(),
+            mover: Side::Black,
+            outcome: 3.0,
+            last_move_kind: crate::train_data::LastMoveKind::Other,
+            vulnerable_xc: false,
+        }];
+        let cfg = TrainConfig {
+            epochs: 3,
+            seed: 99,
+            ..TrainConfig::default()
+        };
+        legacy.train(&samples, &cfg);
+        featureless.train(&samples, &cfg);
+        assert_eq!(legacy.to_bytes_v3(), featureless.to_bytes_v3());
     }
 }

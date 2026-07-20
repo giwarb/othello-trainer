@@ -2,13 +2,16 @@
 
 use std::env;
 use std::fs;
+use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 use engine::pattern_eval::{
-    NUM_STAGES, STAGE_EMPTY_DIVISOR, V4_NUM_STAGES, V4_STAGE_EMPTY_DIVISOR,
+    scalar_features, ScalarFeatureKind, NUM_STAGES, STAGE_EMPTY_DIVISOR, V4_NUM_STAGES,
+    V4_STAGE_EMPTY_DIVISOR,
 };
 use engine::patterns::{self, PatternConfig};
+use serde::Serialize;
 use train::regression::{Model, TrainConfig};
 use train::simple_corpus;
 use train::train_data::{self, Sample};
@@ -25,6 +28,8 @@ struct TrainingConfig {
     num_stages: usize,
     stage_empty_divisor: u32,
     name: &'static str,
+    scalar_features: &'static [ScalarFeatureKind],
+    t158: bool,
 }
 
 fn config_name(config: TrainingConfig) -> &'static str {
@@ -37,6 +42,29 @@ fn legacy_config(pattern_config: PatternConfig, name: &'static str) -> TrainingC
         num_stages: NUM_STAGES,
         stage_empty_divisor: STAGE_EMPTY_DIVISOR,
         name,
+        scalar_features: &[],
+        t158: false,
+    }
+}
+
+const MOBILITY: &[ScalarFeatureKind] = &[ScalarFeatureKind::ExactMobilityAdvantage];
+const EXPOSURE: &[ScalarFeatureKind] = &[ScalarFeatureKind::EmptyAdjacencyExposureAdvantage];
+const BOTH: &[ScalarFeatureKind] = &[
+    ScalarFeatureKind::ExactMobilityAdvantage,
+    ScalarFeatureKind::EmptyAdjacencyExposureAdvantage,
+];
+
+fn t158_config(
+    name: &'static str,
+    scalar_features: &'static [ScalarFeatureKind],
+) -> TrainingConfig {
+    TrainingConfig {
+        pattern_config: PatternConfig::V3,
+        num_stages: V4_NUM_STAGES,
+        stage_empty_divisor: V4_STAGE_EMPTY_DIVISOR,
+        name,
+        scalar_features,
+        t158: true,
     }
 }
 
@@ -52,7 +80,13 @@ fn parse_config(value: &str) -> TrainingConfig {
             num_stages: V4_NUM_STAGES,
             stage_empty_divisor: V4_STAGE_EMPTY_DIVISOR,
             name: "v4",
+            scalar_features: &[],
+            t158: false,
         },
+        "t158-b0" => t158_config("t158-b0", &[]),
+        "t158-b1" => t158_config("t158-b1", MOBILITY),
+        "t158-b2" => t158_config("t158-b2", EXPOSURE),
+        "t158-b3" => t158_config("t158-b3", BOTH),
         _ => panic!("unknown config: {value}"),
     }
 }
@@ -241,6 +275,180 @@ fn append_result(path: &Path, row: &str) -> Result<(), String> {
     Ok(())
 }
 
+#[derive(Serialize)]
+struct StageMetrics {
+    empty_count: usize,
+    count: usize,
+    mae: f64,
+}
+
+#[derive(Serialize)]
+struct ScalarCoefficients {
+    kind: &'static str,
+    scale_shift: u8,
+    weights: Vec<f32>,
+}
+
+#[derive(Serialize)]
+struct T158RunMetrics {
+    schema_version: u32,
+    config: &'static str,
+    seed: u64,
+    train_samples: usize,
+    frozen_samples: usize,
+    frozen_games: usize,
+    train_mse: f64,
+    train_mae: f64,
+    frozen_mse: f64,
+    frozen_mae: f64,
+    stage_metrics: Vec<StageMetrics>,
+    game_mae: Vec<f64>,
+    scalar_coefficients: Vec<ScalarCoefficients>,
+}
+
+fn scalar_kind_name(kind: ScalarFeatureKind) -> &'static str {
+    match kind {
+        ScalarFeatureKind::ExactMobilityAdvantage => "exact_mobility_advantage",
+        ScalarFeatureKind::EmptyAdjacencyExposureAdvantage => "empty_adjacency_exposure_advantage",
+    }
+}
+
+fn mean_absolute_error(model: &Model, samples: &[Sample]) -> f64 {
+    if samples.is_empty() {
+        return 0.0;
+    }
+    samples
+        .iter()
+        .map(|sample| {
+            (model.predict(&sample.board, sample.mover) as f64 - sample.outcome as f64).abs()
+        })
+        .sum::<f64>()
+        / samples.len() as f64
+}
+
+fn write_t158_metrics(
+    path: &Path,
+    config: TrainingConfig,
+    seed: u64,
+    model: &Model,
+    train_samples: &[Sample],
+    frozen_samples: &[Sample],
+    frozen_games: &[Vec<Sample>],
+) -> Result<(), String> {
+    let mut stage_metrics = Vec::with_capacity(V4_NUM_STAGES);
+    for empty_count in 0..V4_NUM_STAGES {
+        let stage_samples: Vec<_> = frozen_samples
+            .iter()
+            .filter(|sample| sample.board.empty_count() as usize == empty_count)
+            .cloned()
+            .collect();
+        stage_metrics.push(StageMetrics {
+            empty_count,
+            count: stage_samples.len(),
+            mae: mean_absolute_error(model, &stage_samples),
+        });
+    }
+    let metrics = T158RunMetrics {
+        schema_version: 1,
+        config: config.name,
+        seed,
+        train_samples: train_samples.len(),
+        frozen_samples: frozen_samples.len(),
+        frozen_games: frozen_games.len(),
+        train_mse: model.mean_squared_error(train_samples),
+        train_mae: model.mean_absolute_error(train_samples),
+        frozen_mse: model.mean_squared_error(frozen_samples),
+        frozen_mae: model.mean_absolute_error(frozen_samples),
+        stage_metrics,
+        game_mae: frozen_games
+            .iter()
+            .map(|game| mean_absolute_error(model, game))
+            .collect(),
+        scalar_coefficients: model
+            .weights
+            .scalar_feature_weights
+            .iter()
+            .map(|feature| ScalarCoefficients {
+                kind: scalar_kind_name(feature.kind),
+                scale_shift: feature.scale_shift,
+                weights: feature.weights.clone(),
+            })
+            .collect(),
+    };
+    let bytes = serde_json::to_vec_pretty(&metrics).map_err(|e| e.to_string())?;
+    atomic_write(path, &bytes)
+}
+
+#[derive(Serialize)]
+struct DistributionSummary {
+    count: usize,
+    p50_abs: i32,
+    p95_abs: i32,
+    p99_abs: i32,
+    max_abs: i32,
+    min_signed: i32,
+    max_signed: i32,
+    scale_shift: u8,
+}
+
+#[derive(Serialize)]
+struct FeatureDistribution {
+    schema_version: u32,
+    split: &'static str,
+    mobility: DistributionSummary,
+    exposure: DistributionSummary,
+}
+
+fn summarize_distribution(mut values: Vec<i32>, scale_shift: u8) -> DistributionSummary {
+    let min_signed = values.iter().copied().min().unwrap_or(0);
+    let max_signed = values.iter().copied().max().unwrap_or(0);
+    for value in &mut values {
+        *value = value.abs();
+    }
+    values.sort_unstable();
+    let percentile = |percent: usize| {
+        if values.is_empty() {
+            0
+        } else {
+            values[((values.len() * percent).div_ceil(100)).saturating_sub(1)]
+        }
+    };
+    DistributionSummary {
+        count: values.len(),
+        p50_abs: percentile(50),
+        p95_abs: percentile(95),
+        p99_abs: percentile(99),
+        max_abs: values.last().copied().unwrap_or(0),
+        min_signed,
+        max_signed,
+        scale_shift,
+    }
+}
+
+fn write_feature_distribution(path: &Path, samples: &[Sample]) -> Result<(), String> {
+    let mut mobility = Vec::with_capacity(samples.len());
+    let mut exposure = Vec::with_capacity(samples.len());
+    for sample in samples {
+        let values = scalar_features(&sample.board, sample.mover);
+        mobility.push(values.exact_mobility_advantage);
+        exposure.push(values.empty_adjacency_exposure_advantage);
+    }
+    let distribution = FeatureDistribution {
+        schema_version: 1,
+        split: "WTHOR train games before optional stratified subset",
+        mobility: summarize_distribution(
+            mobility,
+            ScalarFeatureKind::ExactMobilityAdvantage.scale_shift(),
+        ),
+        exposure: summarize_distribution(
+            exposure,
+            ScalarFeatureKind::EmptyAdjacencyExposureAdvantage.scale_shift(),
+        ),
+    };
+    let bytes = serde_json::to_vec_pretty(&distribution).map_err(|e| e.to_string())?;
+    atomic_write(path, &bytes)
+}
+
 /// T155: 1つの(config, seed)についての学習ループ本体(checkpoint保存/resume・
 /// epochループ・最終frozen評価・results.tsv追記)。従来`main`に直接書かれていた
 /// 処理をそのまま関数として切り出しただけで、ロジックは一切変更していない
@@ -255,6 +463,7 @@ fn run_config_seed(
     output_dir: &Path,
     train_samples: &[Sample],
     frozen_samples: &[Sample],
+    frozen_games: &[Vec<Sample>],
 ) -> Result<(), String> {
     let name = config_name(config);
     let cfg = TrainConfig {
@@ -281,10 +490,11 @@ fn run_config_seed(
         )
     } else {
         (
-            Model::new_with_stage_definition(
+            Model::new_with_scalar_features(
                 patterns::generate_patterns_for(config.pattern_config),
                 config.num_stages,
                 config.stage_empty_divisor,
+                config.scalar_features,
             ),
             0,
             None,
@@ -297,9 +507,15 @@ fn run_config_seed(
             epoch + 1,
             epochs
         );
+        std::io::stdout().flush().map_err(|e| e.to_string())?;
         model.train_epochs(train_samples, &cfg, epoch, 1);
         let checkpoint = run_dir.join(format!("epoch-{:02}.bin", epoch + 1));
-        save_artifact(&checkpoint, &model.to_bytes_v3(), identity)?;
+        let checkpoint_bytes = if config.scalar_features.is_empty() {
+            model.to_bytes_v3()
+        } else {
+            model.to_bytes_v4()
+        };
+        save_artifact(&checkpoint, &checkpoint_bytes, identity)?;
         if let Some(old) = previous.take() {
             if old != checkpoint {
                 fs::remove_file(metadata_path(&old)).ok();
@@ -312,8 +528,13 @@ fn run_config_seed(
             epoch + 1,
             epochs
         );
+        std::io::stdout().flush().map_err(|e| e.to_string())?;
     }
-    let bytes = model.to_bytes_v3();
+    let bytes = if config.scalar_features.is_empty() {
+        model.to_bytes_v3()
+    } else {
+        model.to_bytes_v4()
+    };
     save_artifact(&final_path, &bytes, identity)?;
     if let Some(old) = previous {
         fs::remove_file(metadata_path(&old)).ok();
@@ -325,6 +546,17 @@ fn run_config_seed(
         "result config={name} seed={seed} frozen_mse={mse:.6} frozen_mae={mae:.6} bytes={}",
         bytes.len()
     );
+    if config.t158 {
+        write_t158_metrics(
+            &output_dir.join(format!("{name}-seed-{seed}.metrics.json")),
+            config,
+            seed,
+            &model,
+            train_samples,
+            frozen_samples,
+            frozen_games,
+        )?;
+    }
     append_result(
         &output_dir.join("results.tsv"),
         &format!("{name}\t{seed}\t{mse:.6}\t{mae:.6}\t{}\n", bytes.len()),
@@ -367,6 +599,10 @@ fn main() -> ExitCode {
         }
         if train_subset_size.is_some() {
             eprintln!("--train-subset-size is not supported together with --simple-corpus");
+            return ExitCode::FAILURE;
+        }
+        if configs.iter().any(|config| config.t158) {
+            eprintln!("T158 configs require the WTHOR game split");
             return ExitCode::FAILURE;
         }
     } else if simple_max_records.is_some() {
@@ -429,6 +665,7 @@ fn main() -> ExitCode {
                     &output_dir,
                     &train_samples,
                     &frozen_samples,
+                    &[],
                 ) {
                     eprintln!("{e}");
                     return ExitCode::FAILURE;
@@ -463,11 +700,20 @@ fn main() -> ExitCode {
     let split = games.len() - holdout_games;
     let full_train_samples: Vec<_> = games[..split].iter().flatten().cloned().collect();
     let full_train_sample_count = full_train_samples.len();
+    if configs.iter().any(|config| config.t158) {
+        let distribution_path = output_dir.join("feature-distribution.json");
+        if let Err(e) = write_feature_distribution(&distribution_path, &full_train_samples) {
+            eprintln!("failed to write feature distribution: {e}");
+            return ExitCode::FAILURE;
+        }
+        println!("feature_distribution path={}", distribution_path.display());
+    }
     let train_samples = match train_subset_size {
         Some(target) => select_train_subset(full_train_samples, target, subset_seed),
         None => full_train_samples,
     };
-    let frozen_samples: Vec<_> = games[split..].iter().flatten().cloned().collect();
+    let frozen_games = games[split..].to_vec();
+    let frozen_samples: Vec<_> = frozen_games.iter().flatten().cloned().collect();
     println!(
         "dataset games={} train_games={} frozen_games={} train_samples={} full_train_samples={} frozen_samples={} subset_target={:?} subset_seed={}",
         games.len(),
@@ -487,16 +733,41 @@ fn main() -> ExitCode {
                 seed,
                 ..TrainConfig::default()
             };
-            let identity = format!(
-                "schema=2\ndata_hash={data_hash}\nconfig={name}\nseed={seed}\nepochs={epochs}\nmax_games={max_games:?}\nlearning_rate={}\nl2={}\nloss={:?}\n{}",
-                cfg.learning_rate,
-                cfg.l2,
-                cfg.loss,
-                train_subset_size.map_or_else(String::new, |target| format!(
-                    "train_subset_size_target={target}\ntrain_subset_size_actual={}\ntrain_subset_seed={subset_seed}\nfull_train_samples={full_train_sample_count}\n",
-                    train_samples.len()
-                ))
-            );
+            let subset_identity = train_subset_size.map_or_else(String::new, |target| format!(
+                "train_subset_size_target={target}\ntrain_subset_size_actual={}\ntrain_subset_seed={subset_seed}\nfull_train_samples={full_train_sample_count}\n",
+                train_samples.len()
+            ));
+            let identity = if config.t158 {
+                let feature_schema = config
+                    .scalar_features
+                    .iter()
+                    .map(|kind| {
+                        format!(
+                            "{}:/{}",
+                            scalar_kind_name(*kind),
+                            1u32 << kind.scale_shift()
+                        )
+                    })
+                    .collect::<Vec<_>>()
+                    .join(",");
+                format!(
+                    "schema=3-t158\ndata_hash={data_hash}\nconfig={name}\nseed={seed}\nepochs={epochs}\nmax_games={max_games:?}\nlearning_rate={}\nl2={}\nloss={:?}\ntrain_games={split}\nfrozen_games={holdout_games}\ntrain_samples={}\nfrozen_samples={}\nfeature_schema={feature_schema}\n{}",
+                    cfg.learning_rate,
+                    cfg.l2,
+                    cfg.loss,
+                    train_samples.len(),
+                    frozen_samples.len(),
+                    subset_identity,
+                )
+            } else {
+                format!(
+                    "schema=2\ndata_hash={data_hash}\nconfig={name}\nseed={seed}\nepochs={epochs}\nmax_games={max_games:?}\nlearning_rate={}\nl2={}\nloss={:?}\n{}",
+                    cfg.learning_rate,
+                    cfg.l2,
+                    cfg.loss,
+                    subset_identity,
+                )
+            };
             if let Err(e) = run_config_seed(
                 config,
                 seed,
@@ -505,6 +776,7 @@ fn main() -> ExitCode {
                 &output_dir,
                 &train_samples,
                 &frozen_samples,
+                &frozen_games,
             ) {
                 eprintln!("{e}");
                 return ExitCode::FAILURE;
