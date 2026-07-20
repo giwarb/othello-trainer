@@ -6,6 +6,7 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
+use engine::bitboard::Side;
 use engine::pattern_eval::{
     scalar_features, ScalarFeatureKind, NUM_STAGES, STAGE_EMPTY_DIVISOR, V4_NUM_STAGES,
     V4_STAGE_EMPTY_DIVISOR,
@@ -20,6 +21,13 @@ use train::wthor;
 fn arg_value(name: &str) -> Option<String> {
     let args: Vec<String> = env::args().collect();
     args.windows(2).find(|w| w[0] == name).map(|w| w[1].clone())
+}
+
+/// T159: 値を取らない真偽フラグ(`--early-stop`)の存在確認。
+/// `arg_value`は`--name value`という2要素の並びしか見つけられないため、
+/// 単独で置かれるフラグには別途これを使う。
+fn flag_present(name: &str) -> bool {
+    env::args().any(|a| a == name)
 }
 
 #[derive(Clone, Copy)]
@@ -189,6 +197,58 @@ fn select_train_subset(samples: Vec<Sample>, target: usize, seed: u64) -> Vec<Sa
         .collect()
 }
 
+/// T159: 対局(1ゲーム分のサンプル列)の内容から決定的なFNVハッシュを計算する。
+/// 対局の並び順や`--subset-seed`等の乱数シードに一切依存せず、同一データなら
+/// 常に同じ値になる(`split_early_stop_validation`が検証splitの割当に使う)。
+fn early_stop_game_hash(game: &[Sample]) -> u64 {
+    let mut hash = 0xcbf29ce484222325u64;
+    let mut update = |byte: u8| {
+        hash ^= byte as u64;
+        hash = hash.wrapping_mul(0x100000001b3);
+    };
+    for sample in game {
+        for byte in sample.board.black.to_le_bytes() {
+            update(byte);
+        }
+        for byte in sample.board.white.to_le_bytes() {
+            update(byte);
+        }
+        update(match sample.mover {
+            Side::Black => 0,
+            Side::White => 1,
+        });
+        for byte in sample.outcome.to_bits().to_le_bytes() {
+            update(byte);
+        }
+    }
+    hash
+}
+
+/// T159: train側の対局集合から、早期打ち切り監視用の検証splitを対局単位で
+/// 決定的に切り出す。`early_stop_game_hash`(対局内容のFNVハッシュ)を
+/// `1_000_000`で割った剰余をバケットとして使い、`val_percent`に応じた閾値
+/// 未満なら検証側に割り当てる。対局の並び順にもseedにも依存しないため、
+/// 同一データであれば`train_subset_size`等の指定に関わらず常に同じ分割になる
+/// (既存のfrozen holdout・層化サブセット選択とは完全に独立した処理)。
+fn split_early_stop_validation(
+    games: &[Vec<Sample>],
+    val_percent: f64,
+) -> (Vec<Vec<Sample>>, Vec<Vec<Sample>>) {
+    let threshold = ((val_percent / 100.0) * 1_000_000.0)
+        .round()
+        .clamp(0.0, 1_000_000.0) as u64;
+    let mut train = Vec::with_capacity(games.len());
+    let mut validation = Vec::new();
+    for game in games {
+        if early_stop_game_hash(game) % 1_000_000 < threshold {
+            validation.push(game.clone());
+        } else {
+            train.push(game.clone());
+        }
+    }
+    (train, validation)
+}
+
 #[cfg(windows)]
 fn replace_file(temp: &Path, destination: &Path) -> Result<(), String> {
     use std::os::windows::ffi::OsStrExt;
@@ -273,6 +333,134 @@ fn append_result(path: &Path, row: &str) -> Result<(), String> {
         atomic_write(path, text.as_bytes())?;
     }
     Ok(())
+}
+
+// T159: 早期打ち切り(`--early-stop`)専用の成果物群。既存の`append_result`
+// (`results.tsv`)とは列数・意味が異なるため、別ファイル`results-earlystop.tsv`に
+// 追記する(既存ファイルのスキーマを変えないため)。同様にcheckpoint/最終成果物の
+// パス名にも`-earlystop`サフィックスを付け、OFF経路の成果物と物理的に衝突しない
+// ようにしている。
+
+fn append_result_earlystop(path: &Path, row: &str) -> Result<(), String> {
+    let mut text = if path.exists() {
+        fs::read_to_string(path).map_err(|e| e.to_string())?
+    } else {
+        String::from("config\tseed\tbest_epoch\tepochs_run\tfrozen_mse\tfrozen_mae\tbytes\n")
+    };
+    let key = row.split('\t').take(2).collect::<Vec<_>>().join("\t");
+    if !text.lines().skip(1).any(|line| line.starts_with(&key)) {
+        text.push_str(row);
+        atomic_write(path, text.as_bytes())?;
+    }
+    Ok(())
+}
+
+const EARLY_STOP_METRICS_HEADER: &str = "epoch\ttrain_mse\ttrain_mae\tval_mae\tis_best\tstale";
+
+/// 早期打ち切りのエポック別メトリクスファイルのヘッダを確保する
+/// (`train::t090_distillation`の`ensure_metrics_header`と同じ考え方: 無ければ
+/// 現行ヘッダで新規作成、あれば一致を確認して列ずれのままresumeしない)。
+fn ensure_early_stop_metrics_header(path: &Path) -> Result<(), String> {
+    if !path.exists() {
+        return atomic_write(path, format!("{EARLY_STOP_METRICS_HEADER}\n").as_bytes());
+    }
+    let existing = fs::read_to_string(path).map_err(|e| e.to_string())?;
+    let header = existing.lines().next().unwrap_or("");
+    if header != EARLY_STOP_METRICS_HEADER {
+        return Err(format!(
+            "early-stop metrics header mismatch in {}: expected \"{EARLY_STOP_METRICS_HEADER}\", found \"{header}\"",
+            path.display()
+        ));
+    }
+    Ok(())
+}
+
+/// resume時、直前のクラッシュで`completed_epoch`より先の行が残っていた場合に
+/// 切り詰める(`t090_distillation::truncate_metrics_after`と同じ考え方)。
+fn truncate_early_stop_metrics_after(path: &Path, completed_epoch: u32) -> Result<(), String> {
+    if !path.exists() {
+        return Ok(());
+    }
+    let text = fs::read_to_string(path).map_err(|e| e.to_string())?;
+    let mut lines = text.lines();
+    let mut kept = String::new();
+    if let Some(header) = lines.next() {
+        kept.push_str(header);
+        kept.push('\n');
+    }
+    for line in lines {
+        let Some(field) = line.split('\t').next() else {
+            continue;
+        };
+        let row_epoch: u32 = field
+            .parse()
+            .map_err(|_| format!("invalid early-stop metrics epoch {field}"))?;
+        if row_epoch <= completed_epoch {
+            kept.push_str(line);
+            kept.push('\n');
+        }
+    }
+    atomic_write(path, kept.as_bytes())
+}
+
+fn append_early_stop_metrics_row(
+    path: &Path,
+    epoch: u32,
+    train_mse: f64,
+    train_mae: f64,
+    val_mae: f64,
+    is_best: bool,
+    stale: u32,
+) -> Result<(), String> {
+    let mut text = fs::read_to_string(path).map_err(|e| e.to_string())?;
+    text.push_str(&format!(
+        "{epoch}\t{train_mse:.6}\t{train_mae:.6}\t{val_mae:.6}\t{is_best}\t{stale}\n"
+    ));
+    atomic_write(path, text.as_bytes())
+}
+
+/// resume用に永続化する早期打ち切りの状態(直近完了エポック・ベスト更新状況・
+/// 連続未改善エポック数)。
+struct EarlyStopState {
+    epoch: u32,
+    best_epoch: u32,
+    best_val_mae: f64,
+    stale: u32,
+}
+
+fn write_early_stop_state(
+    path: &Path,
+    epoch: u32,
+    best_epoch: u32,
+    best_val_mae: f64,
+    stale: u32,
+) -> Result<(), String> {
+    let text = format!(
+        "epoch={epoch}\nbest_epoch={best_epoch}\nbest_val_mae={best_val_mae}\nstale={stale}\n"
+    );
+    atomic_write(path, text.as_bytes())
+}
+
+fn read_early_stop_state(path: &Path) -> Result<EarlyStopState, String> {
+    let text = fs::read_to_string(path)
+        .map_err(|e| format!("missing early-stop state {}: {e}", path.display()))?;
+    let map: std::collections::HashMap<&str, &str> =
+        text.lines().filter_map(|line| line.split_once('=')).collect();
+    let field = |name: &str| map.get(name).copied().ok_or_else(|| format!("early-stop state {} missing field {name}", path.display()));
+    Ok(EarlyStopState {
+        epoch: field("epoch")?
+            .parse()
+            .map_err(|_| "bad early-stop state epoch".to_string())?,
+        best_epoch: field("best_epoch")?
+            .parse()
+            .map_err(|_| "bad early-stop state best_epoch".to_string())?,
+        best_val_mae: field("best_val_mae")?
+            .parse()
+            .map_err(|_| "bad early-stop state best_val_mae".to_string())?,
+        stale: field("stale")?
+            .parse()
+            .map_err(|_| "bad early-stop state stale".to_string())?,
+    })
 }
 
 #[derive(Serialize)]
@@ -563,6 +751,378 @@ fn run_config_seed(
     )
 }
 
+/// T159: 早期打ち切り(`--early-stop`)ONのときのベスト/patience更新判定。
+/// 改善判定の閾値(min-delta)は0とし、タイの場合は先に見つかったエポックを
+/// 保持する(`val_mae < best_val_mae`という厳密不等号がこれを保証する)。
+/// 純粋関数として切り出すことで、実際のSGD学習を伴わずに単体テストできる。
+fn apply_early_stop_step(
+    val_mae: f64,
+    current_epoch: u32,
+    best_val_mae: f64,
+    best_epoch: u32,
+    stale: u32,
+) -> (bool, f64, u32, u32) {
+    if val_mae < best_val_mae {
+        (true, val_mae, current_epoch, 0)
+    } else {
+        (false, best_val_mae, best_epoch, stale + 1)
+    }
+}
+
+/// T159: 早期打ち切りONのときの最終結果報告(frozen評価・t158メトリクス・
+/// `results-earlystop.tsv`追記)。ループ終了直後の経路と、既に完了済みだった
+/// runをスキップする経路の両方から呼ぶ共通処理。
+#[allow(clippy::too_many_arguments)]
+fn finalize_early_stop_result(
+    config: TrainingConfig,
+    name: &str,
+    seed: u64,
+    best_epoch: u32,
+    epochs_run: u32,
+    best_bytes: &[u8],
+    train_samples: &[Sample],
+    frozen_samples: &[Sample],
+    frozen_games: &[Vec<Sample>],
+    output_dir: &Path,
+) -> Result<(), String> {
+    let best_model = Model::from_bytes(best_bytes)?;
+    let frozen_mse = best_model.mean_squared_error(frozen_samples);
+    let frozen_mae = best_model.mean_absolute_error(frozen_samples);
+    println!(
+        "result config={name} seed={seed} best_epoch={best_epoch} epochs_run={epochs_run} frozen_mse={frozen_mse:.6} frozen_mae={frozen_mae:.6} bytes={} (early-stop)",
+        best_bytes.len()
+    );
+    if config.t158 {
+        write_t158_metrics(
+            &output_dir.join(format!("{name}-seed-{seed}-earlystop.metrics.json")),
+            config,
+            seed,
+            &best_model,
+            train_samples,
+            frozen_samples,
+            frozen_games,
+        )?;
+    }
+    append_result_earlystop(
+        &output_dir.join("results-earlystop.tsv"),
+        &format!(
+            "{name}\t{seed}\t{best_epoch}\t{epochs_run}\t{frozen_mse:.6}\t{frozen_mae:.6}\t{}\n",
+            best_bytes.len()
+        ),
+    )
+}
+
+/// T159: 早期打ち切りONのときの1つの(config, seed)についての学習ループ本体。
+/// `run_config_seed`(OFF経路)とは意図的に完全に別関数にし、ファイルパスにも
+/// `-earlystop`サフィックスを付けている(既存のcheckpoint/最終成果物と物理的に
+/// 衝突しないため、OFF経路の出力に一切影響しないことをコード上でも保証する)。
+///
+/// アルゴリズム: 各エポック終了時に検証split(`val_samples`)のMAEを測定し、
+/// ベスト値を更新したときだけ`best.bin`にその時点の重みを保存する。
+/// `patience`エポック連続でベスト値を更新できなければ打ち切り、`best.bin`を
+/// 最終成果物として採用する(最後に学習したエポックの重みではない)。
+/// resumeは通常のcheckpoint(`epoch-XX.bin`)に加え、`state.txt`
+/// (直近完了エポック・ベストエポック・ベストMAE・stale数)を読み書きすることで、
+/// 中断後もbest追跡状態を含めて再開できる。
+#[allow(clippy::too_many_arguments)]
+fn run_config_seed_early_stop(
+    config: TrainingConfig,
+    seed: u64,
+    identity: &str,
+    output_dir: &Path,
+    max_epochs: u32,
+    patience: u32,
+    train_samples: &[Sample],
+    val_samples: &[Sample],
+    frozen_samples: &[Sample],
+    frozen_games: &[Vec<Sample>],
+) -> Result<(), String> {
+    let name = config_name(config);
+    let cfg = TrainConfig {
+        seed,
+        ..TrainConfig::default()
+    };
+    let run_dir = output_dir.join(format!("{name}-seed-{seed}-earlystop"));
+    fs::create_dir_all(&run_dir).map_err(|e| e.to_string())?;
+    let final_path = output_dir.join(format!("{name}-seed-{seed}-earlystop.bin"));
+    let best_path = run_dir.join("best.bin");
+    let state_path = run_dir.join("state.txt");
+    let metrics_path = output_dir.join(format!("{name}-seed-{seed}-earlystop.metrics.tsv"));
+
+    if final_path.exists() {
+        verify_identity(&final_path, identity)?;
+        let state = read_early_stop_state(&state_path)?;
+        println!(
+            "skip config={name} seed={seed} epoch={} (early-stop already complete)",
+            state.epoch
+        );
+        let best_bytes = fs::read(&final_path).map_err(|e| e.to_string())?;
+        return finalize_early_stop_result(
+            config,
+            name,
+            seed,
+            state.best_epoch,
+            state.epoch,
+            &best_bytes,
+            train_samples,
+            frozen_samples,
+            frozen_games,
+            output_dir,
+        );
+    }
+
+    let (mut model, mut epoch, mut best_epoch, mut best_val_mae, mut stale) =
+        if let Some((checkpoint_epoch, path)) = latest_checkpoint(&run_dir) {
+            verify_identity(&path, identity)?;
+            let state = read_early_stop_state(&state_path)?;
+            if state.epoch != checkpoint_epoch {
+                return Err(format!(
+                    "early-stop checkpoint epoch mismatch for config={name} seed={seed}"
+                ));
+            }
+            println!("resume config={name} seed={seed} epoch={checkpoint_epoch} (early-stop)");
+            (
+                Model::from_bytes(&fs::read(&path).unwrap()).unwrap(),
+                state.epoch,
+                state.best_epoch,
+                state.best_val_mae,
+                state.stale,
+            )
+        } else {
+            (
+                Model::new_with_scalar_features(
+                    patterns::generate_patterns_for(config.pattern_config),
+                    config.num_stages,
+                    config.stage_empty_divisor,
+                    config.scalar_features,
+                ),
+                0,
+                0,
+                f64::INFINITY,
+                0,
+            )
+        };
+
+    ensure_early_stop_metrics_header(&metrics_path)?;
+    truncate_early_stop_metrics_after(&metrics_path, epoch)?;
+
+    let mut previous_checkpoint: Option<PathBuf> = if epoch > 0 {
+        Some(run_dir.join(format!("epoch-{epoch:02}.bin")))
+    } else {
+        None
+    };
+
+    while epoch < max_epochs && stale < patience {
+        println!(
+            "start config={name} seed={seed} epoch={}/{} (early-stop)",
+            epoch + 1,
+            max_epochs
+        );
+        std::io::stdout().flush().map_err(|e| e.to_string())?;
+        model.train_epochs(train_samples, &cfg, epoch, 1);
+        epoch += 1;
+
+        let train_mse = model.mean_squared_error(train_samples);
+        let train_mae = model.mean_absolute_error(train_samples);
+        let val_mae = model.mean_absolute_error(val_samples);
+        let (is_best, new_best_val_mae, new_best_epoch, new_stale) =
+            apply_early_stop_step(val_mae, epoch, best_val_mae, best_epoch, stale);
+        best_val_mae = new_best_val_mae;
+        best_epoch = new_best_epoch;
+        stale = new_stale;
+        if is_best {
+            let best_bytes = if config.scalar_features.is_empty() {
+                model.to_bytes_v3()
+            } else {
+                model.to_bytes_v4()
+            };
+            save_artifact(&best_path, &best_bytes, identity)?;
+        }
+        append_early_stop_metrics_row(
+            &metrics_path,
+            epoch,
+            train_mse,
+            train_mae,
+            val_mae,
+            is_best,
+            stale,
+        )?;
+
+        let checkpoint = run_dir.join(format!("epoch-{epoch:02}.bin"));
+        let checkpoint_bytes = if config.scalar_features.is_empty() {
+            model.to_bytes_v3()
+        } else {
+            model.to_bytes_v4()
+        };
+        save_artifact(&checkpoint, &checkpoint_bytes, identity)?;
+        write_early_stop_state(&state_path, epoch, best_epoch, best_val_mae, stale)?;
+        if let Some(old) = previous_checkpoint.take() {
+            if old != checkpoint {
+                fs::remove_file(metadata_path(&old)).ok();
+                fs::remove_file(old).ok();
+            }
+        }
+        previous_checkpoint = Some(checkpoint);
+        println!(
+            "saved config={name} seed={seed} epoch={epoch}/{max_epochs} val_mae={val_mae:.6} best_epoch={best_epoch} stale={stale}/{patience} (early-stop)"
+        );
+        std::io::stdout().flush().map_err(|e| e.to_string())?;
+    }
+
+    let best_bytes =
+        fs::read(&best_path).map_err(|e| format!("missing early-stop best checkpoint: {e}"))?;
+    save_artifact(&final_path, &best_bytes, identity)?;
+    if let Some(old) = previous_checkpoint {
+        fs::remove_file(metadata_path(&old)).ok();
+        fs::remove_file(old).ok();
+    }
+    finalize_early_stop_result(
+        config,
+        name,
+        seed,
+        best_epoch,
+        epoch,
+        &best_bytes,
+        train_samples,
+        frozen_samples,
+        frozen_games,
+        output_dir,
+    )
+}
+
+/// T159: 早期打ち切りON時のWTHOR経路本体。`main`のOFF経路(既存コード、
+/// 本タスクでは一切変更していない)とは`games`読み込み直後で分岐する別関数に
+/// することで、OFF経路のコードパスにこの関数が一切混ざらないようにしている。
+#[allow(clippy::too_many_arguments)]
+fn run_early_stop_wthor(
+    games: &[Vec<Sample>],
+    data_hash: &str,
+    output_dir: &Path,
+    configs: &[TrainingConfig],
+    seeds: &[u64],
+    max_games: Option<usize>,
+    train_subset_size: Option<usize>,
+    subset_seed: u64,
+    val_percent: f64,
+    patience: u32,
+    max_epochs: u32,
+) -> ExitCode {
+    let holdout_games = (((games.len() as f64) * 0.1).round() as usize)
+        .max(1)
+        .min(games.len() - 1);
+    let split = games.len() - holdout_games;
+    let train_games = &games[..split];
+    let frozen_games = games[split..].to_vec();
+    let frozen_samples: Vec<_> = frozen_games.iter().flatten().cloned().collect();
+
+    let (es_train_games, es_val_games) = split_early_stop_validation(train_games, val_percent);
+    if es_train_games.is_empty() {
+        eprintln!(
+            "early-stop validation split left no training games; lower --early-stop-val-percent"
+        );
+        return ExitCode::FAILURE;
+    }
+    if es_val_games.is_empty() {
+        eprintln!(
+            "early-stop validation split produced no validation games; raise --early-stop-val-percent or add data"
+        );
+        return ExitCode::FAILURE;
+    }
+
+    let full_train_samples: Vec<_> = es_train_games.iter().flatten().cloned().collect();
+    let val_samples: Vec<_> = es_val_games.iter().flatten().cloned().collect();
+
+    if configs.iter().any(|config| config.t158) {
+        let distribution_path = output_dir.join("feature-distribution.json");
+        if let Err(e) = write_feature_distribution(&distribution_path, &full_train_samples) {
+            eprintln!("failed to write feature distribution: {e}");
+            return ExitCode::FAILURE;
+        }
+        println!("feature_distribution path={}", distribution_path.display());
+    }
+
+    let train_samples = match train_subset_size {
+        Some(target) => select_train_subset(full_train_samples, target, subset_seed),
+        None => full_train_samples,
+    };
+
+    println!(
+        "dataset games={} train_games={} frozen_games={} early_stop_train_games={} early_stop_val_games={} train_samples={} val_samples={} frozen_samples={} subset_target={:?} subset_seed={} early_stop_val_percent={val_percent} early_stop_patience={patience} max_epochs={max_epochs}",
+        games.len(),
+        split,
+        holdout_games,
+        es_train_games.len(),
+        es_val_games.len(),
+        train_samples.len(),
+        val_samples.len(),
+        frozen_samples.len(),
+        train_subset_size,
+        subset_seed,
+    );
+
+    for &config in configs {
+        for &seed in seeds {
+            let name = config_name(config);
+            let cfg = TrainConfig {
+                seed,
+                ..TrainConfig::default()
+            };
+            let subset_identity = train_subset_size.map_or_else(
+                String::new,
+                |target| {
+                    format!(
+                        "train_subset_size_target={target}\ntrain_subset_size_actual={}\ntrain_subset_seed={subset_seed}\n",
+                        train_samples.len()
+                    )
+                },
+            );
+            let feature_schema = if config.t158 {
+                config
+                    .scalar_features
+                    .iter()
+                    .map(|kind| {
+                        format!(
+                            "{}:/{}",
+                            scalar_kind_name(*kind),
+                            1u32 << kind.scale_shift()
+                        )
+                    })
+                    .collect::<Vec<_>>()
+                    .join(",")
+            } else {
+                String::new()
+            };
+            let identity = format!(
+                "schema=5-earlystop\ndata_hash={data_hash}\nconfig={name}\nseed={seed}\nmax_epochs={max_epochs}\nearly_stop_patience={patience}\nearly_stop_val_percent={val_percent}\nmax_games={max_games:?}\nlearning_rate={}\nl2={}\nloss={:?}\ntrain_games={split}\nfrozen_games={holdout_games}\nearly_stop_train_games={}\nearly_stop_val_games={}\ntrain_samples={}\nval_samples={}\nfeature_schema={feature_schema}\n{}",
+                cfg.learning_rate,
+                cfg.l2,
+                cfg.loss,
+                es_train_games.len(),
+                es_val_games.len(),
+                train_samples.len(),
+                val_samples.len(),
+                subset_identity,
+            );
+            if let Err(e) = run_config_seed_early_stop(
+                config,
+                seed,
+                &identity,
+                output_dir,
+                max_epochs,
+                patience,
+                &train_samples,
+                &val_samples,
+                &frozen_samples,
+                &frozen_games,
+            ) {
+                eprintln!("{e}");
+                return ExitCode::FAILURE;
+            }
+        }
+    }
+    ExitCode::SUCCESS
+}
+
 fn main() -> ExitCode {
     let epochs: u32 = arg_value("--epochs").map_or(20, |v| v.parse().unwrap());
     let configs: Vec<_> = arg_value("--configs")
@@ -587,6 +1147,16 @@ fn main() -> ExitCode {
     let simple_corpus_arg = arg_value("--simple-corpus");
     let simple_max_records = arg_value("--simple-max-records").map(|v| v.parse::<usize>().unwrap());
 
+    // T159: `--early-stop`(既定OFF)は本関数の末尾にある通常のWTHOR学習ループを
+    // 一切通らず、`run_early_stop_wthor`という完全に別の関数に分岐する。
+    // これにより既存のOFF経路(このフラグが立っていない場合の挙動)のコードは
+    // 一切変更されず、出力(重みバイナリ・identity・checkpoint)はこの変更の
+    // 前後で完全にビット一致する。
+    let early_stop = flag_present("--early-stop");
+    let early_stop_val_percent: f64 = arg_value("--early-stop-val-percent").map_or(5.0, |v| v.parse().unwrap());
+    let early_stop_patience: u32 = arg_value("--early-stop-patience").map_or(3, |v| v.parse().unwrap());
+    let early_stop_max_epochs: u32 = arg_value("--max-epochs").map_or(20, |v| v.parse().unwrap());
+
     // T155: `--simple-corpus`(簡易レコード: 64文字盤面+スコア)モード。
     // WTHOR学習(既定挙動)とは完全に独立した分岐であり、`--max-games`/
     // `--train-subset-size`(WTHOR側のフィルタ)とは意味が異なるため、
@@ -605,9 +1175,30 @@ fn main() -> ExitCode {
             eprintln!("T158 configs require the WTHOR game split");
             return ExitCode::FAILURE;
         }
+        // T159: 早期打ち切りの検証splitは対局(game)単位で切り出す設計であり、
+        // 対局概念を持たない簡易コーパス経路とは組み合わせられない。
+        if early_stop {
+            eprintln!("--early-stop is not supported together with --simple-corpus");
+            return ExitCode::FAILURE;
+        }
     } else if simple_max_records.is_some() {
         eprintln!("--simple-max-records requires --simple-corpus");
         return ExitCode::FAILURE;
+    }
+
+    if early_stop {
+        if !(early_stop_val_percent > 0.0 && early_stop_val_percent < 100.0) {
+            eprintln!("--early-stop-val-percent must be in (0, 100)");
+            return ExitCode::FAILURE;
+        }
+        if early_stop_patience < 1 {
+            eprintln!("--early-stop-patience must be >= 1");
+            return ExitCode::FAILURE;
+        }
+        if early_stop_max_epochs < 1 {
+            eprintln!("--max-epochs must be >= 1");
+            return ExitCode::FAILURE;
+        }
     }
 
     fs::create_dir_all(&output_dir).unwrap();
@@ -694,6 +1285,23 @@ fn main() -> ExitCode {
             return ExitCode::FAILURE;
         }
     };
+
+    if early_stop {
+        return run_early_stop_wthor(
+            &games,
+            &data_hash,
+            &output_dir,
+            &configs,
+            &seeds,
+            max_games,
+            train_subset_size,
+            subset_seed,
+            early_stop_val_percent,
+            early_stop_patience,
+            early_stop_max_epochs,
+        );
+    }
+
     let holdout_games = (((games.len() as f64) * 0.1).round() as usize)
         .max(1)
         .min(games.len() - 1);
@@ -856,5 +1464,332 @@ mod tests {
         let samples: Vec<_> = (0..10).map(|index| fixture_sample(index, 20)).collect();
         assert_eq!(select_train_subset(samples.clone(), 10, 1).len(), 10);
         assert_eq!(select_train_subset(samples, 20, 1).len(), 10);
+    }
+
+    // --- T159: 早期打ち切り(early stopping)のテスト ---
+
+    /// `early_stop_game_hash`が対局内容(手番・盤面・outcome)を反映して変わるよう、
+    /// `game_index`ごとにoutcomeを変えた合成対局を作る(盤面の形自体は
+    /// `fixture_sample`と同じ単純なものでよい)。
+    fn early_stop_fixture_game(game_index: usize, moves: usize) -> Vec<Sample> {
+        (0..moves)
+            .map(|i| {
+                let empties = 4 + ((game_index * 13 + i * 5) % 55);
+                let mut sample = fixture_sample(0, empties);
+                let seed = (game_index as u64)
+                    .wrapping_mul(0x9E3779B97F4A7C15)
+                    ^ (i as u64);
+                sample.outcome = (seed % 2000) as f32 - 1000.0;
+                sample
+            })
+            .collect()
+    }
+
+    /// (a) T159要件6(a): OFF経路(early_stop未指定)が`Model::train`を直接
+    /// 呼んだ場合と完全に同じ重みバイナリを出力すること。dispatchロジック
+    /// (`main`のearly_stop分岐)の追加が既存の`run_config_seed`呼び出し経路
+    /// (本タスクでは1行も変更していない)に影響しないことのコード上の保証。
+    /// 実際のCLIバイナリでの前後SHA-256一致は作業ログに別途記録する。
+    #[test]
+    fn off_path_matches_direct_model_training_bit_for_bit() {
+        let config = legacy_config(PatternConfig::V3, "v3");
+        let samples: Vec<Sample> = (0..40).map(|i| fixture_sample(i, 4 + i % 40)).collect();
+        let cfg = TrainConfig {
+            seed: 5,
+            ..TrainConfig::default()
+        };
+
+        let mut direct = Model::new_with_scalar_features(
+            patterns::generate_patterns_for(config.pattern_config),
+            config.num_stages,
+            config.stage_empty_divisor,
+            config.scalar_features,
+        );
+        direct.train(&samples, &cfg);
+
+        let output_dir =
+            std::env::temp_dir().join(format!("t159-off-path-{}", std::process::id()));
+        fs::remove_dir_all(&output_dir).ok();
+        fs::create_dir_all(&output_dir).unwrap();
+        run_config_seed(
+            config,
+            5,
+            cfg.epochs,
+            "test-identity\n",
+            &output_dir,
+            &samples,
+            &samples,
+            &[],
+        )
+        .unwrap();
+        let produced = fs::read(output_dir.join("v3-seed-5.bin")).unwrap();
+        assert_eq!(produced, direct.to_bytes_v3());
+        fs::remove_dir_all(&output_dir).ok();
+    }
+
+    /// (d) 検証split(`split_early_stop_validation`)は対局内容だけのハッシュで
+    /// 決定される。同一入力なら常に同じ分割になる。
+    #[test]
+    fn early_stop_validation_split_is_deterministic() {
+        let games: Vec<Vec<Sample>> = (0..200).map(|g| early_stop_fixture_game(g, 3)).collect();
+        let (train1, val1) = split_early_stop_validation(&games, 5.0);
+        let (train2, val2) = split_early_stop_validation(&games, 5.0);
+        assert_eq!(train1, train2);
+        assert_eq!(val1, val2);
+        assert_eq!(train1.len() + val1.len(), games.len());
+        assert!(
+            !val1.is_empty(),
+            "expected at least one validation game out of 200 at 5%"
+        );
+        assert!(!train1.is_empty());
+    }
+
+    /// (d) 分割は対局の並び順(や、それを混ぜて生成する乱数シード)に依存せず、
+    /// 各対局の内容だけで決まる。
+    #[test]
+    fn early_stop_validation_split_is_order_independent() {
+        let games: Vec<Vec<Sample>> = (0..150).map(|g| early_stop_fixture_game(g, 2)).collect();
+        let mut reordered = games.clone();
+        reordered.reverse();
+        reordered.rotate_left(37);
+
+        let (train_a, val_a) = split_early_stop_validation(&games, 8.0);
+        let (train_b, val_b) = split_early_stop_validation(&reordered, 8.0);
+
+        let mut hashes_a: Vec<u64> = val_a.iter().map(|g| early_stop_game_hash(g)).collect();
+        let mut hashes_b: Vec<u64> = val_b.iter().map(|g| early_stop_game_hash(g)).collect();
+        hashes_a.sort_unstable();
+        hashes_b.sort_unstable();
+        assert_eq!(hashes_a, hashes_b);
+        assert_eq!(train_a.len(), train_b.len());
+        assert_eq!(val_a.len(), val_b.len());
+    }
+
+    /// (b) 検証MAEが人工的に悪化し続けるケースでのpatience動作
+    /// (ベスト更新・stale増加・タイの扱い)を、実際のSGDを介さず純粋関数
+    /// `apply_early_stop_step`で検証する。
+    #[test]
+    fn early_stop_patience_tracks_best_and_stale_counts() {
+        // 8.0(改善) → 5.0(改善) → 6.0(悪化) → 6.0(タイ=改善なし) → 7.0(悪化)。
+        let sequence = [8.0, 5.0, 6.0, 6.0, 7.0];
+        let mut best_val_mae = f64::INFINITY;
+        let mut best_epoch = 0u32;
+        let mut stale = 0u32;
+        let mut is_best_flags = Vec::new();
+        for (i, &val_mae) in sequence.iter().enumerate() {
+            let epoch = (i + 1) as u32;
+            let (is_best, new_best_val_mae, new_best_epoch, new_stale) =
+                apply_early_stop_step(val_mae, epoch, best_val_mae, best_epoch, stale);
+            best_val_mae = new_best_val_mae;
+            best_epoch = new_best_epoch;
+            stale = new_stale;
+            is_best_flags.push(is_best);
+        }
+        assert_eq!(is_best_flags, vec![true, true, false, false, false]);
+        assert_eq!(best_epoch, 2);
+        assert_eq!(best_val_mae, 5.0);
+        // タイ(3エポック目→4エポック目)を挟んでも3回連続で改善なしとしてstaleが積み上がる。
+        assert_eq!(stale, 3);
+    }
+
+    /// (b) ベスト重み復元の統合テスト。trainとvalに同一局面(board/mover)を使い、
+    /// 教師値だけ逆方向(train=+10, val=-10)にすることで、「学習が進むほど
+    /// 検証MAEが単調に悪化する」という決定的なシナリオを作る(既定の学習率は
+    /// 十分小さく、単一サンプル反復学習は発散せず単調に目標へ近づくため)。
+    /// これにより1エポック目が常にベストであり続け、patience経過後に
+    /// 打ち切って1エポック目の重みを最終成果物として復元することを、実際の
+    /// checkpoint/finalize経路(`run_config_seed_early_stop`)を通して確認する。
+    #[test]
+    fn early_stop_restores_best_checkpoint_and_stops_before_max_epochs() {
+        let config = legacy_config(PatternConfig::V3, "v3");
+        let board = fixture_sample(0, 30).board;
+        let train_samples = vec![Sample {
+            board,
+            mover: Side::Black,
+            outcome: 10.0,
+            last_move_kind: LastMoveKind::Other,
+            vulnerable_xc: false,
+        }];
+        let val_samples = vec![Sample {
+            board,
+            mover: Side::Black,
+            outcome: -10.0,
+            last_move_kind: LastMoveKind::Other,
+            vulnerable_xc: false,
+        }];
+        let seed = 1u64;
+        let patience = 2u32;
+        let max_epochs = 6u32;
+        let identity = "test-earlystop-divergence\n";
+
+        let output_dir =
+            std::env::temp_dir().join(format!("t159-earlystop-restore-{}", std::process::id()));
+        fs::remove_dir_all(&output_dir).ok();
+        fs::create_dir_all(&output_dir).unwrap();
+
+        run_config_seed_early_stop(
+            config,
+            seed,
+            identity,
+            &output_dir,
+            max_epochs,
+            patience,
+            &train_samples,
+            &val_samples,
+            &train_samples,
+            &[],
+        )
+        .unwrap();
+
+        let final_bytes = fs::read(output_dir.join("v3-seed-1-earlystop.bin")).unwrap();
+        let state = read_early_stop_state(
+            &output_dir.join("v3-seed-1-earlystop").join("state.txt"),
+        )
+        .unwrap();
+        assert_eq!(
+            state.best_epoch, 1,
+            "epoch1 should remain best since val MAE only worsens afterwards"
+        );
+        assert_eq!(
+            state.epoch,
+            1 + patience,
+            "training should stop exactly `patience` epochs after the (unbeaten) best epoch"
+        );
+        assert!(state.epoch < max_epochs, "should stop before max_epochs");
+
+        // 1エポック目の重みを独立に再現し、最終成果物と一致することを確認する
+        // (最後に学習したエポックの重みではなく、ベストエポックの重みが
+        // 最終成果物として出力されていることの直接的な証拠)。
+        let mut expected = Model::new_with_scalar_features(
+            patterns::generate_patterns_for(config.pattern_config),
+            config.num_stages,
+            config.stage_empty_divisor,
+            config.scalar_features,
+        );
+        let cfg = TrainConfig {
+            seed,
+            ..TrainConfig::default()
+        };
+        expected.train_epochs(&train_samples, &cfg, 0, 1);
+        assert_eq!(final_bytes, expected.to_bytes_v3());
+
+        fs::remove_dir_all(&output_dir).ok();
+    }
+
+    /// (c) resume同一性: 「1エポック終了直後にクラッシュした」状態を
+    /// checkpoint/state/best.binの直接書き込みで再現し、そこから
+    /// `run_config_seed_early_stop`で再開した最終結果が、中断なしに最初から
+    /// 実行した場合と完全に一致することを確認する。
+    #[test]
+    fn early_stop_resume_matches_uninterrupted_run() {
+        let config = legacy_config(PatternConfig::V3, "v3");
+        let board = fixture_sample(1, 24).board;
+        let train_samples = vec![Sample {
+            board,
+            mover: Side::Black,
+            outcome: 6.0,
+            last_move_kind: LastMoveKind::Other,
+            vulnerable_xc: false,
+        }];
+        let val_samples = vec![Sample {
+            board,
+            mover: Side::Black,
+            outcome: 5.5,
+            last_move_kind: LastMoveKind::Other,
+            vulnerable_xc: false,
+        }];
+        let seed = 3u64;
+        let patience = 10u32; // max_epochs以内では発火しないだけの余裕を持たせる
+        let max_epochs = 4u32;
+        let identity = "test-earlystop-resume\n";
+
+        // --- 中断なしの基準実行 ---
+        let baseline_dir = std::env::temp_dir().join(format!(
+            "t159-earlystop-resume-baseline-{}",
+            std::process::id()
+        ));
+        fs::remove_dir_all(&baseline_dir).ok();
+        fs::create_dir_all(&baseline_dir).unwrap();
+        run_config_seed_early_stop(
+            config,
+            seed,
+            identity,
+            &baseline_dir,
+            max_epochs,
+            patience,
+            &train_samples,
+            &val_samples,
+            &train_samples,
+            &[],
+        )
+        .unwrap();
+        let baseline_final = fs::read(baseline_dir.join("v3-seed-3-earlystop.bin")).unwrap();
+        let baseline_state = read_early_stop_state(
+            &baseline_dir.join("v3-seed-3-earlystop").join("state.txt"),
+        )
+        .unwrap();
+
+        // --- 1エポック終了直後にクラッシュした状態を手動で再現 ---
+        let resumed_dir = std::env::temp_dir().join(format!(
+            "t159-earlystop-resume-crash-{}",
+            std::process::id()
+        ));
+        fs::remove_dir_all(&resumed_dir).ok();
+        fs::create_dir_all(&resumed_dir).unwrap();
+        let run_dir = resumed_dir.join("v3-seed-3-earlystop");
+        fs::create_dir_all(&run_dir).unwrap();
+        let cfg = TrainConfig {
+            seed,
+            ..TrainConfig::default()
+        };
+        let mut crashed_model = Model::new_with_scalar_features(
+            patterns::generate_patterns_for(config.pattern_config),
+            config.num_stages,
+            config.stage_empty_divisor,
+            config.scalar_features,
+        );
+        crashed_model.train_epochs(&train_samples, &cfg, 0, 1);
+        let val_mae_epoch1 = crashed_model.mean_absolute_error(&val_samples);
+        let checkpoint_bytes = crashed_model.to_bytes_v3();
+        save_artifact(&run_dir.join("epoch-01.bin"), &checkpoint_bytes, identity).unwrap();
+        save_artifact(&run_dir.join("best.bin"), &checkpoint_bytes, identity).unwrap();
+        write_early_stop_state(&run_dir.join("state.txt"), 1, 1, val_mae_epoch1, 0).unwrap();
+        let metrics_path = resumed_dir.join("v3-seed-3-earlystop.metrics.tsv");
+        ensure_early_stop_metrics_header(&metrics_path).unwrap();
+        let train_mse1 = crashed_model.mean_squared_error(&train_samples);
+        let train_mae1 = crashed_model.mean_absolute_error(&train_samples);
+        append_early_stop_metrics_row(
+            &metrics_path,
+            1,
+            train_mse1,
+            train_mae1,
+            val_mae_epoch1,
+            true,
+            0,
+        )
+        .unwrap();
+
+        run_config_seed_early_stop(
+            config,
+            seed,
+            identity,
+            &resumed_dir,
+            max_epochs,
+            patience,
+            &train_samples,
+            &val_samples,
+            &train_samples,
+            &[],
+        )
+        .unwrap();
+        let resumed_final = fs::read(resumed_dir.join("v3-seed-3-earlystop.bin")).unwrap();
+        let resumed_state = read_early_stop_state(&run_dir.join("state.txt")).unwrap();
+
+        assert_eq!(resumed_final, baseline_final);
+        assert_eq!(resumed_state.epoch, baseline_state.epoch);
+        assert_eq!(resumed_state.best_epoch, baseline_state.best_epoch);
+
+        fs::remove_dir_all(&baseline_dir).ok();
+        fs::remove_dir_all(&resumed_dir).ok();
     }
 }
