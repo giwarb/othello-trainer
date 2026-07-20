@@ -34,7 +34,7 @@
 
 | ID | タスク | 担当 | 状態 | 試行 |
 |---|---|---|---|---|
-| T158a | 評価特徴追加(1/4): engine特徴計算・PWV4・純コスト計測 | Codex gpt-5.6-sol | review(完了138217b代行コミット: **Gate 1合格=WASM NPS比95.94%/native 94.67%**、ゼロ係数bit-exact・209テストPASS・本番完全不変・ノード上限支配を確認。verifier+codex-review検収中→合格でT158b(trainer+pilot学習)へ) | 0 |
+| T158a | 評価特徴追加(1/4): engine特徴計算・PWV4・純コスト計測 | Codex gpt-5.6-sol | redo(codex-review不合格: **Gate 1計測が単一序盤局面のみ**=95.94%の一般性未担保→複数ステージ再計測+PWV3 golden fixture+反復間決定性。実装本体は問題なし。再委譲中) | 1 |
 
 ## 有効な方針・申し送り(今後のタスクに効くもの)
 
