@@ -762,7 +762,7 @@ struct DistributionSummary {
 #[derive(Serialize)]
 struct FeatureDistribution {
     schema_version: u32,
-    split: &'static str,
+    split: String,
     mobility: DistributionSummary,
     exposure: DistributionSummary,
 }
@@ -793,7 +793,15 @@ fn summarize_distribution(mut values: Vec<i32>, scale_shift: u8) -> Distribution
     }
 }
 
-fn write_feature_distribution(path: &Path, samples: &[Sample]) -> Result<(), String> {
+/// T165前提修正2(T164レビュー軽微4): `split`ラベルは呼び出し元から明示的に
+/// 渡す(以前はWTHOR経路の文言"WTHOR train games before optional stratified
+/// subset"がsimple-corpus経路でもハードコードされたまま出力されており、
+/// Egaroucidデータで学習したのにWTHOR由来と誤読させる紛らわしい記述だった)。
+fn write_feature_distribution(
+    path: &Path,
+    samples: &[Sample],
+    split_label: &str,
+) -> Result<(), String> {
     let mut mobility = Vec::with_capacity(samples.len());
     let mut exposure = Vec::with_capacity(samples.len());
     for sample in samples {
@@ -803,7 +811,7 @@ fn write_feature_distribution(path: &Path, samples: &[Sample]) -> Result<(), Str
     }
     let distribution = FeatureDistribution {
         schema_version: 1,
-        split: "WTHOR train games before optional stratified subset",
+        split: split_label.to_string(),
         mobility: summarize_distribution(
             mobility,
             ScalarFeatureKind::ExactMobilityAdvantage.scale_shift(),
@@ -1348,7 +1356,11 @@ fn run_early_stop_simple_corpus(
     // (「identity・分布統計等の追従込み」要件)。
     if configs.iter().any(|config| config.t158) {
         let distribution_path = output_dir.join("feature-distribution.json");
-        if let Err(e) = write_feature_distribution(&distribution_path, &train_samples) {
+        if let Err(e) = write_feature_distribution(
+            &distribution_path,
+            &train_samples,
+            "simple-corpus early-stop train split (position-hash split, before validation split)",
+        ) {
             eprintln!("failed to write feature distribution: {e}");
             return ExitCode::FAILURE;
         }
@@ -1458,7 +1470,11 @@ fn run_early_stop_wthor(
 
     if configs.iter().any(|config| config.t158) {
         let distribution_path = output_dir.join("feature-distribution.json");
-        if let Err(e) = write_feature_distribution(&distribution_path, &full_train_samples) {
+        if let Err(e) = write_feature_distribution(
+            &distribution_path,
+            &full_train_samples,
+            "WTHOR early-stop train split (train games only, before optional stratified subset)",
+        ) {
             eprintln!("failed to write feature distribution: {e}");
             return ExitCode::FAILURE;
         }
@@ -1698,7 +1714,11 @@ fn main() -> ExitCode {
         // 分布統計を書き出す(「identity・分布統計等の追従込み」要件)。
         if configs.iter().any(|config| config.t158) {
             let distribution_path = output_dir.join("feature-distribution.json");
-            if let Err(e) = write_feature_distribution(&distribution_path, &train_samples) {
+            if let Err(e) = write_feature_distribution(
+                &distribution_path,
+                &train_samples,
+                "simple-corpus train split (position-hash split)",
+            ) {
                 eprintln!("failed to write feature distribution: {e}");
                 return ExitCode::FAILURE;
             }
@@ -1799,7 +1819,11 @@ fn main() -> ExitCode {
     let full_train_sample_count = full_train_samples.len();
     if configs.iter().any(|config| config.t158) {
         let distribution_path = output_dir.join("feature-distribution.json");
-        if let Err(e) = write_feature_distribution(&distribution_path, &full_train_samples) {
+        if let Err(e) = write_feature_distribution(
+            &distribution_path,
+            &full_train_samples,
+            "WTHOR train games before optional stratified subset",
+        ) {
             eprintln!("failed to write feature distribution: {e}");
             return ExitCode::FAILURE;
         }

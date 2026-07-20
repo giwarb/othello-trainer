@@ -506,6 +506,14 @@ impl PatternWeights {
             self.canonical_tables.is_none(),
             "to_bytes_v3はレガシー専用です。canonicalモデルはto_bytes_v5を使ってください"
         );
+        // T165前提修正1と同じ理由(T164レビュー軽微2はto_bytes_v5指摘だが、
+        // to_bytes_v3も`to_bytes_self_describing`を共有し同じ穴を持つため、
+        // 対称性のため併せてガードする): scalar特徴込みのモデルはto_bytes_v4を
+        // 使うべきで、ここに来たら黙って落とさず拒否する。
+        assert!(
+            self.scalar_feature_weights.is_empty(),
+            "to_bytes_v3はscalar特徴を持たないモデル専用です。scalar特徴込みモデルはto_bytes_v4を使ってください"
+        );
         self.to_bytes_self_describing(b"PWV3", 3)
     }
 
@@ -519,6 +527,16 @@ impl PatternWeights {
         assert!(
             self.canonical_tables.is_some(),
             "to_bytes_v5はD4 canonical化スキーム(zeroed_canonical由来)でのみ使えます"
+        );
+        // T165前提修正1(T164レビュー軽微2): `to_bytes_self_describing`は
+        // scalar特徴ブロックを一切書き出さない(PWV3/PWV5共通の本体)。
+        // scalar特徴込みのモデル(B3-canonical)を誤ってこちらに渡すと、
+        // scalar係数が警告もなく静かに失われてしまう(取り違えると学習結果が
+        // 一部消える事故になる)。canonical+scalarのモデルは`to_bytes_v6`を
+        // 使うべきなので、ここでは明示的に拒否する。
+        assert!(
+            self.scalar_feature_weights.is_empty(),
+            "to_bytes_v5はscalar特徴を持たないモデル専用です。canonical+scalarモデルはto_bytes_v6を使ってください"
         );
         self.to_bytes_self_describing(b"PWV5", 5)
     }
@@ -1901,6 +1919,42 @@ mod tests {
     fn t163_to_bytes_v5_panics_for_legacy_non_canonical_weights() {
         let weights = PatternWeights::zeroed(patterns::generate_patterns());
         let _ = weights.to_bytes_v5();
+    }
+
+    // -----------------------------------------------------------------
+    // T165前提修正1(T164レビュー軽微2): scalar特徴を持つモデルの
+    // to_bytes_v5/to_bytes_v3への誤経路ガード
+    // -----------------------------------------------------------------
+
+    #[test]
+    #[should_panic(expected = "to_bytes_v5")]
+    fn t165_to_bytes_v5_panics_for_canonical_model_with_scalar_features() {
+        // canonical+scalar(B3-canonical相当)のモデルを誤って`to_bytes_v5`
+        // (scalarブロックを持たないPWV5)に渡すと、`to_bytes_self_describing`は
+        // scalar_feature_weightsを一切参照しないため、scalar係数が警告なく
+        // 静かに失われる。これを明示的に拒否する。
+        let weights = PatternWeights::zeroed_canonical(
+            patterns::generate_patterns_for(patterns::PatternConfig::V3),
+            V4_NUM_STAGES,
+            V4_STAGE_EMPTY_DIVISOR,
+        )
+        .with_zeroed_scalar_features();
+        let _ = weights.to_bytes_v5();
+    }
+
+    #[test]
+    #[should_panic(expected = "to_bytes_v3")]
+    fn t165_to_bytes_v3_panics_for_legacy_model_with_scalar_features() {
+        // to_bytes_v3も`to_bytes_self_describing`を共有しており同じ穴を持つ
+        // (T164レビュー軽微2の指摘はto_bytes_v5だが、対称性のため
+        // to_bytes_v3にも同じガードを追加した)。
+        let weights = PatternWeights::zeroed_with_stage_definition(
+            patterns::generate_patterns_for(patterns::PatternConfig::V3),
+            V4_NUM_STAGES,
+            V4_STAGE_EMPTY_DIVISOR,
+        )
+        .with_zeroed_scalar_features();
+        let _ = weights.to_bytes_v3();
     }
 
     #[test]
