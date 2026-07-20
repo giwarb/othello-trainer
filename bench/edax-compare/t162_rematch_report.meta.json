@@ -1,0 +1,145 @@
+{
+  "schemaVersion": 1,
+  "task": "T162",
+  "decision": "no_verdict_material_only",
+  "note": "Final adoption decision (retain v4 / revert to v3) is left to the coordinator/user; this worker presents statistical facts only.",
+  "v4Reuse": {
+    "reused": true,
+    "sourceFile": "bench/edax-compare/endgame-results/t158d-v4-vs-edax-results-full.json",
+    "sourceTask": "T158d stage 2",
+    "sourceGeneratedAtUtc": "2026-07-20T19:19:16+00:00",
+    "verification": {
+      "openingSetSha256": {"source": "7a340c17b02f85a29d5ff296b46ab19aac13f185de7bc03eaf574d6290be81e2", "current": "7a340c17b02f85a29d5ff296b46ab19aac13f185de7bc03eaf574d6290be81e2", "match": true},
+      "edaxExecutableSha256": {"source": "aabb5ac7d3f9a872fc0e7388ab1eee1d23c687f76c28642122524dc318b322b1", "current": "aabb5ac7d3f9a872fc0e7388ab1eee1d23c687f76c28642122524dc318b322b1", "match": true},
+      "edaxEvalDataSha256": {"source": "f8b2299612d9fa4414157e70e932636e33111c2602d0c2fc382a7d90ef21b792", "current": "f8b2299612d9fa4414157e70e932636e33111c2602d0c2fc382a7d90ef21b792", "match": true},
+      "v4WeightSha256": {"source": "c372b83366c4006023ae05f3af5b68dda5929aca7ff7308d1b398a89639e383f", "current": "c372b83366c4006023ae05f3af5b68dda5929aca7ff7308d1b398a89639e383f", "match": true},
+      "evalCliSha256": {"source": "c19f8633ce4f4346ca64a2b5a7c294d4d78e43a9be476de8e923e1056ec3570e", "current": "c19f8633ce4f4346ca64a2b5a7c294d4d78e43a9be476de8e923e1056ec3570e", "match": true, "note": "rebuilt via cargo build --release -p engine --bin eval_cli at current HEAD before comparing"},
+      "engineSourceSha256": {"source": "e1ded2febb87a32ee4c08b0c8a617bf54b24331a72ca1e62fd70387ba40e70c9", "current": "e1ded2febb87a32ee4c08b0c8a617bf54b24331a72ca1e62fd70387ba40e70c9", "match": true, "note": "confirmed via v3 run's own meta, built at the same current HEAD"},
+      "protocolParameters": {"match": true, "note": "engine_depth=12, engine_exact_from_empties=16, engine_time_ms=1500, engine_max_nodes=160000, engine_exact_quota_percent=60, unlimited_exact_empties=20, engine_tt_mb=64, engine_modes=[single-root], levels=[10], opening_set=primary, opening_count=30 -- identical in both settings dicts"},
+      "gitCommitsToEngineDirSinceT158dStage2": 0,
+      "gitCommitAtT158dStage2": "4990bb98d23a00f233e6cf411e22131206073e2f",
+      "gitCommitAtT162": "91cc1af55d290fc02509b3cb19ca3a82b955fc29",
+      "allMatched": true
+    },
+    "conclusion": "All provenance fields match exactly, including the freshly rebuilt eval_cli binary SHA-256. v4's 60 games from T158d stage 2 are reused verbatim; only v3's 60 games were newly executed."
+  },
+  "v3Execution": {
+    "weightsPath": "train/weights/pattern_v3.bin",
+    "weightsSha256": "d815dd6fbfd3e426ec9f05a3cd0b3d6b5963e518d918bee85301ad83dbc0de92",
+    "resultsPath": "bench/edax-compare/endgame-results/t162-v3-vs-edax-results-full.json",
+    "reportPath": "bench/edax-compare/endgame-results/t162-v3-vs-edax-report-full.md",
+    "startedAtLocal": "2026-07-21T05:49:58+09:00",
+    "finishedAtLocal": "2026-07-21T06:02:09+09:00",
+    "totalWallClockSec": 731,
+    "gamesWallClockSumSec": 717.401,
+    "gamesWallClockMeanSec": 11.957,
+    "gamesCompleted": 60,
+    "fixedDepthRegressionAllMatched": true,
+    "nodeBudgetRegressionAllMatched": true,
+    "stderrEmpty": true,
+    "sequentialExecution": true,
+    "concurrentOtherWork": false
+  },
+  "protocol": {
+    "engineDepth": 12,
+    "engineExactFromEmpties": 16,
+    "engineExactQuotaPercent": 60,
+    "engineMaxNodes": 160000,
+    "engineTimeMs": 1500,
+    "engineTtMiB": 64,
+    "unlimitedExactEmpties": 20,
+    "engineModes": ["single-root"],
+    "edaxLevels": [10],
+    "openingSet": "primary",
+    "openingCount": 30,
+    "sourceOfTruth": "identical to T158d / T125 production adoption gate; vs_edax.py unmodified from its T158d state"
+  },
+  "results": {
+    "v3": {"wins": 3, "draws": 3, "losses": 54, "marginSum": -1272, "marginMean": -21.2, "marginMedian": -20},
+    "v4": {"wins": 4, "draws": 2, "losses": 54, "marginSum": -1447, "marginMean": -24.117, "marginMedian": -24},
+    "historicalT121T125V3Reference": {"wins": 3, "draws": 3, "losses": 54, "marginMean": -21.2333, "note": "informational cross-check only; win/draw/loss counts match exactly, mean margin differs by only 0.033 discs; engine binary has evolved since T121 (T139 symmetric-position ordering fix, T156 MPC additions, T158a eval features), consistent with the small drift"}
+  },
+  "statistics": {
+    "openingLevel": {
+      "n": 30,
+      "meanDiff": 2.9167,
+      "diffDefinition": "v3 opening-average margin minus v4 opening-average margin",
+      "improved": 18,
+      "worsened": 11,
+      "tied": 1,
+      "bootstrap": {
+        "method": "paired bootstrap percentile CI, identical algorithm to bench/edax-compare/compare_pattern_v3.py#paired_bootstrap and to T158d's stage-2 report (random.Random(seed), resample-with-replacement len(diffs) draws per sample via rng.choice, mean each sample, sort, percentile 2.5/97.5)",
+        "seed": 162004,
+        "samples": 100000,
+        "ci95": [-2.1333, 7.9667],
+        "classification": "no_significant_difference"
+      },
+      "signTest": {
+        "method": "scipy.stats.binomtest, two-sided, p=0.5, excluding ties",
+        "n": 29,
+        "improved": 18,
+        "pValue": 0.2649
+      }
+    },
+    "gameLevel": {
+      "n": 60,
+      "meanDiff": 2.9167,
+      "improved": 32,
+      "worsened": 27,
+      "tied": 1,
+      "bootstrap": {"seed": 162005, "samples": 100000, "ci95": [-1.7667, 7.5667]},
+      "signTest": {"n": 59, "improved": 32, "pValue": 0.6029},
+      "note": "supplementary finer-grained view; mean matches opening-level exactly by linearity"
+    },
+    "comparisonWithT158d": {
+      "t158dCandidateVsV4": {"meanDiff": 1.45, "ci95OpeningLevel": [-1.5667, 4.6]},
+      "thisTaskV3VsV4": {"meanDiff": 2.9167, "ci95OpeningLevel": [-2.1333, 7.9667]},
+      "note": "v3-v4 point estimate is larger than candidate-v4, but both CIs are wide and overlap substantially; the low statistical power of this 30-opening/60-game protocol (already documented in T125's limitations section) means no clear ranking among v3/v4/candidate can be established from this experiment alone."
+    }
+  },
+  "exactFallbackDefinition": {
+    "note": "Per T158d verifier follow-up request, the exactFallback tally counts ONLY the single transition move (the last budgeted-phase move before the engine's root empties drops to <= unlimited_exact_empties=20), checking that move's exactFallback flag. It does NOT count exactFallback occurrences on any other budgeted-phase move earlier in the game.",
+    "v3": {"fallbackAtTransition": 3, "of": 59, "excludedGames": 1},
+    "v4": {"fallbackAtTransition": 9, "of": 60, "excludedGames": 0}
+  },
+  "watchPoint": {
+    "budgetedToExactDeviation": {
+      "description": "Deviation between the last budgeted-phase discDiff (empties ~21-22) and the first unlimited-exact discDiff (empties <=20), across all v3 and v4 games where both phases were reached",
+      "v3": {"n": 59, "excludedGames": [{"opening": "primary-30", "color": "black", "reason": "engine (v3, black) was completely wiped out (0 discs) and had no legal moves before the game ever reached the unlimited-exact (empties<=20) phase; game terminated at empties=19 per the harness's no-legal-move termination rule. Legitimate game outcome, not a crash/illegal-move/anomaly."}], "meanAbsDelta": 6.167, "medianAbsDelta": 5.95, "maxAbsDelta": 15.78, "maxAbsDeltaOpening": "primary-01", "maxAbsDeltaColor": "white", "stdevAbsDelta": 3.991},
+      "v4": {"n": 60, "excludedGames": [], "meanAbsDelta": 5.139, "medianAbsDelta": 3.795, "maxAbsDelta": 32.44, "maxAbsDeltaOpening": "primary-15", "maxAbsDeltaColor": "white", "stdevAbsDelta": 5.383},
+      "interpretation": "v3's mean deviation is somewhat larger than v4's (6.17 vs 5.14), but v3's max (15.78) is well below v4's max (32.44, already established in T158d). Consistent with T158d's conclusion that pilot-stage asymmetries can be small-sample artifacts; here the difference is modest and not alarming."
+    },
+    "signFlips": {
+      "description": "Games where budgeted-phase discDiff sign differs from the first unlimited-exact discDiff sign",
+      "v3": {"count": 5, "of": 59, "games": [
+        {"opening": "primary-09", "color": "white", "budgeted": 5.52, "exact": -2.0},
+        {"opening": "primary-10", "color": "black", "budgeted": 4.70, "exact": -4.0},
+        {"opening": "primary-23", "color": "white", "budgeted": 2.61, "exact": -4.0},
+        {"opening": "primary-28", "color": "white", "budgeted": 5.14, "exact": -2.0},
+        {"opening": "primary-29", "color": "white", "budgeted": 3.54, "exact": -8.0}
+      ]},
+      "v4": {"count": 4, "of": 60, "games": [
+        {"opening": "primary-11", "color": "white", "budgeted": 0.20, "exact": -14.0},
+        {"opening": "primary-14", "color": "black", "budgeted": 1.58, "exact": -4.0},
+        {"opening": "primary-19", "color": "white", "budgeted": 1.14, "exact": -16.0},
+        {"opening": "primary-22", "color": "white", "budgeted": 0.74, "exact": -2.0}
+      ]},
+      "conclusion": "similar counts (5/59 vs 4/60); no v3-specific anomaly. All flips originate from small near-zero budgeted values, no catastrophic reversal."
+    }
+  },
+  "anomalyCheck": {
+    "crashes": 0,
+    "illegalMoves": 0,
+    "nondeterminism": 0,
+    "fixedDepthRegression": {"v3": "PASSED 40/40", "v4": "PASSED 40/40 (reused from T158d)"},
+    "nodeBudgetRegression": {"v3": "PASSED 10/10", "v4": "PASSED 10/10 (reused from T158d)"},
+    "stderrLogsEmpty": true,
+    "earlyTerminationNote": "v3 game primary-30/black ended at empties=19 due to legitimate complete elimination (0 discs, no legal moves), not an anomaly"
+  },
+  "verdict": "none (material only, per task scope)",
+  "outOfScope": [
+    "final adoption decision (retain v4 / revert to v3)",
+    "production weight changes",
+    "vs_edax.py / engine / train code changes"
+  ]
+}
