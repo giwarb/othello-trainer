@@ -1,0 +1,10 @@
+[
+  { "id": "mpc-45-52-calibration-001", "bucket": "45-52", "empties": 47, "black": "0x001418107c100000", "white": "0x0000206c00200000", "turn": "white" },
+  { "id": "mpc-45-52-calibration-002", "bucket": "45-52", "empties": 52, "black": "0x000010381c000000", "white": "0x00000800200e0000", "turn": "black" },
+  { "id": "mpc-37-44-calibration-001", "bucket": "37-44", "empties": 42, "black": "0x0000007e34580000", "white": "0x00083c010a060000", "turn": "black" },
+  { "id": "mpc-37-44-calibration-002", "bucket": "37-44", "empties": 37, "black": "0x000080c064340000", "white": "0x0030383c18c81818", "turn": "white" },
+  { "id": "mpc-29-36-calibration-001", "bucket": "29-36", "empties": 33, "black": "0x0880c0c0fc981810", "white": "0x2030383800606000", "turn": "white" },
+  { "id": "mpc-29-36-calibration-002", "bucket": "29-36", "empties": 36, "black": "0x0830606020003020", "white": "0x00009c1c5cfc0000", "turn": "black" },
+  { "id": "mpc-21-28-calibration-001", "bucket": "21-28", "empties": 27, "black": "0x3c38f4beacc08020", "white": "0x0000084050386810", "turn": "white" },
+  { "id": "mpc-21-28-calibration-002", "bucket": "21-28", "empties": 25, "black": "0x0000007169343e1e", "white": "0x10307f0e160b0000", "turn": "white" }
+]

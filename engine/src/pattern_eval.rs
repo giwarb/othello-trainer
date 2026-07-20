@@ -1124,6 +1124,56 @@ mod tests {
     }
 
     #[test]
+    fn production_pwv3_scores_match_parent_commit_golden_bits() {
+        let path = concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../train/weights/pattern_v4.bin"
+        );
+        let weights = PatternWeights::from_bytes(&std::fs::read(path).unwrap()).unwrap();
+        let fixtures: serde_json::Value = serde_json::from_str(include_str!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../bench/edax-compare/t158a_engine_cost_positions.json"
+        )))
+        .unwrap();
+        let actual = fixtures
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|fixture| {
+                let parse = |key: &str| {
+                    u64::from_str_radix(
+                        fixture[key].as_str().unwrap().strip_prefix("0x").unwrap(),
+                        16,
+                    )
+                    .unwrap()
+                };
+                let board = Board {
+                    black: parse("black"),
+                    white: parse("white"),
+                };
+                let side = if fixture["turn"] == "black" {
+                    Side::Black
+                } else {
+                    Side::White
+                };
+                weights.score(&board, side).to_bits()
+            })
+            .collect::<Vec<_>>();
+        // Captured from the parent commit before PWV4/scalar-feature integration.
+        let golden = [
+            1_096_847_631,
+            1_050_921_104,
+            1_087_962_051,
+            3_258_694_572,
+            3_245_183_306,
+            3_240_604_642,
+            3_252_197_972,
+            3_225_423_250,
+        ];
+        assert_eq!(actual, golden);
+    }
+
+    #[test]
     fn disabling_scalar_features_restores_the_pattern_only_score() {
         let mut model = pwv4_model();
         model.scalar_feature_weights[1].weights.fill(32.0);

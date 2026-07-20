@@ -6,10 +6,61 @@ use engine::search::{
     search_with_eval, search_with_eval_with_node_limit_and_exact_quota, SearchLimit, SearchResult,
 };
 use engine::tt::TranspositionTable;
+use serde::Deserialize;
+use serde_json::json;
 use std::hint::black_box;
 use std::time::{Duration, Instant};
 
 const REPETITIONS: usize = 7;
+
+#[derive(Clone, Deserialize)]
+struct CostPositionJson {
+    id: String,
+    bucket: String,
+    empties: u32,
+    black: String,
+    white: String,
+    turn: String,
+}
+
+#[derive(Clone)]
+struct CostPosition {
+    id: String,
+    bucket: String,
+    board: Board,
+    side: Side,
+}
+
+fn cost_positions() -> Vec<CostPosition> {
+    let fixtures: Vec<CostPositionJson> = serde_json::from_str(include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../bench/edax-compare/t158a_engine_cost_positions.json"
+    )))
+    .unwrap();
+    fixtures.into_iter().map(cost_position).collect()
+}
+
+fn cost_position(fixture: CostPositionJson) -> CostPosition {
+    let parse = |value: &str| u64::from_str_radix(value.strip_prefix("0x").unwrap(), 16).unwrap();
+    let board = Board {
+        black: parse(&fixture.black),
+        white: parse(&fixture.white),
+    };
+    assert_eq!(board.empty_count(), fixture.empties);
+    let side = if fixture.turn == "black" {
+        Side::Black
+    } else {
+        assert_eq!(fixture.turn, "white");
+        Side::White
+    };
+    assert_ne!(board.legal_moves(side), 0);
+    CostPosition {
+        id: fixture.id,
+        bucket: fixture.bucket,
+        board,
+        side,
+    }
+}
 
 fn models() -> (PatternWeights, PatternWeights) {
     let path = concat!(
@@ -67,6 +118,24 @@ fn range(values: &[u128]) -> (u128, u128) {
     (*values.iter().min().unwrap(), *values.iter().max().unwrap())
 }
 
+fn summarize_pair(base: &[u128], candidate: &[u128]) -> serde_json::Value {
+    json!({
+        "baselineMedianNs": median(base),
+        "baselineRangeNs": range(base),
+        "candidateMedianNs": median(candidate),
+        "candidateRangeNs": range(candidate),
+        "ratio": median(base) as f64 / median(candidate) as f64,
+        "baselineRawNs": base,
+        "candidateRawNs": candidate,
+    })
+}
+
+fn aggregate_repetitions(values: &[Vec<u128>], indices: &[usize]) -> Vec<u128> {
+    (0..REPETITIONS)
+        .map(|r| indices.iter().map(|&i| values[i][r]).sum())
+        .collect()
+}
+
 fn micro_once(weights: &PatternWeights, positions: &[(Board, Side)]) -> (Duration, u32) {
     let start = Instant::now();
     let mut checksum = 0f32;
@@ -119,7 +188,7 @@ fn production_once(
 }
 
 #[test]
-#[cfg_attr(debug_assertions, ignore)]
+#[ignore]
 fn zero_feature_model_is_identical_and_native_cost_is_reported() {
     let (baseline, candidate) = models();
     let positions = fixtures();
@@ -218,4 +287,140 @@ fn zero_feature_model_is_identical_and_native_cost_is_reported() {
         median(&prod_candidate), prod_candidate_min, prod_candidate_max,
         median(&prod_base) as f64 / median(&prod_candidate) as f64,
     );
+}
+
+#[test]
+#[cfg_attr(debug_assertions, ignore)]
+fn stratified_corpus_cost_is_reported() {
+    let (baseline, candidate) = models();
+    let positions = cost_positions();
+    let evals = fixtures();
+    black_box(micro_once(&baseline, &evals));
+    black_box(micro_once(&candidate, &evals));
+    for position in &positions {
+        black_box(fixed_depth_once(&baseline, &position.board, position.side));
+        black_box(fixed_depth_once(&candidate, &position.board, position.side));
+        black_box(production_once(&baseline, &position.board, position.side));
+        black_box(production_once(&candidate, &position.board, position.side));
+    }
+    let mut micro_base = Vec::new();
+    let mut micro_candidate = Vec::new();
+    let mut fixed_base = vec![Vec::new(); positions.len()];
+    let mut fixed_candidate = vec![Vec::new(); positions.len()];
+    let mut prod_base = vec![Vec::new(); positions.len()];
+    let mut prod_candidate = vec![Vec::new(); positions.len()];
+    let mut fixed_reference: Option<Vec<SearchResult>> = None;
+    let mut prod_reference: Option<Vec<SearchResult>> = None;
+    let run = |weights: &PatternWeights| {
+        let micro = micro_once(weights, &evals);
+        let fixed = positions
+            .iter()
+            .map(|p| fixed_depth_once(weights, &p.board, p.side))
+            .collect::<Vec<_>>();
+        let production = positions
+            .iter()
+            .map(|p| production_once(weights, &p.board, p.side))
+            .collect::<Vec<_>>();
+        (micro, fixed, production)
+    };
+    for repetition in 0..REPETITIONS {
+        let (base_run, candidate_run) = if repetition % 2 == 0 {
+            (run(&baseline), run(&candidate))
+        } else {
+            let candidate_run = run(&candidate);
+            (run(&baseline), candidate_run)
+        };
+        assert_eq!(base_run.0 .1, candidate_run.0 .1);
+        for i in 0..positions.len() {
+            assert_same_result(&base_run.1[i].1, &candidate_run.1[i].1);
+            assert_same_result(&base_run.2[i].1, &candidate_run.2[i].1);
+        }
+        if let Some(reference) = &fixed_reference {
+            for (reference, current) in reference.iter().zip(&base_run.1) {
+                assert_same_result(reference, &current.1);
+            }
+        } else {
+            fixed_reference = Some(base_run.1.iter().map(|x| x.1.clone()).collect());
+        }
+        if let Some(reference) = &prod_reference {
+            for (reference, current) in reference.iter().zip(&base_run.2) {
+                assert_same_result(reference, &current.1);
+            }
+        } else {
+            prod_reference = Some(base_run.2.iter().map(|x| x.1.clone()).collect());
+        }
+        micro_base.push(base_run.0 .0.as_nanos());
+        micro_candidate.push(candidate_run.0 .0.as_nanos());
+        for i in 0..positions.len() {
+            fixed_base[i].push(base_run.1[i].0.as_nanos());
+            fixed_candidate[i].push(candidate_run.1[i].0.as_nanos());
+            prod_base[i].push(base_run.2[i].0.as_nanos());
+            prod_candidate[i].push(candidate_run.2[i].0.as_nanos());
+        }
+    }
+    let fixed_reference = fixed_reference.unwrap();
+    let prod_reference = prod_reference.unwrap();
+    let all = (0..positions.len()).collect::<Vec<_>>();
+    let fixed_all_base = aggregate_repetitions(&fixed_base, &all);
+    let fixed_all_candidate = aggregate_repetitions(&fixed_candidate, &all);
+    let prod_all_base = aggregate_repetitions(&prod_base, &all);
+    let prod_all_candidate = aggregate_repetitions(&prod_candidate, &all);
+    let mut buckets = Vec::new();
+    for bucket in ["45-52", "37-44", "29-36", "21-28"] {
+        let indices = positions
+            .iter()
+            .enumerate()
+            .filter_map(|(i, p)| (p.bucket == bucket).then_some(i))
+            .collect::<Vec<_>>();
+        let fb = aggregate_repetitions(&fixed_base, &indices);
+        let fc = aggregate_repetitions(&fixed_candidate, &indices);
+        let pb = aggregate_repetitions(&prod_base, &indices);
+        let pc = aggregate_repetitions(&prod_candidate, &indices);
+        buckets.push(json!({
+            "bucket": bucket,
+            "fixedDepth": summarize_pair(&fb, &fc),
+            "production160k": summarize_pair(&pb, &pc),
+            "dominantLimits": indices.iter().map(|&i| {
+                if prod_reference[i].timed_out { "time" }
+                else if prod_reference[i].node_limit_hit { "nodes" }
+                else { "depth" }
+            }).collect::<Vec<_>>(),
+        }));
+    }
+    let results = positions
+        .iter()
+        .enumerate()
+        .map(|(i, position)| {
+            json!({
+                "id": position.id,
+                "bucket": position.bucket,
+                "fixedDepth": {
+                    "moveIndex": fixed_reference[i].best_move,
+                    "scoreCentiDisc": fixed_reference[i].score,
+                    "depth": fixed_reference[i].depth,
+                    "nodes": fixed_reference[i].nodes,
+                },
+                "production160k": {
+                    "moveIndex": prod_reference[i].best_move,
+                    "scoreCentiDisc": prod_reference[i].score,
+                    "depth": prod_reference[i].depth,
+                    "nodes": prod_reference[i].nodes,
+                    "nodeLimitHit": prod_reference[i].node_limit_hit,
+                    "timedOut": prod_reference[i].timed_out,
+                },
+            })
+        })
+        .collect::<Vec<_>>();
+    let output = json!({
+        "repetitions": REPETITIONS,
+        "micro": {
+            "evaluations": 20_000 * evals.len(),
+            "measurement": summarize_pair(&micro_base, &micro_candidate),
+        },
+        "fixedDepthAggregate": summarize_pair(&fixed_all_base, &fixed_all_candidate),
+        "production160kAggregate": summarize_pair(&prod_all_base, &prod_all_candidate),
+        "buckets": buckets,
+        "fixtures": results,
+    });
+    eprintln!("[t158a native stratified result] {}", output);
 }

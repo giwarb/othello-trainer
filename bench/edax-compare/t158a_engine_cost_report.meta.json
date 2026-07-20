@@ -1,29 +1,47 @@
 {
   "task": "T158a",
-  "measuredAt": "2026-07-20T23:15:00+09:00",
+  "measuredAt": "2026-07-21T00:03:03+09:00",
   "repetitions": 7,
   "order": "alternating baseline/candidate, reversed every repetition",
+  "corpus": {
+    "path": "bench/edax-compare/t158a_engine_cost_positions.json",
+    "source": "first two pilot calibration positions in each t156_mpc_positions.json empty bucket",
+    "positions": 8,
+    "buckets": ["45-52", "37-44", "29-36", "21-28"]
+  },
   "baselineSha256": "c372b83366c4006023ae05f3af5b68dda5929aca7ff7308d1b398a89639e383f",
   "zeroFeaturePwv4Sha256": "3d4bdb7aa58ae0116983c47052230c26886a9823a981b28614eae47b397f6dd1",
-  "wasmSha256": "3df3c0eb583e6f08b819cd5df5f19ea3a7e775932543cff14d50007d8e449e98",
+  "wasmSha256": "c51b1d7c7c563352daf01c9a93890e998043352a3daebec9f9ba624809c1d4f2",
   "gate1": {
-    "metric": "wasm fixed-depth NPS ratio",
-    "ratio": 0.959385109384709,
+    "metric": "wasm stratified-corpus fixed-depth aggregate NPS ratio",
+    "ratio": 0.9657976016398293,
     "threshold": 0.9,
     "decision": "pass_to_gate_2",
     "productionDominantLimit": "nodes",
-    "productionNodeLimitHit": true,
-    "productionTimedOut": false
+    "productionNodeLimitHitCount": 8,
+    "productionTimedOutCount": 0
   },
   "native": {
-    "micro": { "evaluations": 200000, "baselineMedianNs": 69696700, "baselineRangeNs": [69186400, 72470100], "candidateMedianNs": 87403700, "candidateRangeNs": [86736500, 90765600], "ratio": 0.797411 },
-    "fixedDepth": { "moveIndex": 43, "scoreCentiDisc": 1109, "depth": 9, "nodes": 183318, "baselineMedianNs": 241306500, "baselineRangeNs": [239493500, 245332400], "candidateMedianNs": 254882800, "candidateRangeNs": [250972200, 256521700], "ratio": 0.946735 },
-    "production160k": { "moveIndex": 43, "scoreCentiDisc": 1109, "depth": 9, "nodes": 160000, "nodeLimitHit": true, "timedOut": false, "baselineMedianNs": 346551000, "baselineRangeNs": [342664800, 355561400], "candidateMedianNs": 356650200, "candidateRangeNs": [349166700, 362222200], "ratio": 0.971683 }
+    "micro": { "evaluations": 200000, "baselineMedianNs": 73527000, "baselineRangeNs": [69730500, 88578500], "candidateMedianNs": 87619400, "candidateRangeNs": [86593700, 98428400], "ratio": 0.839163472929511 },
+    "fixedDepthAggregate": { "baselineMedianNs": 2443503400, "baselineRangeNs": [2410029300, 2756985000], "candidateMedianNs": 2530525700, "candidateRangeNs": [2512785300, 2777997100], "ratio": 0.9656109795683956 },
+    "production160kAggregate": { "baselineMedianNs": 2222534200, "baselineRangeNs": [2153208700, 2414695000], "candidateMedianNs": 2248462400, "candidateRangeNs": [2213911100, 2457920000], "ratio": 0.9884684751677413 },
+    "buckets": [
+      { "bucket": "45-52", "fixedDepthRatio": 0.9636601130694584, "productionRatio": 0.9877652400591329, "dominantLimits": ["nodes", "nodes"] },
+      { "bucket": "37-44", "fixedDepthRatio": 0.9831234069506964, "productionRatio": 0.9838509944338399, "dominantLimits": ["nodes", "nodes"] },
+      { "bucket": "29-36", "fixedDepthRatio": 0.949311102947516, "productionRatio": 1.0460685790212416, "dominantLimits": ["nodes", "nodes"] },
+      { "bucket": "21-28", "fixedDepthRatio": 0.9730922391397637, "productionRatio": 0.9637210673097315, "dominantLimits": ["nodes", "nodes"] }
+    ]
   },
   "wasm": {
     "runtime": { "node": "v22.13.0", "platform": "win32", "arch": "x64", "wasmBindgen": "0.2.126" },
-    "micro": { "evaluations": 150000, "baselineMedianMs": 58.6754, "baselineRangeMs": [57.3569, 60.5279], "candidateMedianMs": 66.4881, "candidateRangeMs": [63.6975, 71.4837], "ratio": 0.882494762220608 },
-    "fixedDepth": { "move": "d6", "scoreDiscDiff": 11.09, "depth": 9, "nodes": 183318, "baselineMedianMs": 215.8392, "baselineRangeMs": [214.1127, 228.333], "candidateMedianMs": 224.9766, "candidateRangeMs": [221.0549, 230.3511], "ratio": 0.959385109384709 },
-    "production160k": { "move": "d6", "scoreDiscDiff": 11.09, "depth": 9, "nodes": 160000, "nodeLimitHit": true, "timedOut": false, "baselineMedianMs": 317.5432, "baselineRangeMs": [309.0879, 344.0435], "candidateMedianMs": 318.0816, "candidateRangeMs": [314.4008, 325.0934], "ratio": 0.9983073525787096 }
+    "micro": { "evaluations": 150000, "baselineMedianMs": 58.8045, "baselineRangeMs": [57.955, 60.4802], "candidateMedianMs": 71.2061, "candidateRangeMs": [67.5002, 73.5917], "ratio": 0.8258351461461868 },
+    "fixedDepthAggregate": { "baselineMedianMs": 2143.8695, "baselineRangeMs": [2124.5896, 2205.2977], "candidateMedianMs": 2219.7917, "candidateRangeMs": [2198.6564, 2237.8909], "ratio": 0.9657976016398293 },
+    "production160kAggregate": { "baselineMedianMs": 1961.6718, "baselineRangeMs": [1953.2598, 1979.162], "candidateMedianMs": 2012.4951, "candidateRangeMs": [2005.9834, 2033.6927], "ratio": 0.9747461248477113 },
+    "buckets": [
+      { "bucket": "45-52", "fixedDepthRatio": 0.9593866360328523, "productionRatio": 0.9753865767053683, "dominantLimits": ["nodes", "nodes"] },
+      { "bucket": "37-44", "fixedDepthRatio": 0.976315120194004, "productionRatio": 0.9811072306769628, "dominantLimits": ["nodes", "nodes"] },
+      { "bucket": "29-36", "fixedDepthRatio": 0.9749645897002603, "productionRatio": 0.975593243167997, "dominantLimits": ["nodes", "nodes"] },
+      { "bucket": "21-28", "fixedDepthRatio": 0.9681591205600878, "productionRatio": 0.9699242951937618, "dominantLimits": ["nodes", "nodes"] }
+    ]
   }
 }

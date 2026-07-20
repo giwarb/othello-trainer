@@ -1,17 +1,16 @@
-// T158a WASM cost benchmark. Requires a release wasm-pack build and two model paths.
+// T158a stratified WASM cost benchmark. Requires a release wasm-pack build.
 import { readFile } from 'node:fs/promises'
 import { performance } from 'node:perf_hooks'
 import { Engine, initSync } from '../../app/src/engine/pkg/engine.js'
 
 const [baselinePath, candidatePath] = process.argv.slice(2)
-if (!baselinePath || !candidatePath) {
-  throw new Error('usage: node t158a_engine_cost_bench.mjs BASELINE_PWV3 ZERO_PWV4')
-}
-
+if (!baselinePath || !candidatePath) throw new Error('expected baseline and candidate paths')
 const wasm = await readFile(new URL('../../app/src/engine/pkg/engine_bg.wasm', import.meta.url))
 initSync({ module: wasm })
 const baselineBytes = await readFile(baselinePath)
 const candidateBytes = await readFile(candidatePath)
+const positions = JSON.parse(await readFile(
+  new URL('./t158a_engine_cost_positions.json', import.meta.url), 'utf8'))
 const repetitions = 7
 
 function engineWith(bytes) {
@@ -26,130 +25,143 @@ function median(values) {
 
 function summary(base, candidate) {
   return {
-    baselineMedianMs: median(base),
-    baselineRangeMs: [Math.min(...base), Math.max(...base)],
-    candidateMedianMs: median(candidate),
-    candidateRangeMs: [Math.min(...candidate), Math.max(...candidate)],
-    ratio: median(base) / median(candidate),
-    baselineRawMs: base,
-    candidateRawMs: candidate,
+    baselineMedianMs: median(base), baselineRangeMs: [Math.min(...base), Math.max(...base)],
+    candidateMedianMs: median(candidate), candidateRangeMs: [Math.min(...candidate), Math.max(...candidate)],
+    ratio: median(base) / median(candidate), baselineRawMs: base, candidateRawMs: candidate,
   }
 }
 
 function deterministicFields(response) {
   return {
-    move: response.pv?.[0] ?? null,
-    score: response.score,
-    depth: response.depth,
-    nodes: response.nodes,
-    pv: response.pv,
-    nodeLimitHit: response.nodeLimitHit,
+    move: response.pv?.[0] ?? null, score: response.score, depth: response.depth,
+    nodes: response.nodes, pv: response.pv, nodeLimitHit: response.nodeLimitHit,
     timedOut: response.timedOut,
   }
 }
 
-const board = {
-  black: '0x1030100004080000',
-  white: '0x0000241C18100000',
-  turn: 'black',
+function request(position, production) {
+  return JSON.stringify({
+    id: production ? 2 : 1,
+    cmd: 'analyze',
+    board: { black: position.black, white: position.white, turn: position.turn },
+    limit: production
+      ? { depth: 12, timeMs: 1500, maxNodes: 160000, exactFromEmpties: 16 }
+      : { depth: 9, exactFromEmpties: 0 },
+  })
 }
-const fixedRequest = JSON.stringify({
-  id: 1,
-  cmd: 'analyze',
-  board,
-  limit: { depth: 9, exactFromEmpties: 0 },
-})
-const productionRequest = JSON.stringify({
-  id: 2,
-  cmd: 'analyze',
-  board,
-  limit: { depth: 12, timeMs: 1500, maxNodes: 160000, exactFromEmpties: 16 },
-})
 
 function evalOnce(bytes) {
   const engine = engineWith(bytes)
   try {
-    const result = JSON.parse(engine.benchmark_pattern_eval(50_000))
+    const result = JSON.parse(engine.benchmark_pattern_eval(50000))
     return Number(BigInt(result.elapsedNs)) / 1e6
-  } finally {
-    engine.free()
-  }
+  } finally { engine.free() }
 }
 
-function searchOnce(bytes, request) {
+function searchOnce(bytes, requestJson) {
   const engine = engineWith(bytes)
   try {
     const start = performance.now()
-    const response = JSON.parse(engine.analyze(request))
+    const response = JSON.parse(engine.analyze(requestJson))
     const elapsed = performance.now() - start
     if (response.error) throw new Error(response.error)
     return { elapsed, response }
-  } finally {
-    engine.free()
+  } finally { engine.free() }
+}
+
+function runModel(bytes) {
+  return {
+    micro: evalOnce(bytes),
+    fixed: positions.map(position => searchOnce(bytes, request(position, false))),
+    production: positions.map(position => searchOnce(bytes, request(position, true))),
   }
 }
 
-// Warm-up both code paths before measurements.
-evalOnce(baselineBytes)
-evalOnce(candidateBytes)
-searchOnce(baselineBytes, fixedRequest)
-searchOnce(candidateBytes, fixedRequest)
+function sameResult(reference, current, label) {
+  if (JSON.stringify(reference) !== JSON.stringify(current)) {
+    throw new Error(`${label} is not deterministic: ${JSON.stringify({ reference, current })}`)
+  }
+}
 
+runModel(baselineBytes)
+runModel(candidateBytes)
 const microBase = []
 const microCandidate = []
-const fixedBase = []
-const fixedCandidate = []
-const productionBase = []
-const productionCandidate = []
+const fixedBase = positions.map(() => [])
+const fixedCandidate = positions.map(() => [])
+const productionBase = positions.map(() => [])
+const productionCandidate = positions.map(() => [])
 let fixedReference
 let productionReference
 
 for (let repetition = 0; repetition < repetitions; repetition += 1) {
-  const order = repetition % 2 === 0
-    ? [[baselineBytes, 'base'], [candidateBytes, 'candidate']]
-    : [[candidateBytes, 'candidate'], [baselineBytes, 'base']]
-  const round = {}
-  for (const [bytes, label] of order) {
-    const micro = evalOnce(bytes)
-    const fixed = searchOnce(bytes, fixedRequest)
-    const production = searchOnce(bytes, productionRequest)
-    round[label] = { micro, fixed, production }
+  let baseRun
+  let candidateRun
+  if (repetition % 2 === 0) {
+    baseRun = runModel(baselineBytes)
+    candidateRun = runModel(candidateBytes)
+  } else {
+    candidateRun = runModel(candidateBytes)
+    baseRun = runModel(baselineBytes)
   }
-  const baseFixed = deterministicFields(round.base.fixed.response)
-  const candidateFixed = deterministicFields(round.candidate.fixed.response)
-  if (JSON.stringify(baseFixed) !== JSON.stringify(candidateFixed)) {
-    throw new Error(`zero-feature fixed-depth mismatch: ${JSON.stringify({ baseFixed, candidateFixed })}`)
+  const currentFixed = []
+  const currentProduction = []
+  for (let i = 0; i < positions.length; i += 1) {
+    const baseFixed = deterministicFields(baseRun.fixed[i].response)
+    const candidateFixed = deterministicFields(candidateRun.fixed[i].response)
+    sameResult(baseFixed, candidateFixed, `fixed ${positions[i].id}`)
+    const baseProduction = deterministicFields(baseRun.production[i].response)
+    const candidateProduction = deterministicFields(candidateRun.production[i].response)
+    sameResult(baseProduction, candidateProduction, `production ${positions[i].id}`)
+    currentFixed.push(baseFixed)
+    currentProduction.push(baseProduction)
+    fixedBase[i].push(baseRun.fixed[i].elapsed)
+    fixedCandidate[i].push(candidateRun.fixed[i].elapsed)
+    productionBase[i].push(baseRun.production[i].elapsed)
+    productionCandidate[i].push(candidateRun.production[i].elapsed)
   }
-  fixedReference ??= baseFixed
-  if (JSON.stringify(fixedReference) !== JSON.stringify(baseFixed)) {
-    throw new Error('fixed-depth result is not deterministic across fresh engines')
-  }
-  const baseProduction = deterministicFields(round.base.production.response)
-  const candidateProduction = deterministicFields(round.candidate.production.response)
-  if (JSON.stringify(baseProduction) !== JSON.stringify(candidateProduction)) {
-    throw new Error(`zero-feature production mismatch: ${JSON.stringify({ baseProduction, candidateProduction })}`)
-  }
-  productionReference ??= baseProduction
-  microBase.push(round.base.micro)
-  microCandidate.push(round.candidate.micro)
-  fixedBase.push(round.base.fixed.elapsed)
-  fixedCandidate.push(round.candidate.fixed.elapsed)
-  productionBase.push(round.base.production.elapsed)
-  productionCandidate.push(round.candidate.production.elapsed)
+  if (fixedReference) sameResult(fixedReference, currentFixed, 'fixed corpus')
+  else fixedReference = currentFixed
+  if (productionReference) sameResult(productionReference, currentProduction, 'production corpus')
+  else productionReference = currentProduction
+  microBase.push(baseRun.micro)
+  microCandidate.push(candidateRun.micro)
   console.error(`[t158a wasm] repetition=${repetition + 1} complete`)
 }
 
-const expectedFixed = { move: 'd6', score: { type: 'midgame', discDiff: 11.09 }, depth: 9, nodes: 183318 }
-for (const [key, value] of Object.entries(expectedFixed)) {
-  if (JSON.stringify(fixedReference[key]) !== JSON.stringify(value)) {
-    throw new Error(`native/WASM fixture mismatch for ${key}: ${JSON.stringify(fixedReference[key])}`)
-  }
+function aggregate(matrix, indices) {
+  return Array.from({ length: repetitions }, (_, repetition) =>
+    indices.reduce((total, i) => total + matrix[i][repetition], 0))
 }
+
+const all = positions.map((_, i) => i)
+const buckets = ['45-52', '37-44', '29-36', '21-28'].map(bucket => {
+  const indices = positions.flatMap((position, i) => position.bucket === bucket ? [i] : [])
+  const fixedBaseBucket = aggregate(fixedBase, indices)
+  const fixedCandidateBucket = aggregate(fixedCandidate, indices)
+  const productionBaseBucket = aggregate(productionBase, indices)
+  const productionCandidateBucket = aggregate(productionCandidate, indices)
+  return {
+    bucket,
+    fixedDepth: summary(fixedBaseBucket, fixedCandidateBucket),
+    production160k: summary(productionBaseBucket, productionCandidateBucket),
+    dominantLimits: indices.map(i => productionReference[i].timedOut
+      ? 'time' : productionReference[i].nodes >= 160000 ? 'nodes' : 'depth'),
+  }
+})
+
+const fixtures = positions.map((position, i) => ({
+  id: position.id, bucket: position.bucket,
+  fixedDepth: fixedReference[i], production160k: productionReference[i],
+}))
 
 console.log(JSON.stringify({
   runtime: { node: process.version, platform: process.platform, arch: process.arch },
   repetitions,
   micro: { evaluations: 150000, ...summary(microBase, microCandidate) },
-  fixedDepth: { result: fixedReference, ...summary(fixedBase, fixedCandidate) },
-  production160k: { result: productionReference, ...summary(productionBase, productionCandidate) },
+  fixedDepthAggregate: summary(aggregate(fixedBase, all), aggregate(fixedCandidate, all)),
+  production160kAggregate: summary(
+    aggregate(productionBase, all), aggregate(productionCandidate, all)),
+  buckets,
+  fixtures,
 }, null, 2))
