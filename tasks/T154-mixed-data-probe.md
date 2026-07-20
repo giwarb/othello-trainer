@@ -1,7 +1,7 @@
 ---
 id: T154
 title: 混合学習の同一トレーナー対照: WTHOR/Egaroucid/混合を@同条件で比較(軽ステップ)
-status: todo # todo | in_progress | review | redo | done | blocked
+status: done # verifier合格(3run再集計・変換決定性SHA・全数値一致)、2026-07-20。代替レビュー省略裁定(新規binは独立ツール2本+既存無改修、verifierが決定性まで確認)
 assignee: implementer(Sonnet)
 attempts: 0
 ---
