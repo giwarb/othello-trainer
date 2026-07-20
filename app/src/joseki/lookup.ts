@@ -67,10 +67,41 @@ export function lookupJosekiNode(
   return { node, isLeaf: node.isLeaf, names: node.names, bookMoves }
 }
 
-let cachedDb: Promise<JosekiDb> | null = null
+/**
+ * `basePath` 配下の `fileName` をfetchして `JosekiDb` として読み込む共通実装。
+ * `loadJosekiDb`/`loadOpeningBookDb` はそれぞれ独立したキャッシュ変数を持つ
+ * (`cacheRef`で受け渡す)ため、片方のfetch結果がもう片方に混ざることはない。
+ */
+function loadDbFrom(
+  fileName: string,
+  cacheRef: { current: Promise<JosekiDb> | null },
+  fetchImpl: typeof fetch,
+  basePath: string,
+): Promise<JosekiDb> {
+  if (!cacheRef.current) {
+    cacheRef.current = fetchImpl(`${basePath}${fileName}`)
+      .then((res) => {
+        if (!res.ok) {
+          throw new Error(`failed to fetch ${fileName}: ${res.status}`)
+        }
+        return res.json()
+      })
+      .then((data) => deserializeJosekiDb(data as SerializedJosekiDb))
+      .catch((error: unknown) => {
+        // 失敗時は次回呼び出しで再fetchできるよう、キャッシュに失敗した
+        // Promiseを残さない。
+        cacheRef.current = null
+        throw error instanceof Error ? error : new Error(String(error))
+      })
+  }
+  return cacheRef.current
+}
+
+const cachedJosekiDb: { current: Promise<JosekiDb> | null } = { current: null }
 
 /**
- * `public/joseki.json` をfetchして `JosekiDb` として読み込む。
+ * `public/joseki.json`(定石練習・SRS・中盤練習ステージが参照する、手作業で
+ * 収集した112ラインの定石DB)をfetchして `JosekiDb` として読み込む。
  * 初回のみfetchし、以降は同じ `Promise` をキャッシュして返す(複数箇所
  * から呼ばれてもfetchは1回だけ発生する)。
  *
@@ -82,26 +113,34 @@ export function loadJosekiDb(
   fetchImpl: typeof fetch = fetch,
   basePath: string = import.meta.env.BASE_URL,
 ): Promise<JosekiDb> {
-  if (!cachedDb) {
-    cachedDb = fetchImpl(`${basePath}joseki.json`)
-      .then((res) => {
-        if (!res.ok) {
-          throw new Error(`failed to fetch joseki.json: ${res.status}`)
-        }
-        return res.json()
-      })
-      .then((data) => deserializeJosekiDb(data as SerializedJosekiDb))
-      .catch((error: unknown) => {
-        // 失敗時は次回呼び出しで再fetchできるよう、キャッシュに失敗した
-        // Promiseを残さない。
-        cachedDb = null
-        throw error instanceof Error ? error : new Error(String(error))
-      })
-  }
-  return cachedDb
+  return loadDbFrom('joseki.json', cachedJosekiDb, fetchImpl, basePath)
 }
 
 /** テスト専用: `loadJosekiDb` のキャッシュをリセットする。 */
 export function resetJosekiDbCacheForTest(): void {
-  cachedDb = null
+  cachedJosekiDb.current = null
+}
+
+const cachedOpeningBookDb: { current: Promise<JosekiDb> | null } = { current: null }
+
+/**
+ * `public/opening-book.json`(T151: `joseki.json`の112ラインに、WTHOR頻出ライン
+ * 251件・Edax level16評価によるロス2石以上の悪手除外・頻度比例重みを加えた
+ * 対局専用の拡張定石ブック)をfetchして `JosekiDb` として読み込む。
+ *
+ * `joseki.json`(`loadJosekiDb`)とは独立したキャッシュを持つ(定石練習・
+ * SRS・中盤練習ステージは引き続き`joseki.json`のみを参照し、対局モードの
+ * CPU即着手・定石トレース・ブックcapだけがこちらを参照する。`app.tsx`の
+ * `PlayMode`参照)。
+ */
+export function loadOpeningBookDb(
+  fetchImpl: typeof fetch = fetch,
+  basePath: string = import.meta.env.BASE_URL,
+): Promise<JosekiDb> {
+  return loadDbFrom('opening-book.json', cachedOpeningBookDb, fetchImpl, basePath)
+}
+
+/** テスト専用: `loadOpeningBookDb` のキャッシュをリセットする。 */
+export function resetOpeningBookDbCacheForTest(): void {
+  cachedOpeningBookDb.current = null
 }

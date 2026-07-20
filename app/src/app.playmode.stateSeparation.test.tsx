@@ -56,6 +56,8 @@ vi.mock('./engine/sharedClient.ts', () => {
 
 vi.mock('./joseki/lookup.ts', () => ({
   loadJosekiDb: () => Promise.resolve({} as JosekiDb),
+  // T151: 対局モードは`loadOpeningBookDb`(拡張ブック)を参照する。
+  loadOpeningBookDb: () => Promise.resolve({} as JosekiDb),
   lookupJosekiNode: () => null,
 }))
 

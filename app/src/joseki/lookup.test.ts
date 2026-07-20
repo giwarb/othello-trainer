@@ -4,7 +4,13 @@ import { fileURLToPath } from 'node:url'
 import { describe, expect, it, vi } from 'vitest'
 import { applyMove, createBoard, initialBoard, notationToSquare, opposite, type Board, type Side } from '../game/othello.ts'
 import { buildJosekiDb, deserializeJosekiDb, serializeJosekiDb } from './buildDb.ts'
-import { loadJosekiDb, lookupJosekiNode, resetJosekiDbCacheForTest } from './lookup.ts'
+import {
+  loadJosekiDb,
+  loadOpeningBookDb,
+  lookupJosekiNode,
+  resetJosekiDbCacheForTest,
+  resetOpeningBookDbCacheForTest,
+} from './lookup.ts'
 import { denormalizeSquare, opForFirstMove } from './normalize.ts'
 import type { RawJosekiFile, RawJosekiLine } from './types.ts'
 
@@ -129,5 +135,67 @@ describe('loadJosekiDb', () => {
     expect(loaded.lines.length).toBe(112)
 
     resetJosekiDbCacheForTest()
+  })
+})
+
+// T151: `loadOpeningBookDb`は`loadJosekiDb`と同じ実装を共有するが、
+// (1) fetch先が`opening-book.json`であること、(2) 独立したキャッシュを持ち
+// `loadJosekiDb`のfetchと混ざらないことを検証する。
+describe('loadOpeningBookDb', () => {
+  it('opening-book.jsonをfetchし、joseki.jsonとは独立にキャッシュする', async () => {
+    resetJosekiDbCacheForTest()
+    resetOpeningBookDbCacheForTest()
+
+    const rawLines = loadRawLines()
+    const serialized = serializeJosekiDb(buildJosekiDb(rawLines))
+
+    const josekiFetch = vi.fn(async () => ({
+      ok: true,
+      status: 200,
+      json: async () => serialized,
+    })) as unknown as typeof fetch
+    const openingBookFetch = vi.fn(async () => ({
+      ok: true,
+      status: 200,
+      json: async () => serialized,
+    })) as unknown as typeof fetch
+
+    await loadJosekiDb(josekiFetch, '/base/')
+    await loadOpeningBookDb(openingBookFetch, '/base/')
+
+    expect(josekiFetch).toHaveBeenCalledWith('/base/joseki.json')
+    expect(openingBookFetch).toHaveBeenCalledWith('/base/opening-book.json')
+
+    // 2回目はどちらもキャッシュ済みのため、再fetchは発生しない。
+    await loadJosekiDb(josekiFetch, '/base/')
+    await loadOpeningBookDb(openingBookFetch, '/base/')
+    expect(josekiFetch).toHaveBeenCalledTimes(1)
+    expect(openingBookFetch).toHaveBeenCalledTimes(1)
+
+    resetJosekiDbCacheForTest()
+    resetOpeningBookDbCacheForTest()
+  })
+
+  it('fetchが失敗した場合は例外を伝播し、次回呼び出しで再試行できる', async () => {
+    resetOpeningBookDbCacheForTest()
+    const failingFetch = vi.fn(async () => {
+      throw new Error('network error')
+    }) as unknown as typeof fetch
+
+    await expect(loadOpeningBookDb(failingFetch, '/base/')).rejects.toThrow('network error')
+    expect(failingFetch).toHaveBeenCalledTimes(1)
+
+    const rawLines = loadRawLines()
+    const serialized = serializeJosekiDb(buildJosekiDb(rawLines))
+    const succeedingFetch = vi.fn(async () => ({
+      ok: true,
+      status: 200,
+      json: async () => serialized,
+    })) as unknown as typeof fetch
+
+    const loaded = await loadOpeningBookDb(succeedingFetch, '/base/')
+    expect(loaded.lines.length).toBe(112)
+
+    resetOpeningBookDbCacheForTest()
   })
 })

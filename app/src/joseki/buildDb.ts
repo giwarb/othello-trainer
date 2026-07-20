@@ -128,8 +128,12 @@ function addBookMove(node: JosekiNode, move: number, gameCount: number | undefin
  * (`bookgen/joseki-research.json`)は`gameCount`を持たないため、常に
  * この均等重み分岐を通り既定挙動は変わらない
  * (`tasks/T017-joseki-dag.md` 要件4、`tasks/T150-book-line-extraction.md` 参照)。
+ *
+ * T151: `buildOpeningBook.ts` が「悪手除外後に生存したbookMovesへ重みを
+ * 再割り当てする」ためにこの関数をそのまま再利用できるようexportする
+ * (フィルタ後のノード集合に対して呼んでも同じロジックがそのまま成立する)。
  */
-function assignWeights(nodes: ReadonlyMap<string, JosekiNode>): void {
+export function assignWeights(nodes: ReadonlyMap<string, JosekiNode>): void {
   for (const node of nodes.values()) {
     if (node.bookMoves.length === 0) continue
 

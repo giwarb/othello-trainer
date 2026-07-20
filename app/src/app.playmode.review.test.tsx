@@ -70,6 +70,8 @@ vi.mock('./joseki/lookup.ts', () => ({
   // 中身は使われない(定石DAGの中身に依存しないテストのため)。
   // ロード完了→`josekiDbReady`をtrueにする経路だけ再現できればよい。
   loadJosekiDb: () => Promise.resolve({} as JosekiDb),
+  // T151: 対局モードは`loadOpeningBookDb`(拡張ブック)を参照する。
+  loadOpeningBookDb: () => Promise.resolve({} as JosekiDb),
   lookupJosekiNode: () => null,
 }))
 

@@ -137,6 +137,10 @@ vi.mock('./joseki/lookup.ts', () => {
   const F5 = notationToSquare('f5')
   return {
     loadJosekiDb: () => Promise.resolve({} as JosekiDb),
+    // T151: 対局モードは`loadOpeningBookDb`(拡張ブック)を参照するが、
+    // このテストは`lookupJosekiNode`のモック(下記、盤面のplyだけを見る)で
+    // 中身を差し替えているためダミーの解決値で十分。
+    loadOpeningBookDb: () => Promise.resolve({} as JosekiDb),
     // `app.playmode.evalDisplay.test.tsx`(T138)と同じ方針: ply=0はf5だけが
     // ブック手、ply=1(黒がf5を打った直後の白番)は「兎」ラインの途中とみなし
     // 白の合法手すべてを継続候補として返す。それ以外(ply>=2)はDB外(null)。

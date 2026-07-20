@@ -14,7 +14,9 @@
     "typecheck": "tsc --noEmit -p tsconfig.app.json",
     "test": "vitest run",
     "joseki:build": "node --experimental-strip-types src/joseki/generate.ts",
-    "puzzles:build": "node --experimental-strip-types ../puzzlegen/generate.ts"
+    "puzzles:build": "node --experimental-strip-types ../puzzlegen/generate.ts",
+    "openingBook:collect": "node --experimental-strip-types src/joseki/generateOpeningBookEvalInput.ts",
+    "openingBook:build": "node --experimental-strip-types src/joseki/generateOpeningBook.ts"
   },
   "dependencies": {
     "preact": "^10.29.3"

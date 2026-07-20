@@ -48,6 +48,8 @@ const JOSEKI_DB = buildJosekiDb(LINES)
 
 vi.mock('./joseki/lookup.ts', () => ({
   loadJosekiDb: () => Promise.resolve(JOSEKI_DB),
+  // T151: 対局モード(本テストでは未使用)が参照する拡張ブックのローダー。
+  loadOpeningBookDb: () => Promise.resolve(JOSEKI_DB),
   lookupJosekiNode: () => null,
 }))
 

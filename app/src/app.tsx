@@ -39,7 +39,7 @@ import {
 import { formatJosekiProgress, formatMidgameProgress, formatTsumeProgress } from './home/modeProgress.ts'
 import { getAllSrsStates } from './joseki/db.ts'
 import { computeDueLines } from './joseki/dueLines.ts'
-import { loadJosekiDb, lookupJosekiNode } from './joseki/lookup.ts'
+import { loadJosekiDb, loadOpeningBookDb, lookupJosekiNode } from './joseki/lookup.ts'
 import { PracticeMode } from './joseki/PracticeMode.tsx'
 import { selectCpuBookMove } from './joseki/selectCpuBookMove.ts'
 import { formatJosekiTrace } from './joseki/traceDisplay.ts'
@@ -476,17 +476,25 @@ function PlayMode({ onReviewGame }: PlayModeProps) {
     return getSharedEngineClient()
   }
 
-  // 定石DB(public/joseki.json)はコンポーネントのライフタイム中1回だけ読み込む
-  // (loadJosekiDb自体もモジュール内でキャッシュしているため、複数コンポーネントから
-  // 呼ばれても実際のfetchは1回)。
+  // 拡張定石ブック(public/opening-book.json)はコンポーネントのライフタイム中
+  // 1回だけ読み込む(loadOpeningBookDb自体もモジュール内でキャッシュしている
+  // ため、複数コンポーネントから呼ばれても実際のfetchは1回)。
+  //
+  // T151: 対局モードのCPU即着手・定石トレース・ブックcapは、定石練習・SRS・
+  // 中盤練習ステージが参照する`joseki.json`(手作業の112ライン)ではなく、
+  // WTHOR頻出ライン251件をEdax level16評価で悪手除外・頻度重み付けした
+  // 拡張ブック`opening-book.json`を参照する(joseki.json自体は変更しない、
+  // `tasks/T151-book-eval-publish.md`のオーケストレーター確定の設計判断)。
+  // この`josekiDb` state自体は下のCPU着手・トレース・cap用エフェクトが
+  // 共通で参照しており、fetch元を切り替えるだけで全て反映される。
   useEffect(() => {
     let cancelled = false
-    loadJosekiDb()
+    loadOpeningBookDb()
       .then((db) => {
         if (!cancelled) setJosekiDb(db)
       })
       .catch((error: unknown) => {
-        console.error('定石DBの読み込みに失敗しました', error)
+        console.error('拡張定石ブックの読み込みに失敗しました', error)
       })
       .finally(() => {
         if (!cancelled) setJosekiDbReady(true)
