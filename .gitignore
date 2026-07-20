@@ -43,3 +43,4 @@ bench/edax-compare/*.exe
 
 # T098: resumable per-position raw endgame benchmark checkpoints
 bench/edax-compare/endgame-results/
+.claude/launch.json
