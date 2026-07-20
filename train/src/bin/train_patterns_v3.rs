@@ -38,10 +38,62 @@ struct TrainingConfig {
     name: &'static str,
     scalar_features: &'static [ScalarFeatureKind],
     t158: bool,
+    /// T164要件1/2: D4 canonical化スキーム(T163)を使うかどうか(opt-in、既定
+    /// false)。`parse_config`自体はこのフィールドを常に`false`にして返し、
+    /// `main`が`--canonical`フラグを見て全configへ一括適用する
+    /// (`--configs`の個々の名前とは独立したグローバルフラグという設計)。
+    canonical: bool,
 }
 
 fn config_name(config: TrainingConfig) -> &'static str {
     config.name
+}
+
+/// T164: ファイルパス生成に使う、canonical化フラグを反映した実行名を返す
+/// (`config_name`は表示・メトリクスの"config="欄向けにconfig本来の名前を
+/// 返し続ける一方、こちらは`--canonical`時に`-canonical`サフィックスを
+/// 付けたパスを作ることで、同じ`--output-dir`にレガシー実行とcanonical実行の
+/// 成果物が衝突するのを防ぐ)。
+fn run_name(config: TrainingConfig) -> String {
+    if config.canonical {
+        format!("{}-canonical", config.name)
+    } else {
+        config.name.to_string()
+    }
+}
+
+/// T164要件1/2: `config`に応じて(canonical化の有無・pattern形状・ステージ定義・
+/// scalar特徴を反映して)新規0初期化モデルを作る。`config.canonical`だけが
+/// legacyとcanonicalの分岐点で、他の構築パラメータは従来と同一。
+fn build_model(config: TrainingConfig) -> Model {
+    if config.canonical {
+        Model::new_with_scalar_features_canonical(
+            patterns::generate_patterns_for(config.pattern_config),
+            config.num_stages,
+            config.stage_empty_divisor,
+            config.scalar_features,
+        )
+    } else {
+        Model::new_with_scalar_features(
+            patterns::generate_patterns_for(config.pattern_config),
+            config.num_stages,
+            config.stage_empty_divisor,
+            config.scalar_features,
+        )
+    }
+}
+
+/// T164要件1/2: `config`に応じて(canonical化の有無・scalar特徴の有無を見て)
+/// 保存用のバイト列を選ぶ。4通りの組み合わせ全てに対応する形式が存在する
+/// (PWV3=legacy無特徴、PWV4=legacy+scalar、PWV5=canonical無特徴、
+/// PWV6=canonical+scalar)。
+fn serialize_model(model: &Model, config: TrainingConfig) -> Vec<u8> {
+    match (config.canonical, config.scalar_features.is_empty()) {
+        (false, true) => model.to_bytes_v3(),
+        (false, false) => model.to_bytes_v4(),
+        (true, true) => model.to_bytes_v5(),
+        (true, false) => model.to_bytes_v6(),
+    }
 }
 
 fn legacy_config(pattern_config: PatternConfig, name: &'static str) -> TrainingConfig {
@@ -52,6 +104,7 @@ fn legacy_config(pattern_config: PatternConfig, name: &'static str) -> TrainingC
         name,
         scalar_features: &[],
         t158: false,
+        canonical: false,
     }
 }
 
@@ -73,6 +126,7 @@ fn t158_config(
         name,
         scalar_features,
         t158: true,
+        canonical: false,
     }
 }
 
@@ -90,6 +144,7 @@ fn parse_config(value: &str) -> TrainingConfig {
             name: "v4",
             scalar_features: &[],
             t158: false,
+            canonical: false,
         },
         "t158-b0" => t158_config("t158-b0", &[]),
         "t158-b1" => t158_config("t158-b1", MOBILITY),
@@ -778,7 +833,7 @@ fn run_config_seed(
     frozen_samples: &[Sample],
     frozen_games: &[Vec<Sample>],
 ) -> Result<(), String> {
-    let name = config_name(config);
+    let name = run_name(config);
     let cfg = TrainConfig {
         seed,
         ..TrainConfig::default()
@@ -802,16 +857,7 @@ fn run_config_seed(
             Some(path),
         )
     } else {
-        (
-            Model::new_with_scalar_features(
-                patterns::generate_patterns_for(config.pattern_config),
-                config.num_stages,
-                config.stage_empty_divisor,
-                config.scalar_features,
-            ),
-            0,
-            None,
-        )
+        (build_model(config), 0, None)
     };
     let mut previous = previous;
     for epoch in start_epoch..epochs {
@@ -823,11 +869,7 @@ fn run_config_seed(
         std::io::stdout().flush().map_err(|e| e.to_string())?;
         model.train_epochs(train_samples, &cfg, epoch, 1);
         let checkpoint = run_dir.join(format!("epoch-{:02}.bin", epoch + 1));
-        let checkpoint_bytes = if config.scalar_features.is_empty() {
-            model.to_bytes_v3()
-        } else {
-            model.to_bytes_v4()
-        };
+        let checkpoint_bytes = serialize_model(&model, config);
         save_artifact(&checkpoint, &checkpoint_bytes, identity)?;
         if let Some(old) = previous.take() {
             if old != checkpoint {
@@ -843,11 +885,7 @@ fn run_config_seed(
         );
         std::io::stdout().flush().map_err(|e| e.to_string())?;
     }
-    let bytes = if config.scalar_features.is_empty() {
-        model.to_bytes_v3()
-    } else {
-        model.to_bytes_v4()
-    };
+    let bytes = serialize_model(&model, config);
     save_artifact(&final_path, &bytes, identity)?;
     if let Some(old) = previous {
         fs::remove_file(metadata_path(&old)).ok();
@@ -962,7 +1000,7 @@ fn run_config_seed_early_stop(
     frozen_samples: &[Sample],
     frozen_games: &[Vec<Sample>],
 ) -> Result<(), String> {
-    let name = config_name(config);
+    let name = run_name(config);
     let cfg = TrainConfig {
         seed,
         ..TrainConfig::default()
@@ -984,7 +1022,7 @@ fn run_config_seed_early_stop(
         let best_bytes = fs::read(&final_path).map_err(|e| e.to_string())?;
         return finalize_early_stop_result(
             config,
-            name,
+            &name,
             seed,
             state.best_epoch,
             state.epoch,
@@ -1014,18 +1052,7 @@ fn run_config_seed_early_stop(
                 state.stale,
             )
         } else {
-            (
-                Model::new_with_scalar_features(
-                    patterns::generate_patterns_for(config.pattern_config),
-                    config.num_stages,
-                    config.stage_empty_divisor,
-                    config.scalar_features,
-                ),
-                0,
-                0,
-                f64::INFINITY,
-                0,
-            )
+            (build_model(config), 0, 0, f64::INFINITY, 0)
         };
 
     ensure_early_stop_metrics_header(&metrics_path)?;
@@ -1056,11 +1083,7 @@ fn run_config_seed_early_stop(
         best_epoch = new_best_epoch;
         stale = new_stale;
         if is_best {
-            let best_bytes = if config.scalar_features.is_empty() {
-                model.to_bytes_v3()
-            } else {
-                model.to_bytes_v4()
-            };
+            let best_bytes = serialize_model(&model, config);
             save_artifact(&best_path, &best_bytes, identity)?;
         }
         append_early_stop_metrics_row(
@@ -1076,11 +1099,7 @@ fn run_config_seed_early_stop(
         )?;
 
         let checkpoint = run_dir.join(format!("epoch-{epoch:02}.bin"));
-        let checkpoint_bytes = if config.scalar_features.is_empty() {
-            model.to_bytes_v3()
-        } else {
-            model.to_bytes_v4()
-        };
+        let checkpoint_bytes = serialize_model(&model, config);
         save_artifact(&checkpoint, &checkpoint_bytes, identity)?;
         write_early_stop_state(&state_path, epoch, best_epoch, best_val_mae, stale)?;
         if let Some(old) = previous_checkpoint.take() {
@@ -1105,7 +1124,7 @@ fn run_config_seed_early_stop(
     }
     finalize_early_stop_result(
         config,
-        name,
+        &name,
         seed,
         best_epoch,
         epoch,
@@ -1120,8 +1139,9 @@ fn run_config_seed_early_stop(
 /// T159b: 早期打ち切りON時の`--simple-corpus`(Egaroucid)経路本体。
 /// `run_config_seed_early_stop`(WTHOR経路、T159実装・本タスクでは変更していない)
 /// とは意図的に別関数にしている。差分は2点だけ:
-/// (1) `frozen_games`(対局リスト)を持たない(simple-corpusには対局概念が無く、
-///     t158系configもガードで使えないため、t158メトリクス出力は発生しない)。
+/// (1) `frozen_games`(対局リスト)を持たない(simple-corpusには対局概念が無い
+///     ため。T164で「t158系config併用不可」ガードは解除済みで、t158
+///     メトリクス出力(`frozen_games`は空sliceで渡す)は他の経路と同様に発生する)。
 /// (2) T159bレビュー中2対処として、毎エポックの評価を`val_mae`の1回だけに
 ///     抑える。学習ステップに`Model::train_epoch_with_running_loss`を使い、
 ///     学習パス中に集計した(更新前予測に基づく)誤差をtrain損失として使う。
@@ -1142,7 +1162,7 @@ fn run_config_seed_early_stop_simple(
     val_samples: &[Sample],
     frozen_samples: &[Sample],
 ) -> Result<(), String> {
-    let name = config_name(config);
+    let name = run_name(config);
     let cfg = TrainConfig {
         seed,
         ..TrainConfig::default()
@@ -1164,7 +1184,7 @@ fn run_config_seed_early_stop_simple(
         let best_bytes = fs::read(&final_path).map_err(|e| e.to_string())?;
         return finalize_early_stop_result(
             config,
-            name,
+            &name,
             seed,
             state.best_epoch,
             state.epoch,
@@ -1196,18 +1216,7 @@ fn run_config_seed_early_stop_simple(
                 state.stale,
             )
         } else {
-            (
-                Model::new_with_scalar_features(
-                    patterns::generate_patterns_for(config.pattern_config),
-                    config.num_stages,
-                    config.stage_empty_divisor,
-                    config.scalar_features,
-                ),
-                0,
-                0,
-                f64::INFINITY,
-                0,
-            )
+            (build_model(config), 0, 0, f64::INFINITY, 0)
         };
 
     ensure_early_stop_metrics_header(&metrics_path)?;
@@ -1239,11 +1248,7 @@ fn run_config_seed_early_stop_simple(
         best_epoch = new_best_epoch;
         stale = new_stale;
         if is_best {
-            let best_bytes = if config.scalar_features.is_empty() {
-                model.to_bytes_v3()
-            } else {
-                model.to_bytes_v4()
-            };
+            let best_bytes = serialize_model(&model, config);
             save_artifact(&best_path, &best_bytes, identity)?;
         }
         append_early_stop_metrics_row(
@@ -1259,11 +1264,7 @@ fn run_config_seed_early_stop_simple(
         )?;
 
         let checkpoint = run_dir.join(format!("epoch-{epoch:02}.bin"));
-        let checkpoint_bytes = if config.scalar_features.is_empty() {
-            model.to_bytes_v3()
-        } else {
-            model.to_bytes_v4()
-        };
+        let checkpoint_bytes = serialize_model(&model, config);
         save_artifact(&checkpoint, &checkpoint_bytes, identity)?;
         write_early_stop_state(&state_path, epoch, best_epoch, best_val_mae, stale)?;
         if let Some(old) = previous_checkpoint.take() {
@@ -1288,7 +1289,7 @@ fn run_config_seed_early_stop_simple(
     }
     finalize_early_stop_result(
         config,
-        name,
+        &name,
         seed,
         best_epoch,
         epoch,
@@ -1341,6 +1342,19 @@ fn run_early_stop_simple_corpus(
         frozen_samples.len(),
     );
 
+    // T164前段修正(c): T158系configがsimple-corpusで使えるようになったため、
+    // WTHOR早期打ち切り経路(`run_early_stop_wthor`)と同様、いずれかのconfigが
+    // t158ならモビリティ・囲い度の分布統計(feature-distribution.json)を書き出す
+    // (「identity・分布統計等の追従込み」要件)。
+    if configs.iter().any(|config| config.t158) {
+        let distribution_path = output_dir.join("feature-distribution.json");
+        if let Err(e) = write_feature_distribution(&distribution_path, &train_samples) {
+            eprintln!("failed to write feature distribution: {e}");
+            return ExitCode::FAILURE;
+        }
+        println!("feature_distribution path={}", distribution_path.display());
+    }
+
     for &config in configs {
         for &seed in seeds {
             let name = config_name(config);
@@ -1348,11 +1362,32 @@ fn run_early_stop_simple_corpus(
                 seed,
                 ..TrainConfig::default()
             };
+            // T164前段修正(c): WTHOR早期打ち切り経路と同じ形式で、t158configの
+            // scalar特徴スキーマ(kind名・scale)をidentityに含める(コード側で
+            // scale_shiftの定義が変わった場合に、simple-corpus経路でも古い
+            // checkpointとの取り違えを検知できるようにするため)。
+            let feature_schema = if config.t158 {
+                config
+                    .scalar_features
+                    .iter()
+                    .map(|kind| {
+                        format!(
+                            "{}:/{}",
+                            scalar_kind_name(*kind),
+                            1u32 << kind.scale_shift()
+                        )
+                    })
+                    .collect::<Vec<_>>()
+                    .join(",")
+            } else {
+                String::new()
+            };
             // T159bレビュー所見(観点5-4): reservoir sampling後のpool分割なので、
             // 決定性はpoolの決定性(corpus_hash+reservoir_seed+max_records)に
             // 載る。これらを全てidentityに含める。
             let identity = format!(
-                "schema=6-earlystop-simple\nsimple_corpus_path={simple_corpus_path}\nsimple_corpus_hash={corpus_hash}\nsimple_corpus_total_lines={total_lines}\nsimple_max_records={simple_max_records:?}\nreservoir_seed={reservoir_seed}\nconfig={name}\nseed={seed}\nmax_epochs={max_epochs}\nearly_stop_patience={patience}\nearly_stop_val_percent={val_percent}\nlearning_rate={}\nl2={}\nloss={:?}\ntrain_samples={}\nval_samples={}\nfrozen_samples={}\n",
+                "schema=6-earlystop-simple\nsimple_corpus_path={simple_corpus_path}\nsimple_corpus_hash={corpus_hash}\nsimple_corpus_total_lines={total_lines}\nsimple_max_records={simple_max_records:?}\nreservoir_seed={reservoir_seed}\nconfig={name}\ncanonical={}\nseed={seed}\nmax_epochs={max_epochs}\nearly_stop_patience={patience}\nearly_stop_val_percent={val_percent}\nlearning_rate={}\nl2={}\nloss={:?}\ntrain_samples={}\nval_samples={}\nfrozen_samples={}\nfeature_schema={feature_schema}\n",
+                config.canonical,
                 cfg.learning_rate,
                 cfg.l2,
                 cfg.loss,
@@ -1482,7 +1517,8 @@ fn run_early_stop_wthor(
                 String::new()
             };
             let identity = format!(
-                "schema=5-earlystop\ndata_hash={data_hash}\nconfig={name}\nseed={seed}\nmax_epochs={max_epochs}\nearly_stop_patience={patience}\nearly_stop_val_percent={val_percent}\nmax_games={max_games:?}\nlearning_rate={}\nl2={}\nloss={:?}\ntrain_games={split}\nfrozen_games={holdout_games}\nearly_stop_train_games={}\nearly_stop_val_games={}\ntrain_samples={}\nval_samples={}\nfeature_schema={feature_schema}\n{}",
+                "schema=5-earlystop\ndata_hash={data_hash}\nconfig={name}\ncanonical={}\nseed={seed}\nmax_epochs={max_epochs}\nearly_stop_patience={patience}\nearly_stop_val_percent={val_percent}\nmax_games={max_games:?}\nlearning_rate={}\nl2={}\nloss={:?}\ntrain_games={split}\nfrozen_games={holdout_games}\nearly_stop_train_games={}\nearly_stop_val_games={}\ntrain_samples={}\nval_samples={}\nfeature_schema={feature_schema}\n{}",
+                config.canonical,
                 cfg.learning_rate,
                 cfg.l2,
                 cfg.loss,
@@ -1514,10 +1550,20 @@ fn run_early_stop_wthor(
 
 fn main() -> ExitCode {
     let epochs: u32 = arg_value("--epochs").map_or(20, |v| v.parse().unwrap());
+    // T164要件1/2: `--canonical`(値なしフラグ、既定OFF=レガシー)は`--configs`の
+    // 個々の名前とは独立したグローバルなopt-inで、選択した全configに一括適用する
+    // (`TrainingConfig::canonical`)。未指定時は`parse_config`が返す
+    // `canonical: false`のままなので、既存(レガシー)経路の挙動・identity文字列・
+    // 出力バイナリは一切変わらない。
+    let canonical = flag_present("--canonical");
     let configs: Vec<_> = arg_value("--configs")
         .unwrap_or_else(|| "v2,v2-diag567,v2-edge2x,v3,v2-corner5x2".to_string())
         .split(',')
         .map(parse_config)
+        .map(|config| TrainingConfig {
+            canonical,
+            ..config
+        })
         .collect();
     let seeds: Vec<u64> = arg_value("--seeds")
         .unwrap_or_else(|| "1,2,3".to_string())
@@ -1560,10 +1606,11 @@ fn main() -> ExitCode {
             eprintln!("--train-subset-size is not supported together with --simple-corpus");
             return ExitCode::FAILURE;
         }
-        if configs.iter().any(|config| config.t158) {
-            eprintln!("T158 configs require the WTHOR game split");
-            return ExitCode::FAILURE;
-        }
+        // T164前段修正(c、T159b申し送り): 「T158 configs require the WTHOR game
+        // split」という併用不可ガードはここで解除した。t158系config(B3含む)は
+        // 対局(frozen_games)を使わない点を除けば`--simple-corpus`のtrain/frozen
+        // 局面でも他のconfigと同様に学習できる(t158メトリクスは`frozen_games`を
+        // 空sliceとして受け取り、`game_mae`は空配列になるだけで正しく動く)。
         // T159b: `--simple-corpus`には対局概念が無いため、早期打ち切りの検証splitは
         // 局面(position)単位のハッシュ分割にする(`simple_corpus::split_for_early_stop`、
         // 対局境界を復元できないことをEgaroucid実データで確認済み。詳細は作業ログ)。
@@ -1647,6 +1694,17 @@ fn main() -> ExitCode {
             frozen_samples.len(),
         );
 
+        // T164前段修正(c): WTHOR経路(下記)と同様、いずれかのconfigがt158なら
+        // 分布統計を書き出す(「identity・分布統計等の追従込み」要件)。
+        if configs.iter().any(|config| config.t158) {
+            let distribution_path = output_dir.join("feature-distribution.json");
+            if let Err(e) = write_feature_distribution(&distribution_path, &train_samples) {
+                eprintln!("failed to write feature distribution: {e}");
+                return ExitCode::FAILURE;
+            }
+            println!("feature_distribution path={}", distribution_path.display());
+        }
+
         for config in configs {
             for &seed in &seeds {
                 let name = config_name(config);
@@ -1654,8 +1712,25 @@ fn main() -> ExitCode {
                     seed,
                     ..TrainConfig::default()
                 };
+                let feature_schema = if config.t158 {
+                    config
+                        .scalar_features
+                        .iter()
+                        .map(|kind| {
+                            format!(
+                                "{}:/{}",
+                                scalar_kind_name(*kind),
+                                1u32 << kind.scale_shift()
+                            )
+                        })
+                        .collect::<Vec<_>>()
+                        .join(",")
+                } else {
+                    String::new()
+                };
                 let identity = format!(
-                    "schema=2-simple\nsimple_corpus_path={simple_corpus_path}\nsimple_corpus_hash={corpus_hash}\nsimple_corpus_total_lines={total_lines}\nsimple_max_records={simple_max_records:?}\nreservoir_seed={subset_seed}\nconfig={name}\nseed={seed}\nepochs={epochs}\nlearning_rate={}\nl2={}\nloss={:?}\ntrain_samples={}\nfrozen_samples={}\n",
+                    "schema=2-simple\nsimple_corpus_path={simple_corpus_path}\nsimple_corpus_hash={corpus_hash}\nsimple_corpus_total_lines={total_lines}\nsimple_max_records={simple_max_records:?}\nreservoir_seed={subset_seed}\nconfig={name}\ncanonical={}\nseed={seed}\nepochs={epochs}\nlearning_rate={}\nl2={}\nloss={:?}\ntrain_samples={}\nfrozen_samples={}\nfeature_schema={feature_schema}\n",
+                    config.canonical,
                     cfg.learning_rate,
                     cfg.l2,
                     cfg.loss,
@@ -1773,7 +1848,8 @@ fn main() -> ExitCode {
                     .collect::<Vec<_>>()
                     .join(",");
                 format!(
-                    "schema=3-t158\ndata_hash={data_hash}\nconfig={name}\nseed={seed}\nepochs={epochs}\nmax_games={max_games:?}\nlearning_rate={}\nl2={}\nloss={:?}\ntrain_games={split}\nfrozen_games={holdout_games}\ntrain_samples={}\nfrozen_samples={}\nfeature_schema={feature_schema}\n{}",
+                    "schema=3-t158\ndata_hash={data_hash}\nconfig={name}\ncanonical={}\nseed={seed}\nepochs={epochs}\nmax_games={max_games:?}\nlearning_rate={}\nl2={}\nloss={:?}\ntrain_games={split}\nfrozen_games={holdout_games}\ntrain_samples={}\nfrozen_samples={}\nfeature_schema={feature_schema}\n{}",
+                    config.canonical,
                     cfg.learning_rate,
                     cfg.l2,
                     cfg.loss,
@@ -1783,7 +1859,8 @@ fn main() -> ExitCode {
                 )
             } else {
                 format!(
-                    "schema=2\ndata_hash={data_hash}\nconfig={name}\nseed={seed}\nepochs={epochs}\nmax_games={max_games:?}\nlearning_rate={}\nl2={}\nloss={:?}\n{}",
+                    "schema=2\ndata_hash={data_hash}\nconfig={name}\ncanonical={}\nseed={seed}\nepochs={epochs}\nmax_games={max_games:?}\nlearning_rate={}\nl2={}\nloss={:?}\n{}",
+                    config.canonical,
                     cfg.learning_rate,
                     cfg.l2,
                     cfg.loss,
@@ -1939,6 +2016,127 @@ mod tests {
         let produced = fs::read(output_dir.join("v3-seed-5.bin")).unwrap();
         assert_eq!(produced, direct.to_bytes_v3());
         fs::remove_dir_all(&output_dir).ok();
+    }
+
+    // --- T164: `--canonical`配線のテスト ---
+
+    /// T164要件1: `--canonical`をONにしたときのCLI経路(`build_model`/
+    /// `serialize_model`経由)が、`Model::new_with_scalar_features_canonical`を
+    /// 直接呼んで学習した場合と完全に同じ重みバイナリ(PWV5)を出すこと。
+    /// 直上の`off_path_matches_direct_model_training_bit_for_bit`(レガシー版)の
+    /// canonical版。
+    #[test]
+    fn canonical_off_path_matches_direct_model_training_bit_for_bit() {
+        let config = TrainingConfig {
+            canonical: true,
+            ..legacy_config(PatternConfig::V3, "v3")
+        };
+        let samples: Vec<Sample> = (0..40).map(|i| fixture_sample(i, 4 + i % 40)).collect();
+        let cfg = TrainConfig {
+            seed: 5,
+            ..TrainConfig::default()
+        };
+
+        let mut direct = Model::new_with_scalar_features_canonical(
+            patterns::generate_patterns_for(config.pattern_config),
+            config.num_stages,
+            config.stage_empty_divisor,
+            config.scalar_features,
+        );
+        direct.train(&samples, &cfg);
+
+        let output_dir =
+            std::env::temp_dir().join(format!("t164-canonical-off-path-{}", std::process::id()));
+        fs::remove_dir_all(&output_dir).ok();
+        fs::create_dir_all(&output_dir).unwrap();
+        run_config_seed(
+            config,
+            5,
+            cfg.epochs,
+            "test-identity\n",
+            &output_dir,
+            &samples,
+            &samples,
+            &[],
+        )
+        .unwrap();
+        // run_nameが`-canonical`サフィックスを付けるため、レガシー版とは
+        // 異なるファイル名になる(同一output-dirでの衝突を避ける設計)。
+        let produced = fs::read(output_dir.join("v3-canonical-seed-5.bin")).unwrap();
+        assert_eq!(produced, direct.to_bytes_v5());
+        let restored = Model::from_bytes(&produced).unwrap();
+        assert!(restored.weights.is_canonical());
+        fs::remove_dir_all(&output_dir).ok();
+    }
+
+    /// T164前段修正(c、要件1/2): T158系config(B3=モビリティ+囲い度)を
+    /// `--simple-corpus`データで学習できること(T159bまでは
+    /// 「T158 configs require the WTHOR game split」で完全にブロックされていた
+    /// 組み合わせ)。canonical化も併用し、`Model::new_with_scalar_features_canonical`
+    /// を直接呼んだ場合と完全に同じPWV6バイナリになることを確認する
+    /// (B3のscalar特徴勾配がsimple-corpusサンプルで正しく動くことの直接証拠)。
+    #[test]
+    fn b3_canonical_config_now_works_with_simple_corpus_matches_direct_training_bit_for_bit() {
+        let dir = std::env::temp_dir().join(format!(
+            "t164-b3-canonical-simple-{}",
+            std::process::id()
+        ));
+        fs::remove_dir_all(&dir).ok();
+        fs::create_dir_all(&dir).unwrap();
+        let corpus_file = dir.join("corpus.txt");
+        let lines: Vec<String> = (0..80)
+            .map(|i| {
+                let stones = 4 + (i * 3) % 50;
+                let board = "X".repeat(stones) + &"-".repeat(64 - stones);
+                format!("{board} {}", (i as i64) - 40)
+            })
+            .collect();
+        fs::write(&corpus_file, lines.join("\n") + "\n").unwrap();
+
+        let files = simple_corpus::list_simple_corpus_files(&corpus_file).unwrap();
+        let (pool, _hash, _total) = simple_corpus::load_simple_corpus(&files, None, 7).unwrap();
+        let (train_samples, frozen_samples) = simple_corpus::split_by_position_hash(pool);
+
+        let config = TrainingConfig {
+            canonical: true,
+            ..t158_config("t158-b3", BOTH)
+        };
+        let cfg = TrainConfig {
+            seed: 9,
+            ..TrainConfig::default()
+        };
+        let mut direct = Model::new_with_scalar_features_canonical(
+            patterns::generate_patterns_for(config.pattern_config),
+            config.num_stages,
+            config.stage_empty_divisor,
+            config.scalar_features,
+        );
+        direct.train(&train_samples, &cfg);
+
+        let output_dir = dir.join("out");
+        fs::create_dir_all(&output_dir).unwrap();
+        run_config_seed(
+            config,
+            9,
+            cfg.epochs,
+            "test-identity\n",
+            &output_dir,
+            &train_samples,
+            &frozen_samples,
+            &[],
+        )
+        .unwrap();
+        let produced = fs::read(output_dir.join("t158-b3-canonical-seed-9.bin")).unwrap();
+        assert_eq!(produced, direct.to_bytes_v6());
+        let restored = Model::from_bytes(&produced).unwrap();
+        assert!(restored.weights.is_canonical());
+        assert!(restored.weights.scalar_features_enabled());
+        // t158configなので、run_config_seedはmetrics.jsonも書き出すはず
+        // (frozen_gamesは空sliceで渡しても正しく動くこと=guard解除の核心)。
+        assert!(output_dir
+            .join("t158-b3-canonical-seed-9.metrics.json")
+            .exists());
+        fs::remove_dir_all(&dir).ok();
     }
 
     /// (d) 検証split(`split_early_stop_validation`)は対局内容だけのハッシュで

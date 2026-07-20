@@ -463,6 +463,14 @@ impl PatternWeights {
     /// (v1形式`"PWV1"`の書き出しはもう行わない。`pattern_v1.bin`は比較用に
     /// ファイルとして残っているが、以後の学習出力は常にこのv2形式。)
     pub fn to_bytes(&self) -> Vec<u8> {
+        // T164前段修正(a、T163レビュー中1指摘): PWV2はスキーム識別を持たない
+        // 形式なので、canonicalモデルを黙って書き出すとcanonical_tablesの
+        // 情報が静かに失われ、読み直すとレガシースキームとして扱われてしまう
+        // (D4不変性が壊れたことに誰も気付けない)。明示的に拒否する。
+        assert!(
+            self.canonical_tables.is_none(),
+            "to_bytes(PWV2)はレガシー専用です。canonicalモデルはto_bytes_v5/to_bytes_v6を使ってください"
+        );
         let mut buf = Vec::new();
         buf.extend_from_slice(b"PWV2");
         buf.extend_from_slice(&2u32.to_le_bytes());
@@ -491,6 +499,13 @@ impl PatternWeights {
     /// T087の自己記述形式(PWV3)にシリアライズする。旧trainerがPWV2を
     /// 出力し続けられるよう、既存の[`to_bytes`](Self::to_bytes)とは分離する。
     pub fn to_bytes_v3(&self) -> Vec<u8> {
+        // T164前段修正(a、T163レビュー中1指摘): PWV3もPWV2と同じ理由で、
+        // canonicalモデルを黙って受け付けない(canonicalモデルは
+        // to_bytes_v5を使う)。
+        assert!(
+            self.canonical_tables.is_none(),
+            "to_bytes_v3はレガシー専用です。canonicalモデルはto_bytes_v5を使ってください"
+        );
         self.to_bytes_self_describing(b"PWV3", 3)
     }
 
@@ -545,14 +560,44 @@ impl PatternWeights {
         buf
     }
 
-    /// Serialize the self-describing PWV4 format with scalar feature metadata.
+    /// Serialize the self-describing PWV4 format (レガシースキーム+scalar特徴)。
     pub fn to_bytes_v4(&self) -> Vec<u8> {
+        // T164前段修正(a)と同じ理由に加え、T164要件2で新設したPWV6(canonical+
+        // scalar)との取り違え防止: PWV4はレガシー専用。
+        assert!(
+            self.canonical_tables.is_none(),
+            "to_bytes_v4はレガシー専用です。canonicalモデル(scalar特徴込み)はto_bytes_v6を使ってください"
+        );
+        self.to_bytes_scalar_extended(b"PWV4", 4)
+    }
+
+    /// T164要件2: D4 canonical化スキーム(T163)+scalar特徴(T158)を組み合わせた
+    /// 自己記述形式(PWV6)にシリアライズする。PWV4がPWV3(パターンのみの
+    /// 自己記述形式)にscalarブロックを追加拡張したのと同型に、PWV6はPWV5
+    /// (canonical化版のパターンのみ形式)にscalarブロックを追加拡張する
+    /// (バイト列レイアウトはPWV4と全く同じで、マジック・バージョンのみ異なる。
+    /// 相違点はパターン部分をレガシーの`aligned_cells`のまま解釈するか
+    /// 〈PWV4〉、canonical indexテーブルを介して解釈するか〈PWV6〉だけであり、
+    /// それは読み込み時の後処理〈`from_bytes_v6`〉で切り替える)。
+    pub fn to_bytes_v6(&self) -> Vec<u8> {
+        assert!(
+            self.canonical_tables.is_some(),
+            "to_bytes_v6はD4 canonical化スキーム(zeroed_canonical由来)でのみ使えます"
+        );
+        self.to_bytes_scalar_extended(b"PWV6", 6)
+    }
+
+    /// [`to_bytes_v4`](Self::to_bytes_v4)/[`to_bytes_v6`](Self::to_bytes_v6)共通の
+    /// シリアライズ本体(マジック・バージョン番号のみ引数で変える。scalar特徴
+    /// ブロックの有無・レイアウトはcanonicalかどうかに依存しないため、
+    /// このヘルパー自体はcanonical_tablesを一切参照しない)。
+    fn to_bytes_scalar_extended(&self, magic: &[u8; 4], version: u32) -> Vec<u8> {
         assert!(!self.scalar_feature_weights.is_empty());
         assert_eq!(self.num_stages, V4_NUM_STAGES);
         assert_eq!(self.stage_empty_divisor, V4_STAGE_EMPTY_DIVISOR);
         let mut buf = Vec::new();
-        buf.extend_from_slice(b"PWV4");
-        buf.extend_from_slice(&4u32.to_le_bytes());
+        buf.extend_from_slice(magic);
+        buf.extend_from_slice(&version.to_le_bytes());
         buf.extend_from_slice(&0u32.to_le_bytes());
         buf.extend_from_slice(&(self.num_stages as u32).to_le_bytes());
         buf.extend_from_slice(&self.stage_empty_divisor.to_le_bytes());
@@ -611,6 +656,7 @@ impl PatternWeights {
             return Err("重みファイルが短すぎます".to_string());
         }
         match &bytes[0..4] {
+            b"PWV6" => Self::from_bytes_v6(bytes),
             b"PWV5" => Self::from_bytes_v5(bytes),
             b"PWV4" => Self::from_bytes_v4(bytes),
             b"PWV3" => Self::from_bytes_v3(bytes),
@@ -621,13 +667,35 @@ impl PatternWeights {
     }
 
     fn from_bytes_v4(bytes: &[u8]) -> Result<PatternWeights, String> {
+        Self::from_bytes_scalar_extended(bytes, 4, "PWV4", false)
+    }
+
+    /// T164要件2: PWV6(D4 canonical化+scalar特徴)を読み込む。バイト列の
+    /// パース本体は[`from_bytes_v4`](Self::from_bytes_v4)と全く同じ
+    /// ([`from_bytes_scalar_extended`](Self::from_bytes_scalar_extended)を共有)。
+    /// パターン部分の検証・`class_info`再構築を、PWV3(レガシー)ではなく
+    /// PWV5(D4 canonical)の経路に通す点だけが異なり、その結果
+    /// `canonical_tables`が`Some`になったモデルにscalar特徴を追加する。
+    fn from_bytes_v6(bytes: &[u8]) -> Result<PatternWeights, String> {
+        Self::from_bytes_scalar_extended(bytes, 6, "PWV6", true)
+    }
+
+    /// [`from_bytes_v4`](Self::from_bytes_v4)/[`from_bytes_v6`](Self::from_bytes_v6)
+    /// 共通のパース本体(期待バージョン番号・エラーメッセージの形式名・
+    /// パターン部分をcanonical経由で解釈するかどうかだけを引数で変える)。
+    fn from_bytes_scalar_extended(
+        bytes: &[u8],
+        expected_version: u32,
+        format_label: &str,
+        canonical: bool,
+    ) -> Result<PatternWeights, String> {
         let mut pos = 0usize;
         let read_bytes = |pos: &mut usize, n: usize| -> Result<&[u8], String> {
             let end = pos
                 .checked_add(n)
-                .ok_or_else(|| "PWV4の長さがオーバーフローしました".to_string())?;
+                .ok_or_else(|| format!("{format_label}の長さがオーバーフローしました"))?;
             if end > bytes.len() {
-                return Err("PWV4が途中で終わっています".to_string());
+                return Err(format!("{format_label}が途中で終わっています"));
             }
             let slice = &bytes[*pos..end];
             *pos = end;
@@ -638,16 +706,16 @@ impl PatternWeights {
         };
 
         read_bytes(&mut pos, 4)?;
-        if read_u32(&mut pos)? != 4 {
-            return Err("未対応のPWV4バージョンです".to_string());
+        if read_u32(&mut pos)? != expected_version {
+            return Err(format!("未対応の{format_label}バージョンです"));
         }
         if read_u32(&mut pos)? != 0 {
-            return Err("PWV4のflagsが不正です".to_string());
+            return Err(format!("{format_label}のflagsが不正です"));
         }
         let num_stages = read_u32(&mut pos)? as usize;
         let stage_divisor = read_u32(&mut pos)?;
         if num_stages != V4_NUM_STAGES || stage_divisor != V4_STAGE_EMPTY_DIVISOR {
-            return Err("PWV4のステージ定義が一致しません".to_string());
+            return Err(format!("{format_label}のステージ定義が一致しません"));
         }
         let num_instances = read_u32(&mut pos)? as usize;
         let num_classes = read_u32(&mut pos)? as usize;
@@ -658,10 +726,10 @@ impl PatternWeights {
             || num_classes > num_instances
             || num_classes > 64
         {
-            return Err("PWV4のinstance/class数が不正です".to_string());
+            return Err(format!("{format_label}のinstance/class数が不正です"));
         }
         if !(1..=2).contains(&num_scalar_features) {
-            return Err("PWV4のscalar feature数が不正です".to_string());
+            return Err(format!("{format_label}のscalar feature数が不正です"));
         }
         let stored_hash: [u8; 32] = read_bytes(&mut pos, 32)?.try_into().unwrap();
 
@@ -670,12 +738,12 @@ impl PatternWeights {
         for _ in 0..num_instances {
             let cell_count = read_bytes(&mut pos, 1)?[0] as usize;
             if cell_count == 0 || cell_count > 10 {
-                return Err("PWV4のcell_countが不正です".to_string());
+                return Err(format!("{format_label}のcell_countが不正です"));
             }
             let class_id =
                 u16::from_le_bytes(read_bytes(&mut pos, 2)?.try_into().unwrap()) as usize;
             if class_id >= num_classes {
-                return Err("PWV4のclass_idが範囲外です".to_string());
+                return Err(format!("{format_label}のclass_idが範囲外です"));
             }
             let raw_cells = read_bytes(&mut pos, cell_count)?;
             let mut cells = PatternCells::new();
@@ -692,7 +760,7 @@ impl PatternWeights {
             let weight_bytes = num_stages
                 .checked_mul(num_states)
                 .and_then(|n| n.checked_mul(4))
-                .ok_or_else(|| "PWV4の重み数がオーバーフローしました".to_string())?;
+                .ok_or_else(|| format!("{format_label}の重み数がオーバーフローしました"))?;
             read_bytes(&mut pos, weight_bytes)?;
         }
         let scalar_start = pos;
@@ -701,28 +769,28 @@ impl PatternWeights {
         for _ in 0..num_scalar_features {
             let kind_value = read_bytes(&mut pos, 1)?[0];
             let kind = ScalarFeatureKind::from_u8(kind_value)
-                .ok_or_else(|| format!("PWV4の未知scalar feature kind: {kind_value}"))?;
+                .ok_or_else(|| format!("{format_label}の未知scalar feature kind: {kind_value}"))?;
             if seen[kind_value as usize] {
                 return Err(format!(
-                    "PWV4に重複scalar feature kindがあります: {kind_value}"
+                    "{format_label}に重複scalar feature kindがあります: {kind_value}"
                 ));
             }
             seen[kind_value as usize] = true;
             let scale_shift = read_bytes(&mut pos, 1)?[0];
             if scale_shift != kind.scale_shift() {
                 return Err(format!(
-                    "PWV4のscale_shiftがkindと一致しません: {kind_value}"
+                    "{format_label}のscale_shiftがkindと一致しません: {kind_value}"
                 ));
             }
             let reserved = u16::from_le_bytes(read_bytes(&mut pos, 2)?.try_into().unwrap());
             if reserved != 0 {
-                return Err("PWV4のreservedが0ではありません".to_string());
+                return Err(format!("{format_label}のreservedが0ではありません"));
             }
             let mut weights = Vec::with_capacity(num_stages);
             for _ in 0..num_stages {
                 let weight = f32::from_le_bytes(read_bytes(&mut pos, 4)?.try_into().unwrap());
                 if !weight.is_finite() {
-                    return Err("PWV4にfiniteでないscalar重みがあります".to_string());
+                    return Err(format!("{format_label}にfiniteでないscalar重みがあります"));
                 }
                 weights.push(weight);
             }
@@ -733,7 +801,7 @@ impl PatternWeights {
             });
         }
         if pos != bytes.len() {
-            return Err("PWV4に余剰bytesがあります".to_string());
+            return Err(format!("{format_label}に余剰bytesがあります"));
         }
         if schema_hash_v4(
             &pattern_defs,
@@ -743,26 +811,36 @@ impl PatternWeights {
             &scalar_feature_weights,
         ) != stored_hash
         {
-            return Err("PWV4のschema hashが一致しません".to_string());
+            return Err(format!("{format_label}のschema hashが一致しません"));
         }
 
-        // Reuse the unchanged PWV3 parser for the pattern portion and its D4 validation.
-        let mut pwv3 = Vec::with_capacity(scalar_start);
-        pwv3.extend_from_slice(b"PWV3");
-        pwv3.extend_from_slice(&3u32.to_le_bytes());
-        pwv3.extend_from_slice(&0u32.to_le_bytes());
-        pwv3.extend_from_slice(&(num_stages as u32).to_le_bytes());
-        pwv3.extend_from_slice(&stage_divisor.to_le_bytes());
-        pwv3.extend_from_slice(&(num_instances as u32).to_le_bytes());
-        pwv3.extend_from_slice(&(num_classes as u32).to_le_bytes());
-        pwv3.extend_from_slice(&schema_hash(
+        // Reuse the unchanged PWV3/PWV5 parser for the pattern portion and its D4
+        // validation (`canonical`が`true`ならPWV5経由、`false`ならPWV3経由)。
+        let (base_magic, base_version): (&[u8; 4], u32) = if canonical {
+            (b"PWV5", 5)
+        } else {
+            (b"PWV3", 3)
+        };
+        let mut base_bytes = Vec::with_capacity(scalar_start);
+        base_bytes.extend_from_slice(base_magic);
+        base_bytes.extend_from_slice(&base_version.to_le_bytes());
+        base_bytes.extend_from_slice(&0u32.to_le_bytes());
+        base_bytes.extend_from_slice(&(num_stages as u32).to_le_bytes());
+        base_bytes.extend_from_slice(&stage_divisor.to_le_bytes());
+        base_bytes.extend_from_slice(&(num_instances as u32).to_le_bytes());
+        base_bytes.extend_from_slice(&(num_classes as u32).to_le_bytes());
+        base_bytes.extend_from_slice(&schema_hash(
             &pattern_defs,
             &class_of,
             num_stages,
             stage_divisor,
         ));
-        pwv3.extend_from_slice(&bytes[64..scalar_start]);
-        let mut model = Self::from_bytes_v3(&pwv3)?;
+        base_bytes.extend_from_slice(&bytes[64..scalar_start]);
+        let mut model = if canonical {
+            Self::from_bytes_v5(&base_bytes)?
+        } else {
+            Self::from_bytes_v3(&base_bytes)?
+        };
         model.scalar_feature_weights = scalar_feature_weights;
         model.scalar_features_enabled = true;
         Ok(model)
@@ -1759,8 +1837,13 @@ mod tests {
 
     #[test]
     fn t163_canonical_score_is_invariant_for_v3_pattern_shapes_including_non_square_orbits() {
-        // T163: V2以外のパターン形状(edge2x/対角オフセット5-6-7/隅5x2、
-        // 軌道サイズ4または8で非自明な安定化群を持つ)でもcanonical化が
+        // T163: V2以外のパターン形状(edge2x/対角オフセット5-6-7。
+        // `PatternConfig::V3`はcorner5x2を**含まない**——隅5x2は
+        // `PatternConfig::V2Corner5x2`専用の形状であり、V3ではedge2xと
+        // 対角オフセット5-6-7だけが追加される。この点はT164レビューで
+        // 本コメントの誤記として指摘され訂正した(隅5x2のカバレッジは直後の
+        // `t164_canonical_score_is_invariant_for_corner5x2_pattern_shape`が担う)。
+        // 軌道サイズ4または8で非自明な安定化群を持つ形状でもcanonical化が
         // 正しく機能することを確認する(パターン形状に依存しない一般的な実装で
         // あることの裏付け)。
         let weights = t163_distinguishing_canonical_model(
@@ -1773,6 +1856,32 @@ mod tests {
         for i in 0..NUM_RANDOM_BOARDS {
             let board = t163_random_board(&mut rng);
             t163_assert_all_symmetries_agree(&weights, &board, &format!("v3 random board #{i}"));
+        }
+    }
+
+    #[test]
+    fn t164_canonical_score_is_invariant_for_corner5x2_pattern_shape() {
+        // T164前段修正(b): T163の`t163_canonical_score_is_invariant_for_v3_pattern_shapes_...`は
+        // コメントで「隅5x2をカバー」と誤って書いていたが、`PatternConfig::V3`は
+        // corner5x2を含まない(`PatternConfig::V2Corner5x2`専用)。本テストは
+        // 実際に隅5x2形状(10セル、軌道サイズ8)を使ってcanonical化の
+        // D4不変性を検証し、記述と実態を一致させる(安定化群が自明
+        // 〈恒等のみ〉なため理論上は自明に成立するはずだが、実装のカバレッジ
+        // として明示的に確認する)。
+        let weights = t163_distinguishing_canonical_model(
+            patterns::generate_patterns_for(patterns::PatternConfig::V2Corner5x2),
+            NUM_STAGES,
+            STAGE_EMPTY_DIVISOR,
+        );
+        let mut rng = T163Xorshift64::new(0xC0521_5C2_5EED_0001);
+        const NUM_RANDOM_BOARDS: usize = 80;
+        for i in 0..NUM_RANDOM_BOARDS {
+            let board = t163_random_board(&mut rng);
+            t163_assert_all_symmetries_agree(
+                &weights,
+                &board,
+                &format!("corner5x2 random board #{i}"),
+            );
         }
     }
 
@@ -1835,6 +1944,137 @@ mod tests {
         let mut bytes = weights.to_bytes_v5();
         bytes[28] ^= 1; // schema_hashの先頭1byteを破壊する(PWV3と同じオフセット)
         assert!(PatternWeights::from_bytes(&bytes).is_err());
+    }
+
+    // -----------------------------------------------------------------
+    // T164前段修正(a、T163レビュー中1指摘): レガシー書き出しのスキームガード
+    // -----------------------------------------------------------------
+
+    #[test]
+    #[should_panic(expected = "to_bytes(PWV2)")]
+    fn t164_to_bytes_panics_for_canonical_weights() {
+        let weights = PatternWeights::zeroed_canonical(
+            patterns::generate_patterns(),
+            NUM_STAGES,
+            STAGE_EMPTY_DIVISOR,
+        );
+        let _ = weights.to_bytes();
+    }
+
+    #[test]
+    #[should_panic(expected = "to_bytes_v3")]
+    fn t164_to_bytes_v3_panics_for_canonical_weights() {
+        let weights = PatternWeights::zeroed_canonical(
+            patterns::generate_patterns(),
+            NUM_STAGES,
+            STAGE_EMPTY_DIVISOR,
+        );
+        let _ = weights.to_bytes_v3();
+    }
+
+    #[test]
+    #[should_panic(expected = "to_bytes_v4")]
+    fn t164_to_bytes_v4_panics_for_canonical_weights() {
+        let weights = t164_distinguishing_canonical_scalar_model();
+        let _ = weights.to_bytes_v4();
+    }
+
+    #[test]
+    #[should_panic(expected = "to_bytes_v6")]
+    fn t164_to_bytes_v6_panics_for_legacy_non_canonical_weights() {
+        let weights = PatternWeights::zeroed_with_stage_definition(
+            patterns::generate_patterns_for(patterns::PatternConfig::V3),
+            V4_NUM_STAGES,
+            V4_STAGE_EMPTY_DIVISOR,
+        )
+        .with_zeroed_scalar_features();
+        let _ = weights.to_bytes_v6();
+    }
+
+    // -----------------------------------------------------------------
+    // T164要件2/3: PWV6(D4 canonical化+scalar特徴、B3構成相当)
+    // -----------------------------------------------------------------
+
+    /// canonicalスキーム+scalar特徴(B3相当: モビリティ・囲い度の両方)の
+    /// パターン重み・scalar係数がどちらも異なる値を持つモデルを作る
+    /// (T163の`t163_distinguishing_canonical_model`と同じ考え方: たまたま値が
+    /// 揃って不変性の破れを見逃す事故を避ける)。
+    fn t164_distinguishing_canonical_scalar_model() -> PatternWeights {
+        let mut weights = t163_distinguishing_canonical_model(
+            patterns::generate_patterns_for(patterns::PatternConfig::V3),
+            V4_NUM_STAGES,
+            V4_STAGE_EMPTY_DIVISOR,
+        )
+        .with_zeroed_scalar_features();
+        for (i, feature) in weights.scalar_feature_weights.iter_mut().enumerate() {
+            for (stage, w) in feature.weights.iter_mut().enumerate() {
+                *w = (i * 1_000 + stage) as f32 * 0.01;
+            }
+        }
+        weights
+    }
+
+    #[test]
+    fn t164_pwv6_roundtrip_preserves_canonical_scheme_scalar_features_and_scores() {
+        let weights = t164_distinguishing_canonical_scalar_model();
+        let bytes = weights.to_bytes_v6();
+        assert_eq!(&bytes[..4], b"PWV6");
+        let restored = PatternWeights::from_bytes(&bytes).unwrap();
+        assert!(restored.is_canonical());
+        assert!(restored.scalar_features_enabled());
+        assert_eq!(
+            restored.scalar_feature_weights,
+            weights.scalar_feature_weights
+        );
+        let board = Board::initial();
+        for &mover in &[Side::Black, Side::White] {
+            assert_eq!(
+                weights.score(&board, mover).to_bits(),
+                restored.score(&board, mover).to_bits()
+            );
+        }
+        assert_eq!(restored.to_bytes_v6(), bytes);
+    }
+
+    #[test]
+    fn t164_pwv4_bytes_are_read_as_legacy_even_through_the_shared_scalar_parser() {
+        // PWV4(レガシー+scalar)のバイト列がPWV6経路(canonical)に誤って
+        // 迷い込まないことの確認(`from_bytes_scalar_extended`の共有パース本体が
+        // マジックバイトで正しく振り分けられていることの裏付け)。
+        let legacy = PatternWeights::zeroed_with_stage_definition(
+            patterns::generate_patterns_for(patterns::PatternConfig::V3),
+            V4_NUM_STAGES,
+            V4_STAGE_EMPTY_DIVISOR,
+        )
+        .with_zeroed_scalar_features();
+        let bytes = legacy.to_bytes_v4();
+        let restored = PatternWeights::from_bytes(&bytes).unwrap();
+        assert!(!restored.is_canonical());
+    }
+
+    #[test]
+    fn t164_pwv6_rejects_schema_hash_mismatch() {
+        let weights = t164_distinguishing_canonical_scalar_model();
+        let mut bytes = weights.to_bytes_v6();
+        bytes[32] ^= 1; // schema_hash_v4の先頭1byte(PWV4と同じオフセット)を破壊
+        assert!(PatternWeights::from_bytes(&bytes).is_err());
+    }
+
+    #[test]
+    fn t164_canonical_scalar_score_is_invariant_under_all_eight_d4_symmetries() {
+        // T164要件2/3(最重要): canonical化+scalar特徴を組み合わせても、
+        // 全8対称変換でscoreが完全一致すること。scalar特徴自体は既に
+        // (`scalar_features_match_reference_and_obey_color_and_d4_symmetry`で)
+        // 対称不変量であることが確認済みだが、B3構成としての配線
+        // (PWV6のシリアライズ・スコア加算経路)に不変性を壊す取り違えが
+        // 無いことを直接確認する。
+        let weights = t164_distinguishing_canonical_scalar_model();
+        let mut rng = T163Xorshift64::new(0xB3CA_1E5C_A100_01u64);
+        const NUM_RANDOM_BOARDS: usize = 150;
+        for i in 0..NUM_RANDOM_BOARDS {
+            let board = t163_random_board(&mut rng);
+            t163_assert_all_symmetries_agree(&weights, &board, &format!("b3-canonical board #{i}"));
+        }
     }
 
     #[test]

@@ -132,6 +132,28 @@ impl Model {
         Model { weights }
     }
 
+    /// T164要件2: D4 canonical化スキーム(T163)+scalar特徴(T158、B3構成相当)を
+    /// 両方有効にした状態で、全重みを0初期化する。[`new_canonical`](Self::new_canonical)の
+    /// scalar特徴版で、`sgd_step`は両方の特徴について正しく勾配更新する
+    /// (パターン特徴は`table_index`経由でcanonicalエントリに集約され、
+    /// scalar特徴は元々対称不変量なのでcanonical化の影響を受けない)。
+    /// 空sliceは`new_canonical`と同じPWV5相当のモデルになる。
+    pub fn new_with_scalar_features_canonical(
+        patterns: Vec<PatternCells>,
+        num_stages: usize,
+        stage_empty_divisor: u32,
+        features: &[ScalarFeatureKind],
+    ) -> Self {
+        let mut weights = PatternWeights::zeroed_canonical(patterns, num_stages, stage_empty_divisor);
+        if !features.is_empty() {
+            weights = weights.with_zeroed_scalar_features();
+            weights
+                .scalar_feature_weights
+                .retain(|feature| features.contains(&feature.kind));
+        }
+        Model { weights }
+    }
+
     /// 局面(`board`・`mover`)の予測値(mover視点の最終石差の予測)を返す。
     pub fn predict(&self, board: &Board, mover: engine::bitboard::Side) -> f32 {
         self.weights.score(board, mover)
@@ -310,6 +332,13 @@ impl Model {
     /// (`weights.to_bytes_v5`への委譲。`new_canonical`由来のモデルでのみ使える)。
     pub fn to_bytes_v5(&self) -> Vec<u8> {
         self.weights.to_bytes_v5()
+    }
+
+    /// T164: D4 canonical化+scalar特徴(B3構成相当)版の自己記述形式(PWV6)に
+    /// シリアライズする(`weights.to_bytes_v6`への委譲。
+    /// `new_with_scalar_features_canonical`由来のモデルでのみ使える)。
+    pub fn to_bytes_v6(&self) -> Vec<u8> {
+        self.weights.to_bytes_v6()
     }
 
     /// [`to_bytes`](Self::to_bytes)の逆変換(`PatternWeights::from_bytes`への委譲)。
@@ -986,5 +1015,185 @@ mod tests {
             checked > 100,
             "expected to check a substantial number of real WTHOR positions, got {checked}"
         );
+    }
+
+    // -----------------------------------------------------------------
+    // T164要件2/3: B3構成(canonical+scalar特徴、PWV6)のSGD学習への追従
+    // -----------------------------------------------------------------
+
+    fn b3_canonical_model() -> Model {
+        Model::new_with_scalar_features_canonical(
+            patterns::generate_patterns_for(patterns::PatternConfig::V3),
+            engine::pattern_eval::V4_NUM_STAGES,
+            engine::pattern_eval::V4_STAGE_EMPTY_DIVISOR,
+            &[
+                ScalarFeatureKind::ExactMobilityAdvantage,
+                ScalarFeatureKind::EmptyAdjacencyExposureAdvantage,
+            ],
+        )
+    }
+
+    #[test]
+    fn b3_canonical_sgd_step_reduces_error_on_repeated_single_sample() {
+        let mut model = b3_canonical_model();
+        let sample = Sample {
+            board: asymmetric_test_board(),
+            mover: Side::Black,
+            outcome: 10.0,
+            last_move_kind: crate::train_data::LastMoveKind::Other,
+            vulnerable_xc: false,
+        };
+        let cfg = TrainConfig {
+            learning_rate: 0.01,
+            l2: 0.0,
+            epochs: 1,
+            seed: 1,
+            loss: Loss::Mse,
+        };
+        let error_before =
+            (model.predict(&sample.board, sample.mover) - sample.outcome as f32).abs();
+        model.train(&[sample], &cfg);
+        let error_after =
+            (model.predict(&sample.board, sample.mover) - sample.outcome as f32).abs();
+        assert!(
+            error_after < error_before,
+            "error should shrink after training on a single sample (B3-canonical): before={error_before}, after={error_after}"
+        );
+    }
+
+    #[test]
+    fn b3_canonical_scalar_gradient_multiplies_loss_gradient_by_feature_value() {
+        // T164前段修正(c)の核心: B3のscalar特徴勾配がcanonicalスキームでも
+        // (simple-corpus由来のような)非対称サンプルで正しく動くこと。
+        // T163以前の`scalar_gradient_multiplies_loss_gradient_by_feature_value`
+        // (レガシー版)と同じ検算をcanonical版で行う。
+        let sample = Sample {
+            board: asymmetric_test_board(),
+            mover: Side::Black,
+            outcome: 10.0,
+            last_move_kind: crate::train_data::LastMoveKind::Other,
+            vulnerable_xc: false,
+        };
+        let features = scalar_features(&sample.board, sample.mover);
+        assert_ne!(features.exact_mobility_advantage, 0);
+        let normalized = features.exact_mobility_advantage as f32 / 8.0;
+        let mut model = Model::new_with_scalar_features_canonical(
+            patterns::generate_patterns_for(patterns::PatternConfig::V3),
+            engine::pattern_eval::V4_NUM_STAGES,
+            engine::pattern_eval::V4_STAGE_EMPTY_DIVISOR,
+            &[ScalarFeatureKind::ExactMobilityAdvantage],
+        );
+        let cfg = TrainConfig {
+            learning_rate: 0.001,
+            l2: 0.0,
+            epochs: 1,
+            seed: 1,
+            loss: Loss::Mse,
+        };
+        let stage = model
+            .weights
+            .stage_for_empty_count(sample.board.empty_count());
+        model.train(&[sample], &cfg);
+        let actual = model.weights.scalar_feature_weights[0].weights[stage];
+        let expected = cfg.learning_rate * sample.outcome * normalized;
+        assert!(
+            (actual - expected).abs() < 1e-7,
+            "actual={actual} expected={expected}"
+        );
+    }
+
+    #[test]
+    fn b3_canonical_pwv6_roundtrip_preserves_weights_after_training() {
+        let mut model = b3_canonical_model();
+        let sample = Sample {
+            board: asymmetric_test_board(),
+            mover: Side::Black,
+            outcome: 6.0,
+            last_move_kind: crate::train_data::LastMoveKind::Other,
+            vulnerable_xc: false,
+        };
+        let cfg = TrainConfig {
+            learning_rate: 0.02,
+            l2: 1e-4,
+            epochs: 5,
+            seed: 7,
+            loss: Loss::Mse,
+        };
+        model.train(&[sample], &cfg);
+
+        let bytes = model.to_bytes_v6();
+        assert_eq!(&bytes[..4], b"PWV6");
+        let restored = Model::from_bytes(&bytes).expect("PWV6 should parse");
+        assert!(restored.weights.is_canonical());
+        assert!(restored.weights.scalar_features_enabled());
+
+        let pred_original = model.predict(&sample.board, sample.mover);
+        let pred_restored = restored.predict(&sample.board, sample.mover);
+        assert!((pred_original - pred_restored).abs() < 1e-6);
+    }
+
+    #[test]
+    fn b3_canonical_predictions_stay_d4_invariant_after_training_on_asymmetric_samples() {
+        // T164要件3: 新形式(canonical+scalar)でも、学習後の重みで全8対称一致が
+        // 成立すること(T163の`canonical_model_predictions_stay_d4_invariant_...`
+        // のB3版)。scalar特徴自体は対称不変量(モビリティ差・囲い度差)なので、
+        // これが崩れるとすればパターン側のcanonical化配線の不備のはず。
+        let mut model = b3_canonical_model();
+        let mut rng = Xorshift64::new(0xB3C0_DE12_3456_789A);
+        let mut samples = Vec::new();
+        for i in 0..30 {
+            let mut black = 0u64;
+            let mut white = 0u64;
+            for c in 0u8..64 {
+                match rng.next_u64() % 3 {
+                    0 => {}
+                    1 => black |= 1u64 << c,
+                    _ => white |= 1u64 << c,
+                }
+            }
+            samples.push(Sample {
+                board: Board { black, white },
+                mover: if i % 2 == 0 { Side::Black } else { Side::White },
+                outcome: ((rng.next_u64() % 41) as f32) - 20.0,
+                last_move_kind: crate::train_data::LastMoveKind::Other,
+                vulnerable_xc: false,
+            });
+        }
+        let cfg = TrainConfig {
+            learning_rate: 0.01,
+            l2: 1e-5,
+            epochs: 20,
+            seed: 7,
+            loss: Loss::Mse,
+        };
+        model.train(&samples, &cfg);
+
+        fn transform_board(board: &Board, sym: usize) -> Board {
+            let mut black = 0u64;
+            let mut white = 0u64;
+            for c in 0u8..64 {
+                let bit = 1u64 << c;
+                let dest = patterns::apply_symmetry(sym, c);
+                if board.black & bit != 0 {
+                    black |= 1u64 << dest;
+                }
+                if board.white & bit != 0 {
+                    white |= 1u64 << dest;
+                }
+            }
+            Board { black, white }
+        }
+
+        for sample in &samples {
+            let base = model.predict(&sample.board, sample.mover);
+            for sym in 0..patterns::NUM_SYMMETRIES {
+                let transformed = transform_board(&sample.board, sym);
+                let predicted = model.predict(&transformed, sample.mover);
+                assert!(
+                    (predicted - base).abs() < 1e-2,
+                    "sym={sym}: trained B3-canonical model should stay D4-invariant, got {predicted} vs {base}"
+                );
+            }
+        }
     }
 }
