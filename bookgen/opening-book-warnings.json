@@ -1,6 +1,6 @@
 {
-  "$schemaNote": "T151: 対局専用拡張ブック(app/public/opening-book.json)のビルド時に除外されたbookMove一覧(その局面の全合法手中の最善値に対しロス2石以上のもの)。namedOrigin=trueは、除外された手を含むノードが手作業の命名済み定石(bookgen/joseki-research.json由来)を1つ以上経由することを示す。",
-  "generatedAt": "2026-07-20T00:34:19.603Z",
+  "$schemaNote": "T151 v2(2026-07-20仕様更新): 対局専用拡張ブック(app/public/opening-book.json)のビルド時にloss(その局面の全合法手中の最善値との差)が2石以上だったbookMove一覧。protectedByNamedLine=trueは、この(ノード,着手)が命名済みライン(bookgen/joseki-research.json由来112ライン)の実際の手順に含まれることを示し、その場合lossに関わらずexcludedFromBook=falseのまま(除外されず)opening-book.jsonに残る。excludedFromBook=trueは自動抽出(WTHOR)ラインのみに乗る手が実際に除外されたことを示す。namedOriginは「このノードに命名済みラインが合流している」ゆるい目印で、protectedByNamedLineほど厳密ではない(そのノードの別の手が命名済みラインの手、という場合もtrueになる)。",
+  "generatedAt": "2026-07-20T04:09:49.217Z",
   "lossThreshold": 2,
   "edaxMeta": {
     "level": 16,
@@ -9,11 +9,16 @@
     "edaxSha256": "d85b7555879387cd20cee2dab28bcbbdb09631f245459e48b1b0b34b4558800c"
   },
   "totalNodesBeforeFilter": 1111,
-  "totalNodesAfterFilter": 460,
-  "prunedUnreachableNodes": 651,
-  "excludedMoveCount": 135,
-  "excludedNamedOriginCount": 116,
-  "excluded": [
+  "totalNodesAfterFilter": 935,
+  "prunedUnreachableNodes": 176,
+  "flaggedMoveCount": 135,
+  "excludedFromBookCount": 76,
+  "keptDespiteHighLossCount": 59,
+  "namedLines": {
+    "total": 112,
+    "fullySurvived": 112
+  },
+  "flagged": [
     {
       "nodeKey": "101800000000_202038000000_black",
       "move": 54,
@@ -134,7 +139,9 @@
         "WTHOR-0248",
         "WTHOR-0249"
       ],
-      "namedOrigin": true
+      "namedOrigin": true,
+      "protectedByNamedLine": true,
+      "excludedFromBook": false
     },
     {
       "nodeKey": "2c08080000_81030100000_black",
@@ -148,7 +155,9 @@
         "WTHOR-0128",
         "WTHOR-0129"
       ],
-      "namedOrigin": false
+      "namedOrigin": false,
+      "protectedByNamedLine": false,
+      "excludedFromBook": true
     },
     {
       "nodeKey": "3010000000_80808000000_black",
@@ -398,7 +407,9 @@
         "WTHOR-0164",
         "WTHOR-0165"
       ],
-      "namedOrigin": true
+      "namedOrigin": true,
+      "protectedByNamedLine": false,
+      "excludedFromBook": true
     },
     {
       "nodeKey": "2810000000_201008000000_black",
@@ -523,7 +534,9 @@
         "WTHOR-0248",
         "WTHOR-0249"
       ],
-      "namedOrigin": true
+      "namedOrigin": true,
+      "protectedByNamedLine": false,
+      "excludedFromBook": true
     },
     {
       "nodeKey": "2810000000_201008000000_black",
@@ -648,7 +661,9 @@
         "WTHOR-0248",
         "WTHOR-0249"
       ],
-      "namedOrigin": true
+      "namedOrigin": true,
+      "protectedByNamedLine": false,
+      "excludedFromBook": true
     },
     {
       "nodeKey": "3c1c040000_80020080000_white",
@@ -704,7 +719,9 @@
         "WTHOR-0098",
         "WTHOR-0099"
       ],
-      "namedOrigin": true
+      "namedOrigin": true,
+      "protectedByNamedLine": false,
+      "excludedFromBook": true
     },
     {
       "nodeKey": "30380c040000_80030280000_white",
@@ -748,7 +765,9 @@
         "WTHOR-0106",
         "WTHOR-0107"
       ],
-      "namedOrigin": true
+      "namedOrigin": true,
+      "protectedByNamedLine": false,
+      "excludedFromBook": true
     },
     {
       "nodeKey": "2c08100000_81030000000_white",
@@ -804,7 +823,9 @@
         "WTHOR-0158",
         "WTHOR-0159"
       ],
-      "namedOrigin": true
+      "namedOrigin": true,
+      "protectedByNamedLine": true,
+      "excludedFromBook": false
     },
     {
       "nodeKey": "301c040000_80800080000_white",
@@ -942,7 +963,9 @@
         "WTHOR-0107",
         "WTHOR-0108"
       ],
-      "namedOrigin": true
+      "namedOrigin": true,
+      "protectedByNamedLine": false,
+      "excludedFromBook": true
     },
     {
       "nodeKey": "3c10000000_80008000000_white",
@@ -1009,7 +1032,9 @@
         "WTHOR-0161",
         "WTHOR-0162"
       ],
-      "namedOrigin": true
+      "namedOrigin": true,
+      "protectedByNamedLine": false,
+      "excludedFromBook": true
     },
     {
       "nodeKey": "2c00000000_81038000000_black",
@@ -1075,7 +1100,9 @@
         "WTHOR-0160",
         "WTHOR-0161"
       ],
-      "namedOrigin": true
+      "namedOrigin": true,
+      "protectedByNamedLine": true,
+      "excludedFromBook": false
     },
     {
       "nodeKey": "2c08100000_81030000000_white",
@@ -1131,7 +1158,9 @@
         "WTHOR-0158",
         "WTHOR-0159"
       ],
-      "namedOrigin": true
+      "namedOrigin": true,
+      "protectedByNamedLine": true,
+      "excludedFromBook": false
     },
     {
       "nodeKey": "3010040000_80808080000_black",
@@ -1256,7 +1285,9 @@
         "WTHOR-0080",
         "WTHOR-0081"
       ],
-      "namedOrigin": true
+      "namedOrigin": true,
+      "protectedByNamedLine": true,
+      "excludedFromBook": false
     },
     {
       "nodeKey": "3010040000_80808080000_black",
@@ -1381,7 +1412,9 @@
         "WTHOR-0080",
         "WTHOR-0081"
       ],
-      "namedOrigin": true
+      "namedOrigin": true,
+      "protectedByNamedLine": true,
+      "excludedFromBook": false
     },
     {
       "nodeKey": "2c00000000_81038000000_black",
@@ -1447,7 +1480,9 @@
         "WTHOR-0160",
         "WTHOR-0161"
       ],
-      "namedOrigin": true
+      "namedOrigin": true,
+      "protectedByNamedLine": false,
+      "excludedFromBook": true
     },
     {
       "nodeKey": "101800000000_202038000000_black",
@@ -1569,7 +1604,9 @@
         "WTHOR-0248",
         "WTHOR-0249"
       ],
-      "namedOrigin": true
+      "namedOrigin": true,
+      "protectedByNamedLine": true,
+      "excludedFromBook": false
     },
     {
       "nodeKey": "101800000000_202038000000_black",
@@ -1691,7 +1728,9 @@
         "WTHOR-0248",
         "WTHOR-0249"
       ],
-      "namedOrigin": true
+      "namedOrigin": true,
+      "protectedByNamedLine": true,
+      "excludedFromBook": false
     },
     {
       "nodeKey": "3c1c000000_800200e0000_black",
@@ -1737,7 +1776,9 @@
         "WTHOR-0097",
         "WTHOR-0098"
       ],
-      "namedOrigin": true
+      "namedOrigin": true,
+      "protectedByNamedLine": false,
+      "excludedFromBook": true
     },
     {
       "nodeKey": "700040000000_7c38000000_black",
@@ -1753,7 +1794,9 @@
         "WTHOR-0243",
         "WTHOR-0244"
       ],
-      "namedOrigin": true
+      "namedOrigin": true,
+      "protectedByNamedLine": false,
+      "excludedFromBook": true
     },
     {
       "nodeKey": "3010000000_80808000000_black",
@@ -2003,7 +2046,9 @@
         "WTHOR-0164",
         "WTHOR-0165"
       ],
-      "namedOrigin": true
+      "namedOrigin": true,
+      "protectedByNamedLine": true,
+      "excludedFromBook": false
     },
     {
       "nodeKey": "3018040000_80800000000_white",
@@ -2144,7 +2189,9 @@
         "WTHOR-0090",
         "WTHOR-0091"
       ],
-      "namedOrigin": true
+      "namedOrigin": true,
+      "protectedByNamedLine": false,
+      "excludedFromBook": true
     },
     {
       "nodeKey": "301c000000_80800000000_white",
@@ -2198,7 +2245,9 @@
         "WTHOR-0124",
         "WTHOR-0125"
       ],
-      "namedOrigin": true
+      "namedOrigin": true,
+      "protectedByNamedLine": false,
+      "excludedFromBook": true
     },
     {
       "nodeKey": "2c08100000_81030000000_white",
@@ -2254,7 +2303,9 @@
         "WTHOR-0158",
         "WTHOR-0159"
       ],
-      "namedOrigin": true
+      "namedOrigin": true,
+      "protectedByNamedLine": false,
+      "excludedFromBook": true
     },
     {
       "nodeKey": "1478180000_83c2800000000_white",
@@ -2269,7 +2320,9 @@
         "WTHOR-0147",
         "WTHOR-0148"
       ],
-      "namedOrigin": true
+      "namedOrigin": true,
+      "protectedByNamedLine": false,
+      "excludedFromBook": true
     },
     {
       "nodeKey": "20301c040000_80820080000_white",
@@ -2337,7 +2390,9 @@
         "WTHOR-0107",
         "WTHOR-0108"
       ],
-      "namedOrigin": true
+      "namedOrigin": true,
+      "protectedByNamedLine": true,
+      "excludedFromBook": false
     },
     {
       "nodeKey": "201838080c040000_403030280000_white",
@@ -2354,7 +2409,9 @@
         "WTHOR-0060",
         "WTHOR-0106"
       ],
-      "namedOrigin": true
+      "namedOrigin": true,
+      "protectedByNamedLine": true,
+      "excludedFromBook": false
     },
     {
       "nodeKey": "203010040000_80828080000_black",
@@ -2368,7 +2425,9 @@
         "WTHOR-0085",
         "WTHOR-0086"
       ],
-      "namedOrigin": true
+      "namedOrigin": true,
+      "protectedByNamedLine": false,
+      "excludedFromBook": true
     },
     {
       "nodeKey": "103814000000_80028380000_black",
@@ -2381,7 +2440,9 @@
         "WTHOR-0114",
         "WTHOR-0115"
       ],
-      "namedOrigin": true
+      "namedOrigin": true,
+      "protectedByNamedLine": false,
+      "excludedFromBook": true
     },
     {
       "nodeKey": "103418100000_c0820000000_white",
@@ -2398,7 +2459,9 @@
         "WTHOR-0156",
         "WTHOR-0157"
       ],
-      "namedOrigin": true
+      "namedOrigin": true,
+      "protectedByNamedLine": false,
+      "excludedFromBook": true
     },
     {
       "nodeKey": "201c000000_81820000000_black",
@@ -2411,7 +2474,9 @@
         "WTHOR-0117",
         "WTHOR-0118"
       ],
-      "namedOrigin": false
+      "namedOrigin": false,
+      "protectedByNamedLine": false,
+      "excludedFromBook": true
     },
     {
       "nodeKey": "3018040000_80800000000_white",
@@ -2552,7 +2617,9 @@
         "WTHOR-0090",
         "WTHOR-0091"
       ],
-      "namedOrigin": true
+      "namedOrigin": true,
+      "protectedByNamedLine": true,
+      "excludedFromBook": false
     },
     {
       "nodeKey": "3018040000_80800000000_white",
@@ -2693,7 +2760,9 @@
         "WTHOR-0090",
         "WTHOR-0091"
       ],
-      "namedOrigin": true
+      "namedOrigin": true,
+      "protectedByNamedLine": true,
+      "excludedFromBook": false
     },
     {
       "nodeKey": "301c000000_80800000000_white",
@@ -2747,7 +2816,9 @@
         "WTHOR-0124",
         "WTHOR-0125"
       ],
-      "namedOrigin": true
+      "namedOrigin": true,
+      "protectedByNamedLine": false,
+      "excludedFromBook": true
     },
     {
       "nodeKey": "3014000000_80808080000_black",
@@ -2787,7 +2858,9 @@
         "WTHOR-0114",
         "WTHOR-0115"
       ],
-      "namedOrigin": true
+      "namedOrigin": true,
+      "protectedByNamedLine": true,
+      "excludedFromBook": false
     },
     {
       "nodeKey": "3014000000_80808080000_black",
@@ -2827,7 +2900,9 @@
         "WTHOR-0114",
         "WTHOR-0115"
       ],
-      "namedOrigin": true
+      "namedOrigin": true,
+      "protectedByNamedLine": true,
+      "excludedFromBook": false
     },
     {
       "nodeKey": "101800000000_202038000000_black",
@@ -2949,7 +3024,9 @@
         "WTHOR-0248",
         "WTHOR-0249"
       ],
-      "namedOrigin": true
+      "namedOrigin": true,
+      "protectedByNamedLine": true,
+      "excludedFromBook": false
     },
     {
       "nodeKey": "101810100000_202028000000_white",
@@ -3005,7 +3082,9 @@
         "WTHOR-0211",
         "WTHOR-0212"
       ],
-      "namedOrigin": true
+      "namedOrigin": true,
+      "protectedByNamedLine": false,
+      "excludedFromBook": true
     },
     {
       "nodeKey": "101810100000_202028000000_white",
@@ -3061,7 +3140,9 @@
         "WTHOR-0211",
         "WTHOR-0212"
       ],
-      "namedOrigin": true
+      "namedOrigin": true,
+      "protectedByNamedLine": false,
+      "excludedFromBook": true
     },
     {
       "nodeKey": "701800000000_2038000000_white",
@@ -3087,7 +3168,9 @@
         "WTHOR-0248",
         "WTHOR-0249"
       ],
-      "namedOrigin": true
+      "namedOrigin": true,
+      "protectedByNamedLine": false,
+      "excludedFromBook": true
     },
     {
       "nodeKey": "2408100000_c1830000000_black",
@@ -3137,7 +3220,9 @@
         "WTHOR-0157",
         "WTHOR-0158"
       ],
-      "namedOrigin": true
+      "namedOrigin": true,
+      "protectedByNamedLine": false,
+      "excludedFromBook": true
     },
     {
       "nodeKey": "104030100000_203c08000000_white",
@@ -3154,7 +3239,9 @@
         "WTHOR-0196",
         "WTHOR-0197"
       ],
-      "namedOrigin": true
+      "namedOrigin": true,
+      "protectedByNamedLine": false,
+      "excludedFromBook": true
     },
     {
       "nodeKey": "201c040000_81820080000_black",
@@ -3283,7 +3370,9 @@
         "WTHOR-0107",
         "WTHOR-0108"
       ],
-      "namedOrigin": true
+      "namedOrigin": true,
+      "protectedByNamedLine": true,
+      "excludedFromBook": false
     },
     {
       "nodeKey": "81838080c040000_403030280000_white",
@@ -3296,7 +3385,9 @@
         "WTHOR-0055",
         "WTHOR-0056"
       ],
-      "namedOrigin": true
+      "namedOrigin": true,
+      "protectedByNamedLine": false,
+      "excludedFromBook": true
     },
     {
       "nodeKey": "30203c240000_85c00080000_white",
@@ -3310,7 +3401,9 @@
         "WTHOR-0073",
         "WTHOR-0074"
       ],
-      "namedOrigin": true
+      "namedOrigin": true,
+      "protectedByNamedLine": false,
+      "excludedFromBook": true
     },
     {
       "nodeKey": "3c1c040000_80020080000_white",
@@ -3366,7 +3459,9 @@
         "WTHOR-0098",
         "WTHOR-0099"
       ],
-      "namedOrigin": true
+      "namedOrigin": true,
+      "protectedByNamedLine": true,
+      "excludedFromBook": false
     },
     {
       "nodeKey": "3c1c000000_800200e0000_black",
@@ -3412,7 +3507,9 @@
         "WTHOR-0097",
         "WTHOR-0098"
       ],
-      "namedOrigin": true
+      "namedOrigin": true,
+      "protectedByNamedLine": false,
+      "excludedFromBook": true
     },
     {
       "nodeKey": "381e0c0c00_c0420120000_white",
@@ -3433,7 +3530,9 @@
         "WTHOR-0018",
         "WTHOR-0094"
       ],
-      "namedOrigin": true
+      "namedOrigin": true,
+      "protectedByNamedLine": false,
+      "excludedFromBook": true
     },
     {
       "nodeKey": "383c4c0c00_c0402130000_white",
@@ -3447,7 +3546,9 @@
         "WTHOR-0014",
         "WTHOR-0094"
       ],
-      "namedOrigin": true
+      "namedOrigin": true,
+      "protectedByNamedLine": false,
+      "excludedFromBook": true
     },
     {
       "nodeKey": "100410100000_87828080000_black",
@@ -3458,7 +3559,9 @@
       "names": [
         "三村流7-e6型"
       ],
-      "namedOrigin": true
+      "namedOrigin": true,
+      "protectedByNamedLine": true,
+      "excludedFromBook": false
     },
     {
       "nodeKey": "81c100000_10303420000000_black",
@@ -3479,7 +3582,9 @@
         "WTHOR-0190",
         "WTHOR-0191"
       ],
-      "namedOrigin": true
+      "namedOrigin": true,
+      "protectedByNamedLine": false,
+      "excludedFromBook": true
     },
     {
       "nodeKey": "20306800000000_10001038000000_white",
@@ -3498,7 +3603,9 @@
         "WTHOR-0238",
         "WTHOR-0239"
       ],
-      "namedOrigin": true
+      "namedOrigin": true,
+      "protectedByNamedLine": false,
+      "excludedFromBook": true
     },
     {
       "nodeKey": "20300800000000_1000f038000000_black",
@@ -3512,7 +3619,9 @@
         "WTHOR-0235",
         "WTHOR-0236"
       ],
-      "namedOrigin": true
+      "namedOrigin": true,
+      "protectedByNamedLine": true,
+      "excludedFromBook": false
     },
     {
       "nodeKey": "10100000_383828000000_black",
@@ -3533,7 +3642,9 @@
         "WTHOR-0210",
         "WTHOR-0211"
       ],
-      "namedOrigin": true
+      "namedOrigin": true,
+      "protectedByNamedLine": false,
+      "excludedFromBook": true
     },
     {
       "nodeKey": "10100000_383828000000_black",
@@ -3554,7 +3665,9 @@
         "WTHOR-0210",
         "WTHOR-0211"
       ],
-      "namedOrigin": true
+      "namedOrigin": true,
+      "protectedByNamedLine": false,
+      "excludedFromBook": true
     },
     {
       "nodeKey": "2032240c040000_10081830280000_white",
@@ -3567,7 +3680,9 @@
         "WTHOR-0063",
         "WTHOR-0064"
       ],
-      "namedOrigin": false
+      "namedOrigin": false,
+      "protectedByNamedLine": false,
+      "excludedFromBook": true
     },
     {
       "nodeKey": "101810300000_202028080000_white",
@@ -3579,7 +3694,9 @@
         "WTHOR-0174",
         "WTHOR-0175"
       ],
-      "namedOrigin": false
+      "namedOrigin": false,
+      "protectedByNamedLine": false,
+      "excludedFromBook": true
     },
     {
       "nodeKey": "104040100000_203c38600000_black",
@@ -3591,7 +3708,9 @@
         "WTHOR-0194",
         "WTHOR-0195"
       ],
-      "namedOrigin": false
+      "namedOrigin": false,
+      "protectedByNamedLine": false,
+      "excludedFromBook": true
     },
     {
       "nodeKey": "601c0000_383818000000_white",
@@ -3605,7 +3724,9 @@
         "WTHOR-0206",
         "WTHOR-0207"
       ],
-      "namedOrigin": false
+      "namedOrigin": false,
+      "protectedByNamedLine": false,
+      "excludedFromBook": true
     },
     {
       "nodeKey": "8006020200000_10381818000000_white",
@@ -3617,7 +3738,9 @@
         "WTHOR-0217",
         "WTHOR-0231"
       ],
-      "namedOrigin": false
+      "namedOrigin": false,
+      "protectedByNamedLine": false,
+      "excludedFromBook": true
     },
     {
       "nodeKey": "301c040000_80800080000_white",
@@ -3755,7 +3878,9 @@
         "WTHOR-0107",
         "WTHOR-0108"
       ],
-      "namedOrigin": true
+      "namedOrigin": true,
+      "protectedByNamedLine": true,
+      "excludedFromBook": false
     },
     {
       "nodeKey": "301c040000_80800080000_white",
@@ -3893,7 +4018,9 @@
         "WTHOR-0107",
         "WTHOR-0108"
       ],
-      "namedOrigin": true
+      "namedOrigin": true,
+      "protectedByNamedLine": true,
+      "excludedFromBook": false
     },
     {
       "nodeKey": "3c14000000_80008080000_white",
@@ -3912,7 +4039,9 @@
         "WTHOR-0112",
         "WTHOR-0113"
       ],
-      "namedOrigin": true
+      "namedOrigin": true,
+      "protectedByNamedLine": false,
+      "excludedFromBook": true
     },
     {
       "nodeKey": "1c000000_87800000000_black",
@@ -3932,7 +4061,9 @@
         "WTHOR-0124",
         "WTHOR-0125"
       ],
-      "namedOrigin": true
+      "namedOrigin": true,
+      "protectedByNamedLine": true,
+      "excludedFromBook": false
     },
     {
       "nodeKey": "2018040000_81820000000_black",
@@ -3952,7 +4083,9 @@
         "WTHOR-0088",
         "WTHOR-0089"
       ],
-      "namedOrigin": true
+      "namedOrigin": true,
+      "protectedByNamedLine": false,
+      "excludedFromBook": true
     },
     {
       "nodeKey": "2c00000000_81038000000_black",
@@ -4018,7 +4151,9 @@
         "WTHOR-0160",
         "WTHOR-0161"
       ],
-      "namedOrigin": true
+      "namedOrigin": true,
+      "protectedByNamedLine": true,
+      "excludedFromBook": false
     },
     {
       "nodeKey": "101800000000_202038000000_black",
@@ -4140,7 +4275,9 @@
         "WTHOR-0248",
         "WTHOR-0249"
       ],
-      "namedOrigin": true
+      "namedOrigin": true,
+      "protectedByNamedLine": true,
+      "excludedFromBook": false
     },
     {
       "nodeKey": "101800000000_202038000000_black",
@@ -4262,7 +4399,9 @@
         "WTHOR-0248",
         "WTHOR-0249"
       ],
-      "namedOrigin": true
+      "namedOrigin": true,
+      "protectedByNamedLine": true,
+      "excludedFromBook": false
     },
     {
       "nodeKey": "101808040000_202030000000_white",
@@ -4282,7 +4421,9 @@
         "WTHOR-0171",
         "WTHOR-0172"
       ],
-      "namedOrigin": true
+      "namedOrigin": true,
+      "protectedByNamedLine": true,
+      "excludedFromBook": false
     },
     {
       "nodeKey": "2408100000_c1830000000_black",
@@ -4332,7 +4473,9 @@
         "WTHOR-0157",
         "WTHOR-0158"
       ],
-      "namedOrigin": true
+      "namedOrigin": true,
+      "protectedByNamedLine": true,
+      "excludedFromBook": false
     },
     {
       "nodeKey": "2408100000_c1830000000_black",
@@ -4382,7 +4525,9 @@
         "WTHOR-0157",
         "WTHOR-0158"
       ],
-      "namedOrigin": true
+      "namedOrigin": true,
+      "protectedByNamedLine": true,
+      "excludedFromBook": false
     },
     {
       "nodeKey": "2418180000_c1820000000_white",
@@ -4422,7 +4567,9 @@
         "WTHOR-0150",
         "WTHOR-0151"
       ],
-      "namedOrigin": true
+      "namedOrigin": true,
+      "protectedByNamedLine": true,
+      "excludedFromBook": false
     },
     {
       "nodeKey": "1038580000_83c2c04000000_black",
@@ -4442,7 +4589,9 @@
         "WTHOR-0144",
         "WTHOR-0145"
       ],
-      "namedOrigin": true
+      "namedOrigin": true,
+      "protectedByNamedLine": false,
+      "excludedFromBook": true
     },
     {
       "nodeKey": "103a580000_83c2c04020000_black",
@@ -4458,7 +4607,9 @@
         "WTHOR-0141",
         "WTHOR-0142"
       ],
-      "namedOrigin": true
+      "namedOrigin": true,
+      "protectedByNamedLine": true,
+      "excludedFromBook": false
     },
     {
       "nodeKey": "104030100000_203c08000000_white",
@@ -4475,7 +4626,9 @@
         "WTHOR-0196",
         "WTHOR-0197"
       ],
-      "namedOrigin": true
+      "namedOrigin": true,
+      "protectedByNamedLine": false,
+      "excludedFromBook": true
     },
     {
       "nodeKey": "104030100000_203c08000000_white",
@@ -4492,7 +4645,9 @@
         "WTHOR-0196",
         "WTHOR-0197"
       ],
-      "namedOrigin": true
+      "namedOrigin": true,
+      "protectedByNamedLine": false,
+      "excludedFromBook": true
     },
     {
       "nodeKey": "6070180000_83c1c0c040000_black",
@@ -4505,7 +4660,9 @@
         "WTHOR-0147",
         "WTHOR-0148"
       ],
-      "namedOrigin": true
+      "namedOrigin": true,
+      "protectedByNamedLine": false,
+      "excludedFromBook": true
     },
     {
       "nodeKey": "1c3e580000_83c2201020000_black",
@@ -4517,7 +4674,9 @@
         "Sローズ・13-b4最善型",
         "WTHOR-0140"
       ],
-      "namedOrigin": true
+      "namedOrigin": true,
+      "protectedByNamedLine": true,
+      "excludedFromBook": false
     },
     {
       "nodeKey": "20636580000_83c3808060000_white",
@@ -4528,7 +4687,9 @@
       "names": [
         "Sローズ・15-b6型"
       ],
-      "namedOrigin": true
+      "namedOrigin": true,
+      "protectedByNamedLine": true,
+      "excludedFromBook": false
     },
     {
       "nodeKey": "201c040000_81820080000_black",
@@ -4657,7 +4818,9 @@
         "WTHOR-0107",
         "WTHOR-0108"
       ],
-      "namedOrigin": true
+      "namedOrigin": true,
+      "protectedByNamedLine": true,
+      "excludedFromBook": false
     },
     {
       "nodeKey": "20301c040000_80820080000_white",
@@ -4725,7 +4888,9 @@
         "WTHOR-0107",
         "WTHOR-0108"
       ],
-      "namedOrigin": true
+      "namedOrigin": true,
+      "protectedByNamedLine": true,
+      "excludedFromBook": false
     },
     {
       "nodeKey": "20300c040000_80830280000_black",
@@ -4773,7 +4938,9 @@
         "WTHOR-0106",
         "WTHOR-0107"
       ],
-      "namedOrigin": true
+      "namedOrigin": true,
+      "protectedByNamedLine": true,
+      "excludedFromBook": false
     },
     {
       "nodeKey": "20300c040000_80830280000_black",
@@ -4821,7 +4988,9 @@
         "WTHOR-0106",
         "WTHOR-0107"
       ],
-      "namedOrigin": true
+      "namedOrigin": true,
+      "protectedByNamedLine": false,
+      "excludedFromBook": true
     },
     {
       "nodeKey": "838280c040000_10001030280000_white",
@@ -4853,7 +5022,9 @@
         "WTHOR-0105",
         "WTHOR-0106"
       ],
-      "namedOrigin": true
+      "namedOrigin": true,
+      "protectedByNamedLine": false,
+      "excludedFromBook": true
     },
     {
       "nodeKey": "201838780c040000_20400030280000_white",
@@ -4866,7 +5037,9 @@
         "WTHOR-0058",
         "WTHOR-0059"
       ],
-      "namedOrigin": true
+      "namedOrigin": true,
+      "protectedByNamedLine": false,
+      "excludedFromBook": true
     },
     {
       "nodeKey": "20183838cc840000_20c04030280000_white",
@@ -4877,7 +5050,9 @@
       "names": [
         "コンポス･F.A.T型"
       ],
-      "namedOrigin": true
+      "namedOrigin": true,
+      "protectedByNamedLine": true,
+      "excludedFromBook": false
     },
     {
       "nodeKey": "20203e2e0c040000_101cc05030280000_black",
@@ -4888,7 +5063,9 @@
       "names": [
         "シャープコンポス"
       ],
-      "namedOrigin": true
+      "namedOrigin": true,
+      "protectedByNamedLine": true,
+      "excludedFromBook": false
     },
     {
       "nodeKey": "10181c1c0c040000_20e06030280000_black",
@@ -4899,7 +5076,9 @@
       "names": [
         "フラットコンポス"
       ],
-      "namedOrigin": true
+      "namedOrigin": true,
+      "protectedByNamedLine": true,
+      "excludedFromBook": false
     },
     {
       "nodeKey": "20001c040000_87820080000_black",
@@ -4925,7 +5104,9 @@
         "WTHOR-0077",
         "WTHOR-0108"
       ],
-      "namedOrigin": true
+      "namedOrigin": true,
+      "protectedByNamedLine": false,
+      "excludedFromBook": true
     },
     {
       "nodeKey": "20001c040000_87820080000_black",
@@ -4951,7 +5132,9 @@
         "WTHOR-0077",
         "WTHOR-0108"
       ],
-      "namedOrigin": true
+      "namedOrigin": true,
+      "protectedByNamedLine": false,
+      "excludedFromBook": true
     },
     {
       "nodeKey": "30181c040000_86020080000_white",
@@ -4971,7 +5154,9 @@
         "WTHOR-0077",
         "WTHOR-0108"
       ],
-      "namedOrigin": true
+      "namedOrigin": true,
+      "protectedByNamedLine": true,
+      "excludedFromBook": false
     },
     {
       "nodeKey": "203c3c0000_18385c00000000_black",
@@ -4986,7 +5171,9 @@
         "WTHOR-0076",
         "WTHOR-0108"
       ],
-      "namedOrigin": true
+      "namedOrigin": true,
+      "protectedByNamedLine": true,
+      "excludedFromBook": false
     },
     {
       "nodeKey": "2243c3c0000_18385800000000_white",
@@ -4998,7 +5185,9 @@
         "ノーカン最善2 15-b6型",
         "WTHOR-0076"
       ],
-      "namedOrigin": true
+      "namedOrigin": true,
+      "protectedByNamedLine": true,
+      "excludedFromBook": false
     },
     {
       "nodeKey": "30203e240000_85e00080000_white",
@@ -5009,7 +5198,9 @@
       "names": [
         "ノーカン10-c5型（縦取り殺され）"
       ],
-      "namedOrigin": true
+      "namedOrigin": true,
+      "protectedByNamedLine": true,
+      "excludedFromBook": false
     },
     {
       "nodeKey": "3c1c040000_80020080000_white",
@@ -5065,7 +5256,9 @@
         "WTHOR-0098",
         "WTHOR-0099"
       ],
-      "namedOrigin": true
+      "namedOrigin": true,
+      "protectedByNamedLine": true,
+      "excludedFromBook": false
     },
     {
       "nodeKey": "3800040000_8043e080000_black",
@@ -5082,7 +5275,9 @@
         "WTHOR-0033",
         "WTHOR-0099"
       ],
-      "namedOrigin": true
+      "namedOrigin": true,
+      "protectedByNamedLine": true,
+      "excludedFromBook": false
     },
     {
       "nodeKey": "3220240000_c0c1e080000_white",
@@ -5094,7 +5289,9 @@
         "バナナ定石9-b5変化型",
         "WTHOR-0032"
       ],
-      "namedOrigin": true
+      "namedOrigin": true,
+      "protectedByNamedLine": true,
+      "excludedFromBook": false
     },
     {
       "nodeKey": "3c1c0c0400_80020020000_white",
@@ -5136,7 +5333,9 @@
         "WTHOR-0096",
         "WTHOR-0097"
       ],
-      "namedOrigin": true
+      "namedOrigin": true,
+      "protectedByNamedLine": false,
+      "excludedFromBook": true
     },
     {
       "nodeKey": "3c1c080c00_80020160000_white",
@@ -5160,7 +5359,9 @@
         "WTHOR-0018",
         "WTHOR-0094"
       ],
-      "namedOrigin": true
+      "namedOrigin": true,
+      "protectedByNamedLine": false,
+      "excludedFromBook": true
     },
     {
       "nodeKey": "3818080c00_c0424160000_black",
@@ -5182,7 +5383,9 @@
         "WTHOR-0018",
         "WTHOR-0094"
       ],
-      "namedOrigin": true
+      "namedOrigin": true,
+      "protectedByNamedLine": false,
+      "excludedFromBook": true
     },
     {
       "nodeKey": "381c0c0c00_c0422130000_black",
@@ -5197,7 +5400,9 @@
         "WTHOR-0015",
         "WTHOR-0094"
       ],
-      "namedOrigin": true
+      "namedOrigin": true,
+      "protectedByNamedLine": true,
+      "excludedFromBook": false
     },
     {
       "nodeKey": "38000c0400_8043e020000_black",
@@ -5217,7 +5422,9 @@
         "WTHOR-0095",
         "WTHOR-0096"
       ],
-      "namedOrigin": true
+      "namedOrigin": true,
+      "protectedByNamedLine": true,
+      "excludedFromBook": false
     },
     {
       "nodeKey": "38101c0400_8042e020000_white",
@@ -5235,7 +5442,9 @@
         "WTHOR-0095",
         "WTHOR-0096"
       ],
-      "namedOrigin": true
+      "namedOrigin": true,
+      "protectedByNamedLine": false,
+      "excludedFromBook": true
     },
     {
       "nodeKey": "34180c0400_180824020000_black",
@@ -5250,7 +5459,9 @@
         "WTHOR-0025",
         "WTHOR-0097"
       ],
-      "namedOrigin": true
+      "namedOrigin": true,
+      "protectedByNamedLine": true,
+      "excludedFromBook": false
     },
     {
       "nodeKey": "203030200000_808080e0000_black",
@@ -5263,7 +5474,9 @@
         "竜巻定石9-c7型",
         "WTHOR-0085"
       ],
-      "namedOrigin": true
+      "namedOrigin": true,
+      "protectedByNamedLine": true,
+      "excludedFromBook": false
     },
     {
       "nodeKey": "42800040000_81038080000_black",
@@ -5275,7 +5488,9 @@
         "海老定石",
         "WTHOR-0081"
       ],
-      "namedOrigin": true
+      "namedOrigin": true,
+      "protectedByNamedLine": true,
+      "excludedFromBook": false
     },
     {
       "nodeKey": "2c0c100000_81030080000_white",
@@ -5291,7 +5506,9 @@
         "WTHOR-0112",
         "WTHOR-0113"
       ],
-      "namedOrigin": true
+      "namedOrigin": true,
+      "protectedByNamedLine": false,
+      "excludedFromBook": true
     },
     {
       "nodeKey": "103418100000_c0820000000_white",
@@ -5308,7 +5525,9 @@
         "WTHOR-0156",
         "WTHOR-0157"
       ],
-      "namedOrigin": true
+      "namedOrigin": true,
+      "protectedByNamedLine": true,
+      "excludedFromBook": false
     },
     {
       "nodeKey": "3418100000_201c0820000000_black",
@@ -5321,7 +5540,9 @@
         "WTHOR-0156",
         "WTHOR-0157"
       ],
-      "namedOrigin": true
+      "namedOrigin": true,
+      "protectedByNamedLine": false,
+      "excludedFromBook": true
     },
     {
       "nodeKey": "103418180000_c0820200000_white",
@@ -5335,7 +5556,9 @@
         "WTHOR-0137",
         "WTHOR-0153"
       ],
-      "namedOrigin": true
+      "namedOrigin": true,
+      "protectedByNamedLine": false,
+      "excludedFromBook": true
     },
     {
       "nodeKey": "7c38180000_fc80c0e00000_black",
@@ -5346,7 +5569,9 @@
       "names": [
         "Ralle定石"
       ],
-      "namedOrigin": true
+      "namedOrigin": true,
+      "protectedByNamedLine": true,
+      "excludedFromBook": false
     },
     {
       "nodeKey": "81c100000_10303420000000_black",
@@ -5367,7 +5592,9 @@
         "WTHOR-0190",
         "WTHOR-0191"
       ],
-      "namedOrigin": true
+      "namedOrigin": true,
+      "protectedByNamedLine": true,
+      "excludedFromBook": false
     },
     {
       "nodeKey": "40c1c100000_10303020000000_white",
@@ -5384,7 +5611,9 @@
         "WTHOR-0190",
         "WTHOR-0191"
       ],
-      "namedOrigin": true
+      "namedOrigin": true,
+      "protectedByNamedLine": false,
+      "excludedFromBook": true
     },
     {
       "nodeKey": "40c0c000000_10303030101000_black",
@@ -5400,7 +5629,9 @@
         "WTHOR-0190",
         "WTHOR-0191"
       ],
-      "namedOrigin": true
+      "namedOrigin": true,
+      "protectedByNamedLine": false,
+      "excludedFromBook": true
     },
     {
       "nodeKey": "40c1c200000_10303020101000_white",
@@ -5415,7 +5646,9 @@
         "WTHOR-0190",
         "WTHOR-0191"
       ],
-      "namedOrigin": true
+      "namedOrigin": true,
+      "protectedByNamedLine": true,
+      "excludedFromBook": false
     },
     {
       "nodeKey": "40c1c000000_10303020303000_black",
@@ -5428,7 +5661,9 @@
         "WTHOR-0188",
         "WTHOR-0189"
       ],
-      "namedOrigin": true
+      "namedOrigin": true,
+      "protectedByNamedLine": false,
+      "excludedFromBook": true
     },
     {
       "nodeKey": "1030303010100000_cce8000000_white",
@@ -5439,7 +5674,9 @@
       "names": [
         "裏ヨット定石"
       ],
-      "namedOrigin": true
+      "namedOrigin": true,
+      "protectedByNamedLine": true,
+      "excludedFromBook": false
     },
     {
       "nodeKey": "10100000_383828000000_black",
@@ -5460,7 +5697,9 @@
         "WTHOR-0210",
         "WTHOR-0211"
       ],
-      "namedOrigin": true
+      "namedOrigin": true,
+      "protectedByNamedLine": false,
+      "excludedFromBook": true
     },
     {
       "nodeKey": "10100000_383828000000_black",
@@ -5481,7 +5720,9 @@
         "WTHOR-0210",
         "WTHOR-0211"
       ],
-      "namedOrigin": true
+      "namedOrigin": true,
+      "protectedByNamedLine": false,
+      "excludedFromBook": true
     },
     {
       "nodeKey": "700000000000_3c38000000_black",
@@ -5499,7 +5740,9 @@
         "WTHOR-0243",
         "WTHOR-0244"
       ],
-      "namedOrigin": true
+      "namedOrigin": true,
+      "protectedByNamedLine": true,
+      "excludedFromBook": false
     },
     {
       "nodeKey": "702020200000_1c18000000_white",
@@ -5511,7 +5754,9 @@
         "砂蛇・基本形",
         "WTHOR-0240"
       ],
-      "namedOrigin": true
+      "namedOrigin": true,
+      "protectedByNamedLine": false,
+      "excludedFromBook": true
     },
     {
       "nodeKey": "10206000000000_181838000000_white",
@@ -5523,7 +5768,9 @@
         "白裏大量　8-g6型",
         "WTHOR-0218"
       ],
-      "namedOrigin": true
+      "namedOrigin": true,
+      "protectedByNamedLine": false,
+      "excludedFromBook": true
     },
     {
       "nodeKey": "403438300000_3c4800000000_white",
@@ -5534,7 +5781,9 @@
       "names": [
         "Shaman11-g6型"
       ],
-      "namedOrigin": true
+      "namedOrigin": true,
+      "protectedByNamedLine": true,
+      "excludedFromBook": false
     },
     {
       "nodeKey": "18581c28300000_246050080000_white",
@@ -5545,7 +5794,9 @@
       "names": [
         "Shaman11-g6型"
       ],
-      "namedOrigin": true
+      "namedOrigin": true,
+      "protectedByNamedLine": true,
+      "excludedFromBook": false
     },
     {
       "nodeKey": "20307c040000_80800280000_white",
@@ -5557,7 +5808,9 @@
         "WTHOR-0042",
         "WTHOR-0043"
       ],
-      "namedOrigin": false
+      "namedOrigin": false,
+      "protectedByNamedLine": false,
+      "excludedFromBook": true
     },
     {
       "nodeKey": "818580c040000_30602030280000_black",
@@ -5569,7 +5822,9 @@
         "WTHOR-0053",
         "WTHOR-0105"
       ],
-      "namedOrigin": false
+      "namedOrigin": false,
+      "protectedByNamedLine": false,
+      "excludedFromBook": true
     },
     {
       "nodeKey": "60e07c0c0000_81c00301000_white",
@@ -5581,7 +5836,9 @@
         "WTHOR-0069",
         "WTHOR-0070"
       ],
-      "namedOrigin": false
+      "namedOrigin": false,
+      "protectedByNamedLine": false,
+      "excludedFromBook": true
     },
     {
       "nodeKey": "30207c240000_85c00180000_white",
@@ -5592,7 +5849,9 @@
       "names": [
         "WTHOR-0072"
       ],
-      "namedOrigin": false
+      "namedOrigin": false,
+      "protectedByNamedLine": false,
+      "excludedFromBook": true
     },
     {
       "nodeKey": "80c0203000000_7c1c1c2000_black",
@@ -5603,7 +5862,9 @@
       "names": [
         "WTHOR-0122"
       ],
-      "namedOrigin": false
+      "namedOrigin": false,
+      "protectedByNamedLine": false,
+      "excludedFromBook": true
     },
     {
       "nodeKey": "203c08080000_80030100000_white",
@@ -5614,7 +5875,9 @@
       "names": [
         "WTHOR-0129"
       ],
-      "namedOrigin": false
+      "namedOrigin": false,
+      "protectedByNamedLine": false,
+      "excludedFromBook": true
     },
     {
       "nodeKey": "10100c1c180000_c2c3020000000_white",
@@ -5626,7 +5889,9 @@
         "WTHOR-0150",
         "WTHOR-0151"
       ],
-      "namedOrigin": false
+      "namedOrigin": false,
+      "protectedByNamedLine": false,
+      "excludedFromBook": true
     },
     {
       "nodeKey": "10080c100000_203430080000_black",
@@ -5638,7 +5903,9 @@
         "WTHOR-0176",
         "WTHOR-0177"
       ],
-      "namedOrigin": false
+      "namedOrigin": false,
+      "protectedByNamedLine": false,
+      "excludedFromBook": true
     },
     {
       "nodeKey": "81c100000_383420000000_black",
@@ -5652,7 +5919,9 @@
         "WTHOR-0180",
         "WTHOR-0181"
       ],
-      "namedOrigin": false
+      "namedOrigin": false,
+      "protectedByNamedLine": false,
+      "excludedFromBook": true
     },
     {
       "nodeKey": "4800100000_10303038200000_black",
@@ -5666,7 +5935,9 @@
         "WTHOR-0224",
         "WTHOR-0225"
       ],
-      "namedOrigin": false
+      "namedOrigin": false,
+      "protectedByNamedLine": false,
+      "excludedFromBook": true
     },
     {
       "nodeKey": "4820100000_10703018000000_black",
@@ -5681,7 +5952,9 @@
         "WTHOR-0229",
         "WTHOR-0230"
       ],
-      "namedOrigin": false
+      "namedOrigin": false,
+      "protectedByNamedLine": false,
+      "excludedFromBook": true
     },
     {
       "nodeKey": "85c28100000_10702014000000_white",
@@ -5693,7 +5966,9 @@
         "WTHOR-0228",
         "WTHOR-0229"
       ],
-      "namedOrigin": false
+      "namedOrigin": false,
+      "protectedByNamedLine": false,
+      "excludedFromBook": true
     }
   ]
 }

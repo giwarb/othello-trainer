@@ -3,8 +3,11 @@
 // (ステージ1、`generateOpeningBookEvalInput.ts`)+
 // `bookgen/opening-book-eval-checkpoint.json`(ステージ2、
 // `bench/edax-compare/eval_opening_book.py`のEdax level16評価結果)から、
-// 悪手(ロス2石以上)を除外し、頻度比例で重み付けした対局専用の拡張定石ブックを
-// `app/public/opening-book.json` に、除外手の警告レポートを
+// 悪手(ロス2石以上)のうち自動抽出(WTHOR)ラインのみに乗る手を除外し
+// (命名済みライン(`bookgen/joseki-research.json`由来112ライン)の実際の手順に
+// 含まれる手はlossに関わらず除外しない、v2、2026-07-20仕様更新)、頻度比例で
+// 重み付けした対局専用の拡張定石ブックを `app/public/opening-book.json` に、
+// 高loss手(除外されたか保護され生存したかを問わない)の警告レポートを
 // `bookgen/opening-book-warnings.json` に書き出す。
 //
 // 実行: `npm run openingBook:build`(`app/package.json`参照、ステージ1・2が
@@ -20,7 +23,12 @@ import { readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { buildJosekiDb, serializeJosekiDb } from './buildDb.ts'
-import { buildOpeningBookDb, type ExcludedBookMove } from './buildOpeningBook.ts'
+import {
+  buildOpeningBookDb,
+  checkNamedLineSurvival,
+  collectNamedLineMoveKeys,
+  type HighLossBookMove,
+} from './buildOpeningBook.ts'
 import { collectMoveEvalRequests, type MoveEvalRequest } from './openingBookPositions.ts'
 import type { RawJosekiFile } from './types.ts'
 
@@ -98,12 +106,37 @@ const positionResults = new Map<string, number>(
   positions.map((p) => [p.key, checkpoint.results[p.key].discDiff]),
 )
 
-const { db: openingBookDb, excluded } = buildOpeningBookDb(db, requests, positionResults, LOSS_THRESHOLD)
+// v2: 命名済みライン(joseki-research.json由来)の実際の手順に含まれる(ノード,着手)は
+// lossに関わらず除外しない。
+const protectedMoveKeys = collectNamedLineMoveKeys(research.lines)
+
+const { db: openingBookDb, flagged } = buildOpeningBookDb(
+  db,
+  requests,
+  positionResults,
+  LOSS_THRESHOLD,
+  protectedMoveKeys,
+)
 
 writeFileSync(outputBookPath, `${JSON.stringify(serializeJosekiDb(openingBookDb), null, 2)}\n`, 'utf-8')
 
-const namedExcluded = excluded.filter((e) => e.namedOrigin)
-const sortedExcluded: readonly ExcludedBookMove[] = [...excluded].sort((a, b) => b.loss - a.loss)
+const excludedFromBook = flagged.filter((f) => f.excludedFromBook)
+const keptDespiteHighLoss = flagged.filter((f) => !f.excludedFromBook)
+const sortedFlagged: readonly HighLossBookMove[] = [...flagged].sort((a, b) => b.loss - a.loss)
+
+const namedLineSurvival = checkNamedLineSurvival(research.lines, openingBookDb)
+const fullySurvivedLines = namedLineSurvival.filter((r) => r.fullySurvived)
+const notFullySurvivedLines = namedLineSurvival.filter((r) => !r.fullySurvived)
+
+if (notFullySurvivedLines.length > 0) {
+  // v2のポリシー(命名済みラインの手は除外しない)が正しく機能していれば
+  // これは理論上発生しないはずだが、実装バグの検出のためビルドを失敗させる
+  // (2026-07-20のオーケストレーター指摘: 命名済み112/112ラインの全生存を保証する)。
+  throw new Error(
+    `${notFullySurvivedLines.length} named line(s) did not fully survive filtering: ` +
+      notFullySurvivedLines.map((r) => `${r.name} (${r.survivedMoves}/${r.totalMoves})`).join(', '),
+  )
+}
 
 interface OpeningBookWarningsReport {
   readonly $schemaNote: string
@@ -118,17 +151,25 @@ interface OpeningBookWarningsReport {
   readonly totalNodesBeforeFilter: number
   readonly totalNodesAfterFilter: number
   readonly prunedUnreachableNodes: number
-  readonly excludedMoveCount: number
-  readonly excludedNamedOriginCount: number
-  readonly excluded: readonly ExcludedBookMove[]
+  readonly flaggedMoveCount: number
+  readonly excludedFromBookCount: number
+  readonly keptDespiteHighLossCount: number
+  readonly namedLines: {
+    readonly total: number
+    readonly fullySurvived: number
+  }
+  readonly flagged: readonly HighLossBookMove[]
 }
 
 const warnings: OpeningBookWarningsReport = {
   $schemaNote:
-    'T151: 対局専用拡張ブック(app/public/opening-book.json)のビルド時に除外された' +
-    `bookMove一覧(その局面の全合法手中の最善値に対しロス${LOSS_THRESHOLD}石以上のもの)。` +
-    'namedOrigin=trueは、除外された手を含むノードが手作業の命名済み定石' +
-    '(bookgen/joseki-research.json由来)を1つ以上経由することを示す。',
+    'T151 v2(2026-07-20仕様更新): 対局専用拡張ブック(app/public/opening-book.json)のビルド時に' +
+    `loss(その局面の全合法手中の最善値との差)が${LOSS_THRESHOLD}石以上だったbookMove一覧。` +
+    'protectedByNamedLine=trueは、この(ノード,着手)が命名済みライン(bookgen/joseki-research.json由来' +
+    '112ライン)の実際の手順に含まれることを示し、その場合lossに関わらずexcludedFromBook=falseのまま' +
+    '(除外されず)opening-book.jsonに残る。excludedFromBook=trueは自動抽出(WTHOR)ラインのみに乗る手が' +
+    '実際に除外されたことを示す。namedOriginは「このノードに命名済みラインが合流している」ゆるい目印で、' +
+    'protectedByNamedLineほど厳密ではない(そのノードの別の手が命名済みラインの手、という場合もtrueになる)。',
   generatedAt: new Date().toISOString(),
   lossThreshold: LOSS_THRESHOLD,
   edaxMeta: {
@@ -140,15 +181,22 @@ const warnings: OpeningBookWarningsReport = {
   totalNodesBeforeFilter: db.nodes.size,
   totalNodesAfterFilter: openingBookDb.nodes.size,
   prunedUnreachableNodes: db.nodes.size - openingBookDb.nodes.size,
-  excludedMoveCount: excluded.length,
-  excludedNamedOriginCount: namedExcluded.length,
-  excluded: sortedExcluded,
+  flaggedMoveCount: flagged.length,
+  excludedFromBookCount: excludedFromBook.length,
+  keptDespiteHighLossCount: keptDespiteHighLoss.length,
+  namedLines: {
+    total: namedLineSurvival.length,
+    fullySurvived: fullySurvivedLines.length,
+  },
+  flagged: sortedFlagged,
 }
 
 writeFileSync(outputWarningsPath, `${JSON.stringify(warnings, null, 2)}\n`, 'utf-8')
 
 console.log(
   `[openingBook:build] ${db.nodes.size} nodes -> ${openingBookDb.nodes.size} nodes after filter+prune ` +
-    `(pruned ${db.nodes.size - openingBookDb.nodes.size}), excluded ${excluded.length} bookMoves ` +
-    `(${namedExcluded.length} from named lines) -> ${outputBookPath}, ${outputWarningsPath}`,
+    `(pruned ${db.nodes.size - openingBookDb.nodes.size}), flagged ${flagged.length} high-loss bookMoves ` +
+    `(excluded ${excludedFromBook.length}, kept despite high loss ${keptDespiteHighLoss.length}), ` +
+    `named lines fully survived ${fullySurvivedLines.length}/${namedLineSurvival.length} ` +
+    `-> ${outputBookPath}, ${outputWarningsPath}`,
 )

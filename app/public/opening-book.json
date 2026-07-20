@@ -766,21 +766,27 @@
       "bookMoves": [
         {
           "move": 18,
-          "weight": 0.592901222436225,
+          "weight": 0.586332892793283,
           "eval": 0,
           "frequencyCount": 15084
         },
         {
           "move": 26,
-          "weight": 0.16567744978577886,
+          "weight": 0.16384202752079607,
           "eval": 0,
           "frequencyCount": 4215
         },
         {
           "move": 34,
-          "weight": 0.24142132777799616,
+          "weight": 0.2387467931275752,
           "eval": 0,
           "frequencyCount": 6142
+        },
+        {
+          "move": 42,
+          "weight": 0.011078286558345642,
+          "eval": -4,
+          "frequencyCount": 285
         }
       ],
       "nonBookEval": null,
@@ -1032,9 +1038,21 @@
       "bookMoves": [
         {
           "move": 19,
-          "weight": 1,
+          "weight": 0.9268933019185459,
           "eval": 1,
           "frequencyCount": 13769
+        },
+        {
+          "move": 29,
+          "weight": 0.0571524739145069,
+          "eval": -2,
+          "frequencyCount": 849
+        },
+        {
+          "move": 38,
+          "weight": 0.015954224166947157,
+          "eval": -2,
+          "frequencyCount": 237
         }
       ],
       "nonBookEval": null,
@@ -1177,9 +1195,21 @@
       "bookMoves": [
         {
           "move": 26,
-          "weight": 1,
+          "weight": 0.9838768247512528,
           "eval": 1,
           "frequencyCount": 13547
+        },
+        {
+          "move": 34,
+          "weight": 0.007262691553489724,
+          "eval": -4,
+          "frequencyCount": 100
+        },
+        {
+          "move": 42,
+          "weight": 0.008860483695257462,
+          "eval": -4,
+          "frequencyCount": 122
         }
       ],
       "nonBookEval": null,
@@ -1306,9 +1336,21 @@
       "bookMoves": [
         {
           "move": 29,
-          "weight": 1,
+          "weight": 0.971018276762402,
           "eval": 0,
           "frequencyCount": 14876
+        },
+        {
+          "move": 17,
+          "weight": 0.013446475195822455,
+          "eval": -2,
+          "frequencyCount": 206
+        },
+        {
+          "move": 33,
+          "weight": 0.015535248041775456,
+          "eval": -2,
+          "frequencyCount": 238
         }
       ],
       "nonBookEval": null,
@@ -1511,8 +1553,20 @@
     "3014000000_80808080000_black": {
       "bookMoves": [
         {
+          "move": 34,
+          "weight": 0.23116615067079463,
+          "eval": -2,
+          "frequencyCount": 672
+        },
+        {
+          "move": 44,
+          "weight": 0.09219126246990024,
+          "eval": -2,
+          "frequencyCount": 268
+        },
+        {
           "move": 18,
-          "weight": 1,
+          "weight": 0.6766425868593051,
           "eval": 1,
           "frequencyCount": 1967
         }
@@ -1552,13 +1606,60 @@
       ],
       "isLeaf": false
     },
+    "3c14000000_80008080000_white": {
+      "bookMoves": [
+        {
+          "move": 29,
+          "weight": 1,
+          "eval": 3,
+          "frequencyCount": 534
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "猫",
+        "猫定石・基本形",
+        "猫定石・最善型",
+        "猫定石・坂口流",
+        "WTHOR-0109",
+        "WTHOR-0110",
+        "WTHOR-0111",
+        "WTHOR-0112",
+        "WTHOR-0113"
+      ],
+      "isLeaf": true
+    },
+    "103814000000_80008080000_white": {
+      "bookMoves": [
+        {
+          "move": 29,
+          "weight": 1,
+          "eval": 3,
+          "frequencyCount": 268
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "羊",
+        "羊定石・基本形",
+        "WTHOR-0114",
+        "WTHOR-0115"
+      ],
+      "isLeaf": true
+    },
     "1c000000_87800000000_black": {
       "bookMoves": [
         {
           "move": 42,
-          "weight": 1,
+          "weight": 0.5620689655172414,
           "eval": 1,
           "frequencyCount": 489
+        },
+        {
+          "move": 45,
+          "weight": 0.4379310344827586,
+          "eval": -1,
+          "frequencyCount": 381
         }
       ],
       "nonBookEval": null,
@@ -1573,6 +1674,48 @@
         "WTHOR-0123",
         "WTHOR-0124",
         "WTHOR-0125"
+      ],
+      "isLeaf": true
+    },
+    "2018040000_81820000000_black": {
+      "bookMoves": [
+        {
+          "move": 45,
+          "weight": 1,
+          "eval": 2,
+          "frequencyCount": 668
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "虎D",
+        "龍定石",
+        "風神定石9-c5型",
+        "竜巻定石9-c7型",
+        "WTHOR-0084",
+        "WTHOR-0085",
+        "WTHOR-0086",
+        "WTHOR-0087",
+        "WTHOR-0088",
+        "WTHOR-0089"
+      ],
+      "isLeaf": true
+    },
+    "18040000_87800000000_black": {
+      "bookMoves": [
+        {
+          "move": 42,
+          "weight": 1,
+          "eval": 3,
+          "frequencyCount": 237
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "虎E",
+        "ミサイル定石",
+        "WTHOR-0090",
+        "WTHOR-0091"
       ],
       "isLeaf": true
     },
@@ -1651,9 +1794,21 @@
       "bookMoves": [
         {
           "move": 20,
-          "weight": 1,
+          "weight": 0.8415235504165958,
           "eval": 0,
           "frequencyCount": 4949
+        },
+        {
+          "move": 19,
+          "weight": 0.1348410134330896,
+          "eval": -2,
+          "frequencyCount": 793
+        },
+        {
+          "move": 51,
+          "weight": 0.023635436150314573,
+          "eval": -6,
+          "frequencyCount": 139
         }
       ],
       "nonBookEval": null,
@@ -1721,9 +1876,21 @@
       "bookMoves": [
         {
           "move": 42,
-          "weight": 1,
+          "weight": 0.9459179444674679,
           "eval": 2,
           "frequencyCount": 4565
+        },
+        {
+          "move": 19,
+          "weight": 0.027973476999585578,
+          "eval": -4,
+          "frequencyCount": 135
+        },
+        {
+          "move": 45,
+          "weight": 0.026108578532946538,
+          "eval": -5,
+          "frequencyCount": 126
         }
       ],
       "nonBookEval": null,
@@ -1774,6 +1941,53 @@
         "WTHOR-0157",
         "WTHOR-0158",
         "WTHOR-0159"
+      ],
+      "isLeaf": true
+    },
+    "2c18080000_81020000000_white": {
+      "bookMoves": [
+        {
+          "move": 20,
+          "weight": 0.694829760403531,
+          "eval": 3,
+          "frequencyCount": 551
+        },
+        {
+          "move": 26,
+          "weight": 0.3051702395964691,
+          "eval": 2,
+          "frequencyCount": 242
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "馬",
+        "WTHOR-0126",
+        "WTHOR-0127",
+        "WTHOR-0128",
+        "WTHOR-0129",
+        "WTHOR-0130",
+        "WTHOR-0131"
+      ],
+      "isLeaf": true
+    },
+    "43810000000_80008000000_white": {
+      "bookMoves": [
+        {
+          "move": 29,
+          "weight": 1,
+          "eval": 4,
+          "frequencyCount": 285
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "野兎",
+        "野ウサギ定石・基本形",
+        "野ウサギ定石・白6手目g5型",
+        "野ウサギ定石・白6手目c5対応",
+        "WTHOR-0163",
+        "WTHOR-0164"
       ],
       "isLeaf": true
     },
@@ -2036,21 +2250,56 @@
       "bookMoves": [
         {
           "move": 20,
-          "weight": 0.5474178403755868,
+          "weight": 0.1111111111111111,
           "eval": 1,
           "frequencyCount": 5830
         },
         {
+          "move": 19,
+          "weight": 0.1111111111111111,
+          "eval": -4,
+          "frequencyCount": 106
+        },
+        {
+          "move": 21,
+          "weight": 0.1111111111111111,
+          "eval": -1,
+          "frequencyCount": 138
+        },
+        {
+          "move": 18,
+          "weight": 0.1111111111111111,
+          "eval": -1,
+          "frequencyCount": 855
+        },
+        {
           "move": 38,
-          "weight": 0.3290140845070422,
+          "weight": 0.1111111111111111,
           "eval": 1,
           "frequencyCount": 3504
         },
         {
           "move": 46,
-          "weight": 0.12356807511737089,
+          "weight": 0.1111111111111111,
           "eval": 0,
           "frequencyCount": 1316
+        },
+        {
+          "move": 30,
+          "weight": 0.1111111111111111,
+          "eval": -4,
+          "frequencyCount": 102
+        },
+        {
+          "move": 22,
+          "weight": 0.1111111111111111,
+          "eval": -2,
+          "frequencyCount": 128
+        },
+        {
+          "move": 54,
+          "weight": 0.1111111111111111,
+          "eval": -19
         }
       ],
       "nonBookEval": null,
@@ -2236,6 +2485,80 @@
       ],
       "isLeaf": true
     },
+    "101808080000_202030000000_white": {
+      "bookMoves": [
+        {
+          "move": 43,
+          "weight": 1,
+          "eval": 5,
+          "frequencyCount": 106
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "牛A",
+        "WTHOR-0173"
+      ],
+      "isLeaf": true
+    },
+    "101810200000_202028000000_white": {
+      "bookMoves": [
+        {
+          "move": 34,
+          "weight": 1,
+          "eval": 4,
+          "frequencyCount": 138
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "牛B",
+        "WTHOR-0213"
+      ],
+      "isLeaf": true
+    },
+    "101808040000_202030000000_white": {
+      "bookMoves": [
+        {
+          "move": 51,
+          "weight": 0.24912280701754386,
+          "eval": 2,
+          "frequencyCount": 213
+        },
+        {
+          "move": 43,
+          "weight": 0.28538011695906434,
+          "eval": 1,
+          "frequencyCount": 244
+        },
+        {
+          "move": 26,
+          "weight": 0.24912280701754386,
+          "eval": 0,
+          "frequencyCount": 213
+        },
+        {
+          "move": 52,
+          "weight": 0.21637426900584794,
+          "eval": 1,
+          "frequencyCount": 185
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "バッファロー",
+        "丸岡バッファロー・基本形",
+        "谷田バッファロー・基本形",
+        "北陸バッファロー・基本形",
+        "e7バッファロー・基本形",
+        "WTHOR-0168",
+        "WTHOR-0169",
+        "WTHOR-0170",
+        "WTHOR-0171",
+        "WTHOR-0172"
+      ],
+      "isLeaf": true
+    },
     "107800000000_200038000000_white": {
       "bookMoves": [
         {
@@ -2334,6 +2657,47 @@
       ],
       "isLeaf": true
     },
+    "103840000000_200038000000_white": {
+      "bookMoves": [
+        {
+          "move": 52,
+          "weight": 1,
+          "eval": 3,
+          "frequencyCount": 102
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "狸",
+        "狸定石・最善型",
+        "WTHOR-0215"
+      ],
+      "isLeaf": true
+    },
+    "101820400000_202018000000_white": {
+      "bookMoves": [
+        {
+          "move": 43,
+          "weight": 1,
+          "eval": 3,
+          "frequencyCount": 128
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "闘牛C",
+        "WTHOR-0214"
+      ],
+      "isLeaf": true
+    },
+    "40301800000000_2038000000_white": {
+      "bookMoves": [],
+      "nonBookEval": null,
+      "names": [
+        "暴走牛"
+      ],
+      "isLeaf": true
+    },
     "3800000000_38000000_black": {
       "bookMoves": [
         {
@@ -2354,13 +2718,311 @@
       ],
       "isLeaf": true
     },
-    "2408100000_c1830000000_black": {
+    "42800000000_81038000000_black": {
+      "bookMoves": [
+        {
+          "move": 44,
+          "weight": 1,
+          "eval": -4,
+          "frequencyCount": 285
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "野ウサギ定石・基本形",
+        "野ウサギ定石・白6手目g5型",
+        "野ウサギ定石・白6手目c5対応",
+        "WTHOR-0163",
+        "WTHOR-0164"
+      ],
+      "isLeaf": false
+    },
+    "1c2800000000_1038000000_white": {
+      "bookMoves": [
+        {
+          "move": 38,
+          "weight": 0.5087719298245614,
+          "eval": 3,
+          "frequencyCount": 145
+        },
+        {
+          "move": 34,
+          "weight": 0.49122807017543857,
+          "eval": 3,
+          "frequencyCount": 140
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "野ウサギ定石・基本形",
+        "野ウサギ定石・白6手目g5型",
+        "野ウサギ定石・白6手目c5対応",
+        "WTHOR-0163",
+        "WTHOR-0164"
+      ],
+      "isLeaf": true
+    },
+    "1c0800000000_7038000000_black": {
       "bookMoves": [
         {
           "move": 19,
           "weight": 1,
+          "eval": -3
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "野ウサギ定石・白6手目g5型",
+        "WTHOR-0164"
+      ],
+      "isLeaf": true
+    },
+    "1c0808080000_7030000000_white": {
+      "bookMoves": [
+        {
+          "move": 26,
+          "weight": 1,
+          "eval": 4
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "野ウサギ定石・白6手目g5型"
+      ],
+      "isLeaf": false
+    },
+    "1c0800080000_703c000000_black": {
+      "bookMoves": [
+        {
+          "move": 20,
+          "weight": 1,
+          "eval": -3
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "野ウサギ定石・白6手目g5型"
+      ],
+      "isLeaf": false
+    },
+    "1c1810180000_602c000000_white": {
+      "bookMoves": [
+        {
+          "move": 34,
+          "weight": 1,
+          "eval": 5
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "野ウサギ定石・白6手目g5型"
+      ],
+      "isLeaf": false
+    },
+    "1c0010180000_7c2c000000_black": {
+      "bookMoves": [
+        {
+          "move": 17,
+          "weight": 1,
+          "eval": -3
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "野ウサギ定石・白6手目g5型"
+      ],
+      "isLeaf": false
+    },
+    "1c08141a0000_7428000000_white": {
+      "bookMoves": [
+        {
+          "move": 25,
+          "weight": 1,
+          "eval": 4
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "野ウサギ定石・白6手目g5型"
+      ],
+      "isLeaf": false
+    },
+    "1c08101a0000_742e000000_black": {
+      "bookMoves": [
+        {
+          "move": 18,
+          "weight": 1,
+          "eval": -3
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "野ウサギ定石・白6手目g5型"
+      ],
+      "isLeaf": false
+    },
+    "1c0c141e0000_702a000000_white": {
+      "bookMoves": [
+        {
+          "move": 33,
+          "weight": 1,
+          "eval": 4
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "野ウサギ定石・白6手目g5型"
+      ],
+      "isLeaf": false
+    },
+    "1c00141e0000_7e2a000000_black": {
+      "bookMoves": [],
+      "nonBookEval": null,
+      "names": [
+        "野ウサギ定石・白6手目g5型"
+      ],
+      "isLeaf": true
+    },
+    "1c2000000000_1c38000000_black": {
+      "bookMoves": [
+        {
+          "move": 25,
+          "weight": 1,
+          "eval": -2
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "野ウサギ定石・白6手目c5対応",
+        "WTHOR-0163"
+      ],
+      "isLeaf": true
+    },
+    "1c2402000000_1838000000_white": {
+      "bookMoves": [
+        {
+          "move": 33,
+          "weight": 1,
+          "eval": 3
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "野ウサギ定石・白6手目c5対応"
+      ],
+      "isLeaf": false
+    },
+    "1c2002000000_1e38000000_black": {
+      "bookMoves": [
+        {
+          "move": 26,
+          "weight": 1,
+          "eval": -2
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "野ウサギ定石・白6手目c5対応"
+      ],
+      "isLeaf": false
+    },
+    "1c2c06000000_1238000000_white": {
+      "bookMoves": [
+        {
+          "move": 41,
+          "weight": 1,
+          "eval": 2
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "野ウサギ定石・白6手目c5対応"
+      ],
+      "isLeaf": false
+    },
+    "1c2806000000_21638000000_black": {
+      "bookMoves": [
+        {
+          "move": 32,
+          "weight": 1,
+          "eval": -2
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "野ウサギ定石・白6手目c5対応"
+      ],
+      "isLeaf": false
+    },
+    "1c2f06000000_21038000000_white": {
+      "bookMoves": [
+        {
+          "move": 51,
+          "weight": 1,
+          "eval": 3
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "野ウサギ定石・白6手目c5対応"
+      ],
+      "isLeaf": false
+    },
+    "142706000000_80a1838000000_black": {
+      "bookMoves": [
+        {
+          "move": 40,
+          "weight": 1,
+          "eval": -1
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "野ウサギ定石・白6手目c5対応"
+      ],
+      "isLeaf": false
+    },
+    "172706000000_8081838000000_white": {
+      "bookMoves": [
+        {
+          "move": 52,
+          "weight": 1,
+          "eval": 3
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "野ウサギ定石・白6手目c5対応"
+      ],
+      "isLeaf": false
+    },
+    "72706000000_18181838000000_black": {
+      "bookMoves": [],
+      "nonBookEval": null,
+      "names": [
+        "野ウサギ定石・白6手目c5対応"
+      ],
+      "isLeaf": true
+    },
+    "2408100000_c1830000000_black": {
+      "bookMoves": [
+        {
+          "move": 19,
+          "weight": 0.7690925426774483,
           "eval": -1,
           "frequencyCount": 3424
+        },
+        {
+          "move": 44,
+          "weight": 0.14982030548068284,
+          "eval": -3,
+          "frequencyCount": 667
+        },
+        {
+          "move": 21,
+          "weight": 0.08108715184186882,
+          "eval": -3,
+          "frequencyCount": 361
         }
       ],
       "nonBookEval": null,
@@ -2412,19 +3074,25 @@
       "bookMoves": [
         {
           "move": 45,
-          "weight": 0.7902469521725539,
+          "weight": 0.7383177570093458,
           "eval": 1,
           "frequencyCount": 2528
         },
         {
           "move": 38,
-          "weight": 0.08502657080337606,
+          "weight": 0.0794392523364486,
           "eval": 1,
           "frequencyCount": 272
         },
         {
+          "move": 12,
+          "weight": 0.0657126168224299,
+          "eval": -1,
+          "frequencyCount": 225
+        },
+        {
           "move": 21,
-          "weight": 0.12472647702407003,
+          "weight": 0.1165303738317757,
           "eval": 0,
           "frequencyCount": 399
         }
@@ -2660,13 +3328,19 @@
       "bookMoves": [
         {
           "move": 38,
-          "weight": 0.8097222222222222,
+          "weight": 0.7092457420924574,
           "eval": -1,
           "frequencyCount": 583
         },
         {
+          "move": 33,
+          "weight": 0.12408759124087591,
+          "eval": -3,
+          "frequencyCount": 102
+        },
+        {
           "move": 41,
-          "weight": 0.19027777777777777,
+          "weight": 0.16666666666666666,
           "eval": -2,
           "frequencyCount": 137
         }
@@ -3409,6 +4083,73 @@
       ],
       "isLeaf": true
     },
+    "1e3e580000_83c2000020000_white": {
+      "bookMoves": [
+        {
+          "move": 24,
+          "weight": 1,
+          "eval": 3,
+          "frequencyCount": 102
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "Sローズ・13-b4最善型",
+        "WTHOR-0140"
+      ],
+      "isLeaf": false
+    },
+    "1c3e580000_83c2201020000_black": {
+      "bookMoves": [
+        {
+          "move": 8,
+          "weight": 1,
+          "eval": -3
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "Sローズ・13-b4最善型",
+        "WTHOR-0140"
+      ],
+      "isLeaf": true
+    },
+    "1c3e5a0100_83c2201000000_white": {
+      "bookMoves": [
+        {
+          "move": 16,
+          "weight": 1,
+          "eval": 4
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "Sローズ・13-b4最善型"
+      ],
+      "isLeaf": false
+    },
+    "183c5a0100_83c2603010000_black": {
+      "bookMoves": [
+        {
+          "move": 32,
+          "weight": 1,
+          "eval": -2
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "Sローズ・13-b4最善型"
+      ],
+      "isLeaf": false
+    },
+    "1f3d5b0100_83c2002000000_white": {
+      "bookMoves": [],
+      "nonBookEval": null,
+      "names": [
+        "Sローズ・13-b4最善型"
+      ],
+      "isLeaf": true
+    },
     "2143a580000_83c2804020000_white": {
       "bookMoves": [
         {
@@ -3441,26 +4182,52 @@
       "isLeaf": true
     },
     "20636580000_83c3808060000_white": {
-      "bookMoves": [],
+      "bookMoves": [
+        {
+          "move": 30,
+          "weight": 1,
+          "eval": 0
+        }
+      ],
       "nonBookEval": null,
       "names": [
         "Sローズ・15-b6型"
       ],
       "isLeaf": false
     },
+    "20606580000_83c3878060000_black": {
+      "bookMoves": [],
+      "nonBookEval": null,
+      "names": [
+        "Sローズ・15-b6型"
+      ],
+      "isLeaf": true
+    },
     "201c040000_81820080000_black": {
       "bookMoves": [
         {
           "move": 45,
-          "weight": 0.5603037522334723,
+          "weight": 0.5059155687012638,
           "eval": 0,
           "frequencyCount": 7526
         },
         {
           "move": 34,
-          "weight": 0.4396962477665277,
+          "weight": 0.397015326700726,
           "eval": 0,
           "frequencyCount": 5906
+        },
+        {
+          "move": 44,
+          "weight": 0.0578112395805324,
+          "eval": -2,
+          "frequencyCount": 860
+        },
+        {
+          "move": 20,
+          "weight": 0.039257865017477814,
+          "eval": -3,
+          "frequencyCount": 584
         }
       ],
       "nonBookEval": null,
@@ -3591,9 +4358,21 @@
       "bookMoves": [
         {
           "move": 21,
-          "weight": 1,
+          "weight": 0.7290725484985384,
           "eval": 2,
           "frequencyCount": 5487
+        },
+        {
+          "move": 38,
+          "weight": 0.22309327664097794,
+          "eval": 0,
+          "frequencyCount": 1679
+        },
+        {
+          "move": 25,
+          "weight": 0.04783417486048366,
+          "eval": -2,
+          "frequencyCount": 360
         }
       ],
       "nonBookEval": null,
@@ -3663,9 +4442,15 @@
       "bookMoves": [
         {
           "move": 44,
-          "weight": 1,
+          "weight": 0.9745383867832847,
           "eval": 0,
           "frequencyCount": 5014
+        },
+        {
+          "move": 20,
+          "weight": 0.025461613216715258,
+          "eval": -2,
+          "frequencyCount": 131
         }
       ],
       "nonBookEval": null,
@@ -3908,9 +4693,15 @@
       "bookMoves": [
         {
           "move": 53,
-          "weight": 1,
+          "weight": 0.9038332212508406,
           "eval": 3,
           "frequencyCount": 1344
+        },
+        {
+          "move": 34,
+          "weight": 0.09616677874915938,
+          "eval": -1,
+          "frequencyCount": 143
         }
       ],
       "nonBookEval": null,
@@ -4011,12 +4802,111 @@
       "isLeaf": false
     },
     "20183838cc840000_20c04030280000_white": {
-      "bookMoves": [],
+      "bookMoves": [
+        {
+          "move": 39,
+          "weight": 1,
+          "eval": 1
+        }
+      ],
       "nonBookEval": null,
       "names": [
         "コンポス･F.A.T型"
       ],
       "isLeaf": false
+    },
+    "201838388c840000_20c0c070280000_black": {
+      "bookMoves": [
+        {
+          "move": 55,
+          "weight": 1,
+          "eval": -1
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "コンポス･F.A.T型"
+      ],
+      "isLeaf": false
+    },
+    "2098f8b88c840000_20004070280000_white": {
+      "bookMoves": [],
+      "nonBookEval": null,
+      "names": [
+        "コンポス･F.A.T型"
+      ],
+      "isLeaf": true
+    },
+    "201838000c040000_403c30280000_black": {
+      "bookMoves": [
+        {
+          "move": 42,
+          "weight": 1,
+          "eval": 1,
+          "frequencyCount": 143
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "コンポス14-c5変化型",
+        "WTHOR-0057"
+      ],
+      "isLeaf": false
+    },
+    "20183c040c040000_403830280000_white": {
+      "bookMoves": [
+        {
+          "move": 50,
+          "weight": 1,
+          "eval": 0,
+          "frequencyCount": 253
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "コンポス14-c5変化型",
+        "WTHOR-0050",
+        "WTHOR-0057"
+      ],
+      "isLeaf": false
+    },
+    "201834040c040000_4483830280000_black": {
+      "bookMoves": [
+        {
+          "move": 58,
+          "weight": 1,
+          "eval": 1
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "コンポス14-c5変化型",
+        "WTHOR-0050",
+        "WTHOR-0057"
+      ],
+      "isLeaf": true
+    },
+    "241c34040c040000_483830280000_white": {
+      "bookMoves": [
+        {
+          "move": 25,
+          "weight": 1,
+          "eval": 0
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "コンポス14-c5変化型"
+      ],
+      "isLeaf": false
+    },
+    "241c340000040000_483c3e280000_black": {
+      "bookMoves": [],
+      "nonBookEval": null,
+      "names": [
+        "コンポス14-c5変化型"
+      ],
+      "isLeaf": true
     },
     "81838080c040000_403030280000_white": {
       "bookMoves": [
@@ -4244,12 +5134,40 @@
       "isLeaf": false
     },
     "20203e2e0c040000_101cc05030280000_black": {
-      "bookMoves": [],
+      "bookMoves": [
+        {
+          "move": 31,
+          "weight": 1,
+          "eval": -1
+        }
+      ],
       "nonBookEval": null,
       "names": [
         "シャープコンポス"
       ],
       "isLeaf": false
+    },
+    "20203e6e8c040000_101cc01030280000_white": {
+      "bookMoves": [
+        {
+          "move": 25,
+          "weight": 1,
+          "eval": 3
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "シャープコンポス"
+      ],
+      "isLeaf": false
+    },
+    "2020366a80040000_101cc8143e280000_black": {
+      "bookMoves": [],
+      "nonBookEval": null,
+      "names": [
+        "シャープコンポス"
+      ],
+      "isLeaf": true
     },
     "83c7c0c040000_10400030280000_white": {
       "bookMoves": [
@@ -4297,20 +5215,626 @@
       "isLeaf": false
     },
     "10181c1c0c040000_20e06030280000_black": {
-      "bookMoves": [],
+      "bookMoves": [
+        {
+          "move": 31,
+          "weight": 1,
+          "eval": -3
+        }
+      ],
       "nonBookEval": null,
       "names": [
         "フラットコンポス"
       ],
       "isLeaf": false
     },
-    "3c1c040000_80020080000_white": {
+    "10183c5c8c040000_20c02030280000_white": {
+      "bookMoves": [
+        {
+          "move": 58,
+          "weight": 1,
+          "eval": 4
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "フラットコンポス"
+      ],
+      "isLeaf": false
+    },
+    "10102c5c8c040000_428d02030280000_black": {
+      "bookMoves": [
+        {
+          "move": 61,
+          "weight": 1,
+          "eval": -4
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "フラットコンポス"
+      ],
+      "isLeaf": false
+    },
+    "30302c5c8c040000_408d02030280000_white": {
+      "bookMoves": [
+        {
+          "move": 39,
+          "weight": 1,
+          "eval": 5
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "フラットコンポス"
+      ],
+      "isLeaf": false
+    },
+    "30302c1c8c040000_408d0e030280000_black": {
+      "bookMoves": [
+        {
+          "move": 55,
+          "weight": 1,
+          "eval": -5
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "フラットコンポス"
+      ],
+      "isLeaf": false
+    },
+    "30b0ac9c8c040000_408506030280000_white": {
+      "bookMoves": [],
+      "nonBookEval": null,
+      "names": [
+        "フラットコンポス"
+      ],
+      "isLeaf": true
+    },
+    "20001c040000_87820080000_black": {
+      "bookMoves": [
+        {
+          "move": 44,
+          "weight": 1,
+          "eval": 1,
+          "frequencyCount": 1067
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "ノーカン基本形",
+        "ノーカン最善1 15-h5型",
+        "ノーカン最善2 15-b6型",
+        "ノーカン10-c5型（縦取り殺され）",
+        "WTHOR-0067",
+        "WTHOR-0068",
+        "WTHOR-0069",
+        "WTHOR-0070",
+        "WTHOR-0071",
+        "WTHOR-0072",
+        "WTHOR-0073",
+        "WTHOR-0074",
+        "WTHOR-0075",
+        "WTHOR-0076",
+        "WTHOR-0077",
+        "WTHOR-0108"
+      ],
+      "isLeaf": true
+    },
+    "30181c040000_86020080000_white": {
+      "bookMoves": [
+        {
+          "move": 51,
+          "weight": 0.44329896907216493,
+          "eval": 0,
+          "frequencyCount": 473
+        },
+        {
+          "move": 34,
+          "weight": 0.37582005623242737,
+          "eval": -2,
+          "frequencyCount": 401
+        },
+        {
+          "move": 53,
+          "weight": 0.18088097469540768,
+          "eval": -1,
+          "frequencyCount": 193
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "ノーカン最善1 15-h5型",
+        "ノーカン最善2 15-b6型",
+        "ノーカン10-c5型（縦取り殺され）",
+        "WTHOR-0072",
+        "WTHOR-0073",
+        "WTHOR-0074",
+        "WTHOR-0075",
+        "WTHOR-0076",
+        "WTHOR-0077",
+        "WTHOR-0108"
+      ],
+      "isLeaf": false
+    },
+    "20181c040000_8186020080000_black": {
+      "bookMoves": [
+        {
+          "move": 20,
+          "weight": 1,
+          "eval": 1,
+          "frequencyCount": 473
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "ノーカン最善1 15-h5型",
+        "ノーカン最善2 15-b6型",
+        "WTHOR-0075",
+        "WTHOR-0076",
+        "WTHOR-0108"
+      ],
+      "isLeaf": false
+    },
+    "20181c1c0000_8186020000000_white": {
+      "bookMoves": [
+        {
+          "move": 34,
+          "weight": 1,
+          "eval": -1,
+          "frequencyCount": 473
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "ノーカン最善1 15-h5型",
+        "ノーカン最善2 15-b6型",
+        "WTHOR-0075",
+        "WTHOR-0076",
+        "WTHOR-0108"
+      ],
+      "isLeaf": false
+    },
+    "20001c1c0000_8187c20000000_black": {
+      "bookMoves": [
+        {
+          "move": 21,
+          "weight": 1,
+          "eval": 2,
+          "frequencyCount": 473
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "ノーカン最善1 15-h5型",
+        "ノーカン最善2 15-b6型",
+        "WTHOR-0075",
+        "WTHOR-0076",
+        "WTHOR-0108"
+      ],
+      "isLeaf": false
+    },
+    "20203c3c0000_8185c00000000_white": {
+      "bookMoves": [
+        {
+          "move": 52,
+          "weight": 1,
+          "eval": -1,
+          "frequencyCount": 473
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "ノーカン最善1 15-h5型",
+        "ノーカン最善2 15-b6型",
+        "WTHOR-0075",
+        "WTHOR-0076",
+        "WTHOR-0108"
+      ],
+      "isLeaf": false
+    },
+    "203c3c0000_18385c00000000_black": {
+      "bookMoves": [
+        {
+          "move": 39,
+          "weight": 0.6256830601092896,
+          "eval": 2,
+          "frequencyCount": 229
+        },
+        {
+          "move": 41,
+          "weight": 0.3743169398907104,
+          "eval": 0,
+          "frequencyCount": 137
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "ノーカン最善1 15-h5型",
+        "ノーカン最善2 15-b6型",
+        "WTHOR-0075",
+        "WTHOR-0076",
+        "WTHOR-0108"
+      ],
+      "isLeaf": true
+    },
+    "e03c3c0000_18381c00000000_white": {
+      "bookMoves": [
+        {
+          "move": 12,
+          "weight": 1,
+          "eval": 0,
+          "frequencyCount": 229
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "ノーカン最善1 15-h5型",
+        "WTHOR-0075"
+      ],
+      "isLeaf": false
+    },
+    "e02c2c0000_18381c10101000_black": {
+      "bookMoves": [
+        {
+          "move": 42,
+          "weight": 1,
+          "eval": 1
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "ノーカン最善1 15-h5型",
+        "WTHOR-0075"
+      ],
+      "isLeaf": true
+    },
+    "4ec3c2c0000_18381000101000_white": {
+      "bookMoves": [
+        {
+          "move": 11,
+          "weight": 1,
+          "eval": 0
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "ノーカン最善1 15-h5型"
+      ],
+      "isLeaf": false
+    },
+    "4e434240000_18381808181800_black": {
+      "bookMoves": [
+        {
+          "move": 10,
+          "weight": 1,
+          "eval": 1
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "ノーカン最善1 15-h5型"
+      ],
+      "isLeaf": false
+    },
+    "4e4342c0400_18381808101800_white": {
       "bookMoves": [
         {
           "move": 17,
           "weight": 1,
+          "eval": 1
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "ノーカン最善1 15-h5型"
+      ],
+      "isLeaf": false
+    },
+    "4e430200400_1838180c1e1800_black": {
+      "bookMoves": [
+        {
+          "move": 25,
+          "weight": 1,
+          "eval": 1
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "ノーカン最善1 15-h5型"
+      ],
+      "isLeaf": false
+    },
+    "4e43e200400_183818001e1800_white": {
+      "bookMoves": [
+        {
+          "move": 46,
+          "weight": 1,
+          "eval": 1
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "ノーカン最善1 15-h5型"
+      ],
+      "isLeaf": false
+    },
+    "4c42e200400_187838101e1800_black": {
+      "bookMoves": [
+        {
+          "move": 24,
+          "weight": 1,
+          "eval": 0
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "ノーカン最善1 15-h5型"
+      ],
+      "isLeaf": false
+    },
+    "4c42f220400_187838101c1800_white": {
+      "bookMoves": [],
+      "nonBookEval": null,
+      "names": [
+        "ノーカン最善1 15-h5型"
+      ],
+      "isLeaf": true
+    },
+    "2243c3c0000_18385800000000_white": {
+      "bookMoves": [
+        {
+          "move": 30,
+          "weight": 0.5,
+          "eval": 0
+        },
+        {
+          "move": 33,
+          "weight": 0.5,
+          "eval": 2,
+          "frequencyCount": 137
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "ノーカン最善2 15-b6型",
+        "WTHOR-0076"
+      ],
+      "isLeaf": false
+    },
+    "2043c3c0000_18387840000000_black": {
+      "bookMoves": [
+        {
+          "move": 42,
+          "weight": 1,
+          "eval": 2
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "ノーカン最善2 15-b6型"
+      ],
+      "isLeaf": false
+    },
+    "60c3c3c0000_18387040000000_white": {
+      "bookMoves": [
+        {
+          "move": 22,
+          "weight": 1,
+          "eval": -1
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "ノーカン最善2 15-b6型"
+      ],
+      "isLeaf": false
+    },
+    "60c1c3c0000_18387060400000_black": {
+      "bookMoves": [
+        {
+          "move": 23,
+          "weight": 1,
+          "eval": 3
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "ノーカン最善2 15-b6型"
+      ],
+      "isLeaf": false
+    },
+    "60c1cfc0000_18387060000000_white": {
+      "bookMoves": [
+        {
+          "move": 13,
+          "weight": 1,
+          "eval": -1
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "ノーカン最善2 15-b6型"
+      ],
+      "isLeaf": false
+    },
+    "60c1cdc0000_18387060202000_black": {
+      "bookMoves": [
+        {
+          "move": 47,
+          "weight": 1,
+          "eval": 2
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "ノーカン最善2 15-b6型"
+      ],
+      "isLeaf": false
+    },
+    "864c3cdc0000_18383040202000_white": {
+      "bookMoves": [
+        {
+          "move": 33,
+          "weight": 1,
+          "eval": -1
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "ノーカン最善2 15-b6型"
+      ],
+      "isLeaf": false
+    },
+    "82403cdc0000_183c3e40202000_black": {
+      "bookMoves": [],
+      "nonBookEval": null,
+      "names": [
+        "ノーカン最善2 15-b6型"
+      ],
+      "isLeaf": true
+    },
+    "30001c040000_87c20080000_black": {
+      "bookMoves": [
+        {
+          "move": 21,
+          "weight": 1,
+          "eval": 1,
+          "frequencyCount": 401
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "ノーカン10-c5型（縦取り殺され）",
+        "WTHOR-0072",
+        "WTHOR-0073",
+        "WTHOR-0074"
+      ],
+      "isLeaf": false
+    },
+    "30203c240000_85c00080000_white": {
+      "bookMoves": [
+        {
+          "move": 33,
+          "weight": 0.6301369863013698,
+          "eval": -2,
+          "frequencyCount": 184
+        },
+        {
+          "move": 20,
+          "weight": 0.3698630136986301,
+          "eval": -2,
+          "frequencyCount": 108
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "ノーカン10-c5型（縦取り殺され）",
+        "WTHOR-0072",
+        "WTHOR-0073",
+        "WTHOR-0074"
+      ],
+      "isLeaf": false
+    },
+    "302038240000_85e04080000_black": {
+      "bookMoves": [
+        {
+          "move": 25,
+          "weight": 1,
+          "eval": 2
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "ノーカン10-c5型（縦取り殺され）",
+        "WTHOR-0073"
+      ],
+      "isLeaf": true
+    },
+    "30203e240000_85e00080000_white": {
+      "bookMoves": [
+        {
+          "move": 10,
+          "weight": 1,
+          "eval": -3
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "ノーカン10-c5型（縦取り殺され）"
+      ],
+      "isLeaf": false
+    },
+    "30203a200000_85e040c0400_black": {
+      "bookMoves": [
+        {
+          "move": 50,
+          "weight": 1,
+          "eval": 5
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "ノーカン10-c5型（縦取り殺され）"
+      ],
+      "isLeaf": false
+    },
+    "438303a200000_4e040c0400_white": {
+      "bookMoves": [
+        {
+          "move": 51,
+          "weight": 1,
+          "eval": -2
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "ノーカン10-c5型（縦取り殺され）"
+      ],
+      "isLeaf": false
+    },
+    "430303a200000_8084e040c0400_black": {
+      "bookMoves": [
+        {
+          "move": 17,
+          "weight": 1,
+          "eval": 3
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "ノーカン10-c5型（縦取り殺され）"
+      ],
+      "isLeaf": false
+    },
+    "430383e220000_80846000c0400_white": {
+      "bookMoves": [],
+      "nonBookEval": null,
+      "names": [
+        "ノーカン10-c5型（縦取り殺され）"
+      ],
+      "isLeaf": true
+    },
+    "3c1c040000_80020080000_white": {
+      "bookMoves": [
+        {
+          "move": 25,
+          "weight": 0.12010353753235548,
+          "eval": -1,
+          "frequencyCount": 696
+        },
+        {
+          "move": 17,
+          "weight": 0.8612597066436584,
           "eval": 1,
           "frequencyCount": 4991
+        },
+        {
+          "move": 33,
+          "weight": 0.018636755823986197,
+          "eval": -2,
+          "frequencyCount": 108
         }
       ],
       "nonBookEval": null,
@@ -4363,6 +5887,284 @@
         "WTHOR-0099"
       ],
       "isLeaf": false
+    },
+    "3800040000_8043e080000_black": {
+      "bookMoves": [
+        {
+          "move": 17,
+          "weight": 0.507183908045977,
+          "eval": 2,
+          "frequencyCount": 353
+        },
+        {
+          "move": 33,
+          "weight": 0.14367816091954022,
+          "eval": 0,
+          "frequencyCount": 100
+        },
+        {
+          "move": 42,
+          "weight": 0.34913793103448276,
+          "eval": 2,
+          "frequencyCount": 243
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "バナナ定石",
+        "バナナ定石9-b5変化型",
+        "WTHOR-0030",
+        "WTHOR-0031",
+        "WTHOR-0032",
+        "WTHOR-0033",
+        "WTHOR-0099"
+      ],
+      "isLeaf": false
+    },
+    "3804060000_8043a080000_white": {
+      "bookMoves": [
+        {
+          "move": 10,
+          "weight": 0.4911504424778761,
+          "eval": -1,
+          "frequencyCount": 111
+        },
+        {
+          "move": 42,
+          "weight": 0.5088495575221239,
+          "eval": -1,
+          "frequencyCount": 115
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "バナナ定石",
+        "WTHOR-0030",
+        "WTHOR-0031",
+        "WTHOR-0099"
+      ],
+      "isLeaf": true
+    },
+    "3800020000_8043e0c0400_black": {
+      "bookMoves": [
+        {
+          "move": 51,
+          "weight": 1,
+          "eval": 2,
+          "frequencyCount": 111
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "バナナ定石",
+        "WTHOR-0030"
+      ],
+      "isLeaf": false
+    },
+    "8083800020000_43e0c0400_white": {
+      "bookMoves": [
+        {
+          "move": 42,
+          "weight": 1,
+          "eval": 0,
+          "frequencyCount": 111
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "バナナ定石",
+        "WTHOR-0030"
+      ],
+      "isLeaf": false
+    },
+    "8083000020000_40c3e0c0400_black": {
+      "bookMoves": [
+        {
+          "move": 44,
+          "weight": 1,
+          "eval": 2,
+          "frequencyCount": 111
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "バナナ定石",
+        "WTHOR-0030"
+      ],
+      "isLeaf": false
+    },
+    "8183804020000_4043a0c0400_white": {
+      "bookMoves": [
+        {
+          "move": 33,
+          "weight": 1,
+          "eval": -1,
+          "frequencyCount": 111
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "バナナ定石",
+        "WTHOR-0030"
+      ],
+      "isLeaf": false
+    },
+    "8183800020000_4063e0c0400_black": {
+      "bookMoves": [
+        {
+          "move": 32,
+          "weight": 1,
+          "eval": 2,
+          "frequencyCount": 111
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "バナナ定石",
+        "WTHOR-0030"
+      ],
+      "isLeaf": false
+    },
+    "8183f00020000_4003e0c0400_white": {
+      "bookMoves": [
+        {
+          "move": 40,
+          "weight": 1,
+          "eval": -1,
+          "frequencyCount": 111
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "バナナ定石",
+        "WTHOR-0030"
+      ],
+      "isLeaf": true
+    },
+    "3e00040000_8003e080000_white": {
+      "bookMoves": [
+        {
+          "move": 42,
+          "weight": 1,
+          "eval": 1,
+          "frequencyCount": 100
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "バナナ定石9-b5変化型",
+        "WTHOR-0032"
+      ],
+      "isLeaf": false
+    },
+    "3200040000_c0c3e080000_black": {
+      "bookMoves": [
+        {
+          "move": 21,
+          "weight": 1,
+          "eval": 0,
+          "frequencyCount": 100
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "バナナ定石9-b5変化型",
+        "WTHOR-0032"
+      ],
+      "isLeaf": false
+    },
+    "3220240000_c0c1e080000_white": {
+      "bookMoves": [
+        {
+          "move": 44,
+          "weight": 1,
+          "eval": 0
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "バナナ定石9-b5変化型",
+        "WTHOR-0032"
+      ],
+      "isLeaf": true
+    },
+    "2220240000_1c1c1e080000_black": {
+      "bookMoves": [
+        {
+          "move": 20,
+          "weight": 1,
+          "eval": 1
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "バナナ定石9-b5変化型"
+      ],
+      "isLeaf": false
+    },
+    "22203c0000_1c1c1e000000_white": {
+      "bookMoves": [
+        {
+          "move": 46,
+          "weight": 1,
+          "eval": 0
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "バナナ定石9-b5変化型"
+      ],
+      "isLeaf": false
+    },
+    "2203c0000_5c3c1e000000_black": {
+      "bookMoves": [
+        {
+          "move": 45,
+          "weight": 1,
+          "eval": 1
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "バナナ定石9-b5変化型"
+      ],
+      "isLeaf": false
+    },
+    "2032283c0000_5c0c16000000_white": {
+      "bookMoves": [
+        {
+          "move": 38,
+          "weight": 1,
+          "eval": -1
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "バナナ定石9-b5変化型"
+      ],
+      "isLeaf": false
+    },
+    "2002283c0000_5c7c16000000_black": {
+      "bookMoves": [
+        {
+          "move": 51,
+          "weight": 1,
+          "eval": 1
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "バナナ定石9-b5変化型"
+      ],
+      "isLeaf": false
+    },
+    "82c0a283c0000_507416000000_white": {
+      "bookMoves": [],
+      "nonBookEval": null,
+      "names": [
+        "バナナ定石9-b5変化型"
+      ],
+      "isLeaf": true
     },
     "3c1c000000_800200e0000_black": {
       "bookMoves": [
@@ -4606,8 +6408,14 @@
     "381c0c0c00_c0422130000_black": {
       "bookMoves": [
         {
+          "move": 22,
+          "weight": 0.8010973936899863,
+          "eval": 0,
+          "frequencyCount": 584
+        },
+        {
           "move": 30,
-          "weight": 1,
+          "weight": 0.19890260631001372,
           "eval": 2,
           "frequencyCount": 145
         }
@@ -4621,6 +6429,145 @@
         "WTHOR-0094"
       ],
       "isLeaf": false
+    },
+    "383c4c0c00_c0402130000_white": {
+      "bookMoves": [
+        {
+          "move": 30,
+          "weight": 1,
+          "eval": 1,
+          "frequencyCount": 374
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "酉フック14-a3型",
+        "WTHOR-0013",
+        "WTHOR-0014",
+        "WTHOR-0094"
+      ],
+      "isLeaf": true
+    },
+    "38004c0c00_c047e130000_black": {
+      "bookMoves": [
+        {
+          "move": 21,
+          "weight": 1,
+          "eval": 1
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "酉フック14-a3型",
+        "WTHOR-0014"
+      ],
+      "isLeaf": true
+    },
+    "38307c0c00_c044e030000_white": {
+      "bookMoves": [
+        {
+          "move": 2,
+          "weight": 1,
+          "eval": 1
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "酉フック14-a3型"
+      ],
+      "isLeaf": false
+    },
+    "3830780800_c044e070404_black": {
+      "bookMoves": [
+        {
+          "move": 33,
+          "weight": 1,
+          "eval": 1
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "酉フック14-a3型"
+      ],
+      "isLeaf": false
+    },
+    "3e34780800_c004a070404_white": {
+      "bookMoves": [
+        {
+          "move": 24,
+          "weight": 1,
+          "eval": 1
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "酉フック14-a3型"
+      ],
+      "isLeaf": false
+    },
+    "3c34780800_c024b070404_black": {
+      "bookMoves": [
+        {
+          "move": 40,
+          "weight": 1,
+          "eval": 1
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "酉フック14-a3型"
+      ],
+      "isLeaf": false
+    },
+    "13e34780800_c004b070404_white": {
+      "bookMoves": [
+        {
+          "move": 3,
+          "weight": 1,
+          "eval": 0
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "酉フック14-a3型"
+      ],
+      "isLeaf": false
+    },
+    "13e34700000_c004b0f0c0c_black": {
+      "bookMoves": [
+        {
+          "move": 12,
+          "weight": 1,
+          "eval": 2
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "酉フック14-a3型"
+      ],
+      "isLeaf": false
+    },
+    "13e34781000_c004b070c0c_white": {
+      "bookMoves": [
+        {
+          "move": 13,
+          "weight": 1,
+          "eval": 1
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "酉フック14-a3型"
+      ],
+      "isLeaf": false
+    },
+    "13e34680000_c004b173c0c_black": {
+      "bookMoves": [],
+      "nonBookEval": null,
+      "names": [
+        "酉フック14-a3型"
+      ],
+      "isLeaf": true
     },
     "38000c0c00_c043f120000_black": {
       "bookMoves": [
@@ -4803,8 +6750,14 @@
     "38000c0400_8043e020000_black": {
       "bookMoves": [
         {
+          "move": 20,
+          "weight": 0.8848484848484849,
+          "eval": 0,
+          "frequencyCount": 1314
+        },
+        {
           "move": 42,
-          "weight": 1,
+          "weight": 0.11515151515151516,
           "eval": 2,
           "frequencyCount": 171
         }
@@ -4823,6 +6776,303 @@
         "WTHOR-0096"
       ],
       "isLeaf": false
+    },
+    "38101c0400_8042e020000_white": {
+      "bookMoves": [
+        {
+          "move": 44,
+          "weight": 1,
+          "eval": 1,
+          "frequencyCount": 1124
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "FJT",
+        "FJT14-g4型",
+        "WTHOR-0019",
+        "WTHOR-0020",
+        "WTHOR-0021",
+        "WTHOR-0022",
+        "WTHOR-0095",
+        "WTHOR-0096"
+      ],
+      "isLeaf": false
+    },
+    "30101c0400_180c2e020000_black": {
+      "bookMoves": [
+        {
+          "move": 42,
+          "weight": 0.7215302491103203,
+          "eval": -1,
+          "frequencyCount": 811
+        },
+        {
+          "move": 41,
+          "weight": 0.27846975088967973,
+          "eval": -1,
+          "frequencyCount": 313
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "FJT",
+        "FJT14-g4型",
+        "WTHOR-0020",
+        "WTHOR-0021",
+        "WTHOR-0022",
+        "WTHOR-0095",
+        "WTHOR-0096"
+      ],
+      "isLeaf": false
+    },
+    "43c141c0400_18002a020000_white": {
+      "bookMoves": [
+        {
+          "move": 45,
+          "weight": 0.6633785450061652,
+          "eval": 1,
+          "frequencyCount": 538
+        },
+        {
+          "move": 30,
+          "weight": 0.3366214549938348,
+          "eval": 0,
+          "frequencyCount": 273
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "FJT",
+        "FJT14-g4型",
+        "WTHOR-0021",
+        "WTHOR-0022",
+        "WTHOR-0096"
+      ],
+      "isLeaf": false
+    },
+    "40c141c0400_38302a020000_black": {
+      "bookMoves": [
+        {
+          "move": 32,
+          "weight": 1,
+          "eval": 0,
+          "frequencyCount": 422
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "FJT",
+        "WTHOR-0022",
+        "WTHOR-0096"
+      ],
+      "isLeaf": true
+    },
+    "40d161c0400_383028020000_white": {
+      "bookMoves": [
+        {
+          "move": 24,
+          "weight": 1,
+          "eval": 2,
+          "frequencyCount": 422
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "FJT",
+        "WTHOR-0022"
+      ],
+      "isLeaf": false
+    },
+    "40d101c0400_38302f020000_black": {
+      "bookMoves": [
+        {
+          "move": 33,
+          "weight": 1,
+          "eval": -1
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "FJT",
+        "WTHOR-0022"
+      ],
+      "isLeaf": true
+    },
+    "40f141c0400_38302b020000_white": {
+      "bookMoves": [
+        {
+          "move": 40,
+          "weight": 1,
+          "eval": 2
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "FJT"
+      ],
+      "isLeaf": false
+    },
+    "40e141c0400_39312b020000_black": {
+      "bookMoves": [
+        {
+          "move": 51,
+          "weight": 1,
+          "eval": -1
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "FJT"
+      ],
+      "isLeaf": false
+    },
+    "80c0e141c0400_31312b020000_white": {
+      "bookMoves": [
+        {
+          "move": 50,
+          "weight": 1,
+          "eval": 2
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "FJT"
+      ],
+      "isLeaf": false
+    },
+    "8040e141c0400_439312b020000_black": {
+      "bookMoves": [
+        {
+          "move": 52,
+          "weight": 1,
+          "eval": 0
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "FJT"
+      ],
+      "isLeaf": false
+    },
+    "181c1e141c0400_421212b020000_white": {
+      "bookMoves": [],
+      "nonBookEval": null,
+      "names": [
+        "FJT"
+      ],
+      "isLeaf": true
+    },
+    "41c141c0400_18206a020000_black": {
+      "bookMoves": [
+        {
+          "move": 45,
+          "weight": 1,
+          "eval": 1,
+          "frequencyCount": 273
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "FJT14-g4型",
+        "WTHOR-0021"
+      ],
+      "isLeaf": false
+    },
+    "3c1c141c0400_206a020000_white": {
+      "bookMoves": [
+        {
+          "move": 41,
+          "weight": 1,
+          "eval": 0,
+          "frequencyCount": 273
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "FJT14-g4型",
+        "WTHOR-0021"
+      ],
+      "isLeaf": false
+    },
+    "3c18141c0400_2246a020000_black": {
+      "bookMoves": [
+        {
+          "move": 46,
+          "weight": 1,
+          "eval": 0
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "FJT14-g4型",
+        "WTHOR-0021"
+      ],
+      "isLeaf": true
+    },
+    "7c38141c0400_2046a020000_white": {
+      "bookMoves": [
+        {
+          "move": 38,
+          "weight": 1,
+          "eval": 1
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "FJT14-g4型"
+      ],
+      "isLeaf": false
+    },
+    "7c00141c0400_27c6a020000_black": {
+      "bookMoves": [
+        {
+          "move": 21,
+          "weight": 1,
+          "eval": 1
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "FJT14-g4型"
+      ],
+      "isLeaf": false
+    },
+    "7c20343c0400_25c4a020000_white": {
+      "bookMoves": [
+        {
+          "move": 51,
+          "weight": 1,
+          "eval": 1
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "FJT14-g4型"
+      ],
+      "isLeaf": false
+    },
+    "6400343c0400_81a7c4a020000_black": {
+      "bookMoves": [
+        {
+          "move": 53,
+          "weight": 1,
+          "eval": 0
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "FJT14-g4型"
+      ],
+      "isLeaf": false
+    },
+    "207408343c0400_80a744a020000_white": {
+      "bookMoves": [],
+      "nonBookEval": null,
+      "names": [
+        "FJT14-g4型"
+      ],
+      "isLeaf": true
     },
     "43c040c0400_8003a020000_white": {
       "bookMoves": [
@@ -4892,9 +7142,15 @@
       "bookMoves": [
         {
           "move": 42,
-          "weight": 1,
+          "weight": 0.8882042253521126,
           "eval": 1,
           "frequencyCount": 1009
+        },
+        {
+          "move": 25,
+          "weight": 0.11179577464788733,
+          "eval": -1,
+          "frequencyCount": 127
         }
       ],
       "nonBookEval": null,
@@ -5086,6 +7342,1842 @@
       ],
       "isLeaf": true
     },
+    "341e0c0400_180820020000_white": {
+      "bookMoves": [
+        {
+          "move": 21,
+          "weight": 1,
+          "eval": 2,
+          "frequencyCount": 127
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "金魚回避11-b4変化型",
+        "WTHOR-0024"
+      ],
+      "isLeaf": false
+    },
+    "340e0c0400_180830220000_black": {
+      "bookMoves": [
+        {
+          "move": 20,
+          "weight": 1,
+          "eval": -1,
+          "frequencyCount": 127
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "金魚回避11-b4変化型",
+        "WTHOR-0024"
+      ],
+      "isLeaf": false
+    },
+    "341e1c0400_180820220000_white": {
+      "bookMoves": [
+        {
+          "move": 12,
+          "weight": 1,
+          "eval": 2,
+          "frequencyCount": 127
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "金魚回避11-b4変化型",
+        "WTHOR-0024"
+      ],
+      "isLeaf": false
+    },
+    "240e0c0400_181830321000_black": {
+      "bookMoves": [
+        {
+          "move": 45,
+          "weight": 1,
+          "eval": -2
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "金魚回避11-b4変化型",
+        "WTHOR-0024"
+      ],
+      "isLeaf": true
+    },
+    "20340e0c0400_180830321000_white": {
+      "bookMoves": [
+        {
+          "move": 11,
+          "weight": 1,
+          "eval": 4
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "金魚回避11-b4変化型"
+      ],
+      "isLeaf": false
+    },
+    "203406040400_1808383a1800_black": {
+      "bookMoves": [
+        {
+          "move": 30,
+          "weight": 1,
+          "eval": -3
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "金魚回避11-b4変化型"
+      ],
+      "isLeaf": false
+    },
+    "20347e040400_1808003a1800_white": {
+      "bookMoves": [
+        {
+          "move": 41,
+          "weight": 1,
+          "eval": 4
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "金魚回避11-b4変化型"
+      ],
+      "isLeaf": false
+    },
+    "203076040400_1a0c083a1800_black": {
+      "bookMoves": [],
+      "nonBookEval": null,
+      "names": [
+        "金魚回避11-b4変化型"
+      ],
+      "isLeaf": true
+    },
+    "3c18040000_80224080000_black": {
+      "bookMoves": [
+        {
+          "move": 25,
+          "weight": 1,
+          "eval": 3,
+          "frequencyCount": 108
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "まこ虎",
+        "WTHOR-0034"
+      ],
+      "isLeaf": false
+    },
+    "3c1e040000_80220080000_white": {
+      "bookMoves": [
+        {
+          "move": 17,
+          "weight": 1,
+          "eval": -2,
+          "frequencyCount": 234
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "まこ虎",
+        "Berg Tiger",
+        "WTHOR-0034",
+        "WTHOR-0078"
+      ],
+      "isLeaf": false
+    },
+    "3c1c000000_802220e0000_black": {
+      "bookMoves": [
+        {
+          "move": 10,
+          "weight": 1,
+          "eval": 3
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "まこ虎",
+        "Berg Tiger",
+        "WTHOR-0034",
+        "WTHOR-0078"
+      ],
+      "isLeaf": true
+    },
+    "3c1c0c0400_80222020000_white": {
+      "bookMoves": [
+        {
+          "move": 45,
+          "weight": 1,
+          "eval": -2
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "まこ虎",
+        "Berg Tiger"
+      ],
+      "isLeaf": false
+    },
+    "1c1c0c0400_282222020000_black": {
+      "bookMoves": [
+        {
+          "move": 30,
+          "weight": 1,
+          "eval": 2
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "まこ虎",
+        "Berg Tiger"
+      ],
+      "isLeaf": false
+    },
+    "1c7c0c0400_282202020000_white": {
+      "bookMoves": [
+        {
+          "move": 20,
+          "weight": 1,
+          "eval": -2
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "まこ虎",
+        "Berg Tiger"
+      ],
+      "isLeaf": false
+    },
+    "1c7c000400_2822021e0000_black": {
+      "bookMoves": [
+        {
+          "move": 44,
+          "weight": 1,
+          "eval": 2
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "まこ虎",
+        "Berg Tiger"
+      ],
+      "isLeaf": false
+    },
+    "103c7c000400_2802021e0000_white": {
+      "bookMoves": [
+        {
+          "move": 42,
+          "weight": 1,
+          "eval": -1
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "まこ虎",
+        "Berg Tiger"
+      ],
+      "isLeaf": false
+    },
+    "103878000400_2c06061e0000_black": {
+      "bookMoves": [],
+      "nonBookEval": null,
+      "names": [
+        "まこ虎",
+        "Berg Tiger"
+      ],
+      "isLeaf": true
+    },
+    "40818040000_87000000000_white": {
+      "bookMoves": [
+        {
+          "move": 34,
+          "weight": 0.45569620253164556,
+          "eval": -3,
+          "frequencyCount": 108
+        },
+        {
+          "move": 41,
+          "weight": 0.5443037974683544,
+          "eval": -2,
+          "frequencyCount": 129
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "ミサイル定石",
+        "WTHOR-0090",
+        "WTHOR-0091"
+      ],
+      "isLeaf": false
+    },
+    "40018040000_87c00000000_black": {
+      "bookMoves": [
+        {
+          "move": 26,
+          "weight": 1,
+          "eval": 4
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "ミサイル定石",
+        "WTHOR-0090"
+      ],
+      "isLeaf": true
+    },
+    "4041c040000_87800000000_white": {
+      "bookMoves": [],
+      "nonBookEval": null,
+      "names": [
+        "ミサイル定石"
+      ],
+      "isLeaf": true
+    },
+    "203018040000_80820000000_white": {
+      "bookMoves": [
+        {
+          "move": 19,
+          "weight": 0.44011976047904194,
+          "eval": -2,
+          "frequencyCount": 294
+        },
+        {
+          "move": 21,
+          "weight": 0.1661676646706587,
+          "eval": -3,
+          "frequencyCount": 111
+        },
+        {
+          "move": 26,
+          "weight": 0.15419161676646706,
+          "eval": -3,
+          "frequencyCount": 103
+        },
+        {
+          "move": 38,
+          "weight": 0.23952095808383234,
+          "eval": -2,
+          "frequencyCount": 160
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "龍定石",
+        "風神定石9-c5型",
+        "竜巻定石9-c7型",
+        "WTHOR-0085",
+        "WTHOR-0086",
+        "WTHOR-0087",
+        "WTHOR-0088",
+        "WTHOR-0089"
+      ],
+      "isLeaf": true
+    },
+    "203010040000_80828080000_black": {
+      "bookMoves": [
+        {
+          "move": 21,
+          "weight": 1,
+          "eval": 4,
+          "frequencyCount": 130
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "風神定石9-c5型",
+        "竜巻定石9-c7型",
+        "WTHOR-0085",
+        "WTHOR-0086"
+      ],
+      "isLeaf": false
+    },
+    "203030240000_80808080000_white": {
+      "bookMoves": [
+        {
+          "move": 17,
+          "weight": 1,
+          "eval": -3,
+          "frequencyCount": 130
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "風神定石9-c5型",
+        "竜巻定石9-c7型",
+        "WTHOR-0085"
+      ],
+      "isLeaf": false
+    },
+    "203030200000_808080e0000_black": {
+      "bookMoves": [
+        {
+          "move": 34,
+          "weight": 0.5,
+          "eval": 2
+        },
+        {
+          "move": 50,
+          "weight": 0.5,
+          "eval": 4
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "風神定石9-c5型",
+        "竜巻定石9-c7型",
+        "WTHOR-0085"
+      ],
+      "isLeaf": true
+    },
+    "203c30200000_800080e0000_white": {
+      "bookMoves": [
+        {
+          "move": 30,
+          "weight": 1,
+          "eval": 0
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "風神定石9-c5型"
+      ],
+      "isLeaf": false
+    },
+    "203c00200000_800780e0000_black": {
+      "bookMoves": [
+        {
+          "move": 22,
+          "weight": 1,
+          "eval": 2
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "風神定石9-c5型"
+      ],
+      "isLeaf": false
+    },
+    "203c20600000_800580e0000_white": {
+      "bookMoves": [
+        {
+          "move": 42,
+          "weight": 1,
+          "eval": -1
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "風神定石9-c5型"
+      ],
+      "isLeaf": false
+    },
+    "203420600000_c08580e0000_black": {
+      "bookMoves": [
+        {
+          "move": 26,
+          "weight": 1,
+          "eval": 2
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "風神定石9-c5型"
+      ],
+      "isLeaf": false
+    },
+    "20343c600000_c08400e0000_white": {
+      "bookMoves": [
+        {
+          "move": 44,
+          "weight": 1,
+          "eval": -1
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "風神定石9-c5型"
+      ],
+      "isLeaf": false
+    },
+    "20143c600000_1c28400e0000_black": {
+      "bookMoves": [],
+      "nonBookEval": null,
+      "names": [
+        "風神定石9-c5型"
+      ],
+      "isLeaf": true
+    },
+    "4283030200000_8080e0000_white": {
+      "bookMoves": [
+        {
+          "move": 51,
+          "weight": 1,
+          "eval": -3
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "竜巻定石9-c7型"
+      ],
+      "isLeaf": false
+    },
+    "4203030200000_80808080e0000_black": {
+      "bookMoves": [
+        {
+          "move": 52,
+          "weight": 1,
+          "eval": 4
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "竜巻定石9-c7型"
+      ],
+      "isLeaf": false
+    },
+    "1c203030200000_808080e0000_white": {
+      "bookMoves": [
+        {
+          "move": 59,
+          "weight": 1,
+          "eval": -3
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "竜巻定石9-c7型"
+      ],
+      "isLeaf": false
+    },
+    "14203030200000_8080808080e0000_black": {
+      "bookMoves": [
+        {
+          "move": 42,
+          "weight": 1,
+          "eval": 3
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "竜巻定石9-c7型"
+      ],
+      "isLeaf": false
+    },
+    "14243830200000_8080800080e0000_white": {
+      "bookMoves": [
+        {
+          "move": 53,
+          "weight": 1,
+          "eval": -2
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "竜巻定石9-c7型"
+      ],
+      "isLeaf": false
+    },
+    "4243830200000_8380800080e0000_black": {
+      "bookMoves": [
+        {
+          "move": 44,
+          "weight": 1,
+          "eval": 3
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "竜巻定石9-c7型"
+      ],
+      "isLeaf": false
+    },
+    "43c3830200000_8380000080e0000_white": {
+      "bookMoves": [
+        {
+          "move": 34,
+          "weight": 1,
+          "eval": -5
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "竜巻定石9-c7型"
+      ],
+      "isLeaf": false
+    },
+    "4343830200000_8380804080e0000_black": {
+      "bookMoves": [],
+      "nonBookEval": null,
+      "names": [
+        "竜巻定石9-c7型"
+      ],
+      "isLeaf": true
+    },
+    "3c10040000_80008080000_white": {
+      "bookMoves": [
+        {
+          "move": 29,
+          "weight": 1,
+          "eval": 4,
+          "frequencyCount": 100
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "ザリガニ定石（5-c5変化型）",
+        "WTHOR-0080"
+      ],
+      "isLeaf": false
+    },
+    "2c00040000_81038080000_black": {
+      "bookMoves": [
+        {
+          "move": 21,
+          "weight": 1,
+          "eval": -4,
+          "frequencyCount": 100
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "ザリガニ定石（5-c5変化型）",
+        "WTHOR-0080"
+      ],
+      "isLeaf": false
+    },
+    "2c30240000_81008080000_white": {
+      "bookMoves": [
+        {
+          "move": 20,
+          "weight": 1,
+          "eval": 5
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "ザリガニ定石（5-c5変化型）",
+        "WTHOR-0080"
+      ],
+      "isLeaf": true
+    },
+    "2c20240000_81018180000_black": {
+      "bookMoves": [
+        {
+          "move": 26,
+          "weight": 1,
+          "eval": -3
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "ザリガニ定石（5-c5変化型）"
+      ],
+      "isLeaf": false
+    },
+    "2c3c240000_81000180000_white": {
+      "bookMoves": [
+        {
+          "move": 46,
+          "weight": 1,
+          "eval": 4
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "ザリガニ定石（5-c5変化型）"
+      ],
+      "isLeaf": false
+    },
+    "c2c240000_483010180000_black": {
+      "bookMoves": [],
+      "nonBookEval": null,
+      "names": [
+        "ザリガニ定石（5-c5変化型）"
+      ],
+      "isLeaf": true
+    },
+    "43810040000_80008080000_white": {
+      "bookMoves": [
+        {
+          "move": 29,
+          "weight": 1,
+          "eval": 5,
+          "frequencyCount": 122
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "海老定石",
+        "WTHOR-0081"
+      ],
+      "isLeaf": false
+    },
+    "42800040000_81038080000_black": {
+      "bookMoves": [
+        {
+          "move": 20,
+          "weight": 1,
+          "eval": -5
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "海老定石",
+        "WTHOR-0081"
+      ],
+      "isLeaf": true
+    },
+    "428001c0000_81038000000_white": {
+      "bookMoves": [
+        {
+          "move": 34,
+          "weight": 1,
+          "eval": 6
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "海老定石"
+      ],
+      "isLeaf": false
+    },
+    "420001c0000_81c38000000_black": {
+      "bookMoves": [
+        {
+          "move": 26,
+          "weight": 1,
+          "eval": -5
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "海老定石"
+      ],
+      "isLeaf": false
+    },
+    "424041c0000_81838000000_white": {
+      "bookMoves": [
+        {
+          "move": 33,
+          "weight": 1,
+          "eval": 7
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "海老定石"
+      ],
+      "isLeaf": false
+    },
+    "420041c0000_81e38000000_black": {
+      "bookMoves": [
+        {
+          "move": 51,
+          "weight": 1,
+          "eval": -6
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "海老定石"
+      ],
+      "isLeaf": false
+    },
+    "80c280c1c0000_1630000000_white": {
+      "bookMoves": [],
+      "nonBookEval": null,
+      "names": [
+        "海老定石"
+      ],
+      "isLeaf": true
+    },
+    "3018000000_808040e0000_black": {
+      "bookMoves": [
+        {
+          "move": 42,
+          "weight": 1,
+          "eval": 5,
+          "frequencyCount": 206
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "イエス流8-f4型",
+        "イエス流8-b6型",
+        "WTHOR-0003",
+        "WTHOR-0004"
+      ],
+      "isLeaf": false
+    },
+    "43818000000_800040e0000_white": {
+      "bookMoves": [
+        {
+          "move": 29,
+          "weight": 0.5,
+          "eval": -5,
+          "frequencyCount": 103
+        },
+        {
+          "move": 41,
+          "weight": 0.5,
+          "eval": -5,
+          "frequencyCount": 103
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "イエス流8-f4型",
+        "イエス流8-b6型",
+        "WTHOR-0003",
+        "WTHOR-0004"
+      ],
+      "isLeaf": false
+    },
+    "42800000000_8103c0e0000_black": {
+      "bookMoves": [
+        {
+          "move": 44,
+          "weight": 1,
+          "eval": 4,
+          "frequencyCount": 103
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "イエス流8-f4型",
+        "WTHOR-0003"
+      ],
+      "isLeaf": false
+    },
+    "1c2800000000_103c0e0000_white": {
+      "bookMoves": [
+        {
+          "move": 34,
+          "weight": 1,
+          "eval": -4
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "イエス流8-f4型",
+        "WTHOR-0003"
+      ],
+      "isLeaf": true
+    },
+    "1c2000000000_1c3c0e0000_black": {
+      "bookMoves": [
+        {
+          "move": 33,
+          "weight": 1,
+          "eval": 4
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "イエス流8-f4型"
+      ],
+      "isLeaf": false
+    },
+    "1c3e00000000_3c0e0000_white": {
+      "bookMoves": [],
+      "nonBookEval": null,
+      "names": [
+        "イエス流8-f4型"
+      ],
+      "isLeaf": true
+    },
+    "3818000000_e00040e0000_black": {
+      "bookMoves": [
+        {
+          "move": 51,
+          "weight": 1,
+          "eval": 6
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "イエス流8-b6型",
+        "WTHOR-0004"
+      ],
+      "isLeaf": true
+    },
+    "8083818000000_600040e0000_white": {
+      "bookMoves": [
+        {
+          "move": 60,
+          "weight": 1,
+          "eval": -5
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "イエス流8-b6型"
+      ],
+      "isLeaf": false
+    },
+    "83818000000_10080600040e0000_black": {
+      "bookMoves": [
+        {
+          "move": 10,
+          "weight": 1,
+          "eval": 7
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "イエス流8-b6型"
+      ],
+      "isLeaf": false
+    },
+    "83818080400_1008060004060000_white": {
+      "bookMoves": [
+        {
+          "move": 2,
+          "weight": 1,
+          "eval": -6
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "イエス流8-b6型"
+      ],
+      "isLeaf": false
+    },
+    "83818080000_1008060004060404_black": {
+      "bookMoves": [
+        {
+          "move": 16,
+          "weight": 1,
+          "eval": 9
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "イエス流8-b6型"
+      ],
+      "isLeaf": false
+    },
+    "838180f0000_1008060004000404_white": {
+      "bookMoves": [
+        {
+          "move": 44,
+          "weight": 1,
+          "eval": -5
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "イエス流8-b6型"
+      ],
+      "isLeaf": false
+    },
+    "30180f0000_10081e0804000404_black": {
+      "bookMoves": [
+        {
+          "move": 25,
+          "weight": 1,
+          "eval": 9
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "イエス流8-b6型"
+      ],
+      "isLeaf": false
+    },
+    "301e0f0000_10081e0800000404_white": {
+      "bookMoves": [],
+      "nonBookEval": null,
+      "names": [
+        "イエス流8-b6型"
+      ],
+      "isLeaf": true
+    },
+    "3018040000_80a04080000_black": {
+      "bookMoves": [
+        {
+          "move": 25,
+          "weight": 1,
+          "eval": 3,
+          "frequencyCount": 238
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "Berg Tiger",
+        "WTHOR-0078",
+        "WTHOR-0079"
+      ],
+      "isLeaf": false
+    },
+    "301e040000_80a00080000_white": {
+      "bookMoves": [
+        {
+          "move": 29,
+          "weight": 1,
+          "eval": -2,
+          "frequencyCount": 238
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "Berg Tiger",
+        "WTHOR-0078",
+        "WTHOR-0079"
+      ],
+      "isLeaf": false
+    },
+    "201e040000_81a20080000_black": {
+      "bookMoves": [
+        {
+          "move": 34,
+          "weight": 0.5294117647058824,
+          "eval": 3,
+          "frequencyCount": 126
+        },
+        {
+          "move": 45,
+          "weight": 0.47058823529411764,
+          "eval": 2,
+          "frequencyCount": 112
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "Berg Tiger",
+        "WTHOR-0078",
+        "WTHOR-0079"
+      ],
+      "isLeaf": false
+    },
+    "10381c040000_80020080000_white": {
+      "bookMoves": [
+        {
+          "move": 17,
+          "weight": 0.5534883720930233,
+          "eval": 3,
+          "frequencyCount": 476
+        },
+        {
+          "move": 45,
+          "weight": 0.44651162790697674,
+          "eval": 3,
+          "frequencyCount": 384
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "Leader's Tiger",
+        "Leader's Tiger 8-f6変化（ビン定石）",
+        "Leader's Tiger 8-f6変化型（坂口流）",
+        "WTHOR-0036",
+        "WTHOR-0037",
+        "WTHOR-0038",
+        "WTHOR-0039",
+        "WTHOR-0040",
+        "WTHOR-0100",
+        "WTHOR-0101"
+      ],
+      "isLeaf": false
+    },
+    "10381c000000_800200e0000_black": {
+      "bookMoves": [
+        {
+          "move": 12,
+          "weight": 0.7415966386554622,
+          "eval": -2,
+          "frequencyCount": 353
+        },
+        {
+          "move": 10,
+          "weight": 0.25840336134453784,
+          "eval": -3,
+          "frequencyCount": 123
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "Leader's Tiger",
+        "WTHOR-0036",
+        "WTHOR-0037",
+        "WTHOR-0038",
+        "WTHOR-0100"
+      ],
+      "isLeaf": false
+    },
+    "10381c081000_80020060000_white": {
+      "bookMoves": [
+        {
+          "move": 34,
+          "weight": 0.6628895184135978,
+          "eval": 2,
+          "frequencyCount": 234
+        },
+        {
+          "move": 20,
+          "weight": 0.3371104815864023,
+          "eval": 3,
+          "frequencyCount": 119
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "Leader's Tiger",
+        "WTHOR-0037",
+        "WTHOR-0038",
+        "WTHOR-0100"
+      ],
+      "isLeaf": false
+    },
+    "103818081000_80424060000_black": {
+      "bookMoves": [
+        {
+          "move": 42,
+          "weight": 1,
+          "eval": -2,
+          "frequencyCount": 234
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "Leader's Tiger",
+        "WTHOR-0038",
+        "WTHOR-0100"
+      ],
+      "isLeaf": false
+    },
+    "1c3818081000_424060000_white": {
+      "bookMoves": [
+        {
+          "move": 20,
+          "weight": 1,
+          "eval": 3,
+          "frequencyCount": 234
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "Leader's Tiger",
+        "WTHOR-0038",
+        "WTHOR-0100"
+      ],
+      "isLeaf": false
+    },
+    "1c3810001000_42c1e0000_black": {
+      "bookMoves": [
+        {
+          "move": 11,
+          "weight": 1,
+          "eval": -1,
+          "frequencyCount": 234
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "Leader's Tiger",
+        "WTHOR-0038",
+        "WTHOR-0100"
+      ],
+      "isLeaf": false
+    },
+    "1c3818081800_424160000_white": {
+      "bookMoves": [
+        {
+          "move": 45,
+          "weight": 1,
+          "eval": 3,
+          "frequencyCount": 131
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "Leader's Tiger",
+        "WTHOR-0038",
+        "WTHOR-0100"
+      ],
+      "isLeaf": true
+    },
+    "1c0810081800_20342c160000_black": {
+      "bookMoves": [
+        {
+          "move": 21,
+          "weight": 1,
+          "eval": -2
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "Leader's Tiger",
+        "WTHOR-0038"
+      ],
+      "isLeaf": true
+    },
+    "1c0810381800_20342c060000_white": {
+      "bookMoves": [
+        {
+          "move": 10,
+          "weight": 1,
+          "eval": 3
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "Leader's Tiger"
+      ],
+      "isLeaf": false
+    },
+    "1c0800301800_20343c0e0400_black": {
+      "bookMoves": [],
+      "nonBookEval": null,
+      "names": [
+        "Leader's Tiger"
+      ],
+      "isLeaf": true
+    },
+    "181c040000_382020080000_black": {
+      "bookMoves": [
+        {
+          "move": 20,
+          "weight": 1,
+          "eval": -2,
+          "frequencyCount": 384
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "Leader's Tiger 8-f6変化（ビン定石）",
+        "Leader's Tiger 8-f6変化型（坂口流）",
+        "WTHOR-0039",
+        "WTHOR-0040",
+        "WTHOR-0101"
+      ],
+      "isLeaf": false
+    },
+    "181c1c0000_382020000000_white": {
+      "bookMoves": [
+        {
+          "move": 34,
+          "weight": 1,
+          "eval": 3,
+          "frequencyCount": 384
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "Leader's Tiger 8-f6変化（ビン定石）",
+        "Leader's Tiger 8-f6変化型（坂口流）",
+        "WTHOR-0039",
+        "WTHOR-0040",
+        "WTHOR-0101"
+      ],
+      "isLeaf": false
+    },
+    "1c1c0000_383c20000000_black": {
+      "bookMoves": [
+        {
+          "move": 42,
+          "weight": 1,
+          "eval": -1,
+          "frequencyCount": 269
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "Leader's Tiger 8-f6変化（ビン定石）",
+        "Leader's Tiger 8-f6変化型（坂口流）",
+        "WTHOR-0039",
+        "WTHOR-0040",
+        "WTHOR-0101"
+      ],
+      "isLeaf": true
+    },
+    "40c1c1c0000_383020000000_white": {
+      "bookMoves": [
+        {
+          "move": 33,
+          "weight": 0.6133828996282528,
+          "eval": 2,
+          "frequencyCount": 165
+        },
+        {
+          "move": 41,
+          "weight": 0.38661710037174724,
+          "eval": 1,
+          "frequencyCount": 104
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "Leader's Tiger 8-f6変化（ビン定石）",
+        "Leader's Tiger 8-f6変化型（坂口流）",
+        "WTHOR-0039",
+        "WTHOR-0040"
+      ],
+      "isLeaf": false
+    },
+    "4001c1c0000_383e20000000_black": {
+      "bookMoves": [
+        {
+          "move": 51,
+          "weight": 1,
+          "eval": -2,
+          "frequencyCount": 165
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "Leader's Tiger 8-f6変化（ビン定石）",
+        "WTHOR-0039"
+      ],
+      "isLeaf": false
+    },
+    "80c081c1c0000_303620000000_white": {
+      "bookMoves": [
+        {
+          "move": 52,
+          "weight": 1,
+          "eval": 2,
+          "frequencyCount": 165
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "Leader's Tiger 8-f6変化（ビン定石）",
+        "WTHOR-0039"
+      ],
+      "isLeaf": false
+    },
+    "804081c1c0000_10383620000000_black": {
+      "bookMoves": [
+        {
+          "move": 41,
+          "weight": 1,
+          "eval": -1,
+          "frequencyCount": 165
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "Leader's Tiger 8-f6変化（ビン定石）",
+        "WTHOR-0039"
+      ],
+      "isLeaf": false
+    },
+    "8060c1c1c0000_10383220000000_white": {
+      "bookMoves": [
+        {
+          "move": 17,
+          "weight": 1,
+          "eval": 2
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "Leader's Tiger 8-f6変化（ビン定石）",
+        "WTHOR-0039"
+      ],
+      "isLeaf": true
+    },
+    "80604181c0000_10383a24020000_black": {
+      "bookMoves": [
+        {
+          "move": 61,
+          "weight": 1,
+          "eval": 0
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "Leader's Tiger 8-f6変化（ビン定石）"
+      ],
+      "isLeaf": false
+    },
+    "20180e04181c0000_303a24020000_white": {
+      "bookMoves": [
+        {
+          "move": 50,
+          "weight": 1,
+          "eval": 2
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "Leader's Tiger 8-f6変化（ビン定石）"
+      ],
+      "isLeaf": false
+    },
+    "20180200181c0000_43c3e24020000_black": {
+      "bookMoves": [
+        {
+          "move": 24,
+          "weight": 1,
+          "eval": -1
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "Leader's Tiger 8-f6変化（ビン定石）"
+      ],
+      "isLeaf": false
+    },
+    "20180602191c0000_4383c24020000_white": {
+      "bookMoves": [],
+      "nonBookEval": null,
+      "names": [
+        "Leader's Tiger 8-f6変化（ビン定石）"
+      ],
+      "isLeaf": true
+    },
+    "c1c1c0000_3e3020000000_black": {
+      "bookMoves": [
+        {
+          "move": 50,
+          "weight": 1,
+          "eval": 0,
+          "frequencyCount": 104
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "Leader's Tiger 8-f6変化型（坂口流）",
+        "WTHOR-0040"
+      ],
+      "isLeaf": false
+    },
+    "4040c1c1c0000_3a3020000000_white": {
+      "bookMoves": [
+        {
+          "move": 33,
+          "weight": 1,
+          "eval": 1,
+          "frequencyCount": 104
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "Leader's Tiger 8-f6変化型（坂口流）",
+        "WTHOR-0040"
+      ],
+      "isLeaf": false
+    },
+    "404001c1c0000_3a3e20000000_black": {
+      "bookMoves": [
+        {
+          "move": 52,
+          "weight": 1,
+          "eval": -1,
+          "frequencyCount": 104
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "Leader's Tiger 8-f6変化型（坂口流）",
+        "WTHOR-0040"
+      ],
+      "isLeaf": false
+    },
+    "1414101c1c0000_2a2e20000000_white": {
+      "bookMoves": [
+        {
+          "move": 51,
+          "weight": 1,
+          "eval": 2
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "Leader's Tiger 8-f6変化型（坂口流）",
+        "WTHOR-0040"
+      ],
+      "isLeaf": true
+    },
+    "1400101c1c0000_83e2e20000000_black": {
+      "bookMoves": [
+        {
+          "move": 53,
+          "weight": 1,
+          "eval": 1
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "Leader's Tiger 8-f6変化型（坂口流）"
+      ],
+      "isLeaf": false
+    },
+    "3410181c1c0000_82e2620000000_white": {
+      "bookMoves": [
+        {
+          "move": 21,
+          "weight": 1,
+          "eval": 2
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "Leader's Tiger 8-f6変化型（坂口流）"
+      ],
+      "isLeaf": false
+    },
+    "3410100c1c0000_82e2e30200000_black": {
+      "bookMoves": [],
+      "nonBookEval": null,
+      "names": [
+        "Leader's Tiger 8-f6変化型（坂口流）"
+      ],
+      "isLeaf": true
+    },
+    "201c1c0000_81820000000_white": {
+      "bookMoves": [
+        {
+          "move": 21,
+          "weight": 0.75,
+          "eval": 3,
+          "frequencyCount": 438
+        },
+        {
+          "move": 45,
+          "weight": 0.25,
+          "eval": 2,
+          "frequencyCount": 146
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "ブライトウェル",
+        "WTHOR-0006",
+        "WTHOR-0007",
+        "WTHOR-0008",
+        "WTHOR-0093"
+      ],
+      "isLeaf": false
+    },
+    "200c1c0000_81830200000_black": {
+      "bookMoves": [
+        {
+          "move": 44,
+          "weight": 0.5392156862745098,
+          "eval": -3,
+          "frequencyCount": 165
+        },
+        {
+          "move": 30,
+          "weight": 0.46078431372549017,
+          "eval": -3,
+          "frequencyCount": 141
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "ブライトウェル",
+        "WTHOR-0006",
+        "WTHOR-0007",
+        "WTHOR-0093"
+      ],
+      "isLeaf": true
+    },
+    "10381c1c0000_80020200000_white": {
+      "bookMoves": [
+        {
+          "move": 45,
+          "weight": 1,
+          "eval": 3,
+          "frequencyCount": 165
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "ブライトウェル",
+        "WTHOR-0007"
+      ],
+      "isLeaf": false
+    },
+    "181c1c0000_382020200000_black": {
+      "bookMoves": [
+        {
+          "move": 30,
+          "weight": 1,
+          "eval": -2,
+          "frequencyCount": 165
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "ブライトウェル",
+        "WTHOR-0007"
+      ],
+      "isLeaf": false
+    },
+    "187c1c0000_382000200000_white": {
+      "bookMoves": [
+        {
+          "move": 12,
+          "weight": 1,
+          "eval": 3
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "ブライトウェル",
+        "WTHOR-0007"
+      ],
+      "isLeaf": true
+    },
+    "86c0c0000_383010301000_black": {
+      "bookMoves": [
+        {
+          "move": 11,
+          "weight": 1,
+          "eval": -3
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "ブライトウェル"
+      ],
+      "isLeaf": false
+    },
+    "86c1c0800_383010201000_white": {
+      "bookMoves": [
+        {
+          "move": 42,
+          "weight": 1,
+          "eval": 3
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "ブライトウェル"
+      ],
+      "isLeaf": false
+    },
+    "6c1c0800_3c3810201000_black": {
+      "bookMoves": [
+        {
+          "move": 52,
+          "weight": 1,
+          "eval": -2
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "ブライトウェル"
+      ],
+      "isLeaf": false
+    },
+    "1010107c1c0800_2c2800201000_white": {
+      "bookMoves": [],
+      "nonBookEval": null,
+      "names": [
+        "ブライトウェル"
+      ],
+      "isLeaf": true
+    },
+    "2c04000000_81038080000_black": {
+      "bookMoves": [
+        {
+          "move": 20,
+          "weight": 1,
+          "eval": -2,
+          "frequencyCount": 534
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "猫定石・基本形",
+        "猫定石・最善型",
+        "猫定石・坂口流",
+        "WTHOR-0110",
+        "WTHOR-0111",
+        "WTHOR-0112",
+        "WTHOR-0113"
+      ],
+      "isLeaf": true
+    },
+    "2c0c100000_81030080000_white": {
+      "bookMoves": [
+        {
+          "move": 21,
+          "weight": 1,
+          "eval": 3,
+          "frequencyCount": 396
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "猫定石・最善型",
+        "猫定石・坂口流",
+        "WTHOR-0110",
+        "WTHOR-0111",
+        "WTHOR-0112",
+        "WTHOR-0113"
+      ],
+      "isLeaf": false
+    },
+    "2c0c000000_81030380000_black": {
+      "bookMoves": [
+        {
+          "move": 12,
+          "weight": 0.31565656565656564,
+          "eval": -3,
+          "frequencyCount": 125
+        },
+        {
+          "move": 10,
+          "weight": 0.36363636363636365,
+          "eval": -3,
+          "frequencyCount": 144
+        },
+        {
+          "move": 30,
+          "weight": 0.3207070707070707,
+          "eval": -4,
+          "frequencyCount": 127
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "猫定石・最善型",
+        "猫定石・坂口流",
+        "WTHOR-0111",
+        "WTHOR-0112",
+        "WTHOR-0113"
+      ],
+      "isLeaf": false
+    },
+    "2c0c081000_81030300000_white": {
+      "bookMoves": [
+        {
+          "move": 42,
+          "weight": 1,
+          "eval": 4
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "猫定石・最善型",
+        "WTHOR-0112"
+      ],
+      "isLeaf": true
+    },
+    "240c081000_c1830300000_black": {
+      "bookMoves": [
+        {
+          "move": 44,
+          "weight": 1,
+          "eval": -3
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "猫定石・最善型"
+      ],
+      "isLeaf": false
+    },
+    "103c1c181000_c0020200000_white": {
+      "bookMoves": [
+        {
+          "move": 45,
+          "weight": 1,
+          "eval": 4
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "猫定石・最善型"
+      ],
+      "isLeaf": false
+    },
+    "1c1c181000_3c2020200000_black": {
+      "bookMoves": [
+        {
+          "move": 51,
+          "weight": 1,
+          "eval": -2
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "猫定石・最善型"
+      ],
+      "isLeaf": false
+    },
+    "8081c1c181000_342020200000_white": {
+      "bookMoves": [
+        {
+          "move": 58,
+          "weight": 1,
+          "eval": 5
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "猫定石・最善型"
+      ],
+      "isLeaf": false
+    },
+    "81c1c181000_408342020200000_black": {
+      "bookMoves": [],
+      "nonBookEval": null,
+      "names": [
+        "猫定石・最善型"
+      ],
+      "isLeaf": true
+    },
+    "102804000000_81038080000_black": {
+      "bookMoves": [
+        {
+          "move": 20,
+          "weight": 1,
+          "eval": -2,
+          "frequencyCount": 268
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "羊定石・基本形",
+        "WTHOR-0114",
+        "WTHOR-0115"
+      ],
+      "isLeaf": false
+    },
+    "103814100000_80028080000_white": {
+      "bookMoves": [
+        {
+          "move": 21,
+          "weight": 1,
+          "eval": 3,
+          "frequencyCount": 268
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "羊定石・基本形",
+        "WTHOR-0114",
+        "WTHOR-0115"
+      ],
+      "isLeaf": false
+    },
+    "103814000000_80028380000_black": {
+      "bookMoves": [
+        {
+          "move": 42,
+          "weight": 1,
+          "eval": -2,
+          "frequencyCount": 166
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "羊定石・基本形",
+        "WTHOR-0114",
+        "WTHOR-0115"
+      ],
+      "isLeaf": true
+    },
     "4081c000000_87000000000_white": {
       "bookMoves": [
         {
@@ -5259,6 +9351,278 @@
       ],
       "isLeaf": true
     },
+    "20101c000000_86800000000_white": {
+      "bookMoves": [
+        {
+          "move": 29,
+          "weight": 1,
+          "eval": 1,
+          "frequencyCount": 381
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "ラッコ定石",
+        "WTHOR-0123",
+        "WTHOR-0124",
+        "WTHOR-0125"
+      ],
+      "isLeaf": false
+    },
+    "20001c000000_87820000000_black": {
+      "bookMoves": [
+        {
+          "move": 21,
+          "weight": 1,
+          "eval": 0,
+          "frequencyCount": 381
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "ラッコ定石",
+        "WTHOR-0123",
+        "WTHOR-0124",
+        "WTHOR-0125"
+      ],
+      "isLeaf": false
+    },
+    "20203c200000_85800000000_white": {
+      "bookMoves": [
+        {
+          "move": 19,
+          "weight": 1,
+          "eval": 1,
+          "frequencyCount": 381
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "ラッコ定石",
+        "WTHOR-0123",
+        "WTHOR-0124",
+        "WTHOR-0125"
+      ],
+      "isLeaf": false
+    },
+    "202034200000_85808080000_black": {
+      "bookMoves": [
+        {
+          "move": 18,
+          "weight": 1,
+          "eval": 1,
+          "frequencyCount": 381
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "ラッコ定石",
+        "WTHOR-0123",
+        "WTHOR-0124",
+        "WTHOR-0125"
+      ],
+      "isLeaf": false
+    },
+    "20303c240000_84800080000_white": {
+      "bookMoves": [
+        {
+          "move": 46,
+          "weight": 1,
+          "eval": 2,
+          "frequencyCount": 381
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "ラッコ定石",
+        "WTHOR-0123",
+        "WTHOR-0124",
+        "WTHOR-0125"
+      ],
+      "isLeaf": false
+    },
+    "20102c240000_486810080000_black": {
+      "bookMoves": [
+        {
+          "move": 20,
+          "weight": 1,
+          "eval": 0,
+          "frequencyCount": 381
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "ラッコ定石",
+        "WTHOR-0123",
+        "WTHOR-0124",
+        "WTHOR-0125"
+      ],
+      "isLeaf": false
+    },
+    "20103c3c0000_486800000000_white": {
+      "bookMoves": [
+        {
+          "move": 44,
+          "weight": 0.6850393700787402,
+          "eval": 1,
+          "frequencyCount": 261
+        },
+        {
+          "move": 22,
+          "weight": 0.31496062992125984,
+          "eval": 0,
+          "frequencyCount": 120
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "ラッコ定石",
+        "WTHOR-0123",
+        "WTHOR-0124",
+        "WTHOR-0125"
+      ],
+      "isLeaf": false
+    },
+    "103c3c0000_786800000000_black": {
+      "bookMoves": [
+        {
+          "move": 34,
+          "weight": 0.5019157088122606,
+          "eval": 0,
+          "frequencyCount": 131
+        },
+        {
+          "move": 47,
+          "weight": 0.49808429118773945,
+          "eval": 0,
+          "frequencyCount": 130
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "ラッコ定石",
+        "WTHOR-0124",
+        "WTHOR-0125"
+      ],
+      "isLeaf": false
+    },
+    "1c3c3c0000_786000000000_white": {
+      "bookMoves": [
+        {
+          "move": 12,
+          "weight": 1,
+          "eval": 1,
+          "frequencyCount": 131
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "ラッコ定石",
+        "WTHOR-0124"
+      ],
+      "isLeaf": false
+    },
+    "c2c2c0000_787010101000_black": {
+      "bookMoves": [
+        {
+          "move": 13,
+          "weight": 1,
+          "eval": 0
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "ラッコ定石",
+        "WTHOR-0124"
+      ],
+      "isLeaf": true
+    },
+    "c2c3c2000_787010001000_white": {
+      "bookMoves": [
+        {
+          "move": 42,
+          "weight": 1,
+          "eval": 2
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "ラッコ定石"
+      ],
+      "isLeaf": false
+    },
+    "42c3c2000_7c7810001000_black": {
+      "bookMoves": [
+        {
+          "move": 51,
+          "weight": 1,
+          "eval": 0
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "ラッコ定石"
+      ],
+      "isLeaf": false
+    },
+    "8080c2c3c2000_747010001000_white": {
+      "bookMoves": [],
+      "nonBookEval": null,
+      "names": [
+        "ラッコ定石"
+      ],
+      "isLeaf": true
+    },
+    "103418100000_c0820000000_white": {
+      "bookMoves": [
+        {
+          "move": 45,
+          "weight": 0.4936936936936937,
+          "eval": 4,
+          "frequencyCount": 274
+        },
+        {
+          "move": 53,
+          "weight": 0.5063063063063064,
+          "eval": 2,
+          "frequencyCount": 281
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "雪うさぎ/井上流･基本形",
+        "井上流・最善型",
+        "WTHOR-0153",
+        "WTHOR-0154",
+        "WTHOR-0155",
+        "WTHOR-0156",
+        "WTHOR-0157"
+      ],
+      "isLeaf": false
+    },
+    "1418100000_3c2820000000_black": {
+      "bookMoves": [
+        {
+          "move": 30,
+          "weight": 0.6204379562043796,
+          "eval": -4,
+          "frequencyCount": 170
+        },
+        {
+          "move": 51,
+          "weight": 0.3795620437956204,
+          "eval": -3,
+          "frequencyCount": 104
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "雪うさぎ/井上流･基本形",
+        "WTHOR-0154",
+        "WTHOR-0155"
+      ],
+      "isLeaf": true
+    },
     "418180000_c7820000000_black": {
       "bookMoves": [
         {
@@ -5279,6 +9643,346 @@
         "横うさぎ・基本形",
         "WTHOR-0138",
         "WTHOR-0139"
+      ],
+      "isLeaf": true
+    },
+    "2400100000_81838080000_black": {
+      "bookMoves": [
+        {
+          "move": 44,
+          "weight": 1,
+          "eval": 5,
+          "frequencyCount": 135
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "三村流7-e6型",
+        "WTHOR-0132"
+      ],
+      "isLeaf": false
+    },
+    "103410100000_80828080000_white": {
+      "bookMoves": [
+        {
+          "move": 38,
+          "weight": 1,
+          "eval": -3
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "三村流7-e6型",
+        "WTHOR-0132"
+      ],
+      "isLeaf": true
+    },
+    "100410100000_87828080000_black": {
+      "bookMoves": [
+        {
+          "move": 26,
+          "weight": 1,
+          "eval": 2
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "三村流7-e6型"
+      ],
+      "isLeaf": false
+    },
+    "100c1c100000_87020080000_white": {
+      "bookMoves": [
+        {
+          "move": 18,
+          "weight": 1,
+          "eval": -1
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "三村流7-e6型"
+      ],
+      "isLeaf": false
+    },
+    "100c14100000_870280c0000_black": {
+      "bookMoves": [
+        {
+          "move": 11,
+          "weight": 1,
+          "eval": 1
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "三村流7-e6型"
+      ],
+      "isLeaf": false
+    },
+    "100c1c180800_87020040000_white": {
+      "bookMoves": [
+        {
+          "move": 45,
+          "weight": 1,
+          "eval": -1
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "三村流7-e6型"
+      ],
+      "isLeaf": false
+    },
+    "c1c180800_387020040000_black": {
+      "bookMoves": [
+        {
+          "move": 10,
+          "weight": 1,
+          "eval": 1
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "三村流7-e6型"
+      ],
+      "isLeaf": false
+    },
+    "c1c1c0c00_387020000000_white": {
+      "bookMoves": [
+        {
+          "move": 33,
+          "weight": 1,
+          "eval": -3
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "三村流7-e6型"
+      ],
+      "isLeaf": false
+    },
+    "1c1c0c00_387e20000000_black": {
+      "bookMoves": [],
+      "nonBookEval": null,
+      "names": [
+        "三村流7-e6型"
+      ],
+      "isLeaf": true
+    },
+    "3418100000_201c0820000000_black": {
+      "bookMoves": [
+        {
+          "move": 51,
+          "weight": 1,
+          "eval": -1,
+          "frequencyCount": 181
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "井上流・最善型",
+        "WTHOR-0156",
+        "WTHOR-0157"
+      ],
+      "isLeaf": false
+    },
+    "8183c18100000_20040020000000_white": {
+      "bookMoves": [
+        {
+          "move": 60,
+          "weight": 1,
+          "eval": 4
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "井上流・最善型",
+        "WTHOR-0156"
+      ],
+      "isLeaf": true
+    },
+    "183c18100000_1028040020000000_black": {
+      "bookMoves": [
+        {
+          "move": 21,
+          "weight": 1,
+          "eval": -1
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "井上流・最善型"
+      ],
+      "isLeaf": false
+    },
+    "183c38300000_1028040000000000_white": {
+      "bookMoves": [
+        {
+          "move": 45,
+          "weight": 1,
+          "eval": 4
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "井上流・最善型"
+      ],
+      "isLeaf": false
+    },
+    "3c38300000_10283c0000000000_black": {
+      "bookMoves": [
+        {
+          "move": 61,
+          "weight": 1,
+          "eval": 0
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "井上流・最善型"
+      ],
+      "isLeaf": false
+    },
+    "2020203c38300000_10081c0000000000_white": {
+      "bookMoves": [
+        {
+          "move": 26,
+          "weight": 1,
+          "eval": 2
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "井上流・最善型"
+      ],
+      "isLeaf": false
+    },
+    "2020203038300000_10081c0c04000000_black": {
+      "bookMoves": [
+        {
+          "move": 52,
+          "weight": 1,
+          "eval": -1
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "井上流・最善型"
+      ],
+      "isLeaf": false
+    },
+    "2030303038300000_10080c0c04000000_white": {
+      "bookMoves": [
+        {
+          "move": 38,
+          "weight": 1,
+          "eval": 3
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "井上流・最善型"
+      ],
+      "isLeaf": false
+    },
+    "2030300038300000_10080c7c04000000_black": {
+      "bookMoves": [
+        {
+          "move": 58,
+          "weight": 1,
+          "eval": -1
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "井上流・最善型"
+      ],
+      "isLeaf": false
+    },
+    "2438300038300000_10000c7c04000000_white": {
+      "bookMoves": [
+        {
+          "move": 59,
+          "weight": 1,
+          "eval": 3
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "井上流・最善型"
+      ],
+      "isLeaf": false
+    },
+    "2420100038300000_18182c7c04000000_black": {
+      "bookMoves": [],
+      "nonBookEval": null,
+      "names": [
+        "井上流・最善型"
+      ],
+      "isLeaf": true
+    },
+    "2408080000_c1830101000_black": {
+      "bookMoves": [
+        {
+          "move": 21,
+          "weight": 1,
+          "eval": 2
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "たまうさぎ9-f3型",
+        "WTHOR-0134"
+      ],
+      "isLeaf": true
+    },
+    "2428380000_c1810001000_white": {
+      "bookMoves": [
+        {
+          "move": 18,
+          "weight": 1,
+          "eval": -1
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "たまうさぎ9-f3型"
+      ],
+      "isLeaf": false
+    },
+    "2420380000_c1818041000_black": {
+      "bookMoves": [
+        {
+          "move": 26,
+          "weight": 1,
+          "eval": 2
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "たまうさぎ9-f3型"
+      ],
+      "isLeaf": false
+    },
+    "243c380000_c1800041000_white": {
+      "bookMoves": [
+        {
+          "move": 11,
+          "weight": 1,
+          "eval": -1
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "たまうさぎ9-f3型"
+      ],
+      "isLeaf": false
+    },
+    "2434300000_c18080c1800_black": {
+      "bookMoves": [],
+      "nonBookEval": null,
+      "names": [
+        "たまうさぎ9-f3型"
       ],
       "isLeaf": true
     },
@@ -5450,12 +10154,121 @@
       "isLeaf": false
     },
     "7c38180000_fc80c0e00000_black": {
-      "bookMoves": [],
+      "bookMoves": [
+        {
+          "move": 13,
+          "weight": 1,
+          "eval": 1
+        }
+      ],
       "nonBookEval": null,
       "names": [
         "Ralle定石"
       ],
       "isLeaf": false
+    },
+    "7c38382000_fc80c0c00000_white": {
+      "bookMoves": [
+        {
+          "move": 12,
+          "weight": 1,
+          "eval": -1
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "Ralle定石"
+      ],
+      "isLeaf": false
+    },
+    "6c28082000_fc90d0f01000_black": {
+      "bookMoves": [
+        {
+          "move": 5,
+          "weight": 1,
+          "eval": 2
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "Ralle定石"
+      ],
+      "isLeaf": false
+    },
+    "6c28083020_fc90d0f00000_white": {
+      "bookMoves": [
+        {
+          "move": 3,
+          "weight": 1,
+          "eval": -1
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "Ralle定石"
+      ],
+      "isLeaf": false
+    },
+    "6c28082020_fc90d0f01008_black": {
+      "bookMoves": [],
+      "nonBookEval": null,
+      "names": [
+        "Ralle定石"
+      ],
+      "isLeaf": true
+    },
+    "c08100000_283030000000_black": {
+      "bookMoves": [
+        {
+          "move": 21,
+          "weight": 1,
+          "eval": 6,
+          "frequencyCount": 126
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "大和久流",
+        "WTHOR-0159"
+      ],
+      "isLeaf": false
+    },
+    "c18300000_283020000000_white": {
+      "bookMoves": [
+        {
+          "move": 26,
+          "weight": 1,
+          "eval": -4
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "大和久流",
+        "WTHOR-0159"
+      ],
+      "isLeaf": true
+    },
+    "c00300000_28303c000000_black": {
+      "bookMoves": [
+        {
+          "move": 19,
+          "weight": 1,
+          "eval": 5
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "大和久流"
+      ],
+      "isLeaf": false
+    },
+    "c08380000_283034000000_white": {
+      "bookMoves": [],
+      "nonBookEval": null,
+      "names": [
+        "大和久流"
+      ],
+      "isLeaf": true
     },
     "10081c100000_203420000000_white": {
       "bookMoves": [
@@ -5512,9 +10325,15 @@
       "bookMoves": [
         {
           "move": 42,
-          "weight": 1,
+          "weight": 0.8493150684931506,
           "eval": 1,
           "frequencyCount": 1054
+        },
+        {
+          "move": 33,
+          "weight": 0.1506849315068493,
+          "eval": -1,
+          "frequencyCount": 187
         }
       ],
       "nonBookEval": null,
@@ -5577,14 +10396,20 @@
     "40c1c200000_10303020101000_white": {
       "bookMoves": [
         {
+          "move": 13,
+          "weight": 0.4716312056737589,
+          "eval": -2,
+          "frequencyCount": 399
+        },
+        {
           "move": 19,
-          "weight": 0.7114093959731543,
+          "weight": 0.375886524822695,
           "eval": 0,
           "frequencyCount": 318
         },
         {
           "move": 30,
-          "weight": 0.28859060402684567,
+          "weight": 0.1524822695035461,
           "eval": -1,
           "frequencyCount": 129
         }
@@ -5598,6 +10423,146 @@
         "WTHOR-0191"
       ],
       "isLeaf": false
+    },
+    "40c1c000000_10303020303000_black": {
+      "bookMoves": [
+        {
+          "move": 38,
+          "weight": 1,
+          "eval": 2,
+          "frequencyCount": 272
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "快速船・基礎形",
+        "WTHOR-0188",
+        "WTHOR-0189"
+      ],
+      "isLeaf": true
+    },
+    "e1c100000_10303020000000_white": {
+      "bookMoves": [
+        {
+          "move": 12,
+          "weight": 1,
+          "eval": 1,
+          "frequencyCount": 187
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "ヨット定石",
+        "WTHOR-0185"
+      ],
+      "isLeaf": false
+    },
+    "e0c000000_10303030101000_black": {
+      "bookMoves": [
+        {
+          "move": 21,
+          "weight": 1,
+          "eval": 1
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "ヨット定石",
+        "WTHOR-0185"
+      ],
+      "isLeaf": true
+    },
+    "e1c200000_10303020101000_white": {
+      "bookMoves": [
+        {
+          "move": 13,
+          "weight": 1,
+          "eval": 0
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "ヨット定石"
+      ],
+      "isLeaf": false
+    },
+    "e1c000000_10303020303000_black": {
+      "bookMoves": [
+        {
+          "move": 38,
+          "weight": 1,
+          "eval": 1
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "ヨット定石"
+      ],
+      "isLeaf": false
+    },
+    "7e1c000000_10300020303000_white": {
+      "bookMoves": [
+        {
+          "move": 30,
+          "weight": 1,
+          "eval": 0
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "ヨット定石"
+      ],
+      "isLeaf": false
+    },
+    "5e1c000000_10302060303000_black": {
+      "bookMoves": [
+        {
+          "move": 46,
+          "weight": 1,
+          "eval": 2
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "ヨット定石"
+      ],
+      "isLeaf": false
+    },
+    "407e1c000000_10300060303000_white": {
+      "bookMoves": [
+        {
+          "move": 43,
+          "weight": 1,
+          "eval": 0
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "ヨット定石"
+      ],
+      "isLeaf": false
+    },
+    "406e1c000000_10381060303000_black": {
+      "bookMoves": [
+        {
+          "move": 23,
+          "weight": 1,
+          "eval": 2
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "ヨット定石"
+      ],
+      "isLeaf": false
+    },
+    "406e5c800000_10381020303000_white": {
+      "bookMoves": [],
+      "nonBookEval": null,
+      "names": [
+        "ヨット定石"
+      ],
+      "isLeaf": true
     },
     "81c100000_8303420000000_black": {
       "bookMoves": [
@@ -5797,14 +10762,19 @@
     "20300800000000_1000f038000000_black": {
       "bookMoves": [
         {
+          "move": 60,
+          "weight": 0.3333333333333333,
+          "eval": -2
+        },
+        {
           "move": 20,
-          "weight": 0.5207100591715976,
+          "weight": 0.3333333333333333,
           "eval": 1,
           "frequencyCount": 176
         },
         {
           "move": 30,
-          "weight": 0.47928994082840237,
+          "weight": 0.3333333333333333,
           "eval": 0,
           "frequencyCount": 162
         }
@@ -5987,6 +10957,98 @@
       "nonBookEval": null,
       "names": [
         "野いちご定石"
+      ],
+      "isLeaf": true
+    },
+    "1030300800000000_f038000000_white": {
+      "bookMoves": [
+        {
+          "move": 34,
+          "weight": 1,
+          "eval": 1
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "裏ヨット定石"
+      ],
+      "isLeaf": false
+    },
+    "1030300000000000_fc38000000_black": {
+      "bookMoves": [
+        {
+          "move": 30,
+          "weight": 1,
+          "eval": -2
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "裏ヨット定石"
+      ],
+      "isLeaf": false
+    },
+    "1030302040000000_dc38000000_white": {
+      "bookMoves": [
+        {
+          "move": 31,
+          "weight": 1,
+          "eval": 1
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "裏ヨット定石"
+      ],
+      "isLeaf": false
+    },
+    "1030302000000000_dcf8000000_black": {
+      "bookMoves": [
+        {
+          "move": 20,
+          "weight": 1,
+          "eval": -1
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "裏ヨット定石"
+      ],
+      "isLeaf": false
+    },
+    "1030303010100000_cce8000000_white": {
+      "bookMoves": [
+        {
+          "move": 43,
+          "weight": 1,
+          "eval": 1
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "裏ヨット定石"
+      ],
+      "isLeaf": false
+    },
+    "1030302010100000_8dce8000000_black": {
+      "bookMoves": [
+        {
+          "move": 21,
+          "weight": 1,
+          "eval": 0
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "裏ヨット定石"
+      ],
+      "isLeaf": false
+    },
+    "1030302030300000_8dcc8000000_white": {
+      "bookMoves": [],
+      "nonBookEval": null,
+      "names": [
+        "裏ヨット定石"
       ],
       "isLeaf": true
     },
@@ -6409,6 +11471,171 @@
       ],
       "isLeaf": true
     },
+    "8082c00000000_1038000000_white": {
+      "bookMoves": [
+        {
+          "move": 45,
+          "weight": 1,
+          "eval": 7,
+          "frequencyCount": 139
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "鶴定石",
+        "WTHOR-0161"
+      ],
+      "isLeaf": false
+    },
+    "8080c00000000_203038000000_black": {
+      "bookMoves": [
+        {
+          "move": 19,
+          "weight": 1,
+          "eval": -7
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "鶴定石",
+        "WTHOR-0161"
+      ],
+      "isLeaf": true
+    },
+    "8080c08080000_203030000000_white": {
+      "bookMoves": [
+        {
+          "move": 18,
+          "weight": 1,
+          "eval": 7
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "鶴定石"
+      ],
+      "isLeaf": false
+    },
+    "8080c00080000_203038040000_black": {
+      "bookMoves": [
+        {
+          "move": 20,
+          "weight": 1,
+          "eval": -7
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "鶴定石"
+      ],
+      "isLeaf": false
+    },
+    "8080c08180000_203030040000_white": {
+      "bookMoves": [
+        {
+          "move": 21,
+          "weight": 1,
+          "eval": 7
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "鶴定石"
+      ],
+      "isLeaf": false
+    },
+    "8080c08000000_2030303c0000_black": {
+      "bookMoves": [
+        {
+          "move": 30,
+          "weight": 1,
+          "eval": -7
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "鶴定石"
+      ],
+      "isLeaf": false
+    },
+    "8080c78000000_2030003c0000_white": {
+      "bookMoves": [
+        {
+          "move": 38,
+          "weight": 1,
+          "eval": 8
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "鶴定石"
+      ],
+      "isLeaf": false
+    },
+    "8080c58000000_2070203c0000_black": {
+      "bookMoves": [
+        {
+          "move": 44,
+          "weight": 1,
+          "eval": -8
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "鶴定石"
+      ],
+      "isLeaf": false
+    },
+    "8183c58000000_2040203c0000_white": {
+      "bookMoves": [
+        {
+          "move": 46,
+          "weight": 1,
+          "eval": 10
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "鶴定石"
+      ],
+      "isLeaf": false
+    },
+    "8181c48000000_6060303c0000_black": {
+      "bookMoves": [
+        {
+          "move": 22,
+          "weight": 1,
+          "eval": -9
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "鶴定石"
+      ],
+      "isLeaf": false
+    },
+    "8181c68400000_6060103c0000_white": {
+      "bookMoves": [
+        {
+          "move": 31,
+          "weight": 1,
+          "eval": 10
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "鶴定石"
+      ],
+      "isLeaf": false
+    },
+    "8181c08400000_6060f03c0000_black": {
+      "bookMoves": [],
+      "nonBookEval": null,
+      "names": [
+        "鶴定石"
+      ],
+      "isLeaf": true
+    },
     "10100000_383828000000_black": {
       "bookMoves": [
         {
@@ -6444,9 +11671,15 @@
       "bookMoves": [
         {
           "move": 30,
-          "weight": 1,
+          "weight": 0.7911111111111111,
           "eval": 2,
           "frequencyCount": 534
+        },
+        {
+          "move": 21,
+          "weight": 0.2088888888888889,
+          "eval": 0,
+          "frequencyCount": 141
         }
       ],
       "nonBookEval": null,
@@ -6597,6 +11830,481 @@
       ],
       "isLeaf": true
     },
+    "702020200000_1c18000000_white": {
+      "bookMoves": [],
+      "nonBookEval": null,
+      "names": [
+        "砂蛇・基本形",
+        "WTHOR-0240"
+      ],
+      "isLeaf": true
+    },
+    "1808040000_8302030000000_black": {
+      "bookMoves": [
+        {
+          "move": 20,
+          "weight": 0.47417840375586856,
+          "eval": -1,
+          "frequencyCount": 101
+        },
+        {
+          "move": 21,
+          "weight": 0.5258215962441315,
+          "eval": -2,
+          "frequencyCount": 112
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "丸岡バッファロー・基本形",
+        "WTHOR-0170",
+        "WTHOR-0171"
+      ],
+      "isLeaf": true
+    },
+    "808040000_383030000000_black": {
+      "bookMoves": [
+        {
+          "move": 21,
+          "weight": 1,
+          "eval": 0,
+          "frequencyCount": 244
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "谷田バッファロー・基本形",
+        "WTHOR-0168",
+        "WTHOR-0169"
+      ],
+      "isLeaf": false
+    },
+    "818240000_383020000000_white": {
+      "bookMoves": [
+        {
+          "move": 26,
+          "weight": 0.45901639344262296,
+          "eval": 0,
+          "frequencyCount": 112
+        },
+        {
+          "move": 34,
+          "weight": 0.5409836065573771,
+          "eval": 1,
+          "frequencyCount": 132
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "谷田バッファロー・基本形",
+        "WTHOR-0168",
+        "WTHOR-0169"
+      ],
+      "isLeaf": true
+    },
+    "101800040000_20203c000000_black": {
+      "bookMoves": [
+        {
+          "move": 19,
+          "weight": 1,
+          "eval": 1,
+          "frequencyCount": 213
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "北陸バッファロー・基本形"
+      ],
+      "isLeaf": false
+    },
+    "1018080c0000_202034000000_white": {
+      "bookMoves": [],
+      "nonBookEval": null,
+      "names": [
+        "北陸バッファロー・基本形"
+      ],
+      "isLeaf": true
+    },
+    "808040000_10303030000000_black": {
+      "bookMoves": [
+        {
+          "move": 21,
+          "weight": 1,
+          "eval": 1,
+          "frequencyCount": 185
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "e7バッファロー・基本形",
+        "WTHOR-0172"
+      ],
+      "isLeaf": true
+    },
+    "2c1c080400_81020300000_white": {
+      "bookMoves": [
+        {
+          "move": 42,
+          "weight": 1,
+          "eval": 3,
+          "frequencyCount": 144
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "猫定石・坂口流",
+        "WTHOR-0111"
+      ],
+      "isLeaf": false
+    },
+    "240c080400_c1830300000_black": {
+      "bookMoves": [
+        {
+          "move": 44,
+          "weight": 1,
+          "eval": -3,
+          "frequencyCount": 144
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "猫定石・坂口流",
+        "WTHOR-0111"
+      ],
+      "isLeaf": false
+    },
+    "102c0c080400_c1030300000_white": {
+      "bookMoves": [
+        {
+          "move": 11,
+          "weight": 1,
+          "eval": 4,
+          "frequencyCount": 144
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "猫定石・坂口流",
+        "WTHOR-0111"
+      ],
+      "isLeaf": false
+    },
+    "102404000400_c1838380800_black": {
+      "bookMoves": [
+        {
+          "move": 30,
+          "weight": 1,
+          "eval": -3,
+          "frequencyCount": 144
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "猫定石・坂口流",
+        "WTHOR-0111"
+      ],
+      "isLeaf": false
+    },
+    "10247c000400_c1800380800_white": {
+      "bookMoves": [
+        {
+          "move": 41,
+          "weight": 1,
+          "eval": 5,
+          "frequencyCount": 144
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "猫定石・坂口流",
+        "WTHOR-0111"
+      ],
+      "isLeaf": false
+    },
+    "102074000400_e1c08380800_black": {
+      "bookMoves": [
+        {
+          "move": 33,
+          "weight": 1,
+          "eval": -3,
+          "frequencyCount": 144
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "猫定石・坂口流",
+        "WTHOR-0111"
+      ],
+      "isLeaf": false
+    },
+    "103e74000400_e0008380800_white": {
+      "bookMoves": [
+        {
+          "move": 18,
+          "weight": 1,
+          "eval": 5
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "猫定石・坂口流",
+        "WTHOR-0111"
+      ],
+      "isLeaf": true
+    },
+    "103a70000400_e040c3c0800_black": {
+      "bookMoves": [],
+      "nonBookEval": null,
+      "names": [
+        "猫定石・坂口流"
+      ],
+      "isLeaf": true
+    },
+    "203000040000_8083e080000_black": {
+      "bookMoves": [
+        {
+          "move": 21,
+          "weight": 1,
+          "eval": 4,
+          "frequencyCount": 360
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "Kung",
+        "WTHOR-0065",
+        "WTHOR-0066"
+      ],
+      "isLeaf": false
+    },
+    "203020240000_8081e080000_white": {
+      "bookMoves": [
+        {
+          "move": 44,
+          "weight": 1,
+          "eval": -3,
+          "frequencyCount": 360
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "Kung",
+        "WTHOR-0065",
+        "WTHOR-0066"
+      ],
+      "isLeaf": false
+    },
+    "202020240000_18181e080000_black": {
+      "bookMoves": [
+        {
+          "move": 20,
+          "weight": 1,
+          "eval": 3,
+          "frequencyCount": 360
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "Kung",
+        "WTHOR-0065",
+        "WTHOR-0066"
+      ],
+      "isLeaf": false
+    },
+    "2020203c0000_18181e000000_white": {
+      "bookMoves": [
+        {
+          "move": 38,
+          "weight": 0.6694444444444444,
+          "eval": -3,
+          "frequencyCount": 241
+        },
+        {
+          "move": 13,
+          "weight": 0.33055555555555555,
+          "eval": -4,
+          "frequencyCount": 119
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "Kung",
+        "WTHOR-0065",
+        "WTHOR-0066"
+      ],
+      "isLeaf": false
+    },
+    "2000203c0000_18781e000000_black": {
+      "bookMoves": [
+        {
+          "move": 46,
+          "weight": 1,
+          "eval": 3,
+          "frequencyCount": 241
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "Kung",
+        "WTHOR-0066"
+      ],
+      "isLeaf": false
+    },
+    "6020303c0000_18580e000000_white": {
+      "bookMoves": [
+        {
+          "move": 30,
+          "weight": 1,
+          "eval": -2,
+          "frequencyCount": 241
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "Kung",
+        "WTHOR-0066"
+      ],
+      "isLeaf": false
+    },
+    "6000003c0000_18787e000000_black": {
+      "bookMoves": [
+        {
+          "move": 31,
+          "weight": 1,
+          "eval": 3,
+          "frequencyCount": 241
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "Kung",
+        "WTHOR-0066"
+      ],
+      "isLeaf": false
+    },
+    "6040803c0000_18387e000000_white": {
+      "bookMoves": [
+        {
+          "move": 39,
+          "weight": 1,
+          "eval": -2,
+          "frequencyCount": 241
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "Kung",
+        "WTHOR-0066"
+      ],
+      "isLeaf": false
+    },
+    "6000803c0000_18f87e000000_black": {
+      "bookMoves": [
+        {
+          "move": 47,
+          "weight": 1,
+          "eval": 4
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "Kung",
+        "WTHOR-0066"
+      ],
+      "isLeaf": true
+    },
+    "e0c0a03c0000_18385e000000_white": {
+      "bookMoves": [
+        {
+          "move": 22,
+          "weight": 1,
+          "eval": -1
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "Kung"
+      ],
+      "isLeaf": false
+    },
+    "e0c0803c0000_18387e400000_black": {
+      "bookMoves": [
+        {
+          "move": 23,
+          "weight": 1,
+          "eval": 4
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "Kung"
+      ],
+      "isLeaf": false
+    },
+    "e0c080fc0000_18387e000000_white": {
+      "bookMoves": [
+        {
+          "move": 53,
+          "weight": 1,
+          "eval": -1
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "Kung"
+      ],
+      "isLeaf": false
+    },
+    "c0c080fc0000_2038387e000000_black": {
+      "bookMoves": [
+        {
+          "move": 61,
+          "weight": 1,
+          "eval": 2
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "Kung"
+      ],
+      "isLeaf": false
+    },
+    "2020e0e0a0fc0000_18185e000000_white": {
+      "bookMoves": [
+        {
+          "move": 13,
+          "weight": 1,
+          "eval": -1
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "Kung"
+      ],
+      "isLeaf": false
+    },
+    "2020e0e0a0ec0000_18185e102000_black": {
+      "bookMoves": [
+        {
+          "move": 5,
+          "weight": 1,
+          "eval": 4
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "Kung"
+      ],
+      "isLeaf": false
+    },
+    "2020e0e0a0ec2020_18185e100000_white": {
+      "bookMoves": [],
+      "nonBookEval": null,
+      "names": [
+        "Kung"
+      ],
+      "isLeaf": true
+    },
     "6820100000_10301018000000_white": {
       "bookMoves": [
         {
@@ -6733,6 +12441,252 @@
       ],
       "isLeaf": true
     },
+    "2840000000_10301038000000_black": {
+      "bookMoves": [
+        {
+          "move": 53,
+          "weight": 1,
+          "eval": -4,
+          "frequencyCount": 102
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "狸定石・最善型",
+        "WTHOR-0215"
+      ],
+      "isLeaf": false
+    },
+    "20302840000000_10001038000000_white": {
+      "bookMoves": [
+        {
+          "move": 38,
+          "weight": 1,
+          "eval": 3,
+          "frequencyCount": 102
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "狸定石・最善型",
+        "WTHOR-0215"
+      ],
+      "isLeaf": false
+    },
+    "20100840000000_10207038000000_black": {
+      "bookMoves": [
+        {
+          "move": 20,
+          "weight": 1,
+          "eval": -5
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "狸定石・最善型",
+        "WTHOR-0215"
+      ],
+      "isLeaf": true
+    },
+    "20101850100000_10206028000000_white": {
+      "bookMoves": [
+        {
+          "move": 19,
+          "weight": 1,
+          "eval": 4
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "狸定石・最善型"
+      ],
+      "isLeaf": false
+    },
+    "20101840100000_10206038080000_black": {
+      "bookMoves": [
+        {
+          "move": 39,
+          "weight": 1,
+          "eval": -1
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "狸定石・最善型"
+      ],
+      "isLeaf": false
+    },
+    "2010f840100000_10200038080000_white": {
+      "bookMoves": [],
+      "nonBookEval": null,
+      "names": [
+        "狸定石・最善型"
+      ],
+      "isLeaf": true
+    },
+    "2428300000_c1810000000_white": {
+      "bookMoves": [
+        {
+          "move": 38,
+          "weight": 1,
+          "eval": 5
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "Shaman11-g6型",
+        "WTHOR-0152"
+      ],
+      "isLeaf": true
+    },
+    "428300000_c7810000000_black": {
+      "bookMoves": [
+        {
+          "move": 44,
+          "weight": 1,
+          "eval": -2
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "Shaman11-g6型"
+      ],
+      "isLeaf": false
+    },
+    "101438300000_c6800000000_white": {
+      "bookMoves": [
+        {
+          "move": 45,
+          "weight": 1,
+          "eval": 6
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "Shaman11-g6型"
+      ],
+      "isLeaf": false
+    },
+    "1438300000_3c6800000000_black": {
+      "bookMoves": [
+        {
+          "move": 46,
+          "weight": 1,
+          "eval": -5
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "Shaman11-g6型"
+      ],
+      "isLeaf": false
+    },
+    "403438300000_3c4800000000_white": {
+      "bookMoves": [
+        {
+          "move": 30,
+          "weight": 1,
+          "eval": 4
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "Shaman11-g6型"
+      ],
+      "isLeaf": false
+    },
+    "401438300000_3c6840000000_black": {
+      "bookMoves": [
+        {
+          "move": 51,
+          "weight": 1,
+          "eval": -3
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "Shaman11-g6型"
+      ],
+      "isLeaf": false
+    },
+    "8481c38300000_346040000000_white": {
+      "bookMoves": [
+        {
+          "move": 19,
+          "weight": 1,
+          "eval": 4
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "Shaman11-g6型"
+      ],
+      "isLeaf": false
+    },
+    "8481c28300000_346050080000_black": {
+      "bookMoves": [
+        {
+          "move": 52,
+          "weight": 1,
+          "eval": -3
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "Shaman11-g6型"
+      ],
+      "isLeaf": false
+    },
+    "18581c28300000_246050080000_white": {
+      "bookMoves": [
+        {
+          "move": 18,
+          "weight": 1,
+          "eval": 2
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "Shaman11-g6型"
+      ],
+      "isLeaf": false
+    },
+    "18580c20300000_2470580c0000_black": {
+      "bookMoves": [
+        {
+          "move": 26,
+          "weight": 1,
+          "eval": -3
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "Shaman11-g6型"
+      ],
+      "isLeaf": false
+    },
+    "18580c3c300000_2470400c0000_white": {
+      "bookMoves": [
+        {
+          "move": 25,
+          "weight": 1,
+          "eval": 5
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "Shaman11-g6型"
+      ],
+      "isLeaf": false
+    },
+    "18580c00300000_24707e0c0000_black": {
+      "bookMoves": [],
+      "nonBookEval": null,
+      "names": [
+        "Shaman11-g6型"
+      ],
+      "isLeaf": true
+    },
     "3c280c040000_10001030280000_white": {
       "bookMoves": [
         {
@@ -6759,6 +12713,22 @@
       ],
       "isLeaf": true
     },
+    "20301c1c0000_80820200000_white": {
+      "bookMoves": [
+        {
+          "move": 25,
+          "weight": 1,
+          "eval": 2,
+          "frequencyCount": 131
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "ライトニングボルト基本形",
+        "WTHOR-0041"
+      ],
+      "isLeaf": true
+    },
     "2010100000_81828000000_black": {
       "bookMoves": [
         {
@@ -6779,6 +12749,82 @@
       "nonBookEval": null,
       "names": [
         "WTHOR-0001"
+      ],
+      "isLeaf": true
+    },
+    "207c1c0000_81800200000_white": {
+      "bookMoves": [
+        {
+          "move": 45,
+          "weight": 1,
+          "eval": 3,
+          "frequencyCount": 141
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "WTHOR-0006"
+      ],
+      "isLeaf": false
+    },
+    "5c1c0000_283820200000_black": {
+      "bookMoves": [],
+      "nonBookEval": null,
+      "names": [
+        "WTHOR-0006"
+      ],
+      "isLeaf": true
+    },
+    "1c1c0000_283820000000_black": {
+      "bookMoves": [
+        {
+          "move": 42,
+          "weight": 1,
+          "eval": -1,
+          "frequencyCount": 146
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "WTHOR-0008"
+      ],
+      "isLeaf": false
+    },
+    "4081c1c0000_283020000000_white": {
+      "bookMoves": [
+        {
+          "move": 34,
+          "weight": 1,
+          "eval": 2,
+          "frequencyCount": 146
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "WTHOR-0008"
+      ],
+      "isLeaf": false
+    },
+    "4001c1c0000_283c20000000_black": {
+      "bookMoves": [
+        {
+          "move": 51,
+          "weight": 1,
+          "eval": -2,
+          "frequencyCount": 146
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "WTHOR-0008"
+      ],
+      "isLeaf": false
+    },
+    "80c081c1c0000_203420000000_white": {
+      "bookMoves": [],
+      "nonBookEval": null,
+      "names": [
+        "WTHOR-0008"
       ],
       "isLeaf": true
     },
@@ -6825,6 +12871,45 @@
       "nonBookEval": null,
       "names": [
         "WTHOR-0015"
+      ],
+      "isLeaf": true
+    },
+    "234181c0400_180826020000_white": {
+      "bookMoves": [
+        {
+          "move": 42,
+          "weight": 1,
+          "eval": 2,
+          "frequencyCount": 206
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "WTHOR-0020",
+        "WTHOR-0095"
+      ],
+      "isLeaf": true
+    },
+    "230181c0400_1c0c26020000_black": {
+      "bookMoves": [
+        {
+          "move": 33,
+          "weight": 1,
+          "eval": -1,
+          "frequencyCount": 206
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "WTHOR-0020"
+      ],
+      "isLeaf": false
+    },
+    "23e1c1c0400_1c0022020000_white": {
+      "bookMoves": [],
+      "nonBookEval": null,
+      "names": [
+        "WTHOR-0020"
       ],
       "isLeaf": true
     },
@@ -6886,6 +12971,159 @@
       "nonBookEval": null,
       "names": [
         "WTHOR-0026"
+      ],
+      "isLeaf": true
+    },
+    "8183d00020000_5023e0c0400_black": {
+      "bookMoves": [],
+      "nonBookEval": null,
+      "names": [
+        "WTHOR-0030"
+      ],
+      "isLeaf": true
+    },
+    "3004060000_c0c3a080000_black": {
+      "bookMoves": [],
+      "nonBookEval": null,
+      "names": [
+        "WTHOR-0031"
+      ],
+      "isLeaf": true
+    },
+    "43c04040000_8003a080000_white": {
+      "bookMoves": [
+        {
+          "move": 44,
+          "weight": 1,
+          "eval": -2,
+          "frequencyCount": 243
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "WTHOR-0033"
+      ],
+      "isLeaf": false
+    },
+    "42c04040000_18103a080000_black": {
+      "bookMoves": [],
+      "nonBookEval": null,
+      "names": [
+        "WTHOR-0033"
+      ],
+      "isLeaf": true
+    },
+    "10381c0c0400_80020020000_white": {
+      "bookMoves": [],
+      "nonBookEval": null,
+      "names": [
+        "WTHOR-0036"
+      ],
+      "isLeaf": true
+    },
+    "10381c001000_800201e0000_black": {
+      "bookMoves": [
+        {
+          "move": 21,
+          "weight": 1,
+          "eval": -2,
+          "frequencyCount": 119
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "WTHOR-0037"
+      ],
+      "isLeaf": false
+    },
+    "10383c201000_800001e0000_white": {
+      "bookMoves": [
+        {
+          "move": 34,
+          "weight": 1,
+          "eval": 3,
+          "frequencyCount": 119
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "WTHOR-0037"
+      ],
+      "isLeaf": false
+    },
+    "103830201000_8040c1e0000_black": {
+      "bookMoves": [
+        {
+          "move": 25,
+          "weight": 1,
+          "eval": -2,
+          "frequencyCount": 119
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "WTHOR-0037"
+      ],
+      "isLeaf": false
+    },
+    "10383e201000_804001e0000_white": {
+      "bookMoves": [],
+      "nonBookEval": null,
+      "names": [
+        "WTHOR-0037"
+      ],
+      "isLeaf": true
+    },
+    "2030001c0000_8083e200000_black": {
+      "bookMoves": [
+        {
+          "move": 33,
+          "weight": 1,
+          "eval": -2,
+          "frequencyCount": 131
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "WTHOR-0041"
+      ],
+      "isLeaf": false
+    },
+    "2032041c0000_8083a200000_white": {
+      "bookMoves": [
+        {
+          "move": 44,
+          "weight": 1,
+          "eval": 3,
+          "frequencyCount": 131
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "WTHOR-0041"
+      ],
+      "isLeaf": false
+    },
+    "2022041c0000_18183a200000_black": {
+      "bookMoves": [
+        {
+          "move": 52,
+          "weight": 1,
+          "eval": -1,
+          "frequencyCount": 131
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "WTHOR-0041"
+      ],
+      "isLeaf": false
+    },
+    "103032141c0000_8082a200000_white": {
+      "bookMoves": [],
+      "nonBookEval": null,
+      "names": [
+        "WTHOR-0041"
       ],
       "isLeaf": true
     },
@@ -7219,6 +13457,364 @@
       ],
       "isLeaf": true
     },
+    "2020202c0000_18181e102000_black": {
+      "bookMoves": [
+        {
+          "move": 11,
+          "weight": 1,
+          "eval": 5,
+          "frequencyCount": 119
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "WTHOR-0065"
+      ],
+      "isLeaf": false
+    },
+    "2020203c0800_18181e002000_white": {
+      "bookMoves": [
+        {
+          "move": 38,
+          "weight": 1,
+          "eval": -4,
+          "frequencyCount": 119
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "WTHOR-0065"
+      ],
+      "isLeaf": false
+    },
+    "2000203c0800_18781e002000_black": {
+      "bookMoves": [
+        {
+          "move": 46,
+          "weight": 1,
+          "eval": 4,
+          "frequencyCount": 119
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "WTHOR-0065"
+      ],
+      "isLeaf": false
+    },
+    "6020303c0800_18580e002000_white": {
+      "bookMoves": [
+        {
+          "move": 30,
+          "weight": 1,
+          "eval": -3,
+          "frequencyCount": 119
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "WTHOR-0065"
+      ],
+      "isLeaf": false
+    },
+    "6000003c0800_18787e002000_black": {
+      "bookMoves": [],
+      "nonBookEval": null,
+      "names": [
+        "WTHOR-0065"
+      ],
+      "isLeaf": true
+    },
+    "302004240000_85c38180000_black": {
+      "bookMoves": [
+        {
+          "move": 30,
+          "weight": 1,
+          "eval": 3,
+          "frequencyCount": 108
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "WTHOR-0072"
+      ],
+      "isLeaf": false
+    },
+    "30207c240000_85c00180000_white": {
+      "bookMoves": [],
+      "nonBookEval": null,
+      "names": [
+        "WTHOR-0072"
+      ],
+      "isLeaf": true
+    },
+    "2203c3c0000_18385e00000000_black": {
+      "bookMoves": [],
+      "nonBookEval": null,
+      "names": [
+        "WTHOR-0076"
+      ],
+      "isLeaf": true
+    },
+    "10181c040000_20286020080000_black": {
+      "bookMoves": [
+        {
+          "move": 51,
+          "weight": 1,
+          "eval": 2,
+          "frequencyCount": 193
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "WTHOR-0077"
+      ],
+      "isLeaf": false
+    },
+    "818181c040000_20206020080000_white": {
+      "bookMoves": [
+        {
+          "move": 34,
+          "weight": 1,
+          "eval": -1,
+          "frequencyCount": 193
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "WTHOR-0077"
+      ],
+      "isLeaf": false
+    },
+    "818001c040000_20207c20080000_black": {
+      "bookMoves": [
+        {
+          "move": 22,
+          "weight": 1,
+          "eval": 2,
+          "frequencyCount": 193
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "WTHOR-0077"
+      ],
+      "isLeaf": false
+    },
+    "818103c440000_20206c00080000_white": {
+      "bookMoves": [],
+      "nonBookEval": null,
+      "names": [
+        "WTHOR-0077"
+      ],
+      "isLeaf": true
+    },
+    "20301e040000_80a20080000_white": {
+      "bookMoves": [
+        {
+          "move": 21,
+          "weight": 1,
+          "eval": -2,
+          "frequencyCount": 112
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "WTHOR-0079"
+      ],
+      "isLeaf": false
+    },
+    "20300e040000_80a30280000_black": {
+      "bookMoves": [],
+      "nonBookEval": null,
+      "names": [
+        "WTHOR-0079"
+      ],
+      "isLeaf": true
+    },
+    "203008040000_80830200000_black": {
+      "bookMoves": [
+        {
+          "move": 19,
+          "weight": 1,
+          "eval": 4,
+          "frequencyCount": 111
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "WTHOR-0087"
+      ],
+      "isLeaf": false
+    },
+    "2030180c0000_80820200000_white": {
+      "bookMoves": [
+        {
+          "move": 26,
+          "weight": 1,
+          "eval": -3,
+          "frequencyCount": 111
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "WTHOR-0087"
+      ],
+      "isLeaf": false
+    },
+    "2030000c0000_8083c200000_black": {
+      "bookMoves": [
+        {
+          "move": 20,
+          "weight": 1,
+          "eval": 5,
+          "frequencyCount": 111
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "WTHOR-0087"
+      ],
+      "isLeaf": false
+    },
+    "2030101c0000_8082c200000_white": {
+      "bookMoves": [
+        {
+          "move": 12,
+          "weight": 1,
+          "eval": -3,
+          "frequencyCount": 111
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "WTHOR-0087"
+      ],
+      "isLeaf": false
+    },
+    "203010140000_8082c281000_black": {
+      "bookMoves": [],
+      "nonBookEval": null,
+      "names": [
+        "WTHOR-0087"
+      ],
+      "isLeaf": true
+    },
+    "203000040000_8083c000000_black": {
+      "bookMoves": [],
+      "nonBookEval": null,
+      "names": [
+        "WTHOR-0088"
+      ],
+      "isLeaf": true
+    },
+    "200018040000_87820000000_black": {
+      "bookMoves": [
+        {
+          "move": 44,
+          "weight": 1,
+          "eval": 3,
+          "frequencyCount": 160
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "WTHOR-0089"
+      ],
+      "isLeaf": false
+    },
+    "301018040000_86820000000_white": {
+      "bookMoves": [],
+      "nonBookEval": null,
+      "names": [
+        "WTHOR-0089"
+      ],
+      "isLeaf": true
+    },
+    "818040000_e7000000000_black": {
+      "bookMoves": [],
+      "nonBookEval": null,
+      "names": [
+        "WTHOR-0091"
+      ],
+      "isLeaf": true
+    },
+    "2c7c000000_81000380000_white": {
+      "bookMoves": [],
+      "nonBookEval": null,
+      "names": [
+        "WTHOR-0113"
+      ],
+      "isLeaf": true
+    },
+    "1c3814000000_28380000_white": {
+      "bookMoves": [
+        {
+          "move": 45,
+          "weight": 1,
+          "eval": 3,
+          "frequencyCount": 166
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "WTHOR-0115"
+      ],
+      "isLeaf": false
+    },
+    "1c0814000000_203028380000_black": {
+      "bookMoves": [
+        {
+          "move": 38,
+          "weight": 1,
+          "eval": -2,
+          "frequencyCount": 166
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "WTHOR-0115"
+      ],
+      "isLeaf": false
+    },
+    "1c7814000000_200028380000_white": {
+      "bookMoves": [
+        {
+          "move": 46,
+          "weight": 1,
+          "eval": 3,
+          "frequencyCount": 166
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "WTHOR-0115"
+      ],
+      "isLeaf": false
+    },
+    "1c5804000000_602038380000_black": {
+      "bookMoves": [
+        {
+          "move": 52,
+          "weight": 1,
+          "eval": -2,
+          "frequencyCount": 166
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "WTHOR-0115"
+      ],
+      "isLeaf": false
+    },
+    "103c5804000000_402038380000_white": {
+      "bookMoves": [],
+      "nonBookEval": null,
+      "names": [
+        "WTHOR-0115"
+      ],
+      "isLeaf": true
+    },
     "6041c000000_87800000000_white": {
       "bookMoves": [],
       "nonBookEval": null,
@@ -7399,7 +13995,253 @@
       "names": [
         "WTHOR-0122"
       ],
+      "isLeaf": true
+    },
+    "20001c3c0000_487820400000_black": {
+      "bookMoves": [],
+      "nonBookEval": null,
+      "names": [
+        "WTHOR-0123"
+      ],
+      "isLeaf": true
+    },
+    "80503c3c0000_782800000000_white": {
+      "bookMoves": [
+        {
+          "move": 12,
+          "weight": 1,
+          "eval": 2,
+          "frequencyCount": 130
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "WTHOR-0125"
+      ],
       "isLeaf": false
+    },
+    "80402c2c0000_783810101000_black": {
+      "bookMoves": [
+        {
+          "move": 13,
+          "weight": 1,
+          "eval": 0,
+          "frequencyCount": 130
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "WTHOR-0125"
+      ],
+      "isLeaf": false
+    },
+    "80402c3c2000_783810001000_white": {
+      "bookMoves": [],
+      "nonBookEval": null,
+      "names": [
+        "WTHOR-0125"
+      ],
+      "isLeaf": true
+    },
+    "2c08080000_81030100000_black": {
+      "bookMoves": [
+        {
+          "move": 30,
+          "weight": 1,
+          "eval": -2,
+          "frequencyCount": 443
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "WTHOR-0126",
+        "WTHOR-0127",
+        "WTHOR-0128",
+        "WTHOR-0129"
+      ],
+      "isLeaf": false
+    },
+    "2c78080000_81000100000_white": {
+      "bookMoves": [
+        {
+          "move": 22,
+          "weight": 0.31376975169300225,
+          "eval": 2,
+          "frequencyCount": 139
+        },
+        {
+          "move": 38,
+          "weight": 0.6862302483069977,
+          "eval": 2,
+          "frequencyCount": 304
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "WTHOR-0126",
+        "WTHOR-0127",
+        "WTHOR-0128"
+      ],
+      "isLeaf": false
+    },
+    "2c58080000_81020500000_black": {
+      "bookMoves": [
+        {
+          "move": 44,
+          "weight": 1,
+          "eval": -1,
+          "frequencyCount": 139
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "WTHOR-0126"
+      ],
+      "isLeaf": false
+    },
+    "103c58080000_80020500000_white": {
+      "bookMoves": [],
+      "nonBookEval": null,
+      "names": [
+        "WTHOR-0126"
+      ],
+      "isLeaf": true
+    },
+    "c58080000_87020100000_black": {
+      "bookMoves": [
+        {
+          "move": 12,
+          "weight": 0.33881578947368424,
+          "eval": -3,
+          "frequencyCount": 103
+        },
+        {
+          "move": 44,
+          "weight": 0.6611842105263158,
+          "eval": -2,
+          "frequencyCount": 201
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "WTHOR-0127",
+        "WTHOR-0128"
+      ],
+      "isLeaf": false
+    },
+    "c58181000_87020000000_white": {
+      "bookMoves": [
+        {
+          "move": 26,
+          "weight": 1,
+          "eval": 4,
+          "frequencyCount": 103
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "WTHOR-0127"
+      ],
+      "isLeaf": false
+    },
+    "c40181000_8703c000000_black": {
+      "bookMoves": [],
+      "nonBookEval": null,
+      "names": [
+        "WTHOR-0127"
+      ],
+      "isLeaf": true
+    },
+    "103c58080000_84020100000_white": {
+      "bookMoves": [
+        {
+          "move": 26,
+          "weight": 1,
+          "eval": 2,
+          "frequencyCount": 201
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "WTHOR-0128"
+      ],
+      "isLeaf": false
+    },
+    "103c40080000_8403c100000_black": {
+      "bookMoves": [
+        {
+          "move": 22,
+          "weight": 1,
+          "eval": -2,
+          "frequencyCount": 201
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "WTHOR-0128"
+      ],
+      "isLeaf": false
+    },
+    "103c60480000_8401c100000_white": {
+      "bookMoves": [],
+      "nonBookEval": null,
+      "names": [
+        "WTHOR-0128"
+      ],
+      "isLeaf": true
+    },
+    "2c00080000_8103c000000_black": {
+      "bookMoves": [
+        {
+          "move": 18,
+          "weight": 0.4793388429752066,
+          "eval": -1,
+          "frequencyCount": 116
+        },
+        {
+          "move": 20,
+          "weight": 0.5206611570247934,
+          "eval": -2,
+          "frequencyCount": 126
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "WTHOR-0130",
+        "WTHOR-0131"
+      ],
+      "isLeaf": false
+    },
+    "2c040c0000_81038000000_white": {
+      "bookMoves": [
+        {
+          "move": 42,
+          "weight": 1,
+          "eval": 2,
+          "frequencyCount": 116
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "WTHOR-0130"
+      ],
+      "isLeaf": false
+    },
+    "24040c0000_c1838000000_black": {
+      "bookMoves": [],
+      "nonBookEval": null,
+      "names": [
+        "WTHOR-0130"
+      ],
+      "isLeaf": true
+    },
+    "2c08180000_81034000000_white": {
+      "bookMoves": [],
+      "nonBookEval": null,
+      "names": [
+        "WTHOR-0131"
+      ],
+      "isLeaf": true
     },
     "2478180000_c1800200000_white": {
       "bookMoves": [],
@@ -7620,6 +14462,295 @@
       "nonBookEval": null,
       "names": [
         "WTHOR-0150"
+      ],
+      "isLeaf": true
+    },
+    "1478100000_3c2800000000_white": {
+      "bookMoves": [],
+      "nonBookEval": null,
+      "names": [
+        "WTHOR-0154"
+      ],
+      "isLeaf": true
+    },
+    "8081c18100000_342020000000_white": {
+      "bookMoves": [
+        {
+          "move": 50,
+          "weight": 1,
+          "eval": 5,
+          "frequencyCount": 104
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "WTHOR-0155"
+      ],
+      "isLeaf": false
+    },
+    "8000c18100000_43c3020000000_black": {
+      "bookMoves": [
+        {
+          "move": 52,
+          "weight": 1,
+          "eval": -3,
+          "frequencyCount": 104
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "WTHOR-0155"
+      ],
+      "isLeaf": false
+    },
+    "18181c18100000_4242020000000_white": {
+      "bookMoves": [],
+      "nonBookEval": null,
+      "names": [
+        "WTHOR-0155"
+      ],
+      "isLeaf": true
+    },
+    "240000_38383c000000_black": {
+      "bookMoves": [
+        {
+          "move": 34,
+          "weight": 1,
+          "eval": 2,
+          "frequencyCount": 112
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "WTHOR-0168"
+      ],
+      "isLeaf": false
+    },
+    "404240000_383838000000_white": {
+      "bookMoves": [
+        {
+          "move": 25,
+          "weight": 1,
+          "eval": 0,
+          "frequencyCount": 112
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "WTHOR-0168"
+      ],
+      "isLeaf": false
+    },
+    "240000_383c3e000000_black": {
+      "bookMoves": [
+        {
+          "move": 32,
+          "weight": 1,
+          "eval": 1,
+          "frequencyCount": 112
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "WTHOR-0168"
+      ],
+      "isLeaf": false
+    },
+    "102240000_383c3c000000_white": {
+      "bookMoves": [
+        {
+          "move": 16,
+          "weight": 1,
+          "eval": 2,
+          "frequencyCount": 112
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "WTHOR-0168"
+      ],
+      "isLeaf": false
+    },
+    "100240000_383c3e010000_black": {
+      "bookMoves": [
+        {
+          "move": 42,
+          "weight": 1,
+          "eval": -1,
+          "frequencyCount": 112
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "WTHOR-0168"
+      ],
+      "isLeaf": false
+    },
+    "40d14240000_38302a010000_white": {
+      "bookMoves": [],
+      "nonBookEval": null,
+      "names": [
+        "WTHOR-0168"
+      ],
+      "isLeaf": true
+    },
+    "18240000_383c20000000_black": {
+      "bookMoves": [
+        {
+          "move": 30,
+          "weight": 1,
+          "eval": 0,
+          "frequencyCount": 132
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "WTHOR-0169"
+      ],
+      "isLeaf": false
+    },
+    "78240000_383c00000000_white": {
+      "bookMoves": [],
+      "nonBookEval": null,
+      "names": [
+        "WTHOR-0169"
+      ],
+      "isLeaf": true
+    },
+    "1818140000_8302020000000_white": {
+      "bookMoves": [
+        {
+          "move": 43,
+          "weight": 1,
+          "eval": 3,
+          "frequencyCount": 101
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "WTHOR-0170"
+      ],
+      "isLeaf": false
+    },
+    "818140000_8383020000000_black": {
+      "bookMoves": [
+        {
+          "move": 52,
+          "weight": 1,
+          "eval": -1,
+          "frequencyCount": 101
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "WTHOR-0170"
+      ],
+      "isLeaf": false
+    },
+    "10101818140000_8282020000000_white": {
+      "bookMoves": [],
+      "nonBookEval": null,
+      "names": [
+        "WTHOR-0170"
+      ],
+      "isLeaf": true
+    },
+    "1818240000_8302020000000_white": {
+      "bookMoves": [
+        {
+          "move": 43,
+          "weight": 1,
+          "eval": 2,
+          "frequencyCount": 112
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "WTHOR-0171"
+      ],
+      "isLeaf": false
+    },
+    "818240000_8383020000000_black": {
+      "bookMoves": [
+        {
+          "move": 38,
+          "weight": 1,
+          "eval": -2,
+          "frequencyCount": 112
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "WTHOR-0171"
+      ],
+      "isLeaf": false
+    },
+    "7818240000_8380020000000_white": {
+      "bookMoves": [
+        {
+          "move": 20,
+          "weight": 1,
+          "eval": 1,
+          "frequencyCount": 112
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "WTHOR-0171"
+      ],
+      "isLeaf": false
+    },
+    "6808240000_8381030100000_black": {
+      "bookMoves": [
+        {
+          "move": 30,
+          "weight": 1,
+          "eval": -1,
+          "frequencyCount": 112
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "WTHOR-0171"
+      ],
+      "isLeaf": false
+    },
+    "6878240000_8381000100000_white": {
+      "bookMoves": [],
+      "nonBookEval": null,
+      "names": [
+        "WTHOR-0171"
+      ],
+      "isLeaf": true
+    },
+    "818240000_10303020000000_white": {
+      "bookMoves": [],
+      "nonBookEval": null,
+      "names": [
+        "WTHOR-0172"
+      ],
+      "isLeaf": true
+    },
+    "808080000_383030000000_black": {
+      "bookMoves": [
+        {
+          "move": 21,
+          "weight": 1,
+          "eval": -4,
+          "frequencyCount": 106
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "WTHOR-0173"
+      ],
+      "isLeaf": false
+    },
+    "818280000_383020000000_white": {
+      "bookMoves": [],
+      "nonBookEval": null,
+      "names": [
+        "WTHOR-0173"
       ],
       "isLeaf": true
     },
@@ -7917,6 +15048,59 @@
       "nonBookEval": null,
       "names": [
         "WTHOR-0182"
+      ],
+      "isLeaf": true
+    },
+    "47c1c000000_10300020303000_white": {
+      "bookMoves": [
+        {
+          "move": 30,
+          "weight": 1,
+          "eval": -2,
+          "frequencyCount": 272
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "WTHOR-0189"
+      ],
+      "isLeaf": false
+    },
+    "45c1c000000_10302060303000_black": {
+      "bookMoves": [
+        {
+          "move": 46,
+          "weight": 1,
+          "eval": 2,
+          "frequencyCount": 272
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "WTHOR-0189"
+      ],
+      "isLeaf": false
+    },
+    "447c1c000000_10300060303000_white": {
+      "bookMoves": [
+        {
+          "move": 43,
+          "weight": 1,
+          "eval": -1,
+          "frequencyCount": 272
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "WTHOR-0189"
+      ],
+      "isLeaf": false
+    },
+    "446c1c000000_10381060303000_black": {
+      "bookMoves": [],
+      "nonBookEval": null,
+      "names": [
+        "WTHOR-0189"
       ],
       "isLeaf": true
     },
@@ -8687,6 +15871,52 @@
       ],
       "isLeaf": true
     },
+    "100010200000_203c28000000_black": {
+      "bookMoves": [
+        {
+          "move": 42,
+          "weight": 1,
+          "eval": -4,
+          "frequencyCount": 138
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "WTHOR-0213"
+      ],
+      "isLeaf": false
+    },
+    "140810200000_203428000000_white": {
+      "bookMoves": [
+        {
+          "move": 20,
+          "weight": 1,
+          "eval": 4,
+          "frequencyCount": 138
+        }
+      ],
+      "nonBookEval": null,
+      "names": [
+        "WTHOR-0213"
+      ],
+      "isLeaf": false
+    },
+    "140800200000_203438100000_black": {
+      "bookMoves": [],
+      "nonBookEval": null,
+      "names": [
+        "WTHOR-0213"
+      ],
+      "isLeaf": true
+    },
+    "1020400000_382818000000_black": {
+      "bookMoves": [],
+      "nonBookEval": null,
+      "names": [
+        "WTHOR-0214"
+      ],
+      "isLeaf": true
+    },
     "6020200000_381818000000_white": {
       "bookMoves": [
         {
@@ -8748,7 +15978,7 @@
         "WTHOR-0217",
         "WTHOR-0231"
       ],
-      "isLeaf": false
+      "isLeaf": true
     },
     "20206000000000_181838000000_white": {
       "bookMoves": [
