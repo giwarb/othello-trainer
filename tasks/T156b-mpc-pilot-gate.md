@@ -1,7 +1,7 @@
 ---
 id: T156b
 title: MPC再校正(2/7): pilot統計のGate 1判定と(d,D)候補選定
-status: todo # todo | in_progress | review | redo | done | blocked
+status: done # verifier軽量検収合格(決定性SHA・誤カット率/Wilson/ノード比の独立再計算一致)、2026-07-20。Gate 1合格→T156cへ
 assignee: Codex gpt-5.6-sol
 attempts: 0
 ---
