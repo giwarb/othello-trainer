@@ -1,7 +1,7 @@
 ---
 id: T155
 title: Egaroucidデータを本番トレーナー(train_patterns_v3)に取り込んで学習(oracle評価まで)
-status: todo # todo | in_progress | review | redo | done | blocked
+status: done # verifier(数値再集計・SHA再現・スコア単位検証=バグなし)+codex-review(中4・軽微3、ブロッカーなし)両合格、2026-07-20。結論: データ路線保留確定
 assignee: implementer(Sonnet)
 attempts: 0
 ---
