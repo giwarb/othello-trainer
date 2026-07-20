@@ -1,7 +1,7 @@
 ---
 id: T162
 title: v3 vs v4 の対局再対決(対Edax 60局paired) — 実行時間昇順キューの1番
-status: review # 完走(v3側60局のみ、v4はT158d再利用をSHA一致で正当化): v3 3勝3分54敗-21.20 vs v4 4勝2分54敗-24.12、ペア差+2.92石(v3方向)・CI[-2.13,+7.97]・p=0.26=有意差なし。verifier検収中
+status: done # verifier合格(全統計・SHA・終局正当性を独立再現)。裁定(2026-07-21): 有意差なし→現状維持(v4)、ただしD4修正(T163)後の再学習で両構成とも上書き予定のため実質的な決着はそちらに委ねる。申し送り: bootstrap配列の並び順をmetaに明記すること(verifier軽微指摘)
 assignee: implementer
 attempts: 0
 ---

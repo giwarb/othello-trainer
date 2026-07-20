@@ -36,7 +36,6 @@
 
 | ID | タスク | 担当 | 状態 | 試行 |
 |---|---|---|---|---|
-| T162 | v3 vs v4 対局再対決(対Edax 60局paired) | implementer | review(完走: v3 3勝3分54敗-21.20 vs v4 4勝2分54敗-24.12、ペア差+2.92石=v3方向・CI[-2.13,+7.97]・p=0.26=**有意差なし**。v3結果はT121/T125と勝敗完全一致=再現性良好。verifier検収中) | 0 |
 | T163 | D4 canonical化(重大バグ修正1/3、新旧共存方式) | implementer | in_progress(ユーザー重大バグ指定。絶対条件: レガシー重みビット不変+新スキーム全8対称完全一致。regression-catching実証必須) | 0 |
 
 ## 有効な方針・申し送り(今後のタスクに効くもの)
@@ -153,6 +152,7 @@
 | T158c | 評価特徴追加(3/4): スクリーニング+候補確定 | **完了**(5d1dd4d、verifier〔再集計・hash実測・resume実地再現〕/代替レビュー〔中2=T158d申し送り〕両合格、Codex実装、redo 0回)。害検出でseed1/3除外・**seed2を候補確定**、oracle180害なし(mean +0.067)・NPS on/off 0.92-0.94・24局smoke異常0(12W1D11L)。60局ゲートmanifest完備 |
 | T158d | 評価特徴追加(4/4): 対Edax 60局paired最終ゲート | **不採用裁定=現行v4維持**(cc88739ほか、verifier2回〔全統計・SHA・決定性の独立再現〕合格、Sonnet実装、redo 0回、ユーザー指示で段階実行)。候補9勝1分50敗(-22.67) vs v4 4勝2分54敗(-24.12)、ペア差+1.45石・CI[-1.57,+4.60]・p=0.57で有意差なし。パイロットの乖離非対称は不再現。ゲート一式約30分の運用を確立。B3特徴実装はT160で再利用 |
 | T159 | 本番トレーナーへ早期打ち切り導入(Egaroucidシリーズ1/3) | **完了**(8372aa2、verifier〔OFF時ビット一致をworktree独立追試でSHA完全一致〕/代替レビュー〔重大0・中3・軽微7〕両合格、Sonnet実装、redo 0回)。opt-in・対局単位検証split(frozen holdout不使用)・patienceベスト復元・resume対応。180kスモークでbest_epoch=4復元を実証。中3件と--simple-corpus対応はT159bへ |
+| T162 | v3 vs v4 対局再対決(対Edax 60局paired) | **有意差なし=現状維持v4が裁定**(d19aedc、verifier全項目独立再現で合格、redo 0回)。v3 3勝3分54敗-21.20 vs v4 4勝2分54敗-24.12、ペア差+2.92石(v3方向)・CI[-2.13,+7.97]・p=0.26。v4側はT158d結果をSHA完全一致で再利用(v3側60局のみ12分)。v3結果はT121/T125と勝敗完全一致。D4修正後の再学習で上書き予定。申し送り: bootstrap配列並び順のmeta明記 |
 | T159b | 早期打ち切りのsimple-corpus対応+T159中3件対処(シリーズ1.5/3) | **完了**(fa448f0、verifier〔OFF不変2種worktree追試SHA一致・137テスト〕/代替レビュー〔重大0・中1・軽微6〕両合格、Sonnet実装、redo 0回)。**実測: 25.5M全量1エポック約60秒・1構成15-30分**。Egaroucidは対局境界なし→局面ハッシュsplit(リーク=停止遅延方向のバイアスと記録)。resume脆弱窓の自己修復・1パス評価・インデックス分割も導入。**T160注意: t158系config+simple-corpusの既存ガード解除が必要**。申し送り: T159形式6列metricsの中断runは新コードでresume不能(影響母集団は実質空、fail-loud) |
 | T158b | 評価特徴追加(2/4): trainer+pilot/full学習 | **完了・Gate 2/3合格**(60c2b27+037306f、redo1回=stage別判定の61段化+事後裁定明記。verifier/最終codex-review合格、Codex実装)。**B3(両特徴)full 443万×3seed: frozen MAE -0.062石(基準-0.05)・3/3seed改善・CI[-0.073,-0.053]・3seed平均61段最大悪化+0.059**。seed別退行(seed1 empty43 +0.229等)はT158cで害検出必須化 |
 | T158a | 評価特徴追加(1/4): engine特徴・PWV4・純コスト計測 | **完了・Gate 1合格**(138217b+2bd6214+4cce290、redo2回=計測カバレッジとnative/WASM相互golden強化。verifier/最終codex-review合格、Codex実装)。ゼロ係数純コスト: **WASM層化8局面NPS比96.58%(帯別最低95.94%)・全帯ノード上限支配**=特徴コストは許容圏。本番PWV3完全不変 |
