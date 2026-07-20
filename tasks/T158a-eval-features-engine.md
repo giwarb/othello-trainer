@@ -1,9 +1,9 @@
 ---
 id: T158a
 title: 評価特徴追加(1/4): engine側特徴計算・PWV4形式・評価統合・純コスト計測
-status: todo # todo | in_progress | review | redo | done | blocked
+status: redo # codex-review不合格(2026-07-20): Gate 1計測が単一序盤局面のみ。下記フィードバック参照
 assignee: Codex gpt-5.6-sol
-attempts: 0
+attempts: 1
 ---
 
 # T158a: engine側特徴とコスト計測
@@ -37,6 +37,15 @@ attempts: 0
 ## コミット規律
 
 - `tasks/` と `CLAUDE.md` は変更しない(作業ログ追記は行う)。計測は専有状態で(現在他の重い処理なし)
+
+## フィードバック(redo #1、2026-07-20 codex-review不合格による)
+
+レビュー(tasks/review/T158a-eval-features-engine-codex-review.md)。実装本体(PWV4・ゼロ係数bit-exact・性質テスト)は問題なし。修正点:
+
+1. **[ブロッカー] Gate 1計測の複数ステージ化**: 固定深さNPSと160k計測がnative/WASMとも単一の序盤局面(空き48)のみ。設計§6.3の「序盤・中盤・終盤接続前を含む複数局面」を満たす固定コーパス(例: t156_mpc_positions.jsonの4空き帯から各数局面、または同等の層化選定。決定的に固定しレポートに記録)で、native/WASMの固定深さNPSと160k/1500msを7反復交互順で再計測し、**帯別+集計でGate 1を再判定**。ノードvs時間の支配性も帯別に併記。
+2. **[中] PWV3不変のgolden fixture**: 現行pattern_v4.binの複数stage局面の静的評価値f32::to_bits()を親コミット由来のgolden値として固定fixture化し、変更後loaderとの完全一致を機械検証(現行テストはPWV3→PWV4ゼロ係数の相対比較のみで、PWV3自体の不変を独立証明していない)。
+3. **[中] 反復間決定性の直接比較**: baseline結果が7反復を通じて同一であることの直接比較(native)、WASM 160kのproductionReferenceと後続反復の比較。
+4. [軽微・任意] benchmark_pattern_evalのwasm_bindgen公開APIをベンチ用feature条件付きにする検討(見送り可、理由記録)。
 
 ## 作業ログ
 
