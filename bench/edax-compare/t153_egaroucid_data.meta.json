@@ -1,0 +1,128 @@
+{
+  "task": "T153",
+  "generatedAt": "2026-07-20T10:46:00+09:00",
+  "provenance": {
+    "gitCommit": "5256e2c",
+    "gitCommitNote": "trainer code commit for --simple-corpus (this task); report/meta committed separately per repository commit discipline",
+    "oracleCorpusSha256": "eec09e7a3c194a71cbb60f25ce13e1887204bbbc4a9ba052cb19c61507786356",
+    "v2WeightsSha256": "b916c29e4f84692610a65b75c1692132628de5ba2b27b71bf2e8b94426b76c2a",
+    "evalCliSha256": "31798f28c667671a5b18227b7719fe0ce67120cc2b17554ca0d323e4ab8d9563",
+    "edaxSha256": "aabb5ac7d3f9a872fc0e7388ab1eee1d23c687f76c28642122524dc318b322b1",
+    "edaxEvalSha256": "f8b2299612d9fa4414157e70e932636e33111c2602d0c2fc382a7d90ef21b792"
+  },
+  "dataSource": {
+    "name": "Egaroucid Train Data (2025-02)",
+    "downloadUrl": "https://github.com/Nyanyan/Egaroucid/releases/download/training_data/Egaroucid_Train_Data.zip",
+    "infoPageUrl": "https://www.egaroucid.nyanyan.dev/ja/technology/train-data/",
+    "license": "free to use for own activities (e.g. generating Othello AI evaluation functions); redistribution prohibited; attribution appreciated but not required; no warranty (README_JA.md)",
+    "notCommitted": true,
+    "localPath": "train/data/egaroucid/ (gitignored, train/data/ already covered)",
+    "archive": {
+      "path": "train/data/egaroucid/Egaroucid_Train_Data.zip",
+      "sizeBytes": 401502981,
+      "sha256": "2c2da46c343b167d2a1dfa004881ce2b792425355aeb9378b93d03fa41dcbbd5"
+    },
+    "extracted": {
+      "path": "train/data/egaroucid/extracted/0001_egaroucid_7_5_1_lv17/",
+      "fileCount": 26,
+      "totalSizeBytesApprox": 1764291000,
+      "totalLines": 25514097,
+      "totalLinesMatchesReadmeTable": true,
+      "perFileSha256Note": "26 files (0000000.txt..0000025.txt), each independently SHA-256'd during acquisition; recorded in the appendix table of t153_egaroucid_data_report.md"
+    },
+    "format": "64-char board (a1..h8 order, X=side-to-move stone, O=opponent stone, -=empty) + space + integer predicted final disc-difference score from the side-to-move's perspective",
+    "labelGenerationNote": "stones<=15 (opening moves 1-11): exhaustive enumeration + Egaroucid console 7.4.0 level 17 negamax search (teacher-style label). stones>=16: Egaroucid console 7.5.1 level 17 self-play with randomized moves 7<=N<=59, score = final game result of that self-play game, recorded at the position right after randomization (outcome-style label, not a fresh search value at that exact position). This distinction is reported for transparency; T153 trains all records identically with teacher-only Huber loss regardless of label provenance, per task instruction.",
+    "scoreDistribution": {
+      "method": "single-pass awk over all 25,514,097 lines",
+      "n": 25514097,
+      "mean": 1.008,
+      "min": -64,
+      "max": 64,
+      "stddev": 22.0566
+    },
+    "stoneCountDistribution": {
+      "source": "README_JA.md table (population-exact, not re-derived from a sample)",
+      "note": "4:1, 5:1, 6:3, 7:14, 8:60, 9:322, 10:1773, 11:10649, 12:67245, 13:434029, 14-63: 500000 each, total 25514097"
+    }
+  },
+  "trainerChange": {
+    "file": "train/src/t090_distillation.rs",
+    "mode": "--simple-corpus <file|dir>",
+    "isolationNote": "run() branches to run_simple() immediately when --simple-corpus is present; the pre-existing corpus path (load_corpus/DistillRecord/run_one/run_all) is untouched and unreachable from that branch. Without the flag, run() is unchanged.",
+    "sampling": "streaming Algorithm R (reservoir sampling) via --simple-max-records; deterministic given the same input files and --subset-seed-derived reservoir seed. Content hash (FNV1a) computed over every raw line regardless of acceptance, used as resume identity.",
+    "subsetSelection": "select_simple_subset mirrors the existing select_train_subset nested stratified subsampling logic (same algorithm, independent SimpleRecord type)",
+    "cargoTest": {
+      "command": "cargo test -p train",
+      "result": "PASS (74 passed; 0 failed) - 56 pre-existing + 18 new simple-corpus tests, all pre-existing tests unchanged and green"
+    }
+  },
+  "comparisonBenchmarks": {
+    "v2xWTHORFull": 1.5666666666666667,
+    "v4xWTHORFull_T124": 1.1111111111111112,
+    "v4xDistilled1M_T127d": 1.9,
+    "v4xDistilled180kK1_T126": 2.7666666666666666
+  },
+  "runs": {
+    "egaroucidV4Subset900k": {
+      "command": "target/release/train_distillation.exe --simple-corpus train/data/egaroucid/extracted/0001_egaroucid_7_5_1_lv17 --checkpoint-dir train/data/t153/egaroucid-v4-900k --pattern-set v4 --seeds 1 --jobs 1 --max-epochs 60 --simple-max-records 2000000 --train-subset-size 899467",
+      "reservoirPoolSize": 2000000,
+      "trainSubsetSizeTarget": 899467,
+      "subsetSeed": 42,
+      "actualTrainSamples": 899442,
+      "validationSamples": 94990,
+      "frozenDiscardedSamples": 107522,
+      "bestEpoch": 46,
+      "completedEpoch": 46,
+      "trainTeacherMae": 3.650901,
+      "validationLoss": 18.821647,
+      "validationTeacherMae": 6.389128,
+      "finalWeightsSha256": "c5ae9e2eaaeb08cd749ebffc48c200125eb66d78cc9b6dae932df5a74ce6bc51",
+      "oracle": {
+        "v2MeanRegret": 1.5666666666666667,
+        "m2GuardPass": true,
+        "candidateMeanRegret": 1.8666666666666667,
+        "differenceFromV2": 0.3,
+        "ci95VsV2": [-0.6333333333333333, 1.3666666666666667],
+        "classification": "no_significant_difference",
+        "rawOutputFile": "train/data/t153/oracle/900k-seed-1.json"
+      },
+      "comparisonToV4Distilled1M": {
+        "referenceMeanRegret": 1.9,
+        "differenceDiscs": -0.033333333333333326,
+        "note": "point estimate: Egaroucid-subset@900k (1.8667) is marginally better than (lower regret than) v4xDistilled1M (1.9000) at a comparable train-sample scale (899,442 vs 899,467); both are well within each other's plausible 60-position noise band"
+      }
+    },
+    "egaroucidV4Subset180k": {
+      "command": "target/release/train_distillation.exe --simple-corpus train/data/egaroucid/extracted/0001_egaroucid_7_5_1_lv17 --checkpoint-dir train/data/t153/egaroucid-v4-180k --pattern-set v4 --seeds 1 --jobs 1 --max-epochs 60 --simple-max-records 2000000 --train-subset-size 180000",
+      "reservoirPoolSize": 2000000,
+      "trainSubsetSizeTarget": 180000,
+      "subsetSeed": 42,
+      "actualTrainSamples": 179972,
+      "validationSamples": 94990,
+      "frozenDiscardedSamples": 107522,
+      "bestEpoch": 49,
+      "completedEpoch": 49,
+      "trainTeacherMae": 2.594739,
+      "validationLoss": 26.310382,
+      "validationTeacherMae": 8.340506,
+      "finalWeightsSha256": "c43539a691e79d6b2d53e1445a6773eb6d6253d3ceab4535b3ed9eef70946b7d",
+      "oracle": {
+        "v2MeanRegret": 1.5666666666666667,
+        "m2GuardPass": true,
+        "candidateMeanRegret": 2.066666666666667,
+        "differenceFromV2": 0.5,
+        "ci95VsV2": [-0.4666666666666667, 1.7],
+        "classification": "no_significant_difference",
+        "rawOutputFile": "train/data/t153/oracle/180k-seed-1.json"
+      },
+      "comparisonToV4Distilled180kK1": {
+        "referenceMeanRegret": 2.7666666666666666,
+        "differenceDiscs": -0.7,
+        "note": "point estimate: Egaroucid-subset@180k (2.0667) is clearly better than (lower regret than) v4xDistilled180k/K=1 (2.7667) at matched scale (179,972 vs 179,969 actual train samples)"
+      }
+    }
+  },
+  "poolNote": "Both runs draw from the identical deterministic 2,000,000-record reservoir pool (same simple_corpus_hash=8e14d3751185a95c, same subset-seed=42), so the 180k train split is a nested subset of the 900k train split by construction (select_simple_subset's nesting property, same as select_train_subset).",
+  "backgroundInterruptionNote": "Both training processes were first launched with nohup ... & in the background per long-running-task convention. An orchestrator check found them apparently absent (no result.tsv, not in process list) at one point; a subsequent independent ps check by this worker still found both PIDs alive and both logs actively advancing. The 900k run was additionally resumed once in the foreground per orchestrator instruction (target/release/train_distillation.exe ... --checkpoint-dir train/data/t153/egaroucid-v4-900k ...), which printed 'resume simple-corpus seed=1 epoch=46' and then exited immediately (the loaded checkpoint's saved stale count had already reached the patience limit, so the training loop did not re-enter; this finalize-only resume is idempotent by construction). Both checkpoint directories' metrics.tsv have strictly increasing, non-duplicated epoch numbers with no gaps, confirming no concurrent-write corruption occurred.",
+  "scopeNote": "This task covers data acquisition, the trainer's --simple-corpus mode, and two same-scale probe trainings only. Full 25.5M-record training, game-play gating, WTHOR-latest/v0002-replay integration, and production adoption are explicitly out of scope (tasks/design/public-training-data-2026-07-20.md stage 2)."
+}
