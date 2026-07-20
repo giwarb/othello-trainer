@@ -32,7 +32,8 @@
 
 | ID | タスク | 担当 | 状態 | 試行 |
 |---|---|---|---|---|
-| T151 | book2(2/2): Edax評価値付与+悪手除外+対局専用拡張ブック公開 | implementer(Sonnet) | in_progress(委譲中。opening-book.json分離で練習系不変、level16 n_tasks=1、checkpoint必須) | 0 |
+| T151 | book2(2/2): Edax評価値付与+悪手除外+対局専用拡張ブック公開 | implementer(Sonnet) | in_progress(実装完了af144b3・ローカルスモーク合格。**GitHub API障害(503)でActions/Pages確認待ち**、復旧監視中。検収重点: 除外135手→651ノード刈りの妥当性) | 0 |
+| T153調査 | 公開学習データセット調査(自己対戦棋譜等、ユーザー指示) | general-purpose(Web) | in_progress(OthelloAI_Textbook self_play・Egaroucid公開データ・その他を網羅調査中) | 0 |
 
 ## 有効な方針・申し送り(今後のタスクに効くもの)
 
