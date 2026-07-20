@@ -87,3 +87,100 @@ attempts: 0
     (4,431,504+1,514,097、Run C用連結プール。重複除去はしない、要件どおり)。
 - 次: Run A(WTHOR全量、`--checkpoint-dir train/data/t154/wthor-v4`)をPowerShell
   Start-Process detachedで起動し、ログ`logs/t154-wthor-v4.stdout.log`をポーリングする。
+
+### 2026-07-20 Run A完了・Run B起動
+
+- **Run A完了**(`target/release/train_distillation.exe --simple-corpus train/data/t154/wthor_all.txt
+  --checkpoint-dir train/data/t154/wthor-v4 --pattern-set v4 --seeds 1 --jobs 1 --max-epochs 60`)。
+  manifest: pool=4,431,504, train=4,011,443, validation=196,581, frozen_discarded=223,480
+  (`fnv1a(canonicalKey)%100`局面単位分割。`train_patterns_v3`の対局単位分割による
+  train=3,988,509/frozen=442,995とは分割方式が異なるため完全一致しないが、
+  同一入力4,431,504件から生成しておりtrain比率もほぼ同水準(90.5% vs 90.0%)で整合)。
+  result.tsv: best_epoch=23, completed epoch=25(patience 5で早期終了), train_teacher_mae=13.197257,
+  validation_loss=47.877210, validation_teacher_mae=13.763418。
+  final.bin sha256=426af4b8d163b01791d0dbfd7c665c525a02e8c3bbdc8572aa388ace51bb17a1。
+  Monitorツールの完了通知がセッションに届いていなかった(オーケストレーター指摘)ため、
+  以後は「PowerShell Start-Process detached起動 → Bashツールで短時間の定期チェックを
+  繰り返す(1呼び出し内で数分程度のsleep+result.tsv存在確認ループ、未完了なら次の
+  ツール呼び出しで継続)」方式にポーリングを切り替える。
+- **Run B起動**: `target/release/train_distillation.exe --simple-corpus
+  train/data/egaroucid/extracted/0001_egaroucid_7_5_1_lv17 --checkpoint-dir train/data/t154/egaroucid-v4
+  --pattern-set v4 --seeds 1 --jobs 1 --max-epochs 60 --simple-max-records 4431504 --subset-seed 42`
+  (Run Aのpool件数4,431,504にreservoir samplingで一致させる、既定subset-seed=42)。
+  PID確認済み、ログ`logs/t154-egaroucid-v4.stdout.log`をポーリング中。
+
+### 2026-07-20 Run B完了・Run C起動
+
+- **Run B完了**。manifest: simple_corpus_total_lines=25,514,097(Egaroucid全量),
+  simple_corpus_pool_size=4,431,504(reservoir samplingでRun Aのpool件数に一致させた),
+  train=3,982,785, validation=210,235, frozen_discarded=238,484(Run Aのtrain 4,011,443/
+  90.5%に対しB train 3,982,785/89.9%、比率はほぼ同水準)。
+  result.tsv: best_epoch=42, completed epoch=42, train_teacher_mae=4.212934,
+  validation_loss=14.918887, validation_teacher_mae=5.364459
+  (WTHORのvalidation_loss 47.88より大幅に低いが、これは学習損失のスケールの話であり
+  評価指標としてはoracle regretで比較する)。
+  final.bin sha256=8bc5977f834911bbaa055fd98c7462509e3e4e231c56aa80a559314de7da846b。
+- **Run C起動**: `target/release/train_distillation.exe --simple-corpus
+  train/data/t154/mixed_c.txt --checkpoint-dir train/data/t154/mixed-v4 --pattern-set v4
+  --seeds 1 --jobs 1 --max-epochs 60`(混合5,945,601件、subsetなし全量、自然な
+  90/5/5分割に任せる)。PowerShell Start-Process detachedで起動、Bashツールでの
+  定期チェック方式(30秒間隔・result.tsv出現確認)でポーリング中。
+
+### 2026-07-20 Run A・BのOracle評価完了(M2ガードPASS)、Run C学習中
+
+Run Cの学習(train=5,368,814、pool=5,945,601)と並行して、Run A・Bのoracle評価を実行
+(`compare_pattern_v3.py`、T096 60局面)。両方ともv2 mean regretが既知値
+`1.5666666666666667`と完全一致(**M2ガードPASS**)。
+
+- Run A(WTHOR全量@t090トレーナー): candidate mean regret = **1.5**(diff -0.0667 vs v2,
+  95%CI [-0.767, 0.667]、no_significant_difference)。出力:
+  `train/data/t154/oracle/wthor-v4-seed-1.json`。
+  **train_patterns_v3で同一4,431,504件を学習した既知値(T124) 1.1111 と比べ明確に劣る
+  (+0.39)** → 事前登録の解釈(2)(「Aが1.5〜1.9等で大きく劣るならt090トレーナー側の差
+  (損失形・LR・重み付け)が支配的」)に該当する可能性が高い一次所見。
+- Run B(Egaroucid@Run Aと同pool件数4,431,504): candidate mean regret = **1.2333**
+  (diff -0.3333 vs v2, 95%CI [-0.967, 0.333]、no_significant_difference)。出力:
+  `train/data/t154/oracle/egaroucid-v4-seed-1.json`。
+  **B(1.2333) < A(1.5)、同一トレーナー・同一pool件数でEgaroucidデータの方が良好**
+  (データ差=-0.2667)。n=60のため両者ともv2比では有意差なしだが、A・B間の相対順位
+  (B<A)は一貫した方向のシグナル。
+- Run C起動: `target/release/train_distillation.exe --simple-corpus train/data/t154/mixed_c.txt
+  --checkpoint-dir train/data/t154/mixed-v4 --pattern-set v4 --seeds 1 --jobs 1 --max-epochs 60`。
+  manifest: pool=5,945,601, train=5,368,814, validation=260,795, frozen_discarded=315,992。
+  Bashツールでの定期チェック方式でポーリング中(Aよりtrain件数が約34%多いため、
+  1epochあたりの所要時間も比例して長くなる見込み)。
+
+### 2026-07-20 Run C完了・全3runのOracle評価完了・レポート作成・コミット/push完了
+
+- **Run C完了**: best_epoch=17, completed=22, train_teacher_mae=10.733194,
+  validation_loss=37.615572, validation_teacher_mae=11.115042。
+  final.bin sha256=df82ca4808c91c5e5f546c64ffe54314d431a40b671100bc3dcbb35a2f8f6a55。
+- **Run Cのoracle評価**: v2 mean regret 1.5666666666666667(M2ガードPASS)、
+  candidate mean regret = 1.4333(diff -0.1333, 95%CI [-0.800, 0.533]、
+  no_significant_difference)。出力: `train/data/t154/oracle/mixed-v4-seed-1.json`。
+- **3run最終結果まとめ**(全てM2ガードPASS): A(WTHOR全量)=1.5000, B(Egaroucid同pool)
+  =1.2333, C(混合)=1.4333。既知値: v4×WTHOR(train_patterns_v3, T124)=1.1111,
+  v2×WTHOR=1.5667。
+  A=1.5000は事前登録の解釈(2)の帯域(1.5〜1.9)に該当 →
+  train_patterns_v3の既知値1.1111との差(+0.3889)は同一データ・同一パターンセットで
+  トレーナーだけが違う構成から生じており、t090トレーナー側の差が支配的と判断。
+  B<C<A(1.2333<1.4333<1.5000)という順序自体はEgaroucidデータの質を示す副次的シグナル
+  だが、解釈(2)に従いB/Cの絶対値は参考扱いとし、「本番超えのフル学習」への直行は
+  推奨しない(次の一手は「t090トレーナーとtrain_patterns_v3の差分要因の特定」または
+  「良質データをtrain_patterns_v3側へ取り込む」方向、別タスクで判断)。
+- レポート`bench/edax-compare/t154_mixed_data_probe_report.md`と
+  `bench/edax-compare/t154_mixed_data_probe.meta.json`を作成。
+- `cargo test -p train --release`: 99 passed, 0 failed(最終確認)。
+- コミット(パス明示、tasks/とCLAUDE.mdは対象外): `train/src/bin/wthor_to_simple.rs`,
+  `train/src/bin/egaroucid_filter_stones.rs`,
+  `bench/edax-compare/t154_mixed_data_probe_report.md`,
+  `bench/edax-compare/t154_mixed_data_probe.meta.json`。
+  コミット f2c6c88、`git push origin main`成功(`7bec0b0..f2c6c88 main -> main`)。
+  `train/data/t154/`配下(変換済みコーパス・checkpoint・weights・oracle出力)は
+  既存の`train/data/`gitignoreにより非コミット。
+- 受け入れ基準セルフチェック: (1)3runのoracle regret+M2ガード記録+解釈への当てはめ →
+  レポート内に記載済み。(2)Run Aの件数整合説明 → レポート「Data preparation」節に記載
+  (合計4,431,504は完全一致、分割方式の違いにより実train数は近似一致)。(3)cargo test -p
+  train全パス → 確認済み。(4)コード・レポートのみコミット・push、データ非コミット →
+  完了(git statusは`tasks/T154-mixed-data-probe.md`の作業ログ追記のみ残存、これは
+  オーケストレーターの担当としてコミットしない)。
