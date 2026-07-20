@@ -41,3 +41,9 @@ MPC再校正シリーズ(設計の正: `tasks/design/T156-mpc-recalibration-repo
 ## 作業ログ
 
 (ワーカーが節目ごとに追記)
+
+- 2026-07-20 17:38 JST (Codex): WTHOR 2000〜2024 の25ファイルから、空き21〜52を4帯、ゲーム単位60/20/20 split、1帯1局面/対局以下、盤面+手番の完全重複排除、固定seedで1,200局面を抽出する `extract_mpc_positions` を追加。各帯300（pilot 80）、全体1,200（pilot 320）を生成し、source WTHOR SHA-256・seed・件数・output SHA-256をmetaへ記録した。2回再生成で positions SHA `E86BF2383490CC356589C85307CDC85556288BD23CAE1A2594932CD70AD748DA`、meta SHA `305D8019CA652B6E2C292329DE6E927C8661F9DADB347F65D5951A267E5F1564` がそれぞれ一致。
+- 2026-07-20 17:38 JST (Codex): `calibrate_mpc measure` を追加し、v4重み、fixed-depth、history/aspiration OFFの既存入口、`exact_from_empties=0`、独立TTで深さ1〜12のscore/nodesを測定。局面完了ごとの一時ファイル置換、条件fingerprint検証、resume、進捗、detached shard、検証付きmergeを実装した。`--max-positions 1` を2回実行してcheckpointが1件→2件へresumeすることを実確認。T155のPython/Edax終了後に開始し、単一detached実行を167件で安全に停止して4 shardへresume、ポーリングし、320局面×12深さを完走。共通167件の重複score/nodes一致をmerge時に検証し、欠損0件。完成JSONのresume再実行でSHA `D83BF1BC344C72F1602B999F135397255FED89E344838847799A61BDA8601F78` 不変。
+- 2026-07-20 17:38 JST (Codex): `t156_mpc_stats.py` を追加し、各(empty bucket, deep depth D, shallow depth d)についてcalibration splitで affine回帰、残差sigma、split別方向tail、t=1.5/1.75/2.0超過率、shallow/deep node比中央値を算出。4帯×66深さペア=264グループを `t156_mpc_pilot_stats.json` に保存。
+- 実行確認: `cargo test -p engine` = 200 passed / 2 ignored、`cargo test -p engine --release --test ffo_bench` = fast 1 passed / heavy 1 ignored、`cargo test -p train` = 全ターゲット成功（lib 87 passedを含む）、抽出bin 3 passed、統計script self-test passed、`git diff --check` 成功。本番探索 `engine/src/search.rs` / `engine/src/mpc.rs` は差分なし。最初の連続受け入れコマンドは全体timeoutになったがengine全テストとFFO成功出力まで確認済みで、未実行だったtrain全テストを直後に単独再実行して成功。
+- コミット: 未実施（.git書き込み禁止のため、オーケストレーター代行待ち）。
