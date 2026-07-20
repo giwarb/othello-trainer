@@ -34,7 +34,7 @@
 
 | ID | タスク | 担当 | 状態 | 試行 |
 |---|---|---|---|---|
-| T158b | 評価特徴追加(2/4): trainer拡張+pilot/full学習(Gate 2/3) | Codex gpt-5.6-sol | in_progress(委譲中。180k pilot B0-B3→事前登録判定→最良1構成のみfull 443万×3seed) | 0 |
+| T158b | 評価特徴追加(2/4): trainer拡張+pilot/full学習 | Codex gpt-5.6-sol | review(完了60c2b27代行コミット: **Gate 2・3とも合格**。pilot B3選定-0.314石→full 443万×3seedでB3 **-0.062石**(基準-0.05)・3/3seed改善・CI[-0.073,-0.053]。verifier+codex-review検収中→合格でT158c(スクリーニング)へ) | 0 |
 
 ## 有効な方針・申し送り(今後のタスクに効くもの)
 
