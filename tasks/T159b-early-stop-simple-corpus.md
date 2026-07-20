@@ -87,4 +87,37 @@ T159で本番トレーナー(train_patterns_v3)に導入した早期打ち切り
 
 - **WTHOR OFF**(`--configs v3 --seeds 1 --epochs 2 --max-games 30`): 前後とも`5228350a01ded3cdb27093bfc0c8c78b70d63251827f94412b8c7748e4c2d687`(T159時点の記録値とも一致)。
 - **simple-corpus OFF**(Egaroucid実データ先頭2000行を切り出し、`--configs v3 --seeds 1 --epochs 2 --simple-corpus <2000行ファイル>`): 前後とも`f7508ab5e197a49a907c24e25dd070c18e56e9b39bb797b4a5a74552dee7d790`。
-- **WTHOR ON**(`--early-stop`、小規模: `--max-games 60 --early-stop-val-percent 10 --early-stop-patience 3(実際は--early-stop-patience 2) --max-epochs 8`)を実行し、新しい`metrics.tsv`(8列)・`recover_early_stop_state`共有経路込みでCLIから正常完走することを確認(best_epoch=3, epochs_run=5, 最終binとbest.binのSHA-256一致)。
+- **WTHOR ON**(`--early-stop`、小規模: `--max-games 60 --early-stop-val-percent 10 --early-stop-patience 2 --max-epochs 8`)を実行し、新しい`metrics.tsv`(8列)・`recover_early_stop_state`共有経路込みでCLIから正常完走することを確認(best_epoch=3, epochs_run=5, 最終binとbest.binのSHA-256一致)。
+
+### 要件8: Egaroucid実データでの動作確認・25.5M全量の時間見積り
+
+**180kスモーク**(実データ、PowerShell Start-Process detached + ツール呼び出しポーリング、Bash run_in_background/Monitor通知待ちのみへの依存はしない):
+- コマンド: `--configs v4 --seeds 1 --simple-corpus train/data/egaroucid/extracted/0001_egaroucid_7_5_1_lv17 --simple-max-records 180000 --early-stop --early-stop-val-percent 5 --early-stop-patience 3 --max-epochs 30 --output-dir <一時dir>`
+- データセット: `total_lines=25514097 pool_size=180000(reservoir sampling) train_samples=149849 val_samples=7800 frozen_samples=22351`
+- 結果: val_maeが25エポックかけて10.21→8.43まで単調気味に改善しつつ非単調な揺り戻し(悪化)を挟み、`best_epoch=22`でpatience=3が発火して`epoch=25`(30エポック未満)で打ち切り。`frozen_mse=123.300150 frozen_mae=8.206586`。simple-corpus専用の1パス評価(`train_epoch_with_running_loss`)がCLIから正しく機能することを確認。
+- 所要時間: 実測約14.8秒(release build、25エポック分・訓練149,849件+検証7,800件)。
+
+**25.5M全量の1エポック実測**(見積りの精度を上げるため、実データ全量・`--simple-max-records`無指定(全件保持)・`--max-epochs 1 --early-stop-patience 1`で実際に1エポックだけ学習する測定を追加実行。T160本番の複数エポック学習そのものはスコープ外のため実行していない):
+- コマンド: `--configs v4 --seeds 1 --simple-corpus train/data/egaroucid/extracted/0001_egaroucid_7_5_1_lv17 --early-stop --early-stop-val-percent 5 --early-stop-patience 1 --max-epochs 1 --output-dir <一時dir>`
+- データセット: `total_lines=25514097 pool_size=25514097(全件) train_samples=21210114 val_samples=1114591 frozen_samples=3189392`
+- 実測: プロセス開始05:33:32.72 → 結果出力(ファイル最終更新)05:35:36.08、**総所要時間123.36秒**(全量25.5M行の読込・パース・split_for_early_stopによる3分割・1エポック分のSGD学習(21.21M件)・検証評価(1.11M件)・frozen評価(3.19M件)・成果物書き出しを全て含む)。ピークメモリ(Working Set)は約0.8〜1.2GB。
+- 参考: 25.5M行を読み飛ばし主体で走査するだけの測定(`--simple-max-records 10`、ほぼパースなし)は4.3秒(=純粋な全行スキャン+ハッシュのコスト下限)。
+
+**25.5M全量の時間見積り(180kスモークとの比率・全量1エポック実測の両方から算出)**:
+- 180kスモークの実測(train+val合計157,649件・25エポック・14.8秒)から、エポックあたりコスト ≈ (14.8−4.3)/25 ≈ **0.42秒/エポック(157,649件あたり)**。
+- 全量(train+val合計22,324,705件)はこの**141.6倍**の規模 → 比率から1エポックあたり ≈ 0.42×141.6 ≈ **59.5秒/エポック**と推定。
+- 全量1エポック実測(123.36秒)からこの推定エポックコストを差し引くと、**読込・パース・split・frozen評価を含む固定オーバーヘッドは約64秒**(1回のプロセス起動につき1回だけ発生し、config×seedの複数回ループでも`main`内でpool読込は1回のみ=以後のconfig/seedループでは再発生しない)。
+- **25.5M全量・`--max-epochs 30 --early-stop-patience 3`(典型ケース)の想定総時間(1 config×1 seedあたり)**:
+
+  | 打ち切りエポック | 想定総時間 |
+  |---|---|
+  | 10エポックで打ち切り | 約11分 |
+  | 15エポックで打ち切り | 約16分 |
+  | 20エポックで打ち切り | 約21分 |
+  | 25エポックで打ち切り(180kスモークと同程度) | 約26分 |
+  | 30エポック(patience未発火・上限まで) | 約31分 |
+
+  → **1 config × 1 seedあたり概ね15〜30分程度**を見込む(180kスモークではpatience=3がepoch25で発火しており、全量でも同程度〜やや遅い打ち切りが起きる可能性がある。データ量が増えるとSGDの1エポックあたりの実効更新回数が増え収束が速まる可能性もあり、実際の打ち切りエポックはこの範囲内で変動しうる)。
+- **複数seed/複数configをまとめて1プロセス起動で回す場合**(`--configs`/`--seeds`にカンマ区切りで複数指定): データ読込(約64秒)は起動1回につき1回だけで、以降の(config, seed)の組ごとに上表のエポックコストが積み上がる(例: v4を3 seedで回すなら、64秒 + 3×(15〜30分) ≈ 46〜91分)。
+
+**T160向けの重要な申し送り(B3設定のブロッカー)**: `main`の既存ガード(T155由来、本タスクでは変更していない)が「`configs.iter().any(|config| config.t158)`なら`--simple-corpus`を拒否」としているため、**B3特徴(`t158-b3`)設定は現状`--simple-corpus`と一切併用できない**(`--early-stop`の有無に関わらず)。T159bのスコープ外(「B3特徴側の変更」は対象外と明記)のため本タスクでは対処していないが、**T160の計画「素のv4構成+B3特徴あり構成の両方をEgaroucid全量で学習」はこのガードにより素のv4構成しか実行できない状態**。B3をEgaroucidデータで学習するには、別途このガード(および対応するfeature-distribution出力等)を見直す小タスクが必要になる。
