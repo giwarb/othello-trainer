@@ -1,7 +1,7 @@
 ---
 id: T158a
 title: 評価特徴追加(1/4): engine側特徴計算・PWV4形式・評価統合・純コスト計測
-status: redo # redo#2(2026-07-21): native/WASM相互一致の機械検証欠如(redo#1で共通goldenが削除された)
+status: done # redo#2で決着(2026-07-21): 最終codex-review合格(ブロッカー・中ゼロ)。Gate 1合格=WASM層化8局面96.58%(帯別最低95.94%)・ノード上限支配
 assignee: Codex gpt-5.6-sol
 attempts: 2
 ---
