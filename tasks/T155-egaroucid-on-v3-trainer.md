@@ -108,3 +108,78 @@ T154の結論(トレーナー差が支配的+Egaroucidデータは同量でWTHOR
   (+`.stderr.log`)。Bashツールの`run_in_background`で`results.tsv`に3行揃うまで
   30秒間隔でポーリングするラッパースクリプトを起動(Monitor通知への依存を避け、
   45分の安全上限を設定)。
+
+### 2026-07-20 E1完走・oracle評価完了・E2実行・oracle評価完了・レポート確定・コミット/push完了
+
+- **E1完走**(seed 1/2/3、`train/data/t155/egaroucid-v4-e1/`)。実測所要時間は
+  3seed合計で約8分(コーパスロードは1プロセス内で1回のみ、seed完了間隔は
+  約2.5分/seed)。事前見積り(約32分)より大幅に速く、「1runの実測時間が
+  30分を超えるならseed1のみに縮小」の閾値には該当しなかったため3seedを
+  そのまま完走させた。データセット: pool=4,431,504(T124/T154と同じ規模)、
+  train=3,877,551、frozen=553,953(局面ハッシュ分割、frozen比率12.50%。
+  想定の約10%よりやや高いが、E2でも同じ比率(12.50%)が再現したため
+  Egaroucidデータの局面分布とハッシュの相互作用による構造的な偏りと判断、
+  分割自体の正しさ(決定的・対称重複同一バケット)には影響しない)。
+  frozen_mae: seed1=5.229859, seed2=5.217922, seed3=5.209128
+  (WTHOR学習のT124実績16.19前後よりずっと低い値。損失スケールが違うだけで
+  品質指標としては比較不可、oracle regretで判断する)。
+- **E1のoracle評価**(`compare_pattern_v3.py`、T096 60局面、各回約1.5分):
+  seed1: v2=1.5666666666666667(M2ガードPASS)、candidate=1.5333333333333334、
+  diff=-0.0333、95%CI[-0.667,0.633]、no_significant_difference。
+  seed2: candidate=1.4666666666666666、diff=-0.1、CI[-0.833,0.700]、
+  M2ガードPASS。
+  seed3: candidate=1.6666666666666667、diff=+0.1、CI[-0.667,0.933]、
+  M2ガードPASS。
+  **3seed平均regret = 1.5555555555555556**(sample SD 0.1018)。
+  既知値との比較: v4×WTHOR(train_patterns_v3、T124)1.1111との差+0.4444
+  (悪化)、Egaroucid@t090トレーナー(T154 Run B)1.2333との差+0.3222
+  (悪化)、v2ベースライン1.5667との差-0.0111(統計的に無差別)。
+  **事前登録解釈: 3seed平均が1.3超に該当 → データ路線を保留しMPCへ
+  (対局ゲートは提案しない)。**
+- **重要な考察**: T154は「トレーナー差が支配的」(WTHOR同一データで
+  train_patterns_v3=1.1111 vs t090=1.5000)と結論したため、
+  「良いトレーナーでEgaroucidを学習すれば良くなるはず」という仮説を
+  検証したが、**結果は逆**(Egaroucid×train_patterns_v3=1.5556が
+  Egaroucid×t090=1.2333より悪化)だった。最有力の説明として、
+  train_patterns_v3は固定20エポック(early stopping無し)で、
+  t090はvalidation lossベースのearly stopping(patience 5、T154 Run Bは
+  best_epoch=42/60で停止)を持つ点を挙げた: Egaroucidの教師信号は
+  WTHORより低分散で収束が速いため、early stoppingが無い固定20エポックでは
+  過学習している可能性が高い、という仮説をレポートに記録(追加検証は
+  スコープ外、次タスクへの申し送り)。
+- **E2実行**(`--simple-max-records 8000000 --seeds 1`、参考1本):
+  実測所要時間は約15-20分(45分上限内)。データセット: pool=8,000,000、
+  train=6,999,893、frozen=1,000,107(frozen比率12.5013%、E1と同水準)。
+  frozen_mae=5.043209。oracle評価: v2=1.5666666666666667(M2ガードPASS)、
+  candidate=1.3666666666666667、diff=-0.2、95%CI[-0.700,0.300]、
+  no_significant_difference。E1の3seed平均(1.5556)より0.1889改善したが、
+  依然として事前登録の1.3閾値のすぐ外側(悪化側)に留まり、1seedのみの
+  参考値のため統計的に頑健な追加測定とはみなさず、E1の3seed平均に基づく
+  主結論(データ路線保留・MPCへ)は変更しなかった。
+- レポート`bench/edax-compare/t155_egaroucid_v3trainer_report.md`と
+  `bench/edax-compare/t155_egaroucid_v3trainer.meta.json`を作成
+  (E1/E2の学習・oracle結果、事前登録解釈への当てはめ、考察、次の一手を記載)。
+- `cargo test -p train --release`: 87 lib tests(新規12件含む)+
+  train_patterns_v3 bin 3件+他bin 18件+real_data 1件、**全パス、0 failed**
+  (最終確認)。
+- **コミット規律**: T156a(Codexワーカー、MPCパイロット測定)が同時に
+  engine/*・train/src/bin/{egaroucid_filter_stones,teacher_candidates,
+  wthor_lines,wthor_to_simple}.rs・t090_distillation.rs・wthor.rs・
+  real_data.rs等を並行して変更中だったため、コミット前に
+  `git diff train/src/lib.rs`で自分の変更(`pub mod simple_corpus;`の1行のみ)
+  であることを確認したうえで、パス明示で以下5ファイルのみをadd・commitした:
+  `train/src/simple_corpus.rs`(新規)、`train/src/lib.rs`、
+  `train/src/bin/train_patterns_v3.rs`、
+  `bench/edax-compare/t155_egaroucid_v3trainer_report.md`(新規)、
+  `bench/edax-compare/t155_egaroucid_v3trainer.meta.json`(新規)。
+  コミット`18e2215`、`git push origin main`成功(`f7079c0..18e2215`)。
+  T156a由来の未コミット差分・未追跡ファイル(engine/*、train/src/bin/
+  extract_mpc_positions.rs、bench/edax-compare/t156_*等)はT155のスコープ外
+  のため一切手を付けていない(T156a担当が別途コミットする想定)。
+- **受け入れ基準セルフチェック**: (1)既定挙動不変の担保 → リファクタ前後で
+  results.tsv・重みSHA-256完全一致を実測、レポートに記載。`cargo test -p
+  train`全パス。(2)E1(3seed)のoracle結果+M2ガード+事前登録解釈への当てはめ
+  → レポート・meta.jsonに記載。(3)コード・レポートのみパス明示コミット・
+  push、データ非コミット、完了時`git status --short`クリーン →
+  上記のとおり(T155由来の差分は全てコミット済み、残る差分・未追跡は
+  すべてT156a由来でスコープ外)。
