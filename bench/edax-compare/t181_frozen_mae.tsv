@@ -1,0 +1,8 @@
+label	weights_path	frozen_samples	frozen_mse	frozen_mae	bytes
+v6	train/weights/pattern_v6.bin	3189392	35.923338	4.492196	42394905
+e1-seed1	train/data/t181/e1-v0002/t158-b3-canonical-seed-1-earlystop.bin	3189392	43.675037	4.968667	27986840
+e1-seed2	train/data/t181/e1-v0002/t158-b3-canonical-seed-2-earlystop.bin	3189392	43.798552	4.975879	27986840
+e1-seed3	train/data/t181/e1-v0002/t158-b3-canonical-seed-3-earlystop.bin	3189392	43.750656	4.973161	27986840
+e2-seed1	train/data/t181/e2-mixed/t158-b3-canonical-seed-1-earlystop.bin	3189392	40.409244	4.784592	27986840
+e2-seed2	train/data/t181/e2-mixed/t158-b3-canonical-seed-2-earlystop.bin	3189392	40.738452	4.806507	27986840
+e2-seed3	train/data/t181/e2-mixed/t158-b3-canonical-seed-3-earlystop.bin	3189392	40.758813	4.807344	27986840
