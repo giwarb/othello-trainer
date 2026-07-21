@@ -1,7 +1,7 @@
 ---
 id: T168
 title: パターン切り方のEdax寄せ(1/2): 形状追加+Egaroucid全量学習+スクリーニング
-status: todo
+status: done # verifier(6run一次データ突合・全SHA実測・D4対称160局面×2候補・既存経路不変を独立前後比較で裏付け)+代替レビュー(重大0・中2・軽微5)両合格、2026-07-21。申し送り: スモークの正確なコマンド記録(verifier再現性ギャップ)、eval_cli make-zero-feature-modelの2→3特徴変化(中1)、使い捨てテストの恒久#[ignore]化推奨(中2)
 assignee: implementer
 attempts: 0
 ---
