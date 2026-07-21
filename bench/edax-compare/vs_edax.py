@@ -158,10 +158,17 @@ def _cargo_bin() -> str:
     raise RuntimeError("cargo not found on PATH and no fallback at ~/.cargo/bin/cargo(.exe)")
 
 
-def ensure_engine_built() -> None:
+def ensure_engine_built(enable_mpc: bool = False) -> None:
     # Always invoke Cargo so its freshness check cannot leave a stale executable.
-    print("Building eval_cli (cargo build --release -p engine --bin eval_cli) ...")
-    run([_cargo_bin(), "build", "--release", "-p", "engine", "--bin", "eval_cli"], cwd=ROOT)
+    cmd = [_cargo_bin(), "build", "--release", "-p", "engine", "--bin", "eval_cli"]
+    if enable_mpc:
+        # T175: MPCは`mpc_enabled` featureでビルドしたバイナリでなければ
+        # `policy.enable_mpc`を渡しても無効のまま(engine/src/search.rsの
+        # cfg!(feature = "mpc_enabled")ゲート)。既定(enable_mpc=False)は
+        # 従来どおりfeature無しビルドで、既存呼び出しの挙動は不変。
+        cmd += ["--features", "mpc_enabled"]
+    print(f"Building eval_cli ({' '.join(cmd)}) ...")
+    run(cmd, cwd=ROOT)
     if not EVAL_CLI.exists():
         raise RuntimeError(f"build finished but {EVAL_CLI} still not found")
 
@@ -409,10 +416,16 @@ def engine_best(
     max_nodes: int | None = None,
     exact_quota_percent: int = DEFAULT_ENGINE_EXACT_QUOTA_PERCENT,
     tt_mb: int = 16,
+    enable_mpc: bool = False,
 ) -> dict:
     """T084: `eval_cli best`(single-root探索、`search_with_eval`)を呼び、
     最善手とテレメトリ一式(depth/nodes/elapsedMs/nps/timedOut/exact.*)を
-    含むJSONオブジェクトをそのまま返す。"""
+    含むJSONオブジェクトをそのまま返す。
+
+    `enable_mpc`(T175): `eval_cli best --enable-mpc`を追加する(既定False
+    で既存呼び出しの挙動は不変)。`mpc_enabled` featureでビルドしたeval_cli
+    でなければeval_cli側がエラー終了する(`ensure_engine_built(enable_mpc=True)`
+    と対で使うこと)。"""
     input_json = json.dumps({"board": board, "side_to_move": side})
     cmd = [
         str(EVAL_CLI), "best", "--depth", str(depth),
@@ -426,6 +439,8 @@ def engine_best(
         cmd += ["--time-ms", str(time_ms)]
     if max_nodes is not None:
         cmd += ["--max-nodes", str(max_nodes)]
+    if enable_mpc:
+        cmd += ["--enable-mpc"]
     out = run(cmd, input_text=input_json)
     return json.loads(out)
 
@@ -694,6 +709,7 @@ def play_game(
     start_ply_offset: int,
     game_id: int,
     level: int,
+    engine_enable_mpc: bool = False,
 ) -> dict:
     """指定した開始局面から1局対局する。`engine_mode`は`"single-root"`
     (`eval_cli best`、T084の既定)または`"allmoves"`(`eval_cli moves`、
@@ -748,6 +764,7 @@ def play_game(
                     max_nodes=actual_max_nodes,
                     exact_quota_percent=engine_exact_quota_percent,
                     tt_mb=engine_tt_mb,
+                    enable_mpc=engine_enable_mpc,
                 )
                 mv = r.get("move")
                 if mv is None:
@@ -778,6 +795,8 @@ def play_game(
                     "exactCompleted": r["exact"]["completed"],
                     "exactFallback": r["exact"]["fallback"],
                 }
+                if "mpcStats" in r:  # T175: --enable-mpc時のみeval_cliが付与する
+                    engine_telemetry["mpcStats"] = r["mpcStats"]
             elif engine_mode == "allmoves":
                 candidates = engine_moves(
                     board, side, engine_depth, engine_exact_from_empties, weights, time_ms=engine_time_ms
@@ -1772,6 +1791,16 @@ def main() -> None:
     )
     ap.add_argument("--engine-tt-mb", type=int, default=16)
     ap.add_argument(
+        "--engine-enable-mpc",
+        action="store_true",
+        help=(
+            "T175: 深さベース+MPCパイロット用。`eval_cli best --enable-mpc`を通し、"
+            "SearchPolicy.enable_mpcを有効にする(既定False=既存挙動不変)。"
+            "有効時はeval_cliを`--features mpc_enabled`で再ビルドする"
+            "(ensure_engine_built経由)。settings/run_keyにも記録する。"
+        ),
+    )
+    ap.add_argument(
         "--engine-time-ms",
         type=int,
         default=DEFAULT_ENGINE_TIME_MS,
@@ -1846,7 +1875,7 @@ def main() -> None:
         (args.results_output, args.report_output, args.calibration_output),
     )
 
-    ensure_engine_built()
+    ensure_engine_built(enable_mpc=args.engine_enable_mpc)
     ensure_edax_available()
     ensure_pattern_weights_available(args.weights)
 
@@ -1880,6 +1909,7 @@ def main() -> None:
         "engine_exact_quota_percent": args.engine_exact_quota_percent,
         "unlimited_exact_empties": args.unlimited_exact_empties,
         "engine_tt_mb": args.engine_tt_mb,
+        "engine_enable_mpc": args.engine_enable_mpc,
         "weights": rel_to_root(args.weights),
         "openings_path": rel_to_root(args.openings),
         "openings_sha256": sha256_of_file(args.openings),
@@ -1967,6 +1997,7 @@ def main() -> None:
                         start_ply_offset=start_ply_offset,
                         game_id=game_id,
                         level=level,
+                        engine_enable_mpc=args.engine_enable_mpc,
                     )
                     game["wallClockSec"] = round(time.monotonic() - game_started_at, 3)  # T158d要件3: 1局ごとの所要時間
                     checkpoint.add_game(game, start["id"])  # 1局ごとにチェックポイント保存(要件8)

@@ -52,7 +52,7 @@ use engine::bitboard::{Board, Side};
 use engine::endgame::{self, AbortReason as ExactAbortReason, TimeBudget};
 use engine::eval::feature_diffs;
 use engine::pattern_eval::PatternWeights;
-use engine::search::{self, SearchLimit};
+use engine::search::{self, SearchLimit, SearchPolicy};
 use engine::tt::TranspositionTable;
 use engine::Engine;
 use serde_json::{json, Value};
@@ -114,7 +114,7 @@ fn main() {
         "make-zero-feature-model" => cmd_make_zero_feature_model(&args[2..]),
         _ => {
             eprintln!(
-                "usage:\n  eval_cli gen --category NAME --min-empties N --max-empties M --count C --seed S\n  eval_cli eval --depth N --exact-from-empties M [--pattern-weights PATH] [--disable-eval-features]   (JSON配列を標準入力から読む)\n  eval_cli moves --depth N --exact-from-empties M [--pattern-weights PATH] [--disable-eval-features]  (単一局面のJSONオブジェクトを標準入力から読み、全合法手のスコアを返す)\n  eval_cli best --depth N [--time-ms T] [--max-nodes N] --exact-from-empties M [--exact-quota-percent 25|40|50|60|75] [--pattern-weights PATH] [--disable-eval-features]  (T084/T085: single-root探索で最善手1つとテレメトリを返す)\n  eval_cli solve [--alpha A] [--beta B] [--max-nodes N] [--time-ms T] [--tt-mb M]  (solve one endgame position with a full or custom window)\n  eval_cli budget-regression --depth N --max-nodes N --exact-from-empties M [--exact-quota-percent 25|40|50|60|75] [--pattern-weights PATH] [--disable-eval-features]  (同一局面群を2回探索して決定性を検証)"
+                "usage:\n  eval_cli gen --category NAME --min-empties N --max-empties M --count C --seed S\n  eval_cli eval --depth N --exact-from-empties M [--pattern-weights PATH] [--disable-eval-features]   (JSON配列を標準入力から読む)\n  eval_cli moves --depth N --exact-from-empties M [--pattern-weights PATH] [--disable-eval-features]  (単一局面のJSONオブジェクトを標準入力から読み、全合法手のスコアを返す)\n  eval_cli best --depth N [--time-ms T] [--max-nodes N] --exact-from-empties M [--exact-quota-percent 25|40|50|60|75] [--pattern-weights PATH] [--disable-eval-features] [--enable-mpc]  (T084/T085: single-root探索で最善手1つとテレメトリを返す。T175: --enable-mpcはmpc_enabled featureビルド必須、既定OFFで既存出力は不変)\n  eval_cli solve [--alpha A] [--beta B] [--max-nodes N] [--time-ms T] [--tt-mb M]  (solve one endgame position with a full or custom window)\n  eval_cli budget-regression --depth N --max-nodes N --exact-from-empties M [--exact-quota-percent 25|40|50|60|75] [--pattern-weights PATH] [--disable-eval-features]  (同一局面群を2回探索して決定性を検証)"
             );
             std::process::exit(2);
         }
@@ -793,6 +793,19 @@ fn cmd_best(args: &[String]) {
     let b = obf_to_board(&board_str);
     let side = parse_side(&side_str);
 
+    // T175: 深さベース+MPCパイロット用の最小限の配線。既定(フラグ未指定)は
+    // 下のelse分岐(既存の2分岐match、無変更)を通るため、既存呼び出しの
+    // 挙動・出力JSONは一切変わらない。`--enable-mpc`指定時のみ
+    // `search_with_eval_with_policy`(既存公開API、calibrate_mpc.rsの
+    // `gate`サブコマンドで実績あり)を通す。MPCは`mpc_enabled` feature
+    // ビルドでなければ`enable_mpc`を渡しても無効のままなので、意図しない
+    // 「OFFのままの計測」を防ぐため未ビルド時はここで停止する。
+    let enable_mpc = args.iter().any(|arg| arg == "--enable-mpc");
+    if enable_mpc && !(cfg!(feature = "mpc_enabled") || cfg!(test)) {
+        eprintln!("--enable-mpc requires a build with --features mpc_enabled (or a test build)");
+        std::process::exit(1);
+    }
+
     // exact読みが「試みられた」かどうかは、ルート局面自体の空きマス数と
     // `exact_from_empties`の比較だけで(探索前に)決まる(探索木の途中で
     // さらにexactへ入るケースはここでは数えない。あくまでルート局面が
@@ -805,8 +818,13 @@ fn cmd_best(args: &[String]) {
         exact_from_empties,
     };
     let mut tt = TranspositionTable::new(tt_mb);
-    let result = match max_nodes {
-        Some(max_nodes) => search::search_with_eval_with_node_limit_and_exact_quota(
+    let result = if enable_mpc {
+        let policy = SearchPolicy {
+            enable_history: true,
+            enable_aspiration: true,
+            enable_mpc: true,
+        };
+        search::search_with_eval_with_policy(
             &b,
             side,
             &limit,
@@ -814,8 +832,21 @@ fn cmd_best(args: &[String]) {
             pattern_weights.as_ref(),
             max_nodes,
             exact_quota_percent,
-        ),
-        None => search::search_with_eval(&b, side, &limit, &mut tt, pattern_weights.as_ref()),
+            policy,
+        )
+    } else {
+        match max_nodes {
+            Some(max_nodes) => search::search_with_eval_with_node_limit_and_exact_quota(
+                &b,
+                side,
+                &limit,
+                &mut tt,
+                pattern_weights.as_ref(),
+                max_nodes,
+                exact_quota_percent,
+            ),
+            None => search::search_with_eval(&b, side, &limit, &mut tt, pattern_weights.as_ref()),
+        }
     };
 
     let exact_attempted = result.exact_root_attempts + result.exact_leaf_attempts > 0;
@@ -837,61 +868,75 @@ fn cmd_best(args: &[String]) {
         result.elapsed_ms, result.depth, result.nodes, nps, result.timed_out, result.is_exact, exact_attempted, exact_fallback
     );
 
-    println!(
-        "{}",
-        json!({
-            "board": board_str,
-            "side_to_move": side_str,
-            "move": result.best_move.map(square_to_notation),
-            "score": {
-                "discDiff": result.score as f64 / 100.0,
-                "type": eval_kind(result.is_exact),
-            },
-            "depth": result.depth,
-            "nodes": result.nodes,
-            "elapsedMs": result.elapsed_ms,
-            "nps": nps,
-            "scalarFeaturesPresent": pattern_weights.as_ref().is_some_and(PatternWeights::has_scalar_features),
-            "scalarFeaturesEnabled": pattern_weights.as_ref().is_some_and(PatternWeights::scalar_features_enabled),
-            "timedOut": result.timed_out,
-            "nodeLimitHit": result.node_limit_hit,
-            "requestedMaxNodes": result.requested_max_nodes,
-            "consumedNodes": result.consumed_nodes,
-            "baselineDepth": result.baseline_depth,
-            "baselineNodes": result.baseline_nodes,
-            "lastCompletedDepth": result.last_completed_depth,
-            "staticOnly": result.static_only,
-            "exactRootAttempts": result.exact_root_attempts,
-            "exactLeafAttempts": result.exact_leaf_attempts,
-            "exactRootCompleted": result.exact_root_completed,
-            "exactBoundProofCompleted": result.exact_bound_proof_completed,
-            "exactLeafCompleted": result.exact_leaf_completed,
-            "exactCompleted": result.exact_completed,
-            "exactAbortedByQuota": result.exact_aborted_by_quota,
-            "exactNodes": result.exact_nodes,
-            "midgameNodes": result.midgame_nodes,
-            "wallLimitHit": result.wall_limit_hit,
-            "fallbackReason": result.fallback_reason.map(|reason| format!("{reason:?}")),
-            "exactPolicyVersion": result.exact_policy_version,
-            "aspirationFailLow": result.aspiration_fail_low,
-            "aspirationFailHigh": result.aspiration_fail_high,
-            "exact": {
-                "attempted": exact_attempted,
-                "completed": exact_completed,
-                "fallback": exact_fallback,
-                "rootCompleted": result.exact_root_completed,
-                "boundProofCompleted": result.exact_bound_proof_completed,
-                "leafCompleted": result.exact_leaf_completed,
-            },
-            "requestedDepth": depth,
-            "requestedExactFromEmpties": exact_from_empties,
-            "exactQuotaPercent": exact_quota_percent,
-            "requestedTimeMs": time_ms,
-            "ttCapacityMiB": tt_mb,
-            "solverVersion": ENDGAME_SOLVER_VERSION,
-            "nodeDefinitionVersion": NODE_DEFINITION_VERSION,
-        })
-    );
+    let mut output = json!({
+        "board": board_str,
+        "side_to_move": side_str,
+        "move": result.best_move.map(square_to_notation),
+        "score": {
+            "discDiff": result.score as f64 / 100.0,
+            "type": eval_kind(result.is_exact),
+        },
+        "depth": result.depth,
+        "nodes": result.nodes,
+        "elapsedMs": result.elapsed_ms,
+        "nps": nps,
+        "scalarFeaturesPresent": pattern_weights.as_ref().is_some_and(PatternWeights::has_scalar_features),
+        "scalarFeaturesEnabled": pattern_weights.as_ref().is_some_and(PatternWeights::scalar_features_enabled),
+        "timedOut": result.timed_out,
+        "nodeLimitHit": result.node_limit_hit,
+        "requestedMaxNodes": result.requested_max_nodes,
+        "consumedNodes": result.consumed_nodes,
+        "baselineDepth": result.baseline_depth,
+        "baselineNodes": result.baseline_nodes,
+        "lastCompletedDepth": result.last_completed_depth,
+        "staticOnly": result.static_only,
+        "exactRootAttempts": result.exact_root_attempts,
+        "exactLeafAttempts": result.exact_leaf_attempts,
+        "exactRootCompleted": result.exact_root_completed,
+        "exactBoundProofCompleted": result.exact_bound_proof_completed,
+        "exactLeafCompleted": result.exact_leaf_completed,
+        "exactCompleted": result.exact_completed,
+        "exactAbortedByQuota": result.exact_aborted_by_quota,
+        "exactNodes": result.exact_nodes,
+        "midgameNodes": result.midgame_nodes,
+        "wallLimitHit": result.wall_limit_hit,
+        "fallbackReason": result.fallback_reason.map(|reason| format!("{reason:?}")),
+        "exactPolicyVersion": result.exact_policy_version,
+        "aspirationFailLow": result.aspiration_fail_low,
+        "aspirationFailHigh": result.aspiration_fail_high,
+        "exact": {
+            "attempted": exact_attempted,
+            "completed": exact_completed,
+            "fallback": exact_fallback,
+            "rootCompleted": result.exact_root_completed,
+            "boundProofCompleted": result.exact_bound_proof_completed,
+            "leafCompleted": result.exact_leaf_completed,
+        },
+        "requestedDepth": depth,
+        "requestedExactFromEmpties": exact_from_empties,
+        "exactQuotaPercent": exact_quota_percent,
+        "requestedTimeMs": time_ms,
+        "ttCapacityMiB": tt_mb,
+        "solverVersion": ENDGAME_SOLVER_VERSION,
+        "nodeDefinitionVersion": NODE_DEFINITION_VERSION,
+    });
+    // T175: `--enable-mpc`指定時のみ`mpcStats`フィールドを追加する。
+    // 未指定時(既定・既存呼び出し)は上のoutputを一切変更せず出力するため、
+    // 既存経路のJSON出力は完全に不変(スモークSHA一致で検証)。
+    if enable_mpc {
+        output["mpcStats"] = json!({
+            "eligibleNodes": result.mpc_stats.eligible_nodes,
+            "probeAttemptsHigh": result.mpc_stats.probe_attempts_high,
+            "probeAttemptsLow": result.mpc_stats.probe_attempts_low,
+            "probeNodes": result.mpc_stats.probe_nodes,
+            "cutsHigh": result.mpc_stats.cuts_high,
+            "cutsLow": result.mpc_stats.cuts_low,
+            "skippedPvWindow": result.mpc_stats.skipped_pv_window,
+            "skippedExactBoundary": result.mpc_stats.skipped_exact_boundary,
+            "skippedUncalibrated": result.mpc_stats.skipped_uncalibrated,
+        });
+    }
+    println!("{output}");
 }
 
 /// T085a: 固定局面コーパスに対するノード予算の決定性・安全性回帰。
