@@ -942,8 +942,24 @@ mod tests {
         // で、canonical化スキームのD4不変性を検証する
         // (`engine`クレートの性質テストは合成したランダム盤面が中心だったため、
         // ここでは実データでも同じ性質が成り立つことを別途裏付ける)。
+        //
+        // T167修正(T163の見落とし): `train/data/`はライセンス上の理由で
+        // リポジトリにコミットしない(ルート`.gitignore`参照)ため、CI等
+        // フレッシュチェックアウトの環境ではこのファイルが存在せず、
+        // 元の実装(`.expect`でpanic)はCI(Rust Testsワークフロー)を
+        // 継続的に失敗させていた(`train/tests/real_data.rs`が既に採用している
+        // 「ファイルが無ければeprintln!して早期returnし、テストを失敗させない」
+        // という確立済みパターンをここでも適用する)。
         let path = concat!(env!("CARGO_MANIFEST_DIR"), "/data/WTH_2000.wtb");
-        let bytes = std::fs::read(path).expect("WTH_2000.wtb should be present in train/data");
+        let bytes = match std::fs::read(path) {
+            Ok(bytes) => bytes,
+            Err(_) => {
+                eprintln!(
+                    "train/data/WTH_2000.wtb が存在しないためスキップ(WTHORデータ未ダウンロード)"
+                );
+                return;
+            }
+        };
         let file = crate::wthor::parse(&bytes).expect("WTH_2000.wtb should parse");
 
         let mut weights = PatternWeights::zeroed_canonical(
