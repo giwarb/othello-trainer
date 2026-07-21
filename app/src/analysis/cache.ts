@@ -88,8 +88,14 @@ function defaultIndexedDb(): IDBFactory {
  * 直近の最大値+1へ繰り上げること**(往復させて過去の番号に戻さない。
  * T122申し送り事項——ファイル名を戻すだけでは古いキャッシュが残る事故に
  * つながるため、`worker.ts`側のロールバック手順コメントにも明記した)。
+ *
+ * T171: 本番パターン重みをv5からv6(V3+corner5x2、D1候補、T168で追加した
+ * corner 2x5ブロックパターン込み46インスタンス/11クラス、PWV6形式。T169の
+ * 対Edaxゲートで対v5+4.53石・95%CI[1.78,7.33]の有意改善を確認し、サイズ増
+ * gzip約5.9MB→10.7MBをユーザーが了承のうえ採用裁定)へ切り替え、同一局面・
+ * 同一探索条件でも評価値が変わるため、古い解析結果を無効化する(7 -> 8)。
  */
-export const ANALYSIS_ENGINE_VERSION = 7
+export const ANALYSIS_ENGINE_VERSION = 8
 
 /** 探索条件をキャッシュキー用の安定したタグへ変換する。 */
 export function analysisLimitTag(limit: AnalyzeLimit): string {

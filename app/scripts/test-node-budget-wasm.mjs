@@ -10,7 +10,12 @@ initSync({ module: wasm })
 // 基準に`second`/`afterUnrelated`との一致を見る自己参照的な決定性チェック)、
 // 重みファイルの中身が変わっても再取得すべき外部golden値は無い
 // (作業ログ参照)。
-const weights = await readFile(new URL('../public/pattern_v5.bin', import.meta.url))
+//
+// T171: 本番配線がpattern_v5.bin→pattern_v6.bin(D1候補、T168/T169/T171)に
+// 切り替わったため、本ゲートも本番追従でv6を参照するよう更新した。上記の
+// 「固定goldenを持たない自己参照的な決定性チェック」という設計はそのまま
+// なので、今回もgoldenの再取得は不要(理由はT170と同じ)。
+const weights = await readFile(new URL('../public/pattern_v6.bin', import.meta.url))
 
 const request = JSON.stringify({
   id: 1,
