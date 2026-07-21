@@ -12,8 +12,8 @@
 
 | ID | タスク | 担当 | 状態 | 試行 |
 |---|---|---|---|---|
-| T170 | 申し送り消化: node-budgetゲートv5化+local_tt.clear()回帰テスト | implementer | in_progress(D1サイズ裁定待ちの間の小粒2件) | 0 |
-| T171 | D1候補の本番配線(pattern_v6公開、**ユーザー採用裁定2026-07-21「Edax寄せ採用しましょう」**) | implementer | todo(T170完了後に同ワーカーへ連続委譲。T167前例踏襲+ゲートスクリプト2本のv6化。量子化(サイズ緩和)をバックログ登録) | 0 |
+| T170 | 申し送り消化: node-budgetゲートv5化+local_tt.clear()回帰テスト | implementer | review(f693d05、regression-catching実証済み〔clear()削除でleft:6299≠right:6529→復元で合格〕。verifier追試中) | 0 |
+| T171 | D1候補の本番配線(pattern_v6公開、ユーザー採用裁定済み) | implementer | in_progress(T167前例踏襲+ゲートスクリプト2本v6化+ANALYSIS_ENGINE_VERSION 8) | 0 |
 
 ## 有効な方針・申し送り(今後のタスクに効くもの)
 
