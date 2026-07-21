@@ -1,0 +1,153 @@
+{
+  "schemaVersion": 1,
+  "task": "T175",
+  "decision": "measurement_only_no_verdict",
+  "note": "Pure feasibility/measurement pilot for a user-proposed depth-based+MPC-ON search mode. No adoption decision; full design (time management, depth selection, UX) deferred to a Codex design consult (planned 2026-07-26).",
+  "wiring": {
+    "engineChange": {
+      "file": "engine/src/bin/eval_cli.rs",
+      "function": "cmd_best",
+      "addition": "--enable-mpc flag: when present, builds SearchPolicy{enable_history:true, enable_aspiration:true, enable_mpc:true} and calls the existing public API search_with_eval_with_policy (precedent: calibrate_mpc.rs's `gate` subcommand) instead of the two-branch match. Errors out if mpc_enabled feature is not compiled in. JSON output gains an `mpcStats` field only when --enable-mpc is passed.",
+      "existingPathUnchanged": "When --enable-mpc is absent (default), the exact original two-branch match code path runs unmodified, and the JSON output is unchanged."
+    },
+    "harnessChange": {
+      "file": "bench/edax-compare/vs_edax.py",
+      "additions": [
+        "--engine-enable-mpc (default False) CLI flag",
+        "ensure_engine_built(enable_mpc: bool = False): adds --features mpc_enabled to the cargo build command when true",
+        "engine_best(..., enable_mpc: bool = False): appends --enable-mpc to the eval_cli invocation when true",
+        "play_game(..., engine_enable_mpc: bool = False): threads the flag to engine_best calls; copies mpcStats into engine_telemetry when present",
+        "settings.engine_enable_mpc recorded for run_key/provenance"
+      ],
+      "existingPathUnchanged": "Default (flag absent) behavior and output schema are byte-identical to before this change."
+    },
+    "noSearchAlgorithmChange": true,
+    "buildCommands": {
+      "default": "cargo build --release -p engine --bin eval_cli",
+      "withMpcEnabled": "cargo build --release -p engine --bin eval_cli --features mpc_enabled"
+    },
+    "commit": "2e9bb88"
+  },
+  "existingPathInvarianceProof": {
+    "method": "git stash the T175 diff; cargo build --release -p engine --bin eval_cli (pre-change); run `eval_cli best` (no --enable-mpc) on 2 fixed positions (initial position + 1 midgame position), save stdout. git stash pop; rebuild; re-run identical commands. Compare outputs excluding elapsedMs/nps (this codebase's own vs_edax.py#calibration_identity() already defines these as wall-clock-dependent and excludes them from equality checks).",
+    "result": "All non-timing fields identical (hash match) across: (a) pre-change vs post-change without the feature, and (b) post-change without the feature vs post-change WITH the mpc_enabled feature compiled in but --enable-mpc not passed. Confirmed on both positions.",
+    "beforeAfterHashSha256": "025403b522c73b6670e3b695dade669e6cdce7de38195470db94e0dec19521d3",
+    "cargoTestEngine": "240 passed, 0 failed, 2 ignored (cargo test -p engine --release)",
+    "vsEdaxSelfTest": "PASSED (--self-test-checkpoint)"
+  },
+  "protocol": {
+    "engineDepth": 12,
+    "engineExactFromEmpties": 16,
+    "engineExactQuotaPercent": 60,
+    "engineMaxNodes": 100000000,
+    "engineTimeMs": 15000,
+    "engineTtMiB": 64,
+    "unlimitedExactEmpties": 20,
+    "engineModes": ["single-root"],
+    "engineEnableMpc": true,
+    "openingSet": "primary",
+    "openingCount": 30,
+    "weightsPath": "train/weights/pattern_v6.bin",
+    "note": "Identical to T158d/T162/T166/T169/T174 except engine_max_nodes (160000 -> 100000000), engine_time_ms (1500 -> 15000), and engine_enable_mpc (false -> true). Edax level differs per arm (P1=12, P2=10), matching T174/T169 respectively for paired comparison."
+  },
+  "preRegisteredStopCheck": {
+    "config": "same as P1 (vs lv12), --opening-limit 3 (6 games)",
+    "resultsPath": "bench/edax-compare/endgame-results/t175-precheck-lv12-results.json",
+    "perGameSecMin": 39.656,
+    "perGameSecMax": 53.265,
+    "perGameSecMean": 46.377,
+    "stopThresholdSec": 120,
+    "decision": "proceed (well under threshold)",
+    "anomalies": 0,
+    "fixedDepthRegressionAllMatched": true,
+    "nodeBudgetRegressionAllMatched": true
+  },
+  "execution": {
+    "sequential": true,
+    "otherHeavyWorkConcurrent": false,
+    "precheck": {"startedAtLocal": "2026-07-21T18:32:12+09:00", "finishedAtLocal": "2026-07-21T18:37:06+09:00", "totalWallClockSec": 294},
+    "p1": {
+      "resultsPath": "bench/edax-compare/endgame-results/t175-p1-vs-edax-lv12-results-full.json",
+      "reportPath": "bench/edax-compare/endgame-results/t175-p1-vs-edax-lv12-report-full.md",
+      "edaxLevel": 12,
+      "startedAtLocal": "2026-07-21T18:37:58+09:00",
+      "finishedAtLocal": "2026-07-21T19:27:57+09:00",
+      "totalWallClockSec": 2999,
+      "gamesCompleted": 60,
+      "fixedDepthRegressionAllMatched": true,
+      "nodeBudgetRegressionAllMatched": true,
+      "stderrEmpty": true
+    },
+    "p2": {
+      "resultsPath": "bench/edax-compare/endgame-results/t175-p2-vs-edax-lv10-results-full.json",
+      "reportPath": "bench/edax-compare/endgame-results/t175-p2-vs-edax-lv10-report-full.md",
+      "edaxLevel": 10,
+      "startedAtLocal": "2026-07-21T19:28:40+09:00",
+      "finishedAtLocal": "2026-07-21T20:19:02+09:00",
+      "totalWallClockSec": 3022,
+      "gamesCompleted": 60,
+      "fixedDepthRegressionAllMatched": true,
+      "nodeBudgetRegressionAllMatched": true,
+      "stderrEmpty": true,
+      "ranWithAllowDirty": true,
+      "allowDirtyReason": "worktree dirty only from an in-progress tasks/T175-depth-based-mpc-pilot.md work-log edit (documentation only)"
+    },
+    "combinedTotalWallClockSec": 6315,
+    "combinedTotalWallClockHours": 1.75
+  },
+  "results": {
+    "p1_vs_lv12": {"wins": 24, "draws": 5, "losses": 31, "marginSum": -169, "marginMean": -2.817, "marginMedian": -3.0},
+    "t174_reference_nodebudget_vs_lv12": {"wins": 18, "draws": 1, "losses": 41, "marginSum": -364, "marginMean": -6.067, "marginMedian": -8.0},
+    "p2_vs_lv10": {"wins": 34, "draws": 3, "losses": 23, "marginSum": 63, "marginMean": 1.05, "marginMedian": 3.0},
+    "t169_reference_nodebudget_vs_lv10": {"wins": 26, "draws": 1, "losses": 33, "marginSum": -133, "marginMean": -2.217, "marginMedian": -2.5}
+  },
+  "statistics": {
+    "bootstrapArrayOrderingNote": "Opening-level arrays ordered by opening number ascending (primary-01..primary-30). Game-level arrays ordered by (opening number ascending, then black before white). Identical convention to T158d/T162/T166/T169/T174.",
+    "algorithmNote": "Identical to bench/edax-compare/compare_pattern_v3.py#paired_bootstrap.",
+    "p1VsT174": {
+      "openingLevel": {"n": 30, "meanDiff": 3.25, "improved": 19, "worsened": 10, "tied": 1, "bootstrapSeed": 175004, "samples": 100000, "ci95": [1.2833, 5.3], "signTest": {"n": 29, "improved": 19, "pValue": 0.13604594767093658}},
+      "gameLevel": {"n": 60, "meanDiff": 3.25, "improved": 38, "worsened": 20, "tied": 2, "bootstrapSeed": 175005, "samples": 100000, "ci95": [1.0667, 5.4167], "signTest": {"n": 58, "improved": 38, "pValue": 0.0247}}
+    },
+    "p2VsT169": {
+      "openingLevel": {"n": 30, "meanDiff": 3.2667, "improved": 19, "worsened": 10, "tied": 1, "bootstrapSeed": 175014, "samples": 100000, "ci95": [0.1, 6.4167], "signTest": {"n": 29, "improved": 19, "pValue": 0.13604594767093658}},
+      "gameLevel": {"n": 60, "meanDiff": 3.2667, "improved": 36, "worsened": 16, "tied": 8, "bootstrapSeed": 175015, "samples": 100000, "ci95": [0.55, 6.05], "signTest": {"n": 52, "improved": 36, "pValue": 0.0078}}
+    },
+    "note": "Opening-level sign tests are not significant (p=0.136 for both, coincidentally identical improved/worsened/tied counts on independently different diff arrays -- verified not a bug). Game-level sign tests ARE significant (p<0.05) for both arms, due to larger sample size (n=60 vs n=30). Bootstrap CIs are entirely (P1) or marginally (P2, lower bound 0.10) above zero at the opening level. This nuance is reported as-is without over-interpretation; no verdict is rendered."
+  },
+  "timeAndNodeDistribution": {
+    "p1": {"totalEngineMoves": 1491, "timeMs": {"mean": 1677.4, "p50": 594, "p90": 6108, "max": 14121}, "nodes": {"mean": 9581392, "p50": 400642, "p90": 60493346, "max": 88265592}, "midgameOnlyNodes": {"n": 896, "mean": 15027763, "p50": 680071, "p90": 60848420, "max": 64137375}, "nodeLimitHitCount": 0, "wallInsuranceFiredCount": 0},
+    "p2": {"totalEngineMoves": 1496, "timeMs": {"mean": 1671.1, "p50": 600, "p90": 6296, "max": 15000}, "nodes": {"mean": 9695569, "p50": 390288, "p90": 60484038, "max": 65035940}, "midgameOnlyNodes": {"n": 896, "mean": 15232182, "p50": 636269, "p90": 60876012, "max": 65035940}, "nodeLimitHitCount": 0, "wallInsuranceFiredCount": 1},
+    "wallInsuranceDefinition": "timedOut == true AND nodeLimitHit == false, identical to vs_edax.py's policy_calibration wallInsuranceFired definition (also used in T158d/T162/T166/T169/T174)",
+    "p2WallInsuranceFiredDetail": {"opening": "primary-14", "color": "black", "ply": 23, "rootEmpties": 28, "elapsedMs": 15000, "nodes": 61917514, "depthReached": 11, "targetDepth": 12},
+    "nodeLimitConclusion": "The 100,000,000 node cap was never reached in either arm (0/1491, 0/1496): it functioned as effectively unlimited as designed.",
+    "wallInsuranceConclusion": "Wall insurance fired exactly once across 2987 total budgeted-phase decisions (0.03%); the 15000ms budget was almost always sufficient for depth-12 search to complete."
+  },
+  "mpcStatsAggregate": {
+    "p1": {"movesWithMpcStats": 1491, "eligibleNodes": 992251, "probeAttemptsHigh": 992251, "probeAttemptsLow": 608010, "probeNodes": 54805405, "cutsHigh": 384241, "cutsLow": 328858, "totalCuts": 713099, "cutRatePerEligibleNode": 0.7187},
+    "p2": {"movesWithMpcStats": 1496, "eligibleNodes": 941516, "probeAttemptsHigh": 941516, "probeAttemptsLow": 573496, "probeNodes": 51000305, "cutsHigh": 368020, "cutsLow": 311771, "totalCuts": 679791, "cutRatePerEligibleNode": 0.722},
+    "conclusion": "MPC engaged substantially in both arms, cutting roughly 72% of eligible nodes."
+  },
+  "anomalyCheck": {
+    "crashes": 0,
+    "illegalMoves": 0,
+    "nondeterminism": 0,
+    "fixedDepthRegression": {"p1": "PASSED 40/40", "p2": "PASSED 40/40"},
+    "nodeBudgetRegression": {"p1": "PASSED 10/10", "p2": "PASSED 10/10"},
+    "mpcPathDeterminismCheck": "verified separately (not via the harness's built-in non-MPC regression checks): same position run twice with --enable-mpc produced byte-identical output including mpcStats",
+    "stderrLogsEmpty": true,
+    "earlyTerminationNote": "1 game in each arm ended with 63 discs (not 64) due to legitimate complete elimination of one side (same pattern as T162/T166/T169), not an anomaly: P1 primary-16/black, P2 primary-07/black"
+  },
+  "depthBasedFeasibilityObservations": {
+    "strength": "Switching to depth-based+MPC-ON improved mean margin by ~3.25-3.27 discs/game against both lv12 and lv10 (lv12: -6.07 -> -2.82; lv10: -2.22 -> +1.05, crossing into positive territory on average). Opening-level bootstrap CI is entirely above zero for P1 and marginally above zero for P2 (lower bound +0.10). Opening-level sign tests are not significant (p=0.136); game-level sign tests are significant (p<0.05). Larger-sample confirmation would be needed to establish robustness.",
+    "timeFeasibility": "Depth-12 search completed within the 15000ms budget in 2986 of 2987 budgeted-phase decisions (99.97%) across both arms; wall insurance fired only once. Mean game duration ~50 seconds, and 60 games completed in ~50 minutes per arm, which is practical.",
+    "nodeVariance": "Budgeted-phase node consumption is highly position-dependent: p50 ~650-700K but p90 exceeds 60M (nearly two orders of magnitude spread). This variance is relevant to future time-management design (Codex consult 2026-07-26) but was not analyzed further here (out of scope).",
+    "fairComparisonCaveat": "This pilot did not measure Edax's own wall-clock time consumption at level 10/12, so a truly symmetric 'equal time budget vs Edax' comparison was not established -- only that our own engine's fixed 15000ms/move budget was almost always sufficient for depth 12."
+  },
+  "verdict": "none (pure feasibility/measurement pilot, no adoption decision)",
+  "outOfScope": [
+    "production adoption decision",
+    "full time-management design (deferred to 2026-07-26 Codex design consult)",
+    "search algorithm changes",
+    "MPC margin re-calibration"
+  ]
+}
