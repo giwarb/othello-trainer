@@ -61,7 +61,7 @@ use crate::eval::evaluate_for;
 use crate::mpc;
 use crate::pattern_eval::PatternWeights;
 use crate::tt::{Bound, TTDomain, TTEntry, TranspositionTable};
-use crate::zobrist::zobrist_hash;
+use crate::zobrist::{incremental_move_hash, toggle_side_to_move, zobrist_hash};
 // `std::time::Instant::now()` は `wasm32-unknown-unknown` ターゲットでは
 // 未実装のため実行時に panic する(コンパイルは通ってしまうため、
 // ネイティブの `cargo test` だけでは検出できない)。`web-time` はAPI互換の
@@ -126,6 +126,31 @@ fn static_eval(board: &Board, side: Side, weights: Option<&PatternWeights>) -> i
 /// 石差の理論上限(絶対値64石、centi-disc単位=×100)。[`static_eval`]の
 /// クランプに使う(T059)。
 const DISC_DIFF_BOUND_CENTIDISC: i32 = 64 * 100;
+
+#[cfg(test)]
+std::thread_local! {
+    // T182: `negascout`が増分計算した子/パスhashと、盤面全体を舐める
+    // `zobrist_hash`のフル再計算を照合した(`debug_assert_eq!`を通過した)
+    // 回数を数える(`endgame.rs`のT105と同じ目的・同じパターン)。
+    // 「発火0件のままpassしない」ことをテストで確認するためのテスト専用
+    // テレメトリで、本番探索の挙動には一切影響しない。
+    static TEST_INCREMENTAL_HASH_CHECKS: std::cell::Cell<u64> = const { std::cell::Cell::new(0) };
+}
+
+#[cfg(test)]
+fn record_incremental_hash_check() {
+    TEST_INCREMENTAL_HASH_CHECKS.set(TEST_INCREMENTAL_HASH_CHECKS.get() + 1);
+}
+
+#[cfg(test)]
+fn reset_incremental_hash_checks() {
+    TEST_INCREMENTAL_HASH_CHECKS.set(0);
+}
+
+#[cfg(test)]
+fn incremental_hash_checks() -> u64 {
+    TEST_INCREMENTAL_HASH_CHECKS.get()
+}
 
 /// 探索の制御パラメータ。
 ///
@@ -779,7 +804,7 @@ fn search_with_eval_inner(
                     &mut aspiration_fail_low,
                     &mut aspiration_fail_high,
                 ),
-                _ => negascout(board, side_to_move, depth, -INF, INF, &mut ctx),
+                _ => negascout(board, side_to_move, depth, -INF, INF, &mut ctx, None),
             }
         };
 
@@ -1056,7 +1081,7 @@ fn aspiration_search(
     let (mut alpha, mut beta) = aspiration_bounds(center, window_idx);
 
     loop {
-        let score = negascout(board, side, depth, alpha, beta, ctx);
+        let score = negascout(board, side, depth, alpha, beta, ctx, None);
         if *ctx.timed_out {
             // 呼び出し元(`search_with_eval_inner`)は`ctx.timed_out`を見て
             // このイテレーション全体を破棄するため、戻り値自体には意味が
@@ -1400,7 +1425,7 @@ fn search_all_moves_with_eval_core_restricted(
                         // このAPIの挙動を変えないため。
                         history: None,
                     };
-                    -negascout(&next_board, opponent, depth - 1, -INF, INF, &mut ctx)
+                    -negascout(&next_board, opponent, depth - 1, -INF, INF, &mut ctx, None)
                 };
                 // T170: タイムアウトで未完走に終わった深さの分も、実際に
                 // 探索した(探索木を辿った)ノード数としてカウントする
@@ -1635,6 +1660,12 @@ const TIME_CHECK_NODE_INTERVAL: u64 = 1024;
 /// イテレーション全体を破棄するため、`0`という値自体に意味はない)。
 /// 一度`ctx.timed_out`が立った後の全呼び出しも同様に即座に`0`を返し、
 /// 置換表への格納も行わない(不完全な探索結果でTTを汚染しないため)。
+/// `known_hash`: 呼び出し元が既にこの`(board, side)`局面のZobristハッシュを
+/// (親の増分計算経由で)知っている場合は`Some`で渡す。`None`の場合は本関数が
+/// 必要になった時点で`zobrist_hash`によるフルスキャンで求める(ルート呼び出し
+/// 等、親からの増分ハッシュが存在しない経路向けのフォールバック)。
+/// `Some`が渡された場合でも、実際に使う際は`zobrist_hash`によるフル再計算と
+/// `debug_assert_eq!`で照合する(T182、T105の`endgame::negamax`と同じ方針)。
 fn negascout(
     board: &Board,
     side: Side,
@@ -1642,6 +1673,7 @@ fn negascout(
     alpha: i32,
     beta: i32,
     ctx: &mut SearchCtx,
+    known_hash: Option<u64>,
 ) -> i32 {
     *ctx.nodes += 1;
 
@@ -1761,14 +1793,28 @@ fn negascout(
             return terminal_score_centi(board, side);
         }
         // 自分だけ合法手がない: パス(深さを消費せず相手番で再帰)。
-        return -negascout(board, side.opposite(), depth, -beta, -alpha, ctx);
+        // T182: `known_hash`があれば`toggle_side_to_move`の増分更新1回
+        // (O(1))で次呼び出しのhashを渡す。フルスキャンとの一致を
+        // debug_assertで照合する(本番挙動には影響しない)。
+        let pass_hash = known_hash.map(|known| {
+            let computed = toggle_side_to_move(known);
+            debug_assert_eq!(
+                computed,
+                zobrist_hash(board, side.opposite()),
+                "T182 incremental hash mismatch after pass"
+            );
+            #[cfg(test)]
+            record_incremental_hash_check();
+            computed
+        });
+        return -negascout(board, side.opposite(), depth, -beta, -alpha, ctx, pass_hash);
     }
 
     if depth == 0 {
         return static_eval(board, side, ctx.weights);
     }
 
-    let hash = zobrist_hash(board, side);
+    let hash = known_hash.unwrap_or_else(|| zobrist_hash(board, side));
     let alpha_orig = alpha;
     let mut tt_move: Option<u8> = None;
 
@@ -1793,7 +1839,7 @@ fn negascout(
     // いる)間は、MPCの再帰適用による誤差の積み重ねを避けるため試みない
     // (`mpc_try_cutoff`のドキュメント・`SearchCtx::suppress_mpc`参照)。
     if ctx.enable_mpc && !ctx.suppress_mpc {
-        if let Some(cut) = mpc_try_cutoff(board, side, depth, alpha, beta, ctx) {
+        if let Some(cut) = mpc_try_cutoff(board, side, depth, alpha, beta, ctx, hash) {
             return cut;
         }
     }
@@ -1805,10 +1851,45 @@ fn negascout(
     let mut first = true;
 
     for mv in moves {
-        let next_board = board.apply_move(side, 1u64 << mv);
+        let mv_bit = 1u64 << mv;
+        let next_board = board.apply_move(side, mv_bit);
+
+        // T182: `negascout_or_etc`はこの`(next_board, child_side, depth-1)`を
+        // 最大3回(初手のフルウィンドウ・NWSの狭い窓・窓外れ時のフルウィンドウ
+        // 再探索)呼び出すが、いずれも同じ子局面なのでhashは1手につき1回だけ
+        // 増分計算すれば十分。`own_before`/`own_after`の差分から`flips`を
+        // 求める(`Board::apply_move`は`new_own = own | mv_bit | flips`を
+        // `own`/`mv_bit`/`flips`が互いに排他的なビット集合として計算するため、
+        // `new_own XOR own = mv_bit | flips`となり、`mv_bit`を除けば`flips`が
+        // 残る。`flips_for_move`を呼び直す二重計算を避けるための導出)。
+        let own_before = match side {
+            Side::Black => board.black,
+            Side::White => board.white,
+        };
+        let own_after = match side {
+            Side::Black => next_board.black,
+            Side::White => next_board.white,
+        };
+        let flips = (own_after ^ own_before) & !mv_bit;
+        let child_hash = incremental_move_hash(hash, mv, side, flips);
+        debug_assert_eq!(
+            child_hash,
+            zobrist_hash(&next_board, side.opposite()),
+            "T182 incremental hash mismatch at square {mv}"
+        );
+        #[cfg(test)]
+        record_incremental_hash_check();
 
         let score = if first {
-            -negascout_or_etc(&next_board, side.opposite(), depth - 1, -beta, -alpha, ctx)
+            -negascout_or_etc(
+                &next_board,
+                side.opposite(),
+                depth - 1,
+                -beta,
+                -alpha,
+                ctx,
+                child_hash,
+            )
         } else {
             // Null Window Search: まず [alpha, alpha+1) の狭い窓で探索する。
             let scout_score = -negascout_or_etc(
@@ -1818,11 +1899,20 @@ fn negascout(
                 -alpha - 1,
                 -alpha,
                 ctx,
+                child_hash,
             );
             if scout_score > alpha && scout_score < beta {
                 // 窓を外れた(=このスコアが実は最善手かもしれない)ので
                 // フルウィンドウで再探索する。
-                -negascout_or_etc(&next_board, side.opposite(), depth - 1, -beta, -alpha, ctx)
+                -negascout_or_etc(
+                    &next_board,
+                    side.opposite(),
+                    depth - 1,
+                    -beta,
+                    -alpha,
+                    ctx,
+                    child_hash,
+                )
             } else {
                 scout_score
             }
@@ -1891,13 +1981,30 @@ fn negascout_or_etc(
     alpha: i32,
     beta: i32,
     ctx: &mut SearchCtx,
+    next_hash: u64,
 ) -> i32 {
     if ctx.enable_etc {
-        if let Some(score) = etc_try_cutoff(ctx, next_board, child_side, child_depth, alpha, beta) {
+        if let Some(score) = etc_try_cutoff(
+            ctx,
+            next_board,
+            child_side,
+            child_depth,
+            alpha,
+            beta,
+            next_hash,
+        ) {
             return score;
         }
     }
-    negascout(next_board, child_side, child_depth, alpha, beta, ctx)
+    negascout(
+        next_board,
+        child_side,
+        child_depth,
+        alpha,
+        beta,
+        ctx,
+        Some(next_hash),
+    )
 }
 
 /// ETC(Enhanced Transposition Cutoff、T051)本体。
@@ -1946,10 +2053,16 @@ fn negascout_or_etc(
 fn etc_try_cutoff(
     ctx: &SearchCtx,
     child_board: &Board,
-    child_side: Side,
+    // T182: `child_hash`の計算(呼び出し元の`negascout`候補手ループ)に
+    // 既に手番情報が織り込まれているため、この関数自体はもう`child_side`を
+    // 使わない(以前は`zobrist_hash(child_board, child_side)`のために
+    // 必要だった)。呼び出し元(`negascout_or_etc`)のシグネチャ・呼び出し
+    // 引数は変えずに保つため、未使用引数として残す。
+    _child_side: Side,
     child_depth: u8,
     alpha: i32,
     beta: i32,
+    child_hash: u64,
 ) -> Option<i32> {
     if child_depth == 0 {
         return None;
@@ -1958,9 +2071,12 @@ fn etc_try_cutoff(
         return None;
     }
 
-    let entry = ctx
-        .tt
-        .probe(zobrist_hash(child_board, child_side), TTDomain::Midgame)?;
+    // T182: 呼び出し元(`negascout`の候補手ループ)が既に増分計算した
+    // `child_hash`をそのまま使う(以前はここで`zobrist_hash`によるフル
+    // スキャンを再度行っており、直後に`negascout_or_etc`が実際に
+    // `negascout`を呼んだ場合はそちらでも同じハッシュを計算し直す
+    // 二重計算だった)。同一性はループ側で既にdebug_assert照合済み。
+    let entry = ctx.tt.probe(child_hash, TTDomain::Midgame)?;
     if entry.depth as u32 >= child_depth as u32 {
         let mut alpha = alpha;
         let mut beta = beta;
@@ -2018,6 +2134,7 @@ fn mpc_try_cutoff(
     alpha: i32,
     beta: i32,
     ctx: &mut SearchCtx,
+    hash: u64,
 ) -> Option<i32> {
     // T048フィードバック(自己対戦検証で発覚した重大な不具合の修正):
     // `alpha`/`beta`のどちらかがまだ番兵値(`-INF`/`INF`)のままの場合、
@@ -2076,7 +2193,7 @@ fn mpc_try_cutoff(
     let old_exact_enabled = ctx.exact_enabled;
     ctx.suppress_mpc = true;
     ctx.exact_enabled = false;
-    let cut = mpc_try_cutoff_inner(board, side, calibration, alpha, beta, ctx);
+    let cut = mpc_try_cutoff_inner(board, side, calibration, alpha, beta, ctx, hash);
     ctx.exact_enabled = old_exact_enabled;
     ctx.suppress_mpc = old_suppress_mpc;
     cut
@@ -2091,6 +2208,7 @@ fn mpc_try_cutoff_inner(
     alpha: i32,
     beta: i32,
     ctx: &mut SearchCtx,
+    hash: u64,
 ) -> Option<i32> {
     let probe_depth = calibration.probe_depth;
     let histogram_index = probe_depth.min(64) as usize;
@@ -2101,7 +2219,18 @@ fn mpc_try_cutoff_inner(
         ctx.mpc_stats.probe_attempts_high += 1;
         ctx.mpc_stats.probe_depth_histogram[histogram_index] += 1;
         let nodes_before = *ctx.nodes;
-        let probe = negascout(board, side, probe_depth, high_bound - 1, high_bound, ctx);
+        // T182: プローブは呼び出し元(`negascout`)と同じ`(board, side)`を
+        // 見るので、呼び出し元が既に持っている`hash`をそのまま渡せる
+        // (フルスキャンの再計算は不要)。
+        let probe = negascout(
+            board,
+            side,
+            probe_depth,
+            high_bound - 1,
+            high_bound,
+            ctx,
+            Some(hash),
+        );
         ctx.mpc_stats.probe_nodes += ctx.nodes.saturating_sub(nodes_before);
         if *ctx.timed_out {
             return None;
@@ -2119,7 +2248,15 @@ fn mpc_try_cutoff_inner(
         ctx.mpc_stats.probe_attempts_low += 1;
         ctx.mpc_stats.probe_depth_histogram[histogram_index] += 1;
         let nodes_before = *ctx.nodes;
-        let probe = negascout(board, side, probe_depth, low_bound, low_bound + 1, ctx);
+        let probe = negascout(
+            board,
+            side,
+            probe_depth,
+            low_bound,
+            low_bound + 1,
+            ctx,
+            Some(hash),
+        );
         ctx.mpc_stats.probe_nodes += ctx.nodes.saturating_sub(nodes_before);
         if *ctx.timed_out {
             return None;
@@ -4113,9 +4250,10 @@ mod tests {
             exact_stats: &mut exact_stats,
             history: None,
         };
-        assert_eq!(mpc_try_cutoff(&board, side, 6, -INF, 0, &mut ctx), None);
+        let hash = zobrist_hash(&board, side);
+        assert_eq!(mpc_try_cutoff(&board, side, 6, -INF, 0, &mut ctx, hash), None);
         assert_eq!(ctx.mpc_stats.skipped_pv_window, 1);
-        assert_eq!(mpc_try_cutoff(&board, side, 6, -1, 0, &mut ctx), None);
+        assert_eq!(mpc_try_cutoff(&board, side, 6, -1, 0, &mut ctx, hash), None);
         assert_eq!(ctx.mpc_stats.skipped_exact_boundary, 1);
         assert_eq!(*ctx.exact_quota_remaining, 1234);
     }
@@ -4149,7 +4287,8 @@ mod tests {
             exact_stats: &mut exact_stats,
             history: None,
         };
-        assert_eq!(mpc_try_cutoff(&board, side, 6, -1, 0, &mut ctx), None);
+        let hash = zobrist_hash(&board, side);
+        assert_eq!(mpc_try_cutoff(&board, side, 6, -1, 0, &mut ctx, hash), None);
         assert!(*ctx.timed_out);
         assert!(!ctx.suppress_mpc);
         assert!(ctx.exact_enabled);
@@ -4186,8 +4325,9 @@ mod tests {
             exact_stats: &mut exact_stats,
             history: None,
         };
+        let hash = zobrist_hash(&board, side);
         assert_eq!(
-            mpc_try_cutoff(&board, side, 6, -5001, -5000, &mut ctx),
+            mpc_try_cutoff(&board, side, 6, -5001, -5000, &mut ctx, hash),
             Some(-5000)
         );
         assert_eq!(
@@ -4195,10 +4335,7 @@ mod tests {
             "recursive MPC must remain suppressed"
         );
         assert_eq!(*ctx.exact_quota_remaining, u64::MAX);
-        let entry = ctx
-            .tt
-            .probe(zobrist_hash(&board, side), TTDomain::Midgame)
-            .unwrap();
+        let entry = ctx.tt.probe(hash, TTDomain::Midgame).unwrap();
         assert!(
             entry.depth < 6,
             "MPC may store the shallow probe, never target depth D"
@@ -4285,5 +4422,105 @@ mod tests {
         // 比較できることだけ確認する)。
         let aggressive = run_with(Some(1.0));
         assert_eq!(aggressive.mpc_stats.eligible_nodes, default_none.mpc_stats.eligible_nodes);
+    }
+
+    /// T182: `negascout`本体・`negascout_or_etc`・`etc_try_cutoff`・
+    /// `mpc_try_cutoff`/`mpc_try_cutoff_inner`が増分計算(`incremental_move_hash`/
+    /// `toggle_side_to_move`)を実際に使ったこと(発火0件のままpassしない)を
+    /// 確認するテレメトリテスト(`endgame.rs`のT105
+    /// `incremental_hash_check_fires_across_random_positions_including_passes`
+    /// と同じ考え方)。反復深化+MPC+ETC+aspiration+historyのすべてが有効な
+    /// 経路を複数の局面(初期局面からの決定的な進行違い)で回し、負荷の大きい
+    /// ノード群を通過させる。
+    #[test]
+    fn incremental_hash_check_fires_across_diverse_midgame_searches() {
+        reset_incremental_hash_checks();
+        let policy = SearchPolicy {
+            enable_history: true,
+            enable_aspiration: true,
+            enable_mpc: true,
+        };
+        for n in 0..8usize {
+            let (board, side) = play_until_empties(24, move |moves: &[u64]| moves[n % moves.len()]);
+            let limit = default_limit(8, 0);
+            let mut tt = TranspositionTable::new(4);
+            let _ = search_with_eval_with_policy(
+                &board,
+                side,
+                &limit,
+                &mut tt,
+                None,
+                None,
+                EXACT_QUOTA_PERCENT,
+                policy,
+            );
+        }
+        assert!(
+            incremental_hash_checks() >= 200,
+            "expected the T182 incremental-hash debug check to fire at least 200 times, got {}",
+            incremental_hash_checks()
+        );
+    }
+
+    /// T182: 増分Zobristハッシュ配線の絶対条件(「探索結果が配線前後で完全
+    /// 一致すること」)を実証する回帰テスト。ここで固定している
+    /// score/best_move/depth/nodesは、この配線変更を`git stash`で一時的に
+    /// 取り除いた状態(T182着手前のコード)で同じ入力に対して実際に計測した
+    /// 値と手作業で照合し、一致を確認した後に固定した(手順・結果は
+    /// `tasks/T182-incremental-hash-wiring.md`の作業ログ参照)。局面は
+    /// T180のEdax比較用20局面バッチ(`bench/edax-compare/t156_mpc_positions.json`
+    /// 由来)の先頭2局面を流用している。
+    #[test]
+    fn t182_negascout_results_are_unchanged_by_the_incremental_hash_wiring() {
+        let path = concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../train/weights/pattern_v6.bin"
+        );
+        let weights = PatternWeights::from_bytes(&std::fs::read(path).unwrap()).unwrap();
+
+        // MPC OFF: 純粋なNegaScout + ETCの経路(`negascout`/`negascout_or_etc`/
+        // `etc_try_cutoff`)。
+        {
+            let board =
+                board_from_obf("------------------OOO----OOOX--X-OOOXXX--OOXOXOO--XXXO---OOOOOO-");
+            let side = Side::White;
+            let limit = default_limit(8, 0);
+            let mut tt = TranspositionTable::new(16);
+            let result = search_with_eval(&board, side, &limit, &mut tt, Some(&weights));
+            assert_eq!(result.best_move, Some(21));
+            assert_eq!(result.score, -2066);
+            assert_eq!(result.depth, 8);
+            assert_eq!(result.nodes, 22545);
+        }
+
+        // MPC ON: 上記に加えて`mpc_try_cutoff`/`mpc_try_cutoff_inner`の
+        // プローブ経路(=`negascout`への再帰呼び出しがhash引数を伴う経路)も
+        // 通す。
+        {
+            let board =
+                board_from_obf("------------------OO-OX---OOOXO--XOOOOOOXXXOXXOO--XXOO----XXOX--");
+            let side = Side::Black;
+            let limit = default_limit(8, 0);
+            let mut tt = TranspositionTable::new(16);
+            let policy = SearchPolicy {
+                enable_history: true,
+                enable_aspiration: true,
+                enable_mpc: true,
+            };
+            let result = search_with_eval_with_policy(
+                &board,
+                side,
+                &limit,
+                &mut tt,
+                Some(&weights),
+                None,
+                EXACT_QUOTA_PERCENT,
+                policy,
+            );
+            assert_eq!(result.best_move, Some(17));
+            assert_eq!(result.score, -690);
+            assert_eq!(result.depth, 8);
+            assert_eq!(result.nodes, 73122);
+        }
     }
 }
