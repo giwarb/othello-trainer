@@ -1,0 +1,81 @@
+{
+  "schemaVersion": 1,
+  "task": "T180",
+  "analysis": "engine speed bottleneck analysis vs Edax",
+  "edaxComparison": {
+    "endgameExactSolve": {
+      "positions": "FFO #40-44 (bench/ffo_positions.json, same positions as engine's existing FFO fast bench)",
+      "edax": {"binary": "bench/edax-compare/edax-extract/wEdax-x86-64.exe", "level": 60, "nodes": 176540181, "timeSec": 0.828, "nps": 213212779},
+      "ours": {"source": "existing cargo test -p engine --release --test ffo_bench run this session (not re-measured)", "nodes": 641077417, "timeSec": 59.985, "nps": 10687295},
+      "ratio": 19.95
+    },
+    "midgameFixedDepth12": {
+      "positions": "bench/edax-compare/t156_mpc_positions.json, emptyBucket=29-36, split=test, first 20",
+      "edax": {"binary": "wEdax-x86-64.exe", "level": 12, "nodes": 9710607, "timeSec": 0.330, "nps": 29426082},
+      "oursMpcOff": {"nodes": 59440032, "elapsedMs": 114701, "nps": 518217, "nsPerNode": 1929.7},
+      "oursMpcOnT1_5": {"nodes": 6487461, "elapsedMs": 15093, "nps": 429832, "nsPerNode": 2326.5},
+      "ratioVsMpcOff": 56.78,
+      "ratioVsMpcOnT1_5": 68.46,
+      "note": "The user's previously-known '~1.1us/node, ~890K NPS' figure comes from a different single representative position (T176 measurement, MPC on, unlimited time). Per-node cost is position-dependent; both are legitimate but not directly comparable without noting this."
+    }
+  },
+  "componentMicrobenchmarks": {
+    "method": "release-build isolated hot-loop microbenchmarks (2,000,000 iterations each, std::hint::black_box to suppress dead-code elimination), added temporarily to engine/src/search.rs as #[ignore]d tests, measured, then fully reverted via git checkout (zero diff in the committed engine/src/search.rs)",
+    "scoreNsPerCall": {"full": [538.04, 539.65], "noScalar": [446.72, 448.39], "source": "T176 measurement, reused (not re-measured here)"},
+    "legalMovesPlusApplyMoveNsPerCall": 38.05,
+    "zobristHashFullNsPerCall": 41.07,
+    "incrementalMoveHashNsPerCall": 1.65,
+    "incrementalSpeedupFactor": 24.9,
+    "ttProbeNsPerCall": 5.67,
+    "ttProbePopulatedEntries": 1000,
+    "ttStoreNsPerCall": 23.82
+  },
+  "leafFractionMeasurement": {
+    "method": "temporary atomic counter incremented at negascout's depth==0 branch (static_eval call site), compared against SearchResult.nodes; counter and instrumentation fully reverted after measurement (git checkout, zero diff)",
+    "samples": [
+      {"targetEmpties": 40, "totalNodes": 306747, "leafCalls": 163913, "leafFraction": 0.5344},
+      {"targetEmpties": 45, "totalNodes": 1674908, "leafCalls": 1008747, "leafFraction": 0.6023},
+      {"targetEmpties": 30, "totalNodes": 449279, "leafCalls": 237157, "leafFraction": 0.5279}
+    ],
+    "averageLeafFraction": 0.555
+  },
+  "perNodeCostModel": {
+    "method": "back-of-envelope model combining component microbenchmarks with call-count estimates derived from reading negascout/ordered_moves/etc_try_cutoff source; average branching factor assumed b=8",
+    "assumedBranchingFactor": 8,
+    "leafNodeContributionNsPerNode": 298.6,
+    "internalNodeSelfCostNsPerInternalNode": 767.9,
+    "internalNodeContributionNsPerNode": 341.7,
+    "modeledTotalNsPerNode": 640.3,
+    "observedNsPerNode": 1929.7,
+    "modeledFractionOfObserved": 0.332,
+    "unexplainedFractionOfObserved": 0.668,
+    "conclusion": "Neither evaluation (score(), ~15.5% of observed time) nor the measured board-manipulation components (movegen/flip/zobrist/TT, ~17.7% of observed time, including their repeated invocations from move-ordering and ETC) individually dominate. Combined they explain only ~33% of observed per-node time; the remaining ~67% is not decomposed by this pilot's microbenchmarks and is hypothesized to be recursive function-call overhead, aspiration/history bookkeeping, and cache/branch-prediction effects not reproduced by isolated hot-loop benchmarks.",
+    "keyFinding": "The zobrist_hash incremental primitive (incremental_move_hash) already exists and is tested but is unused in negascout's hot path; wiring it in could save an estimated ~8% of total per-node time at low cost/risk."
+  },
+  "structuralDiffTable": {
+    "rows": [
+      {"aspect": "Evaluation update", "edaxKnownApproach": "incremental per-pattern-feature update on move application", "ourImplementation": "PatternWeights::score() recomputes all 46 pattern instances from scratch every call, no incremental state", "gapSeverity": "large, high implementation cost to close"},
+      {"aspect": "Zobrist hash update", "edaxKnownApproach": "incremental XOR update on move application", "ourImplementation": "incremental_move_hash exists and is tested but negascout calls the naive full-board-scan zobrist_hash() instead", "gapSeverity": "small cost/risk to close, concrete near-term candidate"},
+      {"aspect": "Legal move generation / flip", "edaxKnownApproach": "optimized bitboard shifts, possibly SIMD/PEXT-based", "ourImplementation": "8-direction shift loop (flips_for_move); per-call cost (38ns) itself is competitive, but call count is inflated by ordered_moves and etc_try_cutoff repeating it per candidate move", "gapSeverity": "call-count problem more than per-call cost"},
+      {"aspect": "Transposition table", "edaxKnownApproach": "lightweight, lock-free design assuming multithreading", "ourImplementation": "2-tier bucket structure; probe 5.67ns / store 23.82ns, not obviously slow in isolation", "gapSeverity": "likely small"},
+      {"aspect": "Parallelism", "edaxKnownApproach": "multithreaded search is standard", "ourImplementation": "single-threaded, confirmed", "gapSeverity": "large, separate axis (T177 scope)"},
+      {"aspect": "Time management", "edaxKnownApproach": "iterative deepening with flexible time allocation", "ourImplementation": "fixed-depth + node-budget/wall-insurance hybrid (T175/T176 depth-based pilot in progress)", "gapSeverity": "structural, affects effective depth not raw NPS (T177 scope)"},
+      {"aspect": "Multi-ProbCut", "edaxKnownApproach": "implemented (statistical pruning)", "ourImplementation": "implemented and calibrated (T156-T176, t=1.0 selected), used in this comparison too", "gapSeverity": "parity, comparison is broadly fair on this axis"}
+    ]
+  },
+  "optimizationPriorityList": [
+    {"rank": 1, "candidate": "Wire incremental Zobrist hash (incremental_move_hash) into negascout, eliminating both the node's own full-recompute and etc_try_cutoff's redundant per-candidate recompute", "expectedReductionPercentOfTotal": 8, "cost": "low", "risk": "low", "t177Relation": "independent, can proceed first"},
+    {"rank": 2, "candidate": "Simplify move-ordering heuristic (avoid full apply_move+opponent legal_moves per candidate)", "expectedReductionPercentOfTotal": 7, "cost": "low-medium", "risk": "medium (could increase node count via worse ordering; requires A/B verification of net effect)", "t177Relation": "independent"},
+    {"rank": 3, "candidate": "Incremental evaluation (score()), Edax-style: recompute only patterns touched by the move's flipped cells", "expectedReductionPercentOfTotal": "largest potential lever but not precisely bounded by this pilot", "cost": "high", "risk": "medium-high (requires bit-exact verification machinery akin to T163's D4 canonicalization)", "t177Relation": "propose as a separate design-consult task, not bundled with T177"},
+    {"rank": 4, "candidate": "Proper sampling profiler (perf/VTune) to decompose the unexplained ~67% of per-node time", "expectedReductionPercentOfTotal": "unknown, informs future candidates", "cost": "low-medium", "risk": "low (measurement only)", "t177Relation": "useful to run before T177 for better-informed design"},
+    {"rank": 5, "candidate": "Multithreading", "expectedReductionPercentOfTotal": "2x-8x multiplicative (typical parallel game-tree search scaling)", "cost": "high", "risk": "high (TT contention, determinism requirements)", "t177Relation": "core T177 agenda item"},
+    {"rank": 6, "candidate": "Iterative deepening + time management redesign", "expectedReductionPercentOfTotal": "does not reduce NPS but improves effective search efficiency (addresses the '~10s per move' user complaint)", "cost": "medium-high", "risk": "medium", "t177Relation": "core T177 agenda item"},
+    {"rank": 7, "candidate": "Investigate TT store cost (23.82ns, 4.2x probe cost)", "expectedReductionPercentOfTotal": "<1", "cost": "low", "risk": "low", "t177Relation": "independent, low priority"}
+  ],
+  "measurementDiscipline": {
+    "exclusiveWindowConfirmed": "checked via PowerShell Get-Process for python/curl/aria2 processes before running Edax/microbenchmarks; none found (T181's download had completed and its conversion/training had not yet started a CPU-heavy process)",
+    "temporaryCodeReverted": true,
+    "revertMethod": "git checkout -- engine/src/search.rs (full revert, zero diff against the pre-T180 committed state)",
+    "testResultsAfterRevert": "cargo test -p engine --lib: 243 passed, 0 failed, 2 ignored (unchanged from baseline)"
+  }
+}
