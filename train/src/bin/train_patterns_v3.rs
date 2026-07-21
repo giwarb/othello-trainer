@@ -114,13 +114,33 @@ const BOTH: &[ScalarFeatureKind] = &[
     ScalarFeatureKind::ExactMobilityAdvantage,
     ScalarFeatureKind::EmptyAdjacencyExposureAdvantage,
 ];
+// T168(実験構成D2): モビリティ・囲い度に加え定数項(段別バイアス)。
+const BOTH_PLUS_CONSTANT: &[ScalarFeatureKind] = &[
+    ScalarFeatureKind::ExactMobilityAdvantage,
+    ScalarFeatureKind::EmptyAdjacencyExposureAdvantage,
+    ScalarFeatureKind::Constant,
+];
 
+/// T158系(V3形状+scalar特徴、V4ステージ定義)configを作る。
 fn t158_config(
     name: &'static str,
     scalar_features: &'static [ScalarFeatureKind],
 ) -> TrainingConfig {
+    scalar_feature_config(name, PatternConfig::V3, scalar_features)
+}
+
+/// T168(Edax寄せ実験構成): 任意のパターン形状+scalar特徴、V4ステージ定義
+/// (61段)のconfigを作る。`t158_config`の一般化版(`t158: true`にして
+/// t158系と同じ`write_t158_metrics`/分布統計出力の仕組みをそのまま再利用する。
+/// これらはT158固有のロジックではなく「V4ステージ+scalar特徴を使うconfig」
+/// 全般に使える仕組みのため、名前は歴史的経緯によるもの)。
+fn scalar_feature_config(
+    name: &'static str,
+    pattern_config: PatternConfig,
+    scalar_features: &'static [ScalarFeatureKind],
+) -> TrainingConfig {
     TrainingConfig {
-        pattern_config: PatternConfig::V3,
+        pattern_config,
         num_stages: V4_NUM_STAGES,
         stage_empty_divisor: V4_STAGE_EMPTY_DIVISOR,
         name,
@@ -150,6 +170,14 @@ fn parse_config(value: &str) -> TrainingConfig {
         "t158-b1" => t158_config("t158-b1", MOBILITY),
         "t158-b2" => t158_config("t158-b2", EXPOSURE),
         "t158-b3" => t158_config("t158-b3", BOTH),
+        // T168(Edax寄せ1/2): D1=V3+corner5x2(46インスタンス)+モビリティ・
+        // 囲い度、D2=D1+diag4(50インスタンス)+モビリティ・囲い度・定数項。
+        "t168-d1" => scalar_feature_config("t168-d1", PatternConfig::V3Corner5x2, BOTH),
+        "t168-d2" => scalar_feature_config(
+            "t168-d2",
+            PatternConfig::V3Corner5x2Diag4,
+            BOTH_PLUS_CONSTANT,
+        ),
         _ => panic!("unknown config: {value}"),
     }
 }
@@ -678,6 +706,7 @@ fn scalar_kind_name(kind: ScalarFeatureKind) -> &'static str {
     match kind {
         ScalarFeatureKind::ExactMobilityAdvantage => "exact_mobility_advantage",
         ScalarFeatureKind::EmptyAdjacencyExposureAdvantage => "empty_adjacency_exposure_advantage",
+        ScalarFeatureKind::Constant => "constant",
     }
 }
 
@@ -2160,6 +2189,68 @@ mod tests {
         assert!(output_dir
             .join("t158-b3-canonical-seed-9.metrics.json")
             .exists());
+        fs::remove_dir_all(&dir).ok();
+    }
+
+    /// T168: D2構成(V3Corner5x2Diag4形状+モビリティ・囲い度・定数項の3scalar、
+    /// canonical、PWV6)がCLI経由でも`Model::new_with_scalar_features_canonical`
+    /// 直接呼び出しと完全に同じバイナリを出すこと(新形状・定数項の配線確認)。
+    #[test]
+    fn t168_d2_config_matches_direct_training_bit_for_bit() {
+        let dir = std::env::temp_dir().join(format!("t168-d2-{}", std::process::id()));
+        fs::remove_dir_all(&dir).ok();
+        fs::create_dir_all(&dir).unwrap();
+        let corpus_file = dir.join("corpus.txt");
+        let lines: Vec<String> = (0..80)
+            .map(|i| {
+                let stones = 4 + (i * 3) % 50;
+                let board = "X".repeat(stones) + &"-".repeat(64 - stones);
+                format!("{board} {}", (i as i64) - 40)
+            })
+            .collect();
+        fs::write(&corpus_file, lines.join("\n") + "\n").unwrap();
+
+        let files = simple_corpus::list_simple_corpus_files(&corpus_file).unwrap();
+        let (pool, _hash, _total) = simple_corpus::load_simple_corpus(&files, None, 7).unwrap();
+        let (train_samples, frozen_samples) = simple_corpus::split_by_position_hash(pool);
+
+        let config = TrainingConfig {
+            canonical: true,
+            ..parse_config("t168-d2")
+        };
+        assert_eq!(config.pattern_config, PatternConfig::V3Corner5x2Diag4);
+        assert_eq!(config.scalar_features, BOTH_PLUS_CONSTANT);
+        let cfg = TrainConfig {
+            seed: 9,
+            ..TrainConfig::default()
+        };
+        let mut direct = Model::new_with_scalar_features_canonical(
+            patterns::generate_patterns_for(config.pattern_config),
+            config.num_stages,
+            config.stage_empty_divisor,
+            config.scalar_features,
+        );
+        direct.train(&train_samples, &cfg);
+
+        let output_dir = dir.join("out");
+        fs::create_dir_all(&output_dir).unwrap();
+        run_config_seed(
+            config,
+            9,
+            cfg.epochs,
+            "test-identity\n",
+            &output_dir,
+            &train_samples,
+            &frozen_samples,
+            &[],
+        )
+        .unwrap();
+        let produced = fs::read(output_dir.join("t168-d2-canonical-seed-9.bin")).unwrap();
+        assert_eq!(produced, direct.to_bytes_v6());
+        let restored = Model::from_bytes(&produced).unwrap();
+        assert!(restored.weights.is_canonical());
+        assert!(restored.weights.scalar_features_enabled());
+        assert_eq!(restored.weights.scalar_feature_weights.len(), 3);
         fs::remove_dir_all(&dir).ok();
     }
 

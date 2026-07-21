@@ -107,6 +107,15 @@ pub enum PatternConfig {
     V2Edge2x,
     V3,
     V2Corner5x2,
+    /// T168(Edax寄せ1/2、実験構成D1): V3(edge2x+対角5-6-7) + 隅2x5ブロック
+    /// (`corner5x2_patterns`、T087で実装済みだが不採用のまま残っていたもの)。
+    /// 計46インスタンス(38 + 8)。
+    V3Corner5x2,
+    /// T168(実験構成D2): `V3Corner5x2`に短対角4(`diag4_patterns`)を追加。
+    /// 計50インスタンス(46 + 4)。定数項scalar特徴
+    /// (`pattern_eval::ScalarFeatureKind::Constant`)と組み合わせて使う想定
+    /// (定数項自体はパターン形状ではないため、このenumには含めない)。
+    V3Corner5x2Diag4,
 }
 
 const POW3: [u32; 11] = [1, 3, 9, 27, 81, 243, 729, 2187, 6561, 19683, 59049];
@@ -215,17 +224,44 @@ fn corner5x2_patterns() -> Vec<PatternCells> {
     orbit
 }
 
-/// v2を基礎に、T087のablation構成を機械生成する。
+/// T168(実験構成D2向け): 短対角4(長さ4の対角線)を`diagonal_offset_patterns`と
+/// 同じ方法(symmetry_orbitベース、手書きセル列を使わない)で生成する。
+/// `diagonal_offset_patterns`が長さ5-6-7を扱うのに対し、こちらは長さ4のみを
+/// 単独で扱う(Edaxの47feature構成との差分埋め、explorer調査2026-07-21で
+/// 未実装と特定された形状)。
+fn diag4_patterns() -> Vec<PatternCells> {
+    let len = 4u8;
+    let offset = 8 - len;
+    let base: PatternCells = (0..len).map(|i| i * 8 + i + offset).collect();
+    let orbit = symmetry_orbit(&base);
+    assert_eq!(orbit.len(), 4);
+    assert!(orbit.iter().all(|cells| cells.len() == len as usize));
+    orbit
+}
+
+/// v2を基礎に、T087のablation構成・T168のEdax寄せ実験構成を機械生成する。
 pub fn generate_patterns_for(config: PatternConfig) -> Vec<PatternCells> {
     let mut result = generate_patterns();
-    if matches!(config, PatternConfig::V2Edge2x | PatternConfig::V3) {
+    if matches!(
+        config,
+        PatternConfig::V2Edge2x | PatternConfig::V3 | PatternConfig::V3Corner5x2 | PatternConfig::V3Corner5x2Diag4
+    ) {
         result.extend(edge2x_patterns());
     }
-    if matches!(config, PatternConfig::V2Diag567 | PatternConfig::V3) {
+    if matches!(
+        config,
+        PatternConfig::V2Diag567 | PatternConfig::V3 | PatternConfig::V3Corner5x2 | PatternConfig::V3Corner5x2Diag4
+    ) {
         result.extend(diagonal_offset_patterns());
     }
-    if config == PatternConfig::V2Corner5x2 {
+    if matches!(
+        config,
+        PatternConfig::V2Corner5x2 | PatternConfig::V3Corner5x2 | PatternConfig::V3Corner5x2Diag4
+    ) {
         result.extend(corner5x2_patterns());
+    }
+    if config == PatternConfig::V3Corner5x2Diag4 {
+        result.extend(diag4_patterns());
     }
     result
 }
@@ -532,6 +568,9 @@ mod tests {
             (PatternConfig::V2Edge2x, 26, 7),
             (PatternConfig::V3, 38, 10),
             (PatternConfig::V2Corner5x2, 30, 7),
+            // T168実験構成D1/D2(パターン形状のみ、定数項scalarはpattern_eval側)。
+            (PatternConfig::V3Corner5x2, 46, 11),
+            (PatternConfig::V3Corner5x2Diag4, 50, 12),
         ];
         for (config, instances, classes) in cases {
             let generated = generate_patterns_for(config);
@@ -564,6 +603,27 @@ mod tests {
         let corner = generate_patterns_for(PatternConfig::V2Corner5x2);
         assert_eq!(corner[22..].len(), 8);
         assert!(corner[22..].iter().all(|cells| cells.len() == 10));
+    }
+
+    #[test]
+    fn t168_d1_appends_corner5x2_after_v3() {
+        // D1(V3Corner5x2) = V3(38インスタンス) + corner5x2(8インスタンス)。
+        let d1 = generate_patterns_for(PatternConfig::V3Corner5x2);
+        assert_eq!(d1.len(), 46);
+        assert_eq!(&d1[..38], &generate_patterns_for(PatternConfig::V3)[..]);
+        assert!(d1[38..].iter().all(|cells| cells.len() == 10));
+    }
+
+    #[test]
+    fn t168_d2_appends_diag4_after_d1() {
+        // D2(V3Corner5x2Diag4) = D1(46インスタンス) + diag4(4インスタンス、
+        // 長さ4の短対角。symmetry_orbitベースで導出、手書きセル列は使わない)。
+        let d1 = generate_patterns_for(PatternConfig::V3Corner5x2);
+        let d2 = generate_patterns_for(PatternConfig::V3Corner5x2Diag4);
+        assert_eq!(d2.len(), 50);
+        assert_eq!(&d2[..46], &d1[..]);
+        assert_eq!(d2[46..].len(), 4);
+        assert!(d2[46..].iter().all(|cells| cells.len() == 4));
     }
 
     #[test]

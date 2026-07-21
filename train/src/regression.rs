@@ -205,6 +205,8 @@ impl Model {
                     ScalarFeatureKind::EmptyAdjacencyExposureAdvantage => {
                         values.empty_adjacency_exposure_advantage
                     }
+                    // T168: 定数項は盤面に依存せず常に1(段別バイアスとして学習)。
+                    ScalarFeatureKind::Constant => 1,
                 };
                 let value = raw as f32 / (1u32 << feature.scale_shift) as f32;
                 let w = &mut feature.weights[stage];

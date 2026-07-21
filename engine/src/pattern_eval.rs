@@ -94,6 +94,13 @@ pub struct PatternWeightTable {
 pub enum ScalarFeatureKind {
     ExactMobilityAdvantage = 1,
     EmptyAdjacencyExposureAdvantage = 2,
+    /// T168(Edax寄せ実験構成D2): 常に値1の定数項(バイアス)。
+    /// ステージ(段)ごとの重み`weights[stage]`がそのまま段別バイアスとして
+    /// 学習される(Edaxの47feature構成にある定数項との差分埋め)。
+    /// 対称変換で盤面が変わっても値は常に1のままなので、対称不変であることは
+    /// 自明だが性質テストに含める(`scalar_features_match_reference_and_obey_color_and_d4_symmetry`
+    /// 相当のテストで確認)。
+    Constant = 3,
 }
 
 impl ScalarFeatureKind {
@@ -101,6 +108,7 @@ impl ScalarFeatureKind {
         match value {
             1 => Some(Self::ExactMobilityAdvantage),
             2 => Some(Self::EmptyAdjacencyExposureAdvantage),
+            3 => Some(Self::Constant),
             _ => None,
         }
     }
@@ -109,9 +117,20 @@ impl ScalarFeatureKind {
         match self {
             Self::ExactMobilityAdvantage => 3,
             Self::EmptyAdjacencyExposureAdvantage => 5,
+            // 値は常に1で、スケーリング(1u32 << scale_shift)は1(=シフト0)。
+            Self::Constant => 0,
         }
     }
 }
+
+/// 全`ScalarFeatureKind`列挙値(schemaでの走査に使う。`score`・
+/// `train::regression::Model::sgd_step`が読み書きするscalar特徴の全種を
+/// 1箇所にまとめておくことで、新しいkindを追加する際の抜け漏れを防ぐ)。
+pub const ALL_SCALAR_FEATURE_KINDS: [ScalarFeatureKind; 3] = [
+    ScalarFeatureKind::ExactMobilityAdvantage,
+    ScalarFeatureKind::EmptyAdjacencyExposureAdvantage,
+    ScalarFeatureKind::Constant,
+];
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ScalarFeatureWeights {
@@ -372,21 +391,22 @@ impl PatternWeights {
         }
     }
 
-    /// Add the two T158 scalar features with zero coefficients.
+    /// Add all known scalar features (T158の2種+T168の定数項)with zero
+    /// coefficients。呼び出し元(`train::regression::Model::new_with_scalar_features`
+    /// 等)が`retain`で実際に使う種類だけへ絞り込む前提の「候補全種」リストで
+    /// あるため、新しい`ScalarFeatureKind`を追加したら必ずここにも加える
+    /// (`ALL_SCALAR_FEATURE_KINDS`と同じ全種リストを使う)。
     pub fn with_zeroed_scalar_features(mut self) -> Self {
         assert_eq!(self.num_stages, V4_NUM_STAGES);
         assert_eq!(self.stage_empty_divisor, V4_STAGE_EMPTY_DIVISOR);
-        self.scalar_feature_weights = [
-            ScalarFeatureKind::ExactMobilityAdvantage,
-            ScalarFeatureKind::EmptyAdjacencyExposureAdvantage,
-        ]
-        .into_iter()
-        .map(|kind| ScalarFeatureWeights {
-            kind,
-            scale_shift: kind.scale_shift(),
-            weights: vec![0.0; self.num_stages],
-        })
-        .collect();
+        self.scalar_feature_weights = ALL_SCALAR_FEATURE_KINDS
+            .into_iter()
+            .map(|kind| ScalarFeatureWeights {
+                kind,
+                scale_shift: kind.scale_shift(),
+                weights: vec![0.0; self.num_stages],
+            })
+            .collect();
         self
     }
 
@@ -423,10 +443,7 @@ impl PatternWeights {
         }
         if self.scalar_features_enabled() {
             let values = scalar_features(board, mover);
-            for kind in [
-                ScalarFeatureKind::ExactMobilityAdvantage,
-                ScalarFeatureKind::EmptyAdjacencyExposureAdvantage,
-            ] {
+            for kind in ALL_SCALAR_FEATURE_KINDS {
                 if let Some(feature) = self
                     .scalar_feature_weights
                     .iter()
@@ -439,6 +456,8 @@ impl PatternWeights {
                         ScalarFeatureKind::EmptyAdjacencyExposureAdvantage => {
                             values.empty_adjacency_exposure_advantage
                         }
+                        // T168: 定数項は盤面に依存せず常に1(段別バイアス)。
+                        ScalarFeatureKind::Constant => 1,
                     };
                     sum += feature.weights[stage]
                         * (raw as f32 / (1u32 << feature.scale_shift) as f32);
@@ -746,7 +765,9 @@ impl PatternWeights {
         {
             return Err(format!("{format_label}のinstance/class数が不正です"));
         }
-        if !(1..=2).contains(&num_scalar_features) {
+        // T168: 定数項(Constant=3)追加によりscalar feature種が3になったため
+        // 上限を2から3へ引き上げる(`ALL_SCALAR_FEATURE_KINDS`の総数と一致)。
+        if !(1..=ALL_SCALAR_FEATURE_KINDS.len()).contains(&num_scalar_features) {
             return Err(format!("{format_label}のscalar feature数が不正です"));
         }
         let stored_hash: [u8; 32] = read_bytes(&mut pos, 32)?.try_into().unwrap();
@@ -783,7 +804,9 @@ impl PatternWeights {
         }
         let scalar_start = pos;
         let mut scalar_feature_weights = Vec::with_capacity(num_scalar_features);
-        let mut seen = [false; 3];
+        // kind値は1始まりでALL_SCALAR_FEATURE_KINDS.len()まで(現在1..=3)なので、
+        // 添字にkind_value(u8)をそのまま使えるよう+1の余裕を持たせる。
+        let mut seen = [false; ALL_SCALAR_FEATURE_KINDS.len() + 1];
         for _ in 0..num_scalar_features {
             let kind_value = read_bytes(&mut pos, 1)?[0];
             let kind = ScalarFeatureKind::from_u8(kind_value)
@@ -1637,6 +1660,52 @@ mod tests {
     }
 
     #[test]
+    fn t168_constant_scalar_feature_is_always_one_and_d4_invariant() {
+        // T168: 定数項(Constant)は盤面に依存せず常に1であり、対称変換
+        // (D4)によって値が変わらないことは自明だが、実装(`score`のmatch
+        // アーム)が本当にそう振る舞うことを直接確認する。scale_shift=0
+        // (スケーリングなし、値1がそのまま重みに掛かる)であることも確認する。
+        assert_eq!(ScalarFeatureKind::Constant.scale_shift(), 0);
+
+        let mut weights = PatternWeights::zeroed_canonical(
+            patterns::generate_patterns_for(patterns::PatternConfig::V3Corner5x2Diag4),
+            V4_NUM_STAGES,
+            V4_STAGE_EMPTY_DIVISOR,
+        )
+        .with_zeroed_scalar_features();
+        weights
+            .scalar_feature_weights
+            .retain(|feature| feature.kind == ScalarFeatureKind::Constant);
+        assert_eq!(weights.scalar_feature_weights.len(), 1);
+        // パターン部分の寄与をゼロに保ったまま、定数項の段別重みだけを
+        // 非ゼロにする(パターン評価の影響を排除して定数項だけを見る)。
+        let bias = 2.5f32;
+        weights.scalar_feature_weights[0]
+            .weights
+            .fill(bias);
+
+        let board = Board {
+            black: 0x0000_081c_3420_0000,
+            white: 0x0000_1020_081c_0000,
+        };
+        for &mover in &[Side::Black, Side::White] {
+            let base = weights.score(&board, mover);
+            assert!(
+                (base - bias).abs() < 1e-6,
+                "constant feature should contribute exactly its stage weight, got {base}"
+            );
+            for sym in 0..patterns::NUM_SYMMETRIES {
+                let transformed = transform_board_for_test(&board, sym);
+                let score = weights.score(&transformed, mover);
+                assert!(
+                    (score - base).abs() < 1e-6,
+                    "sym={sym} mover={mover:?}: constant-only score should be D4-invariant, got {score} vs {base}"
+                );
+            }
+        }
+    }
+
+    #[test]
     fn score_is_invariant_under_all_eight_d4_symmetries_of_the_initial_position() {
         // T139: `PatternWeights::score`のD4不変性を直接検証する回帰テスト
         // (explorer調査で欠落を確認済み)。
@@ -1900,6 +1969,35 @@ mod tests {
                 &board,
                 &format!("corner5x2 random board #{i}"),
             );
+        }
+    }
+
+    #[test]
+    fn t168_canonical_score_is_invariant_for_d1_and_d2_pattern_shapes() {
+        // T168要件1: 新形状(corner5x2復活のD1構成、diag4新設込みのD2構成)でも
+        // canonical化(compute_pattern_classes/build_canonical_index_table)が
+        // 形状非依存で正しく機能することを検証する(explorer調査で
+        // 「自動対応するはず」と確認済みだが、実装のカバレッジとして
+        // 明示的に確認する)。D2はD1の全パターンを含む上位互換の形状集合。
+        for config in [
+            patterns::PatternConfig::V3Corner5x2,
+            patterns::PatternConfig::V3Corner5x2Diag4,
+        ] {
+            let weights = t163_distinguishing_canonical_model(
+                patterns::generate_patterns_for(config),
+                NUM_STAGES,
+                STAGE_EMPTY_DIVISOR,
+            );
+            let mut rng = T163Xorshift64::new(0xD168_5EED_0001_u64 ^ (config as u64));
+            const NUM_RANDOM_BOARDS: usize = 100;
+            for i in 0..NUM_RANDOM_BOARDS {
+                let board = t163_random_board(&mut rng);
+                t163_assert_all_symmetries_agree(
+                    &weights,
+                    &board,
+                    &format!("{config:?} random board #{i}"),
+                );
+            }
         }
     }
 
