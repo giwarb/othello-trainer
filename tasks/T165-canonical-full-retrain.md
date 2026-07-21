@@ -1,7 +1,7 @@
 ---
 id: T165
 title: canonical全量再学習(3構成×3seed) — 重大バグ修正(3/3)+Egaroucid全量
-status: todo
+status: done # verifier(9run一次データ突合・候補SHA実測・160局面対称一致の独立確認)+代替レビュー(重大0・中1・軽微4、事前登録の事後変更なしをgit履歴とmtimeで監査)両合格、2026-07-21。中1(val_mae列欠落)と軽微はT166・後続に申し送り
 assignee: implementer
 attempts: 0
 ---

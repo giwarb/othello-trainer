@@ -36,7 +36,7 @@
 
 | ID | タスク | 担当 | 状態 | 試行 |
 |---|---|---|---|---|
-| T165 | canonical全量再学習(3構成×3seed=9run、重大バグ修正3/3) | implementer | review(9run完走・健全性全合格・決定性SHA一致。候補確定: A=WTHOR seed2〔f4200377〕、B=Egaroucid seed3〔13b7abb1〕、C=Egaroucid-B3 seed1〔9ce0cc05〕。verifier+代替レビュー並列検収中。次=T166対局ゲート) | 0 |
+| T166 | canonical候補の対局ゲート(60局×4本: v4再実行+候補A/B/C、約1時間) | implementer | in_progress(事前登録: 選定=対v4 paired点推定最大、採用提案=有意悪化なし+異常0。v4はT158d再利用せず再実行〔バイナリ変更でwall保険差の可能性〕。PWV6のscalar有効表示を事前確認) | 0 |
 
 ## 有効な方針・申し送り(今後のタスクに効くもの)
 
@@ -152,6 +152,7 @@
 | T158c | 評価特徴追加(3/4): スクリーニング+候補確定 | **完了**(5d1dd4d、verifier〔再集計・hash実測・resume実地再現〕/代替レビュー〔中2=T158d申し送り〕両合格、Codex実装、redo 0回)。害検出でseed1/3除外・**seed2を候補確定**、oracle180害なし(mean +0.067)・NPS on/off 0.92-0.94・24局smoke異常0(12W1D11L)。60局ゲートmanifest完備 |
 | T158d | 評価特徴追加(4/4): 対Edax 60局paired最終ゲート | **不採用裁定=現行v4維持**(cc88739ほか、verifier2回〔全統計・SHA・決定性の独立再現〕合格、Sonnet実装、redo 0回、ユーザー指示で段階実行)。候補9勝1分50敗(-22.67) vs v4 4勝2分54敗(-24.12)、ペア差+1.45石・CI[-1.57,+4.60]・p=0.57で有意差なし。パイロットの乖離非対称は不再現。ゲート一式約30分の運用を確立。B3特徴実装はT160で再利用 |
 | T159 | 本番トレーナーへ早期打ち切り導入(Egaroucidシリーズ1/3) | **完了**(8372aa2、verifier〔OFF時ビット一致をworktree独立追試でSHA完全一致〕/代替レビュー〔重大0・中3・軽微7〕両合格、Sonnet実装、redo 0回)。opt-in・対局単位検証split(frozen holdout不使用)・patienceベスト復元・resume対応。180kスモークでbest_epoch=4復元を実証。中3件と--simple-corpus対応はT159bへ |
+| T165 | canonical全量再学習(3構成×3seed=9run、重大バグ修正3/3) | **完了**(0645702+52c6285、verifier〔9run一次データ突合・候補SHA実測・160局面対称一致独立確認〕/代替レビュー〔重大0・中1・軽微4、事前登録の事後変更なしを監査〕両合格、Sonnet実装、redo 0回)。全量25.5M×2構成+WTHOR×1構成、9run健全・決定性SHA一致。候補: A=WTHOR seed2/B=Egaroucid seed3/C=Egaroucid-B3 seed1。1構成9.7-13.2分・ピーク1.15GB |
 | T164 | canonical学習の配線(PWV6・4経路対応・前段修正3件、重大バグ修正2/3) | **完了**(93f085e、verifier〔スモークSHA完全再現・不変worktree追試・独自手法の対称一致320局面〕/代替レビュー〔重大0・中1・軽微4〕両合格、Sonnet実装、redo 0回)。B3×Egaroucidのブロック解消・全4経路canonical対応。中1=レガシーidentity変更で旧runのresume非互換(明示エラー、安全側)→T165は新規dirで回避。軽微2件はT165前提修正 |
 | T163 | D4 canonical化(重大バグ修正1/3、新旧共存PWV5) | **完了**(ccb93eb、verifier〔regression-catching独立追試・テスト数142=+5純増確認・FFO不変〕/代替レビュー〔重大0・中2・軽微4、数学的正当性を独立導出で検証〕両合格、Sonnet実装、redo 0回)。安定化群canonical index方式+証明スケッチ。全8対称完全一致(ランダム300+実WTHOR+学習後)・レガシーgolden bit不変・NPS 97.5%。中2件はT164前段で修正 |
 | T162 | v3 vs v4 対局再対決(対Edax 60局paired) | **有意差なし=現状維持v4が裁定**(d19aedc、verifier全項目独立再現で合格、redo 0回)。v3 3勝3分54敗-21.20 vs v4 4勝2分54敗-24.12、ペア差+2.92石(v3方向)・CI[-2.13,+7.97]・p=0.26。v4側はT158d結果をSHA完全一致で再利用(v3側60局のみ12分)。v3結果はT121/T125と勝敗完全一致。D4修正後の再学習で上書き予定。申し送り: bootstrap配列並び順のmeta明記 |
