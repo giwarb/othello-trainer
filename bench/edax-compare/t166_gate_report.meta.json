@@ -1,0 +1,145 @@
+{
+  "schemaVersion": 1,
+  "task": "T166",
+  "decision": "no_verdict_material_and_proposal_only",
+  "note": "Per pre-registered criteria, candidate C is proposed as the new production candidate, but final adoption is left to the coordinator/user.",
+  "manifestSource": "bench/edax-compare/t165_training_report.meta.json#t166Manifest",
+  "provenanceVerification": {
+    "baselineV4": {"path": "train/weights/pattern_v4.bin", "sha256Manifest": "c372b83366c4006023ae05f3af5b68dda5929aca7ff7308d1b398a89639e383f", "sha256Measured": "c372b83366c4006023ae05f3af5b68dda5929aca7ff7308d1b398a89639e383f", "format": "PWV3", "match": true},
+    "candidateA": {"path": "train/data/t165/wthor-v4/v4-canonical-seed-2-earlystop.bin", "sha256Manifest": "f4200377f7546521fde72fb3b8a46cc364a5ad3a56b24e94593b28af16befad2", "sha256Measured": "f4200377f7546521fde72fb3b8a46cc364a5ad3a56b24e94593b28af16befad2", "format": "PWV5", "match": true},
+    "candidateB": {"path": "train/data/t165/egaroucid-v4/v4-canonical-seed-3-earlystop.bin", "sha256Manifest": "13b7abb1d49d9aa07fe5c1d5a2af2f5ea24d0f979985832432199a2c7512c313", "sha256Measured": "13b7abb1d49d9aa07fe5c1d5a2af2f5ea24d0f979985832432199a2c7512c313", "format": "PWV5", "match": true},
+    "candidateC": {"path": "train/data/t165/egaroucid-b3/t158-b3-canonical-seed-1-earlystop.bin", "sha256Manifest": "9ce0cc054b67807641b759a2e881a87dd562146dee5e4d659bba1efa228f54a4", "sha256Measured": "9ce0cc054b67807641b759a2e881a87dd562146dee5e4d659bba1efa228f54a4", "format": "PWV6", "match": true},
+    "openingSetSha256": "7a340c17b02f85a29d5ff296b46ab19aac13f185de7bc03eaf574d6290be81e2",
+    "edaxExecutableSha256": "aabb5ac7d3f9a872fc0e7388ab1eee1d23c687f76c28642122524dc318b322b1",
+    "edaxEvalDataSha256": "f8b2299612d9fa4414157e70e932636e33111c2602d0c2fc382a7d90ef21b792",
+    "allMatched": true
+  },
+  "v4RerunRationale": {
+    "reused": false,
+    "reason": "T163/T164/T165 landed 3 commits touching engine/ since T158d stage 2 (D4 canonical scheme PWV5, canonical training wiring + PWV6, T165 prerequisite fixes). Rebuilt eval_cli at current HEAD and measured SHA-256 = 9c28701a21e01f371282bf61afd4ed2ccea06d2150555ca3d7cf482bdbc2f970, which differs from T158d's c19f8633ce4f4346ca64a2b5a7c294d4d78e43a9be476de8e923e1056ec3570e. Per T165 review follow-up (c), this precludes reusing T158d's v4 results (wall-clock insurance/timing behavior differences are not guaranteed identical across binary changes), so v4 baseline was re-executed fresh.",
+    "crossCheckAgainstT158d": {
+      "method": "compared all 60 games (margin + plies) between this task's fresh v4 run and T158d stage 2's v4 run",
+      "result": "0 mismatches out of 60 -- game outcomes are bit-identical despite the different eval_cli binary SHA, indicating the canonical-scheme additions do not affect legacy PWV3 behavior in practice. This supports (without contradicting) the decision to re-run rather than reuse."
+    },
+    "gitCommitsToEngineDirSinceT158dStage2": 3,
+    "engineDirCommits": ["ccb93eb (T163: D4 canonical scheme PWV5)", "93f085e (T164: canonical training wiring + B3 support, PWV6)", "0645702 (T165: 2 prerequisite fixes)"]
+  },
+  "candidateCScalarFeaturePrecheck": {
+    "method": "standalone eval_cli invocation before the 60-game run: `eval_cli gen` to produce the standard initial position, then `eval_cli best --pattern-weights <candidate C path> ...` with the same protocol parameters, capturing stderr",
+    "result": "[eval_cli weights] scalar_features_present=true scalar_features_enabled=true",
+    "comparisonToOthers": {"v4": "scalar_features_present=false", "A": "scalar_features_present=false", "B": "scalar_features_present=false", "C": "scalar_features_present=true scalar_features_enabled=true"},
+    "note": "vs_edax.py's run() helper captures subprocess stderr internally and only surfaces it on failure, so this diagnostic line does not appear in the 60-game run's own logs; the standalone pre-check is the mechanism used to satisfy this requirement."
+  },
+  "protocol": {
+    "engineDepth": 12, "engineExactFromEmpties": 16, "engineExactQuotaPercent": 60, "engineMaxNodes": 160000,
+    "engineTimeMs": 1500, "engineTtMiB": 64, "unlimitedExactEmpties": 20, "engineModes": ["single-root"],
+    "edaxLevels": [10], "openingSet": "primary", "openingCount": 30,
+    "sourceOfTruth": "identical to T158d/T162; vs_edax.py unmodified"
+  },
+  "execution": {
+    "sequential": true,
+    "order": ["v4", "A", "B", "C"],
+    "otherHeavyWorkConcurrent": false,
+    "runs": {
+      "v4": {"resultsPath": "bench/edax-compare/endgame-results/t166-v4-vs-edax-results-full.json", "startedAtLocal": "2026-07-21T09:31:49+09:00", "finishedAtLocal": "2026-07-21T09:45:34+09:00", "totalWallClockSec": 825, "gamesWallClockSumSec": 807.741, "gamesCompleted": 60, "fixedDepthRegressionAllMatched": true, "nodeBudgetRegressionAllMatched": true, "stderrEmpty": true, "evalCliSha256": "9c28701a21e01f371282bf61afd4ed2ccea06d2150555ca3d7cf482bdbc2f970"},
+      "A": {"resultsPath": "bench/edax-compare/endgame-results/t166-a-vs-edax-results-full.json", "startedAtLocal": "2026-07-21T09:46:14+09:00", "finishedAtLocal": "2026-07-21T10:01:14+09:00", "totalWallClockSec": 900, "gamesWallClockSumSec": 883.997, "gamesCompleted": 60, "fixedDepthRegressionAllMatched": true, "nodeBudgetRegressionAllMatched": true, "stderrEmpty": true},
+      "B": {"resultsPath": "bench/edax-compare/endgame-results/t166-b-vs-edax-results-full.json", "startedAtLocal": "2026-07-21T10:02:39+09:00", "finishedAtLocal": "2026-07-21T10:15:55+09:00", "totalWallClockSec": 796, "gamesWallClockSumSec": 781.25, "gamesCompleted": 60, "fixedDepthRegressionAllMatched": true, "nodeBudgetRegressionAllMatched": true, "stderrEmpty": true,
+        "firstAttemptFailed": {"attemptedAtLocal": "2026-07-21T10:01:40+09:00", "reason": "worktree was transiently dirty from an in-progress tasks/T166-canonical-game-gate.md work-log edit (documentation only; no effect on engine/vs_edax.py/weights); ensure_clean_worktree() correctly refused to start. Retried with --allow-dirty after confirming the only diff was the tasks/ file.", "resultFileCreated": false, "wastedTimeSec": "negligible (failed immediately)"}},
+      "C": {"resultsPath": "bench/edax-compare/endgame-results/t166-c-vs-edax-results-full.json", "startedAtLocal": "2026-07-21T10:16:34+09:00", "finishedAtLocal": "2026-07-21T10:30:18+09:00", "totalWallClockSec": 824, "gamesWallClockSumSec": 807.647, "gamesCompleted": 60, "fixedDepthRegressionAllMatched": true, "nodeBudgetRegressionAllMatched": true, "stderrEmpty": true, "ranWithAllowDirty": true}
+    },
+    "combinedTotalWallClockSec": 3345,
+    "combinedTotalWallClockMinutes": 55.75
+  },
+  "results": {
+    "v4": {"wins": 4, "draws": 2, "losses": 54, "marginSum": -1447, "marginMean": -24.117, "marginMedian": -24},
+    "A": {"wins": 5, "draws": 2, "losses": 53, "marginSum": -1540, "marginMean": -25.667, "marginMedian": -28},
+    "B": {"wins": 16, "draws": 2, "losses": 42, "marginSum": -424, "marginMean": -7.067, "marginMedian": -6},
+    "C": {"wins": 20, "draws": 3, "losses": 37, "marginSum": -405, "marginMean": -6.75, "marginMedian": -4}
+  },
+  "statistics": {
+    "boostrapArrayOrderingNote": "Opening-level arrays are ordered by opening number ascending (primary-01..primary-30, sorted via `sorted(openings, key=lambda s: int(s.split('-')[1]))`). Game-level arrays are ordered by (opening number ascending, then black before white), via `sorted(keys, key=lambda k: (int(k[0].split('-')[1]), not k[1]))`. This applies to every diffs/game_diffs array fed into paired_bootstrap below (per T162 verifier follow-up request).",
+    "algorithmNote": "Identical to bench/edax-compare/compare_pattern_v3.py#paired_bootstrap and to T158d/T162 stage-2 reports: random.Random(seed), resample-with-replacement len(diffs) draws per sample via rng.choice, mean each sample, sort all samples, percentile 2.5/97.5.",
+    "vsV4Baseline": {
+      "openingLevel": {
+        "A": {"n": 30, "meanDiff": -1.55, "improved": 13, "worsened": 17, "tied": 0, "bootstrapSeed": 166004, "samples": 100000, "ci95": [-5.8333, 2.9333], "signTest": {"n": 30, "improved": 13, "pValue": 0.5847}},
+        "B": {"n": 30, "meanDiff": 17.05, "improved": 29, "worsened": 0, "tied": 1, "bootstrapSeed": 166014, "samples": 100000, "ci95": [13.7, 20.4333], "signTest": {"n": 29, "improved": 29, "pValue": 3.725290298461914e-09}},
+        "C": {"n": 30, "meanDiff": 17.3667, "improved": 30, "worsened": 0, "tied": 0, "bootstrapSeed": 166024, "samples": 100000, "ci95": [13.9667, 20.8667], "signTest": {"n": 30, "improved": 30, "pValue": 1.862645149230957e-09}}
+      },
+      "gameLevel": {
+        "A": {"n": 60, "meanDiff": -1.55, "improved": 23, "worsened": 32, "tied": 5, "bootstrapSeed": 166005, "samples": 100000, "ci95": [-6.0167, 3.0333], "signTest": {"n": 55, "improved": 23, "pValue": 0.2806}},
+        "B": {"n": 60, "meanDiff": 17.05, "improved": 56, "worsened": 3, "tied": 1, "bootstrapSeed": 166015, "samples": 100000, "ci95": [13.7667, 20.4167], "signTest": {"n": 59, "improved": 56, "pValue": 1.189326415129699e-13}},
+        "C": {"n": 60, "meanDiff": 17.3667, "improved": 50, "worsened": 8, "tied": 2, "bootstrapSeed": 166025, "samples": 100000, "ci95": [13.7, 21.15], "signTest": {"n": 58, "improved": 50, "pValue": 1.5702617754687068e-08}}
+      }
+    },
+    "referenceComparisons": {
+      "note": "Candidate-vs-candidate paired differences, computed from the same common-opponent (Edax) data via the shared opening set; not part of the pre-registered primary metric but recorded in full per task requirement.",
+      "openingLevel": {
+        "A_vs_B": {"meanDiff": -18.6, "ci95": [-23.0833, -14.2], "bootstrapSeed": 166104, "improved": 2, "worsened": 27, "tied": 1, "signTest": {"n": 29, "improved": 2, "pValue": 1.6242265701293945e-06}},
+        "A_vs_C": {"meanDiff": -18.9167, "ci95": [-23.55, -14.3], "bootstrapSeed": 166114, "improved": 3, "worsened": 27, "tied": 0, "signTest": {"n": 30, "improved": 3, "pValue": 8.430331945419312e-06}},
+        "B_vs_C": {"meanDiff": -0.3167, "ci95": [-2.6333, 2.1], "bootstrapSeed": 166124, "improved": 14, "worsened": 15, "tied": 1, "signTest": {"n": 29, "improved": 14, "pValue": 1.0}}
+      },
+      "openingLevelRows": {
+        "description": "per-opening (opening, A, B, C, v4) margin averages; A/B/C/v4 keys give the opening-average margin, all 30 openings",
+        "openings": ["primary-01","primary-02","primary-03","primary-04","primary-05","primary-06","primary-07","primary-08","primary-09","primary-10","primary-11","primary-12","primary-13","primary-14","primary-15","primary-16","primary-17","primary-18","primary-19","primary-20","primary-21","primary-22","primary-23","primary-24","primary-25","primary-26","primary-27","primary-28","primary-29","primary-30"],
+        "v4": [-29.0,-26.0,-19.0,-26.0,-33.0,-24.0,-20.0,-34.0,-23.5,-18.0,-15.0,-29.0,-38.0,-13.0,-38.0,-27.0,-17.0,-7.0,-19.0,-14.0,-44.0,-16.0,-14.0,-40.0,-26.0,-14.0,-39.0,-21.0,-26.0,-14.0],
+        "A": [-10.0,-40.0,-43.0,-24.0,-40.0,-41.0,-25.0,-28.0,-17.0,-24.0,-19.0,-37.0,-35.0,-20.0,-17.0,-35.5,-30.0,-23.0,-9.0,-13.0,-16.0,-36.0,-30.0,-35.0,-28.0,-19.0,-28.0,-9.0,-27.0,-11.5],
+        "B": [-10.0,-18.0,-1.0,-17.0,-7.0,6.0,-3.0,-8.0,-13.0,-12.0,1.0,-8.0,-8.0,-8.0,-18.0,-9.0,-4.0,-7.0,-12.0,-10.0,-11.0,-10.0,-2.0,-4.0,-5.0,-6.0,-11.0,-7.0,2.0,8.0],
+        "C": [-12.0,-8.0,-4.0,-20.0,-10.0,7.0,-8.0,1.0,-8.0,-8.0,-8.0,3.0,-10.0,-6.0,-7.0,-7.0,-8.0,-1.0,-4.0,-5.0,-18.0,-11.0,0.0,-12.0,-1.0,-6.0,-5.0,-12.0,-4.5,-10.0]
+      }
+    },
+    "selectionRule": {
+      "criterion": "priority = largest point-estimate mean paired difference vs v4 baseline (pre-registered criterion 2)",
+      "ranking": [{"candidate": "C", "meanDiff": 17.3667}, {"candidate": "B", "meanDiff": 17.05}, {"candidate": "A", "meanDiff": -1.55}],
+      "selected": "C",
+      "caveat": "B vs C difference (-0.3167, CI [-2.6333, 2.1]) is not statistically significant (sign test p=1.0); the C > B ranking is a formal tie-break on point estimate only, not a demonstrated real advantage."
+    },
+    "adoptionCriterionApplication": {
+      "criterion3aText": "selected candidate does not show significant harm vs v4 (CI does not show mean worse than -2 discs AND the entire CI below 0)",
+      "candidateC": {"meanDiff": 17.3667, "ci95": [13.9667, 20.8667], "harmConditionMet": false, "reason": "entire CI is far above 0; this is a strong improvement, not harm", "criterion3aSatisfied": true},
+      "criterion3bText": "0 anomalies",
+      "candidateC_anomalies": 0,
+      "criterion3bSatisfied": true,
+      "conclusion": "Both (a) and (b) are satisfied for candidate C -> proposed as new production candidate per pre-registered rule. Final adoption decision remains with the coordinator/user; candidate B is statistically indistinguishable from C and is an equally supportable alternative."
+    }
+  },
+  "exactFallbackDefinition": {
+    "note": "Counts ONLY the single transition move (the last budgeted-phase move before the engine's root empties drops to <= unlimited_exact_empties=20). Does not count exactFallback on any other budgeted-phase move earlier in the game. Identical definition to T158d/T162.",
+    "v4": {"fallbackAtTransition": 9, "of": 60},
+    "A": {"fallbackAtTransition": 4, "of": 59, "excludedGames": 1},
+    "B": {"fallbackAtTransition": 1, "of": 60},
+    "C": {"fallbackAtTransition": 5, "of": 60}
+  },
+  "watchPoint": {
+    "budgetedToExactDeviation": {
+      "v4": {"n": 60, "meanAbsDelta": 5.139, "medianAbsDelta": 3.795, "maxAbsDelta": 32.44, "maxAbsDeltaOpening": "primary-15", "maxAbsDeltaColor": "white", "stdevAbsDelta": 5.383},
+      "A": {"n": 59, "excludedGames": [{"opening": "primary-30", "color": "black", "reason": "engine (candidate A, black) was completely eliminated (0 discs) before the game reached the unlimited-exact phase; legitimate early game termination, not an anomaly (same pattern as T162's v3/primary-30/black)"}], "meanAbsDelta": 9.313, "medianAbsDelta": 9.14, "maxAbsDelta": 25.35, "maxAbsDeltaOpening": "primary-29", "maxAbsDeltaColor": "black", "stdevAbsDelta": 5.935},
+      "B": {"n": 60, "meanAbsDelta": 5.862, "medianAbsDelta": 4.57, "maxAbsDelta": 19.99, "maxAbsDeltaOpening": "primary-02", "maxAbsDeltaColor": "white", "stdevAbsDelta": 4.445},
+      "C": {"n": 60, "meanAbsDelta": 4.79, "medianAbsDelta": 4.48, "maxAbsDelta": 15.62, "maxAbsDeltaOpening": "primary-01", "maxAbsDeltaColor": "black", "stdevAbsDelta": 3.972},
+      "interpretation": "Candidate A shows a notably larger and more variable budgeted-to-exact deviation than the other three (mean 9.31 vs 4.79-5.86), suggesting somewhat less stable midgame evaluation en route to the endgame transition. Candidate C has the smallest deviation of all four (mean 4.79), the most stable."
+    },
+    "signFlips": {
+      "v4": {"count": 4, "of": 60},
+      "A": {"count": 1, "of": 59},
+      "B": {"count": 6, "of": 60},
+      "C": {"count": 7, "of": 60},
+      "interpretation": "All flips originate from small near-zero budgeted values (max magnitude 9.49, candidate B primary-16/white); no catastrophic reversal on any side. B and C show more flips than v4/A, plausibly because they play far closer/more competitive games overall (higher win rates), which mechanically increases the frequency of sign flips near the budgeted/exact boundary -- not evidence of search instability."
+    },
+    "candidateCScalarFeatureEffectCheck": "Confirmed active pre-flight (see candidateCScalarFeaturePrecheck above). Candidate C's strong result (mean -6.75 vs Edax, +17.37 vs v4) demonstrates the B3-canonical evaluation (including its scalar features) functions correctly in practice, though C is not statistically distinguishable from B (pure pattern canonical), so this run alone does not isolate how much the scalar features specifically contribute beyond the canonical pattern improvement itself."
+  },
+  "anomalyCheck": {
+    "crashes": 0,
+    "illegalMoves": 0,
+    "nondeterminism": 0,
+    "fixedDepthRegression": {"v4": "PASSED 40/40", "A": "PASSED 40/40", "B": "PASSED 40/40", "C": "PASSED 40/40"},
+    "nodeBudgetRegression": {"v4": "PASSED 10/10", "A": "PASSED 10/10", "B": "PASSED 10/10", "C": "PASSED 10/10"},
+    "stderrLogsEmpty": true,
+    "earlyTerminationNote": "candidate A game primary-30/black ended early due to legitimate complete elimination (0 discs, no legal moves), not an anomaly"
+  },
+  "verdict": "proposal_only_final_decision_pending",
+  "proposal": "Candidate C (Egaroucid B3-canonical seed1) is proposed as the new production candidate per pre-registered criteria (largest point estimate vs v4, CI entirely above 0, 0 anomalies). Candidate B (Egaroucid v4-canonical seed3) is statistically indistinguishable from C and is an equally valid alternative. Candidate A (WTHOR v4-canonical seed2) shows no significant difference from v4 and is not competitive with B/C.",
+  "outOfScope": [
+    "final adoption decision",
+    "production wiring (WASM PWV5/PWV6 support, ANALYSIS_ENGINE_VERSION bump, Pages verification -- deferred to T167)",
+    "vs_edax.py / engine / train code changes"
+  ]
+}
