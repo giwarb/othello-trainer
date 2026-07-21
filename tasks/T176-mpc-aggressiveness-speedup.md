@@ -1,9 +1,9 @@
 ---
 id: T176
 title: 高速化(1): MPC積極化のゲート付き試行+評価ホットパスのプロファイル
-status: todo
+status: redo # verifier不合格(2026-07-21夜): 確認対局の条件交絡を検出。下記フィードバック参照。attempts+1で再委譲
 assignee: implementer
-attempts: 0
+attempts: 1
 ---
 
 # T176: MPC積極化+評価プロファイル
@@ -39,6 +39,15 @@ attempts: 0
 ## コミット規律
 
 - 計測・対局は専有(現在T175のverifierが軽い統計検証中=数分で終わる。重い計測はその完了を確認してから)。detached+ツール呼び出しポーリング(Monitor依存禁止)、作業ログ節目追記
+
+## フィードバック(redo #1、2026-07-21 verifier不合格による)
+
+verifierの検出(スクリーニング・マージン表・制御実験・ビット不変・テストは全て独立再現で合格。問題は確認対局のみ):
+
+1. **[要修正] 確認対局の条件交絡**: candidate(t176-p1-t10)の生JSONは `engine_exact_from_empties=18`(vs_edax.pyの既定値。`--engine-exact-from-empties 16` の渡し忘れ)で実行されており、baseline(T175 P1)の16と不一致。「tだけを変えた対照実験」の前提が崩れている。さらに作業ログ・t176_speedup_report.md・meta.jsonの3箇所が「16」と記載しており**実データと矛盾**(レポートの正確性欠陥)。
+2. **対応**: `--engine-exact-from-empties 16` を明示して確認対局30局を再実行し、paired比較・レポート・metaを実データで作り直す。「+26%ノード」の異常値がef=18交絡で説明できたかどうかも再実行データで検証し記載する(旧candidate生JSONは-ef18サフィックス等で退避し、レポートに経緯を1段落で正直に記録)。
+3. **再発防止**: t176_confirmation_compare.py(または実行手順)に、baseline/candidateのsettings主要キー(exact_from_empties・quota・depth・max_nodes・time_ms・weightsSha)の**一致を機械検証するガード**を追加し、不一致なら比較を拒否すること。
+4. スクリーニング・制御実験・patterns.rs最適化・margin_t配線は合格済みのため触らないこと。
 
 ## 作業ログ
 
