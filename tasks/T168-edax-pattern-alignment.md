@@ -56,4 +56,101 @@ attempts: 0
 
 ## 作業ログ
 
-(ワーカーが節目ごとに追記)
+- 2026-07-21 実装完了(implementer)
+  - **要件1(patterns.rs)**: `PatternConfig`に`V3Corner5x2`(D1、既存
+    `corner5x2_patterns()`をV3へ追加、46インスタンス・11クラス)・
+    `V3Corner5x2Diag4`(D2、既存方式踏襲の新規`diag4_patterns()`
+    〈`diagonal_offset_patterns`のlen=4単独版、symmetry_orbitベース、
+    手書きセル列なし〉を追加、50インスタンス・12クラス)を追加。
+    インスタンス数/クラス数の固定回帰テスト(`t087_ablation_...`へ2ケース
+    追加)・形状テスト(`t168_d1_appends_corner5x2_after_v3`・
+    `t168_d2_appends_diag4_after_d1`)・新形状での全8対称一致テスト
+    (`t168_canonical_score_is_invariant_for_d1_and_d2_pattern_shapes`、
+    D1/D2各100局面)を追加。canonical機構(compute_pattern_classes/
+    build_canonical_index_table)は無変更のまま新形状に自動対応することを
+    確認(explorer調査どおり)。
+  - **要件2(pattern_eval.rs)**: `ScalarFeatureKind::Constant`(値3、
+    scale_shift=0=値1がそのまま)を追加。新設`ALL_SCALAR_FEATURE_KINDS`定数
+    (3種の一覧、`score`・`with_zeroed_scalar_features`・PWV4/6パース時の
+    `num_scalar_features`上限〈2→3〉/`seen`配列サイズがこれを参照するよう
+    統一し、新kind追加時の抜け漏れを防ぐ設計にした)。定数項のD4不変性
+    テスト(`t168_constant_scalar_feature_is_always_one_and_d4_invariant`、
+    値1固定であることと8対称でscoreが変わらないことを直接確認)を追加。
+    schema_hash_v4は形状・scalar種から自動的に別スキームになることを
+    (新規テストの往復で間接的に)確認。
+  - **既存経路への影響確認**: `with_zeroed_scalar_features()`の候補一覧に
+    Constantを追加したことで、これを`retain`フィルタなしで直接使う既存の
+    T164テストヘルパー(`t164_distinguishing_canonical_scalar_model`)が
+    暗黙に2→3特徴になったが、件数を`==2`と決め打ちするassertは無く、
+    全既存テストは無変更で合格(むしろ3特徴でのラウンドトリップも
+    追加でカバーする形になった、副次的な効用として記録)。
+  - **要件3(train_patterns_v3.rs)**: `t158_config`を一般化した
+    `scalar_feature_config(name, pattern_config, scalar_features)`を追加
+    (t158-b0〜b3は`PatternConfig::V3`固定のまま無変更、t158_configはこれを
+    呼ぶだけの薄いラッパーに変更)。新config`t168-d1`
+    (`V3Corner5x2`+`BOTH`〈モビリティ・囲い度〉)・`t168-d2`
+    (`V3Corner5x2Diag4`+新設`BOTH_PLUS_CONSTANT`〈+定数項〉)を登録。
+    どちらも`t158: true`のため既存のidentity・feature_schema・
+    分布統計出力の仕組みをそのまま再利用する(D1/D2固有の追加ロジック不要)。
+    CLI経由でのbit-for-bit一致テスト(`t168_d2_config_matches_direct_training_bit_for_bit`)
+    を追加。
+  - **要件4(既存経路の完全不変)**: `git stash`でT168差分を退避、
+    `--release`ビルドで既存config(t158-b3-canonical、simple-corpus
+    20,000件サブセット)を学習しSHA-256記録
+    (`6ddda1eb82a82104713ac75c11d9a4ce149ff9b8091224d60ff2b35800e68a77`)。
+    `git stash pop`で復元後に再ビルド・再実行し、**完全一致**を確認。
+  - **要件5(テスト)**: `cargo test -p engine`: 239 passed(+3), 2 ignored、
+    `cargo test -p train`: 149 passed(+1〈t168-d2ビット一致〉+19バイナリ内訳
+    〈train_patterns_v3が18→19〉)。両方0 failed。
+  - 次: 学習マトリクス(D1×3seed、D2×3seed=6run、T165と同一データ・
+    同一分割・同一フラグ、output-dir新規)を逐次実行する。
+
+- 2026-07-21 学習マトリクス完了+スクリーニング+レポート作成(implementer、完了)
+  - **実行方式**: `train/data/t168/{d1,d2}/`(新規)。PowerShell
+    `Start-Process`でdetached起動、完了確認はログの`^result config=`出現を
+    Bashの`until`ループ(20秒間隔)で確認(Monitor通知には依存しない)。
+    6run逐次実行、初回run(D1 seed1・D2 seed1)でメモリ・時間を確認
+    (ピーク約1160-1169MB、いずれも異常なし→続行)。
+  - **D1(V3+corner5x2、46インスタンス)**:
+    | seed | best_epoch | epochs_run | frozen_mae | 所要時間 |
+    |---|---|---|---|---|
+    | 1 | 15 | 18 | **4.492196** | 約20分21秒 |
+    | 2 | 5 | 8 | 4.544652 | 約8分52秒 |
+    | 3 | 13 | 16 | 4.493399 | 約15分26秒 |
+    bytes=42,394,905(全seed共通)。
+  - **D2(D1+diag4+定数項、50インスタンス)**:
+    | seed | best_epoch | epochs_run | frozen_mae | 所要時間 |
+    |---|---|---|---|---|
+    | 1 | 3 | 6 | 4.591761 | 約6分42秒 |
+    | 2 | 5 | 8 | 4.573520 | 約8分32秒 |
+    | 3 | 13 | 16 | **4.521531** | 約17分39秒 |
+    bytes=42,414,950(全seed共通)。
+  - **健全性チェック**: 使い捨てテスト`engine/tests/t168_health_check.rs`
+    (確認後に削除)で6run全ての実際の学習済み`.bin`を検証: finite・
+    自己対戦40局からサンプルした440局面×全8対称でscore完全一致。
+    metrics.tsv全件をNaN/Infでgrepし該当なし。**全6run合格、除外なし**。
+  - **サイズ実測**: D1(raw 42,394,905/gzip 10,734,273) vs 現行本番
+    pattern_v5.bin(raw 27,986,840/gzip 5,865,976): raw +14,408,065B
+    (約13.74MB、見積り+13.7MBとほぼ一致)、gzip +4,868,297B(+83%)。
+    D2はD1からさらにraw +20,045B・gzip +32,981Bのごく僅かな増加。
+  - **NPS参考値**: 使い捨てベンチ`engine/tests/t168_nps_reference.rs`
+    (確認後に削除)を全6run完走後の専有タイミングで実行:
+    `v3_nps=2,650,077 d1_nps=2,084,573(比0.7866) d2_nps=1,936,609(比0.7308)`。
+    インスタンス数増加(38→46→50)に概ね比例した低下。
+  - **事前登録規準の適用**: T165と同一データ・同一分割のためfrozen MAE
+    比較は有効(規準2)。D1ベストseed=1(4.492196)、D2ベストseed=3
+    (4.521531)、いずれもT165候補C(4.702778、現行本番pattern_v5.bin)を
+    改善。**最終候補=全改善構成中の最小=D1 seed1(4.492196)**。
+    (D2はD1を上回らなかった。原因〈diag4/定数項どちらの寄与か、または
+    この学習規模でのpatience/過学習の影響か〉の切り分けはスコープ外と
+    判断し記録のみ。)
+  - **レポート**: `bench/edax-compare/t168_training_report.md`+`.meta.json`
+    に6run表・T165比較・候補確定・サイズ実測・NPS参考値・T169向け
+    manifestを記載。
+  - **成果物の扱い**: 学習成果物(`train/data/t168/`)はgitignore領域
+    (`train/data/`)のためコミット対象外。レポート2ファイルのみパス明示
+    でコミット。使い捨て検証テスト2本は確認後に削除済み。
+  - **受け入れ基準の充足状況**: 1(両パッケージ全テストパス・既存経路
+    不変実証)✓、2(6run完走・全表・規準当てはめ・候補確定)✓、
+    3(健全性チェック・サイズ実測・NPS参考値)✓、4(`git status --short`
+    クリーン、後述)✓。
