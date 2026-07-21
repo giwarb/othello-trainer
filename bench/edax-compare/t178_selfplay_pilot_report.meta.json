@@ -1,0 +1,76 @@
+{
+  "schemaVersion": 1,
+  "task": "T178",
+  "analysis": "self-play data generation pilot",
+  "decision": "cancelled_by_user_asset_preserved",
+  "cancellationReason": "User judged that self-sufficient data generation is unnecessary and that finding public data is preferable, based on the measured throughput estimates (180k positions would need ~2 days of exclusive execution; 25M would need ~9 months).",
+  "generator": {
+    "path": "engine/src/bin/self_play_gen.rs",
+    "requiresFeature": "mpc_enabled",
+    "engineConfig": {
+      "weights": "train/weights/pattern_v6.bin",
+      "depth": 12,
+      "exactFromEmpties": 16,
+      "unlimitedExactEmpties": 20,
+      "mpcMarginT": 1.0,
+      "openingPliesMin": 8,
+      "openingPliesMax": 12,
+      "maxNodesMidgame": 100000000,
+      "maxNodesExact": 500000000,
+      "ttMb": 64
+    },
+    "determinismDesign": "time_ms is always None (never wall-clock-based) so identical seed+config reproduces byte-identical output; a node-count safety net (max-nodes-midgame/max-nodes-exact) bounds worst-case per-move cost deterministically after an unbounded design was found to let a single game run over 13 minutes without completing during pilot preparation",
+    "resumeDesign": "checkpoint stores completed game count + a config fingerprint; on mismatch the tool refuses to continue rather than silently mixing data from different settings; output file is appended once per completed game",
+    "tests": {
+      "path": "engine/src/bin/self_play_gen.rs (mod tests)",
+      "count": 5,
+      "names": [
+        "rng_is_deterministic_for_same_seed",
+        "rng_differs_for_different_seeds",
+        "encode_mover_relative_matches_simple_corpus_convention",
+        "play_one_game_is_deterministic_for_the_same_seed_and_config",
+        "play_one_game_differs_for_different_seeds"
+      ],
+      "result": "5 passed, 0 failed"
+    },
+    "manualVerification": {
+      "determinismAtProductionSettings": "seed=1, games=3, full production config (depth=12 etc.) run twice independently; output files byte-identical (diff empty)",
+      "resumeAtProductionSettings": "seed=42, games=8, killed after game 1 completed (SIGKILL), output file intact (60 lines, no truncated/corrupt line), restarted with same args, correctly skipped game 1 and continued from game 2 (checkpoint gamesCompleted advanced 1 -> 2, output file grew to 120 lines with no duplication)"
+    }
+  },
+  "throughputMeasurement": {
+    "run": {
+      "seed": 178001,
+      "startedFresh": true,
+      "gamesCompletedAtLogPoint": 30,
+      "elapsedSecondsAtLogPoint": 1734.0612257,
+      "positionsPerGame": 60,
+      "gamesCompletedWhenCancelled": 33,
+      "positionsWrittenWhenCancelled": 1980,
+      "note": "Positions-per-game was exactly 60 for every observed game (Othello's maximum move count; strong play on both sides did not produce early full-wipeout endings in this sample)."
+    },
+    "measuredRates": {
+      "gamesPerHour": 62.2815,
+      "positionsPerHour": 3736.8923
+    },
+    "estimateTable": [
+      {"targetPositions": 180000, "gamesNeeded": 3000, "hours": 48.17, "days": 2.01},
+      {"targetPositions": 1000000, "gamesNeeded": 16667, "hours": 267.60, "days": 11.15},
+      {"targetPositions": 25000000, "gamesNeeded": 416667, "hours": 6690.05, "days": 278.75}
+    ]
+  },
+  "qualitySignal": {
+    "performed": false,
+    "reason": "Cancelled before reaching a meaningful scale; only 1,980 positions were generated (33 games) when the user decision arrived, far short of the 180k target that alone would need ~2 days."
+  },
+  "dataRetention": {
+    "outputFile": "train/data/t178/selfplay_pilot.txt (1980 lines, gitignored, kept locally)",
+    "checkpointFile": "train/data/t178/selfplay_pilot.checkpoint.json (gitignored, kept locally)",
+    "generatorCommitted": true
+  },
+  "testResults": {
+    "cargoTestEngineLib": "243 passed, 0 failed, 2 ignored (unchanged)",
+    "cargoTestEngineSelfPlayGenBin": "5 passed, 0 failed",
+    "cargoTestEngineAllBinaries": "all passed"
+  }
+}
