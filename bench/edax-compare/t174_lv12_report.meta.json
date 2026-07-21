@@ -1,0 +1,90 @@
+{
+  "schemaVersion": 1,
+  "task": "T174",
+  "decision": "measurement_only_no_verdict",
+  "note": "Pure measurement task. Establishes an Edax level-12 baseline for future gates; no adoption/verdict is rendered.",
+  "provenanceVerification": {
+    "weightsPath": "train/weights/pattern_v6.bin",
+    "weightsSha256": "e69f3b1c33432bafd388af82adde64270ec8c51acaab070bbfff4cf4caf20fc9",
+    "identicalToT169CandidateD1": true,
+    "edaxExecutableSha256": "aabb5ac7d3f9a872fc0e7388ab1eee1d23c687f76c28642122524dc318b322b1",
+    "edaxEvalDataSha256": "f8b2299612d9fa4414157e70e932636e33111c2602d0c2fc382a7d90ef21b792",
+    "openingSetSha256": "7a340c17b02f85a29d5ff296b46ab19aac13f185de7bc03eaf574d6290be81e2",
+    "unchangedSinceT158dT162T166T169": true
+  },
+  "harnessNote": "vs_edax.py's --levels argument already accepts an arbitrary comma-separated int list (parsed via int(x), passed directly as `-l <level>` to Edax); no harness modification was needed to run level 12.",
+  "engineChangesSinceT169": {
+    "gitCommitsToEngineDir": 2,
+    "commits": ["f693d05 (T170: production wiring, node-budget gate updated to v5 reference)", "910235b (T172: MPC recalibration attempt, Gate 3 failed, withdrawn per pre-registration)"],
+    "evalCliSha256AtT169": "7ecceb8afcf1c882e1f93c4d66cd19be45b47a31f6e68be920f09480697ccfff",
+    "evalCliSha256AtT174": "cfd600e64e275bdca01a58e102c5f2d8eb62070099a747b0f0e33ceeac783cd6",
+    "reuseApplicable": false,
+    "reuseNotApplicableReason": "This is a fresh measurement at a different Edax level (12) than any prior gate (all prior gates used level 10); no prior level-12 data exists to reuse regardless of engine version."
+  },
+  "protocol": {
+    "engineDepth": 12, "engineExactFromEmpties": 16, "engineExactQuotaPercent": 60, "engineMaxNodes": 160000,
+    "engineTimeMs": 1500, "engineTtMiB": 64, "unlimitedExactEmpties": 20, "engineModes": ["single-root"],
+    "edaxLevel": 12, "openingSet": "primary", "openingCount": 30,
+    "sourceOfTruth": "identical to T158d/T162/T166/T169 except Edax level (10 -> 12)"
+  },
+  "execution": {
+    "resultsPath": "bench/edax-compare/endgame-results/t174-v6-vs-edax-lv12-results.json",
+    "reportPath": "bench/edax-compare/endgame-results/t174-v6-vs-edax-lv12-report.md",
+    "startedAtLocal": "2026-07-21T17:53:38+09:00",
+    "finishedAtLocal": "2026-07-21T18:07:55+09:00",
+    "totalWallClockSec": 857,
+    "totalWallClockMinutes": 14.28,
+    "gamesWallClockSumSec": 838.923,
+    "gamesWallClockMeanSec": 13.982,
+    "gamesCompleted": 60,
+    "fixedDepthRegressionAllMatched": true,
+    "nodeBudgetRegressionAllMatched": true,
+    "stderrEmpty": true,
+    "preTaskEstimateMinutes": "30-60",
+    "actualVsEstimate": "completed in ~14.3 minutes, well under the 30-60 minute estimate"
+  },
+  "results": {
+    "lv12": {"wins": 18, "draws": 1, "losses": 41, "marginSum": -364, "marginMean": -6.067, "marginMedian": -8.0},
+    "lv10Reference": {"source": "T169 (candidate D1, now production v6)", "wins": 26, "draws": 1, "losses": 33, "marginSum": -133, "marginMean": -2.217, "marginMedian": -2.5},
+    "deltaLv12MinusLv10Mean": -3.85,
+    "winRateLv10": 0.4333,
+    "winRateLv12": 0.3,
+    "conclusion": "lv12 is a measurably harder benchmark for v6; result serves as the new gauge baseline for future lv12 gates. No verdict is rendered."
+  },
+  "phaseBandTrend": {
+    "definition": "For each game, the discDiff telemetry (engine-perspective disc-count evaluation, from either the budgeted or exact-solve phase) of the LAST engine move within each phase is taken, where phase classification follows vs_edax.py's classify_phase() (opening: truePly 1-20, midgame: 21-40, endgame: 41+). Mean/median computed over all 60 games per phase. The endgame-phase value converges to the final game margin.",
+    "lv12": {
+      "opening": {"n": 60, "mean": -0.787, "median": -1.77},
+      "midgame": {"n": 60, "mean": -2.156, "median": -4.53},
+      "endgame": {"n": 60, "mean": -6.067, "median": -8.0}
+    },
+    "lv10Reference": {
+      "source": "recomputed from T169's t169-d1-vs-edax-results-full.json (v6 at lv10)",
+      "opening": {"n": 60, "mean": -0.331, "median": 0.435},
+      "midgame": {"n": 60, "mean": -0.532, "median": -0.86},
+      "endgame": {"n": 60, "mean": -2.233, "median": -3.0}
+    },
+    "interpretation": "At lv10, the deficit grows slowly through opening/midgame and only becomes pronounced in the endgame (-0.53 -> -2.23). At lv12, the deficit is already about 2.4x larger by the end of the opening (-0.79 vs -0.33), roughly 4x larger by the end of midgame (-2.16 vs -0.53), and about 2.7x larger by the endgame (-6.07 vs -2.23). This suggests Edax's greater strength at lv12 asserts itself progressively from an early stage, not only in the endgame solve -- the midgame heuristic-evaluation phase shows the largest relative widening. No causal analysis was performed (observation only, per task scope)."
+  },
+  "budgetedToExactDeviation": {
+    "definitionNote": "Per T169 verifier follow-up request, the deviation metric is defined explicitly: for each game, take the LAST engine move's discDiff telemetry during the budgeted phase (root empties ~21-22, time/node-budgeted search) and the FIRST engine move's discDiff telemetry during the unlimited-exact phase (root empties <=20, full solve). The absolute difference between these two values is the 'deviation' for that game. Identical definition to T158d/T162/T166/T169.",
+    "lv12": {"n": 60, "excludedGames": [], "meanAbsDelta": 4.676, "medianAbsDelta": 3.825, "maxAbsDelta": 17.39, "maxAbsDeltaOpening": "primary-27", "maxAbsDeltaColor": "white", "stdevAbsDelta": 3.809, "fallbackAtTransition": 2, "signFlips": 4},
+    "lv10Reference": {"n": 60, "meanAbsDelta": 4.306, "medianAbsDelta": 3.7, "maxAbsDelta": 13.9, "maxAbsDeltaOpening": "primary-22", "maxAbsDeltaColor": "white", "stdevAbsDelta": 3.386, "fallbackAtTransition": 3, "signFlips": 4},
+    "exactFallbackDefinition": "Counts ONLY the single transition move (last budgeted move before empties<=20). Identical to T158d/T162/T166/T169.",
+    "interpretation": "lv12's deviation (mean 4.68) is somewhat larger than lv10's (mean 4.31), but not qualitatively different. Sign-flip counts are identical (4/60 each), all originating from small near-zero budgeted values; no catastrophic reversal on either level."
+  },
+  "anomalyCheck": {
+    "crashes": 0,
+    "illegalMoves": 0,
+    "nondeterminism": 0,
+    "fixedDepthRegression": "PASSED 40/40",
+    "nodeBudgetRegression": "PASSED 10/10",
+    "stderrLogsEmpty": true
+  },
+  "verdict": "none (pure measurement task, no adoption/gate decision)",
+  "outOfScope": [
+    "adoption/gate decision",
+    "root-cause analysis of the midgame/endgame widening",
+    "vs_edax.py / engine / train code changes"
+  ]
+}
