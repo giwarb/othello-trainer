@@ -1,0 +1,142 @@
+{
+  "task": "T165",
+  "generatedAt": "2026-07-21T09:15:00+09:00",
+  "prerequisiteFixes": [
+    {
+      "id": 1,
+      "description": "engine::pattern_eval::PatternWeights::to_bytes_v5 (and to_bytes_v3, for symmetry) now assert scalar_feature_weights.is_empty(); previously a canonical+scalar model routed through to_bytes_v5 would silently drop its scalar coefficients.",
+      "commit": "0645702"
+    },
+    {
+      "id": 2,
+      "description": "write_feature_distribution's split label was hardcoded to WTHOR wording even on the simple-corpus path; now takes an explicit split_label argument with accurate wording per call site (WTHOR/simple-corpus x early-stop on/off).",
+      "commit": "0645702"
+    }
+  ],
+  "testResults": {
+    "method": "cargo test -p engine 2>&1 | grep -E 'Running|test result' and cargo test -p train 2>&1 | grep -E 'Running|test result', binary-by-binary (per T164 verifier feedback that a prior tally missed 3 binaries).",
+    "engineTests": {
+      "totalPassed": 243,
+      "totalIgnored": 8,
+      "totalFailed": 0,
+      "byBinary": [
+        {"binary": "lib (src/lib.rs)", "passed": 235, "ignored": 2, "failed": 0},
+        {"binary": "bin/calibrate_mpc.rs", "passed": 4, "ignored": 0, "failed": 0},
+        {"binary": "bin/eval_cli.rs", "passed": 0, "ignored": 0, "failed": 0},
+        {"binary": "bin/puzzlegen.rs", "passed": 4, "ignored": 0, "failed": 0},
+        {"binary": "tests/eval_features_nps_bench.rs", "passed": 0, "ignored": 2, "failed": 0},
+        {"binary": "tests/ffo_bench.rs", "passed": 0, "ignored": 2, "failed": 0},
+        {"binary": "tests/pattern_eval_nps_bench.rs", "passed": 0, "ignored": 1, "failed": 0},
+        {"binary": "tests/t163_canonical_nps_bench.rs", "passed": 0, "ignored": 1, "failed": 0},
+        {"binary": "doc-tests engine", "passed": 0, "ignored": 0, "failed": 0}
+      ]
+    },
+    "trainTests": {
+      "totalPassed": 148,
+      "totalIgnored": 0,
+      "totalFailed": 0,
+      "byBinary": [
+        {"binary": "lib (src/lib.rs)", "passed": 105, "ignored": 0, "failed": 0},
+        {"binary": "bin/egaroucid_filter_stones.rs", "passed": 4, "ignored": 0, "failed": 0},
+        {"binary": "bin/extract_mpc_positions.rs", "passed": 3, "ignored": 0, "failed": 0},
+        {"binary": "bin/teacher_candidates.rs", "passed": 2, "ignored": 0, "failed": 0},
+        {"binary": "main (src/main.rs)", "passed": 0, "ignored": 0, "failed": 0},
+        {"binary": "bin/train_distillation.rs", "passed": 0, "ignored": 0, "failed": 0},
+        {"binary": "bin/train_patterns.rs", "passed": 0, "ignored": 0, "failed": 0},
+        {"binary": "bin/train_patterns_v3.rs", "passed": 18, "ignored": 0, "failed": 0},
+        {"binary": "bin/wthor_lines.rs", "passed": 10, "ignored": 0, "failed": 0},
+        {"binary": "bin/wthor_to_simple.rs", "passed": 5, "ignored": 0, "failed": 0},
+        {"binary": "tests/real_data.rs", "passed": 1, "ignored": 0, "failed": 0},
+        {"binary": "doc-tests train", "passed": 0, "ignored": 0, "failed": 0}
+      ]
+    }
+  },
+  "matrix": {
+    "commonFlags": "--canonical --early-stop --early-stop-patience 3 --max-epochs 30",
+    "seeds": [1, 2, 3],
+    "configs": {
+      "A": {
+        "label": "wthor-v4-canonical",
+        "trainerConfig": "v4",
+        "data": "WTHOR full 74024 games (default path)",
+        "trainSamples": 3789914,
+        "outputFormat": "PWV5",
+        "outputDir": "train/data/t165/wthor-v4",
+        "command": "target/release/train_patterns_v3.exe --configs v4 --canonical --early-stop --early-stop-patience 3 --max-epochs 30 --seeds <N> --output-dir train/data/t165/wthor-v4"
+      },
+      "B": {
+        "label": "egaroucid-v4-canonical",
+        "trainerConfig": "v4",
+        "data": "Egaroucid full 25514097 lines (--simple-corpus, --simple-max-records unset = full corpus)",
+        "trainSamples": 21210114,
+        "outputFormat": "PWV5",
+        "outputDir": "train/data/t165/egaroucid-v4",
+        "command": "target/release/train_patterns_v3.exe --configs v4 --canonical --early-stop --early-stop-patience 3 --max-epochs 30 --seeds <N> --simple-corpus train/data/egaroucid/extracted/0001_egaroucid_7_5_1_lv17 --output-dir train/data/t165/egaroucid-v4",
+        "firstRunMemoryPeakMiB": 1150.4,
+        "firstRunElapsedApprox": "12m42s"
+      },
+      "C": {
+        "label": "egaroucid-b3-canonical",
+        "trainerConfig": "t158-b3",
+        "data": "same as B",
+        "trainSamples": 21210114,
+        "outputFormat": "PWV6",
+        "outputDir": "train/data/t165/egaroucid-b3",
+        "command": "target/release/train_patterns_v3.exe --configs t158-b3 --canonical --early-stop --early-stop-patience 3 --max-epochs 30 --seeds <N> --simple-corpus train/data/egaroucid/extracted/0001_egaroucid_7_5_1_lv17 --output-dir train/data/t165/egaroucid-b3",
+        "firstRunMemoryPeakMiB": 1150.1,
+        "firstRunElapsedApprox": "13m13s"
+      }
+    }
+  },
+  "runs": [
+    {"config": "A", "seed": 1, "bestEpoch": 2, "epochsRun": 5, "frozenMse": 436.501448, "frozenMae": 15.7763, "elapsedApprox": "47s", "sha256": "562e8227dce76c71e38c8de4672ea059005dde47867dee8502678a420bd86578", "format": "PWV5"},
+    {"config": "A", "seed": 2, "bestEpoch": 4, "epochsRun": 7, "frozenMse": 435.681258, "frozenMae": 15.733072, "elapsedApprox": "66s", "sha256": "f4200377f7546521fde72fb3b8a46cc364a5ad3a56b24e94593b28af16befad2", "format": "PWV5", "isCandidate": true},
+    {"config": "A", "seed": 3, "bestEpoch": 4, "epochsRun": 7, "frozenMse": 435.685653, "frozenMae": 15.733077, "elapsedApprox": "73s", "sha256": "fa5ade524bc1bd4e3eb1f4967193ab5fd0a3edc3c1bfc23413553798c5d06bdb", "format": "PWV5"},
+    {"config": "B", "seed": 1, "bestEpoch": 14, "epochsRun": 17, "frozenMse": 41.255251, "frozenMae": 4.809388, "elapsedApprox": "12m42s", "sha256": "fef30f807655c48994095e231698dcb9d7c7696fbaf695c90e22c0fa1faf5247", "format": "PWV5", "determinismRerunConfirmed": true},
+    {"config": "B", "seed": 2, "bestEpoch": 9, "epochsRun": 12, "frozenMse": 41.437643, "frozenMae": 4.815568, "elapsedApprox": "9m32s", "sha256": "fd50b868e3070ef2cf3fc071f975cfd1c0540a49c45ed50d10456b832fa8f3be", "format": "PWV5"},
+    {"config": "B", "seed": 3, "bestEpoch": 16, "epochsRun": 19, "frozenMse": 41.225375, "frozenMae": 4.807977, "elapsedApprox": "14m35s", "sha256": "13b7abb1d49d9aa07fe5c1d5a2af2f5ea24d0f979985832432199a2c7512c313", "format": "PWV5", "isCandidate": true},
+    {"config": "C", "seed": 1, "bestEpoch": 12, "epochsRun": 15, "frozenMse": 39.590329, "frozenMae": 4.702778, "elapsedApprox": "13m13s", "sha256": "9ce0cc054b67807641b759a2e881a87dd562146dee5e4d659bba1efa228f54a4", "format": "PWV6", "isCandidate": true},
+    {"config": "C", "seed": 2, "bestEpoch": 9, "epochsRun": 12, "frozenMse": 39.726628, "frozenMae": 4.710274, "elapsedApprox": "10m47s", "sha256": "ac1d3c76aade1901a69220110a3180f24e104d4d4890c3901150bd1ffe012356", "format": "PWV6"},
+    {"config": "C", "seed": 3, "bestEpoch": 10, "epochsRun": 13, "frozenMse": 39.671031, "frozenMae": 4.707204, "elapsedApprox": "11m37s", "sha256": "7c0b42a6582ca8a67907c50de41baa66d330eeaa3d0081ab290f986ade1348d7", "format": "PWV6"}
+  ],
+  "preregisteredSelection": {
+    "rule": "min frozen MAE within config; ties broken by smaller seed number; gate results not used",
+    "candidateA": {"seed": 2, "frozenMae": 15.733072, "sha256": "f4200377f7546521fde72fb3b8a46cc364a5ad3a56b24e94593b28af16befad2"},
+    "candidateB": {"seed": 3, "frozenMae": 4.807977, "sha256": "13b7abb1d49d9aa07fe5c1d5a2af2f5ea24d0f979985832432199a2c7512c313"},
+    "candidateC": {"seed": 1, "frozenMae": 4.702778, "sha256": "9ce0cc054b67807641b759a2e881a87dd562146dee5e4d659bba1efa228f54a4"},
+    "ties": "none (all decided by strict comparison)"
+  },
+  "crossConfigComparison": {
+    "valid": false,
+    "reason": "Config A (WTHOR) splits train/val/frozen at the game level; configs B/C (Egaroucid simple-corpus) split at the position-hash level (no game concept in the data). Population composition and possible train/frozen leakage risk differ, so raw frozen MAE values are not comparable across A vs B/C. Final comparison is deferred to T166's play-match gate."
+  },
+  "healthChecks": {
+    "method": "throwaway test engine/tests/t165_health_check.rs (deleted after use); loaded each of the 9 actual trained .bin files via PatternWeights::from_bytes, sampled ~440 positions per file from 40 self-play games (checked every 6th ply), verified score equality across all 8 D4 symmetries (tolerance 1e-2), and scanned all pattern/scalar weights for finiteness.",
+    "allRunsPassed": true,
+    "excludedRuns": [],
+    "divergenceCheck": "grepped all *.metrics.tsv for nan/inf: none found; per-epoch val_mae stayed within normal ranges (A: ~14.3-15.0, B: ~5.0-5.2, C: ~4.9-5.1) with patience-triggered stops reflecting plateaus, not divergence.",
+    "d4InvarianceSampleCounts": {"min": 439, "max": 440}
+  },
+  "determinismCheck": {
+    "scope": "config B, seed 1 only (per pre-registered rule 4, full 9-run re-run deemed too expensive)",
+    "method": "re-ran the identical command into train/data/t165/egaroucid-v4-rerun-check/ (deleted after verification, gitignored area)",
+    "result": "identical per-epoch val_mae progression and identical final SHA-256 (fef30f807655c48994095e231698dcb9d7c7696fbaf695c90e22c0fa1faf5247)"
+  },
+  "t166Manifest": {
+    "comparisonBaseline": {
+      "path": "train/weights/pattern_v4.bin",
+      "sha256": "c372b83366c4006023ae05f3af5b68dda5929aca7ff7308d1b398a89639e383f",
+      "format": "PWV3",
+      "note": "current production weights; legacy (non-canonical) scheme; identical to the T124 v4xWTHOR seed3 run (SHA-256 verified matching tasks/T124-v4-stage-resolution.md's meta.json)."
+    },
+    "candidates": [
+      {"config": "A", "seed": 2, "path": "train/data/t165/wthor-v4/v4-canonical-seed-2-earlystop.bin", "sha256": "f4200377f7546521fde72fb3b8a46cc364a5ad3a56b24e94593b28af16befad2", "format": "PWV5"},
+      {"config": "B", "seed": 3, "path": "train/data/t165/egaroucid-v4/v4-canonical-seed-3-earlystop.bin", "sha256": "13b7abb1d49d9aa07fe5c1d5a2af2f5ea24d0f979985832432199a2c7512c313", "format": "PWV5"},
+      {"config": "C", "seed": 1, "path": "train/data/t165/egaroucid-b3/t158-b3-canonical-seed-1-earlystop.bin", "sha256": "9ce0cc054b67807641b759a2e881a87dd562146dee5e4d659bba1efa228f54a4", "format": "PWV6"}
+    ]
+  },
+  "notes": {
+    "metricsJsonConfigField": "The 'config' field inside *-earlystop.metrics.json is the bare TrainingConfig.name (e.g. 'v4', 't158-b3') and does NOT reflect the --canonical flag; canonical-ness must be read from the filename's run_name suffix ('-canonical') and the magic bytes (PWV5/PWV6), not from metrics.json's config field.",
+    "valFrozenSplitDifference": "Config A splits by game (no leakage across games between train/val/frozen). Configs B/C split by position hash (no game boundaries in the source data), so related positions from the same underlying game can land in both train and val/frozen, a known leakage-bias risk documented in T153/T159b."
+  }
+}
