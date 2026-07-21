@@ -39,4 +39,22 @@ attempts: 0
 
 ## 作業ログ
 
-(ワーカーが節目ごとに追記)
+### 2026-07-22 分析実施(implementer)
+
+**専有確認**: 開始前に`train/data/egaroucid_v0002/`を確認したところT181のダウンロード(2ファイル、計約2.6GB)は完了済み、`Get-Process`でpython/curl等のCPU負荷プロセスが無いことを確認(ダウンロード完了後・変換/学習の重工程着手前の空きウィンドウ)。この間に計測を実施。
+
+**1. 対Edax NPS実測**: `bench/edax-compare/edax-extract/wEdax-x86-64.exe`を`-vv`で直接実行し、出力末尾の集計行(nodes/time/NPS)を抽出。
+- 終盤完全読み(FFO #40-44、うち側は既存FFO fast benchの値を流用): Edax 213,212,779 NPS vs うち 10,687,295 NPS → **約20.0倍**。
+- 中盤深さ12固定(t156_mpc_positions.json、空き29-36帯20局面): Edax(`-l 12`) 29,426,082 NPS vs うち MPC off 518,217 NPS(**約56.8倍**)/ MPC on(t=1.5既定) 429,832 NPS(**約68.5倍**)。
+
+**2-3. ノード単価内訳・score()呼び出し構造**: 一時的なマイクロベンチ+カウンタ(`engine/src/search.rs`に`#[ignore]`テストとして追加、計測後`git checkout`で完全復元、diff無しを確認)で実測。
+- コンポーネント単価: `legal_moves+apply_move`38.05ns、`zobrist_hash`(全走査)41.07ns、`incremental_move_hash`(増分、既存だが未使用)1.65ns(24.9倍速い)、TT probe 5.67ns、TT store 23.82ns、`score()`538-540ns(T176既測値を流用)。
+- leaf比率(3局面平均): 55.5%。
+- 内訳モデル(分岐数b=8と仮定): eval寄与≈15.5%・盤面操作寄与(move-ordering/ETCでの反復呼び出し込み)≈17.7%、モデル合計≈33%、**残り約67%は本パイロットのマイクロベンチでは分解できない未解明オーバーヘッド**。「評価が支配的か盤面操作が支配的か」への回答: **どちらも単独では支配的でない**。
+- **重要な発見**: Zobristハッシュの増分更新プリミティブ(`incremental_move_hash`)が実装・テスト済みなのに`negascout`本体では未使用(全走査版を毎回呼んでいる)。配線するだけで全体の約8%削減が見込める低コスト・低リスクな候補。
+
+**4-5. 構造差分表・優先順位リスト**: Edaxの既知手法(増分評価・増分ハッシュ・軽量TT・マルチスレッド・反復深化)と自エンジンの対応状況を突き合わせ、7項目の優先順位表を作成(1位=増分ハッシュ配線、2位=move-ordering簡略化、3位=評価の増分化〔最大の潜在源だが高コスト〕、4位=本格プロファイリング、5-6位=T177本体議題〔マルチスレッド・反復深化+持ち時間制〕、7位=TT store調査)。
+
+**検証**: `cargo test -p engine`(全バイナリ)243 passed(lib、既存不変)+ 5 passed(self_play_gen、T178由来・無関係)+ 他バイナリ全パス。計測用の一時コード(カウンタ・マイクロベンチテスト)は`git checkout -- engine/src/search.rs`で完全復元、diffゼロを確認。Edax実行用の一時OBFファイルは削除済み。`git status --short`はレポート2ファイルのみ(コミット後クリーン、T181のタスクファイル差分は別ワーカー由来のため触らず)。
+
+**成果物**: `bench/edax-compare/t180_bottleneck_report.md`+`.meta.json`。
