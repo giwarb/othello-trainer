@@ -1697,8 +1697,10 @@ fn main() -> ExitCode {
         // `--subset-seed`(既定42)はここではreservoir samplingのseedとして
         // 流用する(WTHOR経路の層化サブセットseedと同じCLI引数を、意味の異なる
         // 別モードで再利用しているだけで、両モードは同時に有効にならない)。
-        let path = PathBuf::from(&simple_corpus_path);
-        let files = match simple_corpus::list_simple_corpus_files(&path) {
+        // T181: カンマ区切りで複数パスを指定できる(E2=lv17+v0002の単純連結)。
+        // カンマを含まない従来の単一パス指定では挙動が変わらない
+        // (`list_simple_corpus_files_multi`のdocコメント参照)。
+        let files = match simple_corpus::list_simple_corpus_files_multi(&simple_corpus_path) {
             Ok(v) => v,
             Err(e) => {
                 eprintln!("{e}");

@@ -89,6 +89,27 @@ pub fn list_simple_corpus_files(path: &Path) -> Result<Vec<PathBuf>, String> {
     }
 }
 
+/// T181: `--simple-corpus`にカンマ区切りで複数のパス(ディレクトリ/ファイル)を
+/// 渡せるようにする(E2=現行lv17コーパス+v0002コーパスの単純連結のため)。
+/// 各パスを`list_simple_corpus_files`でそれぞれ列挙し、指定順に連結するだけ
+/// (各パス内部はこれまでどおりファイル名昇順)。カンマを含まない単一パスの
+/// 場合は`list_simple_corpus_files`と完全に同じ結果を返す(既存呼び出しの
+/// 挙動は不変)。
+pub fn list_simple_corpus_files_multi(paths_arg: &str) -> Result<Vec<PathBuf>, String> {
+    let mut all = Vec::new();
+    for part in paths_arg.split(',') {
+        let trimmed = part.trim();
+        if trimmed.is_empty() {
+            continue;
+        }
+        all.extend(list_simple_corpus_files(Path::new(trimmed))?);
+    }
+    if all.is_empty() {
+        return Err(format!("no simple-corpus paths found in {paths_arg:?}"));
+    }
+    Ok(all)
+}
+
 fn xorshift_next(state: &mut u64) -> u64 {
     *state ^= *state << 13;
     *state ^= *state >> 7;
@@ -300,6 +321,49 @@ mod tests {
         let dir = temp_dir("empty-dir");
         assert!(list_simple_corpus_files(&dir).is_err());
         fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn list_simple_corpus_files_multi_matches_single_path_behavior_when_no_comma() {
+        // T181: カンマを含まない単一パスでは既存のlist_simple_corpus_filesと
+        // 完全に同じ結果になること(既存呼び出しの挙動不変性)。
+        let dir = temp_dir("multi-single-path-equivalence");
+        fs::write(dir.join("0000001.txt"), "b").unwrap();
+        fs::write(dir.join("0000000.txt"), "a").unwrap();
+        let single = list_simple_corpus_files(&dir).unwrap();
+        let multi = list_simple_corpus_files_multi(dir.to_str().unwrap()).unwrap();
+        assert_eq!(single, multi);
+        fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn list_simple_corpus_files_multi_concatenates_paths_in_given_order() {
+        // T181: E2(lv17+v0002)の単純連結を想定したテスト。カンマ区切りで
+        // 複数のディレクトリ/ファイルを渡すと、指定した順に(各パス内部は
+        // ファイル名昇順のまま)連結された一覧になること。
+        let dir_a = temp_dir("multi-concat-a");
+        let dir_b = temp_dir("multi-concat-b");
+        fs::write(dir_a.join("0000001.txt"), "a1").unwrap();
+        fs::write(dir_a.join("0000000.txt"), "a0").unwrap();
+        let single_file_b = dir_b.join("b.txt");
+        fs::write(&single_file_b, "b0").unwrap();
+
+        let arg = format!(" {} , {} ", dir_a.display(), single_file_b.display());
+        let files = list_simple_corpus_files_multi(&arg).unwrap();
+        let names: Vec<_> = files
+            .iter()
+            .map(|p| p.file_name().unwrap().to_str().unwrap().to_string())
+            .collect();
+        assert_eq!(names, vec!["0000000.txt", "0000001.txt", "b.txt"]);
+
+        fs::remove_dir_all(&dir_a).ok();
+        fs::remove_dir_all(&dir_b).ok();
+    }
+
+    #[test]
+    fn list_simple_corpus_files_multi_errors_when_all_parts_empty_or_blank() {
+        assert!(list_simple_corpus_files_multi("").is_err());
+        assert!(list_simple_corpus_files_multi("  ,  ").is_err());
     }
 
     fn write_lines(path: &Path, lines: &[String]) {
