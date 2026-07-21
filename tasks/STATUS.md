@@ -12,7 +12,7 @@
 
 | ID | タスク | 担当 | 状態 | 試行 |
 |---|---|---|---|---|
-| T171 | D1候補の本番配線(pattern_v6公開、ユーザー採用裁定済み) | implementer | in_progress(T167前例踏襲+ゲートスクリプト2本v6化+ANALYSIS_ENGINE_VERSION 8。作業中の差分をverifierが目撃済み=想定どおり) | 0 |
+| T171 | D1候補の本番配線(pattern_v6公開) | implementer | review(a1dc56b、**本番Pages稼働確認済み**〔v6取得200・対局/評価バー/解析動作・エラーなし・native/WASM 5局面完全一致〕、ANALYSIS_ENGINE_VERSION 8・ゲート2本v6化。verifier検収中) | 0 |
 
 ## 有効な方針・申し送り(今後のタスクに効くもの)
 
