@@ -1,7 +1,7 @@
 ---
 id: T172
 title: MPC再校正(v6評価関数) — T156資産流用でGate 2/3再判定
-status: todo
+status: done # verifier(σ16行再計算・CALIBRATIONS逆算16行・Gate数値・判定線同一性・OFF不変・レポート決定性まで独立検証)+代替レビュー(重大0・中1・軽微3)両合格、2026-07-21。結論: σ半減・Gate2大幅改善もGate3不合格→事前登録撤退、MPC OFF維持。再評価条件=ノード予算拡大(マルチスレッド)時
 assignee: implementer
 attempts: 0
 ---
