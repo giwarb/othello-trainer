@@ -54,7 +54,7 @@
     "v4": {"wins": 4, "draws": 2, "losses": 54, "marginSum": -1447, "marginMean": -24.117, "marginMedian": -24},
     "A": {"wins": 5, "draws": 2, "losses": 53, "marginSum": -1540, "marginMean": -25.667, "marginMedian": -28},
     "B": {"wins": 16, "draws": 2, "losses": 42, "marginSum": -424, "marginMean": -7.067, "marginMedian": -6},
-    "C": {"wins": 20, "draws": 3, "losses": 37, "marginSum": -405, "marginMean": -6.75, "marginMedian": -4}
+    "C": {"wins": 20, "draws": 3, "losses": 37, "marginSum": -405, "marginMean": -6.75, "marginMedian": -5.0}
   },
   "statistics": {
     "boostrapArrayOrderingNote": "Opening-level arrays are ordered by opening number ascending (primary-01..primary-30, sorted via `sorted(openings, key=lambda s: int(s.split('-')[1]))`). Game-level arrays are ordered by (opening number ascending, then black before white), via `sorted(keys, key=lambda k: (int(k[0].split('-')[1]), not k[1]))`. This applies to every diffs/game_diffs array fed into paired_bootstrap below (per T162 verifier follow-up request).",
