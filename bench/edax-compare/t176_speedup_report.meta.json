@@ -1,0 +1,111 @@
+{
+  "schemaVersion": 1,
+  "task": "T176",
+  "analysis": "MPC aggressiveness gated trial + evaluation hot-path profile",
+  "part1": {
+    "screening": {
+      "method": "proxy (T156b Gate1 style, held-out root NWS[-1,0) approximation), no new engine search",
+      "selectedT": 1.0,
+      "criterion": "agreementDrop<=0.02 and errorIncrease<=0.05, most aggressive (smallest) t among passing",
+      "allTPassed": true,
+      "sourceReport": "bench/edax-compare/t176_t_screening_report.md",
+      "sourceMeta": "bench/edax-compare/t176_t_screening.meta.json",
+      "sourceMetaSha256": "cbb449d6d91ccfeed401f8f068e8176814daec73a2cd775a7710397e57a81e4b"
+    },
+    "marginTable": {
+      "sourceReport": "bench/edax-compare/t176_margin_table_report.md",
+      "sourceMeta": "bench/edax-compare/t176_margin_table.meta.json",
+      "sourceMetaSha256": "5f4693ddb0a21f8a5a261e79cbd63afa9eb39d071b0a15f6fe5a695b80b4e640",
+      "t1_5MatchesProductionTable": true
+    },
+    "confirmationMatch": {
+      "opponent": "Edax lv12",
+      "games": 30,
+      "openings": "T175 P1 primary set, first 15 (same as baseline)",
+      "engineSettings": {
+        "depth": 12, "maxNodes": 100000000, "timeMs": 15000, "exactFromEmpties": 16,
+        "unlimitedExactEmpties": 20, "ttMiB": 64, "weights": "train/weights/pattern_v6.bin",
+        "mpcMarginT": 1.0
+      },
+      "weightsSha256": "e69f3b1c33432bafd388af82adde64270ec8c51acaab070bbfff4cf4caf20fc9",
+      "openingLevel": {"n": 15, "meanDiff": 1.7333333333333334, "ci95": [-2.3333333333333335, 6.0], "signTestP": 0.4386},
+      "gameLevel": {"n": 30, "meanDiff": 1.7333333333333334, "ci95": [-1.8, 5.533333333333333], "signTestP": 0.6831},
+      "bigRegressionDetected": false,
+      "anomalies": {"crashes": 0, "illegalMoves": 0, "nodeBudgetDeterminismMismatches": 0, "stderrEmpty": true},
+      "sourceReport": "bench/edax-compare/t176_confirmation_compare_report.md",
+      "sourceMeta": "bench/edax-compare/t176_confirmation_compare.meta.json",
+      "sourceMetaSha256": "7c41e573536bcc534bbadfa0bd4424ec8003c1600c56dce50a8e56cfcef56942",
+      "note": "raw game-log JSON is gitignored (matches T175 precedent); only this report/meta and the aggregated statistics are committed"
+    },
+    "controlledNodeComparison": {
+      "method": "calibrate_mpc gate (new --mpc-margin-t flag), fixed position set, depth 12, off vs t=1.5 vs t=1.0",
+      "positions": "t156_mpc_positions.json test split, empty-bucket 21-28 only (first 60 by --max-positions, other buckets out of time budget)",
+      "positionCount": 60,
+      "weights": "train/weights/pattern_v6.bin",
+      "totalNodes": {"off": 67423404, "t1_5": 23129378, "t1_0": 18255643},
+      "ratioVsOff": {"t1_5": 0.34304672603002956, "t1_0": 0.2707612181669143},
+      "ratioT1_0VsT1_5": 0.789283784458017,
+      "additionalReductionFromT1_5Percent": 21.07
+    },
+    "engineWiring": {
+      "mpcRsChanges": "Added Calibration.sigma_centidisc; added calibration_with_margin_t(base, t) helper",
+      "searchRsChanges": "Added SearchCtx.mpc_margin_t: Option<f32> (default None); added search_with_eval_with_policy_and_margin_t as the new entry point; existing search_with_eval_with_policy now a thin None-passing wrapper",
+      "evalCliChanges": "Added --mpc-margin-t <f32> to `best` subcommand (requires --enable-mpc)",
+      "calibrateMpcChanges": "Added --mpc-margin-t <f32> to `gate` subcommand (requires --mpc on); added GateConfig.mpc_margin_t_permille for audit/resume",
+      "vsEdaxPyChanges": "Added --engine-mpc-margin-t <float>, threaded through engine_best/play_game, recorded in settings/run_key",
+      "defaultBehaviorUnchangedProof": [
+        "engine/src/mpc.rs test calibration_with_margin_t_at_1_5_reproduces_the_stored_table_margin (all 16 table entries)",
+        "engine/src/search.rs test margin_t_override_at_1_5_is_bit_identical_to_the_default_none_path (score/nodes/depth/best_move/mpc_stats all equal)",
+        "eval_cli CLI smoke: --enable-mpc alone vs --enable-mpc --mpc-margin-t 1.5 produced identical output except elapsedMs/nps (wall-clock) and the echoed mpcMarginTOverridden flag"
+      ]
+    }
+  },
+  "part2": {
+    "profile": {
+      "method": "throwaway bench (engine/tests/t176_score_profile_bench.rs, deleted after use, same convention as T168 npsReference)",
+      "weights": "train/weights/pattern_v6.bin (D1, 46 instances)",
+      "fullScoreNsPerEval": [538.04, 539.65],
+      "noScalarNsPerEval": [448.39, 446.72],
+      "scalarFeatureSharePercent": [16.66, 17.22],
+      "note": "canonical table_index conversion is a single Option branch + array index (O(1) per pattern); reasoned to be cheap by code inspection, not separately isolated by measurement"
+    },
+    "appliedOptimization": {
+      "file": "engine/src/patterns.rs",
+      "change": "cell_trit/pattern_state_index: hoist (own, opp) derivation from mover out of the per-cell loop to once per pattern (was recomputed via `match mover` on every cell)",
+      "bitIdenticalProof": {
+        "method": "git stash (patterns.rs only) + eval_cli eval --depth 0 on 1200 positions, compare full-output SHA-256 before/after",
+        "positions": "bench/edax-compare/t156_mpc_positions.json (all 1200)",
+        "weights": "train/weights/pattern_v6.bin",
+        "shaBefore": "952bb1e70f92e0a672e5e33339c8e2460da73014fd19c2c557eae5d0ca62aa6a",
+        "shaAfter": "952bb1e70f92e0a672e5e33339c8e2460da73014fd19c2c557eae5d0ca62aa6a",
+        "identical": true
+      },
+      "npsMeasurement": {
+        "method": "throwaway bench (engine/tests/t176_score_hotpath_bench.rs, deleted after use), search_with_eval depth 12 time_ms=None on a representative midgame position, 3 runs each",
+        "beforeNps": [892626, 879538, 862295],
+        "afterNps": [900515, 884350, 889041],
+        "beforeMean": 878153,
+        "afterMean": 891302,
+        "verdict": "within measurement noise; ranges overlap (before max 892626 > after min 884350); likely already performed by LLVM's loop-invariant code motion in release builds"
+      }
+    },
+    "proposedNotApplied": [
+      "incremental (differential) evaluation: recompute only patterns touched by the move's flipped cells instead of all 46 instances per call; output-changing risk + interaction with TT/ETC needs broader verification, deferred to the 7/26 Codex consultation or a separate task",
+      "memoization/caching of canonical table_index lookups if repeated (class_id, raw_state) pairs are shown to recur heavily in the search tree; requires separate measurement of recurrence rate first"
+    ]
+  },
+  "engineFileHashes": {
+    "engine/src/mpc.rs": "18ea17e2995a36b527ac1fc99cb71c434b25fda2538799e6d6678842c91b1e35",
+    "engine/src/search.rs": "8faf5255b96dccaf20fd2451facf42b0224d50fca4fac49a5765f32103345c4b",
+    "engine/src/patterns.rs": "0f4c9ac7d1fb68dbb452b65f346dd289e347e4ccf4802b5aa8c02ee2f92415fd",
+    "engine/src/bin/eval_cli.rs": "b81a1ed39c888ee40941f161480d2671a37b13f57f486073df890945ff1b9309",
+    "engine/src/bin/calibrate_mpc.rs": "aa32bc7a918989cc3e7559f5c1128f5031b05ffd2b7ca60bf1402eba4456e8e9",
+    "bench/edax-compare/vs_edax.py": "c71895bebd7a4999d9397cb62a4f352ff6502eaf197953bc8786fb68df1e6989"
+  },
+  "testResults": {
+    "cargoTestEngineLib": "243 passed, 0 failed, 2 ignored",
+    "cargoTestEngineAll": "all test binaries passed",
+    "ffoFast": "5/5 positions solved correctly (score matches expected), nodes=641077417, unchanged from prior baseline"
+  },
+  "decision": "part1_propose_t1_0_adoption_pending_user_orchestrator_decision; part2_applied_safe_hoisting_bit_identical_nps_impact_negligible"
+}

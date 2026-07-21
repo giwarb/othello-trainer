@@ -160,6 +160,10 @@ struct GateConfig {
     exact_from_empties: u8,
     exact_quota_percent: u8,
     mpc: bool,
+    /// T176: MPCマージン積極化の試行専用。tを千分率の整数(round(t*1000))で
+    /// 保持する(`GateConfig`は`Eq`を導出するため`f32`を直接持てない)。
+    /// `None`は既定t=1.5(CALIBRATIONS表のまま)を表す。
+    mpc_margin_t_permille: Option<u32>,
     aspiration: bool,
     history: bool,
     split: Option<String>,
@@ -554,6 +558,13 @@ fn cmd_gate(args: &[String]) {
     if policy.enable_mpc && !cfg!(feature = "mpc_enabled") {
         panic!("--mpc on requires --features mpc_enabled");
     }
+    // T176: MPCマージン積極化の試行専用。`--mpc`(on)と併用時のみ意味を持つ。
+    // 未指定なら`None`(既定t=1.5のCALIBRATIONS表のまま、既存呼び出しと同じ)。
+    let mpc_margin_t: Option<f32> = get_arg(args, "--mpc-margin-t")
+        .map(|v| v.parse().unwrap_or_else(|_| panic!("invalid --mpc-margin-t: {v}")));
+    if mpc_margin_t.is_some() && !policy.enable_mpc {
+        panic!("--mpc-margin-t requires --mpc on");
+    }
     let parsed: Value = serde_json::from_slice(&positions_bytes).expect("invalid positions JSON");
     let positions = parsed
         .as_array()
@@ -600,6 +611,7 @@ fn cmd_gate(args: &[String]) {
         exact_from_empties,
         exact_quota_percent,
         mpc: policy.enable_mpc,
+        mpc_margin_t_permille: mpc_margin_t.map(|t| (t * 1000.0).round() as u32),
         aspiration: policy.enable_aspiration,
         history: policy.enable_history,
         split: split.clone(),
@@ -690,7 +702,7 @@ fn cmd_gate(args: &[String]) {
                 exact_from_empties,
             };
             let mut tt = TranspositionTable::new(16);
-            let result = search::search_with_eval_with_policy(
+            let result = search::search_with_eval_with_policy_and_margin_t(
                 &board,
                 side,
                 &limit,
@@ -699,6 +711,7 @@ fn cmd_gate(args: &[String]) {
                 max_nodes,
                 exact_quota_percent,
                 policy,
+                mpc_margin_t,
             );
             let m = &result.mpc_stats;
             output.records.push(GateRecord {

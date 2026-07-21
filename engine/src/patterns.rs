@@ -266,13 +266,15 @@ pub fn generate_patterns_for(config: PatternConfig) -> Vec<PatternCells> {
     result
 }
 
-/// 盤面の1マス(`index`)の状態を、`mover`から見た3値(0=空, 1=自石, 2=相手石)で返す。
-fn cell_trit(board: &Board, mover: Side, index: u8) -> u32 {
+/// 盤面の1マス(`index`)の状態を、(自分の石, 相手の石)のビットボードから見た
+/// 3値(0=空, 1=自石, 2=相手石)で返す。`own`/`opp`は呼び出し元が`mover`から
+/// 一度だけ導出して渡す(T176: 元は`(board, mover)`を受け取りここで毎回
+/// `match mover`していたが、[`pattern_state_index`]がセルごとに呼び出す
+/// ホットパスであるため、`mover`に応じた`(own, opp)`の選択を呼び出し元で
+/// 1回だけ行うよう分離した。出力はビット単位で不変
+/// 〔`bench/edax-compare/t176_score_optimization_smoke.md`参照〕)。
+fn cell_trit(own: u64, opp: u64, index: u8) -> u32 {
     let bit = 1u64 << index;
-    let (own, opp) = match mover {
-        Side::Black => (board.black, board.white),
-        Side::White => (board.white, board.black),
-    };
     if own & bit != 0 {
         1
     } else if opp & bit != 0 {
@@ -284,10 +286,19 @@ fn cell_trit(board: &Board, mover: Side, index: u8) -> u32 {
 
 /// 指定したパターン(`cells`)について、`board`・`mover`から見た状態インデックス
 /// (3進数エンコード、`0 .. num_states(cells.len())`)を計算する。
+///
+/// T176: `(own, opp)`を`mover`から一度だけ導出し、セルごとのループでは
+/// 使い回す(以前はセルごとに`match mover`し直していた。D1〔46インスタンス〕
+/// では1回の`score()`呼び出しあたり平均セル数×46回の`match`が
+/// 46回の`match`に減る。出力はビット単位で不変)。
 pub fn pattern_state_index(cells: &[u8], board: &Board, mover: Side) -> u32 {
+    let (own, opp) = match mover {
+        Side::Black => (board.black, board.white),
+        Side::White => (board.white, board.black),
+    };
     let mut index = 0u32;
     for (position, &cell) in cells.iter().enumerate() {
-        let trit = cell_trit(board, mover, cell);
+        let trit = cell_trit(own, opp, cell);
         index += trit * POW3[position];
     }
     index

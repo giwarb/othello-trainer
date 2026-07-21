@@ -114,7 +114,7 @@ fn main() {
         "make-zero-feature-model" => cmd_make_zero_feature_model(&args[2..]),
         _ => {
             eprintln!(
-                "usage:\n  eval_cli gen --category NAME --min-empties N --max-empties M --count C --seed S\n  eval_cli eval --depth N --exact-from-empties M [--pattern-weights PATH] [--disable-eval-features]   (JSON配列を標準入力から読む)\n  eval_cli moves --depth N --exact-from-empties M [--pattern-weights PATH] [--disable-eval-features]  (単一局面のJSONオブジェクトを標準入力から読み、全合法手のスコアを返す)\n  eval_cli best --depth N [--time-ms T] [--max-nodes N] --exact-from-empties M [--exact-quota-percent 25|40|50|60|75] [--pattern-weights PATH] [--disable-eval-features] [--enable-mpc]  (T084/T085: single-root探索で最善手1つとテレメトリを返す。T175: --enable-mpcはmpc_enabled featureビルド必須、既定OFFで既存出力は不変)\n  eval_cli solve [--alpha A] [--beta B] [--max-nodes N] [--time-ms T] [--tt-mb M]  (solve one endgame position with a full or custom window)\n  eval_cli budget-regression --depth N --max-nodes N --exact-from-empties M [--exact-quota-percent 25|40|50|60|75] [--pattern-weights PATH] [--disable-eval-features]  (同一局面群を2回探索して決定性を検証)"
+                "usage:\n  eval_cli gen --category NAME --min-empties N --max-empties M --count C --seed S\n  eval_cli eval --depth N --exact-from-empties M [--pattern-weights PATH] [--disable-eval-features]   (JSON配列を標準入力から読む)\n  eval_cli moves --depth N --exact-from-empties M [--pattern-weights PATH] [--disable-eval-features]  (単一局面のJSONオブジェクトを標準入力から読み、全合法手のスコアを返す)\n  eval_cli best --depth N [--time-ms T] [--max-nodes N] --exact-from-empties M [--exact-quota-percent 25|40|50|60|75] [--pattern-weights PATH] [--disable-eval-features] [--enable-mpc] [--mpc-margin-t T]  (T084/T085: single-root探索で最善手1つとテレメトリを返す。T175: --enable-mpcはmpc_enabled featureビルド必須、既定OFFで既存出力は不変。T176: --mpc-margin-tは--enable-mpc併用時のみ有効、未指定は既定t=1.5のCALIBRATIONS表のまま)\n  eval_cli solve [--alpha A] [--beta B] [--max-nodes N] [--time-ms T] [--tt-mb M]  (solve one endgame position with a full or custom window)\n  eval_cli budget-regression --depth N --max-nodes N --exact-from-empties M [--exact-quota-percent 25|40|50|60|75] [--pattern-weights PATH] [--disable-eval-features]  (同一局面群を2回探索して決定性を検証)"
             );
             std::process::exit(2);
         }
@@ -805,6 +805,15 @@ fn cmd_best(args: &[String]) {
         eprintln!("--enable-mpc requires a build with --features mpc_enabled (or a test build)");
         std::process::exit(1);
     }
+    // T176: MPCマージン積極化(t)の試行専用フラグ。`--enable-mpc`と併用時のみ
+    // 意味を持ち、未指定なら`None`(=`engine/src/mpc.rs`のCALIBRATIONS表を
+    // t=1.5のまま使う、既存の`--enable-mpc`単体指定と完全に同じ挙動)。
+    let mpc_margin_t: Option<f32> = get_arg(args, "--mpc-margin-t")
+        .map(|v| v.parse().unwrap_or_else(|_| panic!("invalid --mpc-margin-t: {v}")));
+    if mpc_margin_t.is_some() && !enable_mpc {
+        eprintln!("--mpc-margin-t requires --enable-mpc");
+        std::process::exit(1);
+    }
 
     // exact読みが「試みられた」かどうかは、ルート局面自体の空きマス数と
     // `exact_from_empties`の比較だけで(探索前に)決まる(探索木の途中で
@@ -824,7 +833,7 @@ fn cmd_best(args: &[String]) {
             enable_aspiration: true,
             enable_mpc: true,
         };
-        search::search_with_eval_with_policy(
+        search::search_with_eval_with_policy_and_margin_t(
             &b,
             side,
             &limit,
@@ -833,6 +842,7 @@ fn cmd_best(args: &[String]) {
             max_nodes,
             exact_quota_percent,
             policy,
+            mpc_margin_t,
         )
     } else {
         match max_nodes {
@@ -935,6 +945,12 @@ fn cmd_best(args: &[String]) {
             "skippedExactBoundary": result.mpc_stats.skipped_exact_boundary,
             "skippedUncalibrated": result.mpc_stats.skipped_uncalibrated,
         });
+        // T176: 監査用に、実際に使ったマージン係数tを記録する
+        // (`--mpc-margin-t`未指定ならCALIBRATIONS表の既定t=1.5をそのまま
+        // 使ったことを明示するため`1.5`を出力する。実際の適用有無は
+        // `mpcMarginTOverridden`で区別できる)。
+        output["mpcMarginT"] = json!(mpc_margin_t.unwrap_or(1.5));
+        output["mpcMarginTOverridden"] = json!(mpc_margin_t.is_some());
     }
     println!("{output}");
 }

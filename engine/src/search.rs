@@ -450,6 +450,7 @@ pub fn search_with_eval(
         None,
         EXACT_QUOTA_PERCENT,
         SearchPolicy::default(),
+        None,
     )
 }
 
@@ -503,6 +504,7 @@ pub fn search_with_eval_with_node_limit_and_exact_quota(
             enable_aspiration: true,
             enable_mpc: false,
         },
+        None,
     )
 }
 
@@ -519,6 +521,37 @@ pub fn search_with_eval_with_policy(
     exact_quota_percent: u8,
     policy: SearchPolicy,
 ) -> SearchResult {
+    search_with_eval_with_policy_and_margin_t(
+        board,
+        side_to_move,
+        limit,
+        tt,
+        weights,
+        max_nodes,
+        exact_quota_percent,
+        policy,
+        None,
+    )
+}
+
+/// T176: [`search_with_eval_with_policy`]にMPCマージン係数tの上書きを
+/// 追加した入口。`mpc_margin_t`が`None`なら[`search_with_eval_with_policy`]
+/// と完全に同じ(既存呼び出し元は本関数経由で挙動不変)。`Some(t)`のときだけ、
+/// `mpc_try_cutoff`が使う`Calibration`の`margin_high`/`margin_low`を
+/// `ceil(t*sigma_centidisc)`で再計算する(`engine/src/mpc.rs`の
+/// `calibration_with_margin_t`参照)。MPCマージン積極化の試行専用
+/// (T176、本番経路・既存テストからは呼ばれない)。
+pub fn search_with_eval_with_policy_and_margin_t(
+    board: &Board,
+    side_to_move: Side,
+    limit: &SearchLimit,
+    tt: &mut TranspositionTable,
+    weights: Option<&PatternWeights>,
+    max_nodes: Option<u64>,
+    exact_quota_percent: u8,
+    policy: SearchPolicy,
+    mpc_margin_t: Option<f32>,
+) -> SearchResult {
     assert!(exact_quota_percent <= 100);
     search_with_eval_inner(
         board,
@@ -530,6 +563,7 @@ pub fn search_with_eval_with_policy(
         max_nodes,
         exact_quota_percent,
         policy,
+        mpc_margin_t,
     )
 }
 
@@ -552,6 +586,7 @@ fn search_with_eval_inner(
     max_nodes: Option<u64>,
     exact_quota_percent: u8,
     policy: SearchPolicy,
+    mpc_margin_t: Option<f32>,
 ) -> SearchResult {
     // TTスケール混同防止(T007): 同じ `tt` に対して過去に異なる
     // `exact_from_empties` で探索していた場合、その古いエントリは
@@ -720,6 +755,7 @@ fn search_with_eval_inner(
                 weights,
                 suppress_mpc: false,
                 enable_mpc: policy.enable_mpc && (cfg!(feature = "mpc_enabled") || cfg!(test)),
+                mpc_margin_t,
                 mpc_stats: &mut mpc_stats,
                 enable_etc,
                 exact_enabled: max_nodes.is_none() || depth > 1,
@@ -1352,6 +1388,7 @@ fn search_all_moves_with_eval_core_restricted(
                         weights,
                         suppress_mpc: false,
                         enable_mpc: false,
+                        mpc_margin_t: None,
                         mpc_stats: &mut mpc_stats,
                         enable_etc: true,
                         exact_enabled: true,
@@ -1539,6 +1576,15 @@ struct SearchCtx<'a> {
     suppress_mpc: bool,
     /// 探索ポリシーでMPCを有効にし、コード包含featureも満たした場合だけtrue。
     enable_mpc: bool,
+    /// T176: MPCマージン係数tの上書き(既定`None`)。`None`のときは
+    /// `mpc::calibration_for`が返す`Calibration`(t=1.5で校正済み、
+    /// `engine/src/mpc.rs`のCALIBRATIONS)をそのまま使い、本番経路・
+    /// 既存テストの挙動を一切変えない。`Some(t)`のときだけ、適用直前に
+    /// `mpc::calibration_with_margin_t`で`margin_high`/`margin_low`を
+    /// `ceil(t*sigma_centidisc)`に再計算したコピーを使う(スロープ・切片・
+    /// プローブ深さは不変)。マージン積極化の試行専用
+    /// (`search_with_eval_with_policy_and_margin_t`経由でのみ`Some`になる)。
+    mpc_margin_t: Option<f32>,
     mpc_stats: &'a mut MpcStats,
     /// T051: `true`の間、`negascout`は候補手を1つずつ実際に再帰探索する
     /// 前に、ETC(Enhanced Transposition Cutoff、[`etc_try_cutoff`]参照)を
@@ -2003,7 +2049,7 @@ fn mpc_try_cutoff(
     }
 
     let empties = board.empty_count();
-    let Some(calibration) = mpc::calibration_for(empties, depth) else {
+    let Some(base_calibration) = mpc::calibration_for(empties, depth) else {
         ctx.mpc_stats.skipped_uncalibrated += 1;
         return None;
     };
@@ -2012,6 +2058,18 @@ fn mpc_try_cutoff(
         return None;
     }
     ctx.mpc_stats.eligible_nodes += 1;
+
+    // T176: `ctx.mpc_margin_t`が`None`(既定・本番経路)のときは`base_calibration`
+    // (t=1.5固定表)をそのまま使う。`Some(t)`のときだけ、margin_high/margin_low を
+    // `ceil(t*sigma)`で再計算したコピーを使う(スロープ・切片・プローブ深さは不変)。
+    let overridden_calibration;
+    let calibration = match ctx.mpc_margin_t {
+        Some(t) => {
+            overridden_calibration = mpc::calibration_with_margin_t(base_calibration, t);
+            &overridden_calibration
+        }
+        None => base_calibration,
+    };
 
     // プローブの全return経路で再帰MPCとexactを元の状態へ復元する。
     let old_suppress_mpc = ctx.suppress_mpc;
@@ -3071,6 +3129,7 @@ mod tests {
                     None,
                     EXACT_QUOTA_PERCENT,
                     SearchPolicy::default(),
+                    None,
                 );
 
                 let mut tt_off = TranspositionTable::new(4);
@@ -3084,6 +3143,7 @@ mod tests {
                     None,
                     EXACT_QUOTA_PERCENT,
                     SearchPolicy::default(),
+                    None,
                 );
 
                 total_nodes_with_etc += result_on.nodes;
@@ -3181,6 +3241,7 @@ mod tests {
                     None,
                     EXACT_QUOTA_PERCENT,
                     SearchPolicy::default(),
+                    None,
                 );
 
                 let mut tt_off = TranspositionTable::new(16);
@@ -3194,6 +3255,7 @@ mod tests {
                     None,
                     EXACT_QUOTA_PERCENT,
                     SearchPolicy::default(),
+                    None,
                 );
 
                 total_nodes_with_etc += result_on.nodes;
@@ -3308,6 +3370,7 @@ mod tests {
                         enable_aspiration: true,
                         enable_mpc: false,
                     },
+                    None,
                 );
 
                 let mut tt_off = TranspositionTable::new(4);
@@ -3321,6 +3384,7 @@ mod tests {
                     Some(generous_max_nodes),
                     EXACT_QUOTA_PERCENT,
                     SearchPolicy::default(),
+                    None,
                 );
 
                 assert!(
@@ -4041,6 +4105,7 @@ mod tests {
             weights: None,
             suppress_mpc: false,
             enable_mpc: true,
+            mpc_margin_t: None,
             mpc_stats: &mut mpc_stats,
             enable_etc: true,
             exact_enabled: true,
@@ -4076,6 +4141,7 @@ mod tests {
             weights: None,
             suppress_mpc: false,
             enable_mpc: true,
+            mpc_margin_t: None,
             mpc_stats: &mut mpc_stats,
             enable_etc: true,
             exact_enabled: true,
@@ -4112,6 +4178,7 @@ mod tests {
             weights: None,
             suppress_mpc: false,
             enable_mpc: true,
+            mpc_margin_t: None,
             mpc_stats: &mut mpc_stats,
             enable_etc: true,
             exact_enabled: true,
@@ -4172,5 +4239,51 @@ mod tests {
         let mut tt = TranspositionTable::new(4);
         let off = search(&board, side, &limit, &mut tt);
         assert_eq!(off.mpc_stats, MpcStats::default());
+    }
+
+    #[test]
+    fn margin_t_override_at_1_5_is_bit_identical_to_the_default_none_path() {
+        // T176: `search_with_eval_with_policy_and_margin_t`に`Some(1.5)`を
+        // 渡した経路が、既定(`None`、本番のCALIBRATIONS表をそのまま使う)と
+        // 完全に同じ結果(score/nodes/depth/best_move/mpc_stats全て)を返す
+        // ことを確認する。これは「t=1.5がCALIBRATIONS表の値そのものを
+        // 再現する」(mpc.rsの単体テスト)に加え、`search.rs`側の配線
+        // (`ctx.mpc_margin_t`経由の上書き適用)自体が既定経路を一切
+        // 変えないことの実証(受け入れ基準4「既定挙動の不変実証」)。
+        let (board, side) = play_until_empties(45, first_move_strategy);
+        let limit = default_limit(8, 0);
+        let policy = SearchPolicy {
+            enable_history: false,
+            enable_aspiration: false,
+            enable_mpc: true,
+        };
+        let run_with = |margin_t: Option<f32>| {
+            let mut tt = TranspositionTable::new(4);
+            search_with_eval_with_policy_and_margin_t(
+                &board,
+                side,
+                &limit,
+                &mut tt,
+                None,
+                None,
+                EXACT_QUOTA_PERCENT,
+                policy,
+                margin_t,
+            )
+        };
+        let default_none = run_with(None);
+        let explicit_1_5 = run_with(Some(1.5));
+        assert_eq!(default_none.best_move, explicit_1_5.best_move);
+        assert_eq!(default_none.score, explicit_1_5.score);
+        assert_eq!(default_none.depth, explicit_1_5.depth);
+        assert_eq!(default_none.nodes, explicit_1_5.nodes);
+        assert_eq!(default_none.mpc_stats, explicit_1_5.mpc_stats);
+        assert!(default_none.mpc_stats.eligible_nodes > 0);
+
+        // より積極的なtはノード数を変え得る(=経路が実際に効いていること自体の確認、
+        // 常に減るとは限らないため厳密な大小は問わずeligible_nodesが同じ土台で
+        // 比較できることだけ確認する)。
+        let aggressive = run_with(Some(1.0));
+        assert_eq!(aggressive.mpc_stats.eligible_nodes, default_none.mpc_stats.eligible_nodes);
     }
 }

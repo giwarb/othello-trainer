@@ -29,7 +29,7 @@ const Q16_ONE: i64 = 1 << 16;
 /// 実探索はこの固定削減量を参照せず、下のペア表の `probe_depth` を使う。
 pub const REDUCTION: u8 = 2;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy)]
 pub struct Calibration {
     pub min_empties: u8,
     pub max_empties: u8,
@@ -39,6 +39,13 @@ pub struct Calibration {
     pub intercept_q16: i32,
     pub margin_high: i32,
     pub margin_low: i32,
+    /// T176: `t172_v6_pilot_stats.json`のcalibration split残差sigma
+    /// (centi-disc単位、`margin_high`/`margin_low`を`ceil(1.5*sigma)`で
+    /// 計算した元の値そのもの)。本番の`margin_high`/`margin_low`読み出しは
+    /// この値を一切参照しない(t=1.5固定表を直接使う、既存経路は完全不変)。
+    /// [`calibration_with_margin_t`]が「t=1.5以外を試したい」ときにだけ
+    /// 使う(MPC積極化の試行専用フィールド、T176)。
+    pub sigma_centidisc: f32,
 }
 
 /// T172(v6再校正)calibration splitのaffine fitと `t=1.5` residual sigma。
@@ -54,6 +61,7 @@ const CALIBRATIONS: &[Calibration] = &[
         intercept_q16: -16136717,
         margin_high: 425,
         margin_low: 425,
+        sigma_centidisc: 283.084255,
     },
     Calibration {
         min_empties: 29,
@@ -64,6 +72,7 @@ const CALIBRATIONS: &[Calibration] = &[
         intercept_q16: -15208260,
         margin_high: 501,
         margin_low: 501,
+        sigma_centidisc: 333.96432,
     },
     Calibration {
         min_empties: 37,
@@ -74,6 +83,7 @@ const CALIBRATIONS: &[Calibration] = &[
         intercept_q16: -14293455,
         margin_high: 399,
         margin_low: 399,
+        sigma_centidisc: 265.710537,
     },
     Calibration {
         min_empties: 45,
@@ -84,6 +94,7 @@ const CALIBRATIONS: &[Calibration] = &[
         intercept_q16: 4613181,
         margin_high: 443,
         margin_low: 443,
+        sigma_centidisc: 295.300814,
     },
     Calibration {
         min_empties: 21,
@@ -94,6 +105,7 @@ const CALIBRATIONS: &[Calibration] = &[
         intercept_q16: 2243136,
         margin_high: 573,
         margin_low: 573,
+        sigma_centidisc: 381.713624,
     },
     Calibration {
         min_empties: 29,
@@ -104,6 +116,7 @@ const CALIBRATIONS: &[Calibration] = &[
         intercept_q16: 876165,
         margin_high: 439,
         margin_low: 439,
+        sigma_centidisc: 292.529761,
     },
     Calibration {
         min_empties: 37,
@@ -114,6 +127,7 @@ const CALIBRATIONS: &[Calibration] = &[
         intercept_q16: -1817562,
         margin_high: 316,
         margin_low: 316,
+        sigma_centidisc: 210.619416,
     },
     Calibration {
         min_empties: 45,
@@ -124,6 +138,7 @@ const CALIBRATIONS: &[Calibration] = &[
         intercept_q16: -5336639,
         margin_high: 400,
         margin_low: 400,
+        sigma_centidisc: 266.633012,
     },
     Calibration {
         min_empties: 21,
@@ -134,6 +149,7 @@ const CALIBRATIONS: &[Calibration] = &[
         intercept_q16: 1507330,
         margin_high: 730,
         margin_low: 730,
+        sigma_centidisc: 486.545933,
     },
     Calibration {
         min_empties: 29,
@@ -144,6 +160,7 @@ const CALIBRATIONS: &[Calibration] = &[
         intercept_q16: 1008232,
         margin_high: 524,
         margin_low: 524,
+        sigma_centidisc: 348.720572,
     },
     Calibration {
         min_empties: 37,
@@ -154,6 +171,7 @@ const CALIBRATIONS: &[Calibration] = &[
         intercept_q16: -3023871,
         margin_high: 513,
         margin_low: 513,
+        sigma_centidisc: 341.413906,
     },
     Calibration {
         min_empties: 45,
@@ -164,6 +182,7 @@ const CALIBRATIONS: &[Calibration] = &[
         intercept_q16: -4908638,
         margin_high: 403,
         margin_low: 403,
+        sigma_centidisc: 268.050646,
     },
     Calibration {
         min_empties: 21,
@@ -174,6 +193,7 @@ const CALIBRATIONS: &[Calibration] = &[
         intercept_q16: 6101841,
         margin_high: 558,
         margin_low: 558,
+        sigma_centidisc: 371.756266,
     },
     Calibration {
         min_empties: 29,
@@ -184,6 +204,7 @@ const CALIBRATIONS: &[Calibration] = &[
         intercept_q16: 393468,
         margin_high: 521,
         margin_low: 521,
+        sigma_centidisc: 347.211633,
     },
     Calibration {
         min_empties: 37,
@@ -194,6 +215,7 @@ const CALIBRATIONS: &[Calibration] = &[
         intercept_q16: 935097,
         margin_high: 429,
         margin_low: 429,
+        sigma_centidisc: 285.556663,
     },
     Calibration {
         min_empties: 45,
@@ -204,6 +226,7 @@ const CALIBRATIONS: &[Calibration] = &[
         intercept_q16: -10062443,
         margin_high: 374,
         margin_low: 374,
+        sigma_centidisc: 249.268091,
     },
 ];
 
@@ -213,6 +236,23 @@ pub fn calibration_for(empties: u32, target_depth: u8) -> Option<&'static Calibr
             && empties >= entry.min_empties as u32
             && empties <= entry.max_empties as u32
     })
+}
+
+/// T176: MPC積極化の試行専用。`base`(t=1.5の本番Calibration)から
+/// `slope_q16`/`intercept_q16`/`probe_depth`等はそのまま、
+/// `margin_high`/`margin_low`だけを`ceil(t*sigma_centidisc)`で
+/// 再計算したコピーを返す。`t=1.5`を渡せば`base`と完全に同じ
+/// (`margin_high`/`margin_low`が同じ整数値になる、`calibration_for`の
+/// t=1.5固定値を再導出するだけ)。本番探索経路(`search.rs`の
+/// `mpc_try_cutoff`)はこの関数を呼ばない限り一切呼び出されない
+/// (`SearchCtx::mpc_margin_t`が`None`のときは`base`をそのまま使う)。
+pub fn calibration_with_margin_t(base: &Calibration, t: f32) -> Calibration {
+    let margin = (t * base.sigma_centidisc).ceil() as i32;
+    Calibration {
+        margin_high: margin,
+        margin_low: margin,
+        ..*base
+    }
 }
 
 fn div_ceil(numerator: i64, denominator: i64) -> i64 {
@@ -252,6 +292,7 @@ mod tests {
             intercept_q16: 0,
             margin_high: high,
             margin_low: low,
+            sigma_centidisc: 0.0,
         }
     }
 
@@ -298,5 +339,43 @@ mod tests {
         assert!(calibration_for(20, 10).is_none());
         assert!(calibration_for(53, 10).is_none());
         assert!(calibration_for(30, 9).is_none());
+    }
+
+    #[test]
+    fn calibration_with_margin_t_at_1_5_reproduces_the_stored_table_margin() {
+        // T176: 本番表(t=1.5で校正済み)のmargin_high/margin_lowは
+        // `ceil(1.5*sigma_centidisc)`で埋め込まれている(T172作業ログ参照)。
+        // `calibration_with_margin_t(base, 1.5)`が同じ整数へ再現できることを
+        // 全16エントリで確認する(t=1.5のときは`None`経由の本番経路と
+        // 完全に同じ挙動になるべき、という不変条件の根拠)。
+        for &base in CALIBRATIONS {
+            let recomputed = calibration_with_margin_t(&base, 1.5);
+            assert_eq!(
+                recomputed.margin_high, base.margin_high,
+                "bucket {}-{} D={} d={}",
+                base.min_empties, base.max_empties, base.target_depth, base.probe_depth
+            );
+            assert_eq!(recomputed.margin_low, base.margin_low);
+            // margin以外のフィールドは一切変わらない。
+            assert_eq!(recomputed.slope_q16, base.slope_q16);
+            assert_eq!(recomputed.intercept_q16, base.intercept_q16);
+            assert_eq!(recomputed.probe_depth, base.probe_depth);
+            assert_eq!(recomputed.target_depth, base.target_depth);
+        }
+    }
+
+    #[test]
+    fn calibration_with_margin_t_shrinks_margin_for_smaller_t() {
+        // t=1.5→1.2のように小さくすると、margin=ceil(t*sigma)も
+        // 単調に(またはtie上限まで)縮む(=より積極的にプローブがcutできる
+        // 方向へ動く)ことを確認する。
+        let base = CALIBRATIONS[0]; // 21-28, D=6, d=3, sigma≈283.08
+        let m15 = calibration_with_margin_t(&base, 1.5).margin_high;
+        let m12 = calibration_with_margin_t(&base, 1.2).margin_high;
+        let m10 = calibration_with_margin_t(&base, 1.0).margin_high;
+        assert!(m12 < m15, "t=1.2 margin ({m12}) should be smaller than t=1.5 ({m15})");
+        assert!(m10 < m12, "t=1.0 margin ({m10}) should be smaller than t=1.2 ({m12})");
+        // ceilの直接検算(sigma_centidisc=283.084255の場合)。
+        assert_eq!(m10, (1.0 * base.sigma_centidisc).ceil() as i32);
     }
 }

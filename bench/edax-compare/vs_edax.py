@@ -417,6 +417,7 @@ def engine_best(
     exact_quota_percent: int = DEFAULT_ENGINE_EXACT_QUOTA_PERCENT,
     tt_mb: int = 16,
     enable_mpc: bool = False,
+    mpc_margin_t: float | None = None,
 ) -> dict:
     """T084: `eval_cli best`(single-root探索、`search_with_eval`)を呼び、
     最善手とテレメトリ一式(depth/nodes/elapsedMs/nps/timedOut/exact.*)を
@@ -425,7 +426,11 @@ def engine_best(
     `enable_mpc`(T175): `eval_cli best --enable-mpc`を追加する(既定False
     で既存呼び出しの挙動は不変)。`mpc_enabled` featureでビルドしたeval_cli
     でなければeval_cli側がエラー終了する(`ensure_engine_built(enable_mpc=True)`
-    と対で使うこと)。"""
+    と対で使うこと)。
+
+    `mpc_margin_t`(T176): `enable_mpc=True`のときだけ`--mpc-margin-t T`を
+    追加する(既定`None`=現行t=1.5のCALIBRATIONS表のまま、既存呼び出しの
+    挙動は不変)。"""
     input_json = json.dumps({"board": board, "side_to_move": side})
     cmd = [
         str(EVAL_CLI), "best", "--depth", str(depth),
@@ -441,6 +446,8 @@ def engine_best(
         cmd += ["--max-nodes", str(max_nodes)]
     if enable_mpc:
         cmd += ["--enable-mpc"]
+        if mpc_margin_t is not None:
+            cmd += ["--mpc-margin-t", str(mpc_margin_t)]
     out = run(cmd, input_text=input_json)
     return json.loads(out)
 
@@ -710,6 +717,7 @@ def play_game(
     game_id: int,
     level: int,
     engine_enable_mpc: bool = False,
+    engine_mpc_margin_t: float | None = None,
 ) -> dict:
     """指定した開始局面から1局対局する。`engine_mode`は`"single-root"`
     (`eval_cli best`、T084の既定)または`"allmoves"`(`eval_cli moves`、
@@ -765,6 +773,7 @@ def play_game(
                     exact_quota_percent=engine_exact_quota_percent,
                     tt_mb=engine_tt_mb,
                     enable_mpc=engine_enable_mpc,
+                    mpc_margin_t=engine_mpc_margin_t,
                 )
                 mv = r.get("move")
                 if mv is None:
@@ -1801,6 +1810,16 @@ def main() -> None:
         ),
     )
     ap.add_argument(
+        "--engine-mpc-margin-t",
+        type=float,
+        default=None,
+        help=(
+            "T176: MPC積極化の試行専用。`--engine-enable-mpc`併用時のみ有効で、"
+            "`eval_cli best --mpc-margin-t T`を追加する(既定None=現行t=1.5の"
+            "CALIBRATIONS表のまま、既存呼び出しの挙動は不変)。settings/run_keyにも記録する。"
+        ),
+    )
+    ap.add_argument(
         "--engine-time-ms",
         type=int,
         default=DEFAULT_ENGINE_TIME_MS,
@@ -1910,6 +1929,7 @@ def main() -> None:
         "unlimited_exact_empties": args.unlimited_exact_empties,
         "engine_tt_mb": args.engine_tt_mb,
         "engine_enable_mpc": args.engine_enable_mpc,
+        "engine_mpc_margin_t": args.engine_mpc_margin_t,
         "weights": rel_to_root(args.weights),
         "openings_path": rel_to_root(args.openings),
         "openings_sha256": sha256_of_file(args.openings),
@@ -1998,6 +2018,7 @@ def main() -> None:
                         game_id=game_id,
                         level=level,
                         engine_enable_mpc=args.engine_enable_mpc,
+                        engine_mpc_margin_t=args.engine_mpc_margin_t,
                     )
                     game["wallClockSec"] = round(time.monotonic() - game_started_at, 3)  # T158d要件3: 1局ごとの所要時間
                     checkpoint.add_game(game, start["id"])  # 1局ごとにチェックポイント保存(要件8)
