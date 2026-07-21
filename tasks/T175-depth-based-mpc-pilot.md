@@ -1,7 +1,7 @@
 ---
 id: T175
 title: 深さベース探索+MPC ONのパイロット(ユーザー発案) — 対Edax lv12/lv10
-status: todo
+status: done # verifier全項目合格(統計・時間/ノード/MPC集計・設定・既存経路不変を完全独立再現)、2026-07-21。結論: 深さ12+MPCでvs lv12 -2.82(paired+3.25 CI[+1.28,+5.30])・vs lv10 +1.05=初勝ち越し(paired+3.27)。1局約50秒・wall保険1/2987。本採用の時間管理設計は7/26 Codex諮問へ
 assignee: implementer
 attempts: 0
 ---
