@@ -1,9 +1,27 @@
-//! T156c: v4評価関数向けMulti-ProbCutの固定小数点校正表。
+//! T172: v6評価関数向けMulti-ProbCutの固定小数点校正表(T156cのv4版から
+//! 再校正)。
 //!
 //! 実探索の制御とプローブは `search.rs` が担当する。このモジュールは
 //! T156b pilotの `(empty_bucket, target_depth, probe_depth)` と
 //! `deep = a * shallow + b + residual` のQ16係数から、外向きのshallow
 //! 閾値を整数演算だけで構築する。
+//!
+//! T172での再校正: 本番評価関数がv4→v6(D1候補、Egaroucid探索値ラベル学習+
+//! D4 canonical)に切り替わったこと(T171)を受け、同じ320局面pilot corpus
+//! (`bench/edax-compare/t156_mpc_positions.json`の`pilot`部分集合)・同じ
+//! (empty_bucket, target_depth=D, probe_depth=d)候補4ペア
+//! ((3,6),(4,8),(2,10),(4,12)、T156b Gate 1で選定)を対象に、v6重みで
+//! shallow/deepの再測定(`calibrate_mpc measure`)→affine回帰+t=1.5残差
+//! sigma(`t156_mpc_stats.py`、無変更)を再計算した。16行(4帯×4ペア)
+//! すべてで残差sigmaがv4比で縮小(平均比0.51、ほぼ半減)し、
+//! 「v6は探索値ラベル学習のため深さ間相関が強い」という仮説を支持する
+//! 結果を得た(詳細は`bench/edax-compare/t172_sigma_compare_report.md`)。
+//! 下表の値は、T156cが確立したのと同一の埋め込み式
+//! (`slope_q16=round(slope*65536)`・`intercept_q16=round(intercept*65536)`・
+//! `margin_high=margin_low=ceil(1.5*residualSigma)`、calibration splitで
+//! fit)をv6測定値にそのまま適用したもの(旧v4の値は
+//! `bench/edax-compare/t172_sigma_compare_report.md`のσ比較表・git履歴の
+//! 旧版で確認できる)。
 
 const Q16_ONE: i64 = 1 << 16;
 
@@ -23,169 +41,169 @@ pub struct Calibration {
     pub margin_low: i32,
 }
 
-/// T156b calibration splitのaffine fitと `t=1.5` residual sigma。
-/// marginは安全側へceilし、方向別フィールドとして保持する。T156eでは
-/// この表だけを差し替えればよい。
+/// T172(v6再校正)calibration splitのaffine fitと `t=1.5` residual sigma。
+/// marginは安全側へceilし、方向別フィールドとして保持する。将来さらに
+/// 評価関数を差し替える場合は、この表だけを同じ手順で差し替えればよい。
 const CALIBRATIONS: &[Calibration] = &[
     Calibration {
         min_empties: 21,
         max_empties: 28,
         target_depth: 6,
         probe_depth: 3,
-        slope_q16: 66511,
-        intercept_q16: -40415035,
-        margin_high: 753,
-        margin_low: 753,
+        slope_q16: 62870,
+        intercept_q16: -16136717,
+        margin_high: 425,
+        margin_low: 425,
     },
     Calibration {
         min_empties: 29,
         max_empties: 36,
         target_depth: 6,
         probe_depth: 3,
-        slope_q16: 57727,
-        intercept_q16: -43588220,
-        margin_high: 973,
-        margin_low: 973,
+        slope_q16: 67164,
+        intercept_q16: -15208260,
+        margin_high: 501,
+        margin_low: 501,
     },
     Calibration {
         min_empties: 37,
         max_empties: 44,
         target_depth: 6,
         probe_depth: 3,
-        slope_q16: 42319,
-        intercept_q16: -60349704,
-        margin_high: 942,
-        margin_low: 942,
+        slope_q16: 62588,
+        intercept_q16: -14293455,
+        margin_high: 399,
+        margin_low: 399,
     },
     Calibration {
         min_empties: 45,
         max_empties: 52,
         target_depth: 6,
         probe_depth: 3,
-        slope_q16: 27309,
-        intercept_q16: -49266924,
-        margin_high: 1292,
-        margin_low: 1292,
+        slope_q16: 36480,
+        intercept_q16: 4613181,
+        margin_high: 443,
+        margin_low: 443,
     },
     Calibration {
         min_empties: 21,
         max_empties: 28,
         target_depth: 8,
         probe_depth: 4,
-        slope_q16: 65395,
-        intercept_q16: 9011893,
-        margin_high: 766,
-        margin_low: 766,
+        slope_q16: 65810,
+        intercept_q16: 2243136,
+        margin_high: 573,
+        margin_low: 573,
     },
     Calibration {
         min_empties: 29,
         max_empties: 36,
         target_depth: 8,
         probe_depth: 4,
-        slope_q16: 57863,
-        intercept_q16: 7453730,
-        margin_high: 1005,
-        margin_low: 1005,
+        slope_q16: 69824,
+        intercept_q16: 876165,
+        margin_high: 439,
+        margin_low: 439,
     },
     Calibration {
         min_empties: 37,
         max_empties: 44,
         target_depth: 8,
         probe_depth: 4,
-        slope_q16: 42907,
-        intercept_q16: -7838860,
-        margin_high: 851,
-        margin_low: 851,
+        slope_q16: 65810,
+        intercept_q16: -1817562,
+        margin_high: 316,
+        margin_low: 316,
     },
     Calibration {
         min_empties: 45,
         max_empties: 52,
         target_depth: 8,
         probe_depth: 4,
-        slope_q16: 23826,
-        intercept_q16: -13935032,
-        margin_high: 1094,
-        margin_low: 1094,
+        slope_q16: 52538,
+        intercept_q16: -5336639,
+        margin_high: 400,
+        margin_low: 400,
     },
     Calibration {
         min_empties: 21,
         max_empties: 28,
         target_depth: 10,
         probe_depth: 2,
-        slope_q16: 58121,
-        intercept_q16: -1484462,
-        margin_high: 939,
-        margin_low: 939,
+        slope_q16: 61542,
+        intercept_q16: 1507330,
+        margin_high: 730,
+        margin_low: 730,
     },
     Calibration {
         min_empties: 29,
         max_empties: 36,
         target_depth: 10,
         probe_depth: 2,
-        slope_q16: 52320,
-        intercept_q16: 1501247,
-        margin_high: 1018,
-        margin_low: 1018,
+        slope_q16: 67208,
+        intercept_q16: 1008232,
+        margin_high: 524,
+        margin_low: 524,
     },
     Calibration {
         min_empties: 37,
         max_empties: 44,
         target_depth: 10,
         probe_depth: 2,
-        slope_q16: 44346,
-        intercept_q16: -7996216,
-        margin_high: 1002,
-        margin_low: 1002,
+        slope_q16: 65567,
+        intercept_q16: -3023871,
+        margin_high: 513,
+        margin_low: 513,
     },
     Calibration {
         min_empties: 45,
         max_empties: 52,
         target_depth: 10,
         probe_depth: 2,
-        slope_q16: 20039,
-        intercept_q16: -20215011,
-        margin_high: 1157,
-        margin_low: 1157,
+        slope_q16: 52849,
+        intercept_q16: -4908638,
+        margin_high: 403,
+        margin_low: 403,
     },
     Calibration {
         min_empties: 21,
         max_empties: 28,
         target_depth: 12,
         probe_depth: 4,
-        slope_q16: 63945,
-        intercept_q16: 12049690,
-        margin_high: 788,
-        margin_low: 788,
+        slope_q16: 65264,
+        intercept_q16: 6101841,
+        margin_high: 558,
+        margin_low: 558,
     },
     Calibration {
         min_empties: 29,
         max_empties: 36,
         target_depth: 12,
         probe_depth: 4,
-        slope_q16: 57704,
-        intercept_q16: 14822464,
-        margin_high: 876,
-        margin_low: 876,
+        slope_q16: 68091,
+        intercept_q16: 393468,
+        margin_high: 521,
+        margin_low: 521,
     },
     Calibration {
         min_empties: 37,
         max_empties: 44,
         target_depth: 12,
         probe_depth: 4,
-        slope_q16: 44123,
-        intercept_q16: -8252060,
-        margin_high: 838,
-        margin_low: 838,
+        slope_q16: 66700,
+        intercept_q16: 935097,
+        margin_high: 429,
+        margin_low: 429,
     },
     Calibration {
         min_empties: 45,
         max_empties: 52,
         target_depth: 12,
         probe_depth: 4,
-        slope_q16: 24478,
-        intercept_q16: -27686278,
-        margin_high: 830,
-        margin_low: 830,
+        slope_q16: 50735,
+        intercept_q16: -10062443,
+        margin_high: 374,
+        margin_low: 374,
     },
 ];
 

@@ -10,7 +10,11 @@ from pathlib import Path
 EXPECTED_GATE2_POSITIONS_SHA256 = "e86bf2383490cc356589c85307cdc85556288bd23cae1a2594932cd70ad748da"
 EXPECTED_ORACLE_POSITIONS_SHA256 = "4419fb5120c2ba1d07b6d277473dfb4d9638de504255644254468e418469fb57"
 EXPECTED_ORACLE_LABELS_SHA256 = "8859c779cff35be32d197b1d4bc45bf537a4afd980afe1037c88d3fbed8bec82"
-EXPECTED_V4_WEIGHTS_SHA256 = "c372b83366c4006023ae05f3af5b68dda5929aca7ff7308d1b398a89639e383f"
+# T172: 本番評価関数がv4からv6(D1候補、T171)へ切り替わったことに伴い、
+# Gate 2/3の再校正・再判定もv6重みで行う。このcanonical SHA-256は
+# 「意図した重みファイルが渡されたか」のfail-closed検証専用であり、
+# 対象を切り替えるたびに更新が必要(旧v4の値はgit履歴で参照できる)。
+EXPECTED_WEIGHTS_SHA256 = "e69f3b1c33432bafd388af82adde64270ec8c51acaab070bbfff4cf4caf20fc9"
 
 
 def load(path):
@@ -121,8 +125,8 @@ def validate_inputs(gate2_off, gate2_on, runs, gate2_positions_path, oracle_posi
                   "oracle positions canonical SHA-256")
     require_equal(digest(oracle_labels_path), EXPECTED_ORACLE_LABELS_SHA256,
                   "oracle labels canonical SHA-256")
-    require_equal(digest(weights_path), EXPECTED_V4_WEIGHTS_SHA256,
-                  "v4 weights canonical SHA-256")
+    require_equal(digest(weights_path), EXPECTED_WEIGHTS_SHA256,
+                  "pattern weights canonical SHA-256")
     gate2_positions = positions_array(load(gate2_positions_path), "Gate 2 positions")
     gate2_ids = [row["id"] for row in gate2_positions if row.get("split") == "test"]
     require_equal(len(gate2_ids), 240, "Gate 2 test position count")
@@ -366,14 +370,17 @@ def gate3(runs, labels, samples, seed):
     }
 
 
-def report(meta):
+def report(meta, title="T156d MPC Gate 2 / Gate 3 レポート", weights_label="v4",
+           next_step="両ゲート合格。T156e（確認校正1,200局面）へ進む。",
+           retreat_step="不合格のためT156eへは進まない。失敗基準を改善できる校正根拠が得られるまでMPCはdefault OFFを維持し、速度不足ならprobe費用、regret悪化ならmargin/帯別係数を再調整する。",
+           cause_analysis=None, reproduction_note="`compare_mpc.py`へ同じ8 checkpoint、oracle labels、固定seed/bootstrap回数を渡すとmeta/reportが決定的に再生成される。各checkpointは局面完了ごとに原子的更新され、同じコマンドでresumeする。"):
     g2, g3 = meta["gate2"], meta["gate3"]
-    lines = ["# T156d MPC Gate 2 / Gate 3 レポート", "", "## 結論", "",
+    lines = [f"# {title}", "", "## 結論", "",
              f"- Gate 2: **{'合格' if g2['pass'] else '不合格'}**", f"- Gate 3: **{'合格' if g3['pass'] else '不合格'}**", ""]
     if g2["pass"] and g3["pass"]:
-        lines += ["両ゲート合格。T156e（確認校正1,200局面）へ進む。", ""]
+        lines += [next_step, ""]
     else:
-        lines += ["不合格のためT156eへは進まない。失敗基準を改善できる校正根拠が得られるまでMPCはdefault OFFを維持し、速度不足ならprobe費用、regret悪化ならmargin/帯別係数を再調整する。", ""]
+        lines += [retreat_step, ""]
     lines += ["## Gate 2: 固定深さ", "", "test split 240局面、exact/history/aspiration OFF。bootstrapはgameId単位。", "",
               "| depth | off nodes | on nodes | ratio | bootstrap U95 | median | p90 | probe share | cut rate | 判定 |",
               "|---:|---:|---:|---:|---:|---:|---:|---:|---:|:---:|"]
@@ -382,7 +389,7 @@ def report(meta):
     lines += ["", "各深さの基準判定:", ""]
     for row in g2["depths"]:
         lines.append(f"- D{row['depth']}: " + ", ".join(f"{key}={'pass' if value else 'FAIL'}" for key, value in row["criteria"].items()))
-    lines += ["", "## Gate 3: 160k本番相当", "", "oracle 180局面から空き20以下を除外した120局面。v4、160k、quota 60%、exact_from_empties=16、time_ms=None。", "",
+    lines += ["", "## Gate 3: 160k本番相当", "", f"oracle 180局面から空き20以下を除外した120局面。{weights_label}、160k、quota 60%、exact_from_empties=16、time_ms=None。", "",
               "| 構成 | history | aspiration | MPC | median depth | mean depth | mean nodes | mean regret | 4石loss | wall hit | exact leaf attempt/complete/abort |",
               "|:---:|:---:|:---:|:---:|---:|---:|---:|---:|---:|---:|:---:|"]
     policies = {"A": ("ON", "ON", "OFF"), "B": ("ON", "OFF", "ON"), "C": ("ON", "ON", "ON"), "D": ("ON", "OFF", "OFF")}
@@ -407,10 +414,13 @@ def report(meta):
     lines += [f"- strictLoss4RateNoIncrease (initial wording): {'pass' if value else 'FAIL'}"
               for value in [g3["alternativeCriteria"]["strictLoss4RateNoIncrease"]]]
     a, b, c, d = (g3["configurations"][name] for name in "ABCD")
+    default_cause_analysis = (
+        f"aspiration条件を揃えたB-Dでは平均深さ差 {b['meanDepth'] - d['meanDepth']:+.3f}、regret差 {b['meanRegret'] - d['meanRegret']:+.4f}石。C-Aでは平均深さ差 {c['meanDepth'] - a['meanDepth']:+.3f}、regret差 {c['meanRegret'] - a['meanRegret']:+.4f}石だった。MPC単体は固定深さノードを大幅削減する一方、160kの反復深化では次の完成深さへ届くほどの利益にならず、初期本番候補Bはaspirationを外す損失も回収できていない。Cは診断値としてAに近いが、初期採用候補ではない。MPCはdefault OFFを維持し、T156eへ進まず、margin/帯別係数または反復深化・TTとの相互作用を再調査してGate 3を再実行する。"
+    )
     lines += ["", "### 原因分析と提言", "",
-              f"aspiration条件を揃えたB-Dでは平均深さ差 {b['meanDepth'] - d['meanDepth']:+.3f}、regret差 {b['meanRegret'] - d['meanRegret']:+.4f}石。C-Aでは平均深さ差 {c['meanDepth'] - a['meanDepth']:+.3f}、regret差 {c['meanRegret'] - a['meanRegret']:+.4f}石だった。MPC単体は固定深さノードを大幅削減する一方、160kの反復深化では次の完成深さへ届くほどの利益にならず、初期本番候補Bはaspirationを外す損失も回収できていない。Cは診断値としてAに近いが、初期採用候補ではない。MPCはdefault OFFを維持し、T156eへ進まず、margin/帯別係数または反復深化・TTとの相互作用を再調査してGate 3を再実行する。", "",
+              cause_analysis if cause_analysis is not None else default_cause_analysis, "",
               "exact異常は `exactNodes <= nodes`、完走数<=試行数、空き16超のroot exact試行ゼロという会計不変条件で判定した。B/DおよびA/Cのexact試行数が近く、MPCの有無による異常な偏りは見られない。aspiration有無では試行数が変わるため、構成間の試行数差には恣意的な比率閾値を置かず全数を開示した。", "",
-              "## 再現方法", "", "`compare_mpc.py`へ同じ8 checkpoint、oracle labels、固定seed/bootstrap回数を渡すとmeta/reportが決定的に再生成される。各checkpointは局面完了ごとに原子的更新され、同じコマンドでresumeする。", ""]
+              "## 再現方法", "", reproduction_note, ""]
     lines = [line for line in lines if not line.startswith("exact")
              and line != "## \u518d\u73fe\u65b9\u6cd5"
              and not line.startswith("`compare_mpc.py`")]
@@ -420,8 +430,8 @@ def report(meta):
     for pair_name, bias in g3["exactConfigurationBias"].items():
         lines.append(f"| {pair_name} | {bias['leafAttemptRelativeDelta']:.2%} | {bias['quotaAbortRelativeDelta']:.2%} | {bias['completionRateDelta']:.2%} | {bias['exactNodeShareDelta']:.2%} | {'PASS' if bias['pass'] else 'FAIL'} |")
     lines += ["", "Each row was checked for root/leaf attempts and completions, bound proofs, quota aborts, and exactNodes + midgameNodes = nodes. Bias limits: 10% relative leaf-attempt/quota-abort delta, 5-point completion-rate delta, and 2-point exact-node-share delta.", "",
-              "Input validation: checkpoint schema/config, positions and v4 weights fingerprints, oracle correspondence/fingerprint, duplicates, policies, and identical position-ID sets were checked fail-closed before aggregation. Validated configs and record-set summaries are embedded in meta.", "",
-              "Reproduction (validated): provide the same eight checkpoints, Gate 2 positions, oracle positions/labels, v4 weights, bootstrap seed, and sample count. Gate checkpoints are atomically saved per position and resumed with the same command."]
+              f"Input validation: checkpoint schema/config, positions and {weights_label} weights fingerprints, oracle correspondence/fingerprint, duplicates, policies, and identical position-ID sets were checked fail-closed before aggregation. Validated configs and record-set summaries are embedded in meta.", "",
+              f"Reproduction (validated): provide the same eight checkpoints, Gate 2 positions, oracle positions/labels, {weights_label} weights, bootstrap seed, and sample count. Gate checkpoints are atomically saved per position and resumed with the same command."]
     compacted = []
     for line in lines:
         if line or not compacted or compacted[-1]:
@@ -440,7 +450,18 @@ def main():
     p.add_argument("--pattern-weights", type=Path, required=True)
     p.add_argument("--report", type=Path, required=True); p.add_argument("--meta", type=Path, required=True)
     p.add_argument("--bootstrap-samples", type=int, default=100000); p.add_argument("--bootstrap-seed", type=int, default=156004)
+    p.add_argument("--analysis-label", default="T156d MPC Gate 2/3")
+    p.add_argument("--report-title", default="T156d MPC Gate 2 / Gate 3 レポート")
+    p.add_argument("--weights-label", default="v4")
+    p.add_argument("--cause-analysis-file", type=Path, default=None,
+                    help="UTF-8 text file whose content replaces the default T156d-specific "
+                         "cause-analysis paragraph in the report (avoids CLI-argument encoding pitfalls).")
+    p.add_argument("--retreat-step-file", type=Path, default=None,
+                    help="UTF-8 text file whose content replaces the default T156d-specific "
+                         "retreat-step sentence shown when either gate fails.")
     a = p.parse_args()
+    cause_analysis = a.cause_analysis_file.read_text(encoding="utf-8").strip() if a.cause_analysis_file else None
+    retreat_step = a.retreat_step_file.read_text(encoding="utf-8").strip() if a.retreat_step_file else None
     checkpoints = {"gate2Off": a.gate2_off, "gate2On": a.gate2_on}
     runs = {}
     for name in "ABCD":
@@ -450,12 +471,16 @@ def main():
     gate2_off, gate2_on = load(a.gate2_off), load(a.gate2_on)
     labels, verified, sources = validate_inputs(gate2_off, gate2_on, runs, a.gate2_positions,
                                                 a.oracle_positions, a.oracle_labels, a.pattern_weights)
-    meta = {"schemaVersion": 2, "analysis": "T156d MPC Gate 2/3", "bootstrapSamples": a.bootstrap_samples, "bootstrapSeed": a.bootstrap_seed,
+    meta = {"schemaVersion": 2, "analysis": a.analysis_label, "bootstrapSamples": a.bootstrap_samples, "bootstrapSeed": a.bootstrap_seed,
             "inputs": {key: {"path": path.as_posix(), "sha256": digest(path)} for key, path in checkpoints.items()},
             "validatedSources": sources, "validatedCheckpoints": verified,
             "gate2": gate2(gate2_off, gate2_on, a.bootstrap_samples, a.bootstrap_seed),
             "gate3": gate3(runs, labels, a.bootstrap_samples, a.bootstrap_seed + 1000)}
-    atomic_json(a.meta, meta); atomic_text(a.report, report(meta))
+    atomic_json(a.meta, meta)
+    report_kwargs = {"title": a.report_title, "weights_label": a.weights_label, "cause_analysis": cause_analysis}
+    if retreat_step is not None:
+        report_kwargs["retreat_step"] = retreat_step
+    atomic_text(a.report, report(meta, **report_kwargs))
     print(json.dumps({"gate2": meta["gate2"]["pass"], "gate3": meta["gate3"]["pass"]}, sort_keys=True))
 
 

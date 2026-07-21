@@ -49,8 +49,8 @@ class CompareMpcValidationTests(unittest.TestCase):
                 "oracle labels canonical SHA-256",
             ),
             "weights_path": (
-                repository / "train/weights/pattern_v4.bin",
-                "v4 weights canonical SHA-256",
+                repository / "train/weights/pattern_v6.bin",
+                "pattern weights canonical SHA-256",
             ),
         }
         original_paths = {name: value[0] for name, value in canonical.items()}

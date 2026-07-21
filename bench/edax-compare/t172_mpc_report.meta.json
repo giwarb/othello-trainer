@@ -1,0 +1,31 @@
+{
+  "analysis": "v6再校正: sigma比較+Gate 2/3",
+  "decision": "preregistered_retreat_mpc_stays_off",
+  "gate2Pass": true,
+  "gate3Pass": false,
+  "overallPass": false,
+  "primaryGate3Criteria": {
+    "depthPlusOneRateActual": 0.11666666666666667,
+    "depthPlusOneRateAtLeast35Percent": false,
+    "meanRegretDiffAtMost010": false,
+    "meanRegretDifferenceActual": 0.13333333333333333
+  },
+  "schemaVersion": 1,
+  "sigmaComparison": {
+    "allShrunk": true,
+    "meanSigmaRatioV6OverV4": 0.511517559580874,
+    "rowCount": 16,
+    "shrunkCount": 16
+  },
+  "sources": {
+    "gatesMeta": {
+      "path": "bench/edax-compare/t172_mpc_gates_report.meta.json",
+      "sha256": "3500bc3d59e1883bb7d4bfff94bbc4ae452e9a7e1f21af17f6c1acc80a32a726"
+    },
+    "sigmaCompareMeta": {
+      "path": "bench/edax-compare/t172_sigma_compare.meta.json",
+      "sha256": "38a74e902190e99732a9e15fab68d3d8f9a245050ea21a8d6a499de68d72af33"
+    }
+  },
+  "task": "T172"
+}

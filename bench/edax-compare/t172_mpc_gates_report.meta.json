@@ -1,0 +1,695 @@
+{
+  "analysis": "T172 MPC Gate 2/3 (v6)",
+  "bootstrapSamples": 100000,
+  "bootstrapSeed": 156004,
+  "gate2": {
+    "depths": [
+      {
+        "aggregateNodeRatio": 0.644452943592793,
+        "bootstrapRatioUpper95": 0.6708586173078913,
+        "criteria": {
+          "aggregateReduction10Percent": true,
+          "bootstrapUpperBelow097": true,
+          "medianReduction5Percent": true,
+          "p90AtMost125": true
+        },
+        "depth": 8,
+        "games": 239,
+        "medianPositionRatio": 0.6319917450386476,
+        "mpcAttempts": 12332,
+        "mpcCutRate": 0.477538112228349,
+        "mpcCuts": 5889,
+        "mpcProbeNodeShare": 0.029484953778835324,
+        "mpcProbeNodes": 283886,
+        "offNodes": 14940059,
+        "onNodes": 9628165,
+        "p90PositionRatio": 0.8904285734220774,
+        "pass": true,
+        "positions": 240
+      },
+      {
+        "aggregateNodeRatio": 0.35562243243436975,
+        "bootstrapRatioUpper95": 0.3796965296001355,
+        "criteria": {
+          "aggregateReduction10Percent": true,
+          "bootstrapUpperBelow097": true,
+          "medianReduction5Percent": true,
+          "p90AtMost125": true
+        },
+        "depth": 10,
+        "games": 239,
+        "medianPositionRatio": 0.3414412174691682,
+        "mpcAttempts": 83101,
+        "mpcCutRate": 0.4766248300261128,
+        "mpcCuts": 39608,
+        "mpcProbeNodeShare": 0.06197788709057795,
+        "mpcProbeNodes": 2533696,
+        "offNodes": 114955192,
+        "onNodes": 40880645,
+        "p90PositionRatio": 0.6634902826405448,
+        "pass": true,
+        "positions": 240
+      },
+      {
+        "aggregateNodeRatio": 0.17505919261585098,
+        "bootstrapRatioUpper95": 0.18977143155411047,
+        "criteria": {
+          "aggregateReduction10Percent": true,
+          "bootstrapUpperBelow097": true,
+          "medianReduction5Percent": true,
+          "p90AtMost125": true
+        },
+        "depth": 12,
+        "games": 239,
+        "medianPositionRatio": 0.1735725157009121,
+        "mpcAttempts": 361804,
+        "mpcCutRate": 0.476393295817625,
+        "mpcCuts": 172361,
+        "mpcProbeNodeShare": 0.09625440904047296,
+        "mpcProbeNodes": 13674157,
+        "offNodes": 811512117,
+        "onNodes": 142062656,
+        "p90PositionRatio": 0.5204720706151159,
+        "pass": true,
+        "positions": 240
+      }
+    ],
+    "pass": true
+  },
+  "gate3": {
+    "alternativeCriteria": {
+      "strictLoss4RateNoIncrease": false
+    },
+    "bMinusA": {
+      "depthPlusOneRate": 0.11666666666666667,
+      "loss4CountDifference": 2,
+      "meanRegretDifference": 0.13333333333333333,
+      "medianDepthDifference": 0.0,
+      "pairedBootstrapUpper95": 0.35,
+      "shallowerRate": 0.03333333333333333
+    },
+    "configurations": {
+      "A": {
+        "aspirationFailHigh": 439,
+        "aspirationFailLow": 492,
+        "exact": {
+          "boundProofCompleted": 1669,
+          "completionRate": 0.9493742889647326,
+          "exactNodeShare": 0.4149146669848609,
+          "exactNodes": 7966367,
+          "invalidAccountingReasons": {
+            "boundProofExceedsLeafCompleted": 0,
+            "leafOutcomesExceedAttempts": 0,
+            "nodePartitionMismatch": 0,
+            "quotaAbortsExceedAttempts": 0,
+            "rootAttemptOutsideThreshold": 0,
+            "rootCompletedExceedsAttempts": 0
+          },
+          "invalidAccountingRows": 0,
+          "leafAttempts": 1758,
+          "leafCompleted": 1669,
+          "midgameNodes": 11233646,
+          "quotaAborts": 72,
+          "rootAttempts": 0,
+          "rootCompleted": 0,
+          "totalNodes": 19200013
+        },
+        "loss4Count": 21,
+        "loss4Rate": 0.175,
+        "meanDepth": 8.916666666666666,
+        "meanNodes": 160000.10833333334,
+        "meanRegret": 1.15,
+        "medianDepth": 9.0,
+        "mpcAttempts": 0,
+        "mpcCutRate": 0.0,
+        "mpcCuts": 0,
+        "mpcProbeNodeShare": 0.0,
+        "mpcProbeNodes": 0,
+        "positions": 120,
+        "wallLimitHits": 0
+      },
+      "B": {
+        "aspirationFailHigh": 0,
+        "aspirationFailLow": 0,
+        "exact": {
+          "boundProofCompleted": 394,
+          "completionRate": 0.8336380255941499,
+          "exactNodeShare": 0.41477247691800484,
+          "exactNodes": 7963644,
+          "invalidAccountingReasons": {
+            "boundProofExceedsLeafCompleted": 0,
+            "leafOutcomesExceedAttempts": 0,
+            "nodePartitionMismatch": 0,
+            "quotaAbortsExceedAttempts": 0,
+            "rootAttemptOutsideThreshold": 0,
+            "rootCompletedExceedsAttempts": 0
+          },
+          "invalidAccountingRows": 0,
+          "leafAttempts": 547,
+          "leafCompleted": 456,
+          "midgameNodes": 11236386,
+          "quotaAborts": 72,
+          "rootAttempts": 0,
+          "rootCompleted": 0,
+          "totalNodes": 19200030
+        },
+        "loss4Count": 23,
+        "loss4Rate": 0.19166666666666668,
+        "meanDepth": 9,
+        "meanNodes": 160000.25,
+        "meanRegret": 1.2833333333333334,
+        "medianDepth": 9.0,
+        "mpcAttempts": 4015,
+        "mpcCutRate": 0.5603985056039851,
+        "mpcCuts": 2250,
+        "mpcProbeNodeShare": 0.003683431744637899,
+        "mpcProbeNodes": 70722,
+        "positions": 120,
+        "wallLimitHits": 0
+      },
+      "C": {
+        "aspirationFailHigh": 440,
+        "aspirationFailLow": 500,
+        "exact": {
+          "boundProofCompleted": 1674,
+          "completionRate": 0.9484419263456091,
+          "exactNodeShare": 0.41924031930393385,
+          "exactNodes": 8049420,
+          "invalidAccountingReasons": {
+            "boundProofExceedsLeafCompleted": 0,
+            "leafOutcomesExceedAttempts": 0,
+            "nodePartitionMismatch": 0,
+            "quotaAbortsExceedAttempts": 0,
+            "rootAttemptOutsideThreshold": 0,
+            "rootCompletedExceedsAttempts": 0
+          },
+          "invalidAccountingRows": 0,
+          "leafAttempts": 1765,
+          "leafCompleted": 1674,
+          "midgameNodes": 11150594,
+          "quotaAborts": 73,
+          "rootAttempts": 0,
+          "rootCompleted": 0,
+          "totalNodes": 19200014
+        },
+        "loss4Count": 21,
+        "loss4Rate": 0.175,
+        "meanDepth": 8.991666666666667,
+        "meanNodes": 160000.11666666667,
+        "meanRegret": 1.15,
+        "medianDepth": 9.0,
+        "mpcAttempts": 5639,
+        "mpcCutRate": 0.4608973222202518,
+        "mpcCuts": 2599,
+        "mpcProbeNodeShare": 0.004311403106268569,
+        "mpcProbeNodes": 82779,
+        "positions": 120,
+        "wallLimitHits": 0
+      },
+      "D": {
+        "aspirationFailHigh": 0,
+        "aspirationFailLow": 0,
+        "exact": {
+          "boundProofCompleted": 390,
+          "completionRate": 0.8367346938775511,
+          "exactNodeShare": 0.40923458781375077,
+          "exactNodes": 7857318,
+          "invalidAccountingReasons": {
+            "boundProofExceedsLeafCompleted": 0,
+            "leafOutcomesExceedAttempts": 0,
+            "nodePartitionMismatch": 0,
+            "quotaAbortsExceedAttempts": 0,
+            "rootAttemptOutsideThreshold": 0,
+            "rootCompletedExceedsAttempts": 0
+          },
+          "invalidAccountingRows": 0,
+          "leafAttempts": 539,
+          "leafCompleted": 451,
+          "midgameNodes": 11342716,
+          "quotaAborts": 72,
+          "rootAttempts": 0,
+          "rootCompleted": 0,
+          "totalNodes": 19200034
+        },
+        "loss4Count": 23,
+        "loss4Rate": 0.19166666666666668,
+        "meanDepth": 8.891666666666667,
+        "meanNodes": 160000.28333333333,
+        "meanRegret": 1.2833333333333334,
+        "medianDepth": 9.0,
+        "mpcAttempts": 0,
+        "mpcCutRate": 0.0,
+        "mpcCuts": 0,
+        "mpcProbeNodeShare": 0.0,
+        "mpcProbeNodes": 0,
+        "positions": 120,
+        "wallLimitHits": 0
+      }
+    },
+    "criteria": {
+      "allConfigurationsDeterministic": true,
+      "depthGain": false,
+      "exactAccountingNormal": true,
+      "loss4IncreaseAtMost2Per60": true,
+      "meanRegretDiffAtMost010": false,
+      "pairedBootstrapUpperAtMost050": true,
+      "shallowerAtMost10Percent": true,
+      "wallLimitHitZero": true
+    },
+    "determinism": {
+      "A": {
+        "mismatchCount": 0,
+        "mismatches": [],
+        "pass": true
+      },
+      "B": {
+        "mismatchCount": 0,
+        "mismatches": [],
+        "pass": true
+      },
+      "C": {
+        "mismatchCount": 0,
+        "mismatches": [],
+        "pass": true
+      },
+      "D": {
+        "mismatchCount": 0,
+        "mismatches": [],
+        "pass": true
+      }
+    },
+    "exactConfigurationBias": {
+      "A-C": {
+        "completionRateDelta": 0.0009323626191235501,
+        "criteria": {
+          "completionRateDeltaAtMost5Points": true,
+          "exactNodeShareDeltaAtMost2Points": true,
+          "leafAttemptRelativeDeltaAtMost10Percent": true,
+          "quotaAbortRelativeDeltaAtMost10Percent": true
+        },
+        "exactNodeShareDelta": 0.004325652319072948,
+        "leafAttemptRelativeDelta": 0.00396600566572238,
+        "pass": true,
+        "quotaAbortRelativeDelta": 0.0136986301369863
+      },
+      "B-D": {
+        "completionRateDelta": 0.0030966682834011605,
+        "criteria": {
+          "completionRateDeltaAtMost5Points": true,
+          "exactNodeShareDeltaAtMost2Points": true,
+          "leafAttemptRelativeDeltaAtMost10Percent": true,
+          "quotaAbortRelativeDeltaAtMost10Percent": true
+        },
+        "exactNodeShareDelta": 0.005537889104254068,
+        "leafAttemptRelativeDelta": 0.014625228519195612,
+        "pass": true,
+        "quotaAbortRelativeDelta": 0.0
+      }
+    },
+    "pass": false
+  },
+  "inputs": {
+    "gate2Off": {
+      "path": "bench/edax-compare/.t172-gate2-off.json",
+      "sha256": "65c885c73c54039cd57c26124a0f16fede45b71b997fa61c8fd2ac0150104fe2"
+    },
+    "gate2On": {
+      "path": "bench/edax-compare/.t172-gate2-on.json",
+      "sha256": "d3d457368a48479c554fbd04afab4a3b9e65fe5a979123f1cbfdeeecd6471832"
+    },
+    "gate3A": {
+      "path": "bench/edax-compare/.t172-gate3-a-run1.json",
+      "sha256": "81778e3142fdec0df76318937365cd1fe08b04f73bffd417b21d155f5ea918ac"
+    },
+    "gate3ARepeat": {
+      "path": "bench/edax-compare/.t172-gate3-a-run2.json",
+      "sha256": "81778e3142fdec0df76318937365cd1fe08b04f73bffd417b21d155f5ea918ac"
+    },
+    "gate3B": {
+      "path": "bench/edax-compare/.t172-gate3-b-run1.json",
+      "sha256": "395c41e5f287aa18673b5d1ed2ff67060f6f8a7175d1839429b83c5b62b3d0bd"
+    },
+    "gate3BRepeat": {
+      "path": "bench/edax-compare/.t172-gate3-b-run2.json",
+      "sha256": "395c41e5f287aa18673b5d1ed2ff67060f6f8a7175d1839429b83c5b62b3d0bd"
+    },
+    "gate3C": {
+      "path": "bench/edax-compare/.t172-gate3-c-run1.json",
+      "sha256": "90985374621e518b335ea1b2bad50218b6c38380c37d044b96278584d53d49f5"
+    },
+    "gate3CRepeat": {
+      "path": "bench/edax-compare/.t172-gate3-c-run2.json",
+      "sha256": "90985374621e518b335ea1b2bad50218b6c38380c37d044b96278584d53d49f5"
+    },
+    "gate3D": {
+      "path": "bench/edax-compare/.t172-gate3-d-run1.json",
+      "sha256": "37547f6bf68532d42e84e63a297f9d946a9a3357e1dbcac21c78af1e16e981b1"
+    },
+    "gate3DRepeat": {
+      "path": "bench/edax-compare/.t172-gate3-d-run2.json",
+      "sha256": "37547f6bf68532d42e84e63a297f9d946a9a3357e1dbcac21c78af1e16e981b1"
+    }
+  },
+  "schemaVersion": 2,
+  "validatedCheckpoints": {
+    "gate2Off": {
+      "config": {
+        "aspiration": false,
+        "depths": [
+          8,
+          10,
+          12
+        ],
+        "exactFromEmpties": 0,
+        "exactQuotaPercent": 60,
+        "history": false,
+        "maxNodes": null,
+        "maxPositions": null,
+        "minEmpties": 0,
+        "mpc": false,
+        "positionsFingerprint": "fnv1a64:324b68e80969900e:335483",
+        "selectedPositionsCount": 240,
+        "selectedPositionsFingerprint": "fnv1a64:62e7aa1cc3746239:4559",
+        "split": "test",
+        "weightsFingerprint": "fnv1a64:879cf6a4aec9a187:42394905"
+      },
+      "records": {
+        "depths": [
+          8,
+          10,
+          12
+        ],
+        "maxEmpties": 52,
+        "minEmpties": 21,
+        "positionCount": 240,
+        "positionIdsSha256": "cf545efbd474b831f0fcb04296a1f0f26e7b97e03eecc2c179b0d7bb72546581",
+        "recordCount": 720,
+        "uniqueKeyCount": 720
+      }
+    },
+    "gate2On": {
+      "config": {
+        "aspiration": false,
+        "depths": [
+          8,
+          10,
+          12
+        ],
+        "exactFromEmpties": 0,
+        "exactQuotaPercent": 60,
+        "history": false,
+        "maxNodes": null,
+        "maxPositions": null,
+        "minEmpties": 0,
+        "mpc": true,
+        "positionsFingerprint": "fnv1a64:324b68e80969900e:335483",
+        "selectedPositionsCount": 240,
+        "selectedPositionsFingerprint": "fnv1a64:62e7aa1cc3746239:4559",
+        "split": "test",
+        "weightsFingerprint": "fnv1a64:879cf6a4aec9a187:42394905"
+      },
+      "records": {
+        "depths": [
+          8,
+          10,
+          12
+        ],
+        "maxEmpties": 52,
+        "minEmpties": 21,
+        "positionCount": 240,
+        "positionIdsSha256": "cf545efbd474b831f0fcb04296a1f0f26e7b97e03eecc2c179b0d7bb72546581",
+        "recordCount": 720,
+        "uniqueKeyCount": 720
+      }
+    },
+    "gate3ARun1": {
+      "config": {
+        "aspiration": true,
+        "depths": [
+          12
+        ],
+        "exactFromEmpties": 16,
+        "exactQuotaPercent": 60,
+        "history": true,
+        "maxNodes": 160000,
+        "maxPositions": null,
+        "minEmpties": 21,
+        "mpc": false,
+        "positionsFingerprint": "fnv1a64:bdc49aadd9399a3a:76371",
+        "selectedPositionsCount": 120,
+        "selectedPositionsFingerprint": "fnv1a64:967d69e7e2558951:1759",
+        "split": null,
+        "weightsFingerprint": "fnv1a64:879cf6a4aec9a187:42394905"
+      },
+      "records": {
+        "depths": [
+          12
+        ],
+        "maxEmpties": 26,
+        "minEmpties": 21,
+        "positionCount": 120,
+        "positionIdsSha256": "885b7c1566e412985352fd5fe6b56dc28b03525c141378b2031859a0237ecd18",
+        "recordCount": 120,
+        "uniqueKeyCount": 120
+      }
+    },
+    "gate3ARun2": {
+      "config": {
+        "aspiration": true,
+        "depths": [
+          12
+        ],
+        "exactFromEmpties": 16,
+        "exactQuotaPercent": 60,
+        "history": true,
+        "maxNodes": 160000,
+        "maxPositions": null,
+        "minEmpties": 21,
+        "mpc": false,
+        "positionsFingerprint": "fnv1a64:bdc49aadd9399a3a:76371",
+        "selectedPositionsCount": 120,
+        "selectedPositionsFingerprint": "fnv1a64:967d69e7e2558951:1759",
+        "split": null,
+        "weightsFingerprint": "fnv1a64:879cf6a4aec9a187:42394905"
+      },
+      "records": {
+        "depths": [
+          12
+        ],
+        "maxEmpties": 26,
+        "minEmpties": 21,
+        "positionCount": 120,
+        "positionIdsSha256": "885b7c1566e412985352fd5fe6b56dc28b03525c141378b2031859a0237ecd18",
+        "recordCount": 120,
+        "uniqueKeyCount": 120
+      }
+    },
+    "gate3BRun1": {
+      "config": {
+        "aspiration": false,
+        "depths": [
+          12
+        ],
+        "exactFromEmpties": 16,
+        "exactQuotaPercent": 60,
+        "history": true,
+        "maxNodes": 160000,
+        "maxPositions": null,
+        "minEmpties": 21,
+        "mpc": true,
+        "positionsFingerprint": "fnv1a64:bdc49aadd9399a3a:76371",
+        "selectedPositionsCount": 120,
+        "selectedPositionsFingerprint": "fnv1a64:967d69e7e2558951:1759",
+        "split": null,
+        "weightsFingerprint": "fnv1a64:879cf6a4aec9a187:42394905"
+      },
+      "records": {
+        "depths": [
+          12
+        ],
+        "maxEmpties": 26,
+        "minEmpties": 21,
+        "positionCount": 120,
+        "positionIdsSha256": "885b7c1566e412985352fd5fe6b56dc28b03525c141378b2031859a0237ecd18",
+        "recordCount": 120,
+        "uniqueKeyCount": 120
+      }
+    },
+    "gate3BRun2": {
+      "config": {
+        "aspiration": false,
+        "depths": [
+          12
+        ],
+        "exactFromEmpties": 16,
+        "exactQuotaPercent": 60,
+        "history": true,
+        "maxNodes": 160000,
+        "maxPositions": null,
+        "minEmpties": 21,
+        "mpc": true,
+        "positionsFingerprint": "fnv1a64:bdc49aadd9399a3a:76371",
+        "selectedPositionsCount": 120,
+        "selectedPositionsFingerprint": "fnv1a64:967d69e7e2558951:1759",
+        "split": null,
+        "weightsFingerprint": "fnv1a64:879cf6a4aec9a187:42394905"
+      },
+      "records": {
+        "depths": [
+          12
+        ],
+        "maxEmpties": 26,
+        "minEmpties": 21,
+        "positionCount": 120,
+        "positionIdsSha256": "885b7c1566e412985352fd5fe6b56dc28b03525c141378b2031859a0237ecd18",
+        "recordCount": 120,
+        "uniqueKeyCount": 120
+      }
+    },
+    "gate3CRun1": {
+      "config": {
+        "aspiration": true,
+        "depths": [
+          12
+        ],
+        "exactFromEmpties": 16,
+        "exactQuotaPercent": 60,
+        "history": true,
+        "maxNodes": 160000,
+        "maxPositions": null,
+        "minEmpties": 21,
+        "mpc": true,
+        "positionsFingerprint": "fnv1a64:bdc49aadd9399a3a:76371",
+        "selectedPositionsCount": 120,
+        "selectedPositionsFingerprint": "fnv1a64:967d69e7e2558951:1759",
+        "split": null,
+        "weightsFingerprint": "fnv1a64:879cf6a4aec9a187:42394905"
+      },
+      "records": {
+        "depths": [
+          12
+        ],
+        "maxEmpties": 26,
+        "minEmpties": 21,
+        "positionCount": 120,
+        "positionIdsSha256": "885b7c1566e412985352fd5fe6b56dc28b03525c141378b2031859a0237ecd18",
+        "recordCount": 120,
+        "uniqueKeyCount": 120
+      }
+    },
+    "gate3CRun2": {
+      "config": {
+        "aspiration": true,
+        "depths": [
+          12
+        ],
+        "exactFromEmpties": 16,
+        "exactQuotaPercent": 60,
+        "history": true,
+        "maxNodes": 160000,
+        "maxPositions": null,
+        "minEmpties": 21,
+        "mpc": true,
+        "positionsFingerprint": "fnv1a64:bdc49aadd9399a3a:76371",
+        "selectedPositionsCount": 120,
+        "selectedPositionsFingerprint": "fnv1a64:967d69e7e2558951:1759",
+        "split": null,
+        "weightsFingerprint": "fnv1a64:879cf6a4aec9a187:42394905"
+      },
+      "records": {
+        "depths": [
+          12
+        ],
+        "maxEmpties": 26,
+        "minEmpties": 21,
+        "positionCount": 120,
+        "positionIdsSha256": "885b7c1566e412985352fd5fe6b56dc28b03525c141378b2031859a0237ecd18",
+        "recordCount": 120,
+        "uniqueKeyCount": 120
+      }
+    },
+    "gate3DRun1": {
+      "config": {
+        "aspiration": false,
+        "depths": [
+          12
+        ],
+        "exactFromEmpties": 16,
+        "exactQuotaPercent": 60,
+        "history": true,
+        "maxNodes": 160000,
+        "maxPositions": null,
+        "minEmpties": 21,
+        "mpc": false,
+        "positionsFingerprint": "fnv1a64:bdc49aadd9399a3a:76371",
+        "selectedPositionsCount": 120,
+        "selectedPositionsFingerprint": "fnv1a64:967d69e7e2558951:1759",
+        "split": null,
+        "weightsFingerprint": "fnv1a64:879cf6a4aec9a187:42394905"
+      },
+      "records": {
+        "depths": [
+          12
+        ],
+        "maxEmpties": 26,
+        "minEmpties": 21,
+        "positionCount": 120,
+        "positionIdsSha256": "885b7c1566e412985352fd5fe6b56dc28b03525c141378b2031859a0237ecd18",
+        "recordCount": 120,
+        "uniqueKeyCount": 120
+      }
+    },
+    "gate3DRun2": {
+      "config": {
+        "aspiration": false,
+        "depths": [
+          12
+        ],
+        "exactFromEmpties": 16,
+        "exactQuotaPercent": 60,
+        "history": true,
+        "maxNodes": 160000,
+        "maxPositions": null,
+        "minEmpties": 21,
+        "mpc": false,
+        "positionsFingerprint": "fnv1a64:bdc49aadd9399a3a:76371",
+        "selectedPositionsCount": 120,
+        "selectedPositionsFingerprint": "fnv1a64:967d69e7e2558951:1759",
+        "split": null,
+        "weightsFingerprint": "fnv1a64:879cf6a4aec9a187:42394905"
+      },
+      "records": {
+        "depths": [
+          12
+        ],
+        "maxEmpties": 26,
+        "minEmpties": 21,
+        "positionCount": 120,
+        "positionIdsSha256": "885b7c1566e412985352fd5fe6b56dc28b03525c141378b2031859a0237ecd18",
+        "recordCount": 120,
+        "uniqueKeyCount": 120
+      }
+    }
+  },
+  "validatedSources": {
+    "gate2Positions": {
+      "fnv1a64": "fnv1a64:324b68e80969900e:335483",
+      "path": "bench/edax-compare/t156_mpc_positions.json",
+      "sha256": "e86bf2383490cc356589c85307cdc85556288bd23cae1a2594932cd70ad748da"
+    },
+    "oracleLabels": {
+      "path": "bench/edax-compare/t157_oracle_labels.json",
+      "sha256": "8859c779cff35be32d197b1d4bc45bf537a4afd980afe1037c88d3fbed8bec82"
+    },
+    "oraclePositions": {
+      "fnv1a64": "fnv1a64:bdc49aadd9399a3a:76371",
+      "path": "bench/edax-compare/t157_oracle_positions.json",
+      "sha256": "4419fb5120c2ba1d07b6d277473dfb4d9638de504255644254468e418469fb57"
+    },
+    "patternWeights": {
+      "fnv1a64": "fnv1a64:879cf6a4aec9a187:42394905",
+      "path": "train/weights/pattern_v6.bin",
+      "sha256": "e69f3b1c33432bafd388af82adde64270ec8c51acaab070bbfff4cf4caf20fc9"
+    }
+  }
+}
