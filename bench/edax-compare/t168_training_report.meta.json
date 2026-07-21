@@ -1,0 +1,121 @@
+{
+  "task": "T168",
+  "generatedAt": "2026-07-21T13:30:00+09:00",
+  "background": {
+    "explorerFinding": "Edax's 47-feature (13-kind) pattern set differs from the current production v5 (V3 = 38 instances + 2 scalar features) mainly in three ways: (1) corner 2x5 blocks (corner5x2, already implemented in T087 ablation but never adopted), (2) short diagonal-4 (diag4, previously unimplemented), (3) a constant bias term (previously unimplemented).",
+    "priorPrecedent": "B3 scalar features were rejected in T158 but adopted in T166 once re-evaluated under the new regime (Egaroucid full corpus + D4 canonical + early stopping); this task re-evaluates corner5x2/diag4/constant under the same new regime."
+  },
+  "implementation": {
+    "engineChanges": [
+      "engine/src/patterns.rs: PatternConfig::V3Corner5x2 (D1, 46 instances/11 classes) reuses existing corner5x2_patterns(); PatternConfig::V3Corner5x2Diag4 (D2, 50 instances/12 classes) adds new diag4_patterns() built the same way as diagonal_offset_patterns (symmetry_orbit-based, no hand-written cell lists).",
+      "engine/src/pattern_eval.rs: ScalarFeatureKind::Constant (value always 1, scale_shift=0) added; new ALL_SCALAR_FEATURE_KINDS constant centralizes the kind list used by score(), with_zeroed_scalar_features(), and the PWV4/PWV6 scalar-feature-count validation (bumped from 2 to 3)."
+    ],
+    "trainerChanges": [
+      "train/src/bin/train_patterns_v3.rs: t158_config generalized into scalar_feature_config(name, pattern_config, scalar_features); new configs t168-d1 (V3Corner5x2 + mobility/exposure) and t168-d2 (V3Corner5x2Diag4 + mobility/exposure/constant)."
+    ],
+    "existingPathInvariance": {
+      "method": "git stash the T168 diff, rebuild release, train an existing config (t158-b3-canonical, 20000-record simple-corpus subset), record SHA-256; git stash pop, rebuild, re-run the identical command.",
+      "sha256": "6ddda1eb82a82104713ac75c11d9a4ce149ff9b8091224d60ff2b35800e68a77",
+      "result": "identical before and after"
+    },
+    "testResults": {
+      "engineTests": {"passed": 239, "ignored": 2, "failed": 0},
+      "trainTests": {"passed": 149, "failed": 0}
+    }
+  },
+  "matrix": {
+    "commonFlags": "--canonical --early-stop --early-stop-patience 3 --max-epochs 30",
+    "seeds": [1, 2, 3],
+    "data": "Egaroucid full corpus (--simple-corpus, --simple-max-records unset), identical to T165 (train_samples=21210114)",
+    "configs": {
+      "D1": {
+        "trainerConfig": "t168-d1",
+        "patternConfig": "V3Corner5x2",
+        "instances": 46,
+        "classes": 11,
+        "scalarFeatures": ["ExactMobilityAdvantage", "EmptyAdjacencyExposureAdvantage"],
+        "outputDir": "train/data/t168/d1",
+        "outputFormat": "PWV6"
+      },
+      "D2": {
+        "trainerConfig": "t168-d2",
+        "patternConfig": "V3Corner5x2Diag4",
+        "instances": 50,
+        "classes": 12,
+        "scalarFeatures": ["ExactMobilityAdvantage", "EmptyAdjacencyExposureAdvantage", "Constant"],
+        "outputDir": "train/data/t168/d2",
+        "outputFormat": "PWV6"
+      }
+    }
+  },
+  "runs": [
+    {"config": "D1", "seed": 1, "bestEpoch": 15, "epochsRun": 18, "frozenMse": 35.923338, "frozenMae": 4.492196, "elapsedApprox": "20m21s", "sha256": "e69f3b1c33432bafd388af82adde64270ec8c51acaab070bbfff4cf4caf20fc9", "bytes": 42394905, "isCandidate": true},
+    {"config": "D1", "seed": 2, "bestEpoch": 5, "epochsRun": 8, "frozenMse": 36.738447, "frozenMae": 4.544652, "elapsedApprox": "8m52s", "sha256": "ca1867166b1794c512fdfeca647e69fa7d74df6508ee134e716c76f7b8aba8a8", "bytes": 42394905},
+    {"config": "D1", "seed": 3, "bestEpoch": 13, "epochsRun": 16, "frozenMse": 35.943052, "frozenMae": 4.493399, "elapsedApprox": "15m26s", "sha256": "76bc4a652dafcd557713c6a54ff7782d42dacfe80e82a9a48098cd1a4d7ee6d9", "bytes": 42394905},
+    {"config": "D2", "seed": 1, "bestEpoch": 3, "epochsRun": 6, "frozenMse": 37.671805, "frozenMae": 4.591761, "elapsedApprox": "6m42s", "sha256": "ec1a5513521361bd73a26d5d170ce10deb537f42b907029d43ac9f54cbe7db3e", "bytes": 42414950},
+    {"config": "D2", "seed": 2, "bestEpoch": 5, "epochsRun": 8, "frozenMse": 37.176408, "frozenMae": 4.573520, "elapsedApprox": "8m32s", "sha256": "fffe2f219909d3c1d560ade6e2452e7f8f81ad39c44ec06b9acd49399c92aae0", "bytes": 42414950},
+    {"config": "D2", "seed": 3, "bestEpoch": 13, "epochsRun": 16, "frozenMse": 36.355787, "frozenMae": 4.521531, "elapsedApprox": "17m39s", "sha256": "b0e44eca76981779881944d93f724635a296661ed30a4e8bfbbec4d3d3944eaa", "bytes": 42414950}
+  ],
+  "t165Comparison": {
+    "valid": true,
+    "reason": "Same data, same split (position-hash), same flags as T165 configs B/C, so frozen MAE is directly comparable per the pre-registered rule.",
+    "candidateC_v5_frozenMae": 4.702778,
+    "d1BestFrozenMae": 4.492196,
+    "d2BestFrozenMae": 4.521531
+  },
+  "preregisteredSelection": {
+    "rule": "final candidate = smallest frozen MAE among configs that improve over T165 candidate C (4.702778); withdraw (no candidate) if none improve",
+    "bestPerConfig": {
+      "D1": {"seed": 1, "frozenMae": 4.492196, "improvesOverC": true},
+      "D2": {"seed": 3, "frozenMae": 4.521531, "improvesOverC": true}
+    },
+    "outcome": "candidate_selected",
+    "finalCandidate": {"config": "D1", "seed": 1, "sha256": "e69f3b1c33432bafd388af82adde64270ec8c51acaab070bbfff4cf4caf20fc9", "frozenMae": 4.492196}
+  },
+  "healthChecks": {
+    "method": "throwaway test engine/tests/t168_health_check.rs (deleted after use); loaded each of the 6 actual trained .bin files, sampled ~440 positions per file from 40 self-play games, verified D4-invariance (tolerance 1e-2) and finiteness of all weights.",
+    "allRunsPassed": true,
+    "excludedRuns": [],
+    "divergenceCheck": "grepped all *.metrics.tsv for nan/inf: none found"
+  },
+  "sizeMeasurements": {
+    "pattern_v4_bin": {"rawBytes": 27986340, "gzipBytes": 4379795},
+    "pattern_v5_bin_current_production": {"rawBytes": 27986840, "gzipBytes": 5865976},
+    "d1_seed1": {"rawBytes": 42394905, "gzipBytes": 10734273},
+    "d2_seed1": {"rawBytes": 42414950, "gzipBytes": 10767254},
+    "d1VsV5RawDeltaBytes": 14408065,
+    "d1VsV5GzipDeltaBytes": 4868297,
+    "note": "D1 raw delta matches the task's +13.7MB estimate closely. Not treated as a blocker per task instructions."
+  },
+  "npsReference": {
+    "method": "throwaway bench engine/tests/t168_nps_reference.rs (deleted after use); zero-coefficient canonical models, stratified 8-position corpus from bench/edax-compare/t158a_engine_cost_positions.json, score()-only microbenchmark, run in isolation after all 6 training runs completed.",
+    "evals": 160000,
+    "v3Nps": 2650077,
+    "d1Nps": 2084573,
+    "d2Nps": 1936609,
+    "ratioD1OverV3": 0.7866,
+    "ratioD2OverV3": 0.7308,
+    "note": "Reference only; the real gate is T169's actual game-play NPS impact."
+  },
+  "t169Manifest": {
+    "comparisonBaseline": {
+      "path": "train/weights/pattern_v5.bin",
+      "sha256": "9ce0cc054b67807641b759a2e881a87dd562146dee5e4d659bba1efa228f54a4",
+      "format": "PWV6",
+      "note": "current production weights (T165 candidate C, T166-gated, T167-deployed)"
+    },
+    "candidate": {
+      "config": "D1",
+      "seed": 1,
+      "path": "train/data/t168/d1/t168-d1-canonical-seed-1-earlystop.bin",
+      "sha256": "e69f3b1c33432bafd388af82adde64270ec8c51acaab070bbfff4cf4caf20fc9",
+      "format": "PWV6",
+      "rawBytes": 42394905,
+      "gzipBytes": 10734273
+    }
+  },
+  "notes": {
+    "metricsJsonConfigField": "Same caveat as T165: the 'config' field inside *-earlystop.metrics.json is the bare TrainingConfig.name (t168-d1/t168-d2) and does not reflect --canonical; canonical-ness is read from the filename's run_name suffix and magic bytes (PWV6).",
+    "d2VsD1": "D2 (diag4 + constant added on top of D1) did not improve over D1 in this run; its best seed (4.521531) is worse than D1's best (4.492196) though still better than T165 C. Root-cause attribution (diag4 vs constant, or early-stop timing/overfitting at this training scale) was not investigated further; out of scope for this task."
+  }
+}
