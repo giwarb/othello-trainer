@@ -1,7 +1,7 @@
 ---
 id: T182
 title: 高速化(2): 増分Zobristハッシュの探索本体への配線(T180優先1位)
-status: todo
+status: done # 採用で決着(2026-07-22): verifier再計測(worktree独立ビルド×交互3回×専有)で**MPC off +3.32%・on +4.63%の一貫改善**を確認、実装者の悪化観測(-9.2%)は計測方法の系統誤差と判明(stash+同一dir逐次ビルド)。探索結果完全一致は双方で実証済み。教訓: NPS前後比較はworktree+交互実行が標準
 assignee: implementer
 attempts: 0
 ---
