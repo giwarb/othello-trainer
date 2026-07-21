@@ -36,7 +36,7 @@
 
 | ID | タスク | 担当 | 状態 | 試行 |
 |---|---|---|---|---|
-| T165 | canonical全量再学習(3構成×3seed=9run、重大バグ修正3/3) | implementer | in_progress(A=WTHOR v4-canonical、B=Egaroucid25.5M v4-canonical、C=同B3-canonical。事前登録: seed選定=frozen MAE最小、構成間比較無効、決定性確認はB seed1のみ。総所要2-3h見込み) | 0 |
+| T165 | canonical全量再学習(3構成×3seed=9run、重大バグ修正3/3) | implementer | review(9run完走・健全性全合格・決定性SHA一致。候補確定: A=WTHOR seed2〔f4200377〕、B=Egaroucid seed3〔13b7abb1〕、C=Egaroucid-B3 seed1〔9ce0cc05〕。verifier+代替レビュー並列検収中。次=T166対局ゲート) | 0 |
 
 ## 有効な方針・申し送り(今後のタスクに効くもの)
 
