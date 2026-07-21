@@ -80,6 +80,40 @@ def sign_test_p(diffs):
     return 2 * (1 - norm_cdf(abs(z)))
 
 
+# T176 redo#1: baseline/candidateが実は同じ探索条件で対局していなかった
+# (candidateが`--engine-exact-from-empties`の渡し忘れで既定18のままbaseline
+# の16と食い違い、「tだけを変えた対照実験」の前提が崩れていた)ことがverifier
+# で検出された。再発防止として、比較対象2ファイルの主要settingsキー
+# (t以外は同一であるべきもの)が一致するかを実際に比較する前に機械検証し、
+# 不一致ならエラーで拒否する(黙って交絡した比較を行わない)。
+REQUIRED_MATCHING_SETTINGS = [
+    "engine_depth", "engine_exact_from_empties", "engine_time_ms", "engine_max_nodes",
+    "engine_exact_quota_percent", "unlimited_exact_empties", "engine_tt_mb", "weights",
+]
+
+
+def validate_settings_match(baseline_doc, candidate_doc):
+    baseline_settings = baseline_doc.get("settings", {})
+    candidate_settings = candidate_doc.get("settings", {})
+    mismatches = []
+    for key in REQUIRED_MATCHING_SETTINGS:
+        baseline_value = baseline_settings.get(key)
+        candidate_value = candidate_settings.get(key)
+        if baseline_value != candidate_value:
+            mismatches.append(f"settings.{key}: baseline={baseline_value!r} candidate={candidate_value!r}")
+    baseline_weights_sha = baseline_doc.get("meta", {}).get("weightsSha256")
+    candidate_weights_sha = candidate_doc.get("meta", {}).get("weightsSha256")
+    if baseline_weights_sha != candidate_weights_sha:
+        mismatches.append(
+            f"meta.weightsSha256: baseline={baseline_weights_sha!r} candidate={candidate_weights_sha!r}"
+        )
+    if mismatches:
+        raise ValueError(
+            "baseline/candidate settings mismatch (confounded comparison, refusing to aggregate):\n  "
+            + "\n  ".join(mismatches)
+        )
+
+
 def by_opening_id(games, first_n):
     by_id = {}
     for game in games:
@@ -218,17 +252,52 @@ def report(meta):
     return "\n".join(lines)
 
 
+def self_test():
+    matching_settings = {
+        "engine_depth": 12, "engine_exact_from_empties": 16, "engine_time_ms": 15000,
+        "engine_max_nodes": 100000000, "engine_exact_quota_percent": 60,
+        "unlimited_exact_empties": 20, "engine_tt_mb": 64, "weights": "train/weights/pattern_v6.bin",
+    }
+    baseline_doc = {"settings": matching_settings, "meta": {"weightsSha256": "abc"}}
+    candidate_doc = {"settings": dict(matching_settings), "meta": {"weightsSha256": "abc"}}
+    validate_settings_match(baseline_doc, candidate_doc)  # should not raise
+
+    mismatched_candidate = {"settings": {**matching_settings, "engine_exact_from_empties": 18},
+                             "meta": {"weightsSha256": "abc"}}
+    try:
+        validate_settings_match(baseline_doc, mismatched_candidate)
+        raise AssertionError("expected ValueError for exact_from_empties mismatch")
+    except ValueError as e:
+        assert "engine_exact_from_empties" in str(e)
+
+    mismatched_weights = {"settings": dict(matching_settings), "meta": {"weightsSha256": "different"}}
+    try:
+        validate_settings_match(baseline_doc, mismatched_weights)
+        raise AssertionError("expected ValueError for weightsSha256 mismatch")
+    except ValueError as e:
+        assert "weightsSha256" in str(e)
+
+    print("self-test passed")
+
+
 def main():
     p = argparse.ArgumentParser()
-    p.add_argument("--baseline", type=Path, required=True, help="T175 P1 60-game results (t=1.5)")
-    p.add_argument("--candidate", type=Path, required=True, help="T176 confirmation results (selected t)")
+    p.add_argument("--baseline", type=Path, help="T175 P1 60-game results (t=1.5)")
+    p.add_argument("--candidate", type=Path, help="T176 confirmation results (selected t)")
     p.add_argument("--first-n-openings", type=int, default=15)
     p.add_argument("--bootstrap-samples", type=int, default=100000)
     p.add_argument("--bootstrap-seed", type=int, default=176004)
-    p.add_argument("--out", type=Path, required=True)
-    p.add_argument("--report", type=Path, required=True)
+    p.add_argument("--out", type=Path)
+    p.add_argument("--report", type=Path)
+    p.add_argument("--self-test", action="store_true")
     args = p.parse_args()
+    if args.self_test:
+        self_test()
+        return
+    if any(x is None for x in (args.baseline, args.candidate, args.out, args.report)):
+        p.error("--baseline, --candidate, --out, and --report are required (unless --self-test)")
     baseline_doc, candidate_doc = load(args.baseline), load(args.candidate)
+    validate_settings_match(baseline_doc, candidate_doc)
     result = analyze(
         baseline_doc["games"], candidate_doc["games"], args.first_n_openings,
         args.bootstrap_samples, args.bootstrap_seed,
@@ -238,6 +307,10 @@ def main():
         "task": "T176",
         "analysis": "confirmation match: selected t vs T175 P1 baseline (t=1.5), first N openings",
         "bootstrapSamples": args.bootstrap_samples, "bootstrapSeed": args.bootstrap_seed,
+        "settingsGuard": {
+            "checkedKeys": REQUIRED_MATCHING_SETTINGS + ["meta.weightsSha256"],
+            "passed": True,
+        },
         "inputs": {
             "baseline": {"path": args.baseline.as_posix(), "sha256": digest(args.baseline)},
             "candidate": {"path": args.candidate.as_posix(), "sha256": digest(args.candidate)},

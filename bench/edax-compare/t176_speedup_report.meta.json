@@ -2,6 +2,14 @@
   "schemaVersion": 1,
   "task": "T176",
   "analysis": "MPC aggressiveness gated trial + evaluation hot-path profile",
+  "redoHistory": [
+    {
+      "attempt": 1,
+      "verdict": "verifier rejected",
+      "reason": "confirmationMatch candidate run used exact_from_empties=18 (default) instead of 16 (baseline), confounding the paired comparison; work log/report/meta also mis-stated the value as 16",
+      "fix": "see part1.confirmationMatch.redo1Correction"
+    }
+  ],
   "part1": {
     "screening": {
       "method": "proxy (T156b Gate1 style, held-out root NWS[-1,0) approximation), no new engine search",
@@ -28,14 +36,23 @@
         "mpcMarginT": 1.0
       },
       "weightsSha256": "e69f3b1c33432bafd388af82adde64270ec8c51acaab070bbfff4cf4caf20fc9",
-      "openingLevel": {"n": 15, "meanDiff": 1.7333333333333334, "ci95": [-2.3333333333333335, 6.0], "signTestP": 0.4386},
-      "gameLevel": {"n": 30, "meanDiff": 1.7333333333333334, "ci95": [-1.8, 5.533333333333333], "signTestP": 0.6831},
+      "openingLevel": {"n": 15, "meanDiff": 2.1666666666666665, "ci95": [-1.0, 5.333333333333333], "signTestP": 0.1967},
+      "gameLevel": {"n": 30, "meanDiff": 2.1666666666666665, "ci95": [-0.9666666666666667, 5.666666666666667], "signTestP": 0.3938},
       "bigRegressionDetected": false,
       "anomalies": {"crashes": 0, "illegalMoves": 0, "nodeBudgetDeterminismMismatches": 0, "stderrEmpty": true},
       "sourceReport": "bench/edax-compare/t176_confirmation_compare_report.md",
       "sourceMeta": "bench/edax-compare/t176_confirmation_compare.meta.json",
-      "sourceMetaSha256": "7c41e573536bcc534bbadfa0bd4424ec8003c1600c56dce50a8e56cfcef56942",
-      "note": "raw game-log JSON is gitignored (matches T175 precedent); only this report/meta and the aggregated statistics are committed"
+      "sourceMetaSha256": "ab28cc1bfcd6617713aaca0da6d5d56c7fd83447e80a961e3cbd43618eed1a99",
+      "note": "raw game-log JSON is gitignored (matches T175 precedent); only this report/meta and the aggregated statistics are committed",
+      "redo1Correction": {
+        "issue": "First run's vs_edax.py invocation omitted --engine-exact-from-empties 16, so candidate ran with the default (18) while baseline (T175 P1) used 16 -- a confound the verifier caught. The work log/report/meta also incorrectly stated '16' despite the actual run using 18.",
+        "fix": "Re-ran the 30-game confirmation with --engine-exact-from-empties 16 explicit. Old ef=18 raw results archived with an -ef18 suffix (gitignored, local only). Added a settings-match guard (validate_settings_match, with --self-test) to t176_confirmation_compare.py that raises if baseline/candidate key settings (depth, exact_from_empties, time_ms, max_nodes, quota, unlimited_exact_empties, tt_mb, weights, weightsSha256) differ.",
+        "anomalyExplanationCheck": {
+          "moveNodesMeanReductionPercentBeforeFix": -26.01,
+          "moveNodesMeanReductionPercentAfterFix": -2.53,
+          "conclusion": "The confound explains most of the +26% node-count anomaly; after correction the live-game node metric is near parity (within noise), consistent with game-tree divergence being the dominant remaining source of variance (already flagged as an unreliable metric in this report; the controlled fixed-position experiment in controlledNodeComparison is the reliable measurement)."
+        }
+      }
     },
     "controlledNodeComparison": {
       "method": "calibrate_mpc gate (new --mpc-margin-t flag), fixed position set, depth 12, off vs t=1.5 vs t=1.0",

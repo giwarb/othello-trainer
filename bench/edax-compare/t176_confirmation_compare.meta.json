@@ -9,20 +9,20 @@
     },
     "candidate": {
       "path": "bench/edax-compare/endgame-results/t176-p1-t10-vs-edax-lv12-results.json",
-      "sha256": "4cf4db5d02638386a4a2c315a3fa0f963ce505fa05fce1f5e155c337f5ed74f2"
+      "sha256": "5a5a001cc161af0ede9682e7028d4f9f2e179d0a5a54ce8f09751f8131d77110"
     }
   },
   "result": {
     "gameLevel": {
       "baselineMean": -3.4,
-      "candidateMean": -1.6666666666666667,
+      "candidateMean": -1.2333333333333334,
       "ci95": [
-        -1.8,
-        5.533333333333333
+        -0.9666666666666667,
+        5.666666666666667
       ],
-      "meanDiff": 1.7333333333333334,
+      "meanDiff": 2.1666666666666665,
       "n": 30,
-      "signTestP": 0.6830913983096085
+      "signTestP": 0.3937686346429927
     },
     "openingIds": [
       "primary-01",
@@ -43,30 +43,44 @@
     ],
     "openingLevel": {
       "baselineMean": -3.4,
-      "candidateMean": -1.6666666666666667,
+      "candidateMean": -1.2333333333333334,
       "ci95": [
-        -2.3333333333333335,
-        6.0
+        -1.0,
+        5.333333333333333
       ],
-      "meanDiff": 1.7333333333333334,
+      "meanDiff": 2.1666666666666665,
       "n": 15,
-      "signTestP": 0.4385780260809997
+      "signTestP": 0.19670560245894686
     },
     "timing": {
       "baselineMoveCount": 745,
       "baselineMoveMsMean": 1741.318120805369,
       "baselineMoveNodesMean": 9570877.429530201,
       "baselineWallClockSecMean": 51.2552,
-      "candidateMoveCount": 744,
-      "candidateMoveMsMean": 1835.0040322580646,
-      "candidateMoveNodesMean": 12060475.413978495,
-      "candidateWallClockSecMean": 53.52033333333333,
-      "moveMsReductionPercent": -5.380172085349066,
-      "nodeReductionPercent": -26.01222304620505,
+      "candidateMoveCount": 742,
+      "candidateMoveMsMean": 1467.0592991913747,
+      "candidateMoveNodesMean": 9812830.973045822,
+      "candidateWallClockSecMean": 44.2734,
+      "moveMsReductionPercent": 15.750069923303167,
+      "nodeReductionPercent": -2.5280184110298087,
       "note": "elapsedMs/wallClockSecは壁時計ベースで、baseline(T175 P1)とcandidate(本タスク)は別々のプロセス実行(実行時刻・システム負荷が異なりうる)のため、マシン負荷変動の影響を受ける参考値に留める。決定的で比較に適した指標はmoveNodesMean/nodeReductionPercent(ノード数、壁時計に依存しない)。",
-      "wallClockReductionPercent": -4.419323958024424
+      "wallClockReductionPercent": 13.621642291904035
     }
   },
   "schemaVersion": 1,
+  "settingsGuard": {
+    "checkedKeys": [
+      "engine_depth",
+      "engine_exact_from_empties",
+      "engine_time_ms",
+      "engine_max_nodes",
+      "engine_exact_quota_percent",
+      "unlimited_exact_empties",
+      "engine_tt_mb",
+      "weights",
+      "meta.weightsSha256"
+    ],
+    "passed": true
+  },
   "task": "T176"
 }
