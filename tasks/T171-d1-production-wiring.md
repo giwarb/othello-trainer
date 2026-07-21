@@ -1,7 +1,7 @@
 ---
 id: T171
 title: D1候補の本番配線 — pattern_v6として公開(ユーザー採用裁定済み)
-status: todo
+status: done # verifier全項目合格(本番Pages SHA再DL・デプロイ済みバンドル内のv6/|v8参照確認・ゲート独立実行・全テスト再実行)、2026-07-21。pattern_v6本番稼働
 assignee: implementer
 attempts: 0
 ---
