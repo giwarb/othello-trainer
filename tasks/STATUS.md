@@ -36,7 +36,7 @@
 
 | ID | タスク | 担当 | 状態 | 試行 |
 |---|---|---|---|---|
-| T167 | 候補C(PWV6)の本番配線 — pattern_v5.bin公開(WASM PWV6確認・ANALYSIS_ENGINE_VERSION 7・Pages実機検証) | implementer | in_progress(前例T122/T147踏襲。切り戻し=v4へのfetch戻し+版数繰り上げ) | 0 |
+| T167 | 候補C(PWV6)の本番配線 — pattern_v5.bin公開 | implementer | review(5246597+9a54a35、**本番Pagesで稼働確認済み**〔対局・評価バー・解析・v5取得200・エラーなし・native/WASM評価値5局面完全一致〕。ANALYSIS_ENGINE_VERSION 7・ビルドゲート追加・CIのgitignoreデータ依存テストも修正。gzip +34%は報告のみ。verifier検収中) | 0 |
 
 ## 有効な方針・申し送り(今後のタスクに効くもの)
 
