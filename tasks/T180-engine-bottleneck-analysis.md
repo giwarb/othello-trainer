@@ -1,7 +1,7 @@
 ---
 id: T180
 title: エンジン速度ボトルネック分析(対Edax実測比較+ノード単価の内訳計測)
-status: todo
+status: done # verifier合格(NPS数値整合・未配線事実のコード確認・内訳モデルの完全追算〔8%根拠含む〕。軽微: 中間説明文の表現の粗さ1件)、2026-07-22。結論: 対Edax終盤20倍/中盤57-69倍、単独犯なし(未解明67%)、優先1位=増分hash配線→T182
 assignee: implementer
 attempts: 0
 ---
