@@ -12,7 +12,7 @@
 
 | ID | タスク | 担当 | 状態 | 試行 |
 |---|---|---|---|---|
-| T168 | パターン切り方のEdax寄せ — 調査(explorer: Edax 47feature vs 現行パターンの差分整理) | explorer | in_progress(調査後にタスク分解: 実装→Egaroucid全量学習15分/構成→60局ゲート) | 0 |
+| T168 | Edax寄せ(1/2): corner5x2+diag4+定数項の形状追加+Egaroucid全量学習6run+スクリーニング | implementer | in_progress(explorer調査済み: 主差分は3つのみ。D1=+corner5x2、D2=+corner5x2+diag4+定数項。選定=frozen MAEでT165のC(4.703)超え、無ければ撤退。サイズ+13.7MB留意) | 0 |
 
 ## 有効な方針・申し送り(今後のタスクに効くもの)
 
