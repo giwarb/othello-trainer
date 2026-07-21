@@ -1,7 +1,7 @@
 ---
 id: T169
 title: Edax寄せ(2/2): D1候補の対局ゲート(vs 現行本番v5、対Edax 60局paired)
-status: todo
+status: done # verifier全項目合格(全統計・時間・重み対応・スポットチェック不一致の実データ確認まで独立再現)。ゲート結果: D1有意勝ち(+4.53石、CI[+1.78,+7.33])→採用提案。**採否はサイズ増(gzip 5.9→10.7MB)のユーザー裁定待ち**(2026-07-21報告済み)。申し送り: budgeted→exact乖離の算出定義をレポートに明記すること(verifier)
 assignee: implementer
 attempts: 0
 ---
