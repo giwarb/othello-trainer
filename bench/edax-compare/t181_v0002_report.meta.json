@@ -1,0 +1,200 @@
+{
+  "schemaVersion": 1,
+  "task": "T181",
+  "decision": "reject_both_e1_and_e2",
+  "note": "User hypothesis (final-margin labels from strong-AI-vs-strong-AI games could be a promising training source) was not supported. Both E1 (v0002 alone) and E2 (lv17+v0002 mixed) underperformed the production v6 baseline on both static frozen MAE and live Edax lv12 game results, with the mean-margin difference significantly negative (95% CI entirely below zero) for both configs. No adoption is proposed.",
+  "dataAcquisition": {
+    "source": "https://github.com/Nyanyan/Egaroucid/releases/tag/training_data_v0002",
+    "userApproval": "approved 2026-07-22 morning (\"ok\", relayed via coordinator) before download",
+    "files": [
+      {"name": "Egaroucid_Train_Data_v0002_0.zip", "bytes": 1303950421, "sha256": "7123a56b647985b17f90b864e00ae5851cb015296315432965f4ad224ca7c87a"},
+      {"name": "Egaroucid_Train_Data_v0002_1.zip", "bytes": 1339651484, "sha256": "9bbda568b8c3163c9d7e15c3d5a4b5d47693401d1b094928c1a8077b3538b73b"}
+    ],
+    "totalBytes": 2643601905,
+    "license": "redistribution prohibited, free to use",
+    "storagePath": "train/data/egaroucid_v0002/ (gitignored, never committed)",
+    "format": "f5d6 move transcripts, 10000 games/file, folder name N (8-59) = number of random opening plies to exclude per distributor README",
+    "passSymbolOccurrence": "0 of 120,000 sampled games (4 folders x 3 files each)"
+  },
+  "conversionTool": {
+    "path": "train/src/bin/egaroucid_v0002_convert.rs",
+    "commit": "a45b02c",
+    "reusedLogic": "train::train_data::samples_from_game (replay + auto pass detection + final-margin labeling, same function used by wthor_to_simple)",
+    "malformedTranscripts": 0,
+    "illegalMoveSequences": 0,
+    "gamesScanned": 52000000,
+    "samplesWritten": 24919545,
+    "targetCount": 25000000,
+    "achievedFraction": 0.99678,
+    "conversionWallClockSec": 700,
+    "bugsFoundAndFixed": [
+      {
+        "id": "bufwriter-auto-flush-checkpoint-drift",
+        "description": "BufWriter auto-flushes its internal buffer independent of explicit .flush() calls, so a killed process left more bytes on disk than the checkpoint's samples_written implied.",
+        "fix": "added output_bytes_committed to the checkpoint; on resume, truncate the output file to that length via set_len() before appending.",
+        "validation": "reproduced via real Stop-Process -Force interrupt on synthetic data; post-fix, interrupted+resumed run's final SHA-256 matched an uninterrupted reference run exactly."
+      },
+      {
+        "id": "path-separator-hash-key-nondeterminism",
+        "description": "Windows Path::join mixes backslashes into path strings even when the base path used forward slashes, making the per-sample selection hash key differ between PowerShell- and Bash-style --in-dirs invocations of the same logical dataset.",
+        "fix": "added normalize_path_for_key (backslash -> forward-slash) used consistently for the hash key and checkpoint processed_files identity.",
+        "validation": "PowerShell-style and Bash-style invocations of the same logical command produced byte-identical output (SHA-256 ccd97d2d... in both) after the fix."
+      }
+    ],
+    "distributionMatch": {
+      "referenceCorpus": "train/data/egaroucid/extracted/0001_egaroucid_7_5_1_lv17",
+      "referenceTotalLines": 25514097,
+      "outputTotalLines": 24919545,
+      "bucketsPopulated": "1..51 (empties 52-60 have negligible reference-corpus volume so their proportional target rounds to 0, not a bug)",
+      "maxAbsoluteFractionDeviationPercentagePoints": 0.0116
+    }
+  },
+  "trainerExtension": {
+    "path": "train/src/simple_corpus.rs",
+    "function": "list_simple_corpus_files_multi",
+    "commit": "d2fd124",
+    "purpose": "comma-separated multi-path support for --simple-corpus, used by E2 to concatenate lv17 (25,514,097 lines) + v0002 (24,919,545 lines) = 50,433,642 lines",
+    "backwardCompatible": true
+  },
+  "frozenSplitMechanism": {
+    "functions": ["train::simple_corpus::split_by_position_hash", "train::simple_corpus::split_for_early_stop"],
+    "rule": "fnv1a(D4-canonicalized board position key) % 10 == 9 => frozen",
+    "dataSourceIndependent": true,
+    "implication": "E1/E2 training automatically excludes any position whose canonical key would land in the lv17 frozen bucket, regardless of which corpus that position came from; no additional exclusion code was needed."
+  },
+  "training": {
+    "flags": "--configs t158-b3 --canonical --early-stop --early-stop-patience 3 --max-epochs 30 (identical to T165)",
+    "e1": {
+      "corpus": "train/data/t181/v0002_25m.txt (24,919,545 lines)",
+      "poolSize": 24919545,
+      "trainSamples": 20736632,
+      "valSamples": 1091174,
+      "frozenSamples": 3091739,
+      "seeds": [
+        {"seed": 1, "bestEpoch": 12, "epochsRun": 15, "frozenMse": 60.449053, "frozenMae": 5.842035, "bytes": 27986840, "path": "train/data/t181/e1-v0002/t158-b3-canonical-seed-1-earlystop.bin", "sha256": "fc394046823976a9df2c00cbfe544aa93699c6f1349cd6a5d34b03b0841308c3"},
+        {"seed": 2, "bestEpoch": 9, "epochsRun": 12, "frozenMse": 60.582270, "frozenMae": 5.848404, "bytes": 27986840, "path": "train/data/t181/e1-v0002/t158-b3-canonical-seed-2-earlystop.bin"},
+        {"seed": 3, "bestEpoch": 10, "epochsRun": 13, "frozenMse": 60.526919, "frozenMae": 5.845760, "bytes": 27986840, "path": "train/data/t181/e1-v0002/t158-b3-canonical-seed-3-earlystop.bin"}
+      ],
+      "bestSeed": 1,
+      "bestSeedSelectionCriterion": "lowest own-frozen frozen_mae (also confirmed lowest on the shared lv17 frozen set, see crossConfigFrozenMae)"
+    },
+    "e2": {
+      "corpus": "train/data/egaroucid/extracted/0001_egaroucid_7_5_1_lv17,train/data/t181/v0002_25m.txt (50,433,642 lines total)",
+      "corpusHash": "c0b084c364a446db",
+      "poolSize": 50433642,
+      "trainSamples": 41946746,
+      "valSamples": 2205765,
+      "frozenSamples": 6281131,
+      "seeds": [
+        {"seed": 1, "bestEpoch": 14, "epochsRun": 17, "frozenMse": 49.694436, "frozenMae": 5.275110, "bytes": 27986840, "path": "train/data/t181/e2-mixed/t158-b3-canonical-seed-1-earlystop.bin", "sha256": "f9de18397b342f42940bc1dc789c6124625d9a64cfc3ad2d47cbede40e412835"},
+        {"seed": 2, "bestEpoch": 10, "epochsRun": 13, "frozenMse": 50.091302, "frozenMae": 5.297653, "bytes": 27986840, "path": "train/data/t181/e2-mixed/t158-b3-canonical-seed-2-earlystop.bin"},
+        {"seed": 3, "bestEpoch": 9, "epochsRun": 12, "frozenMse": 50.113914, "frozenMae": 5.298597, "bytes": 27986840, "path": "train/data/t181/e2-mixed/t158-b3-canonical-seed-3-earlystop.bin"}
+      ],
+      "bestSeed": 1,
+      "bestSeedSelectionCriterion": "lowest own-frozen frozen_mae (also confirmed lowest on the shared lv17 frozen set, see crossConfigFrozenMae)"
+    }
+  },
+  "crossConfigFrozenMaeTool": {
+    "path": "train/src/bin/frozen_mae_eval.rs",
+    "commit": "774db9f",
+    "sharedFrozenSet": {
+      "source": "lv17 corpus alone, split_by_position_hash",
+      "cachedArtifactPath": "train/data/t181/lv17_frozen.txt (gitignored, not committed)",
+      "sampleCount": 3189392,
+      "sourceCorpusHash": "8e14d3751185a95c"
+    },
+    "results": [
+      {"label": "v6", "weightsPath": "train/weights/pattern_v6.bin", "frozenMse": 35.923338, "frozenMae": 4.492196},
+      {"label": "e1-seed1(best)", "weightsPath": "train/data/t181/e1-v0002/t158-b3-canonical-seed-1-earlystop.bin", "frozenMse": 43.675037, "frozenMae": 4.968667},
+      {"label": "e1-seed2", "frozenMse": 43.798552, "frozenMae": 4.975879},
+      {"label": "e1-seed3", "frozenMse": 43.750656, "frozenMae": 4.973161},
+      {"label": "e2-seed1(best)", "weightsPath": "train/data/t181/e2-mixed/t158-b3-canonical-seed-1-earlystop.bin", "frozenMse": 40.409244, "frozenMae": 4.784592},
+      {"label": "e2-seed2", "frozenMse": 40.738452, "frozenMae": 4.806507},
+      {"label": "e2-seed3", "frozenMse": 40.758813, "frozenMae": 4.807344}
+    ],
+    "ranking": "v6 (best) < E2-best < E1-best (worst)"
+  },
+  "gate": {
+    "protocol": {
+      "harness": "bench/edax-compare/vs_edax.py (unmodified)",
+      "engineModes": ["single-root"],
+      "openingSet": "primary",
+      "openingCount": 30,
+      "gamesPerConfig": 60,
+      "engineDepth": 12,
+      "engineExactFromEmpties": 16,
+      "engineExactQuotaPercent": 60,
+      "engineMaxNodes": 160000,
+      "engineTimeMs": 1500,
+      "engineTtMiB": 64,
+      "unlimitedExactEmpties": 20,
+      "edaxLevel": 12,
+      "skipLossAnalysis": true,
+      "sourceOfTruth": "identical to T158d/T162/T166/T169/T174"
+    },
+    "provenanceVerification": {
+      "v6WeightsSha256": "e69f3b1c33432bafd388af82adde64270ec8c51acaab070bbfff4cf4caf20fc9",
+      "matchesT169T174": true,
+      "edaxExecutableSha256": "aabb5ac7d3f9a872fc0e7388ab1eee1d23c687f76c28642122524dc318b322b1",
+      "edaxEvalDataSha256": "f8b2299612d9fa4414157e70e932636e33111c2602d0c2fc382a7d90ef21b792",
+      "openingSetSha256": "7a340c17b02f85a29d5ff296b46ab19aac13f185de7bc03eaf574d6290be81e2",
+      "unchangedSinceT158dT162T166T169T174": true
+    },
+    "v6BaselineReuse": {
+      "reused": true,
+      "source": "T174 (bench/edax-compare/endgame-results/t174-v6-vs-edax-lv12-results.json)",
+      "reasonEngineRebuildCheckWasNeeded": {
+        "engineCommitsSinceT174": ["2e9bb88 (T175)", "f1fdbbd (T176)", "9e50fc7 (T178)", "bd9ccaa (T182)"],
+        "evalCliSha256AtT174": "cfd600e64e275bdca01a58e102c5f2d8eb62070099a747b0f0e33ceeac783cd6",
+        "evalCliSha256Now": "2a0b329ecca14a241d98f17261a8c7193d0722ffb0812bf218066726d5b1e57b"
+      },
+      "spotCheck": {
+        "method": "v6 weights, --opening-limit 3 (first 3 openings = 6 games), full-field diff of raw JSON vs T174's first 6 games",
+        "resultsPath": "bench/edax-compare/endgame-results/t181-v6-lv12-spotcheck-results.json (local only)",
+        "fieldsCompared": ["move", "board_before", "nodes", "depth", "discDiff", "timedOut", "nodeLimitHit", "exactFallback", "margin", "plies"],
+        "matched": "6/6 games, all decision-relevant fields identical",
+        "onlyDifferingFields": ["elapsedMs", "nps"],
+        "onlyDifferingFieldsExplanation": "wall-clock timing artifacts of a fixed 160,000-node budget; machine-load dependent and expected to vary run to run, not a decision-affecting difference",
+        "conclusion": "safe to reuse T174's 60-game v6 baseline; fresh 60-game v6 re-run skipped (saved ~14 minutes)"
+      }
+    },
+    "execution": {
+      "v6": {"source": "T174 (reused)", "gamesCompleted": 60, "wins": 18, "draws": 1, "losses": 41, "marginMean": -6.067, "meanWallClockSecPerGame": 13.982},
+      "e1Best": {"startedAtLocal": "2026-07-22T08:00:49+09:00", "gamesCompleted": 60, "fixedDepthRegressionAllMatched": true, "nodeBudgetRegressionAllMatched": true, "stderrEmpty": true, "timedOutCount": 0, "wallInsuranceFiredCount": 0, "totalEngineMoves": 1468, "wins": 17, "draws": 3, "losses": 40, "marginMean": -10.766666666666667, "meanWallClockSecPerGame": 11.635, "resultsPath": "bench/edax-compare/endgame-results/t181-e1-vs-edax-lv12-results.json"},
+      "e2Best": {"startedAtLocal": "2026-07-22T08:13:17+09:00", "gamesCompleted": 60, "fixedDepthRegressionAllMatched": true, "nodeBudgetRegressionAllMatched": true, "stderrEmpty": true, "timedOutCount": 0, "wallInsuranceFiredCount": 0, "totalEngineMoves": 1476, "wins": 14, "draws": 4, "losses": 42, "marginMean": -8.8, "meanWallClockSecPerGame": 12.692, "resultsPath": "bench/edax-compare/endgame-results/t181-e2-vs-edax-lv12-results.json"}
+    },
+    "statistics": {
+      "method": "paired bootstrap percentile CI, identical implementation to compare_pattern_v3.py's paired_bootstrap() (random.Random(seed), resample-with-replacement, 100,000 samples) + two-sided exact sign test (p=0.5, ties excluded)",
+      "openingUnitOrder": "primary-01..primary-30 ascending",
+      "gameUnitOrder": "opening ascending -> engine-black -> engine-white (same convention as T166/T169)",
+      "e1VsV6": {
+        "openingUnit": {"n": 30, "seed": 181001, "meanDifference": -4.7, "ci95": [-7.633333333333334, -1.9666666666666666], "classification": "worse", "signTestPosNeg": [9, 18], "signTestP": 0.12207812070846558},
+        "gameUnit": {"n": 60, "seed": 181002, "meanDifference": -4.7, "ci95": [-7.3, -2.2333333333333334], "classification": "worse", "signTestPosNeg": [19, 34], "signTestP": 0.053438810537711046}
+      },
+      "e2VsV6": {
+        "openingUnit": {"n": 30, "seed": 181003, "meanDifference": -2.7333333333333334, "ci95": [-5.533333333333333, -0.06666666666666667], "classification": "worse", "signTestPosNeg": [9, 17], "signTestP": 0.16863754391670227},
+        "gameUnit": {"n": 60, "seed": 181004, "meanDifference": -2.7333333333333334, "ci95": [-5.433333333333334, -0.13333333333333333], "classification": "worse", "signTestPosNeg": [20, 32], "signTestP": 0.12634707581392135}
+      }
+    },
+    "adoptionCriterion": {
+      "rule": "propose adoption only if 95% CI (opening-unit) is entirely positive vs v6",
+      "e1Result": "CI [-7.633, -1.967] entirely negative (significantly worse) -> criterion not met",
+      "e2Result": "CI [-5.533, -0.067] entirely negative (significantly worse) -> criterion not met",
+      "verdict": "no adoption proposed for either E1 or E2"
+    }
+  },
+  "conclusion": {
+    "hypothesisSupported": false,
+    "summary": "Final-margin labels from Egaroucid v0002 (strong-AI-vs-strong-AI self-play) underperformed the existing lv17 search-value labels on both static frozen MAE and live game results, whether used alone (E1) or mixed with lv17 (E2). Mixing with lv17 (E2) was consistently better than v0002 alone (E1) on both metrics, but still worse than lv17 alone (v6).",
+    "outOfScope": ["production wiring", "re-search labeling", "mixing-ratio tuning"]
+  },
+  "coordinationWithT182": {
+    "note": "T182's NPS re-measurement was deferred pending T181's CPU-exclusive heavy-compute phases; that exclusive window is now available now that T181's gate has completed."
+  },
+  "commits": {
+    "conversionTool": "a45b02c",
+    "trainerMultiPathExtension": "d2fd124",
+    "frozenMaeEvalTool": "774db9f",
+    "thisReport": "(to be filled in by orchestrator after commit)"
+  }
+}
