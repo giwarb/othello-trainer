@@ -1,7 +1,7 @@
 ---
 id: T167
 title: 候補C(Egaroucid B3-canonical、PWV6)の本番配線 — pattern_v5として公開
-status: todo
+status: done # verifier(本番バンドル検査・Pages SHA再DL・全テスト再実行)+代替レビュー(重大0・中1・軽微4)両合格、2026-07-21。中1(test-node-budget-wasm.mjsがv4重み参照のまま=非本番構成のゲート)は次の軽タスクでv5化
 assignee: implementer
 attempts: 0
 ---
