@@ -1,0 +1,138 @@
+{
+  "schemaVersion": 1,
+  "task": "T169",
+  "decision": "proposal_only_final_decision_pending",
+  "note": "Candidate D1 is proposed as new production candidate per pre-registered criteria, but final adoption (including the size tradeoff) is left to the coordinator/user.",
+  "manifestSource": "bench/edax-compare/t168_training_report.meta.json#t169Manifest",
+  "shaTranscriptionNote": "The task file's candidate SHA-256 (...bbfffcf4caf20fc9) differs by one segment from the manifest's value (...bbfff4cf4caf20fc9); per instructions the manifest value was used as authoritative, and it matched the on-disk file exactly.",
+  "provenanceVerification": {
+    "baselineV5": {"path": "train/weights/pattern_v5.bin", "sha256Manifest": "9ce0cc054b67807641b759a2e881a87dd562146dee5e4d659bba1efa228f54a4", "sha256Measured": "9ce0cc054b67807641b759a2e881a87dd562146dee5e4d659bba1efa228f54a4", "match": true, "identicalToT166CandidateC": true},
+    "candidateD1": {"path": "train/data/t168/d1/t168-d1-canonical-seed-1-earlystop.bin", "sha256Manifest": "e69f3b1c33432bafd388af82adde64270ec8c51acaab070bbfff4cf4caf20fc9", "sha256Measured": "e69f3b1c33432bafd388af82adde64270ec8c51acaab070bbfff4cf4caf20fc9", "match": true, "fileSizeBytes": 42394905},
+    "openingSetSha256": "7a340c17b02f85a29d5ff296b46ab19aac13f185de7bc03eaf574d6290be81e2",
+    "edaxExecutableSha256": "aabb5ac7d3f9a872fc0e7388ab1eee1d23c687f76c28642122524dc318b322b1",
+    "edaxEvalDataSha256": "f8b2299612d9fa4414157e70e932636e33111c2602d0c2fc382a7d90ef21b792",
+    "allMatched": true
+  },
+  "baselineReuseSpotCheck": {
+    "attempted": true,
+    "outcome": "mismatch_found_ran_fresh",
+    "method": "ran v5 weights with --opening-limit 3 (6 games) at current HEAD (eval_cli rebuilt), compared against the first 6 games of T166's candidate C run (bench/edax-compare/endgame-results/t166-c-vs-edax-results-full.json)",
+    "gitCommitsToEngineDirSinceT166": 1,
+    "engineDirCommit": "2409052 (T168: corner5x2/diag4 shapes + constant-term scalar)",
+    "evalCliSha256AtT166": "9c28701a21e01f371282bf61afd4ed2ccea06d2150555ca3d7cf482bdbc2f970",
+    "evalCliSha256AtT169": "7ecceb8afcf1c882e1f93c4d66cd19be45b47a31f6e68be920f09480697ccfff",
+    "marginAndPliesMatch": "all 6 games matched exactly (primary-01/black -32, primary-01/white +8, primary-02/black -6, primary-02/white -10, primary-03/black -40, primary-03/white +32; plies also matched)",
+    "moveNodesDiscDiffMismatch": {
+      "game": "primary-03/white",
+      "description": "from ply 33 (empties=17) the position was already fully solved (discDiff pinned at +32.0 in both runs), but starting at ply 34 the exact sequence of moves chosen among the remaining forced/tied squares diverged between the two eval_cli binaries, along with differing node counts per move (discDiff itself stayed identical at every step)",
+      "likelyCause": "T168 added new pattern shapes (corner5x2/diag4) to the engine's internal pattern table, which plausibly shifted move-enumeration/tie-break order among equally-valued moves in an already-determined endgame position; this does not affect search correctness or final outcome",
+      "impactOnFinalResult": "none -- margin and plies for this game matched exactly (+32, 49 plies)"
+    },
+    "decision": "Per the task's explicit rule (even one mismatch -> run fresh), T166's candidate C 60-game data was NOT reused; v5 baseline was executed fresh for the full 60 games.",
+    "spotCheckArtifacts": {
+      "resultsPath": "bench/edax-compare/endgame-results/t169-v5-spotcheck-results.json",
+      "reportPath": "bench/edax-compare/endgame-results/t169-v5-spotcheck-report.md"
+    }
+  },
+  "candidateD1ScalarFeaturePrecheck": {
+    "method": "standalone eval_cli invocation before the 60-game run: `eval_cli gen` for the standard initial position, then `eval_cli best --pattern-weights <candidate D1 path> ...` with the same protocol parameters, capturing stderr",
+    "result": "[eval_cli weights] scalar_features_present=true scalar_features_enabled=true",
+    "v5Baseline": "scalar_features_present=true scalar_features_enabled=true (v5 is T166 candidate C, which already carries scalar features from the B3 lineage)",
+    "note": "vs_edax.py's run() helper captures subprocess stderr internally and only surfaces it on failure, so this diagnostic does not appear in the 60-game run's own logs; the standalone pre-check satisfies this requirement."
+  },
+  "protocol": {
+    "engineDepth": 12, "engineExactFromEmpties": 16, "engineExactQuotaPercent": 60, "engineMaxNodes": 160000,
+    "engineTimeMs": 1500, "engineTtMiB": 64, "unlimitedExactEmpties": 20, "engineModes": ["single-root"],
+    "edaxLevels": [10], "openingSet": "primary", "openingCount": 30,
+    "sourceOfTruth": "identical to T158d/T162/T166; vs_edax.py unmodified"
+  },
+  "execution": {
+    "sequential": true,
+    "order": ["v5-spotcheck (6 games)", "v5 (60 games)", "D1 (60 games)"],
+    "otherHeavyWorkConcurrent": false,
+    "runs": {
+      "v5": {"resultsPath": "bench/edax-compare/endgame-results/t169-v5-vs-edax-results-full.json", "startedAtLocal": "2026-07-21T13:48:35+09:00", "finishedAtLocal": "2026-07-21T14:01:55+09:00", "totalWallClockSec": 800, "gamesWallClockSumSec": 784.749, "gamesWallClockMeanSec": 13.079, "gamesWallClockMinSec": 10.187, "gamesWallClockMaxSec": 20.812, "gamesWallClockStdevSec": 1.645, "gamesCompleted": 60, "fixedDepthRegressionAllMatched": true, "nodeBudgetRegressionAllMatched": true, "stderrEmpty": true, "evalCliSha256": "7ecceb8afcf1c882e1f93c4d66cd19be45b47a31f6e68be920f09480697ccfff"},
+      "D1": {"resultsPath": "bench/edax-compare/endgame-results/t169-d1-vs-edax-results-full.json", "startedAtLocal": "2026-07-21T14:02:25+09:00", "finishedAtLocal": "2026-07-21T14:17:24+09:00", "totalWallClockSec": 899, "gamesWallClockSumSec": 880.056, "gamesWallClockMeanSec": 14.668, "gamesWallClockMinSec": 12.844, "gamesWallClockMaxSec": 18.625, "gamesWallClockStdevSec": 1.276, "gamesCompleted": 60, "fixedDepthRegressionAllMatched": true, "nodeBudgetRegressionAllMatched": true, "stderrEmpty": true, "ranWithAllowDirty": true, "allowDirtyReason": "worktree dirty only from an in-progress tasks/T169-edax-pattern-game-gate.md work-log edit (documentation only)"}
+    },
+    "combinedTotalWallClockSec": 1699,
+    "combinedTotalWallClockMinutes": 28.3
+  },
+  "results": {
+    "v5": {"wins": 20, "draws": 3, "losses": 37, "marginSum": -405, "marginMean": -6.75, "marginMedian": -5.0, "identicalToT166CandidateCResults": true},
+    "D1": {"wins": 26, "draws": 1, "losses": 33, "marginSum": -133, "marginMean": -2.217, "marginMedian": -2.5}
+  },
+  "statistics": {
+    "bootstrapArrayOrderingNote": "Opening-level arrays ordered by opening number ascending (primary-01..primary-30). Game-level arrays ordered by (opening number ascending, then black before white). Identical convention to T166/T162.",
+    "algorithmNote": "Identical to bench/edax-compare/compare_pattern_v3.py#paired_bootstrap and to T158d/T162/T166 reports.",
+    "vsV5Baseline": {
+      "openingLevel": {"n": 30, "meanDiff": 4.5333, "improved": 21, "worsened": 9, "tied": 0, "bootstrapSeed": 169004, "samples": 100000, "ci95": [1.7833, 7.3333], "signTest": {"n": 30, "improved": 21, "pValue": 0.042773945257067694}},
+      "gameLevel": {"n": 60, "meanDiff": 4.5333, "improved": 38, "worsened": 18, "tied": 4, "bootstrapSeed": 169005, "samples": 100000, "ci95": [2.0667, 7.0333], "signTest": {"n": 56, "improved": 38, "pValue": 0.01045481832189218}}
+    },
+    "diffDefinition": "D1 opening-average (or game) margin minus v5 opening-average (or game) margin"
+  },
+  "adoptionCriterionApplication": {
+    "criterionText": "CI entirely above 0 (significant improvement) AND 0 anomalies -> propose adoption",
+    "ciEntirelyAboveZero": true,
+    "ci95": [1.7833, 7.3333],
+    "anomalies": 0,
+    "criterionSatisfied": true,
+    "proposal": "Candidate D1 (V3+corner5x2) is proposed as the new production candidate.",
+    "sizeTradeoffUserDecision": {
+      "source": "bench/edax-compare/t168_training_report.md (measured raw/gzip section)",
+      "candidateD1SizeBytesRaw": 42394905,
+      "candidateD1SizeBytesGzip": 10734273,
+      "v5SizeBytesRaw": 27986840,
+      "v5SizeBytesGzip": 5865976,
+      "gzipDeltaBytes": 4868297,
+      "gzipDeltaApproxMB": 4.64,
+      "gzipDeltaApproxPercent": 83,
+      "note": "Per task requirement, this size increase (~1.83x gzip) is explicitly flagged as a user decision point: whether the statistically significant strength gain (+4.53 discs/game point estimate) justifies the larger download/load size for the app. This worker does not render a verdict on this tradeoff."
+    }
+  },
+  "wallInsuranceAndTiming": {
+    "wallInsuranceDefinition": "wallInsuranceFired = (engine move's timedOut == true) AND (nodeLimitHit == false), identical to vs_edax.py's policy_calibration wallInsuranceFired definition",
+    "v5": {"totalEngineMoves": 1489, "timedOutCount": 0, "nodeLimitHitCount": 895, "wallInsuranceFiredCount": 0},
+    "D1": {"totalEngineMoves": 1498, "timedOutCount": 0, "nodeLimitHitCount": 896, "wallInsuranceFiredCount": 0},
+    "conclusion": "0 wall-insurance triggers on both arms across all engine moves; the 160000-node budget consistently binds before the 1500ms wall-clock budget even with D1's ~21% lower NPS (per T168's measurement), so the NPS reduction did not translate into any time-based search truncation in this gate.",
+    "timePerGameComparison": {
+      "v5": {"meanSec": 13.079, "minSec": 10.187, "maxSec": 20.812, "stdevSec": 1.645, "sumSec": 784.749},
+      "D1": {"meanSec": 14.668, "minSec": 12.844, "maxSec": 18.625, "stdevSec": 1.276, "sumSec": 880.056},
+      "meanDeltaSec": 1.589,
+      "meanDeltaPercent": 12.1,
+      "note": "D1 is about 12% slower per game on average, less than the ~21% NPS reduction reported in T168, likely because the node budget (not raw NPS) is the binding constraint for most of the budgeted phase."
+    }
+  },
+  "exactFallbackDefinition": {
+    "note": "Counts ONLY the single transition move (the last budgeted-phase move before the engine's root empties drops to <= unlimited_exact_empties=20). Identical definition to T158d/T162/T166.",
+    "v5": {"fallbackAtTransition": 5, "of": 60, "matchesT166CandidateC": true},
+    "D1": {"fallbackAtTransition": 3, "of": 60}
+  },
+  "watchPoint": {
+    "budgetedToExactDeviation": {
+      "v5": {"n": 60, "meanAbsDelta": 4.79, "medianAbsDelta": 4.48, "maxAbsDelta": 15.62, "maxAbsDeltaOpening": "primary-01", "maxAbsDeltaColor": "black", "stdevAbsDelta": 3.972, "matchesT166CandidateC": true},
+      "D1": {"n": 60, "meanAbsDelta": 4.306, "medianAbsDelta": 3.7, "maxAbsDelta": 13.9, "maxAbsDeltaOpening": "primary-22", "maxAbsDeltaColor": "white", "stdevAbsDelta": 3.386},
+      "interpretation": "D1 shows a slightly smaller and more stable deviation than v5 (mean 4.31 vs 4.79); no sign of search-quality degradation from the NPS reduction."
+    },
+    "signFlips": {
+      "v5": {"count": 7, "of": 60, "games": ["primary-08/black", "primary-18/black", "primary-18/white", "primary-19/white", "primary-20/black", "primary-23/white", "primary-28/white"]},
+      "D1": {"count": 4, "of": 60, "games": ["primary-07/white", "primary-14/white", "primary-22/white", "primary-24/white"]},
+      "conclusion": "All flips originate from small near-zero budgeted values (largest magnitude 9.90, D1 primary-22/white); no catastrophic reversal on either side. D1 has fewer flips than v5, consistent with its slightly more stable deviations above."
+    }
+  },
+  "anomalyCheck": {
+    "crashes": 0,
+    "illegalMoves": 0,
+    "nondeterminism": 0,
+    "fixedDepthRegression": {"v5": "PASSED 40/40", "D1": "PASSED 40/40"},
+    "nodeBudgetRegression": {"v5": "PASSED 10/10", "D1": "PASSED 10/10"},
+    "stderrLogsEmpty": true,
+    "wallInsuranceFired": 0
+  },
+  "verdict": "proposal_only_final_decision_pending",
+  "proposal": "Candidate D1 (V3+corner5x2, PWV6) is proposed as the new production candidate per pre-registered criteria (opening-level 95% CI entirely above 0: [1.7833, 7.3333]; 0 anomalies). The gzip size increase (~5.9MB -> ~10.7MB, +82%) is an explicit user decision point not resolved by this worker.",
+  "outOfScope": [
+    "final adoption decision (including the size tradeoff)",
+    "production wiring",
+    "vs_edax.py / engine / train code changes"
+  ]
+}
