@@ -25,18 +25,34 @@ const workerScope = self as unknown as DedicatedWorkerScope;
 let engine: Engine | undefined;
 let readyPromise: Promise<void> | undefined;
 
-// T147: WTHOR学習済みパターン評価v4(ステージ1石刻み61段、T124で導入・
-// T125のseed3を採用、`train/weights/pattern_v4.bin`を`app/public/pattern_v4.bin`
-// にコピーしたもの)。`public/joseki.json`と同様に静的アセットとして配置し、
+// T167: Egaroucid全量25.5M局面×B3特徴(モビリティ・囲い度)×D4 canonical化
+// スキーム(T163〜T165、PWV6形式)で学習した候補C(T165のseed1)を採用。
+// T166の対局ゲートで現行v4に対して+17.37石(95%CI[+13.97,+20.87]、
+// p<0.0001)の有意改善を確認済み。`train/data/t165/egaroucid-b3/
+// t158-b3-canonical-seed-1-earlystop.bin`(SHA-256 9ce0cc05...、
+// `bench/edax-compare/t165_training_report.meta.json`のt166Manifest参照)を
+// `train/weights/pattern_v5.bin`・`app/public/pattern_v5.bin`にコピーした
+// もの。`public/joseki.json`と同様に静的アセットとして配置し、
 // `import.meta.env.BASE_URL`(GitHub Pagesのサブパス配信 `vite.config.ts` 参照)
 // を前置してfetchする。
-// v3へ切り戻す場合は、ファイル名を`pattern_v3.bin`へ戻すだけでよい(T122参照)。
-// **ただし、ここを変更する(v3/v4を切り替える)たびに、
-// `analysis/cache.ts`の`ANALYSIS_ENGINE_VERSION`も必ず1つ上げること**
-// (T122申し送り事項、T139で追記。評価値が変わるのにキャッシュキーが
-// 変わらないと、古いバージョンで解析した結果がヒットし続け、新しい重みでの
-// 再解析が行われない。詳細は`cache.ts`のT060コメント参照)。
-const PATTERN_WEIGHTS_URL = `${import.meta.env.BASE_URL}pattern_v4.bin`;
+//
+// **切り戻し手順(v4へ戻す場合)**: 以下の2点を**両方セットで**行うこと。
+// 片方だけでは古い解析結果が誤って使い回される事故になる(T122申し送り
+// 事項、片方だけの変更で発生した実際の不具合が教訓)。
+//   1. 下記URLのファイル名を`pattern_v4.bin`へ戻す(既存ファイルは削除せず
+//      残してあるので、このファイルを指すだけでよい)。
+//   2. `analysis/cache.ts`の`ANALYSIS_ENGINE_VERSION`を**必ずもう1つ
+//      繰り上げる**(現在7から戻すなら8。**6に戻すのではなく、常に直近の
+//      最大値+1へ進めること**。バージョン番号は往復させず単調増加させる
+//      運用のため、切り戻しであっても新しい番号を割り当てる)。
+// (T122申し送り事項の解消: 従来のコメントは「ファイル名を戻すだけでよい」
+// という記述が先にあり、版数繰り上げの必須性が読み手に伝わりにくかった。
+// 本コメントでは切り戻し手順そのものに版数繰り上げを明記する。詳細は
+// `cache.ts`のT060コメント参照)。
+//
+// v4以前(v2/v3)や将来のcanonical再学習版へ切り替える場合も同様に、
+// ファイル名変更とANALYSIS_ENGINE_VERSIONの繰り上げを必ずセットで行う。
+const PATTERN_WEIGHTS_URL = `${import.meta.env.BASE_URL}pattern_v5.bin`;
 
 /**
  * 本番用パターン重みをfetchして `engine.load_pattern_weights` に渡す。

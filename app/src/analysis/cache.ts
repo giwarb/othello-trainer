@@ -78,8 +78,18 @@ function defaultIndexedDb(): IDBFactory {
  * T147: 本番パターン重みをv3からv4(ステージ1石刻み61段、T124で導入・
  * T125のseed3をユーザー裁定により採用)へ切り替え、同一局面・同一探索条件
  * でも評価値が変わるため、古い解析結果を無効化する(5 -> 6)。
+ *
+ * T167: 本番パターン重みをv4からv5(Egaroucid全量25.5M局面×B3特徴×D4
+ * canonical化スキーム、T163〜T165、PWV6形式。T166対局ゲートで対v4
+ * +17.37石・p<0.0001の有意改善を確認したT165候補C=seed1を採用)へ
+ * 切り替え、同一局面・同一探索条件でも評価値が変わるため、古い解析結果を
+ * 無効化する(6 -> 7)。**このバージョンを含め、`worker.ts`の
+ * `PATTERN_WEIGHTS_URL`を変更する(切り戻し含む)たびに、本定数を必ず
+ * 直近の最大値+1へ繰り上げること**(往復させて過去の番号に戻さない。
+ * T122申し送り事項——ファイル名を戻すだけでは古いキャッシュが残る事故に
+ * つながるため、`worker.ts`側のロールバック手順コメントにも明記した)。
  */
-export const ANALYSIS_ENGINE_VERSION = 6
+export const ANALYSIS_ENGINE_VERSION = 7
 
 /** 探索条件をキャッシュキー用の安定したタグへ変換する。 */
 export function analysisLimitTag(limit: AnalyzeLimit): string {
