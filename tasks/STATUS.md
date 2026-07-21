@@ -12,8 +12,7 @@
 
 | ID | タスク | 担当 | 状態 | 試行 |
 |---|---|---|---|---|
-| T170 | 申し送り消化: node-budgetゲートv5化+local_tt.clear()回帰テスト | implementer | review(f693d05、regression-catching実証済み〔clear()削除でleft:6299≠right:6529→復元で合格〕。verifier追試中) | 0 |
-| T171 | D1候補の本番配線(pattern_v6公開、ユーザー採用裁定済み) | implementer | in_progress(T167前例踏襲+ゲートスクリプト2本v6化+ANALYSIS_ENGINE_VERSION 8) | 0 |
+| T171 | D1候補の本番配線(pattern_v6公開、ユーザー採用裁定済み) | implementer | in_progress(T167前例踏襲+ゲートスクリプト2本v6化+ANALYSIS_ENGINE_VERSION 8。作業中の差分をverifierが目撃済み=想定どおり) | 0 |
 
 ## 有効な方針・申し送り(今後のタスクに効くもの)
 
@@ -129,6 +128,7 @@
 | T158c | 評価特徴追加(3/4): スクリーニング+候補確定 | **完了**(5d1dd4d、verifier〔再集計・hash実測・resume実地再現〕/代替レビュー〔中2=T158d申し送り〕両合格、Codex実装、redo 0回)。害検出でseed1/3除外・**seed2を候補確定**、oracle180害なし(mean +0.067)・NPS on/off 0.92-0.94・24局smoke異常0(12W1D11L)。60局ゲートmanifest完備 |
 | T158d | 評価特徴追加(4/4): 対Edax 60局paired最終ゲート | **不採用裁定=現行v4維持**(cc88739ほか、verifier2回〔全統計・SHA・決定性の独立再現〕合格、Sonnet実装、redo 0回、ユーザー指示で段階実行)。候補9勝1分50敗(-22.67) vs v4 4勝2分54敗(-24.12)、ペア差+1.45石・CI[-1.57,+4.60]・p=0.57で有意差なし。パイロットの乖離非対称は不再現。ゲート一式約30分の運用を確立。B3特徴実装はT160で再利用 |
 | T159 | 本番トレーナーへ早期打ち切り導入(Egaroucidシリーズ1/3) | **完了**(8372aa2、verifier〔OFF時ビット一致をworktree独立追試でSHA完全一致〕/代替レビュー〔重大0・中3・軽微7〕両合格、Sonnet実装、redo 0回)。opt-in・対局単位検証split(frozen holdout不使用)・patienceベスト復元・resume対応。180kスモークでbest_epoch=4復元を実証。中3件と--simple-corpus対応はT159bへ |
+| T170 | 申し送り消化(node-budgetゲートv5化+local_tt.clear()回帰テスト) | **完了**(f693d05、verifier〔regression-catchingをworktree独立再現・失敗値一致〕合格、redo 0回)。T145申し送りのテスト検知力ゼロ問題を解消(restrict_toテスト専用パラメータ方式、本番経路不変)。T167申し送りのゲートv5化も完了(T171でv6化予定) |
 | T169 | Edax寄せ(2/2): D1対局ゲート | **D1有意勝ち・採用提案**(d02c392、verifier全項目独立再現で合格、redo 0回)。D1(+corner5x2) 26勝1分33敗-2.22 vs v5 20勝3分37敗-6.75、ペア差+4.53石・CI[+1.78,+7.33]・p=0.043。wall保険両アーム0件(速度懸念は実害なし)。採否=サイズ増のユーザー裁定待ち。申し送り: 乖離指標の算出定義明記 |
 | T168 | Edax寄せ(1/2): 形状追加+全量学習+スクリーニング | **候補確定**(2409052+54d027e、verifier〔一次データ突合・全SHA・対称160局面×2・不変の独立前後比較〕/代替レビュー〔重大0・中2・軽微5〕両合格、Sonnet実装、redo 0回)。**D1=+corner5x2がfrozen 4.492(現本番4.703比改善)、D2(+diag4+定数項)は上積みなし**。コスト: gzip 10.7MB(+83%)・NPS-21%。申し送り: スモークコマンドの正確な記録・make-zero-feature-model変化・使い捨てテスト恒久化 |
 | T167 | 候補C(PWV6)の本番配線 — pattern_v5.bin公開 | **完了・本番公開**(5246597+9a54a35、verifier〔本番バンドル検査・Pages SHA再DL・全テスト〕/代替レビュー〔重大0・中1・軽微4〕両合格、Sonnet実装、redo 0回)。ANALYSIS_ENGINE_VERSION 7・PWV6ビルドゲート恒久化・CI既存不具合修正込み。gzip 4.4→5.9MB(+34%、報告のみ)。申し送り: test-node-budget-wasm.mjsのv5化(次の軽タスク) |

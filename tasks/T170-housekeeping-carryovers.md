@@ -1,7 +1,7 @@
 ---
 id: T170
 title: 申し送り消化: node-budgetゲートのv5化+local_tt.clear()回帰テスト
-status: todo
+status: done # verifier合格(regression-catchingをworktreeで独立再現、失敗値left:6299/right:6529まで一致。restrict_to分離の本番経路不変も精読+既存決定性テストで裏付け)、2026-07-21。軽微タスクにつき代替レビュー省略
 assignee: implementer
 attempts: 0
 ---
