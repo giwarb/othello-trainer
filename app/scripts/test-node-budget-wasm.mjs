@@ -3,7 +3,14 @@ import { Engine, initSync } from '../src/engine/pkg/engine.js'
 
 const wasm = await readFile(new URL('../src/engine/pkg/engine_bg.wasm', import.meta.url))
 initSync({ module: wasm })
-const weights = await readFile(new URL('../public/pattern_v4.bin', import.meta.url))
+// T170(T167レビュー中1): 本番配線がpattern_v4.bin→pattern_v5.bin(T167)に
+// 切り替わったのに、このビルドゲートは旧v4を参照したままだった
+// (=本番構成を検証していないゲートになっていた)。現本番pattern_v5.binを
+// 参照するよう更新した。本スクリプトは固定goldenを持たず(`first`自身を
+// 基準に`second`/`afterUnrelated`との一致を見る自己参照的な決定性チェック)、
+// 重みファイルの中身が変わっても再取得すべき外部golden値は無い
+// (作業ログ参照)。
+const weights = await readFile(new URL('../public/pattern_v5.bin', import.meta.url))
 
 const request = JSON.stringify({
   id: 1,

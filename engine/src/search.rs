@@ -1171,6 +1171,51 @@ pub fn search_all_moves_with_eval(
     limit: &SearchLimit,
     weights: Option<&PatternWeights>,
 ) -> Vec<MoveEval> {
+    search_all_moves_with_eval_core(board, side_to_move, limit, weights, ANALYZE_ALL_LOCAL_TT_MB)
+        .into_iter()
+        .map(|(eval, _nodes)| eval)
+        .collect()
+}
+
+/// [`search_all_moves_with_eval`]の実装本体。ローカルTTのサイズ
+/// (`tt_size_mb`)と各合法手の総ノード数(反復深化の全深さを合計したもの、
+/// 完全読みに委譲した場合は`solve_exact_with_nodes`/
+/// `solve_exact_bounded_with_nodes`が返す値)を追加で返す。
+///
+/// この2点は本番の`search_all_moves_with_eval`(常に`ANALYZE_ALL_LOCAL_TT_MB`・
+/// ノード数は呼び出し元に見せない)からは呼べない・見えない情報だが、
+/// T170で追加した回帰テスト(`local_tt.clear()`の削除検知)が、TTを
+/// 意図的に小さくして衝突を誘発し、ノード数の変化で「手をまたいだ
+/// キャッシュ汚染」を検出するために必要とする。本関数を切り出したこと
+/// 自体で本番`search_all_moves_with_eval`の計算内容・返り値は一切変わらない
+/// (`ANALYZE_ALL_LOCAL_TT_MB`を渡して呼ぶだけの薄いラッパーになった)。
+fn search_all_moves_with_eval_core(
+    board: &Board,
+    side_to_move: Side,
+    limit: &SearchLimit,
+    weights: Option<&PatternWeights>,
+    tt_size_mb: usize,
+) -> Vec<(MoveEval, u64)> {
+    search_all_moves_with_eval_core_restricted(board, side_to_move, limit, weights, tt_size_mb, None)
+}
+
+/// [`search_all_moves_with_eval_core`]の実装本体。`restrict_to`が`Some`の
+/// 場合、通常なら評価するはずの合法手のうち`restrict_to`に含まれるものだけ
+/// (元の手番順を保った部分列)を評価する。本番経路
+/// ([`search_all_moves_with_eval_core`]経由、常に`restrict_to=None`)の
+/// 挙動には影響しない、テスト専用の追加パラメータ(T170: `local_tt.clear()`
+/// 回帰テストが、同一局面上で「他の合法手が何手評価された後か」だけを
+/// 変えて特定の1手のノード数を比較するために使う。局面を変えて比較する
+/// 方式は、対象手の着手結果(次局面)まで変わってしまい比較にならない
+/// ことが判明したため不採用とした。作業ログ参照)。
+fn search_all_moves_with_eval_core_restricted(
+    board: &Board,
+    side_to_move: Side,
+    limit: &SearchLimit,
+    weights: Option<&PatternWeights>,
+    tt_size_mb: usize,
+    restrict_to: Option<&[u8]>,
+) -> Vec<(MoveEval, u64)> {
     let legal = board.legal_moves(side_to_move);
     let mut moves: Vec<u8> = Vec::with_capacity(legal.count_ones() as usize);
     let mut remaining = legal;
@@ -1179,10 +1224,13 @@ pub fn search_all_moves_with_eval(
         moves.push(lsb.trailing_zeros() as u8);
         remaining &= remaining - 1;
     }
+    if let Some(allowed) = restrict_to {
+        moves.retain(|mv| allowed.contains(mv));
+    }
 
     let opponent = side_to_move.opposite();
     let total_moves = moves.len();
-    let mut evals: Vec<MoveEval> = Vec::with_capacity(total_moves);
+    let mut evals: Vec<(MoveEval, u64)> = Vec::with_capacity(total_moves);
 
     // 全合法手を通じた経過時間の起点(`limit.time_ms` があれば参照する)。
     // T076: 以前はこの `start` を全合法手が単純に共有し、「まだ経過時間が
@@ -1211,7 +1259,7 @@ pub fn search_all_moves_with_eval(
     // T139: 呼び出し元のTTとは独立な、この関数専用のローカルTT。各合法手の
     // 評価直前に`clear()`して完全にリセットするため、手をまたいだ
     // エントリの持ち越しは起きない(関数doc参照)。
-    let mut local_tt = TranspositionTable::new(ANALYZE_ALL_LOCAL_TT_MB);
+    let mut local_tt = TranspositionTable::new(tt_size_mb);
 
     for (i, mv) in moves.into_iter().enumerate() {
         local_tt.clear();
@@ -1241,6 +1289,12 @@ pub fn search_all_moves_with_eval(
         // (全合法手共有の `start` とは別物)。
         let move_start = Instant::now();
 
+        // T170: この合法手1つを評価するのに探索したノード総数(反復深化なら
+        // 全深さの合計、完全読みに委譲した場合はその1回分)。回帰テスト
+        // (`local_tt.clear()`削除検知)がTT汚染の有無を判定するために使う
+        // (本番`search_all_moves_with_eval`は`_nodes`として捨てる)。
+        let mut move_nodes: u64 = 0;
+
         let (score, is_exact) = if next_empties <= limit.exact_from_empties as u32 {
             // T034: `search()`/`negascout`と同じ理由により、`time_ms`が
             // 指定されていれば`solve_exact_bounded`を使う。特定の局面
@@ -1257,14 +1311,18 @@ pub fn search_all_moves_with_eval(
                         start: move_start,
                         time_ms,
                     };
-                    match solve_exact_bounded(&next_board, opponent, &mut local_tt, budget) {
+                    let (result, nodes) =
+                        solve_exact_bounded_with_nodes(&next_board, opponent, &mut local_tt, budget);
+                    move_nodes += nodes;
+                    match result {
                         Some(raw_diff) => (-(raw_diff * 100), true),
                         None => (-static_eval(&next_board, opponent, weights), false),
                     }
                 }
                 None => {
-                    let (raw_diff, _nodes) =
+                    let (raw_diff, nodes) =
                         solve_exact_with_nodes(&next_board, opponent, &mut local_tt);
+                    move_nodes += nodes;
                     (-(raw_diff * 100), true)
                 }
             }
@@ -1307,6 +1365,11 @@ pub fn search_all_moves_with_eval(
                     };
                     -negascout(&next_board, opponent, depth - 1, -INF, INF, &mut ctx)
                 };
+                // T170: タイムアウトで未完走に終わった深さの分も、実際に
+                // 探索した(探索木を辿った)ノード数としてカウントする
+                // (打ち切りは`candidate`の値を捨てるだけで、その深さの
+                // 探索が「無かったこと」にはならないため)。
+                move_nodes += nodes;
 
                 if timed_out {
                     // このイテレーション(depth)は再帰の途中で時間切れになり
@@ -1326,14 +1389,17 @@ pub fn search_all_moves_with_eval(
             (best_for_move, false)
         };
 
-        evals.push(MoveEval {
-            mv,
-            score,
-            is_exact,
-        });
+        evals.push((
+            MoveEval {
+                mv,
+                score,
+                is_exact,
+            },
+            move_nodes,
+        ));
     }
 
-    evals.sort_by_key(|e| std::cmp::Reverse(e.score));
+    evals.sort_by_key(|(e, _)| std::cmp::Reverse(e.score));
     evals
 }
 
@@ -2471,6 +2537,118 @@ mod tests {
             );
             assert_eq!(a.is_exact, b.is_exact);
         }
+    }
+
+    #[test]
+    fn search_all_moves_with_eval_local_tt_clear_prevents_cross_move_node_count_pollution() {
+        // T170(T145申し送り): `local_tt.clear()`をうっかり削除しても既存の
+        // 回帰テスト群が検知できないことがT145で判明していた
+        // (`tasks/T145-analyze-symmetry-followup.md`作業ログ参照)。
+        //
+        // 検知できなかった理由: `search_all_moves_with_eval`の各手の探索は
+        // MPC無効(`enable_mpc: false`)・ノード予算なし(`max_nodes: None`)で
+        // 行われるため、`time_ms: None`(時間無制限、反復深化を`max_depth`まで
+        // 必ず完走する)の下では、alpha-beta+TTの数学的な性質により
+        // **返すスコア自体はTTの初期状態に依存しない**(手の評価順序を
+        // 変えても最終的なmin-max値は変わらない、というalpha-betaの基本的な
+        // 正しさの帰結)。clear()の有無で変わるのは「探索したノード数」
+        // (TTヒットで再計算を省ける分だけ減る)であり、`MoveEval`はノード数を
+        // 外部に公開していないため、これまでのテストは事実上この差を
+        // 観測できていなかった。
+        //
+        // 検討したが不採用にした方式: 「mv_keepを唯一の合法手にした孤立盤面」
+        // を作り、他の合法手を評価してからmv_keepを評価する多合法手盤面と
+        // ノード数を比較する案(2つの異なる盤面を比較)を最初に試した。
+        // しかし、他の合法手の着手先マスを石で埋めて非合法化しようとすると、
+        // どの色で埋めてもかなりの高確率(実測数千パターン中大半)で別方向に
+        // 新しい合法手が偶然生まれてしまい、「他の合法手が0個」を満たす盤面を
+        // 安定して構築できなかった。さらに、mv_keepのレイ(反転が起きうる
+        // 8方向)の外側だけに石を追加して他の合法手の集合を変える案でも、
+        // 追加した石がmv_keep着手後の局面にそのまま残ってしまい、比較対象の
+        // 「mv_keep着手後の局面」自体が2盤面間で一致しなくなる(ノード数の差が
+        // TT汚染由来なのか局面の違い由来なのか切り分けられなくなる)ことが
+        // 判明した。2つの盤面を用意する限り、「他の合法手の集合を変える」ことと
+        // 「mv_keep着手後の局面を完全一致させる」ことは両立しない
+        // (前者を満たすには盤面のどこかを変える必要があり、その変更は
+        // mv_keepのレイ外であっても着手後の局面にそのまま残ってしまうため)。
+        //
+        // 採用した方式: 盤面は1つだけ使い、`search_all_moves_with_eval_core`が
+        // 内部的に評価する合法手の集合をテスト専用パラメータ
+        // (`search_all_moves_with_eval_core_restricted`の`restrict_to`)で
+        // 絞り込むことで、「他の合法手を先に評価してからmv_keepを評価する
+        // 呼び出し」と「mv_keepだけを評価する呼び出し」を作る。同一盤面から
+        // 導出するため、mv_keep着手後の局面は自明に完全一致する
+        // (`board.apply_move`は`restrict_to`を経由せず盤面のみで決まる)。
+        //
+        // `local_tt.clear()`が正しく働いていれば、mv_keepの探索はどちらの
+        // 呼び出しでも空のlocal_ttから始まるため、探索するノード数は
+        // **完全に一致する**はず。TTを意図的に小さくして(衝突・追い出しが
+        // 起きやすい状態にして)、他の合法手が残した先行エントリが
+        // mv_keep自身の反復深化(自分の浅い深さの探索結果を深い深さの
+        // 探索が再利用する仕組み)を阻害しうる状態を作っている。
+        let (board, side) = random_position(0x7170_5EED, 40);
+        let legal = board.legal_moves(side);
+        let mut moves: Vec<u8> = Vec::new();
+        let mut remaining = legal;
+        while remaining != 0 {
+            let lsb = remaining & remaining.wrapping_neg();
+            moves.push(lsb.trailing_zeros() as u8);
+            remaining &= remaining - 1;
+        }
+        assert!(
+            moves.len() >= 4,
+            "need several legal moves for meaningful prior-move TT pollution, got {} (adjust the \
+             seed/target_empties if this position's move count drifts)",
+            moves.len()
+        );
+
+        // mv_keep = 合法手のうち最後に評価される手(LSB優先順で末尾、
+        // すなわち他の全ての合法手の探索が終わった後に評価される)。
+        let mv_keep = *moves.last().unwrap();
+
+        // TTを小さくして衝突・追い出しを起きやすくする(本番は16MB)。
+        const TINY_TT_MB: usize = 1;
+        let limit = SearchLimit {
+            max_depth: 8,
+            time_ms: None,
+            exact_from_empties: 0,
+        };
+
+        // full: 通常どおり全合法手を評価する(mv_keepは最後)。
+        let full = search_all_moves_with_eval_core_restricted(
+            &board, side, &limit, None, TINY_TT_MB, None,
+        );
+        let (full_eval, full_nodes) = *full
+            .iter()
+            .find(|(e, _)| e.mv == mv_keep)
+            .expect("mv_keep should be among the full-move results");
+
+        // solo: mv_keepだけを評価する(他の合法手を評価しないため、
+        // local_tt.clear()の有無に関わらずローカルTTは事実上フレッシュな
+        // 状態からmv_keepの探索に入る = 「clear()が働いた場合」の基準値)。
+        let solo = search_all_moves_with_eval_core_restricted(
+            &board,
+            side,
+            &limit,
+            None,
+            TINY_TT_MB,
+            Some(&[mv_keep]),
+        );
+        assert_eq!(solo.len(), 1);
+        let (solo_eval, solo_nodes) = solo[0];
+
+        assert_eq!(
+            full_eval.score, solo_eval.score,
+            "mv_keep's score should match regardless of prior moves' search activity \
+             (alpha-beta without MPC/node-budget is TT-state-invariant for the final value)"
+        );
+        assert_eq!(
+            full_nodes, solo_nodes,
+            "mv_keep's node count should be identical whether it is evaluated after several \
+             other moves in the same search_all_moves_with_eval call, or alone as the only \
+             move under consideration; a difference here means local_tt.clear() is not fully \
+             resetting the table between moves (cross-move TT pollution regression)"
+        );
     }
 
     #[test]
