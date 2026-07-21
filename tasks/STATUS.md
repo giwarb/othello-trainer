@@ -12,7 +12,7 @@
 
 | ID | タスク | 担当 | 状態 | 試行 |
 |---|---|---|---|---|
-| T168 | Edax寄せ(1/2): corner5x2+diag4+定数項の形状追加+Egaroucid全量学習6run+スクリーニング | implementer | in_progress(explorer調査済み: 主差分は3つのみ。D1=+corner5x2、D2=+corner5x2+diag4+定数項。選定=frozen MAEでT165のC(4.703)超え、無ければ撤退。サイズ+13.7MB留意) | 0 |
+| T168 | Edax寄せ(1/2): 形状追加+全量学習6run+スクリーニング | implementer | review(2409052+54d027e、**D1=+corner5x2がfrozen MAE 4.492で現本番C(4.703)を改善、候補確定(seed1、SHA e69f3b1c)**。D2の追加分(diag4+定数項)は上積みなし。コスト: 重み+13.7MB・gzip 10.7MB(+83%)・NPS-21%(ノード予算制では強さに非直結)。verifier+代替レビュー並列検収中) | 0 |
 
 ## 有効な方針・申し送り(今後のタスクに効くもの)
 
