@@ -1686,6 +1686,18 @@ impl HistoryTable {
         *slot = slot.saturating_add(bonus);
     }
 
+    /// T191: `side`分のhistory値をノード入場時点の状態で複製する
+    /// (`[u32; 64]`、ヒープ確保なし)。lazy ordering(TT手先行構築)で
+    /// TT手のサブツリー探索後に残候補を構築する際、ライブの`self`を
+    /// そのまま読むとTT手探索中に別ノードが行った`record_cutoff`更新が
+    /// タイブレークキーに混入し、現行(一括構築、TT手探索前に読む)と
+    /// 順序が変わってしまう。このスナップショットを使えば、残候補構築を
+    /// 遅延しても「現行がその時点で読んだはずの値」と完全に同じキーを
+    /// 使える([`negascout`]のlazy経路参照)。
+    fn snapshot(&self, side: Side) -> [u32; 64] {
+        self.scores[Self::side_index(side)]
+    }
+
     /// root探索(反復深化の各イテレーション開始)ごとに全値を半減する
     /// (要件3: 飽和防止と古い情報の減衰)。
     fn halve_all(&mut self) {
@@ -2095,20 +2107,25 @@ fn negascout(
         }
     }
 
-    // T190: lazy ordering。`ctx.history`が`None`(=ノード予算探索以外の
-    // 本番/固定深さ経路。`SearchPolicy::default()`、[`SearchCtx::history`]
-    // 参照)かつTT手がこのノードで合法(`legal`のビットが立っている)場合
-    // だけ、TT手1件分の`OrderedMove`(`apply_move`+次手番の合法手マスク)を
-    // 先に構築・探索する。従来の探索順は`[tt_move, ソート順の残候補...]`
-    // であり、TT手の探索でbeta cutoffが起きれば残候補の順序は結果に一切
-    // 影響しないため、残候補(`legal`から`tt_move`を除いた集合)の構築
-    // (`apply_move`+合法手マスク計算)+`sort_by_cached_key`をカットオフ後
-    // まで遅延しても、探索されるノード列は完全に同一になる(「lazy化の
-    // 正当性」参照)。`ctx.history`が`Some`のとき(MPC on経路、
+    // T190/T191: lazy ordering。TT手がこのノードで合法(`legal`のビットが
+    // 立っている)場合、TT手1件分の`OrderedMove`(`apply_move`+次手番の
+    // 合法手マスク)を先に構築・探索する。従来の探索順は`[tt_move, ソート順
+    // の残候補...]`であり、TT手の探索でbeta cutoffが起きれば残候補の順序は
+    // 結果に一切影響しないため、残候補(`legal`から`tt_move`を除いた集合)の
+    // 構築(`apply_move`+合法手マスク計算)+`sort_by_cached_key`をカットオフ
+    // 後まで遅延しても、探索されるノード列は完全に同一になる(「lazy化の
+    // 正当性」参照)。
+    //
+    // T190時点では`ctx.history`が`Some`のとき(MPC on経路、
     // `enable_history: true`)はorderingキーがhistory値を含み、TT手の
-    // サブツリー探索中の更新がキーに混入して順序が変わりうるため、lazy化
-    // せず従来どおりの一括構築のままにする。
-    let lazy_tt_move = if ctx.history.is_none() && lazy_ordering_enabled_for_run() {
+    // サブツリー探索中の更新がキーに混入して順序が変わりうるため対象外
+    // だった。T191: ノード入場時(TT手の子探索前、下記`history_snapshot`)に
+    // history値を`[u32; 64]`へスナップショットしておき、残候補の遅延ソート
+    // では[`HistorySource::Snapshot`]経由でこの値を読むことで、history有効
+    // 時も現行と厳密に同一のキー値を使えるようにした(モビリティ値は盤面
+    // から決まる決定的な値なのでいつ計算しても同じ。history値だけが
+    // 「読む時点」に依存するため、この値だけをノード入場時点で固定する)。
+    let lazy_tt_move = if lazy_ordering_enabled_for_run() {
         tt_move.filter(|&tm| legal & (1u64 << tm) != 0)
     } else {
         None
@@ -2266,6 +2283,14 @@ fn negascout(
     }
 
     if let Some(tm) = lazy_tt_move {
+        // T191: TT手のサブツリー探索(この直後の`process_candidate!`、
+        // 内部で`ctx.history`を更新しうる再帰呼び出しを含む)を始める前に、
+        // history値をノード入場時点の状態でスナップショットする
+        // (`HistoryTable::snapshot`)。`ctx.history`が`None`(従来の
+        // 一括構築対象外だった経路以外、すなわちノード予算探索以外)の
+        // ときは`history_snapshot`も`None`のままで、下の残候補構築は
+        // 従来どおり`history: None`で呼ばれる。
+        let history_snapshot: Option<[u32; 64]> = ctx.history.as_deref().map(|h| h.snapshot(side));
         #[cfg(test)]
         record_lazy_ordering_activation();
         let tm_bit = 1u64 << tm;
@@ -2290,12 +2315,16 @@ fn negascout(
             // `legal & !tm_bit`はTT手を除いた残候補であり、これを従来と
             // 同一キーで安定ソートした列は、現行(一括構築)の2番目以降と
             // 完全に一致する(「lazy化の正当性」参照)。
+            // T191: history有効時は上で取ったスナップショット
+            // ([`HistorySource::Snapshot`])を渡す。TT手のサブツリー探索中に
+            // 他ノードが`ctx.history`を更新していても、このソートキーには
+            // 一切影響しない(ノード入場時点の値のまま)。
             let move_count = ordered_moves(
                 board,
                 side,
                 legal & !tm_bit,
                 None,
-                ctx.history.as_deref(),
+                history_snapshot.as_ref().map(HistorySource::Snapshot),
                 &mut ordered_buf,
             );
             for om in &ordered_buf[..move_count] {
@@ -2306,12 +2335,16 @@ fn negascout(
             }
         }
     } else {
+        // T191: TT手なし/非合法、またはlazy経路自体が無効
+        // (`TEST_FORCE_LEGACY_ORDERING`)な場合の一括構築。まだ候補手を
+        // 1つも処理していないため、ライブの`ctx.history`をそのまま読んでも
+        // ノード入場時点の値と同じ([`HistorySource::Live`])。
         let move_count = ordered_moves(
             board,
             side,
             legal,
             tt_move,
-            ctx.history.as_deref(),
+            ctx.history.as_deref().map(HistorySource::Live),
             &mut ordered_buf,
         );
         for om in &ordered_buf[..move_count] {
@@ -2708,6 +2741,28 @@ impl OrderedMove {
     };
 }
 
+/// T191: [`ordered_moves`]がhistoryのタイブレーク値をどこから読むかを
+/// 表す。`Live`は通常どおり[`HistoryTable`]を直接参照する(TT手が
+/// 存在しない/非合法、または`negascout`のlazy経路自体が無効な場合の
+/// 一括構築で使う。この時点ではまだどの候補手も探索していないため、
+/// ライブの値=ノード入場時点の値)。`Snapshot`はlazy経路でTT手の
+/// サブツリー探索後に残候補を構築する場合に使う([`HistoryTable::snapshot`]
+/// 参照、TT手探索中の他ノードの更新に影響されない値)。
+#[derive(Clone, Copy)]
+enum HistorySource<'a> {
+    Live(&'a HistoryTable),
+    Snapshot(&'a [u32; 64]),
+}
+
+impl HistorySource<'_> {
+    fn get(&self, side: Side, mv: u8) -> u32 {
+        match self {
+            HistorySource::Live(h) => h.get(side, mv),
+            HistorySource::Snapshot(s) => s[mv as usize],
+        }
+    }
+}
+
 /// 合法手を簡易的なムーブオーダリングで並べ替え、`out`(呼び出し元が持つ
 /// 固定長バッファ)へ書き込む。返り値は実際に書き込んだ件数。
 ///
@@ -2758,12 +2813,21 @@ impl OrderedMove {
 /// (キーの値は完全に同一)は一切変わらない。ソートキーのクロージャは
 /// 保存済みの`m.legal`を読むだけになり、呼び出し元(`negascout`)がこの
 /// マスクを子ノードへ渡せるようになる。
+///
+/// T191: `history`の型を`Option<&HistoryTable>`から`Option<HistorySource>`
+/// に変更した。lazy ordering(TT手先行構築)でTT手のサブツリー探索後に
+/// 残候補を構築する呼び出し元は[`HistorySource::Snapshot`]
+/// (ノード入場時点のスナップショット)を渡し、それ以外(TT手なし/非合法、
+/// またはlazy経路自体が無効な場合の一括構築)は従来どおり
+/// [`HistorySource::Live`]を渡す。どちらの場合もこの関数自体のソート
+/// ロジック(キーのタプル構成・比較順序・`sort_by_cached_key`)は一切
+/// 変わらない。
 fn ordered_moves(
     board: &Board,
     side: Side,
     legal: u64,
     tt_move: Option<u8>,
-    history: Option<&HistoryTable>,
+    history: Option<HistorySource>,
     out: &mut [OrderedMove; 64],
 ) -> usize {
     let mut count = 0usize;
@@ -5141,6 +5205,143 @@ mod tests {
         assert!(
             residual_skipped >= 50,
             "expected the T190 lazy-ordering residual-skip telemetry to fire at least 50 times, got {residual_skipped}"
+        );
+    }
+
+    // ------------------------------------------------------------------
+    // T191: lazy orderingのhistory有効経路への拡張(historyスナップショット)
+    // ------------------------------------------------------------------
+
+    /// T191の絶対条件(要件1・2): history有効経路(`SearchPolicy.enable_history
+    /// = true`、本番のノード予算探索・MPC on経路が使う設定と同じ)でも、
+    /// lazy ordering経路(既定、TT手先行構築+historyスナップショット)と
+    /// レガシー一括構築経路(`ForceLegacyOrderingGuard`で強制)の探索結果
+    /// (best_move/score/depth/nodes)が完全に一致することを確認する。
+    /// T190の`lazy_ordering_matches_legacy_full_construction_across_diverse_midgame_searches`
+    /// (history無効)と対になるテストで、T190では対象外だった経路
+    /// (`ctx.history`が`Some`)を直接検証する。
+    ///
+    /// regression-catching実証(本タスクの核心、作業ログ参照): 残候補構築の
+    /// ソートキーへ`history_snapshot`経由の[`HistorySource::Snapshot`]では
+    /// なく意図的に`ctx.history.as_deref().map(HistorySource::Live)`(=
+    /// ノード入場時点ではなく残候補ソート実行時点のライブ値、TT手のサブ
+    /// ツリー探索中の更新を含む)を渡すよう一時的に改変したところ、本
+    /// テストがbest_move/score/nodes不一致で確実に失敗することを確認し、
+    /// 直後にスナップショット渡しへ復元した。
+    #[test]
+    fn lazy_ordering_matches_legacy_full_construction_with_history_enabled_across_diverse_midgame_searches()
+    {
+        let path = concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../train/weights/pattern_v6.bin"
+        );
+        let weights = PatternWeights::from_bytes(&std::fs::read(path).unwrap()).unwrap();
+        let policy = SearchPolicy {
+            enable_history: true,
+            enable_aspiration: true,
+            enable_mpc: false,
+        };
+
+        for n in 0..8usize {
+            let (board, side) = play_until_empties(24, move |moves: &[u64]| moves[n % moves.len()]);
+            let limit = default_limit(8, 10);
+
+            let mut tt_lazy = TranspositionTable::new(4);
+            let lazy_result = search_with_eval_with_policy(
+                &board,
+                side,
+                &limit,
+                &mut tt_lazy,
+                Some(&weights),
+                None,
+                EXACT_QUOTA_PERCENT,
+                policy,
+            );
+
+            let legacy_result = {
+                let _guard = ForceLegacyOrderingGuard::engage();
+                let mut tt_legacy = TranspositionTable::new(4);
+                search_with_eval_with_policy(
+                    &board,
+                    side,
+                    &limit,
+                    &mut tt_legacy,
+                    Some(&weights),
+                    None,
+                    EXACT_QUOTA_PERCENT,
+                    policy,
+                )
+            };
+
+            assert_eq!(
+                lazy_result.best_move, legacy_result.best_move,
+                "n={n}: best_move differs between lazy and legacy ordering (history enabled)"
+            );
+            assert_eq!(
+                lazy_result.score, legacy_result.score,
+                "n={n}: score differs between lazy and legacy ordering (history enabled)"
+            );
+            assert_eq!(
+                lazy_result.depth, legacy_result.depth,
+                "n={n}: depth differs between lazy and legacy ordering (history enabled)"
+            );
+            assert_eq!(
+                lazy_result.nodes, legacy_result.nodes,
+                "n={n}: nodes differs between lazy and legacy ordering (history enabled)"
+            );
+        }
+    }
+
+    /// T191要件4: lazy ordering経路がhistory有効時にも実際に発動
+    /// ([`record_lazy_ordering_activation`])し、TT手先行探索だけで
+    /// beta cutoffが起き残候補の構築を省略できた回数
+    /// ([`record_lazy_ordering_residual_skipped`])が0件のままpassしない
+    /// ことを確認するテレメトリテスト(T190の同種テストのhistory有効版)。
+    #[test]
+    fn lazy_ordering_activates_and_skips_residual_with_history_enabled_across_diverse_midgame_searches()
+    {
+        reset_lazy_ordering_activations();
+        reset_lazy_ordering_residual_skipped();
+        let path = concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../train/weights/pattern_v6.bin"
+        );
+        let weights = PatternWeights::from_bytes(&std::fs::read(path).unwrap()).unwrap();
+        let policy = SearchPolicy {
+            enable_history: true,
+            enable_aspiration: true,
+            enable_mpc: false,
+        };
+
+        for n in 0..8usize {
+            let (board, side) = play_until_empties(24, move |moves: &[u64]| moves[n % moves.len()]);
+            let limit = default_limit(8, 10);
+            let mut tt = TranspositionTable::new(4);
+            let _ = search_with_eval_with_policy(
+                &board,
+                side,
+                &limit,
+                &mut tt,
+                Some(&weights),
+                None,
+                EXACT_QUOTA_PERCENT,
+                policy,
+            );
+        }
+
+        let activations = lazy_ordering_activations();
+        let residual_skipped = lazy_ordering_residual_skipped();
+        println!(
+            "T191 lazy ordering telemetry (history enabled) across 8 diverse midgame positions (depth<=8): \
+             activations={activations} residual_skipped={residual_skipped}"
+        );
+        assert!(
+            activations >= 200,
+            "expected the T191 lazy-ordering (history enabled) activation telemetry to fire at least 200 times, got {activations}"
+        );
+        assert!(
+            residual_skipped >= 50,
+            "expected the T191 lazy-ordering (history enabled) residual-skip telemetry to fire at least 50 times, got {residual_skipped}"
         );
     }
 
