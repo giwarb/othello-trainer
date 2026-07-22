@@ -234,6 +234,84 @@ fn incremental_legal_checks() -> u64 {
     TEST_INCREMENTAL_LEGAL_CHECKS.get()
 }
 
+#[cfg(test)]
+std::thread_local! {
+    // T190: `negascout`がTT手を先行させる「lazy ordering」経路(history無効
+    // かつTT手がそのノードで合法な場合)に入った回数を数える。本番探索の
+    // 挙動には一切影響しないテスト専用テレメトリ(T182/T187/T189の
+    // テレメトリと同じ目的・同じパターン)。
+    static TEST_LAZY_ORDERING_ACTIVATIONS: std::cell::Cell<u64> = const { std::cell::Cell::new(0) };
+}
+
+#[cfg(test)]
+fn record_lazy_ordering_activation() {
+    TEST_LAZY_ORDERING_ACTIVATIONS.set(TEST_LAZY_ORDERING_ACTIVATIONS.get() + 1);
+}
+
+#[cfg(test)]
+fn reset_lazy_ordering_activations() {
+    TEST_LAZY_ORDERING_ACTIVATIONS.set(0);
+}
+
+#[cfg(test)]
+fn lazy_ordering_activations() -> u64 {
+    TEST_LAZY_ORDERING_ACTIVATIONS.get()
+}
+
+#[cfg(test)]
+std::thread_local! {
+    // T190: lazy ordering経路でTT手の探索が即座にbeta cutoffを起こし、
+    // 残候補(`legal`からTT手を除いた集合の`ordered_moves`によるフル構築+
+    // ソート)を丸ごと省略できた回数を数える。
+    static TEST_LAZY_ORDERING_RESIDUAL_SKIPPED: std::cell::Cell<u64> = const { std::cell::Cell::new(0) };
+}
+
+#[cfg(test)]
+fn record_lazy_ordering_residual_skipped() {
+    TEST_LAZY_ORDERING_RESIDUAL_SKIPPED.set(TEST_LAZY_ORDERING_RESIDUAL_SKIPPED.get() + 1);
+}
+
+#[cfg(test)]
+fn reset_lazy_ordering_residual_skipped() {
+    TEST_LAZY_ORDERING_RESIDUAL_SKIPPED.set(0);
+}
+
+#[cfg(test)]
+fn lazy_ordering_residual_skipped() -> u64 {
+    TEST_LAZY_ORDERING_RESIDUAL_SKIPPED.get()
+}
+
+#[cfg(test)]
+std::thread_local! {
+    // T190: テスト専用スイッチ。`true`の間、`negascout`はlazy ordering経路
+    // (TT手の先行構築)を強制的に無効化し、常にT189までの一括構築経路を
+    // 通る。lazy有効/無効で探索結果(best_move/score/nodes)が完全一致する
+    // ことを確認する同一性テスト専用で、既定値は`false`(=lazy有効。本番
+    // 探索と同じ挙動)。本番ビルド(`cfg(test)`が付かないビルド)には
+    // このスイッチ自体が存在しない([`lazy_ordering_enabled_for_run`]の
+    // `#[cfg(not(test))]`版を参照)。
+    static TEST_FORCE_LEGACY_ORDERING: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
+#[cfg(test)]
+fn set_force_legacy_ordering(force: bool) {
+    TEST_FORCE_LEGACY_ORDERING.set(force);
+}
+
+/// `negascout`のlazy orderingゲート条件に使う。テストビルドでは
+/// [`TEST_FORCE_LEGACY_ORDERING`]の否定、本番ビルドでは常に`true`
+/// (=このチェック自体が無条件に消える)。
+#[cfg(test)]
+fn lazy_ordering_enabled_for_run() -> bool {
+    !TEST_FORCE_LEGACY_ORDERING.get()
+}
+
+#[cfg(not(test))]
+#[inline(always)]
+fn lazy_ordering_enabled_for_run() -> bool {
+    true
+}
+
 /// 探索の制御パラメータ。
 ///
 /// Workerプロトコル(設計書 §2.4)の `limit` パラメータ
@@ -1773,11 +1851,11 @@ const TIME_CHECK_NODE_INTERVAL: u64 = 1024;
 /// 渡す。渡せるのは(a)親の`ordered_moves`が候補手ごとに計算済みの
 /// `OrderedMove::legal`(子ノードへの再帰、`negascout_or_etc`経由)、
 /// (b)MPCプローブ(`mpc_try_cutoff`/`mpc_try_cutoff_inner`、同一
-/// `(board, side)`への浅い探索)の2経路。パス経路(自分だけ合法手がない
-/// 場合の相手番再帰)は相手側の合法手マスクを親が持っていないため、常に
-/// `None`を渡してフル再計算させる。`Some`が渡された場合は
-/// `board.legal_moves(side)`によるフル再計算と`debug_assert_eq!`で照合する
-/// (本番挙動には影響しない)。
+/// `(board, side)`への浅い探索)、(c)パス経路(自分だけ合法手がない場合の
+/// 相手番再帰、T190)の3経路。パス経路は`board`自体が不変で手番だけ反転
+/// するため、両者パス判定のために計算した相手側合法手マスクをそのまま
+/// 子ノードへ渡せる。`Some`が渡された場合は`board.legal_moves(side)`による
+/// フル再計算と`debug_assert_eq!`で照合する(本番挙動には影響しない)。
 fn negascout(
     board: &Board,
     side: Side,
@@ -1917,7 +1995,18 @@ fn negascout(
         None => board.legal_moves(side),
     };
     if legal == 0 {
-        if board.legal_moves(side.opposite()) == 0 {
+        // T190: 両者パス判定のために計算する相手側合法手マスクを、この後の
+        // パス再帰の`known_legal`としてそのまま持ち越す(以前はこの値を
+        // `board.legal_moves(side.opposite()) == 0`の判定にしか使わず、
+        // `None`で捨てて子ノード冒頭の`board.legal_moves(side.opposite())`
+        // フル再計算に回していた)。パス経路は`board`自体が不変で手番だけ
+        // 反転するため、ここで求めた値は子ノード(`side.opposite()`)の
+        // 合法手マスクと完全に同じであり、渡した値の正しさは
+        // `negascout`冒頭の`known_legal`受信側(このすぐ下の分岐、次の
+        // 再帰呼び出しで踏む)が`board.legal_moves(side)`によるフル再計算と
+        // 照合するため、ここでの二重チェックは行わない(T189と同じ方針)。
+        let opp_legal = board.legal_moves(side.opposite());
+        if opp_legal == 0 {
             // 両者パス: 終局。
             return terminal_score_centi(board, side);
         }
@@ -1949,9 +2038,8 @@ fn negascout(
             #[cfg(test)]
             record_incremental_state_check();
         }
-        // T189: パス後の相手番局面は`board`は同一だが手番が反転するため、
-        // 親(このノード)が知っている`legal`(自分の手番側)は相手側の合法手
-        // マスクとしては使えない。従来どおり`None`を渡してフル再計算させる。
+        // T190: 直前で求めた`opp_legal`(=相手側`board.legal_moves(side.opposite())`
+        // のフル計算そのもの)をそのまま`known_legal`として渡す。
         return -negascout(
             board,
             side.opposite(),
@@ -1961,7 +2049,7 @@ fn negascout(
             ctx,
             pass_hash,
             known_state,
-            None,
+            Some(opp_legal),
         );
     }
 
@@ -2007,112 +2095,105 @@ fn negascout(
         }
     }
 
-    let mut ordered_buf = [OrderedMove::EMPTY; 64];
-    let move_count = ordered_moves(
-        board,
-        side,
-        legal,
-        tt_move,
-        ctx.history.as_deref(),
-        &mut ordered_buf,
-    );
+    // T190: lazy ordering。`ctx.history`が`None`(=ノード予算探索以外の
+    // 本番/固定深さ経路。`SearchPolicy::default()`、[`SearchCtx::history`]
+    // 参照)かつTT手がこのノードで合法(`legal`のビットが立っている)場合
+    // だけ、TT手1件分の`OrderedMove`(`apply_move`+次手番の合法手マスク)を
+    // 先に構築・探索する。従来の探索順は`[tt_move, ソート順の残候補...]`
+    // であり、TT手の探索でbeta cutoffが起きれば残候補の順序は結果に一切
+    // 影響しないため、残候補(`legal`から`tt_move`を除いた集合)の構築
+    // (`apply_move`+合法手マスク計算)+`sort_by_cached_key`をカットオフ後
+    // まで遅延しても、探索されるノード列は完全に同一になる(「lazy化の
+    // 正当性」参照)。`ctx.history`が`Some`のとき(MPC on経路、
+    // `enable_history: true`)はorderingキーがhistory値を含み、TT手の
+    // サブツリー探索中の更新がキーに混入して順序が変わりうるため、lazy化
+    // せず従来どおりの一括構築のままにする。
+    let lazy_tt_move = if ctx.history.is_none() && lazy_ordering_enabled_for_run() {
+        tt_move.filter(|&tm| legal & (1u64 << tm) != 0)
+    } else {
+        None
+    };
 
+    let mut ordered_buf = [OrderedMove::EMPTY; 64];
     let mut best_score = i32::MIN;
     let mut best_move: Option<u8> = None;
     let mut first = true;
+    let mut cutoff = false;
 
-    for om in &ordered_buf[..move_count] {
-        let mv = om.mv;
-        let mv_bit = 1u64 << mv;
-        // T185: `ordered_moves`が既に計算済みの`next_board`をそのまま使う
-        // (以前は`ordered_moves`のソートキー計算〈T184まで〉と、ここでの
-        // 実際の使用の両方で`board.apply_move`を呼んでおり二重計算だった。
-        // T183優先3位)。
-        let next_board = om.next_board;
+    // T190: 候補手1件分の処理(ETC・増分hash・増分state・増分legal・NWS・
+    // best更新・beta cutoff判定)をまとめたローカルマクロ。lazy経路
+    // (TT手だけを先に処理する)と一括経路(残候補、またはTT手なし/非合法/
+    // history有効時の全候補)の両方が同じ本体を通るように切り出した
+    // だけで、本体の中身自体はlazy化前(T182〜T189)から一切変えていない。
+    macro_rules! process_candidate {
+        ($om:expr) => {{
+            let om: &OrderedMove = $om;
+            let mv = om.mv;
+            let mv_bit = 1u64 << mv;
+            // T185: `ordered_moves`(または下のlazy経路)が既に計算済みの
+            // `next_board`をそのまま使う(以前は`ordered_moves`のソートキー
+            // 計算〈T184まで〉と、ここでの実際の使用の両方で
+            // `board.apply_move`を呼んでおり二重計算だった。T183優先3位)。
+            let next_board = om.next_board;
 
-        // T182: `negascout_or_etc`はこの`(next_board, child_side, depth-1)`を
-        // 最大3回(初手のフルウィンドウ・NWSの狭い窓・窓外れ時のフルウィンドウ
-        // 再探索)呼び出すが、いずれも同じ子局面なのでhashは1手につき1回だけ
-        // 増分計算すれば十分。`own_before`/`own_after`の差分から`flips`を
-        // 求める(`Board::apply_move`は`new_own = own | mv_bit | flips`を
-        // `own`/`mv_bit`/`flips`が互いに排他的なビット集合として計算するため、
-        // `new_own XOR own = mv_bit | flips`となり、`mv_bit`を除けば`flips`が
-        // 残る。`flips_for_move`を呼び直す二重計算を避けるための導出)。
-        let own_before = match side {
-            Side::Black => board.black,
-            Side::White => board.white,
-        };
-        let own_after = match side {
-            Side::Black => next_board.black,
-            Side::White => next_board.white,
-        };
-        let flips = (own_after ^ own_before) & !mv_bit;
-        let child_hash = incremental_move_hash(hash, mv, side, flips);
-        debug_assert_eq!(
-            child_hash,
-            zobrist_hash(&next_board, side.opposite()),
-            "T182 incremental hash mismatch at square {mv}"
-        );
-        #[cfg(test)]
-        record_incremental_hash_check();
-
-        // T187: 親`state`をコピーし、着手マス・flipsマスの桁だけ差分更新
-        // した子`PatternState`を1手につき1回だけ計算する(T182のhash増分
-        // 計算と同じく、この後の最大3回の`negascout_or_etc`呼び出しで
-        // 使い回す)。
-        let child_state = match (ctx.weights, state) {
-            (Some(w), Some(s)) => Some(s.child(w, side, mv, flips)),
-            _ => None,
-        };
-        if let (Some(w), Some(cs)) = (ctx.weights, child_state) {
+            // T182: `negascout_or_etc`はこの`(next_board, child_side,
+            // depth-1)`を最大3回(初手のフルウィンドウ・NWSの狭い窓・
+            // 窓外れ時のフルウィンドウ再探索)呼び出すが、いずれも同じ
+            // 子局面なのでhashは1手につき1回だけ増分計算すれば十分。
+            // `own_before`/`own_after`の差分から`flips`を求める
+            // (`Board::apply_move`は`new_own = own | mv_bit | flips`を
+            // `own`/`mv_bit`/`flips`が互いに排他的なビット集合として計算
+            // するため、`new_own XOR own = mv_bit | flips`となり、`mv_bit`
+            // を除けば`flips`が残る。`flips_for_move`を呼び直す二重計算を
+            // 避けるための導出)。
+            let own_before = match side {
+                Side::Black => board.black,
+                Side::White => board.white,
+            };
+            let own_after = match side {
+                Side::Black => next_board.black,
+                Side::White => next_board.white,
+            };
+            let flips = (own_after ^ own_before) & !mv_bit;
+            let child_hash = incremental_move_hash(hash, mv, side, flips);
             debug_assert_eq!(
-                cs,
-                PatternState::from_board(w, &next_board),
-                "T187 incremental pattern state mismatch at square {mv}"
+                child_hash,
+                zobrist_hash(&next_board, side.opposite()),
+                "T182 incremental hash mismatch at square {mv}"
             );
             #[cfg(test)]
-            record_incremental_state_check();
-        }
+            record_incremental_hash_check();
 
-        // T189: `ordered_moves`が候補手ごとに1回だけ計算済みの
-        // `next_board.legal_moves(side.opposite())`(=`om.legal`)を、
-        // この後の最大3回の`negascout_or_etc`呼び出しで使い回す
-        // (T182のhash増分・T187の状態増分と同じ「1手につき1回」の構図)。
-        // `om.legal`は最初から`next_board.legal_moves(side.opposite())`の
-        // フル計算そのもの(独自の差分導出ロジックを持たない)であり、渡した
-        // 値の正しさは`negascout`冒頭の`known_legal`受信側で
-        // `board.legal_moves(side)`によるフル再計算と照合されるため、
-        // ここでの二重チェックは行わない。
-        let child_legal = om.legal;
+            // T187: 親`state`をコピーし、着手マス・flipsマスの桁だけ差分
+            // 更新した子`PatternState`を1手につき1回だけ計算する(T182の
+            // hash増分計算と同じく、この後の最大3回の`negascout_or_etc`
+            // 呼び出しで使い回す)。
+            let child_state = match (ctx.weights, state) {
+                (Some(w), Some(s)) => Some(s.child(w, side, mv, flips)),
+                _ => None,
+            };
+            if let (Some(w), Some(cs)) = (ctx.weights, child_state) {
+                debug_assert_eq!(
+                    cs,
+                    PatternState::from_board(w, &next_board),
+                    "T187 incremental pattern state mismatch at square {mv}"
+                );
+                #[cfg(test)]
+                record_incremental_state_check();
+            }
 
-        let score = if first {
-            -negascout_or_etc(
-                &next_board,
-                side.opposite(),
-                depth - 1,
-                -beta,
-                -alpha,
-                ctx,
-                child_hash,
-                child_state,
-                child_legal,
-            )
-        } else {
-            // Null Window Search: まず [alpha, alpha+1) の狭い窓で探索する。
-            let scout_score = -negascout_or_etc(
-                &next_board,
-                side.opposite(),
-                depth - 1,
-                -alpha - 1,
-                -alpha,
-                ctx,
-                child_hash,
-                child_state,
-                child_legal,
-            );
-            if scout_score > alpha && scout_score < beta {
-                // 窓を外れた(=このスコアが実は最善手かもしれない)ので
-                // フルウィンドウで再探索する。
+            // T189: 候補手ごとに1回だけ計算済みの
+            // `next_board.legal_moves(side.opposite())`(=`om.legal`)を、
+            // この後の最大3回の`negascout_or_etc`呼び出しで使い回す
+            // (T182のhash増分・T187の状態増分と同じ「1手につき1回」の
+            // 構図)。`om.legal`は最初から`next_board.legal_moves(side.opposite())`
+            // のフル計算そのもの(独自の差分導出ロジックを持たない)であり、
+            // 渡した値の正しさは`negascout`冒頭の`known_legal`受信側で
+            // `board.legal_moves(side)`によるフル再計算と照合されるため、
+            // ここでの二重チェックは行わない。
+            let child_legal = om.legal;
+
+            let score = if first {
                 -negascout_or_etc(
                     &next_board,
                     side.opposite(),
@@ -2125,34 +2206,120 @@ fn negascout(
                     child_legal,
                 )
             } else {
-                scout_score
+                // Null Window Search: まず [alpha, alpha+1) の狭い窓で探索する。
+                let scout_score = -negascout_or_etc(
+                    &next_board,
+                    side.opposite(),
+                    depth - 1,
+                    -alpha - 1,
+                    -alpha,
+                    ctx,
+                    child_hash,
+                    child_state,
+                    child_legal,
+                );
+                if scout_score > alpha && scout_score < beta {
+                    // 窓を外れた(=このスコアが実は最善手かもしれない)ので
+                    // フルウィンドウで再探索する。
+                    -negascout_or_etc(
+                        &next_board,
+                        side.opposite(),
+                        depth - 1,
+                        -beta,
+                        -alpha,
+                        ctx,
+                        child_hash,
+                        child_state,
+                        child_legal,
+                    )
+                } else {
+                    scout_score
+                }
+            };
+
+            if *ctx.timed_out {
+                // 子の探索(のどこか)が時間切れで打ち切られた: このノードの
+                // `score`は不完全な探索に基づく不正確な値なので使わず、
+                // 置換表への格納も行わずに即座に展開する(T034)。
+                return 0;
             }
+
+            if score > best_score {
+                best_score = score;
+                best_move = Some(mv);
+            }
+            if best_score > alpha {
+                alpha = best_score;
+            }
+            if alpha >= beta {
+                // T089a(要件2): beta cutoffを引き起こした候補手に
+                // `depth*depth`を加算する。`ctx.history`が`None`(従来の
+                // `search`/`search_with_eval`等の経路)の間はここも何もしない。
+                if let Some(history) = ctx.history.as_deref_mut() {
+                    history.record_cutoff(side, mv, depth);
+                }
+                cutoff = true;
+            } else {
+                first = false;
+            }
+        }};
+    }
+
+    if let Some(tm) = lazy_tt_move {
+        #[cfg(test)]
+        record_lazy_ordering_activation();
+        let tm_bit = 1u64 << tm;
+        let tt_next_board = board.apply_move(side, tm_bit);
+        let tt_next_legal = tt_next_board.legal_moves(side.opposite());
+        let tt_om = OrderedMove {
+            mv: tm,
+            next_board: tt_next_board,
+            legal: tt_next_legal,
         };
-
-        if *ctx.timed_out {
-            // 子の探索(のどこか)が時間切れで打ち切られた: このノードの
-            // `score`は不完全な探索に基づく不正確な値なので使わず、
-            // 置換表への格納も行わずに即座に展開する(T034)。
-            return 0;
-        }
-
-        if score > best_score {
-            best_score = score;
-            best_move = Some(mv);
-        }
-        if best_score > alpha {
-            alpha = best_score;
-        }
-        if alpha >= beta {
-            // T089a(要件2): beta cutoffを引き起こした候補手に`depth*depth`を
-            // 加算する。`ctx.history`が`None`(従来の`search`/
-            // `search_with_eval`等の経路)の間はここも何もしない。
-            if let Some(history) = ctx.history.as_deref_mut() {
-                history.record_cutoff(side, mv, depth);
+        process_candidate!(&tt_om);
+        if cutoff {
+            // T190: TT手だけでbeta cutoffが起きたので、残候補
+            // (`legal & !tm_bit`)の構築(`apply_move`+合法手マスク計算)・
+            // ソートは一切不要(「lazy化の正当性」参照: 参照されない列は
+            // 結果に影響しない)。
+            #[cfg(test)]
+            record_lazy_ordering_residual_skipped();
+        } else {
+            // T190: `tt_move`をここでは渡さない(既にTT手として処理済み
+            // であり、`ordered_moves`側で再度先頭へ回転させる必要がない)。
+            // `legal & !tm_bit`はTT手を除いた残候補であり、これを従来と
+            // 同一キーで安定ソートした列は、現行(一括構築)の2番目以降と
+            // 完全に一致する(「lazy化の正当性」参照)。
+            let move_count = ordered_moves(
+                board,
+                side,
+                legal & !tm_bit,
+                None,
+                ctx.history.as_deref(),
+                &mut ordered_buf,
+            );
+            for om in &ordered_buf[..move_count] {
+                process_candidate!(om);
+                if cutoff {
+                    break;
+                }
             }
-            break;
         }
-        first = false;
+    } else {
+        let move_count = ordered_moves(
+            board,
+            side,
+            legal,
+            tt_move,
+            ctx.history.as_deref(),
+            &mut ordered_buf,
+        );
+        for om in &ordered_buf[..move_count] {
+            process_candidate!(om);
+            if cutoff {
+                break;
+            }
+        }
     }
 
     let bound = if best_score <= alpha_orig {
@@ -4859,6 +5026,189 @@ mod tests {
             incremental_legal_checks() >= 200,
             "expected the T189 incremental-legal debug check to fire at least 200 times, got {}",
             incremental_legal_checks()
+        );
+    }
+
+    // ------------------------------------------------------------------
+    // T190: lazy ordering(TT手先行・残候補の遅延順序付け)
+    // ------------------------------------------------------------------
+
+    /// [`TEST_FORCE_LEGACY_ORDERING`]をスコープの間だけ立てるRAIIガード。
+    /// テスト内で`assert`が失敗してパニックした場合でも(スレッドローカルの
+    /// 値がそのスレッドで再利用される後続テストへ漏れないように)必ず
+    /// `Drop`で元に戻す。
+    struct ForceLegacyOrderingGuard;
+
+    impl ForceLegacyOrderingGuard {
+        fn engage() -> Self {
+            set_force_legacy_ordering(true);
+            Self
+        }
+    }
+
+    impl Drop for ForceLegacyOrderingGuard {
+        fn drop(&mut self) {
+            set_force_legacy_ordering(false);
+        }
+    }
+
+    /// T190の絶対条件(要件1・2a): lazy ordering経路(既定、TT手先行構築)と
+    /// レガシー一括構築経路(`ForceLegacyOrderingGuard`で強制)の探索結果
+    /// (best_move/score/depth/nodes)が、多様な中盤局面×反復深化で完全に
+    /// 一致することを確認する。history無効(`SearchPolicy::default()`と
+    /// 同じ経路、`search_with_eval`)なのでlazy経路が実際に有効になる条件
+    /// そのものを検証している。
+    ///
+    /// regression-catching実証(T190作業ログ参照): 実装中、残候補の
+    /// `ordered_moves`呼び出しへ渡すマスクを一時的に`legal`(TT手を除外
+    /// しない)に変え、TT手の重複探索を意図的に混入させたところ、本テストが
+    /// nodes不一致で即座に失敗することを確認し、直後に`legal & !tm_bit`へ
+    /// 復元した。
+    #[test]
+    fn lazy_ordering_matches_legacy_full_construction_across_diverse_midgame_searches() {
+        let path = concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../train/weights/pattern_v6.bin"
+        );
+        let weights = PatternWeights::from_bytes(&std::fs::read(path).unwrap()).unwrap();
+
+        for n in 0..8usize {
+            let (board, side) = play_until_empties(24, move |moves: &[u64]| moves[n % moves.len()]);
+            let limit = default_limit(8, 10);
+
+            let mut tt_lazy = TranspositionTable::new(4);
+            let lazy_result =
+                search_with_eval(&board, side, &limit, &mut tt_lazy, Some(&weights));
+
+            let legacy_result = {
+                let _guard = ForceLegacyOrderingGuard::engage();
+                let mut tt_legacy = TranspositionTable::new(4);
+                search_with_eval(&board, side, &limit, &mut tt_legacy, Some(&weights))
+            };
+
+            assert_eq!(
+                lazy_result.best_move, legacy_result.best_move,
+                "n={n}: best_move differs between lazy and legacy ordering"
+            );
+            assert_eq!(
+                lazy_result.score, legacy_result.score,
+                "n={n}: score differs between lazy and legacy ordering"
+            );
+            assert_eq!(
+                lazy_result.depth, legacy_result.depth,
+                "n={n}: depth differs between lazy and legacy ordering"
+            );
+            assert_eq!(
+                lazy_result.nodes, legacy_result.nodes,
+                "n={n}: nodes differs between lazy and legacy ordering"
+            );
+        }
+    }
+
+    /// T190要件2c: lazy ordering経路(TT手先行構築、[`record_lazy_ordering_activation`])
+    /// と、その先行探索だけでbeta cutoffが起き残候補の構築を省略できた回数
+    /// ([`record_lazy_ordering_residual_skipped`])が、本番相当の経路
+    /// (history無効、`search_with_eval`)で実際に発火すること(発火0件の
+    /// ままpassしない)を確認するテレメトリテスト(T182/T187/T189の同種
+    /// テストと同じ考え方)。
+    #[test]
+    fn lazy_ordering_activates_and_skips_residual_across_diverse_midgame_searches() {
+        reset_lazy_ordering_activations();
+        reset_lazy_ordering_residual_skipped();
+        let path = concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../train/weights/pattern_v6.bin"
+        );
+        let weights = PatternWeights::from_bytes(&std::fs::read(path).unwrap()).unwrap();
+
+        for n in 0..8usize {
+            let (board, side) = play_until_empties(24, move |moves: &[u64]| moves[n % moves.len()]);
+            let limit = default_limit(8, 10);
+            let mut tt = TranspositionTable::new(4);
+            let _ = search_with_eval(&board, side, &limit, &mut tt, Some(&weights));
+        }
+
+        let activations = lazy_ordering_activations();
+        let residual_skipped = lazy_ordering_residual_skipped();
+        println!(
+            "T190 lazy ordering telemetry across 8 diverse midgame positions (depth<=8): \
+             activations={activations} residual_skipped={residual_skipped}"
+        );
+        assert!(
+            activations >= 200,
+            "expected the T190 lazy-ordering activation telemetry to fire at least 200 times, got {activations}"
+        );
+        assert!(
+            residual_skipped >= 50,
+            "expected the T190 lazy-ordering residual-skip telemetry to fire at least 50 times, got {residual_skipped}"
+        );
+    }
+
+    /// T190要件3: パス経路(自分だけ合法手がない場合の相手番再帰)が
+    /// `known_legal`を`None`ではなく`Some`で渡すようになったこと
+    /// (T189のdebug照合を経由すること)をテレメトリで確認する。
+    ///
+    /// 「手番Aが強制的にパスし、手番Bへ再帰する」局面から`search()`を呼んだ
+    /// 場合と、同じ局面・同じ深さで最初からBの手番として`search()`を直接
+    /// 呼んだ場合を比べる。パスは`board`を変えず手番だけ反転して**同じ
+    /// depth**で再帰するため、パス後に続くBの探索木はB直接呼び出しの探索木
+    /// と完全に同一になる。したがって両者の`incremental_legal_checks()`の
+    /// 差分は、パス自体が1回`known_legal`を渡したことによる発火(+1)だけに
+    /// なるはずである。
+    #[test]
+    fn known_legal_carryover_fires_exactly_once_per_forced_single_side_pass() {
+        let (board, passing_side) = find_forced_single_side_pass_position();
+        let waiting_side = passing_side.opposite();
+        assert_eq!(board.legal_moves(passing_side), 0);
+        assert_ne!(board.legal_moves(waiting_side), 0);
+
+        let limit = default_limit(1, 0);
+
+        reset_incremental_legal_checks();
+        let mut tt_direct = TranspositionTable::new(4);
+        let _ = search(&board, waiting_side, &limit, &mut tt_direct);
+        let direct = incremental_legal_checks();
+
+        reset_incremental_legal_checks();
+        let mut tt_via_pass = TranspositionTable::new(4);
+        let _ = search(&board, passing_side, &limit, &mut tt_via_pass);
+        let via_pass = incremental_legal_checks();
+
+        assert_eq!(
+            via_pass,
+            direct + 1,
+            "T190 known_legal carryover through the pass recursion should fire exactly once \
+             more than calling search() directly from the side that has legal moves \
+             (via_pass={via_pass}, direct={direct})"
+        );
+    }
+
+    /// [`known_legal_carryover_fires_exactly_once_per_forced_single_side_pass`]用の
+    /// テスト専用フィクスチャ。初期局面から「常に最下位ビットの合法手を
+    /// 選ぶ」という決定的な自己対戦を進め、手番側に合法手がなく相手側には
+    /// ある(=強制的な片側パスが起きる)最初の局面を返す。
+    fn find_forced_single_side_pass_position() -> (Board, Side) {
+        let mut board = Board::initial();
+        let mut side = Side::Black;
+        for _ in 0..200 {
+            let legal = board.legal_moves(side);
+            if legal == 0 {
+                let opp_legal = board.legal_moves(side.opposite());
+                if opp_legal == 0 {
+                    // 両者パス(終局): このフィクスチャの対象外なので手番だけ
+                    // 反転して続行する(盤面は変わらない)。
+                    side = side.opposite();
+                    continue;
+                }
+                return (board, side);
+            }
+            let mv = legal & legal.wrapping_neg();
+            board = board.apply_move(side, mv);
+            side = side.opposite();
+        }
+        panic!(
+            "did not find a forced single-side pass position within 200 deterministic \
+             self-play plies; the fixture needs a different move-selection strategy"
         );
     }
 

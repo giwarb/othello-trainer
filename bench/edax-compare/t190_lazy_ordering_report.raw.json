@@ -1,0 +1,105 @@
+{
+  "before_commit": "bca08ca982e8a3100a75de4386eac9aafdec6902",
+  "before_exe_sha256": "411db32bca914a4b46947f92defab3743d4ba8e1d97675442b3bdebbe77616b9",
+  "after_exe_sha256": "a434fa06e6a8956edfba81f42632e3de57f550054a66ad0fb70075a91aef7772",
+  "positions": "bench/edax-compare/t156_mpc_positions.json split==test empties 29-36 first 20 (mpc-29-36-test-001..020)",
+  "command_template": "eval_cli best --depth 12 --exact-from-empties 0 --pattern-weights train/weights/pattern_v6.bin [--enable-mpc]",
+  "mpc_off": {
+    "mode": "off",
+    "rounds": [
+      {
+        "round": 0,
+        "ordering": "before_first",
+        "before_nodes": 59440032,
+        "after_nodes": 59440032,
+        "before_elapsed_ms": 30030,
+        "after_elapsed_ms": 27213,
+        "before_nps": 1979355.044955045,
+        "after_nps": 2184251.350457502,
+        "mismatches": 0
+      },
+      {
+        "round": 1,
+        "ordering": "after_first",
+        "before_nodes": 59440032,
+        "after_nodes": 59440032,
+        "before_elapsed_ms": 28650,
+        "after_elapsed_ms": 27584,
+        "before_nps": 2074695.7068062827,
+        "after_nps": 2154873.5498839905,
+        "mismatches": 0
+      },
+      {
+        "round": 2,
+        "ordering": "before_first",
+        "before_nodes": 59440032,
+        "after_nodes": 59440032,
+        "before_elapsed_ms": 28300,
+        "after_elapsed_ms": 25752,
+        "before_nps": 2100354.487632509,
+        "after_nps": 2308171.481826654,
+        "mismatches": 0
+      }
+    ],
+    "avg_before_nps": 2051468.4131312787,
+    "avg_after_nps": 2215765.460722715,
+    "speedup_pct": 8.0087534636061,
+    "total_mismatches": 0,
+    "before_nodes_all_rounds_equal": true,
+    "after_nodes_all_rounds_equal": true,
+    "before_nodes": 59440032,
+    "after_nodes": 59440032
+  },
+  "mpc_on": {
+    "mode": "on",
+    "rounds": [
+      {
+        "round": 0,
+        "ordering": "before_first",
+        "before_nodes": 6487461,
+        "after_nodes": 6487461,
+        "before_elapsed_ms": 3321,
+        "after_elapsed_ms": 3307,
+        "before_nps": 1953466.1246612465,
+        "after_nps": 1961736.0145146658,
+        "mismatches": 0
+      },
+      {
+        "round": 1,
+        "ordering": "after_first",
+        "before_nodes": 6487461,
+        "after_nodes": 6487461,
+        "before_elapsed_ms": 3321,
+        "after_elapsed_ms": 3270,
+        "before_nps": 1953466.1246612465,
+        "after_nps": 1983933.0275229358,
+        "mismatches": 0
+      },
+      {
+        "round": 2,
+        "ordering": "before_first",
+        "before_nodes": 6487461,
+        "after_nodes": 6487461,
+        "before_elapsed_ms": 3303,
+        "after_elapsed_ms": 3311,
+        "before_nps": 1964111.7166212534,
+        "after_nps": 1959366.052552099,
+        "mismatches": 0
+      }
+    ],
+    "avg_before_nps": 1957014.6553145822,
+    "avg_after_nps": 1968345.0315299004,
+    "speedup_pct": 0.578962256851212,
+    "total_mismatches": 0,
+    "before_nodes_all_rounds_equal": true,
+    "after_nodes_all_rounds_equal": true,
+    "before_nodes": 6487461,
+    "after_nodes": 6487461
+  },
+  "lazy_ordering_telemetry": {
+    "test": "search::tests::lazy_ordering_activates_and_skips_residual_across_diverse_midgame_searches",
+    "positions": 8,
+    "activations": 17673,
+    "residual_skipped": 11926
+  }
+}
