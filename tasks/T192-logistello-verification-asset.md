@@ -120,3 +120,57 @@ t192_verification_report.md}`)。生データ(`bench/logistello/data/`)・
 §5/§6を実測値で更新 → (d) 再度push・Actions確認、の順で完了させる。
 
 **ステータス: 照合フェーズ待機中(オーケストレーターの再開指示待ち)。**
+
+### 2026-07-22 照合フェーズ再開・完了(implementer)
+
+オーケストレーターの再開指示を受け、コミット `92341ca` まで(前回時点)を土台に
+照合フェーズを完了させた。
+
+**(a) 少数局面での符号規約確認**: サンプル先頭5局面(`t192-logistello-001`〜`005`)を
+`eval_cli solve --alpha -64 --beta 64 --tt-mb 64` に個別に通した。WLD(符号)は
+5/5一致(001: expected win(4)/native 6, 002: draw(0)/native 0, 003: expected win(4)/native 2,
+004: expected win(6)/native 4, 005: expected loss(-2)/native -2)。`side_to_move`視点への
+変換式(black→そのまま、white→符号反転)の向きが正しいことを確認。一方スコア完全一致は
+2/5に留まり、この時点で「WLDは信頼できるが厳密スコアは仮説どおりにならないことがある」
+という後の結論の兆候が見えた。1局面あたり25〜79秒(想定10〜60秒の範囲内〜やや超過)。
+
+**(b) 100局面バッチ照合**: `bench/logistello/verify_wld.py run` をバックグラウンドプロセスとして
+起動しログをscratchpadにリダイレクト、Monitorでtailして進捗を観測しながら実行。
+1回目のセッション(コーディネーターへの完了報告を書いている間)で100/100局面が
+中断なく完走した(合計約4949秒[≈82分]、合計約609億ノード、1局面6.6〜176秒、
+平均49.5秒)。生存確認の指示を受けてチェックポイント(`verify-results/t192-checkpoint.json`、
+最終更新済み、100行)で完了を確認。**resume動作確認**: 完了後に
+`python bench/logistello/verify_wld.py run` を再実行し、100/100局面すべてが
+`resume skip`として即座にスキップされ、`eval_cli solve`が再実行されないことを確認した
+(セッションが中断されずに完走したため「実行途中でプロセスを能動的に殺してresume」は
+行っていないが、完了後の全件スキップ再実行によりID単位resumeロジックの動作は
+直接確認できている)。
+
+`python bench/logistello/verify_wld.py report` で `verify_summary.json` を生成:
+**WLD一致率99/100(draw 19/19完全一致含む)、スコア(石差)完全一致率62/100**。
+不一致38件中37件は±2〜±8(1〜4石)の小さなズレ、残り1件(`t192-logistello-025`)は
+WLDも反転する外れ値(差分+14)。原因はダウンロードページ自身の記載
+(WLDは24空きで保証、厳密スコアは1-2手先で確定)と整合しており、エンジン側の
+不具合ではないと判断(FFO#40-49全問正解済みの既存回帰が系統的バグの反証、
+draw 19/19完全一致・WLD符号99%一致が探索/評価/符号変換の健全性を裏付ける)。
+詳細は`t192_verification_report.md`§5.3参照。
+
+**(c) レポート更新**: `t192_verification_report.md`§2(最終結論に更新)・§5(照合手順・結果・
+原因分析)・§6(今後の用途、WLDオラクルとしては有望・石差の厳密回帰には不向きと結論)を
+実測値で全面更新。`select_sample.py`のlabelsメタデータ生成部を修正し、
+`metadata.verified`(単一bool)を`metadata.verification`(status/tool/wldMatchRate/
+scoreExactMatchRate/各種noteを含むオブジェクト)に置き換えて実測結果を記録
+(同一シードで`select_sample.py`を再実行しても`positions.json`は完全に不変であることを
+diffで確認済み)。
+
+**(d) コミット・push・Actions確認**: パス明示で
+`bench/logistello/{logistello_wld_sample_labels.json,select_sample.py,
+t192_verification_report.md,verify_summary.json}` をadd(`verify_summary.json`は新規)。
+コミット `097f488`「bench: Logistello book完全読み照合完了 — WLD一致99%、
+石差一致62%(T192)」をpush。GitHub Actions(Rust Tests, headSha=097f488)は
+成功(`conclusion: success`)。`git status --short`はクリーン(このタスク由来の
+未追跡・未コミット差分なし。`bench/logistello/data/`・`verify-results/`は
+`.gitignore`により追跡対象外のまま)。
+
+**ステータス: 完了。** 抽出統計・照合一致率・`theoretical_score`の意味の結論は
+上記および`t192_verification_report.md`のとおり。
