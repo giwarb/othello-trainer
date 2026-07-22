@@ -1,22 +1,26 @@
 /**
- * T195: 中盤練習「悪手直後の2手先2盤面比較」フィードバックの純粋計算部分。
+ * T195/T198: 中盤練習「悪手直後の5盤面比較」フィードバックの純粋計算部分。
  *
- * 背景(ユーザー指示 2026-07-23): 悪手を打った**その場で**、実際に打った手・
- * 最善手それぞれについて「自分の手→相手の最善応手」の2手ぶんを進めた盤面を
- * 作り、その局面で自分が次に持つ合法手数(=着手可能数)と、その中の最善評価値を
- * 比較する。数値の羅列(旧・寄与の滝グラフ等)ではなく「打てる場所の数」という
- * 直感的な主指標を軸に、盤面そのもので見せることが本質(タスク仕様参照)。
+ * 背景(ユーザー指示 2026-07-23): T195で作った「2手先2盤面比較」を、
+ * 「元局面+1手先×2(実際の手/最善手)+2手先×2」の5盤面へ拡張する。
+ * 悪手を打った**その場で**、実際に打った手・最善手それぞれについて
+ * 「自分の手→相手の最善応手」の2手ぶんを進めた盤面を作り、その途中経過
+ * (1手先=相手の番)も含めて全5局面をその場で見せる。数値の羅列
+ * (旧・寄与の滝グラフ等)ではなく「打てる場所の数」という直感的な主指標を
+ * 軸に、盤面そのもので見せることが本質(T195タスク仕様参照)。
  *
  * 本モジュールはエンジン呼び出し(`requestAnalyzeAll`)を関数として注入される
  * だけの純粋な計算ロジックであり、Preactコンポーネントには一切依存しない
- * (`TwoPlyCompare.tsx`が表示、`PracticeMode.tsx`がこの関数の返り値を使って
- * 描画する。T196(棋譜解析)から同じロジック・コンポーネントを再利用できるよう、
- * モード固有の状態を一切参照しない設計にしてある)。
+ * (`TwoPlyCompare.tsx`が表示、`PracticeMode.tsx`/`BlunderPanel.tsx`がこの
+ * 関数の返り値を使って描画する)。
  *
- * ## 2手先の解決規則(要件4のエッジケース)
+ * ## 2手先の解決規則(T195要件4のエッジケース、T198でも不変)
  *
  * 1. 自分の手を適用した盤面で、相手・自分いずれも合法手が無い
  *    → その時点で真の終局(`kind: 'ended'`、要件「2手進める前に終局」)。
+ *    この場合`board1Ply`(1手先の盤面)と`board`(2手先=最終盤面)は同一になる
+ *    (T198: 1手先パネルと2手先パネルが同じ盤面を表示することになるが、
+ *    ヘッダ文言(いずれも「終局」)で整合させる)。
  * 2. 相手に合法手が無く自分にはある → 相手はパスしたとみなし、盤面はそのまま
  *    (要件「相手が応手できない」)。相手に合法手があれば`requestAnalyzeAll`で
  *    最善応手を求めて適用する。
@@ -27,16 +31,23 @@
  *    「2手先」という固定の分析フレームのまま「0か所」と報告する
  *    (`resolveMover`のように相手の3手目まで遡って解決はしない、実装者判断)。
  * 5. 自分に合法手があれば`requestAnalyzeAll`で自分の全合法手評価を取得する
- *    (この結果が`MoveEvalOverlay`にそのまま渡る)。
+ *    (この結果が2手先パネルの`MoveEvalOverlay`にそのまま渡る)。
  *
- * 1系列(打った手 or 最善手)あたり最大2回の`requestAnalyzeAll`呼び出し
- * (相手応手の特定+自分の合法手評価)。2系列(実際の手・最善手)で最大4回
- * (タスク仕様「新規requestAnalyzeAllは比較用4回のみ」)。
+ * T198: 規則2/5で相手の合法手評価を取得した場合、従来は`best`を選ぶためだけに
+ * 使って捨てていたが、`opponentMoves`としてブランチ結果に含めるようにした
+ * (1手先パネルの`MoveEvalOverlay`にそのまま渡せる。追加のエンジン呼び出しは
+ * 発生しない、要件1)。1系列(打った手 or 最善手)あたり最大2回の
+ * `requestAnalyzeAll`呼び出し(相手応手の特定+自分の合法手評価)は不変。
+ * 2系列(実際の手・最善手)で最大4回(既存の呼び出し回数構成を崩さない)。
+ *
+ * 元局面(悪手を打つ前)の自分の合法手評価は、このモジュールの関心事の外
+ * (呼び出し元が`getAnalyzedMoves`キャッシュ等から`TwoPlyCompare`コンポーネントに
+ * propsとして渡す設計、T198要件1の「呼び出し元からpropsで渡す」参照)。
  */
 
 import { formatDiscDiff } from '../components/EvalBadge.tsx'
 import type { MoveEvalJson } from '../engine/types.ts'
-import { applyMove, countDiscs, hasLegalMove, notationToSquare, opposite, squareToNotation, type Board, type Side } from '../game/othello.ts'
+import { applyMove, countDiscs, hasLegalMove, notationToSquare, opposite, type Board, type Side } from '../game/othello.ts'
 import type { ClearBlunderPattern } from './clearBlunder.ts'
 import { resolveMover } from './resolveMover.ts'
 
@@ -46,6 +57,9 @@ export type RequestAnalyzeAllFn = (board: Board, side: Side) => Promise<MoveEval
 /**
  * 1系列(実際に打った手 or 最善手)の2手先計算結果。
  *
+ * - `board1Ply`/`opponentMoves`: 1手先(自分の手の直後、相手の番)の盤面と、
+ *   その局面での相手の全合法手評価(T198追加)。相手に合法手が無い
+ *   (パス、または規則1の即終局)場合は`opponentMoves: null`。
  * - `'ended'`: 2手を進める途中、または進めた後に真の終局に達した
  *   (`finalDiscDiff`は`preMoveSide`視点の石差)。
  * - `'selfPass'`: 相手の応手(またはパス)の後、自分に合法手が無い
@@ -55,6 +69,8 @@ export type RequestAnalyzeAllFn = (board: Board, side: Side) => Promise<MoveEval
 export type TwoPlyBranchResult =
   | {
       readonly kind: 'ended'
+      readonly board1Ply: Board
+      readonly opponentMoves: readonly MoveEvalJson[] | null
       readonly board: Board
       readonly ownSquare: number
       readonly opponentSquare: number | null
@@ -63,6 +79,8 @@ export type TwoPlyBranchResult =
     }
   | {
       readonly kind: 'selfPass'
+      readonly board1Ply: Board
+      readonly opponentMoves: readonly MoveEvalJson[] | null
       readonly board: Board
       readonly ownSquare: number
       readonly opponentSquare: number | null
@@ -70,6 +88,8 @@ export type TwoPlyBranchResult =
     }
   | {
       readonly kind: 'ok'
+      readonly board1Ply: Board
+      readonly opponentMoves: readonly MoveEvalJson[] | null
       readonly board: Board
       readonly ownSquare: number
       readonly opponentSquare: number | null
@@ -104,9 +124,13 @@ export async function computeTwoPlyBranch(
   const boardAfterSelf = applyMove(preMoveBoard, preMoveSide, ownSquare)
 
   // 規則1: 自分の手の直後に既に終局(相手・自分とも合法手なし)。
+  // この場合、相手に合法手が無いことが確定しているため`opponentMoves`は`null`
+  // (1手先パネルは「打てる場所: 0か所(終局)」を表示する、T198)。
   if (resolveMover(boardAfterSelf, opponentSide) === null) {
     return {
       kind: 'ended',
+      board1Ply: boardAfterSelf,
+      opponentMoves: null,
       board: boardAfterSelf,
       ownSquare,
       opponentSquare: null,
@@ -118,18 +142,23 @@ export async function computeTwoPlyBranch(
   let boardAfterOpponent: Board
   let opponentSquare: number | null
   let opponentPassed: boolean
+  let opponentMoves: readonly MoveEvalJson[] | null
 
   if (hasLegalMove(boardAfterSelf, opponentSide)) {
-    const opponentMoves = await requestAnalyzeAll(boardAfterSelf, opponentSide)
-    const best = bestOf(opponentMoves)
+    const fetchedOpponentMoves = await requestAnalyzeAll(boardAfterSelf, opponentSide)
+    const best = bestOf(fetchedOpponentMoves)
     opponentSquare = notationToSquare(best.move)
     boardAfterOpponent = applyMove(boardAfterSelf, opponentSide, opponentSquare)
     opponentPassed = false
+    // T198: 相手の最善応手を選ぶためだけに使って捨てていた結果を、1手先パネルの
+    // `MoveEvalOverlay`にそのまま渡せるよう保持する(追加のエンジン呼び出し無し)。
+    opponentMoves = fetchedOpponentMoves
   } else {
-    // 規則2: 相手はパス(盤面は変化しない)。
+    // 規則2: 相手はパス(盤面は変化しない)。合法手が無いので取得すべき評価も無い。
     boardAfterOpponent = boardAfterSelf
     opponentSquare = null
     opponentPassed = true
+    opponentMoves = null
   }
 
   const selfHasMove = hasLegalMove(boardAfterOpponent, preMoveSide)
@@ -139,6 +168,8 @@ export async function computeTwoPlyBranch(
   if (!selfHasMove && !opponentHasMoveAgain) {
     return {
       kind: 'ended',
+      board1Ply: boardAfterSelf,
+      opponentMoves,
       board: boardAfterOpponent,
       ownSquare,
       opponentSquare,
@@ -149,14 +180,24 @@ export async function computeTwoPlyBranch(
 
   // 規則4: 自分に合法手が無い(相手はまだ打てる)。
   if (!selfHasMove) {
-    return { kind: 'selfPass', board: boardAfterOpponent, ownSquare, opponentSquare, opponentPassed }
+    return {
+      kind: 'selfPass',
+      board1Ply: boardAfterSelf,
+      opponentMoves,
+      board: boardAfterOpponent,
+      ownSquare,
+      opponentSquare,
+      opponentPassed,
+    }
   }
 
-  // 規則5: 自分の合法手評価を取得する(この結果をMoveEvalOverlayにそのまま渡す)。
+  // 規則5: 自分の合法手評価を取得する(この結果を2手先パネルのMoveEvalOverlayにそのまま渡す)。
   const selfMoves = await requestAnalyzeAll(boardAfterOpponent, preMoveSide)
   const bestSelfEval = bestOf(selfMoves).discDiff
   return {
     kind: 'ok',
+    board1Ply: boardAfterSelf,
+    opponentMoves,
     board: boardAfterOpponent,
     ownSquare,
     opponentSquare,
@@ -184,19 +225,29 @@ export async function computeTwoPlyCompare(
   return { played, best }
 }
 
-/** 1系列ぶんの「あなた: X → 相手: Y → 打てる場所: N か所」ヘッダ文言を組み立てる(要件3)。 */
-export function formatTwoPlyBranchHeader(ownMoveNotation: string, branch: TwoPlyBranchResult): string {
-  const opponentPart = branch.opponentPassed
-    ? 'パス'
-    : branch.opponentSquare !== null
-      ? squareToNotation(branch.opponentSquare)
-      : '(終局のため着手なし)'
+/** 元局面(自分の番)パネルの「打てる場所」ヘッダ(T198要件3)。`originalMoves`未取得中は計算中である旨を表示する。 */
+export function formatOriginalLegalCountHeader(originalMoves: readonly MoveEvalJson[] | null): string {
+  if (!originalMoves) return '打てる場所を計算しています…'
+  return `打てる場所: ${originalMoves.length} か所`
+}
 
-  if (branch.kind === 'ended') {
-    return `あなた: ${ownMoveNotation} → 相手: ${opponentPart} → 終局(石差${formatDiscDiff(branch.finalDiscDiff)})`
-  }
-  const legalPart = branch.kind === 'selfPass' ? '0 か所(パス)' : `${branch.selfLegalCount} か所`
-  return `あなた: ${ownMoveNotation} → 相手: ${opponentPart} → 打てる場所: ${legalPart}`
+/** 1手先(相手番)パネルの「打てる場所」ヘッダ(T198要件3)。相手がパス/その時点で終局なら明記する。 */
+export function formatOpponentLegalCountHeader(branch: TwoPlyBranchResult): string {
+  if (branch.opponentMoves) return `打てる場所: ${branch.opponentMoves.length} か所`
+  if (branch.opponentPassed) return '打てる場所: 0 か所(パス)'
+  return '打てる場所: 0 か所(終局)'
+}
+
+/** 2手先(自分の番)パネルの「打てる場所」ヘッダ(T198要件3)。旧`formatTwoPlyBranchHeader`のうち末尾部分を独立させたもの。 */
+export function formatSelfLegalCountHeader(branch: TwoPlyBranchResult): string {
+  if (branch.kind === 'ok') return `打てる場所: ${branch.selfLegalCount} か所`
+  if (branch.kind === 'selfPass') return '打てる場所: 0 か所(パス)'
+  return `終局(石差${formatDiscDiff(branch.finalDiscDiff)})`
+}
+
+/** 相手がパスした(2手先盤面が1手先盤面と同一)ことを明記する注記行(T198: 盤面だけでは伝わりにくいため)。パスでなければ`null`。 */
+export function formatOpponentPassNote(branch: TwoPlyBranchResult): string | null {
+  return branch.opponentPassed ? '相手はパスしたため、盤面は1手先と同じです。' : null
 }
 
 /** 主文(要件3)の「実際に打った手」側の文。 */

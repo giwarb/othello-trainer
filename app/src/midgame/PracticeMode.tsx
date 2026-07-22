@@ -110,6 +110,13 @@ interface MoveOutcome {
    * いずれかの場合は`null`。
    */
   readonly clearBlunderPatterns: readonly ClearBlunderPattern[] | null
+  /**
+   * T198: 元局面(`preMoveBoard`)における`preMoveSide`の全合法手評価。
+   * `handlePlayerMove`が着手判定のためにどのみち取得済みの`allMoves`を
+   * そのまま保持したもの(結果画面の5盤面比較の「元局面」パネルで、追加の
+   * `requestAnalyzeAll`呼び出し無しに再利用するため)。
+   */
+  readonly allMoves: readonly MoveEvalJson[]
 }
 
 interface SessionState {
@@ -168,6 +175,8 @@ interface PendingBlunderCompare {
   readonly nextSession: SessionState
   /** `computeTwoPlyCompare`の結果。取得完了まで`null`(ローディング表示)。 */
   readonly compare: TwoPlyCompareResult | null
+  /** T198: 元局面(`preMoveBoard`)における`preMoveSide`の全合法手評価(5盤面比較の「元局面」パネル用、`handlePlayerMove`で取得済みのものをそのまま渡す)。 */
+  readonly originalMoves: readonly MoveEvalJson[]
 }
 
 /** 復習フィルタの中盤練習向け表示ラベル(要件6)。値・絞り込みロジックは共有の`reviewFilter.ts`をそのまま使い、表示文言だけをこのモード向けに上書きする。 */
@@ -602,6 +611,7 @@ export function PracticeMode() {
         preMoveBoard: s.board,
         preMoveSide: s.sideToMove,
         clearBlunderPatterns,
+        allMoves,
       }
 
       // T197: プレイヤーの着手の評価値記録。表示・判定と共有の`allMoves`
@@ -645,6 +655,7 @@ export function PracticeMode() {
           patterns: clearBlunderPatterns,
           nextSession,
           compare: null,
+          originalMoves: allMoves,
         })
         void loadTwoPlyCompare(generation, s.board, s.sideToMove, square, bestSquare, (result) => {
           setPendingCompare((prev) => (prev && prev.generation === generation ? { ...prev, compare: result } : prev))
@@ -796,6 +807,9 @@ export function PracticeMode() {
       bestMove: worst.bestMove,
       lossDiscs: worst.lossDiscs,
       patterns: worst.clearBlunderPatterns,
+      // T198: 追加のrequestAnalyzeAll呼び出し無しに、着手時点で取得済みだった
+      // 元局面の全合法手評価をそのまま5盤面比較の「元局面」パネルに渡す。
+      originalMoves: worst.allMoves,
     }
   })()
 
@@ -1010,6 +1024,8 @@ export function PracticeMode() {
               {pendingCompare.compare ? (
                 <TwoPlyCompare
                   mover={pendingCompare.preMoveSide}
+                  preMoveBoard={pendingCompare.preMoveBoard}
+                  originalMoves={pendingCompare.originalMoves}
                   playedMoveNotation={pendingCompare.playedMove}
                   bestMoveNotation={pendingCompare.bestMove}
                   compare={pendingCompare.compare}
@@ -1115,6 +1131,8 @@ export function PracticeMode() {
             (worstMoveCompare ? (
               <TwoPlyCompare
                 mover={worstMoveCompareInfo.preMoveSide}
+                preMoveBoard={worstMoveCompareInfo.preMoveBoard}
+                originalMoves={worstMoveCompareInfo.originalMoves}
                 playedMoveNotation={worstMoveCompareInfo.playedMove}
                 bestMoveNotation={worstMoveCompareInfo.bestMove}
                 compare={worstMoveCompare}

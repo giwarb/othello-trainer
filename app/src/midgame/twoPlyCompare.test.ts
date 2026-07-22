@@ -1,10 +1,14 @@
 /**
- * T195: `twoPlyCompare.ts`(悪手直後の「2手先」2盤面比較)の単体テスト。
+ * T195/T198: `twoPlyCompare.ts`(悪手直後の「5盤面比較」)の単体テスト。
  *
  * 4つの局面フィクスチャ(通常/相手パス/自分パス/真の終局)は、いずれも
  * `game/othello.ts`の実装をそのまま使った実在の盤面(scratchpadで
  * `npx tsx`により事前確認済み、`resolveMover.test.ts`の
  * `buildIsolatedPocketsBoard`と同じ「独立した孤立領域」構成手法)。
+ *
+ * T198で`TwoPlyBranchResult`に追加された`board1Ply`/`opponentMoves`
+ * (1手先パネル用のデータ、追加のエンジン呼び出し無しで既存の
+ * `requestAnalyzeAll`呼び出しの結果を保持しただけ)の検証を追加した。
  */
 import { describe, expect, it } from 'vitest'
 import type { MoveEvalJson } from '../engine/types.ts'
@@ -21,11 +25,15 @@ import {
 import {
   computeTwoPlyBranch,
   computeTwoPlyCompare,
+  formatOpponentLegalCountHeader,
+  formatOpponentPassNote,
+  formatOriginalLegalCountHeader,
+  formatSelfLegalCountHeader,
   formatTwoPlyCompareLossMessage,
   formatTwoPlyCompareMainMessage,
-  formatTwoPlyBranchHeader,
   twoPlyCompareSupplementalMessages,
   type RequestAnalyzeAllFn,
+  type TwoPlyBranchResult,
 } from './twoPlyCompare.ts'
 import type { ClearBlunderPattern } from './clearBlunder.ts'
 
@@ -39,7 +47,7 @@ function movesFor(board: Board, side: Side, pickBest?: string, bestDiscDiff = 3)
 }
 
 describe('midgame/twoPlyCompare: computeTwoPlyBranch', () => {
-  it('通常ケース: 相手が実応手し、自分にも次の合法手がある(kind: ok)', async () => {
+  it('通常ケース: 相手が実応手し、自分にも次の合法手がある(kind: ok)。1手先の相手合法手評価も保持する', async () => {
     // 初期局面からf5(黒)を打つ。ごく普通の中盤局面、双方に合法手が豊富にある
     // (白の応手選択肢: f4/d6/f6、scratchpadで`npx tsx`により確認済み)。
     const board = createBoard(
@@ -60,9 +68,17 @@ describe('midgame/twoPlyCompare: computeTwoPlyBranch', () => {
     expect(result.selfLegalCount).toBe(result.selfMoves.length)
     expect(result.selfLegalCount).toBeGreaterThan(0)
     expect(result.bestSelfEval).toBe(0) // このケースではmoversFor既定でdiscDiff0(pickBest指定なし)
+
+    // T198: 1手先(自分の手の直後、相手番)の盤面・相手の全合法手評価。
+    const boardAfterSelf = applyMove(board, 'black', notationToSquare('f5'))
+    expect(result.board1Ply).toEqual(boardAfterSelf)
+    expect(result.opponentMoves).not.toBeNull()
+    expect(result.opponentMoves!.map((m) => m.move).sort()).toEqual(
+      legalMoves(boardAfterSelf, 'white').map((sq) => squareToNotation(sq)).sort(),
+    )
   })
 
-  it('相手パス: 相手に合法手が無いが自分にはまだある(kind: ok, opponentPassed: true)', async () => {
+  it('相手パス: 相手に合法手が無いが自分にはまだある(kind: ok, opponentPassed: true)。opponentMovesはnull', async () => {
     // resolveMover.test.tsの`buildIsolatedPocketsBoard`と同じ孤立領域構成。
     // 黒がe1を打つとb1-d1が反転、白は合法手0(パス)だが黒はまだf8に打てる。
     const board = createBoard(
@@ -80,9 +96,12 @@ describe('midgame/twoPlyCompare: computeTwoPlyBranch', () => {
     // 相手がパスしたので盤面は自分の着手直後のまま。自分の合法手はf8のみ。
     expect(result.selfLegalCount).toBe(1)
     expect(result.selfMoves.map((m) => m.move)).toEqual(['f8'])
+    // T198: 相手に合法手が無いので1手先の合法手評価は取得しない(null)。
+    expect(result.opponentMoves).toBeNull()
+    expect(result.board1Ply).toEqual(applyMove(board, 'black', notationToSquare('e1')))
   })
 
-  it('自分パス: (相手の応手後)自分に合法手が無いが相手にはまだある(kind: selfPass)', async () => {
+  it('自分パス: (相手の応手後)自分に合法手が無いが相手にはまだある(kind: selfPass)。相手の1手先合法手評価は保持する', async () => {
     // scratchpadで`npx tsx`により事前確認済みの孤立領域構成(3ブロック:
     // row1のa1/b1-d1/e1、row8のe8-h8+f8、column hのh3-h5)。
     // 黒がe1を打った後、白はg8を打てる(他にh2/h6/c8も打てるがg8を選ばせる)。
@@ -117,9 +136,12 @@ describe('midgame/twoPlyCompare: computeTwoPlyBranch', () => {
     expect(squareToNotation(result.opponentSquare!)).toBe('g8')
     expect(hasLegalMove(result.board, 'black')).toBe(false)
     expect(hasLegalMove(result.board, 'white')).toBe(true)
+    // T198: 相手は実際に応手した(パスではない)ので、1手先の合法手評価が保持されている。
+    expect(result.opponentMoves).not.toBeNull()
+    expect(result.opponentMoves!.length).toBeGreaterThan(0)
   })
 
-  it('真の終局(自分の手の直後): 相手・自分とも合法手が無い(kind: ended)', async () => {
+  it('真の終局(自分の手の直後): 相手・自分とも合法手が無い(kind: ended)。opponentMovesはnull、board1Ply === board', async () => {
     // resolveMover.test.tsの「両者とも合法手が無ければnull」ケースをそのまま使う。
     // afterE1(黒f8がまだ打てる状態)を`preMoveBoard`とし、黒がf8を打つと真の終局になる。
     const isolatedPockets = createBoard(
@@ -141,9 +163,12 @@ describe('midgame/twoPlyCompare: computeTwoPlyBranch', () => {
     expect(result.opponentPassed).toBe(false)
     expect(hasLegalMove(result.board, 'black')).toBe(false)
     expect(hasLegalMove(result.board, 'white')).toBe(false)
+    // T198: 1手先の時点で既に終局(=2手先と同じ盤面)。相手の合法手評価は無い。
+    expect(result.opponentMoves).toBeNull()
+    expect(result.board1Ply).toEqual(result.board)
   })
 
-  it('真の終局(相手の応手直後): 相手の実応手の後で双方合法手が無くなる(kind: ended)', async () => {
+  it('真の終局(相手の応手直後): 相手の実応手の後で双方合法手が無くなる(kind: ended)。相手の1手先合法手評価は保持する', async () => {
     // scratchpadで事前確認済み: 黒e1(b1-d1反転)→白の唯一の合法手d8を打つと、
     // その後は黒・白とも合法手が0になる。
     const board = createBoard(
@@ -160,6 +185,10 @@ describe('midgame/twoPlyCompare: computeTwoPlyBranch', () => {
     expect(result.opponentPassed).toBe(false)
     expect(hasLegalMove(result.board, 'black')).toBe(false)
     expect(hasLegalMove(result.board, 'white')).toBe(false)
+    // T198: 相手は実際に応手した(d8)ので、1手先の合法手評価が保持されている。
+    expect(result.opponentMoves).not.toBeNull()
+    expect(result.opponentMoves!.some((m) => m.move === 'd8')).toBe(true)
+    expect(result.board1Ply).not.toEqual(result.board)
   })
 })
 
@@ -185,7 +214,7 @@ describe('midgame/twoPlyCompare: computeTwoPlyCompare', () => {
 
     expect(result.played.ownSquare).toBe(notationToSquare('f5'))
     expect(result.best.ownSquare).toBe(notationToSquare('f4'))
-    // 系列ごとに最大2回(相手応手+自分の合法手)、2系列で最大4回。
+    // 系列ごとに最大2回(相手応手+自分の合法手)、2系列で最大4回(既存の呼び出し回数構成を崩さない、T198でも不変)。
     expect(calls.length).toBeLessThanOrEqual(4)
     expect(calls.length).toBeGreaterThan(0)
   })
@@ -218,18 +247,6 @@ describe('midgame/twoPlyCompare: メッセージ生成', () => {
     expect(formatTwoPlyCompareLossMessage(2.6)).toBe('この手は最善手より約3石損しています。')
   })
 
-  it('ヘッダ文言: 相手パスは「パス」、自分パスは「0 か所(パス)」と明記する', async () => {
-    const board = createBoard(
-      [notationToSquare('a1'), notationToSquare('h8')],
-      [notationToSquare('b1'), notationToSquare('c1'), notationToSquare('d1'), notationToSquare('g8')],
-    )
-    const requestAnalyzeAll: RequestAnalyzeAllFn = async (b, side) => movesFor(b, side)
-    const branch = await computeTwoPlyBranch(board, 'black', notationToSquare('e1'), requestAnalyzeAll)
-    const header = formatTwoPlyBranchHeader('e1', branch)
-    expect(header).toContain('相手: パス')
-    expect(header).toContain('打てる場所: 1 か所')
-  })
-
   it('補足行: `ClearBlunderPattern`のmessageをそのまま最大2件返す(nullなら空配列)', () => {
     const patterns: ClearBlunderPattern[] = [
       { id: 'corner-gift', message: 'この手だと相手に隅を取られます。', severity: 10, playedHighlightSquares: [], bestHighlightSquares: [] },
@@ -237,5 +254,117 @@ describe('midgame/twoPlyCompare: メッセージ生成', () => {
     expect(twoPlyCompareSupplementalMessages(patterns)).toEqual(['この手だと相手に隅を取られます。'])
     expect(twoPlyCompareSupplementalMessages(null)).toEqual([])
     expect(twoPlyCompareSupplementalMessages(undefined)).toEqual([])
+  })
+})
+
+describe('midgame/twoPlyCompare: T198 パネルヘッダ生成', () => {
+  it('formatOriginalLegalCountHeader: 未取得はローディング文言、取得済みは「打てる場所: N か所」', () => {
+    expect(formatOriginalLegalCountHeader(null)).toBe('打てる場所を計算しています…')
+    const moves: MoveEvalJson[] = [
+      { move: 'd3', score: 0, discDiff: 0, type: 'midgame' },
+      { move: 'c4', score: 0, discDiff: 0, type: 'midgame' },
+    ]
+    expect(formatOriginalLegalCountHeader(moves)).toBe('打てる場所: 2 か所')
+  })
+
+  it('formatOpponentLegalCountHeader: 相手が応手可能なら合法手数、パスなら「0 か所(パス)」、終局なら「0 か所(終局)」', async () => {
+    const board = createBoard(
+      [notationToSquare('d5'), notationToSquare('e4')],
+      [notationToSquare('d4'), notationToSquare('e5')],
+    )
+    const okBranch = await computeTwoPlyBranch(
+      board,
+      'black',
+      notationToSquare('f5'),
+      async (b, side) => movesFor(b, side, 'f4', 4),
+    )
+    expect(formatOpponentLegalCountHeader(okBranch)).toMatch(/^打てる場所: \d+ か所$/)
+
+    const passBoard = createBoard(
+      [notationToSquare('a1'), notationToSquare('h8')],
+      [notationToSquare('b1'), notationToSquare('c1'), notationToSquare('d1'), notationToSquare('g8')],
+    )
+    const passBranch = await computeTwoPlyBranch(
+      passBoard,
+      'black',
+      notationToSquare('e1'),
+      async (b, side) => movesFor(b, side),
+    )
+    expect(formatOpponentLegalCountHeader(passBranch)).toBe('打てる場所: 0 か所(パス)')
+
+    const isolatedPockets = createBoard(
+      [notationToSquare('a1'), notationToSquare('h8')],
+      [notationToSquare('b1'), notationToSquare('c1'), notationToSquare('d1'), notationToSquare('g8')],
+    )
+    const afterE1 = applyMove(isolatedPockets, 'black', notationToSquare('e1'))
+    const endedBranch = await computeTwoPlyBranch(
+      afterE1,
+      'black',
+      notationToSquare('f8'),
+      async () => {
+        throw new Error('呼ばれないはず')
+      },
+    )
+    expect(formatOpponentLegalCountHeader(endedBranch)).toBe('打てる場所: 0 か所(終局)')
+  })
+
+  it('formatSelfLegalCountHeader: kindごとに合法手数/パス/終局(石差)を表示する', () => {
+    const board = createBoard([notationToSquare('a1')], [])
+    const okBranch: TwoPlyBranchResult = {
+      kind: 'ok',
+      board1Ply: board,
+      opponentMoves: null,
+      board,
+      ownSquare: 0,
+      opponentSquare: null,
+      opponentPassed: false,
+      selfMoves: [{ move: 'c3', score: 0, discDiff: 0, type: 'midgame' }],
+      selfLegalCount: 1,
+      bestSelfEval: 0,
+    }
+    expect(formatSelfLegalCountHeader(okBranch)).toBe('打てる場所: 1 か所')
+
+    const selfPassBranch: TwoPlyBranchResult = {
+      kind: 'selfPass',
+      board1Ply: board,
+      opponentMoves: null,
+      board,
+      ownSquare: 0,
+      opponentSquare: null,
+      opponentPassed: false,
+    }
+    expect(formatSelfLegalCountHeader(selfPassBranch)).toBe('打てる場所: 0 か所(パス)')
+
+    const endedBranch: TwoPlyBranchResult = {
+      kind: 'ended',
+      board1Ply: board,
+      opponentMoves: null,
+      board,
+      ownSquare: 0,
+      opponentSquare: null,
+      opponentPassed: false,
+      finalDiscDiff: 5,
+    }
+    expect(formatSelfLegalCountHeader(endedBranch)).toBe('終局(石差+5)')
+  })
+
+  it('formatOpponentPassNote: 相手がパスした場合のみ注記文を返す', () => {
+    const board = createBoard([notationToSquare('a1')], [])
+    const passedBranch: TwoPlyBranchResult = {
+      kind: 'ok',
+      board1Ply: board,
+      opponentMoves: null,
+      board,
+      ownSquare: 0,
+      opponentSquare: null,
+      opponentPassed: true,
+      selfMoves: [],
+      selfLegalCount: 0,
+      bestSelfEval: 0,
+    }
+    expect(formatOpponentPassNote(passedBranch)).toBe('相手はパスしたため、盤面は1手先と同じです。')
+
+    const normalBranch: TwoPlyBranchResult = { ...passedBranch, opponentPassed: false, opponentSquare: 1 }
+    expect(formatOpponentPassNote(normalBranch)).toBeNull()
   })
 })

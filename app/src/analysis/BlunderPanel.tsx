@@ -223,6 +223,13 @@ export function BlunderPanel({ moveAnalysis, gameMoves, engine, onClose }: Blund
   // (中盤練習の`MIDGAME_ANALYZE_LIMIT`とは値が異なる別定数、タスク仕様どおり)。
   const [twoPlyCompare, setTwoPlyCompare] = useState<TwoPlyCompareResult | null>(null)
   const [twoPlyCompareError, setTwoPlyCompareError] = useState<string | null>(null)
+  /**
+   * T198: 元局面(`moveAnalysis.board`)における`moveAnalysis.side`の全合法手評価
+   * (5盤面比較の「元局面」パネル用)。`MoveAnalysis`には保持されていないため、
+   * `computeTwoPlyCompare`とは別に`requestAnalyzeAll`を1回だけ追加で呼ぶ
+   * (要件1「元局面分の最大1回のみ」)。
+   */
+  const [originalMoves, setOriginalMoves] = useState<MoveEvalJson[] | null>(null)
 
   function requestAnalyzeAllForCompare(board: BoardState, side: Side): Promise<MoveEvalJson[]> {
     return engine.requestAnalyzeAll(board, side, ANALYZE_LIMIT)
@@ -245,6 +252,15 @@ export function BlunderPanel({ moveAnalysis, gameMoves, engine, onClose }: Blund
       .catch((error: unknown) => {
         console.error('2手先2盤面比較の計算に失敗しました', error)
         if (!cancelled) setTwoPlyCompareError('比較の計算に失敗しました。')
+      })
+
+    engine
+      .requestAnalyzeAll(moveAnalysis.board, moveAnalysis.side, ANALYZE_LIMIT)
+      .then((moves) => {
+        if (!cancelled) setOriginalMoves(moves)
+      })
+      .catch((error: unknown) => {
+        console.error('元局面の合法手評価の取得に失敗しました', error)
       })
 
     return () => {
@@ -586,6 +602,8 @@ export function BlunderPanel({ moveAnalysis, gameMoves, engine, onClose }: Blund
           {twoPlyCompare && (
             <TwoPlyCompare
               mover={moveAnalysis.side}
+              preMoveBoard={moveAnalysis.board}
+              originalMoves={originalMoves}
               playedMoveNotation={moveAnalysis.move}
               bestMoveNotation={moveAnalysis.bestMove}
               compare={twoPlyCompare}
