@@ -240,6 +240,26 @@
   font-weight: bold;
 }
 
+/* T196要件1: 詳細分析(上級者向け)アコーディオン。既定で閉じており、
+   `<summary>`クリックで開く(joseki/PracticeMode.tsxの既存`<details>`と同方針)。 */
+.blunder-panel__advanced > summary {
+  cursor: pointer;
+  font-weight: bold;
+  font-size: 0.95rem;
+}
+
+.blunder-panel__advanced-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+}
+
+.blunder-panel__advanced-body .blunder-panel__section:first-child {
+  border-top: none;
+  padding-top: 0;
+}
+
 .blunder-panel__practice-buttons {
   display: flex;
   flex-wrap: wrap;

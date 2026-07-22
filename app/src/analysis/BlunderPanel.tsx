@@ -16,6 +16,8 @@ import {
   type Side,
 } from '../game/othello.ts'
 import { resolveMover } from '../midgame/resolveMover.ts'
+import { TwoPlyCompare } from '../midgame/TwoPlyCompare.tsx'
+import { computeTwoPlyCompare, type TwoPlyCompareResult } from '../midgame/twoPlyCompare.ts'
 import { loadMoveEvalOverlayEnabled, saveMoveEvalOverlayEnabled } from '../settings/moveEvalOverlaySettings.ts'
 import { judgePuzzleMove } from '../tsume/judgePuzzleMove.ts'
 import type { Puzzle } from '../tsume/types.ts'
@@ -208,6 +210,52 @@ export function BlunderPanel({ moveAnalysis, gameMoves, engine, onClose }: Blund
     ? computeBoardHighlights(motifContext, computeStableSquares)
     : null
 
+  /**
+   * T196: 悪手解析の既定表示に使う分類閾値(`MoveEvalOverlay`の色分け)。
+   * フリー分岐探索(旧・唯一の利用箇所)より前で使うため、ここで宣言する
+   * (以前はフリー分岐探索セクションの直前で宣言していたが、位置に依存関係は無い)。
+   */
+  const [classifyThresholds] = useState<ClassifyThresholds>(() => loadClassifyThresholds(localStorage))
+
+  // --- T196: 2手先2盤面比較(既定表示の最上部) -------------------------------
+  // T195(中盤練習)で作った`TwoPlyCompare`/`computeTwoPlyCompare`をそのまま再利用する
+  // (純粋props設計、要件1)。探索設定は棋譜解析側の`ANALYZE_LIMIT`を使う
+  // (中盤練習の`MIDGAME_ANALYZE_LIMIT`とは値が異なる別定数、タスク仕様どおり)。
+  const [twoPlyCompare, setTwoPlyCompare] = useState<TwoPlyCompareResult | null>(null)
+  const [twoPlyCompareError, setTwoPlyCompareError] = useState<string | null>(null)
+
+  function requestAnalyzeAllForCompare(board: BoardState, side: Side): Promise<MoveEvalJson[]> {
+    return engine.requestAnalyzeAll(board, side, ANALYZE_LIMIT)
+  }
+
+  useEffect(() => {
+    let cancelled = false
+    setTwoPlyCompareError(null)
+
+    computeTwoPlyCompare(
+      moveAnalysis.board,
+      moveAnalysis.side,
+      notationToSquare(moveAnalysis.move),
+      notationToSquare(moveAnalysis.bestMove),
+      requestAnalyzeAllForCompare,
+    )
+      .then((result) => {
+        if (!cancelled) setTwoPlyCompare(result)
+      })
+      .catch((error: unknown) => {
+        console.error('2手先2盤面比較の計算に失敗しました', error)
+        if (!cancelled) setTwoPlyCompareError('比較の計算に失敗しました。')
+      })
+
+    return () => {
+      cancelled = true
+    }
+    // moveAnalysis/engineはこのパネルインスタンスの生存期間中不変(比較PVの
+    // 既存useEffectと同じ前提、AnalysisMode.tsx側でkey={ply}のため別の悪手を
+    // 選ぶと再マウントされる)。
+    // eslint-disable-next-line
+  }, [])
+
   // --- 比較PV(要件1) -----------------------------------------------------
   const [comparePv, setComparePv] = useState<ComparePvResult | null>(null)
   const [comparePvLoading, setComparePvLoading] = useState(true)
@@ -318,7 +366,6 @@ export function BlunderPanel({ moveAnalysis, gameMoves, engine, onClose }: Blund
   const [moveEvalOverlayEnabled, setMoveEvalOverlayEnabled] = useState<boolean>(() =>
     loadMoveEvalOverlayEnabled(localStorage),
   )
-  const [classifyThresholds] = useState<ClassifyThresholds>(() => loadClassifyThresholds(localStorage))
   const [branchOverlayMoves, setBranchOverlayMoves] = useState<MoveEvalJson[] | null>(null)
 
   useEffect(() => {
@@ -533,6 +580,22 @@ export function BlunderPanel({ moveAnalysis, gameMoves, engine, onClose }: Blund
         </div>
 
         <section class="blunder-panel__section">
+          <h3>2手先比較</h3>
+          {twoPlyCompareError && <p class="notice notice--error">{twoPlyCompareError}</p>}
+          {!twoPlyCompare && !twoPlyCompareError && <p class="notice">比較を計算しています…</p>}
+          {twoPlyCompare && (
+            <TwoPlyCompare
+              mover={moveAnalysis.side}
+              playedMoveNotation={moveAnalysis.move}
+              bestMoveNotation={moveAnalysis.bestMove}
+              compare={twoPlyCompare}
+              lossDiscs={moveAnalysis.lossDiscs}
+              thresholds={classifyThresholds}
+            />
+          )}
+        </section>
+
+        <section class="blunder-panel__section">
           <h3>着手前の局面</h3>
           <p class="notice blunder-panel__highlight-hint">
             評価内訳・モチーフ・「なぜ悪いか」の項目にマウスを乗せる(またはタップする)と、対応するマスがこの盤面上でハイライトされます。
@@ -599,105 +662,116 @@ export function BlunderPanel({ moveAnalysis, gameMoves, engine, onClose }: Blund
           )}
         </section>
 
-        <section class="blunder-panel__section">
-          <h3>比較PV(実際の進行 vs 最善進行)</h3>
-          {comparePvLoading && <p class="notice">最善進行を計算中...</p>}
-          {comparePvError && <p class="notice notice--error">{comparePvError}</p>}
-          {comparePv && (
-            <div class="blunder-panel__compare-pv">
-              <p>
-                <span class="blunder-panel__compare-pv-label">実際:</span>{' '}
-                {comparePv.playedContinuation.map((m, i) => (
-                  <span
-                    key={`played-${i}`}
-                    class={`blunder-panel__compare-pv-move${comparePv.diverges[i] ? ' blunder-panel__compare-pv-move--diverge' : ''}`}
+        {/*
+          T196: 旧・既定表示だった比較PV・評価内訳waterfall・反証層・whyBad文章を
+          「詳細分析(上級者向け)」アコーディオンへ退避する(要件1、削除はしない)。
+          ロジック・表示内容は変更せず、既定で閉じた`<details>`にまとめて包むだけ
+          (`joseki/PracticeMode.tsx`の既存`<details>`利用と同じ方針)。
+        */}
+        <details class="blunder-panel__section blunder-panel__advanced">
+          <summary>詳細分析(上級者向け)</summary>
+          <div class="blunder-panel__advanced-body">
+            <section class="blunder-panel__section">
+              <h3>比較PV(実際の進行 vs 最善進行)</h3>
+              {comparePvLoading && <p class="notice">最善進行を計算中...</p>}
+              {comparePvError && <p class="notice notice--error">{comparePvError}</p>}
+              {comparePv && (
+                <div class="blunder-panel__compare-pv">
+                  <p>
+                    <span class="blunder-panel__compare-pv-label">実際:</span>{' '}
+                    {comparePv.playedContinuation.map((m, i) => (
+                      <span
+                        key={`played-${i}`}
+                        class={`blunder-panel__compare-pv-move${comparePv.diverges[i] ? ' blunder-panel__compare-pv-move--diverge' : ''}`}
+                      >
+                        {m}
+                      </span>
+                    ))}
+                  </p>
+                  <p>
+                    <span class="blunder-panel__compare-pv-label">最善:</span>{' '}
+                    {comparePv.bestContinuation.map((m, i) => (
+                      <span
+                        key={`best-${i}`}
+                        class={`blunder-panel__compare-pv-move${comparePv.diverges[i] ? ' blunder-panel__compare-pv-move--diverge' : ''}`}
+                      >
+                        {m}
+                      </span>
+                    ))}
+                  </p>
+                </div>
+              )}
+            </section>
+
+            <section class="blunder-panel__section">
+              <h3>評価内訳(実際の進行 vs 最善進行の末端局面)</h3>
+              {!attribution && !attributionError && <p class="notice">評価内訳を計算中...</p>}
+              {attributionError && <p class="notice notice--error">{attributionError}</p>}
+              {attribution && (
+                <AttributionWaterfall
+                  breakdown={attribution}
+                  title={`${sideLabel(moveAnalysis.side)}番から見た評価差の内訳(石差)`}
+                  onHoverTerm={(key) =>
+                    setHighlightSquares(
+                      key === null
+                        ? null
+                        : attributionTermHighlightSquares(key, moveAnalysis.board, moveAnalysis.side, boardHighlights),
+                    )
+                  }
+                  onSelectTerm={(key) => setGlossaryPopoverTagId(ATTRIBUTION_TAG_ID[key])}
+                />
+              )}
+            </section>
+
+            <section class="blunder-panel__section">
+              <h3>反証層: 回収点(寄与が急変した手)</h3>
+              {!refutation && !refutationError && <p class="notice">回収点を検出中...</p>}
+              {refutationError && <p class="notice notice--error">{refutationError}</p>}
+              {refutation && (
+                <RefutationView refutation={refutation} onSelectTerm={(key) => setGlossaryPopoverTagId(ATTRIBUTION_TAG_ID[key])} />
+              )}
+            </section>
+
+            <section class="blunder-panel__section">
+              <h3>なぜ悪いか</h3>
+              <ul class="blunder-panel__why-bad">
+                {whyBad.reasons.map((reason, i) => (
+                  <li
+                    key={i}
+                    tabIndex={reason.category ? 0 : undefined}
+                    class={reason.category ? 'blunder-panel__why-bad-item--hoverable' : undefined}
+                    onMouseEnter={() =>
+                      setHighlightSquares(
+                        whyBadReasonHighlightSquares(
+                          reason.category,
+                          moveAnalysis.board,
+                          moveAnalysis.side,
+                          whyBad.cornerRisk ? notationToSquare(whyBad.cornerRisk.corner) : null,
+                          notationToSquare(moveAnalysis.move),
+                        ),
+                      )
+                    }
+                    onMouseLeave={clearHighlight}
+                    onFocus={() =>
+                      setHighlightSquares(
+                        whyBadReasonHighlightSquares(
+                          reason.category,
+                          moveAnalysis.board,
+                          moveAnalysis.side,
+                          whyBad.cornerRisk ? notationToSquare(whyBad.cornerRisk.corner) : null,
+                          notationToSquare(moveAnalysis.move),
+                        ),
+                      )
+                    }
+                    onBlur={clearHighlight}
                   >
-                    {m}
-                  </span>
+                    {reason.text}
+                  </li>
                 ))}
-              </p>
-              <p>
-                <span class="blunder-panel__compare-pv-label">最善:</span>{' '}
-                {comparePv.bestContinuation.map((m, i) => (
-                  <span
-                    key={`best-${i}`}
-                    class={`blunder-panel__compare-pv-move${comparePv.diverges[i] ? ' blunder-panel__compare-pv-move--diverge' : ''}`}
-                  >
-                    {m}
-                  </span>
-                ))}
-              </p>
-            </div>
-          )}
-        </section>
-
-        <section class="blunder-panel__section">
-          <h3>評価内訳(実際の進行 vs 最善進行の末端局面)</h3>
-          {!attribution && !attributionError && <p class="notice">評価内訳を計算中...</p>}
-          {attributionError && <p class="notice notice--error">{attributionError}</p>}
-          {attribution && (
-            <AttributionWaterfall
-              breakdown={attribution}
-              title={`${sideLabel(moveAnalysis.side)}番から見た評価差の内訳(石差)`}
-              onHoverTerm={(key) =>
-                setHighlightSquares(
-                  key === null
-                    ? null
-                    : attributionTermHighlightSquares(key, moveAnalysis.board, moveAnalysis.side, boardHighlights),
-                )
-              }
-              onSelectTerm={(key) => setGlossaryPopoverTagId(ATTRIBUTION_TAG_ID[key])}
-            />
-          )}
-        </section>
-
-        <section class="blunder-panel__section">
-          <h3>反証層: 回収点(寄与が急変した手)</h3>
-          {!refutation && !refutationError && <p class="notice">回収点を検出中...</p>}
-          {refutationError && <p class="notice notice--error">{refutationError}</p>}
-          {refutation && (
-            <RefutationView refutation={refutation} onSelectTerm={(key) => setGlossaryPopoverTagId(ATTRIBUTION_TAG_ID[key])} />
-          )}
-        </section>
-
-        <section class="blunder-panel__section">
-          <h3>なぜ悪いか</h3>
-          <ul class="blunder-panel__why-bad">
-            {whyBad.reasons.map((reason, i) => (
-              <li
-                key={i}
-                tabIndex={reason.category ? 0 : undefined}
-                class={reason.category ? 'blunder-panel__why-bad-item--hoverable' : undefined}
-                onMouseEnter={() =>
-                  setHighlightSquares(
-                    whyBadReasonHighlightSquares(
-                      reason.category,
-                      moveAnalysis.board,
-                      moveAnalysis.side,
-                      whyBad.cornerRisk ? notationToSquare(whyBad.cornerRisk.corner) : null,
-                      notationToSquare(moveAnalysis.move),
-                    ),
-                  )
-                }
-                onMouseLeave={clearHighlight}
-                onFocus={() =>
-                  setHighlightSquares(
-                    whyBadReasonHighlightSquares(
-                      reason.category,
-                      moveAnalysis.board,
-                      moveAnalysis.side,
-                      whyBad.cornerRisk ? notationToSquare(whyBad.cornerRisk.corner) : null,
-                      notationToSquare(moveAnalysis.move),
-                    ),
-                  )
-                }
-                onBlur={clearHighlight}
-              >
-                {reason.text}
-              </li>
-            ))}
-          </ul>
-        </section>
+              </ul>
+            </section>
+          </div>
+        </details>
 
         <section class="blunder-panel__section">
           <h3>フリー分岐探索</h3>
