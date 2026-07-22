@@ -1,0 +1,182 @@
+{
+  "instrumentationCalibrationNsPerCall": 17.272808,
+  "mpc_off": {
+    "buckets": [
+      {
+        "calls": 59440032,
+        "cycles": 1315858654,
+        "name": "entry_checks"
+      },
+      {
+        "calls": 59440032,
+        "cycles": 4062069466,
+        "name": "legal_moves_top"
+      },
+      {
+        "calls": 21619873,
+        "cycles": 406471910,
+        "name": "tt_probe"
+      },
+      {
+        "calls": 21618686,
+        "cycles": 829007635,
+        "name": "tt_store"
+      },
+      {
+        "calls": 0,
+        "cycles": 0,
+        "name": "mpc_overhead_self"
+      },
+      {
+        "calls": 21618686,
+        "cycles": 38896524375,
+        "name": "ordered_moves_total"
+      },
+      {
+        "calls": 229879921,
+        "cycles": 7151542316,
+        "name": "ordered_moves_fill_apply_move"
+      },
+      {
+        "calls": 229834072,
+        "cycles": 13482020359,
+        "name": "ordered_moves_sort_legal_moves"
+      },
+      {
+        "calls": 61083332,
+        "cycles": 1287664112,
+        "name": "hash_diff_loop"
+      },
+      {
+        "calls": 61083332,
+        "cycles": 4699259072,
+        "name": "pattern_state_child"
+      },
+      {
+        "calls": 240,
+        "cycles": 296020,
+        "name": "pattern_state_from_board_root"
+      },
+      {
+        "calls": 61092329,
+        "cycles": 2353203510,
+        "name": "etc_try_cutoff"
+      },
+      {
+        "calls": 37766022,
+        "cycles": 17120776086,
+        "name": "static_eval_leaf_total"
+      },
+      {
+        "calls": 37766022,
+        "cycles": 7694070640,
+        "name": "score_pattern_lookup"
+      },
+      {
+        "calls": 37766022,
+        "cycles": 7111825728,
+        "name": "score_scalar_features"
+      },
+      {
+        "calls": 54136,
+        "cycles": 920789,
+        "name": "pass_hash"
+      }
+    ],
+    "cyclesEnd": 17416184613045,
+    "cyclesStart": 17334617478167,
+    "totalCycles": 81567134878,
+    "totalNodes": 59440032,
+    "wallElapsedNs": 43011852200
+  },
+  "mpc_on": {
+    "buckets": [
+      {
+        "calls": 6487461,
+        "cycles": 131551015,
+        "name": "entry_checks"
+      },
+      {
+        "calls": 6487461,
+        "cycles": 438282545,
+        "name": "legal_moves_top"
+      },
+      {
+        "calls": 2332277,
+        "cycles": 44102171,
+        "name": "tt_probe"
+      },
+      {
+        "calls": 2295933,
+        "cycles": 68706122,
+        "name": "tt_store"
+      },
+      {
+        "calls": 2168869,
+        "cycles": 39319644,
+        "name": "mpc_overhead_self"
+      },
+      {
+        "calls": 2295933,
+        "cycles": 4542533287,
+        "name": "ordered_moves_total"
+      },
+      {
+        "calls": 25267393,
+        "cycles": 796789913,
+        "name": "ordered_moves_fill_apply_move"
+      },
+      {
+        "calls": 25266361,
+        "cycles": 427362959,
+        "name": "ordered_moves_sort_legal_moves"
+      },
+      {
+        "calls": 6707463,
+        "cycles": 147764612,
+        "name": "hash_diff_loop"
+      },
+      {
+        "calls": 6707463,
+        "cycles": 534437832,
+        "name": "pattern_state_child"
+      },
+      {
+        "calls": 457,
+        "cycles": 478515,
+        "name": "pattern_state_from_board_root"
+      },
+      {
+        "calls": 6708797,
+        "cycles": 227597210,
+        "name": "etc_try_cutoff"
+      },
+      {
+        "calls": 4153497,
+        "cycles": 2035683859,
+        "name": "static_eval_leaf_total"
+      },
+      {
+        "calls": 4153497,
+        "cycles": 949766974,
+        "name": "score_pattern_lookup"
+      },
+      {
+        "calls": 4153497,
+        "cycles": 819750275,
+        "name": "score_scalar_features"
+      },
+      {
+        "calls": 1687,
+        "cycles": 29508,
+        "name": "pass_hash"
+      }
+    ],
+    "cyclesEnd": 17425728706253,
+    "cyclesStart": 17416185051926,
+    "totalCycles": 9543654327,
+    "totalNodes": 6487461,
+    "wallElapsedNs": 5032544200
+  },
+  "task": "T188"
+}

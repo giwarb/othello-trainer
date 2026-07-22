@@ -1,0 +1,120 @@
+{
+  "task": "T188",
+  "generatedAt": "2026-07-22T16:00:00+09:00",
+  "provenance": {
+    "gitCommitBase": "0a28e99c8d45fd70f6d56d2d095cf7fdfaf0cd0d",
+    "gitCommitNote": "計測はT185/T187適用済みmain(0a28e99c)上でengine/src/search.rs・engine/src/pattern_eval.rs・engine/src/lib.rsへ一時的なRDTSC計装(専用モジュールengine/src/profile188.rs追加)を行って実施。計測後にgit checkoutで完全復元し、一時バイナリengine/src/bin/t188_profile.rsを削除。本ファイル(report.md/meta.json/raw.json)のみコミット対象。",
+    "patternWeightsSha256": "e69f3b1c33432bafd388af82adde64270ec8c51acaab070bbfff4cf4caf20fc9",
+    "patternWeightsPath": "train/weights/pattern_v6.bin",
+    "patternWeightsNote": "T183/T187と同一ファイル・同一sha256(変更なしを確認済み)",
+    "midgame20Derivation": "bench/edax-compare/t156_mpc_positions.jsonをemptyBucket=='29-36' and split=='test'でフィルタし先頭20件を抽出したもの(T180で作成、T183/T185/T187と同一のID列、mpc-29-36-test-001..020)。リポジトリ未コミット、セッションのscratchpadに保持。",
+    "cpuModel": "AMD Ryzen 7 5800U with Radeon Graphics (16 logical processors)",
+    "cpuModelNote": "T183と同一マシン・同一CPU",
+    "exclusiveWindowCheck": "計装ビルド直前・計測直前の2回、PowerShellのGet-Processでcargo/python/rustc/node/eval_cli/t18*_profile系プロセスが無いことを確認して実施"
+  },
+  "methodology": {
+    "approach": "T183(tasks/T183-deep-profiling.md、bench/edax-compare/t183_profiling_report.md)と同じRDTSC(core::arch::x86_64::_rdtsc)ベースの区間別サイクルカウンタ方式を、T184〜T187適用後の現行のnegascout/ordered_moves/PatternState/score_with_state構造に合わせて再構築した。新規一時モジュールengine/src/profile188.rs(16バケット、各バケットは累積サイクル数+呼び出し回数のスレッドローカルCell)を追加し、search.rs(negascout本体・negascout_or_etc・etc_try_cutoff呼び出し元・mpc_try_cutoff・mpc_try_cutoff_inner・ordered_moves・static_eval_with_state)とpattern_eval.rs(score_with_state)から計測呼び出しを行った。専用一時バイナリengine/src/bin/t188_profile.rsで、T180由来の中盤20局面バッチをサブプロセスを起動せず1プロセス内でMPC off→onの順にループし、search::search_with_eval_with_policyを直接呼び出した。",
+    "bucketDesign": "T183以降の構造変化を反映した新区間割り。ordered_movesはT185で固定長配列+next_board持ち越しに変わったため、ordered_moves_total(関数全体、inclusive)の内訳としてordered_moves_fill_apply_move(候補手列挙ループのboard.apply_move、T183のsort_apply_moveに相当するがT184で要素数分=1回/候補手まで削減済み)とordered_moves_sort_legal_moves(sort_by_cached_keyのキー計算内next_board.legal_moves、要素数分=1回/候補手)を計測し、両者を差し引いた残り(Vec/配列走査・Timsort本体・tt_move昇格等)を「pure machinery」として後処理で算出した(T183と同じ差し引き方式)。T187で新設されたPatternState::child/from_boardとscore_with_stateのパターン表引き/スカラー特徴も新規バケットとして追加した。",
+    "entryChecksSimplification": "entry_checksバケットは、本タスクの計測プロトコル(depth=12固定・time_ms=None・max_nodes=None)ではnegascout冒頭の3つの早期return(timed_out/max_nodes/time_ms)が実測上一度も発火しない前提を利用し、単一区間(関数入口から`let legal = ...`直前まで)を1回のadd呼び出しで計測する単純化を行った。呼び出し回数がtotalNodesと完全一致すること(mpc_off: 59,440,032=59,440,032、mpc_on: 6,487,461=6,487,461)で、この前提が実際に成立していたことを事後確認した。",
+    "calibration": "std::time::Instant::now()とrdtsc()を計測開始・終了時に相関させ、ns_per_cycleを算出(mpc_off: 0.5273184054、mpc_on: 0.5273183858、implied 1.896GHz)。T183の実測値(0.5273192010366813)とほぼ完全一致しており、同一マシン・同一invariant TSCベースクロックであることを裏付ける。",
+    "instrumentationOverheadCalibration": "T183にはなかった追加の校正: 本タスクの計装パターン(`let t0=rdtsc(); <work>; add(rdtsc()-t0);`)そのものの1回あたりコストを、実際の探索計測の直前に同一パターンを5000万回繰り返すマイクロベンチマークで直接測定した。結果は17.272808 ns/call。理由: T188ではordered_movesのfill/sortループのように候補手ごと(要素数分、数億回)に計測を行うバケットがあり、T183(旧sort_by_key問題により要素あたり65〜78回もキー関数が再計算されていたため、リッチな\"real work\"に対して計装オーバーヘッドの相対比率が小さかった)と異なり、要素あたりのreal work自体が小さくなった(T184修正により1候補手につき1回だけの計算に削減済み)結果、計装のオーバーヘッド自体が無視できない比率を占めるようになったため。詳細は本体レポート(c)節参照。",
+    "revertProof": {
+      "command1": "git checkout -- engine/src/search.rs engine/src/pattern_eval.rs engine/src/lib.rs",
+      "command2": "rm engine/src/profile188.rs engine/src/bin/t188_profile.rs",
+      "gitStatusShortAfter": "(空、diffゼロを確認。本体レポート(e)節参照)",
+      "cargoTestAfterRevert": "cargo test -p engine --lib(本体レポート(e)節参照)"
+    }
+  },
+  "rawBucketDataFile": "bench/edax-compare/t188_profiling_report.raw.json",
+  "rawBucketDataNote": "t188_profile.rsが標準出力に出したJSONをそのまま保存したもの(バケット別cycles/calls、totalNodes、wallElapsedNs、instrumentationCalibrationNsPerCall)。本ファイル(meta.json)にはderivedAnalysisのみ含め、生データの重複掲載は避けた。",
+  "derivedAnalysis": {
+    "note": "ordered_moves_totalはordered_moves関数全体のinclusive時間(内訳2項目=fill_apply_move/sort_legal_movesを含む)。static_eval_leaf_totalも同様にstatic_eval_with_state関数全体のinclusive時間(score_pattern_lookup/score_scalar_featuresを含む)。二重計上を避けるため、非重複合計の計算ではordered_moves_total/static_eval_leaf_totalを1項目としてのみ計上している。",
+    "mpc_off": {
+      "wallElapsedNs": 43011852200,
+      "orderedMovesTotalNs": 20511405558,
+      "orderedMovesTotalPctWall": 47.69,
+      "orderedMovesFillApplyMoveNs": 3771034658,
+      "orderedMovesFillApplyMovePctWall": 8.77,
+      "orderedMovesSortLegalMovesNs": 7109267152,
+      "orderedMovesSortLegalMovesPctWall": 16.53,
+      "orderedMovesPureMachineryRawNs": 9631103748,
+      "orderedMovesPureMachineryRawPctWall": 22.39,
+      "orderedMovesPureMachineryAdjustedNs": 1690021958,
+      "orderedMovesPureMachineryAdjustedPctWall": 3.93,
+      "orderedMovesPureMachineryAdjustedNote": "raw値から(fill_apply_move呼び出し回数+sort_legal_moves呼び出し回数)×17.272808nsの推定計装税を差し引いた値",
+      "staticEvalLeafTotalNs": 9028124130,
+      "staticEvalLeafTotalPctWall": 20.99,
+      "scorePatternLookupNs": 4057322447,
+      "scorePatternLookupPctWall": 9.43,
+      "scoreScalarFeaturesNs": 3749924421,
+      "scoreScalarFeaturesPctWall": 8.72,
+      "staticEvalWrapperOverheadNs": 1220877262,
+      "staticEvalWrapperOverheadPctWall": 2.84,
+      "nonOverlappingTotalPctWall": 87.01,
+      "residualPctWall": 12.99,
+      "residualExplainedByCalibNote": "top_level_calls(404,816,700)×17.272808ns=6.992s(16.26%)が実測残差5.587s(12.99%)のオーダーとほぼ一致し、残差の大半が計装自体のブックキーピングコスト(add()呼び出し・スレッドローカルアクセス)で説明できることを裏付ける"
+    },
+    "mpc_on": {
+      "wallElapsedNs": 5032544200,
+      "orderedMovesTotalNs": 2395435770,
+      "orderedMovesTotalPctWall": 47.60,
+      "orderedMovesFillApplyMoveNs": 420154407,
+      "orderedMovesFillApplyMovePctWall": 8.35,
+      "orderedMovesSortLegalMovesNs": 225339731,
+      "orderedMovesSortLegalMovesPctWall": 4.48,
+      "orderedMovesPureMachineryRawNs": 1749941632,
+      "orderedMovesPureMachineryRawPctWall": 34.77,
+      "orderedMovesPureMachineryAdjustedNs": 877284266,
+      "orderedMovesPureMachineryAdjustedPctWall": 17.43,
+      "orderedMovesPureMachineryAdjustedNote": "MPC onはctx.history=Someのため、ordered_movesのソートキーが3要素タプル(corner, mobility, Reverse(history))かつ`history.get(side, m.mv)`呼び出しを伴う(この呼び出し自体は計測対象外でpure machineryに混入)。raw値からfill+sort呼び出し回数分の推定計装税を差し引いても、MPC offより高い比率が残るのはこのため(本体レポート(c)節参照)",
+      "staticEvalLeafTotalNs": 1073013881,
+      "staticEvalLeafTotalPctWall": 21.33,
+      "scorePatternLookupNs": 500852912,
+      "scorePatternLookupPctWall": 9.95,
+      "scoreScalarFeaturesNs": 432289521,
+      "scoreScalarFeaturesPctWall": 8.59,
+      "staticEvalWrapperOverheadNs": 139871448,
+      "staticEvalWrapperOverheadPctWall": 2.79,
+      "nonOverlappingTotalPctWall": 86.03,
+      "residualPctWall": 13.97,
+      "residualExplainedByCalibNote": "top_level_calls(46,347,298)×17.272808ns=0.801s(15.91%)が実測残差0.703s(13.97%)のオーダーとほぼ一致"
+    }
+  },
+  "revisedPriorityList": [
+    {
+      "rank": 1,
+      "title": "スカラー特徴(exact_mobility_advantage/empty_adjacency_exposure_advantage)のコスト削減(候補a)",
+      "estimatedShare": "8.6〜8.7%(score_scalar_features、両モードで同水準、計装ノイズ床を大きく上回る有意な信号)",
+      "rationale": "T187で既にインクリメンタル化されたパターン表引き(score_pattern_lookup、9.4〜10.0%)とほぼ同水準のコストを、依然フル再計算(scalar_features()、legal_moves_relativeの2回呼び出し+empty_adjacency_incidence)で払っている",
+      "risk": "中〜高。exact_mobility_advantageは3進パターン桁のような単純な差分更新ができない可能性が高く(着手1手で開放される合法手の変化は着手マス周辺だけに閉じない)、インクリメンタル化の設計自体に検討が必要。着手前に設計要否を判断すること。"
+    },
+    {
+      "rank": 2,
+      "title": "ordered_movesのモビリティ順序付けコスト削減(候補b)",
+      "estimatedShare": "16.5%(MPC off、sort_legal_moves、統計的に安定な条件での代表値)。MPC onは4.5%(絶対時間が小さいため相対値の変動が大きい)",
+      "rationale": "候補手は平均10.6〜11.0手生成されるが実際に探索されるのは平均2.8手程度(beta cutoffで打ち切り)。順序付けのためだけに全候補手のnext_board.legal_moves()(相手モビリティ)をフル計算しているコストが大きい",
+      "risk": "中。順序付けの精度は枝刈り効率に直接影響するため、単純な近似化はノード数増加で相殺されうる。実装時はNPSだけでなくノード数の完全一致(近似を許すなら悪化幅)をNPS測定と同じ標準手順で検証する必要がある。"
+    },
+    {
+      "rank": 3,
+      "title": "ordered_movesの純粋ソート機構のさらなる軽量化(候補c、優先度低)",
+      "estimatedShare": "調整後推定3.9%(MPC off)。既にT185で固定長配列化・next_board持ち越し済み",
+      "rationale": "raw値(22.4%)の大部分は計装自体のオーバーヘッド(本体レポート(c)節)であり、調整後は小さい。追加の軽量化余地は限定的と判断",
+      "risk": "低いが投資対効果も低い。優先度を下げる。"
+    },
+    {
+      "rank": "候補に値しない",
+      "title": "flips_for_moveのテーブル化(候補d)",
+      "estimatedShare": "測定値16.4〜16.6ns/call(fill_apply_move)は計装自体のオーバーヘッド床(17.3ns/call)以下であり、実コストを有意に上回っているとは言えない",
+      "rationale": "T183〜T185で既に呼び出し回数が必要最小限(候補手1つにつき1回のapply_move)まで削減済み。RDTSCの測定限界(数十ns未満の演算は計装オーバーヘッドに埋もれる)により、これ以上の細分化計測は本方式では不可能。有意な高速化余地があるという証拠は得られなかった。",
+      "risk": "N/A(見送り)"
+    },
+    {
+      "rank": "候補に値しない",
+      "title": "TT probe/store改善(候補e)",
+      "estimatedShare": "0.5〜1.0%(両モード合算)",
+      "rationale": "T183と同じ結論。絶対的に小さく優先度なし",
+      "risk": "N/A(見送り)"
+    }
+  ]
+}
