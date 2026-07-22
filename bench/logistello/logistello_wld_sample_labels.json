@@ -1,0 +1,713 @@
+{
+  "schemaVersion": 1,
+  "metadata": {
+    "positionsSha256": "154561052a172a864be9646b2e1c08b073e398557ba408266774105b59143d23",
+    "labelDefinition": "theoreticalScore/blackDiscCountAtGameEnd are verbatim from the WTHOR-format record (both fields are byte-identical across all ~37.7k lines in this book, confirmed empirically -- see t192_verification_report.md). expectedScoreSideToMove/expectedWldSideToMove below are a HYPOTHESIS, not yet independently verified by exact search.",
+    "hypothesis": "theoreticalScore is Black's final disc count (0..64) under the line's confirmed-optimal continuation from 24 empties onward, so the exact score of the extracted 24-empty position, from the side-to-move's perspective, is expectedScoreSideToMove = (2*theoreticalScore-64) if side_to_move == 'black' else -(2*theoreticalScore-64).",
+    "verified": false,
+    "verificationTool": "bench/logistello/verify_wld.py (eval_cli solve, full window)"
+  },
+  "totalPositions": 100,
+  "rows": [
+    {
+      "id": "t192-logistello-001",
+      "theoreticalScore": 34,
+      "blackDiscCountAtGameEnd": 34,
+      "expectedScoreSideToMove": 4,
+      "expectedWldSideToMove": "win"
+    },
+    {
+      "id": "t192-logistello-002",
+      "theoreticalScore": 32,
+      "blackDiscCountAtGameEnd": 32,
+      "expectedScoreSideToMove": 0,
+      "expectedWldSideToMove": "draw"
+    },
+    {
+      "id": "t192-logistello-003",
+      "theoreticalScore": 34,
+      "blackDiscCountAtGameEnd": 34,
+      "expectedScoreSideToMove": 4,
+      "expectedWldSideToMove": "win"
+    },
+    {
+      "id": "t192-logistello-004",
+      "theoreticalScore": 35,
+      "blackDiscCountAtGameEnd": 35,
+      "expectedScoreSideToMove": 6,
+      "expectedWldSideToMove": "win"
+    },
+    {
+      "id": "t192-logistello-005",
+      "theoreticalScore": 31,
+      "blackDiscCountAtGameEnd": 31,
+      "expectedScoreSideToMove": -2,
+      "expectedWldSideToMove": "loss"
+    },
+    {
+      "id": "t192-logistello-006",
+      "theoreticalScore": 32,
+      "blackDiscCountAtGameEnd": 32,
+      "expectedScoreSideToMove": 0,
+      "expectedWldSideToMove": "draw"
+    },
+    {
+      "id": "t192-logistello-007",
+      "theoreticalScore": 29,
+      "blackDiscCountAtGameEnd": 29,
+      "expectedScoreSideToMove": -6,
+      "expectedWldSideToMove": "loss"
+    },
+    {
+      "id": "t192-logistello-008",
+      "theoreticalScore": 33,
+      "blackDiscCountAtGameEnd": 33,
+      "expectedScoreSideToMove": 2,
+      "expectedWldSideToMove": "win"
+    },
+    {
+      "id": "t192-logistello-009",
+      "theoreticalScore": 37,
+      "blackDiscCountAtGameEnd": 37,
+      "expectedScoreSideToMove": 10,
+      "expectedWldSideToMove": "win"
+    },
+    {
+      "id": "t192-logistello-010",
+      "theoreticalScore": 32,
+      "blackDiscCountAtGameEnd": 32,
+      "expectedScoreSideToMove": 0,
+      "expectedWldSideToMove": "draw"
+    },
+    {
+      "id": "t192-logistello-011",
+      "theoreticalScore": 34,
+      "blackDiscCountAtGameEnd": 34,
+      "expectedScoreSideToMove": 4,
+      "expectedWldSideToMove": "win"
+    },
+    {
+      "id": "t192-logistello-012",
+      "theoreticalScore": 33,
+      "blackDiscCountAtGameEnd": 33,
+      "expectedScoreSideToMove": 2,
+      "expectedWldSideToMove": "win"
+    },
+    {
+      "id": "t192-logistello-013",
+      "theoreticalScore": 33,
+      "blackDiscCountAtGameEnd": 33,
+      "expectedScoreSideToMove": 2,
+      "expectedWldSideToMove": "win"
+    },
+    {
+      "id": "t192-logistello-014",
+      "theoreticalScore": 33,
+      "blackDiscCountAtGameEnd": 33,
+      "expectedScoreSideToMove": 2,
+      "expectedWldSideToMove": "win"
+    },
+    {
+      "id": "t192-logistello-015",
+      "theoreticalScore": 32,
+      "blackDiscCountAtGameEnd": 32,
+      "expectedScoreSideToMove": 0,
+      "expectedWldSideToMove": "draw"
+    },
+    {
+      "id": "t192-logistello-016",
+      "theoreticalScore": 30,
+      "blackDiscCountAtGameEnd": 30,
+      "expectedScoreSideToMove": -4,
+      "expectedWldSideToMove": "loss"
+    },
+    {
+      "id": "t192-logistello-017",
+      "theoreticalScore": 35,
+      "blackDiscCountAtGameEnd": 35,
+      "expectedScoreSideToMove": 6,
+      "expectedWldSideToMove": "win"
+    },
+    {
+      "id": "t192-logistello-018",
+      "theoreticalScore": 32,
+      "blackDiscCountAtGameEnd": 32,
+      "expectedScoreSideToMove": 0,
+      "expectedWldSideToMove": "draw"
+    },
+    {
+      "id": "t192-logistello-019",
+      "theoreticalScore": 25,
+      "blackDiscCountAtGameEnd": 25,
+      "expectedScoreSideToMove": -14,
+      "expectedWldSideToMove": "loss"
+    },
+    {
+      "id": "t192-logistello-020",
+      "theoreticalScore": 35,
+      "blackDiscCountAtGameEnd": 35,
+      "expectedScoreSideToMove": 6,
+      "expectedWldSideToMove": "win"
+    },
+    {
+      "id": "t192-logistello-021",
+      "theoreticalScore": 32,
+      "blackDiscCountAtGameEnd": 32,
+      "expectedScoreSideToMove": 0,
+      "expectedWldSideToMove": "draw"
+    },
+    {
+      "id": "t192-logistello-022",
+      "theoreticalScore": 32,
+      "blackDiscCountAtGameEnd": 32,
+      "expectedScoreSideToMove": 0,
+      "expectedWldSideToMove": "draw"
+    },
+    {
+      "id": "t192-logistello-023",
+      "theoreticalScore": 33,
+      "blackDiscCountAtGameEnd": 33,
+      "expectedScoreSideToMove": 2,
+      "expectedWldSideToMove": "win"
+    },
+    {
+      "id": "t192-logistello-024",
+      "theoreticalScore": 34,
+      "blackDiscCountAtGameEnd": 34,
+      "expectedScoreSideToMove": 4,
+      "expectedWldSideToMove": "win"
+    },
+    {
+      "id": "t192-logistello-025",
+      "theoreticalScore": 28,
+      "blackDiscCountAtGameEnd": 28,
+      "expectedScoreSideToMove": -8,
+      "expectedWldSideToMove": "loss"
+    },
+    {
+      "id": "t192-logistello-026",
+      "theoreticalScore": 31,
+      "blackDiscCountAtGameEnd": 31,
+      "expectedScoreSideToMove": -2,
+      "expectedWldSideToMove": "loss"
+    },
+    {
+      "id": "t192-logistello-027",
+      "theoreticalScore": 31,
+      "blackDiscCountAtGameEnd": 31,
+      "expectedScoreSideToMove": -2,
+      "expectedWldSideToMove": "loss"
+    },
+    {
+      "id": "t192-logistello-028",
+      "theoreticalScore": 31,
+      "blackDiscCountAtGameEnd": 31,
+      "expectedScoreSideToMove": -2,
+      "expectedWldSideToMove": "loss"
+    },
+    {
+      "id": "t192-logistello-029",
+      "theoreticalScore": 33,
+      "blackDiscCountAtGameEnd": 33,
+      "expectedScoreSideToMove": 2,
+      "expectedWldSideToMove": "win"
+    },
+    {
+      "id": "t192-logistello-030",
+      "theoreticalScore": 28,
+      "blackDiscCountAtGameEnd": 28,
+      "expectedScoreSideToMove": -8,
+      "expectedWldSideToMove": "loss"
+    },
+    {
+      "id": "t192-logistello-031",
+      "theoreticalScore": 32,
+      "blackDiscCountAtGameEnd": 32,
+      "expectedScoreSideToMove": 0,
+      "expectedWldSideToMove": "draw"
+    },
+    {
+      "id": "t192-logistello-032",
+      "theoreticalScore": 33,
+      "blackDiscCountAtGameEnd": 33,
+      "expectedScoreSideToMove": 2,
+      "expectedWldSideToMove": "win"
+    },
+    {
+      "id": "t192-logistello-033",
+      "theoreticalScore": 26,
+      "blackDiscCountAtGameEnd": 26,
+      "expectedScoreSideToMove": -12,
+      "expectedWldSideToMove": "loss"
+    },
+    {
+      "id": "t192-logistello-034",
+      "theoreticalScore": 31,
+      "blackDiscCountAtGameEnd": 31,
+      "expectedScoreSideToMove": -2,
+      "expectedWldSideToMove": "loss"
+    },
+    {
+      "id": "t192-logistello-035",
+      "theoreticalScore": 30,
+      "blackDiscCountAtGameEnd": 30,
+      "expectedScoreSideToMove": -4,
+      "expectedWldSideToMove": "loss"
+    },
+    {
+      "id": "t192-logistello-036",
+      "theoreticalScore": 33,
+      "blackDiscCountAtGameEnd": 33,
+      "expectedScoreSideToMove": 2,
+      "expectedWldSideToMove": "win"
+    },
+    {
+      "id": "t192-logistello-037",
+      "theoreticalScore": 31,
+      "blackDiscCountAtGameEnd": 31,
+      "expectedScoreSideToMove": -2,
+      "expectedWldSideToMove": "loss"
+    },
+    {
+      "id": "t192-logistello-038",
+      "theoreticalScore": 34,
+      "blackDiscCountAtGameEnd": 34,
+      "expectedScoreSideToMove": 4,
+      "expectedWldSideToMove": "win"
+    },
+    {
+      "id": "t192-logistello-039",
+      "theoreticalScore": 31,
+      "blackDiscCountAtGameEnd": 31,
+      "expectedScoreSideToMove": -2,
+      "expectedWldSideToMove": "loss"
+    },
+    {
+      "id": "t192-logistello-040",
+      "theoreticalScore": 31,
+      "blackDiscCountAtGameEnd": 31,
+      "expectedScoreSideToMove": -2,
+      "expectedWldSideToMove": "loss"
+    },
+    {
+      "id": "t192-logistello-041",
+      "theoreticalScore": 27,
+      "blackDiscCountAtGameEnd": 27,
+      "expectedScoreSideToMove": -10,
+      "expectedWldSideToMove": "loss"
+    },
+    {
+      "id": "t192-logistello-042",
+      "theoreticalScore": 33,
+      "blackDiscCountAtGameEnd": 33,
+      "expectedScoreSideToMove": 2,
+      "expectedWldSideToMove": "win"
+    },
+    {
+      "id": "t192-logistello-043",
+      "theoreticalScore": 34,
+      "blackDiscCountAtGameEnd": 34,
+      "expectedScoreSideToMove": 4,
+      "expectedWldSideToMove": "win"
+    },
+    {
+      "id": "t192-logistello-044",
+      "theoreticalScore": 26,
+      "blackDiscCountAtGameEnd": 26,
+      "expectedScoreSideToMove": -12,
+      "expectedWldSideToMove": "loss"
+    },
+    {
+      "id": "t192-logistello-045",
+      "theoreticalScore": 30,
+      "blackDiscCountAtGameEnd": 30,
+      "expectedScoreSideToMove": -4,
+      "expectedWldSideToMove": "loss"
+    },
+    {
+      "id": "t192-logistello-046",
+      "theoreticalScore": 30,
+      "blackDiscCountAtGameEnd": 30,
+      "expectedScoreSideToMove": -4,
+      "expectedWldSideToMove": "loss"
+    },
+    {
+      "id": "t192-logistello-047",
+      "theoreticalScore": 32,
+      "blackDiscCountAtGameEnd": 32,
+      "expectedScoreSideToMove": 0,
+      "expectedWldSideToMove": "draw"
+    },
+    {
+      "id": "t192-logistello-048",
+      "theoreticalScore": 32,
+      "blackDiscCountAtGameEnd": 32,
+      "expectedScoreSideToMove": 0,
+      "expectedWldSideToMove": "draw"
+    },
+    {
+      "id": "t192-logistello-049",
+      "theoreticalScore": 33,
+      "blackDiscCountAtGameEnd": 33,
+      "expectedScoreSideToMove": 2,
+      "expectedWldSideToMove": "win"
+    },
+    {
+      "id": "t192-logistello-050",
+      "theoreticalScore": 31,
+      "blackDiscCountAtGameEnd": 31,
+      "expectedScoreSideToMove": -2,
+      "expectedWldSideToMove": "loss"
+    },
+    {
+      "id": "t192-logistello-051",
+      "theoreticalScore": 31,
+      "blackDiscCountAtGameEnd": 31,
+      "expectedScoreSideToMove": -2,
+      "expectedWldSideToMove": "loss"
+    },
+    {
+      "id": "t192-logistello-052",
+      "theoreticalScore": 27,
+      "blackDiscCountAtGameEnd": 27,
+      "expectedScoreSideToMove": -10,
+      "expectedWldSideToMove": "loss"
+    },
+    {
+      "id": "t192-logistello-053",
+      "theoreticalScore": 33,
+      "blackDiscCountAtGameEnd": 33,
+      "expectedScoreSideToMove": 2,
+      "expectedWldSideToMove": "win"
+    },
+    {
+      "id": "t192-logistello-054",
+      "theoreticalScore": 32,
+      "blackDiscCountAtGameEnd": 32,
+      "expectedScoreSideToMove": 0,
+      "expectedWldSideToMove": "draw"
+    },
+    {
+      "id": "t192-logistello-055",
+      "theoreticalScore": 33,
+      "blackDiscCountAtGameEnd": 33,
+      "expectedScoreSideToMove": 2,
+      "expectedWldSideToMove": "win"
+    },
+    {
+      "id": "t192-logistello-056",
+      "theoreticalScore": 30,
+      "blackDiscCountAtGameEnd": 30,
+      "expectedScoreSideToMove": -4,
+      "expectedWldSideToMove": "loss"
+    },
+    {
+      "id": "t192-logistello-057",
+      "theoreticalScore": 33,
+      "blackDiscCountAtGameEnd": 33,
+      "expectedScoreSideToMove": 2,
+      "expectedWldSideToMove": "win"
+    },
+    {
+      "id": "t192-logistello-058",
+      "theoreticalScore": 32,
+      "blackDiscCountAtGameEnd": 32,
+      "expectedScoreSideToMove": 0,
+      "expectedWldSideToMove": "draw"
+    },
+    {
+      "id": "t192-logistello-059",
+      "theoreticalScore": 26,
+      "blackDiscCountAtGameEnd": 26,
+      "expectedScoreSideToMove": -12,
+      "expectedWldSideToMove": "loss"
+    },
+    {
+      "id": "t192-logistello-060",
+      "theoreticalScore": 29,
+      "blackDiscCountAtGameEnd": 29,
+      "expectedScoreSideToMove": -6,
+      "expectedWldSideToMove": "loss"
+    },
+    {
+      "id": "t192-logistello-061",
+      "theoreticalScore": 33,
+      "blackDiscCountAtGameEnd": 33,
+      "expectedScoreSideToMove": 2,
+      "expectedWldSideToMove": "win"
+    },
+    {
+      "id": "t192-logistello-062",
+      "theoreticalScore": 30,
+      "blackDiscCountAtGameEnd": 30,
+      "expectedScoreSideToMove": -4,
+      "expectedWldSideToMove": "loss"
+    },
+    {
+      "id": "t192-logistello-063",
+      "theoreticalScore": 32,
+      "blackDiscCountAtGameEnd": 32,
+      "expectedScoreSideToMove": 0,
+      "expectedWldSideToMove": "draw"
+    },
+    {
+      "id": "t192-logistello-064",
+      "theoreticalScore": 32,
+      "blackDiscCountAtGameEnd": 32,
+      "expectedScoreSideToMove": 0,
+      "expectedWldSideToMove": "draw"
+    },
+    {
+      "id": "t192-logistello-065",
+      "theoreticalScore": 31,
+      "blackDiscCountAtGameEnd": 31,
+      "expectedScoreSideToMove": -2,
+      "expectedWldSideToMove": "loss"
+    },
+    {
+      "id": "t192-logistello-066",
+      "theoreticalScore": 30,
+      "blackDiscCountAtGameEnd": 30,
+      "expectedScoreSideToMove": -4,
+      "expectedWldSideToMove": "loss"
+    },
+    {
+      "id": "t192-logistello-067",
+      "theoreticalScore": 27,
+      "blackDiscCountAtGameEnd": 27,
+      "expectedScoreSideToMove": -10,
+      "expectedWldSideToMove": "loss"
+    },
+    {
+      "id": "t192-logistello-068",
+      "theoreticalScore": 29,
+      "blackDiscCountAtGameEnd": 29,
+      "expectedScoreSideToMove": -6,
+      "expectedWldSideToMove": "loss"
+    },
+    {
+      "id": "t192-logistello-069",
+      "theoreticalScore": 29,
+      "blackDiscCountAtGameEnd": 29,
+      "expectedScoreSideToMove": -6,
+      "expectedWldSideToMove": "loss"
+    },
+    {
+      "id": "t192-logistello-070",
+      "theoreticalScore": 31,
+      "blackDiscCountAtGameEnd": 31,
+      "expectedScoreSideToMove": -2,
+      "expectedWldSideToMove": "loss"
+    },
+    {
+      "id": "t192-logistello-071",
+      "theoreticalScore": 33,
+      "blackDiscCountAtGameEnd": 33,
+      "expectedScoreSideToMove": 2,
+      "expectedWldSideToMove": "win"
+    },
+    {
+      "id": "t192-logistello-072",
+      "theoreticalScore": 33,
+      "blackDiscCountAtGameEnd": 33,
+      "expectedScoreSideToMove": 2,
+      "expectedWldSideToMove": "win"
+    },
+    {
+      "id": "t192-logistello-073",
+      "theoreticalScore": 29,
+      "blackDiscCountAtGameEnd": 29,
+      "expectedScoreSideToMove": -6,
+      "expectedWldSideToMove": "loss"
+    },
+    {
+      "id": "t192-logistello-074",
+      "theoreticalScore": 37,
+      "blackDiscCountAtGameEnd": 37,
+      "expectedScoreSideToMove": 10,
+      "expectedWldSideToMove": "win"
+    },
+    {
+      "id": "t192-logistello-075",
+      "theoreticalScore": 41,
+      "blackDiscCountAtGameEnd": 41,
+      "expectedScoreSideToMove": 18,
+      "expectedWldSideToMove": "win"
+    },
+    {
+      "id": "t192-logistello-076",
+      "theoreticalScore": 35,
+      "blackDiscCountAtGameEnd": 35,
+      "expectedScoreSideToMove": 6,
+      "expectedWldSideToMove": "win"
+    },
+    {
+      "id": "t192-logistello-077",
+      "theoreticalScore": 31,
+      "blackDiscCountAtGameEnd": 31,
+      "expectedScoreSideToMove": -2,
+      "expectedWldSideToMove": "loss"
+    },
+    {
+      "id": "t192-logistello-078",
+      "theoreticalScore": 36,
+      "blackDiscCountAtGameEnd": 36,
+      "expectedScoreSideToMove": 8,
+      "expectedWldSideToMove": "win"
+    },
+    {
+      "id": "t192-logistello-079",
+      "theoreticalScore": 34,
+      "blackDiscCountAtGameEnd": 34,
+      "expectedScoreSideToMove": 4,
+      "expectedWldSideToMove": "win"
+    },
+    {
+      "id": "t192-logistello-080",
+      "theoreticalScore": 31,
+      "blackDiscCountAtGameEnd": 31,
+      "expectedScoreSideToMove": -2,
+      "expectedWldSideToMove": "loss"
+    },
+    {
+      "id": "t192-logistello-081",
+      "theoreticalScore": 29,
+      "blackDiscCountAtGameEnd": 29,
+      "expectedScoreSideToMove": -6,
+      "expectedWldSideToMove": "loss"
+    },
+    {
+      "id": "t192-logistello-082",
+      "theoreticalScore": 33,
+      "blackDiscCountAtGameEnd": 33,
+      "expectedScoreSideToMove": 2,
+      "expectedWldSideToMove": "win"
+    },
+    {
+      "id": "t192-logistello-083",
+      "theoreticalScore": 32,
+      "blackDiscCountAtGameEnd": 32,
+      "expectedScoreSideToMove": 0,
+      "expectedWldSideToMove": "draw"
+    },
+    {
+      "id": "t192-logistello-084",
+      "theoreticalScore": 32,
+      "blackDiscCountAtGameEnd": 32,
+      "expectedScoreSideToMove": 0,
+      "expectedWldSideToMove": "draw"
+    },
+    {
+      "id": "t192-logistello-085",
+      "theoreticalScore": 33,
+      "blackDiscCountAtGameEnd": 33,
+      "expectedScoreSideToMove": 2,
+      "expectedWldSideToMove": "win"
+    },
+    {
+      "id": "t192-logistello-086",
+      "theoreticalScore": 32,
+      "blackDiscCountAtGameEnd": 32,
+      "expectedScoreSideToMove": 0,
+      "expectedWldSideToMove": "draw"
+    },
+    {
+      "id": "t192-logistello-087",
+      "theoreticalScore": 32,
+      "blackDiscCountAtGameEnd": 32,
+      "expectedScoreSideToMove": 0,
+      "expectedWldSideToMove": "draw"
+    },
+    {
+      "id": "t192-logistello-088",
+      "theoreticalScore": 37,
+      "blackDiscCountAtGameEnd": 37,
+      "expectedScoreSideToMove": 10,
+      "expectedWldSideToMove": "win"
+    },
+    {
+      "id": "t192-logistello-089",
+      "theoreticalScore": 29,
+      "blackDiscCountAtGameEnd": 29,
+      "expectedScoreSideToMove": -6,
+      "expectedWldSideToMove": "loss"
+    },
+    {
+      "id": "t192-logistello-090",
+      "theoreticalScore": 34,
+      "blackDiscCountAtGameEnd": 34,
+      "expectedScoreSideToMove": 4,
+      "expectedWldSideToMove": "win"
+    },
+    {
+      "id": "t192-logistello-091",
+      "theoreticalScore": 35,
+      "blackDiscCountAtGameEnd": 35,
+      "expectedScoreSideToMove": 6,
+      "expectedWldSideToMove": "win"
+    },
+    {
+      "id": "t192-logistello-092",
+      "theoreticalScore": 33,
+      "blackDiscCountAtGameEnd": 33,
+      "expectedScoreSideToMove": 2,
+      "expectedWldSideToMove": "win"
+    },
+    {
+      "id": "t192-logistello-093",
+      "theoreticalScore": 27,
+      "blackDiscCountAtGameEnd": 27,
+      "expectedScoreSideToMove": -10,
+      "expectedWldSideToMove": "loss"
+    },
+    {
+      "id": "t192-logistello-094",
+      "theoreticalScore": 30,
+      "blackDiscCountAtGameEnd": 30,
+      "expectedScoreSideToMove": -4,
+      "expectedWldSideToMove": "loss"
+    },
+    {
+      "id": "t192-logistello-095",
+      "theoreticalScore": 30,
+      "blackDiscCountAtGameEnd": 30,
+      "expectedScoreSideToMove": -4,
+      "expectedWldSideToMove": "loss"
+    },
+    {
+      "id": "t192-logistello-096",
+      "theoreticalScore": 35,
+      "blackDiscCountAtGameEnd": 35,
+      "expectedScoreSideToMove": 6,
+      "expectedWldSideToMove": "win"
+    },
+    {
+      "id": "t192-logistello-097",
+      "theoreticalScore": 30,
+      "blackDiscCountAtGameEnd": 30,
+      "expectedScoreSideToMove": -4,
+      "expectedWldSideToMove": "loss"
+    },
+    {
+      "id": "t192-logistello-098",
+      "theoreticalScore": 31,
+      "blackDiscCountAtGameEnd": 31,
+      "expectedScoreSideToMove": -2,
+      "expectedWldSideToMove": "loss"
+    },
+    {
+      "id": "t192-logistello-099",
+      "theoreticalScore": 32,
+      "blackDiscCountAtGameEnd": 32,
+      "expectedScoreSideToMove": 0,
+      "expectedWldSideToMove": "draw"
+    },
+    {
+      "id": "t192-logistello-100",
+      "theoreticalScore": 34,
+      "blackDiscCountAtGameEnd": 34,
+      "expectedScoreSideToMove": 4,
+      "expectedWldSideToMove": "win"
+    }
+  ]
+}

@@ -1,0 +1,958 @@
+{
+  "schemaVersion": 1,
+  "purpose": "T192 Logistello book independent WLD/exact-score cross-check (third-party self-play games, verified 24-ply-empty WLD-correct by the book's author)",
+  "provenance": {
+    "sourceUrl": "https://skatgame.net/mburo/logbook.wtb.gz",
+    "sourcePage": "https://skatgame.net/mburo/log.html",
+    "license": "GPL (Michael Buro)",
+    "wtbSha256": "656c983c9241f9399c0c15ae6dfe133e2b37c1f0caf2ad283b092bcc35040409",
+    "wtbGzSha256": "a6966c3bec918ebddcf5f532e7f36e6d7b45d037aabb3cda436a37b242d96e6d",
+    "extractionCommand": "cargo run -p train --release --bin logistello_extract -- --input bench/logistello/data/logbook.wtb --out bench/logistello/data/logistello_24empty_positions.json",
+    "fullExtractionStats": {
+      "duplicatesRemoved": 9539,
+      "extractedUnique": 28170,
+      "skippedReplayError": 0,
+      "skippedTooShort": 0,
+      "skippedWrongEmptyCount": 0,
+      "totalGames": 37709
+    }
+  },
+  "selection": {
+    "seed": "logistello-t192",
+    "rng": "Python random.Random, seeded with the literal string above (MT19937)",
+    "procedure": [
+      "Sort all extracted 24-empty positions by lineIndex (extraction order, deterministic).",
+      "Categorize by sign of 2*theoreticalScore-64: black_win / black_loss / draw.",
+      "Allocate 100 slots proportionally to category population via largest-remainder rounding, with draw floored at 5 (borrowing from the other two categories).",
+      "random.Random(seed).sample() without replacement within each category.",
+      "Sort the final selection by lineIndex for a deterministic output order."
+    ],
+    "strata": [
+      {
+        "category": "black_win",
+        "eligible": 10988,
+        "selected": 39
+      },
+      {
+        "category": "black_loss",
+        "eligible": 11784,
+        "selected": 42
+      },
+      {
+        "category": "draw",
+        "eligible": 5398,
+        "selected": 19
+      }
+    ]
+  },
+  "counts": {
+    "total": 100,
+    "byCategory": {
+      "black_win": 39,
+      "draw": 19,
+      "black_loss": 42
+    }
+  },
+  "positions": [
+    {
+      "id": "t192-logistello-001",
+      "board": "----X------OX----XXOOOOO-XXOOOOO-OOXOXO--OOXXXO---XOOX-O-XXXXXX-",
+      "side_to_move": "black",
+      "empties": 24,
+      "lineIndex": 56,
+      "fullGameMoveCount": 59,
+      "category": "black_win"
+    },
+    {
+      "id": "t192-logistello-002",
+      "board": "----O------OOO---OOXOOOO--OXOOOO--XXOXOO--XXOXXO--XXXXXX---OOOOO",
+      "side_to_move": "black",
+      "empties": 24,
+      "lineIndex": 580,
+      "fullGameMoveCount": 60,
+      "category": "draw"
+    },
+    {
+      "id": "t192-logistello-003",
+      "board": "------------O---OXXOOOXXOOOXOOXXOOOXOOXX-OXOOOX---OXOO---OOOOO--",
+      "side_to_move": "black",
+      "empties": 24,
+      "lineIndex": 1687,
+      "fullGameMoveCount": 60,
+      "category": "black_win"
+    },
+    {
+      "id": "t192-logistello-004",
+      "board": "--XXXX----XXOX-X-XXOOXX-OOOOOXOO-OOOOXX--OOOOO-X--OOO------OO---",
+      "side_to_move": "black",
+      "empties": 24,
+      "lineIndex": 2079,
+      "fullGameMoveCount": 60,
+      "category": "black_win"
+    },
+    {
+      "id": "t192-logistello-005",
+      "board": "-----O----OOXO-XXXXXXOXX--XXOOXX---XOOOX--XOOOOX--OOOO---OOOOO--",
+      "side_to_move": "black",
+      "empties": 24,
+      "lineIndex": 2342,
+      "fullGameMoveCount": 60,
+      "category": "black_loss"
+    },
+    {
+      "id": "t192-logistello-006",
+      "board": "----XXX---XOXX----XOOOXX---OXOXO--OOXOXO--OOOOXX--OXOOO---OOOOO-",
+      "side_to_move": "black",
+      "empties": 24,
+      "lineIndex": 2614,
+      "fullGameMoveCount": 60,
+      "category": "draw"
+    },
+    {
+      "id": "t192-logistello-007",
+      "board": "------------OO--XO-OOXXXXXOOOOXXXOXOXXX-XXXOXXOO--XXOO----XXXO--",
+      "side_to_move": "black",
+      "empties": 24,
+      "lineIndex": 2749,
+      "fullGameMoveCount": 60,
+      "category": "black_loss"
+    },
+    {
+      "id": "t192-logistello-008",
+      "board": "--X-------XO---O-OO-OXOO-OXXXOXO-OXOOXXOOOXOXXX---XXOO-X--XXOX--",
+      "side_to_move": "black",
+      "empties": 24,
+      "lineIndex": 2915,
+      "fullGameMoveCount": 60,
+      "category": "black_win"
+    },
+    {
+      "id": "t192-logistello-009",
+      "board": "--XXX------XOO----XXOOO--XXOXOO-OOOXXXOO-OOXOOO---XXXX---XXXXX--",
+      "side_to_move": "black",
+      "empties": 24,
+      "lineIndex": 4147,
+      "fullGameMoveCount": 60,
+      "category": "black_win"
+    },
+    {
+      "id": "t192-logistello-010",
+      "board": "----OX----O-OX----OOOXXX-OOOOXXX-OOXXXXX-XOOXOXX--XOO--X--XOOX--",
+      "side_to_move": "black",
+      "empties": 24,
+      "lineIndex": 4725,
+      "fullGameMoveCount": 60,
+      "category": "draw"
+    },
+    {
+      "id": "t192-logistello-011",
+      "board": "---O------XOO--O-XXOOOOOXXOOOOO-OOOOOOO--OXXXO-O--XXXX----XXXX--",
+      "side_to_move": "black",
+      "empties": 24,
+      "lineIndex": 4945,
+      "fullGameMoveCount": 60,
+      "category": "black_win"
+    },
+    {
+      "id": "t192-logistello-012",
+      "board": "-----O-------OOO--OOOXOO--OOXOX--OOXOOOX--XOOOOX-XXXOO-X-OOOOOO-",
+      "side_to_move": "black",
+      "empties": 24,
+      "lineIndex": 5648,
+      "fullGameMoveCount": 60,
+      "category": "black_win"
+    },
+    {
+      "id": "t192-logistello-013",
+      "board": "--XX------XXXO---OOOOXO---OOOXX---OOOXX--OOXXXXX-OOOOX---XXXXXX-",
+      "side_to_move": "black",
+      "empties": 24,
+      "lineIndex": 6184,
+      "fullGameMoveCount": 60,
+      "category": "black_win"
+    },
+    {
+      "id": "t192-logistello-014",
+      "board": "----------XX----X-XXXX-O-XXXOXOO-OXXOOOOOOOXXOOO-OOOOX---OOOO-X-",
+      "side_to_move": "black",
+      "empties": 24,
+      "lineIndex": 6341,
+      "fullGameMoveCount": 60,
+      "category": "black_win"
+    },
+    {
+      "id": "t192-logistello-015",
+      "board": "--OO------OOOO--XXXOOO-X--XOXOOO--XOOXOO--XOXXXX--XXXO----OOOOO-",
+      "side_to_move": "black",
+      "empties": 24,
+      "lineIndex": 6636,
+      "fullGameMoveCount": 60,
+      "category": "draw"
+    },
+    {
+      "id": "t192-logistello-016",
+      "board": "--XOO-----X-OO--XXXOOXOO-XXOOXOO-OXOOXXO--XXXXOO--OXXX-O----X---",
+      "side_to_move": "black",
+      "empties": 24,
+      "lineIndex": 6746,
+      "fullGameMoveCount": 60,
+      "category": "black_loss"
+    },
+    {
+      "id": "t192-logistello-017",
+      "board": "--O--------OOO-O-XXOOXOO-XOOXOXOXOOXOXXO-XOXOOOO--XXXO-O-----O--",
+      "side_to_move": "black",
+      "empties": 24,
+      "lineIndex": 7122,
+      "fullGameMoveCount": 60,
+      "category": "black_win"
+    },
+    {
+      "id": "t192-logistello-018",
+      "board": "-----------X----OOOXXOXXXOXXXXXX-XOXXXXX-OOXOXXXO-OOOO----OOOO--",
+      "side_to_move": "black",
+      "empties": 24,
+      "lineIndex": 7192,
+      "fullGameMoveCount": 60,
+      "category": "draw"
+    },
+    {
+      "id": "t192-logistello-019",
+      "board": "-XXXXO----XOOO---XXOXOOO-OOOXOOO-OOOOOXO--XXXXOO----XX-O-----X--",
+      "side_to_move": "black",
+      "empties": 24,
+      "lineIndex": 7335,
+      "fullGameMoveCount": 60,
+      "category": "black_loss"
+    },
+    {
+      "id": "t192-logistello-020",
+      "board": "----X-----XXXXO-OXXXOOOO-XXOOXOOXXOOXOXO-OOOOOOO----OO-O----O---",
+      "side_to_move": "black",
+      "empties": 24,
+      "lineIndex": 7387,
+      "fullGameMoveCount": 60,
+      "category": "black_win"
+    },
+    {
+      "id": "t192-logistello-021",
+      "board": "--O-XX----OOXX-OXXOXXXOO--OXXXXO--OXOXX---OOXXXX--OOOX-----OOO--",
+      "side_to_move": "black",
+      "empties": 24,
+      "lineIndex": 7497,
+      "fullGameMoveCount": 60,
+      "category": "draw"
+    },
+    {
+      "id": "t192-logistello-022",
+      "board": "---XX-----O-XX--O--OOXXO-O-XOOXX-OOOOOXX--OXOXXX--OOXOX---OOOOO-",
+      "side_to_move": "black",
+      "empties": 24,
+      "lineIndex": 7883,
+      "fullGameMoveCount": 60,
+      "category": "draw"
+    },
+    {
+      "id": "t192-logistello-023",
+      "board": "----X------XXO----XOXOOO-OOOOXOO--OOXOOO--OOXOOO--XXOX-O-XXXXXX-",
+      "side_to_move": "black",
+      "empties": 24,
+      "lineIndex": 8129,
+      "fullGameMoveCount": 60,
+      "category": "black_win"
+    },
+    {
+      "id": "t192-logistello-024",
+      "board": "---O------O-OX-OOOXOOOOO-XXOOOOOXXXXXOOOOO-XXOO----OXX----OO-X--",
+      "side_to_move": "black",
+      "empties": 24,
+      "lineIndex": 8133,
+      "fullGameMoveCount": 60,
+      "category": "black_win"
+    },
+    {
+      "id": "t192-logistello-025",
+      "board": "-----------OOO-X--XOXOXX-OOXXOOX-OOXXOXX-XOOXOXX--XXOO-X--OOOO--",
+      "side_to_move": "black",
+      "empties": 24,
+      "lineIndex": 8231,
+      "fullGameMoveCount": 60,
+      "category": "black_loss"
+    },
+    {
+      "id": "t192-logistello-026",
+      "board": "------OO----OO-O--OOOOOO--OOOXXX--OOXXXXOOOOOXXX--XXXXXX--X--X-X",
+      "side_to_move": "black",
+      "empties": 24,
+      "lineIndex": 8493,
+      "fullGameMoveCount": 60,
+      "category": "black_loss"
+    },
+    {
+      "id": "t192-logistello-027",
+      "board": "--O-------OOXXX---OOOXXO-OOXOOXO-OXOOOOOOOOOOXOO--XXXX-O---X----",
+      "side_to_move": "black",
+      "empties": 24,
+      "lineIndex": 8797,
+      "fullGameMoveCount": 60,
+      "category": "black_loss"
+    },
+    {
+      "id": "t192-logistello-028",
+      "board": "--OXXX----OOXX---OOOOXX-OOOOOXX---XOXXX--OOOXXXX---OOO----OOOO--",
+      "side_to_move": "black",
+      "empties": 24,
+      "lineIndex": 9964,
+      "fullGameMoveCount": 60,
+      "category": "black_loss"
+    },
+    {
+      "id": "t192-logistello-029",
+      "board": "--OO-X----OOOX-X-XXXXOXX-XXXOXOX-OXXXOOX-OXXOOOX--XXXO----------",
+      "side_to_move": "black",
+      "empties": 24,
+      "lineIndex": 10158,
+      "fullGameMoveCount": 60,
+      "category": "black_win"
+    },
+    {
+      "id": "t192-logistello-030",
+      "board": "--O-X-----XO-O----X-OOOOO-XXXOOO-OXXOOOO--XXXOOO--XOOX---XXXXXX-",
+      "side_to_move": "black",
+      "empties": 24,
+      "lineIndex": 10368,
+      "fullGameMoveCount": 60,
+      "category": "black_loss"
+    },
+    {
+      "id": "t192-logistello-031",
+      "board": "---O-X-----OOX----XXOOOO--XXOOOOXXXXXXOO-XOOOXOO--OOOO---OO-OX--",
+      "side_to_move": "black",
+      "empties": 24,
+      "lineIndex": 10380,
+      "fullGameMoveCount": 60,
+      "category": "draw"
+    },
+    {
+      "id": "t192-logistello-032",
+      "board": "---X-X----XXX----XXXOOOOXXXOXOOOOOOXXOXO-OOOXOOO--OOOO-O--------",
+      "side_to_move": "black",
+      "empties": 24,
+      "lineIndex": 10821,
+      "fullGameMoveCount": 60,
+      "category": "black_win"
+    },
+    {
+      "id": "t192-logistello-033",
+      "board": "--XXXO----XXOOOX--XXOOOX-XXOOXOX-OOOXXXX-OOOOOXX--XO---X--------",
+      "side_to_move": "black",
+      "empties": 24,
+      "lineIndex": 10851,
+      "fullGameMoveCount": 60,
+      "category": "black_loss"
+    },
+    {
+      "id": "t192-logistello-034",
+      "board": "----------XXXX---OOXXOOO-OOXXOOO-OOXXOOO-OOOXOOO--XXOOX----XOO--",
+      "side_to_move": "black",
+      "empties": 24,
+      "lineIndex": 10883,
+      "fullGameMoveCount": 60,
+      "category": "black_loss"
+    },
+    {
+      "id": "t192-logistello-035",
+      "board": "----XX-X---XXX-X-OXXXXXXXXOXXXXO--OOXOXO--OOOXXX--O-OOX---O--O--",
+      "side_to_move": "black",
+      "empties": 24,
+      "lineIndex": 11294,
+      "fullGameMoveCount": 60,
+      "category": "black_loss"
+    },
+    {
+      "id": "t192-logistello-036",
+      "board": "--XXX-----XOOO-O--XOOOOO--XOXOOO-XXOXOXO--XOOOOO--XOOO----X-XO--",
+      "side_to_move": "black",
+      "empties": 24,
+      "lineIndex": 12451,
+      "fullGameMoveCount": 60,
+      "category": "black_win"
+    },
+    {
+      "id": "t192-logistello-037",
+      "board": "--O--------OOO----XXOO-XXXXOOOOX-XOOOOXX-OXOOXX---XXXO---OOOOOO-",
+      "side_to_move": "black",
+      "empties": 24,
+      "lineIndex": 12795,
+      "fullGameMoveCount": 60,
+      "category": "black_loss"
+    },
+    {
+      "id": "t192-logistello-038",
+      "board": "---OOOO---OOOO---OOOOOX--OOOOOX---XXOXXX-OXXXOXO--XXXXO---O--X--",
+      "side_to_move": "black",
+      "empties": 24,
+      "lineIndex": 12904,
+      "fullGameMoveCount": 60,
+      "category": "black_win"
+    },
+    {
+      "id": "t192-logistello-039",
+      "board": "--OOOO----OOXO---XXOXO----XOXO--XOOXXXXXOOOOXXX----XXO---OOOOO--",
+      "side_to_move": "black",
+      "empties": 24,
+      "lineIndex": 13046,
+      "fullGameMoveCount": 60,
+      "category": "black_loss"
+    },
+    {
+      "id": "t192-logistello-040",
+      "board": "--OOOO----OOOO--XXXOXOO---OXXOXX-OOOOXXX--XOXXXX---XOX----XX-O--",
+      "side_to_move": "black",
+      "empties": 24,
+      "lineIndex": 13125,
+      "fullGameMoveCount": 60,
+      "category": "black_loss"
+    },
+    {
+      "id": "t192-logistello-041",
+      "board": "--OOOO----OOXO---OOOOXXX--OOXOXX-XXOXXXX-OXXOOXX---XOO-----X-O--",
+      "side_to_move": "black",
+      "empties": 24,
+      "lineIndex": 13126,
+      "fullGameMoveCount": 60,
+      "category": "black_loss"
+    },
+    {
+      "id": "t192-logistello-042",
+      "board": "--O-------OO-O----OOOOO--XOOXOXX-XOOOOXX-XXXOOXX--OOXO-X--OOOOO-",
+      "side_to_move": "black",
+      "empties": 24,
+      "lineIndex": 13687,
+      "fullGameMoveCount": 60,
+      "category": "black_win"
+    },
+    {
+      "id": "t192-logistello-043",
+      "board": "-X-XO-----XXOO--O-XXOOO--OXXXXOO-OOXOXOO-OOXOOO---XXXO----X-XO--",
+      "side_to_move": "black",
+      "empties": 24,
+      "lineIndex": 14439,
+      "fullGameMoveCount": 60,
+      "category": "black_win"
+    },
+    {
+      "id": "t192-logistello-044",
+      "board": "----------OOOO---XOOOOOX-XOOOOOX-XOOXXOX-XOXOOX---XXOO----OOOOO-",
+      "side_to_move": "black",
+      "empties": 24,
+      "lineIndex": 14733,
+      "fullGameMoveCount": 60,
+      "category": "black_loss"
+    },
+    {
+      "id": "t192-logistello-045",
+      "board": "----------XXO---OOOOOOOO---OOXOOXXOOXXXXXXOXOXX--OOOXX----XXXX--",
+      "side_to_move": "black",
+      "empties": 24,
+      "lineIndex": 15550,
+      "fullGameMoveCount": 60,
+      "category": "black_loss"
+    },
+    {
+      "id": "t192-logistello-046",
+      "board": "----------XOOO---OOOOOOXOOOOXOOO-XXXXXOO-XXXXXXX--XXXO----OXX---",
+      "side_to_move": "black",
+      "empties": 24,
+      "lineIndex": 15781,
+      "fullGameMoveCount": 60,
+      "category": "black_loss"
+    },
+    {
+      "id": "t192-logistello-047",
+      "board": "--X-------XX-O--OOXXO-X-OOXOXX--OOOXXXOOOOOXXXOO--OOXX----OXXX--",
+      "side_to_move": "black",
+      "empties": 24,
+      "lineIndex": 16078,
+      "fullGameMoveCount": 60,
+      "category": "draw"
+    },
+    {
+      "id": "t192-logistello-048",
+      "board": "-----O--O-OOO---OOOOOO--OOOOOXX-OOOOOXX-OOOXXX-X--OOXX---XXXX---",
+      "side_to_move": "black",
+      "empties": 24,
+      "lineIndex": 17247,
+      "fullGameMoveCount": 60,
+      "category": "draw"
+    },
+    {
+      "id": "t192-logistello-049",
+      "board": "--XO----O-XOO---OOXOO-O-OXOOOOOXOXOOXOX-OOOXXO----XXXO---XX-O---",
+      "side_to_move": "black",
+      "empties": 24,
+      "lineIndex": 17328,
+      "fullGameMoveCount": 60,
+      "category": "black_win"
+    },
+    {
+      "id": "t192-logistello-050",
+      "board": "----OX----OOOX---OOOOXOOO-OOXXO--OOXOXX-XXOOXXXX--OXXX-----XXX--",
+      "side_to_move": "black",
+      "empties": 24,
+      "lineIndex": 18993,
+      "fullGameMoveCount": 60,
+      "category": "black_loss"
+    },
+    {
+      "id": "t192-logistello-051",
+      "board": "---XOO--X-X-OO--XXXOOOX-XOXXOOX--XOXOOO--XXOXOO---XXOO----XX-O--",
+      "side_to_move": "black",
+      "empties": 24,
+      "lineIndex": 19287,
+      "fullGameMoveCount": 60,
+      "category": "black_loss"
+    },
+    {
+      "id": "t192-logistello-052",
+      "board": "--OX-------XXX-OO-XXOXXO-OXXXOOO-OOXXXOOOOOXXXO---XX-O----XX-O--",
+      "side_to_move": "black",
+      "empties": 24,
+      "lineIndex": 19566,
+      "fullGameMoveCount": 60,
+      "category": "black_loss"
+    },
+    {
+      "id": "t192-logistello-053",
+      "board": "-----X--O--XXO---OXXXXO--XOOXOOOXXOOOXOOXXXXOXO---XOOO---XX--O--",
+      "side_to_move": "black",
+      "empties": 24,
+      "lineIndex": 19617,
+      "fullGameMoveCount": 60,
+      "category": "black_win"
+    },
+    {
+      "id": "t192-logistello-054",
+      "board": "----------X--O--OXXXXXO-OXXXXXOOOXXXXOO-OOOXXO----XOOX---XXXXXX-",
+      "side_to_move": "black",
+      "empties": 24,
+      "lineIndex": 20088,
+      "fullGameMoveCount": 60,
+      "category": "draw"
+    },
+    {
+      "id": "t192-logistello-055",
+      "board": "--X-OOO---OXX----XOXXXXX-OOXOOOX--OXOOOX-XOOOOOX--OOOO-X-----O--",
+      "side_to_move": "black",
+      "empties": 24,
+      "lineIndex": 20168,
+      "fullGameMoveCount": 60,
+      "category": "black_win"
+    },
+    {
+      "id": "t192-logistello-056",
+      "board": "-XXXX-----XXXX--OOXOOOOOOXOOXOOOOOXXXXO-O-XXXOO----X-O-------O--",
+      "side_to_move": "black",
+      "empties": 24,
+      "lineIndex": 20716,
+      "fullGameMoveCount": 60,
+      "category": "black_loss"
+    },
+    {
+      "id": "t192-logistello-057",
+      "board": "--X-----X-XO----XXXOOOO-XOOXXOO-XOOXXXOOOOOXXOOO--XXXX---X--X---",
+      "side_to_move": "black",
+      "empties": 24,
+      "lineIndex": 21598,
+      "fullGameMoveCount": 60,
+      "category": "black_win"
+    },
+    {
+      "id": "t192-logistello-058",
+      "board": "---X--------XX--XOOOOX--XXOXOOXXXOXXOOX--XOOXOOO--OOOX---O-XXXX-",
+      "side_to_move": "black",
+      "empties": 24,
+      "lineIndex": 21747,
+      "fullGameMoveCount": 60,
+      "category": "draw"
+    },
+    {
+      "id": "t192-logistello-059",
+      "board": "--O-------OOO---XXOOOO-X-XOOXOX-XXXXXXXXOOOOOXXX--OOOX----O-OX--",
+      "side_to_move": "black",
+      "empties": 24,
+      "lineIndex": 21868,
+      "fullGameMoveCount": 60,
+      "category": "black_loss"
+    },
+    {
+      "id": "t192-logistello-060",
+      "board": "--O-XX----OOX----XOXOX-O-XXXXXOOXXOXXOXXXXOOOOO----OOO-----OOO--",
+      "side_to_move": "black",
+      "empties": 24,
+      "lineIndex": 22224,
+      "fullGameMoveCount": 60,
+      "category": "black_loss"
+    },
+    {
+      "id": "t192-logistello-061",
+      "board": "--OOOOO---OXXX--O-XOXXO-XXXOOXO--XOOXOO--XXOOXO---XOOO-----XO---",
+      "side_to_move": "black",
+      "empties": 24,
+      "lineIndex": 22398,
+      "fullGameMoveCount": 60,
+      "category": "black_win"
+    },
+    {
+      "id": "t192-logistello-062",
+      "board": "--O-XX----XXXO--XXXXXOX-XOXXXXOXXXXXXOOOXXXOOOO-----OO------O---",
+      "side_to_move": "black",
+      "empties": 24,
+      "lineIndex": 22564,
+      "fullGameMoveCount": 60,
+      "category": "black_loss"
+    },
+    {
+      "id": "t192-logistello-063",
+      "board": "-O--O-----OOOO---XXOXOO---XXOXOOXXXXOOOO-XXXOXO---XXOOX----XOO--",
+      "side_to_move": "black",
+      "empties": 24,
+      "lineIndex": 22802,
+      "fullGameMoveCount": 60,
+      "category": "draw"
+    },
+    {
+      "id": "t192-logistello-064",
+      "board": "--X--X----XXXXO--OOXXOOO-OOOOXO--OOOOOXO-OOXOXXX--OOXX----OX----",
+      "side_to_move": "black",
+      "empties": 24,
+      "lineIndex": 22816,
+      "fullGameMoveCount": 60,
+      "category": "draw"
+    },
+    {
+      "id": "t192-logistello-065",
+      "board": "----OX---XOOO----XXOOO---XXXOO--XXOOOOOOOOOXXXOX--XOXO----XXXX--",
+      "side_to_move": "black",
+      "empties": 24,
+      "lineIndex": 24525,
+      "fullGameMoveCount": 60,
+      "category": "black_loss"
+    },
+    {
+      "id": "t192-logistello-066",
+      "board": "---O--------OO--OOOOOO--OOXOXO--OXOXXXXXO-XOXOXX--XXXXO---OOXO-O",
+      "side_to_move": "black",
+      "empties": 24,
+      "lineIndex": 24793,
+      "fullGameMoveCount": 60,
+      "category": "black_loss"
+    },
+    {
+      "id": "t192-logistello-067",
+      "board": "------------X----OOXXOX-OOOOXOO--XOOXXO-XXXXXOOO--OOOOOO--OOXXXO",
+      "side_to_move": "black",
+      "empties": 24,
+      "lineIndex": 24891,
+      "fullGameMoveCount": 60,
+      "category": "black_loss"
+    },
+    {
+      "id": "t192-logistello-068",
+      "board": "----X-----OXX----OOOXXXXOOOOXXXX--OXOOXO--XXXXX---OOOOX--OOOOO--",
+      "side_to_move": "black",
+      "empties": 24,
+      "lineIndex": 25911,
+      "fullGameMoveCount": 60,
+      "category": "black_loss"
+    },
+    {
+      "id": "t192-logistello-069",
+      "board": "--X-------X-----OXOO-O-XOOXOOOOXOOOOOXOOOOXXXXOOOXXXX---X-XX----",
+      "side_to_move": "black",
+      "empties": 24,
+      "lineIndex": 26494,
+      "fullGameMoveCount": 60,
+      "category": "black_loss"
+    },
+    {
+      "id": "t192-logistello-070",
+      "board": "-----X-----OXX----XOOXXXO-XOXOXX-XXOXXOOXOOOOXOO--OOXO----OOOO--",
+      "side_to_move": "black",
+      "empties": 24,
+      "lineIndex": 27018,
+      "fullGameMoveCount": 60,
+      "category": "black_loss"
+    },
+    {
+      "id": "t192-logistello-071",
+      "board": "--OOO-X---OOXX---OOXXOXX-OOXOO-X--OXOOXX-OOXXOXX--XXX-O---X--X--",
+      "side_to_move": "black",
+      "empties": 24,
+      "lineIndex": 27539,
+      "fullGameMoveCount": 60,
+      "category": "black_win"
+    },
+    {
+      "id": "t192-logistello-072",
+      "board": "-O--O-----OOOO--XXXOOO--XXXOOOO-XXXXXOX-XXXXOX----XXXO----XXXX--",
+      "side_to_move": "black",
+      "empties": 24,
+      "lineIndex": 27785,
+      "fullGameMoveCount": 60,
+      "category": "black_win"
+    },
+    {
+      "id": "t192-logistello-073",
+      "board": "--O-------OOOO--XXOOOO---XXXOOX--XXOXXO-XXOOOXOO-OXXXX----XXXX--",
+      "side_to_move": "black",
+      "empties": 24,
+      "lineIndex": 27798,
+      "fullGameMoveCount": 60,
+      "category": "black_loss"
+    },
+    {
+      "id": "t192-logistello-074",
+      "board": "--O-------OO----XOOOXXX-XXXOXXXXXOOOXO--XXOOOO--X-XXXO---XXXXX--",
+      "side_to_move": "black",
+      "empties": 24,
+      "lineIndex": 28033,
+      "fullGameMoveCount": 60,
+      "category": "black_win"
+    },
+    {
+      "id": "t192-logistello-075",
+      "board": "-OOO----O-OOOO--OOOOXO--OOXXOXX-OXXOXO---XXXXOO----XXX-----XXXX-",
+      "side_to_move": "black",
+      "empties": 24,
+      "lineIndex": 28059,
+      "fullGameMoveCount": 60,
+      "category": "black_win"
+    },
+    {
+      "id": "t192-logistello-076",
+      "board": "--O-OO--X--OOO---XXXOOO--XXXOOOOXXXXOX--XXXXOX--X-OOOX------OOO-",
+      "side_to_move": "black",
+      "empties": 24,
+      "lineIndex": 28468,
+      "fullGameMoveCount": 60,
+      "category": "black_win"
+    },
+    {
+      "id": "t192-logistello-077",
+      "board": "-----O-----OOX--OOOOOOO-OOXXXX--OOOOXXX-OOOXXXX---XOOX---XXXXX--",
+      "side_to_move": "black",
+      "empties": 24,
+      "lineIndex": 29104,
+      "fullGameMoveCount": 60,
+      "category": "black_loss"
+    },
+    {
+      "id": "t192-logistello-078",
+      "board": "-XO-X---O-OOOX--OOOXOOX-OXOOXOO-OXXXOX--OOXO-X----OXX----OOOO---",
+      "side_to_move": "black",
+      "empties": 24,
+      "lineIndex": 29562,
+      "fullGameMoveCount": 60,
+      "category": "black_win"
+    },
+    {
+      "id": "t192-logistello-079",
+      "board": "--X-----X-X--O--XXXXXOOOXOXXXOO-XOXXOOOOXXXOOXO-X-XOOO-----O----",
+      "side_to_move": "black",
+      "empties": 24,
+      "lineIndex": 29611,
+      "fullGameMoveCount": 60,
+      "category": "black_win"
+    },
+    {
+      "id": "t192-logistello-080",
+      "board": "---O------OO-X--XXXXXX--OXOXXX--OOXOXX--OOOXOXO--OOOXO---XXXXXX-",
+      "side_to_move": "black",
+      "empties": 24,
+      "lineIndex": 29660,
+      "fullGameMoveCount": 60,
+      "category": "black_loss"
+    },
+    {
+      "id": "t192-logistello-081",
+      "board": "XXO--X---XXOXX-OXXOXXXXOOOOOXXOOOOOXXX--OOOXXX------XX----------",
+      "side_to_move": "black",
+      "empties": 24,
+      "lineIndex": 30187,
+      "fullGameMoveCount": 60,
+      "category": "black_loss"
+    },
+    {
+      "id": "t192-logistello-082",
+      "board": "XXXX-O---OOOOO--XXOOOOO-XXXOOO-OXXXOOOO-XXXOOOO-X-X-------------",
+      "side_to_move": "black",
+      "empties": 24,
+      "lineIndex": 31512,
+      "fullGameMoveCount": 60,
+      "category": "black_win"
+    },
+    {
+      "id": "t192-logistello-083",
+      "board": "-XXXXX----OOXX---OOOOXXXOOXXOOXOOOOXXOO--OXXXOO----XXO----------",
+      "side_to_move": "black",
+      "empties": 24,
+      "lineIndex": 31551,
+      "fullGameMoveCount": 60,
+      "category": "draw"
+    },
+    {
+      "id": "t192-logistello-084",
+      "board": "---O----O-OOOX--OOXOXOXXOXXXXXO-OOXOXX-OOOXXX-----XX------XXXXX-",
+      "side_to_move": "black",
+      "empties": 24,
+      "lineIndex": 31861,
+      "fullGameMoveCount": 60,
+      "category": "draw"
+    },
+    {
+      "id": "t192-logistello-085",
+      "board": "--OOOO--X-OOO---XXXOOOO-XXXXXXO-XOXOXXO-XOOXX-OOX--XX-----X-----",
+      "side_to_move": "black",
+      "empties": 24,
+      "lineIndex": 31952,
+      "fullGameMoveCount": 60,
+      "category": "black_win"
+    },
+    {
+      "id": "t192-logistello-086",
+      "board": "--O-----X-OO-O--XXOO-OXXXXXOOOO-XOXOOOOOXXXXOO-XX-XXX-----X--X--",
+      "side_to_move": "black",
+      "empties": 24,
+      "lineIndex": 32231,
+      "fullGameMoveCount": 60,
+      "category": "draw"
+    },
+    {
+      "id": "t192-logistello-087",
+      "board": "--OOX-----OO---O-XXOOOO-XXXXXOO-XXXXOXOOXXXXXXO---XXXX----X--X--",
+      "side_to_move": "black",
+      "empties": 24,
+      "lineIndex": 32452,
+      "fullGameMoveCount": 60,
+      "category": "draw"
+    },
+    {
+      "id": "t192-logistello-088",
+      "board": "-XXXX---O-XXXXO-OOOOOOOOOXXXOOO-OOOOOOX-OOOOOX-----OX-----------",
+      "side_to_move": "black",
+      "empties": 24,
+      "lineIndex": 32581,
+      "fullGameMoveCount": 60,
+      "category": "black_win"
+    },
+    {
+      "id": "t192-logistello-089",
+      "board": "-XXXX---O-XOO---OXXOOX--OXOOOX--OOXXOX--OOOXXX----OOXX----OXXX--",
+      "side_to_move": "black",
+      "empties": 24,
+      "lineIndex": 33027,
+      "fullGameMoveCount": 60,
+      "category": "black_loss"
+    },
+    {
+      "id": "t192-logistello-090",
+      "board": "--------X-X-XO---XXXXOOOOOXOXX-OOOOXXXO-OOOOOOX-O-OOOO-X---OO---",
+      "side_to_move": "black",
+      "empties": 24,
+      "lineIndex": 33387,
+      "fullGameMoveCount": 60,
+      "category": "black_win"
+    },
+    {
+      "id": "t192-logistello-091",
+      "board": "--O------XOOOX-OXXXXXXO-XXXXXOO-OOOOOOOO-OOOOXO---OOXX-------X--",
+      "side_to_move": "black",
+      "empties": 24,
+      "lineIndex": 33932,
+      "fullGameMoveCount": 60,
+      "category": "black_win"
+    },
+    {
+      "id": "t192-logistello-092",
+      "board": "--O-------O-O---XOOXOO--OOXOOOO-XXOXXXOXXXXXOOOO--XXOO----OOOO--",
+      "side_to_move": "black",
+      "empties": 24,
+      "lineIndex": 34152,
+      "fullGameMoveCount": 60,
+      "category": "black_win"
+    },
+    {
+      "id": "t192-logistello-093",
+      "board": "--------O-X-----OOXXXX-XOXOXXXXXO-OOXXX-OOOOOOOOO-OXOO----OOOO--",
+      "side_to_move": "black",
+      "empties": 24,
+      "lineIndex": 34508,
+      "fullGameMoveCount": 60,
+      "category": "black_loss"
+    },
+    {
+      "id": "t192-logistello-094",
+      "board": "---XX-----XXXX---OOOXX--OOOOXXX--OXXOXX--OXXXOO-O-OOOOO---XXXX--",
+      "side_to_move": "black",
+      "empties": 24,
+      "lineIndex": 34776,
+      "fullGameMoveCount": 60,
+      "category": "black_loss"
+    },
+    {
+      "id": "t192-logistello-095",
+      "board": "--O-XX----OXXX-X-OOXXXX--OOOOXOOOOOXOXOOOOOOXX-O--OX-X-O--------",
+      "side_to_move": "black",
+      "empties": 24,
+      "lineIndex": 35000,
+      "fullGameMoveCount": 60,
+      "category": "black_loss"
+    },
+    {
+      "id": "t192-logistello-096",
+      "board": "X-OOX---OOOXXX--XOXXXO--XXXXOOO-XXXOXOX-XOOOOXX----OXX----------",
+      "side_to_move": "black",
+      "empties": 24,
+      "lineIndex": 35497,
+      "fullGameMoveCount": 60,
+      "category": "black_win"
+    },
+    {
+      "id": "t192-logistello-097",
+      "board": "--OOOO----OXXO--XXXOOOO-XXOXOO-OXXXXOXO-XXOOOXO-----OOX-----O---",
+      "side_to_move": "black",
+      "empties": 24,
+      "lineIndex": 35670,
+      "fullGameMoveCount": 60,
+      "category": "black_loss"
+    },
+    {
+      "id": "t192-logistello-098",
+      "board": "--XOOX----XOOO---XOOXOO-XXXOXXO-XXXOOXX-XXOOOOO-X-O--O----O--O--",
+      "side_to_move": "black",
+      "empties": 24,
+      "lineIndex": 36446,
+      "fullGameMoveCount": 60,
+      "category": "black_loss"
+    },
+    {
+      "id": "t192-logistello-099",
+      "board": "---O------XOO---OXXOOO-OXXXXXXO--XOOOOO-XXXOOOO---OOOX----OOOOO-",
+      "side_to_move": "black",
+      "empties": 24,
+      "lineIndex": 37012,
+      "fullGameMoveCount": 60,
+      "category": "draw"
+    },
+    {
+      "id": "t192-logistello-100",
+      "board": "-OOOOO----OOOO--X-OOOO---XXOOOO--XXXOOOO-XXXXOXO--OOOX-----O-X--",
+      "side_to_move": "black",
+      "empties": 24,
+      "lineIndex": 37627,
+      "fullGameMoveCount": 60,
+      "category": "black_win"
+    }
+  ]
+}

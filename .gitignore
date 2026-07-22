@@ -43,4 +43,13 @@ bench/edax-compare/*.exe
 
 # T098: resumable per-position raw endgame benchmark checkpoints
 bench/edax-compare/endgame-results/
+
+# T192: Logistello book (https://skatgame.net/mburo/log.html) の生データ
+# (logbook.wtb.gz/.wtb)と、そこから抽出した全件JSON。GPLだが再配布可否が
+# 明記されていないため生データはコミットせず、都度download-logbook.ps1で
+# 取得し直す。全件抽出JSONも生データ由来の巨大生成物のためコミットしない
+# (コミット対象はサンプリング済みcuratedセットのみ)。
+bench/logistello/data/
+# T192: verify_wld.pyのresumable per-position完全読みチェックポイント
+bench/logistello/verify-results/
 .claude/launch.json
