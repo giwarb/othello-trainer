@@ -1,7 +1,7 @@
 ---
 id: T196
 title: 棋譜解析: 悪手解析をシンプルな2盤面比較UIへ刷新
-status: review
+status: done
 assignee: implementer
 attempts: 0
 ---
@@ -58,3 +58,13 @@ attempts: 0
     - 実機確認(`https://giwarb.github.io/othello-trainer/`、Playwright系ブラウザツール): 棋譜解析モードで盤面手入力(f5 d6 c3 d3 c4 f4 e3 b4 e6 f3、10手)→解析実行→ムーブリストの8手目(白 b4、??悪手)をクリック→BlunderPanelが開き、最上部に「2手先比較」(実際に打った手/最善手の2盤面+主文+「この手は最善手より約11石損しています。」)が既定表示されることを確認。「詳細分析(上級者向け)」の`<summary>`をクリックすると比較PV・評価内訳・反証層・なぜ悪いかが展開表示されることを確認(削除されていない)。フリー分岐探索・練習送りは折りたたみの外に常時表示。コンソールエラー無し。
     - `git status --short`: タスク由来の差分・未追跡ファイルは残っていない(上記コミット済み。残る差分はすべてT197由来で対象外)。
   - 仕様が曖昧だった点: 上記「着手前の局面」セクションの配置(退避対象か残置か)。低リスクな表示順の判断のため作業は継続し、この報告で明記した。問題があればオーケストレーターの指示で再配置可能。
+
+- 2026-07-23 verifier: 対象コミット `f47632a` を独立検証。判定: **合格**。
+  - `git show f47632a --stat` → `app/src/analysis/{BlunderPanel.css,BlunderPanel.test.tsx,BlunderPanel.tsx}` の3ファイルのみ(tasks/混入なし)。
+  - `cd app && npx vitest run src/analysis` → 14 files / 151 tests 全件パス。
+  - `cd app && npx vitest run`(全体) → 初回実行時、T197ワーカーが並行して`app/src/app.tsx`等を作業中(未コミット)で`app.playmode.evalDisplay.test.tsx`が2件失敗(コメントに`T197`明記・app.tsx差分あり・analysis配下は無変更を確認しT197起因と判定、T196由来ではないと切り分け)。その後T197がコミット(`871aecd`)されたのを確認し再実行 → 102 files / 861 tests 全件パス(退行なし)。`BlunderPanel.test.tsx`単体も2/2パス。
+  - コード読解:(a) `git show f47632a`のdiffで比較PV・評価内訳waterfall・反証層・whyBadの各`<section>`は`<details class="blunder-panel__advanced">`(既定open属性なし=閉)へ包まれるのみで、内部JSX・ロジックは無変更(移動のみ)と確認。(b) `TwoPlyCompare`は`requestAnalyzeAllForCompare`経由で`engine.requestAnalyzeAll(board, side, ANALYZE_LIMIT)`(`./analyzeGame.ts`からimport)を使用、`useEffect`の空depsで1回だけ計算し`useState`にキャッシュ(パネル内再計算なし)を確認。(c) `フリー分岐探索`・`練習送り`の各`<section>`は`</details>`(BlunderPanel.tsx:774)より後(776行目・822行目)にあり折りたたみ外と確認。
+  - GitHub Actions: `Deploy to GitHub Pages`(run 29958288015)・`Rust Tests`(run 29958288126)ともコミット`f47632a`で成功済みを`gh run list`で確認。
+  - Pages実機確認(playwrightで`https://giwarb.github.io/othello-trainer/`に接続、npxキャッシュのplaywrightパッケージを直接requireして操作): 棋譜解析で報告と同一棋譜(`f5 d6 c3 d3 c4 f4 e3 b4 e6 f3`)をテキスト入力→解析開始→ムーブリストの8手目行の「?? 悪手」ボタンをクリックしBlunderPanelを開き、最上部「2手先比較」が既定表示で「この手は最善手より約11石損しています。」を含む説明文とともに表示されること、`document.querySelector('details.blunder-panel__advanced').open === false`(既定閉)であること、`summary`クリックで`open === true`に変わり比較PV/評価内訳/反証層/なぜ悪いかの各セクション本文が展開表示されること、「フリー分岐探索」「練習送り」が折りたたみの外(展開前から本文に出現)にあることをスクリーンショット・DOM評価の両方で確認。コンソールエラーなし。
+  - `git status --short`(検証終了時点): クリーン(T197は検証中に`871aecd`としてコミット済みで、T196由来・出所不明の残骸なし)。
+  - 結論: 受け入れ基準4項目すべて満たす。設計判断(「着手前の局面」残置)は仕様の3バケットに明記のない部分の合理的解釈であり問題視しない。
