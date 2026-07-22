@@ -1,0 +1,98 @@
+{
+  "task": "T185",
+  "generatedAt": "2026-07-22T12:00:00+09:00",
+  "provenance": {
+    "gitCommitBase": "4d0719a",
+    "gitCommitNote": "T184時点のHEAD(4d0719a)を基点にengine/src/search.rsのordered_movesを変更。git worktreeで4d0719aを独立ディレクトリにチェックアウトして変更前バイナリをビルドし、変更後(現ワークツリー)と比較。worktreeは計測後git worktree remove --forceで削除済み。",
+    "patternWeightsSha256": "e69f3b1c33432bafd388af82adde64270ec8c51acaab070bbfff4cf4caf20fc9",
+    "patternWeightsPath": "train/weights/pattern_v6.bin",
+    "midgame20Path": "t180/midgame20.json (session scratchpad, derived from bench/edax-compare/t156_mpc_positions.json per T180's documented filter)",
+    "cpuModel": "AMD Ryzen 7 5800U with Radeon Graphics (16 logical processors)",
+    "exclusiveWindowCheck": "Get-Process | Where-Object { $_.ProcessName -match 'cargo|python|aria2|curl|rustc|node|eval_cli|wEdax' } で各計測直前に競合プロセス無しを確認"
+  },
+  "implementation": {
+    "changedFunction": "engine/src/search.rs::ordered_moves",
+    "signatureChange": "fn ordered_moves(board: &Board, side: Side, tt_move: Option<u8>, history: Option<&HistoryTable>) -> Vec<u8>  =>  fn ordered_moves(..., out: &mut [OrderedMove; 64]) -> usize",
+    "newType": "struct OrderedMove { mv: u8, next_board: Board }",
+    "ttMovePromotion": "Vec::remove(pos) + insert(0, tm)  =>  moves[..=pos].rotate_right(1) (mathematically equivalent: the tt_move moves to front, elements before pos shift right by one, elements after pos are unaffected)",
+    "sortMethodRetained": "sort_by_cached_key (unchanged from T184)",
+    "discardedAttempt": {
+      "change": "sort_by_cached_key -> sort_unstable_by_key with an explicit trailing `m.mv` tie-break key (to reproduce the stable-sort tie-break order deterministically under an unstable sort, following the endgame.rs MoveInfo::sort_key() precedent which appends `square` as its final tie-break field)",
+      "reasonDiscarded": "Alternating 3x NPS measurement showed a clear, consistent regression: MPC off -41.3% (1,114,121 -> 653,977 NPS), MPC on -45.4% (1,067,623 -> 583,541 NPS). Root cause: Rust's standard library has no sort_unstable_by_cached_key; sort_unstable_by_key recomputes the key on every comparison just like sort_by_key, silently reintroducing the O(n log n) key-recomputation bug T184 had fixed, now with larger (24-byte OrderedMove vs 1-byte u8) elements being swapped, compounding the regression.",
+      "resultsIdentityNote": "Node counts/moves were still bit-identical to the pre-change baseline even with sort_unstable_by_key (confirmed via the same 20-position batch comparison) -- the regression was purely a speed issue, not a correctness issue.",
+      "discardedRawMeasurement": {
+        "mpc_off": {"beforeAvgNps": 1114121, "afterAvgNps": 653977, "changePct": -41.31},
+        "mpc_on": {"beforeAvgNps": 1067623, "afterAvgNps": 583541, "changePct": -45.34}
+      }
+    }
+  },
+  "identityVerification": {
+    "method": "git worktree add <path> HEAD (T184 state) to build an independent 'before' eval_cli binary; run the T180 20-position batch (depth=12, exact_from_empties=0, MPC off/on) against both 'before' and 'after' (current tree) binaries; compare move/score/depth/nodes/isExact/timedOut per position.",
+    "result": "0 mismatches across all 40 searches (20 positions x 2 MPC modes) for the FINAL implementation (fixed array + next_board persistence + sort_by_cached_key retained). The discarded sort_unstable_by_key attempt was ALSO verified to produce 0 mismatches (identity was never at risk, only speed).",
+    "totalNodesMatch": {
+      "mpc_off": 59440032,
+      "mpc_on": 6487461
+    },
+    "regressionTestAdded": "engine/src/search.rs::tests::t185_ordered_moves_fixed_array_matches_pre_change_baseline (values identical to T184's t184_sort_by_cached_key_matches_pre_change_baseline test, since T185 does not change sort semantics)",
+    "cargoTestLib": "247 passed; 0 failed; 2 ignored (was 246 at T184, +1 new test)"
+  },
+  "npsMeasurement": {
+    "procedure": "worktree-independent build (before) + current tree build (after), alternating 3 rounds (mpc_off before/after, mpc_on before/after per round), exclusive execution confirmed via Get-Process before starting.",
+    "finalResult": {
+      "mpc_off": {
+        "beforeRoundsNps": [1119334.7, 1092426.8, 1115323.2],
+        "afterRoundsNps": [1102579.0, 1140949.2, 1140117.6],
+        "beforeAvgNps": 1109028,
+        "afterAvgNps": 1127882,
+        "speedupPct": 1.70
+      },
+      "mpc_on": {
+        "beforeRoundsNps": [1029592.3, 1078905.9, 1080883.2],
+        "afterRoundsNps": [1063343.9, 1122009.9, 1106131.5],
+        "beforeAvgNps": 1063127,
+        "afterAvgNps": 1097162,
+        "speedupPct": 3.20
+      }
+    },
+    "vsEdaxUpdateReference": {
+      "note": "Not a required deliverable for T185, computed for informational continuity with T184's report. Applies this task's measured relative speedup to T184's already-updated absolute NPS estimate (which itself was derived by applying T184's speedup to T180's original baseline against a fixed Edax NPS reference), per the T182-established methodology of avoiding direct cross-session absolute NPS comparison.",
+      "edaxNpsReference": 29426082,
+      "t184UpdatedNps": {"mpc_off": 1101410, "mpc_on": 994253},
+      "t185FurtherUpdatedNps": {"mpc_off": 1120134, "mpc_on": 1026069},
+      "updatedRatioVsEdax": {"mpc_off": "26.27x (from T184's 26.72x, from T180's 56.8x)", "mpc_on": "28.68x (from T184's 29.60x, from T180's 68.5x)"}
+    }
+  },
+  "ffoFast": {
+    "command": "cargo test -p engine --test ffo_bench --release -- --nocapture",
+    "result": "5/5 positions solved correctly (#40-#44), unaffected by this task's change (endgame.rs untouched)"
+  },
+  "depthBasedTimingUpdate": {
+    "protocol": "Identical to T175 P1: engineDepth=12, engineExactFromEmpties=16, engineExactQuotaPercent=60, engineMaxNodes=100000000, engineTimeMs=15000, engineTtMiB=64, unlimitedExactEmpties=20, engineEnableMpc=true (default calibration, no --engine-mpc-margin-t override), openingSet=primary, weights=train/weights/pattern_v6.bin, edax level=12.",
+    "command": "python bench/edax-compare/vs_edax.py --opening-set primary --opening-limit 5 --engine-modes single-root --levels 12 --engine-depth 12 --engine-exact-from-empties 16 --engine-exact-quota-percent 60 --engine-tt-mb 64 --engine-enable-mpc --engine-time-ms 15000 --engine-max-nodes 100000000 --unlimited-exact-empties 20 --weights train/weights/pattern_v6.bin --skip-loss-analysis --no-resume --allow-dirty",
+    "allowDirtyReason": "Worktree dirty only from the in-progress engine/src/search.rs T185 change being measured (the intended final-state binary) and the in-progress tasks/T185-*.md work-log edit.",
+    "gamesCompleted": 10,
+    "fixedDepthRegressionAllMatched": true,
+    "nodeBudgetRegressionAllMatched": true,
+    "gameOutcomeComparisonVsT175P1First10": {
+      "matchedGames": 9,
+      "totalGames": 10,
+      "divergentGame": {
+        "index0based": 6,
+        "opening": "primary-04",
+        "engineColor": "black",
+        "divergencePly": 39,
+        "diverger": "edax",
+        "origMove": "a1",
+        "newMove": "h8",
+        "engineMovesIdenticalUpTo": "ply 38 (move=g7, nodes=12015, depth=14, identical in both runs)",
+        "explanation": "Edax's own move choice differed between the two separate process invocations of the identical position at ply 39. vs_edax.py's edax_solve() calls Edax with n_tasks=None (no -n flag), i.e. Edax's default multitask search, which per T094's documented finding ('Edaxの既定マルチタスク探索は並列負荷下でlevel16の値が揺れる') can produce mildly non-deterministic evaluations/move choices across separate invocations. The engine's own moves and node counts were bit-identical through the point of divergence, so this is attributed entirely to Edax's own non-determinism, not to the T185 engine change."
+      }
+    },
+    "perMoveTimeDistributionMs": {
+      "t175P1OriginalSameFirst10Games": {"n": 248, "mean": 1751.1, "p50": 707.5, "p90": 6430.2, "max": 10171.0},
+      "t185FinalStateSame10Games": {"n": 248, "mean": 1290.5, "p50": 332.5, "p90": 6095.8, "max": 8401.0},
+      "t175P1FullHeadline60Games": {"n": 1491, "mean": 1677.4, "p50": 594.0, "p90": 6108.0, "max": 14121},
+      "changeSame10GamesPct": {"mean": -26.3, "p50": -53.0, "p90": -5.2, "max": -17.4}
+    }
+  }
+}
