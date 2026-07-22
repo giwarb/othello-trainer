@@ -1,0 +1,178 @@
+{
+  "task": "T189",
+  "generatedAt": "2026-07-22T00:00:00+09:00",
+  "positionsBatch": {
+    "source": "bench/edax-compare/t156_mpc_positions.json, filtered split=='test' and 29<=empties<=36, first 20 entries (ids mpc-29-36-test-001..020)",
+    "note": "Same batch identity used by T180/T182/T183/T184/T185/T187/T188.",
+    "count": 20
+  },
+  "identityCheck": {
+    "method": "eval_cli best --depth 12 --exact-from-empties 0 --pattern-weights train/weights/pattern_v6.bin [--enable-mpc], compared move/depth/nodes/discDiff per position between the worktree-independent before binary (commit 948b7a4) and the after binary (current tree, T189 changes), using round 0 outputs for each MPC mode.",
+    "mpc_off": {
+      "mismatches": 0,
+      "positionsChecked": 20
+    },
+    "mpc_on": {
+      "mismatches": 0,
+      "positionsChecked": 20
+    }
+  },
+  "npsMeasurement": {
+    "procedure": "worktree-independent build (before=948b7a4) + current tree build (after), alternating order across 3 rounds per MPC mode (round0 before,after / round1 after,before / round2 before,after), each round runs the full 20-position batch sequentially against both binaries. aggNps = sum(nodes) / (sum(elapsedMs)/1000) using eval_cli own per-position elapsedMs (matches T183/T185/T187/T188 methodology). Machine was exclusive (verified via tasklist immediately before each measurement: no cargo/rustc/eval_cli/python processes running).",
+    "beforeCommit": "948b7a4 (T188 completion, before T189 legal-mask carryover)",
+    "afterCommit": "working tree at T189 implementation completion (search.rs/pattern_eval.rs known_legal carryover)",
+    "patternWeightsSha256": "e69f3b1c33432bafd388af82adde64270ec8c51acaab070bbfff4cf4caf20fc9",
+    "patternWeightsPath": "train/weights/pattern_v6.bin",
+    "cpuModel": "AMD Ryzen 7 5800U with Radeon Graphics (16 logical processors)",
+    "rounds": {
+      "mpc_off": [
+        {
+          "round": 0,
+          "order": [
+            "before",
+            "after"
+          ],
+          "which": "before",
+          "totalNodes": 59440032,
+          "totalElapsedMs": 34012,
+          "aggNps": 1747619.4284370223,
+          "wallS": 35.91
+        },
+        {
+          "round": 0,
+          "order": [
+            "before",
+            "after"
+          ],
+          "which": "after",
+          "totalNodes": 59440032,
+          "totalElapsedMs": 30861,
+          "aggNps": 1926056.5762613006,
+          "wallS": 32.76
+        },
+        {
+          "round": 1,
+          "order": [
+            "after",
+            "before"
+          ],
+          "which": "after",
+          "totalNodes": 59440032,
+          "totalElapsedMs": 30891,
+          "aggNps": 1924186.073613674,
+          "wallS": 32.77
+        },
+        {
+          "round": 1,
+          "order": [
+            "after",
+            "before"
+          ],
+          "which": "before",
+          "totalNodes": 59440032,
+          "totalElapsedMs": 34181,
+          "aggNps": 1738978.7308738774,
+          "wallS": 36.08
+        },
+        {
+          "round": 2,
+          "order": [
+            "before",
+            "after"
+          ],
+          "which": "before",
+          "totalNodes": 59440032,
+          "totalElapsedMs": 35018,
+          "aggNps": 1697413.6729681878,
+          "wallS": 36.99
+        },
+        {
+          "round": 2,
+          "order": [
+            "before",
+            "after"
+          ],
+          "which": "after",
+          "totalNodes": 59440032,
+          "totalElapsedMs": 30035,
+          "aggNps": 1979025.5368736475,
+          "wallS": 31.88
+        }
+      ],
+      "mpc_on": [
+        {
+          "round": 0,
+          "order": [
+            "before",
+            "after"
+          ],
+          "which": "before",
+          "totalNodes": 6487461,
+          "totalElapsedMs": 3846,
+          "aggNps": 1686807.3322932918,
+          "wallS": 5.7
+        },
+        {
+          "round": 0,
+          "order": [
+            "before",
+            "after"
+          ],
+          "which": "after",
+          "totalNodes": 6487461,
+          "totalElapsedMs": 3629,
+          "aggNps": 1787671.8104160926,
+          "wallS": 5.52
+        },
+        {
+          "round": 1,
+          "order": [
+            "after",
+            "before"
+          ],
+          "which": "after",
+          "totalNodes": 6487461,
+          "totalElapsedMs": 3527,
+          "aggNps": 1839370.8534165013,
+          "wallS": 5.41
+        },
+        {
+          "round": 1,
+          "order": [
+            "after",
+            "before"
+          ],
+          "which": "before",
+          "totalNodes": 6487461,
+          "totalElapsedMs": 3841,
+          "aggNps": 1689003.1241864096,
+          "wallS": 5.7
+        },
+        {
+          "round": 2,
+          "order": [
+            "before",
+            "after"
+          ],
+          "which": "before",
+          "totalNodes": 6487461,
+          "totalElapsedMs": 3907,
+          "aggNps": 1660471.2055285384,
+          "wallS": 5.77
+        },
+        {
+          "round": 2,
+          "order": [
+            "before",
+            "after"
+          ],
+          "which": "after",
+          "totalNodes": 6487461,
+          "totalElapsedMs": 3528,
+          "aggNps": 1838849.4897959183,
+          "wallS": 5.35
+        }
+      ]
+    }
+  }
+}

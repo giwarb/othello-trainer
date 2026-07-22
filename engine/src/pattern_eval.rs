@@ -160,6 +160,40 @@ pub fn scalar_features(board: &Board, mover: Side) -> ScalarFeatures {
     }
 }
 
+/// [`scalar_features`]の増分版(T189)。呼び出し元(`search::negascout`の葉
+/// 評価経路)が既に`board.legal_moves(mover)`と同じ値(`known_mover_legal`)を
+/// 持っている場合に使う。`own`/`opp`の割り当ては`legal_moves_relative(own,
+/// opp, empty)`が`Board::legal_moves`の内部実装そのものであるため、
+/// `known_mover_legal`は`legal_moves_relative(own, opp, empty)`と常に
+/// 同一のビット表現になる。opponent側の合法手・空隣接特徴は本タスクの
+/// スコープ外(既知値の再利用のみ)のためフル計算のまま変えない。
+///
+/// `exact_mobility_advantage`/`empty_adjacency_exposure_advantage`の計算式・
+/// 加算順は[`scalar_features`]と完全同一(値が一致する`known_mover_legal`を
+/// 使うだけ)であり、戻り値はビット単位で[`scalar_features`]と一致する。
+fn scalar_features_with_known_mover_legal(
+    board: &Board,
+    mover: Side,
+    known_mover_legal: u64,
+) -> ScalarFeatures {
+    let (own, opp) = match mover {
+        Side::Black => (board.black, board.white),
+        Side::White => (board.white, board.black),
+    };
+    let empty = !(own | opp);
+    debug_assert_eq!(
+        known_mover_legal,
+        legal_moves_relative(own, opp, empty),
+        "T189 known mover-legal mask mismatch"
+    );
+    ScalarFeatures {
+        exact_mobility_advantage: known_mover_legal.count_ones() as i32
+            - legal_moves_relative(opp, own, empty).count_ones() as i32,
+        empty_adjacency_exposure_advantage: empty_adjacency_incidence(opp, empty) as i32
+            - empty_adjacency_incidence(own, empty) as i32,
+    }
+}
+
 /// パターン形状の定義(`patterns`)・対称オービットのクラス分類(`class_info`)と、
 /// それに対応する重み一式(`class_tables`、`class_tables[class_id]`が
 /// そのクラスに属す全インスタンス共有の重み)を持つ、読み取り専用の
@@ -598,6 +632,62 @@ impl PatternWeights {
         }
         if self.scalar_features_enabled() {
             let values = scalar_features(board, mover);
+            for kind in ALL_SCALAR_FEATURE_KINDS {
+                if let Some(feature) = self
+                    .scalar_feature_weights
+                    .iter()
+                    .find(|feature| feature.kind == kind)
+                {
+                    let raw = match kind {
+                        ScalarFeatureKind::ExactMobilityAdvantage => {
+                            values.exact_mobility_advantage
+                        }
+                        ScalarFeatureKind::EmptyAdjacencyExposureAdvantage => {
+                            values.empty_adjacency_exposure_advantage
+                        }
+                        ScalarFeatureKind::Constant => 1,
+                    };
+                    sum += feature.weights[stage]
+                        * (raw as f32 / (1u32 << feature.scale_shift) as f32);
+                }
+            }
+        }
+        sum
+    }
+
+    /// [`Self::score_with_state`]の増分版(T189)。呼び出し元
+    /// (`search::negascout`の葉評価経路)が既に`board.legal_moves(mover)`と
+    /// 同じ値(`known_mover_legal`)を持っている場合に使う。パターン項の計算
+    /// (`idx_black`/`idx_white`経由)は[`Self::score_with_state`]と完全同一で、
+    /// スカラー特徴だけ[`scalar_features_with_known_mover_legal`]を使って
+    /// mover側モビリティの再計算を避ける。opponent側の合法手・空隣接特徴・
+    /// 定数項の扱いは無変更。
+    ///
+    /// # f32加算順序について
+    /// [`Self::score_with_state`]のドキュメント参照。パターン項→スカラー
+    /// 特徴の順で加算する構造は完全に同一であり、`known_mover_legal`が
+    /// `board.legal_moves(mover)`と一致する限り戻り値はビット単位で
+    /// [`Self::score_with_state`]と一致する。
+    pub fn score_with_state_with_known_legal(
+        &self,
+        state: &PatternState,
+        board: &Board,
+        mover: Side,
+        known_mover_legal: u64,
+    ) -> f32 {
+        let stage = self.stage_for_empty_count(board.empty_count());
+        let idx_tables = match mover {
+            Side::Black => &self.idx_black,
+            Side::White => &self.idx_white,
+        };
+        let mut sum = 0f32;
+        for i in 0..self.patterns.len() {
+            let class_id = self.class_info.class_of[i];
+            let index = idx_tables[class_id][state.raw[i] as usize] as usize;
+            sum += self.class_tables[class_id].stage_tables[stage][index];
+        }
+        if self.scalar_features_enabled() {
+            let values = scalar_features_with_known_mover_legal(board, mover, known_mover_legal);
             for kind in ALL_SCALAR_FEATURE_KINDS {
                 if let Some(feature) = self
                     .scalar_feature_weights
@@ -2602,6 +2692,21 @@ mod tests {
                         .to_bits(),
                     weights.score(&board, side.opposite()).to_bits(),
                     "score_with_state mismatch for opposite mover (seed={seed})"
+                );
+                // T189: `score_with_state_with_known_legal`に`board.legal_moves(side)`
+                // (mover側の合法手マスク)をそのまま渡した場合も、`score`とビット単位で
+                // 一致すること(既知値の再利用が結果を一切変えないことの直接確認)。
+                assert_eq!(
+                    weights
+                        .score_with_state_with_known_legal(
+                            &state,
+                            &board,
+                            side,
+                            board.legal_moves(side),
+                        )
+                        .to_bits(),
+                    weights.score(&board, side).to_bits(),
+                    "score_with_state_with_known_legal mismatch (seed={seed}, side={side:?})"
                 );
 
                 let legal = board.legal_moves(side);

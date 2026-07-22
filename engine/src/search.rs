@@ -132,15 +132,25 @@ fn static_eval(board: &Board, side: Side, weights: Option<&PatternWeights>) -> i
 /// スケール変換のロジックは[`static_eval`]側に一本化しここでは複製しない
 /// (適用範囲は`negascout`の葉評価経路のみ。`search_all_moves_with_eval_core_restricted`
 /// 等の既存`static_eval`直接呼び出しは本関数を経由せず無変更のまま)。
+///
+/// `legal`(T189): 呼び出し元(`negascout`)がこのノードについて既に確定させて
+/// いる`board.legal_moves(side)`(mover側の合法手マスク、`depth==0`到達時点で
+/// 手番側に合法手があることが保証済みなので必ず非0)。
+/// `PatternWeights::score_with_state_with_known_legal`のスカラー特徴計算
+/// (mover側モビリティ)へそのまま渡し、`pattern_eval::scalar_features`内での
+/// 再計算を避ける。
 fn static_eval_with_state(
     board: &Board,
     side: Side,
     weights: Option<&PatternWeights>,
     state: Option<PatternState>,
+    legal: u64,
 ) -> i32 {
     match (weights, state) {
         (Some(w), Some(state)) => {
-            let raw = (w.score_with_state(&state, board, side) * 100.0).round() as i32;
+            let raw =
+                (w.score_with_state_with_known_legal(&state, board, side, legal) * 100.0).round()
+                    as i32;
             raw.clamp(-DISC_DIFF_BOUND_CENTIDISC, DISC_DIFF_BOUND_CENTIDISC)
         }
         _ => static_eval(board, side, weights),
@@ -197,6 +207,31 @@ fn reset_incremental_state_checks() {
 #[cfg(test)]
 fn incremental_state_checks() -> u64 {
     TEST_INCREMENTAL_STATE_CHECKS.get()
+}
+
+#[cfg(test)]
+std::thread_local! {
+    // T189: `negascout`が`known_legal`(親の`ordered_moves`/`OrderedMove::legal`
+    // またはMPCプローブの同ノード再帰から受け取った合法手マスク)を、
+    // `board.legal_moves(side)`によるフル再計算と照合した
+    // (`debug_assert_eq!`を通過した)回数を数える(T182/T187のテレメトリと
+    // 同じ目的・同じパターン)。
+    static TEST_INCREMENTAL_LEGAL_CHECKS: std::cell::Cell<u64> = const { std::cell::Cell::new(0) };
+}
+
+#[cfg(test)]
+fn record_incremental_legal_check() {
+    TEST_INCREMENTAL_LEGAL_CHECKS.set(TEST_INCREMENTAL_LEGAL_CHECKS.get() + 1);
+}
+
+#[cfg(test)]
+fn reset_incremental_legal_checks() {
+    TEST_INCREMENTAL_LEGAL_CHECKS.set(0);
+}
+
+#[cfg(test)]
+fn incremental_legal_checks() -> u64 {
+    TEST_INCREMENTAL_LEGAL_CHECKS.get()
 }
 
 /// 探索の制御パラメータ。
@@ -851,7 +886,7 @@ fn search_with_eval_inner(
                     &mut aspiration_fail_low,
                     &mut aspiration_fail_high,
                 ),
-                _ => negascout(board, side_to_move, depth, -INF, INF, &mut ctx, None, None),
+                _ => negascout(board, side_to_move, depth, -INF, INF, &mut ctx, None, None, None),
             }
         };
 
@@ -1128,7 +1163,7 @@ fn aspiration_search(
     let (mut alpha, mut beta) = aspiration_bounds(center, window_idx);
 
     loop {
-        let score = negascout(board, side, depth, alpha, beta, ctx, None, None);
+        let score = negascout(board, side, depth, alpha, beta, ctx, None, None, None);
         if *ctx.timed_out {
             // 呼び出し元(`search_with_eval_inner`)は`ctx.timed_out`を見て
             // このイテレーション全体を破棄するため、戻り値自体には意味が
@@ -1481,6 +1516,7 @@ fn search_all_moves_with_eval_core_restricted(
                         &mut ctx,
                         None,
                         None,
+                        None,
                     )
                 };
                 // T170: タイムアウトで未完走に終わった深さの分も、実際に
@@ -1731,6 +1767,17 @@ const TIME_CHECK_NODE_INTERVAL: u64 = 1024;
 /// `ctx.weights`が`None`(ヒューリスティックフォールバック)の間は一切
 /// 計算しない。`Some`が渡された場合も、パス・子局面ループの各所で
 /// `PatternState::from_board`によるフル再計算と`debug_assert_eq!`で照合する。
+///
+/// `known_legal`(T189): 呼び出し元が既にこの`(board, side)`局面の合法手
+/// マスク(`board.legal_moves(side)`と同じ値)を知っている場合は`Some`で
+/// 渡す。渡せるのは(a)親の`ordered_moves`が候補手ごとに計算済みの
+/// `OrderedMove::legal`(子ノードへの再帰、`negascout_or_etc`経由)、
+/// (b)MPCプローブ(`mpc_try_cutoff`/`mpc_try_cutoff_inner`、同一
+/// `(board, side)`への浅い探索)の2経路。パス経路(自分だけ合法手がない
+/// 場合の相手番再帰)は相手側の合法手マスクを親が持っていないため、常に
+/// `None`を渡してフル再計算させる。`Some`が渡された場合は
+/// `board.legal_moves(side)`によるフル再計算と`debug_assert_eq!`で照合する
+/// (本番挙動には影響しない)。
 fn negascout(
     board: &Board,
     side: Side,
@@ -1740,6 +1787,7 @@ fn negascout(
     ctx: &mut SearchCtx,
     known_hash: Option<u64>,
     known_state: Option<PatternState>,
+    known_legal: Option<u64>,
 ) -> i32 {
     *ctx.nodes += 1;
 
@@ -1852,7 +1900,22 @@ fn negascout(
         }
     }
 
-    let legal = board.legal_moves(side);
+    // T189: `known_legal`があればフル再計算(`board.legal_moves(side)`)を
+    // スキップする。`Some`の場合はフル再計算との一致をdebug_assertで照合する
+    // (本番挙動には影響しない)。
+    let legal = match known_legal {
+        Some(known) => {
+            debug_assert_eq!(
+                known,
+                board.legal_moves(side),
+                "T189 incremental legal-mask mismatch"
+            );
+            #[cfg(test)]
+            record_incremental_legal_check();
+            known
+        }
+        None => board.legal_moves(side),
+    };
     if legal == 0 {
         if board.legal_moves(side.opposite()) == 0 {
             // 両者パス: 終局。
@@ -1886,6 +1949,9 @@ fn negascout(
             #[cfg(test)]
             record_incremental_state_check();
         }
+        // T189: パス後の相手番局面は`board`は同一だが手番が反転するため、
+        // 親(このノード)が知っている`legal`(自分の手番側)は相手側の合法手
+        // マスクとしては使えない。従来どおり`None`を渡してフル再計算させる。
         return -negascout(
             board,
             side.opposite(),
@@ -1895,11 +1961,14 @@ fn negascout(
             ctx,
             pass_hash,
             known_state,
+            None,
         );
     }
 
     if depth == 0 {
-        return static_eval_with_state(board, side, ctx.weights, known_state);
+        // T189: 直前で確定した`legal`(mover側=`side`の合法手マスク、非0)を
+        // 葉のスカラー特徴(mover側モビリティ)へそのまま渡す。
+        return static_eval_with_state(board, side, ctx.weights, known_state, legal);
     }
 
     let hash = known_hash.unwrap_or_else(|| zobrist_hash(board, side));
@@ -1932,7 +2001,8 @@ fn negascout(
     // いる)間は、MPCの再帰適用による誤差の積み重ねを避けるため試みない
     // (`mpc_try_cutoff`のドキュメント・`SearchCtx::suppress_mpc`参照)。
     if ctx.enable_mpc && !ctx.suppress_mpc {
-        if let Some(cut) = mpc_try_cutoff(board, side, depth, alpha, beta, ctx, hash, state) {
+        if let Some(cut) = mpc_try_cutoff(board, side, depth, alpha, beta, ctx, hash, state, legal)
+        {
             return cut;
         }
     }
@@ -2004,6 +2074,17 @@ fn negascout(
             record_incremental_state_check();
         }
 
+        // T189: `ordered_moves`が候補手ごとに1回だけ計算済みの
+        // `next_board.legal_moves(side.opposite())`(=`om.legal`)を、
+        // この後の最大3回の`negascout_or_etc`呼び出しで使い回す
+        // (T182のhash増分・T187の状態増分と同じ「1手につき1回」の構図)。
+        // `om.legal`は最初から`next_board.legal_moves(side.opposite())`の
+        // フル計算そのもの(独自の差分導出ロジックを持たない)であり、渡した
+        // 値の正しさは`negascout`冒頭の`known_legal`受信側で
+        // `board.legal_moves(side)`によるフル再計算と照合されるため、
+        // ここでの二重チェックは行わない。
+        let child_legal = om.legal;
+
         let score = if first {
             -negascout_or_etc(
                 &next_board,
@@ -2014,6 +2095,7 @@ fn negascout(
                 ctx,
                 child_hash,
                 child_state,
+                child_legal,
             )
         } else {
             // Null Window Search: まず [alpha, alpha+1) の狭い窓で探索する。
@@ -2026,6 +2108,7 @@ fn negascout(
                 ctx,
                 child_hash,
                 child_state,
+                child_legal,
             );
             if scout_score > alpha && scout_score < beta {
                 // 窓を外れた(=このスコアが実は最善手かもしれない)ので
@@ -2039,6 +2122,7 @@ fn negascout(
                     ctx,
                     child_hash,
                     child_state,
+                    child_legal,
                 )
             } else {
                 scout_score
@@ -2110,6 +2194,7 @@ fn negascout_or_etc(
     ctx: &mut SearchCtx,
     next_hash: u64,
     next_state: Option<PatternState>,
+    next_legal: u64,
 ) -> i32 {
     if ctx.enable_etc {
         if let Some(score) = etc_try_cutoff(
@@ -2133,6 +2218,7 @@ fn negascout_or_etc(
         ctx,
         Some(next_hash),
         next_state,
+        Some(next_legal),
     )
 }
 
@@ -2265,6 +2351,10 @@ fn mpc_try_cutoff(
     ctx: &mut SearchCtx,
     hash: u64,
     state: Option<PatternState>,
+    // T189: 呼び出し元(`negascout`)がこのノードについて既に確定させている
+    // `legal`(`board.legal_moves(side)`)。プローブは同一`(board, side)`への
+    // 再帰なので、`hash`/`state`と同じ理由でそのまま渡せる。
+    legal: u64,
 ) -> Option<i32> {
     // T048フィードバック(自己対戦検証で発覚した重大な不具合の修正):
     // `alpha`/`beta`のどちらかがまだ番兵値(`-INF`/`INF`)のままの場合、
@@ -2323,7 +2413,7 @@ fn mpc_try_cutoff(
     let old_exact_enabled = ctx.exact_enabled;
     ctx.suppress_mpc = true;
     ctx.exact_enabled = false;
-    let cut = mpc_try_cutoff_inner(board, side, calibration, alpha, beta, ctx, hash, state);
+    let cut = mpc_try_cutoff_inner(board, side, calibration, alpha, beta, ctx, hash, state, legal);
     ctx.exact_enabled = old_exact_enabled;
     ctx.suppress_mpc = old_suppress_mpc;
     cut
@@ -2340,6 +2430,7 @@ fn mpc_try_cutoff_inner(
     ctx: &mut SearchCtx,
     hash: u64,
     state: Option<PatternState>,
+    legal: u64,
 ) -> Option<i32> {
     let probe_depth = calibration.probe_depth;
     let histogram_index = probe_depth.min(64) as usize;
@@ -2353,7 +2444,7 @@ fn mpc_try_cutoff_inner(
         // T182: プローブは呼び出し元(`negascout`)と同じ`(board, side)`を
         // 見るので、呼び出し元が既に持っている`hash`をそのまま渡せる
         // (フルスキャンの再計算は不要)。T187: `state`も同じ理由でそのまま
-        // 渡せる(同じ局面なのでフル再計算は不要)。
+        // 渡せる(同じ局面なのでフル再計算は不要)。T189: `legal`も同じ理由。
         let probe = negascout(
             board,
             side,
@@ -2363,6 +2454,7 @@ fn mpc_try_cutoff_inner(
             ctx,
             Some(hash),
             state,
+            Some(legal),
         );
         ctx.mpc_stats.probe_nodes += ctx.nodes.saturating_sub(nodes_before);
         if *ctx.timed_out {
@@ -2390,6 +2482,7 @@ fn mpc_try_cutoff_inner(
             ctx,
             Some(hash),
             state,
+            Some(legal),
         );
         ctx.mpc_stats.probe_nodes += ctx.nodes.saturating_sub(nodes_before);
         if *ctx.timed_out {
@@ -2422,16 +2515,29 @@ fn terminal_score_centi(board: &Board, side: Side) -> i32 {
 /// 同じ`apply_move`(内部で`flips_for_move`のbitboard全走査を伴う)を
 /// 二重に呼ぶ必要をなくす(T183優先3位、T182で導入したhash持ち越しと同じ
 /// 「一度計算した値を使い回す」発想)。
+///
+/// `legal`(T189): `next_board`における次手番(`side.opposite()`)の合法手
+/// マスク。以前は[`ordered_moves`]のソートキー計算(候補手のモビリティ
+/// 順ソート)のために計算していたが、popcountを取った後にマスク自体を
+/// 捨てていた。このマスクは呼び出し元(`negascout`の候補手ループ)が子の
+/// `negascout`呼び出しへ渡す`known_legal`(=子ノード冒頭の
+/// `board.legal_moves(side)`)と全く同じ値(`next_board == 子board`、
+/// `side.opposite() == 子side`)であり、捨てずに保持して配ることで
+/// 子ノード冒頭・MPCプローブ・葉のスカラー特徴(mover側モビリティ)での
+/// 再計算を避ける(`bench/edax-compare/t188_profiling_report.md`の
+/// `legal_moves_top`)。
 #[derive(Clone, Copy)]
 struct OrderedMove {
     mv: u8,
     next_board: Board,
+    legal: u64,
 }
 
 impl OrderedMove {
     const EMPTY: Self = Self {
         mv: 0,
         next_board: Board { black: 0, white: 0 },
+        legal: 0,
     };
 }
 
@@ -2475,6 +2581,16 @@ impl OrderedMove {
 /// 直後、`ordered_moves`内部で同じ`(board, side)`に対しもう一度
 /// `board.legal_moves(side)`を計算しており完全な無駄だった
 /// (`bench/edax-compare/t183_profiling_report.md`の`redundant_legal_moves`)。
+///
+/// T189: 各候補手の`next_board.legal_moves(side.opposite())`(次手番の
+/// 合法手マスク)を、この関数冒頭の列挙ループで1回だけ計算して
+/// `OrderedMove::legal`へ格納するように変更した。以前はソートキー計算
+/// (`sort_by_cached_key`のクロージャ内)で計算していたが、`sort_by_cached_key`
+/// は要素ごとに1回だけキーを計算してキャッシュするため、計算する場所を
+/// ループ側に移しても呼び出し回数(候補手1件につき1回)・比較順序
+/// (キーの値は完全に同一)は一切変わらない。ソートキーのクロージャは
+/// 保存済みの`m.legal`を読むだけになり、呼び出し元(`negascout`)がこの
+/// マスクを子ノードへ渡せるようになる。
 fn ordered_moves(
     board: &Board,
     side: Side,
@@ -2489,7 +2605,12 @@ fn ordered_moves(
         let lsb = remaining & remaining.wrapping_neg();
         let mv = lsb.trailing_zeros() as u8;
         let next_board = board.apply_move(side, lsb);
-        out[count] = OrderedMove { mv, next_board };
+        let next_legal = next_board.legal_moves(side.opposite());
+        out[count] = OrderedMove {
+            mv,
+            next_board,
+            legal: next_legal,
+        };
         count += 1;
         remaining &= remaining - 1;
     }
@@ -2500,7 +2621,7 @@ fn ordered_moves(
             moves.sort_by_cached_key(|m| {
                 let bit = 1u64 << m.mv;
                 let is_corner = bit & CORNER_MASK != 0;
-                let opp_mobility = m.next_board.legal_moves(side.opposite()).count_ones();
+                let opp_mobility = m.legal.count_ones();
                 (if is_corner { 0u32 } else { 1u32 }, opp_mobility)
             });
         }
@@ -2509,7 +2630,7 @@ fn ordered_moves(
             moves.sort_by_cached_key(|m| {
                 let bit = 1u64 << m.mv;
                 let is_corner = bit & CORNER_MASK != 0;
-                let opp_mobility = m.next_board.legal_moves(side.opposite()).count_ones();
+                let opp_mobility = m.legal.count_ones();
                 let hist = history.get(side, m.mv);
                 (
                     if is_corner { 0u32 } else { 1u32 },
@@ -2523,7 +2644,7 @@ fn ordered_moves(
             moves.sort_by_cached_key(|m| {
                 let bit = 1u64 << m.mv;
                 let is_corner = bit & CORNER_MASK != 0;
-                let opp_mobility = m.next_board.legal_moves(side.opposite()).count_ones();
+                let opp_mobility = m.legal.count_ones();
                 let hist = history.get(side, m.mv);
                 (
                     if is_corner { 0u32 } else { 1u32 },
@@ -4439,9 +4560,16 @@ mod tests {
             history: None,
         };
         let hash = zobrist_hash(&board, side);
-        assert_eq!(mpc_try_cutoff(&board, side, 6, -INF, 0, &mut ctx, hash, None), None);
+        let legal = board.legal_moves(side);
+        assert_eq!(
+            mpc_try_cutoff(&board, side, 6, -INF, 0, &mut ctx, hash, None, legal),
+            None
+        );
         assert_eq!(ctx.mpc_stats.skipped_pv_window, 1);
-        assert_eq!(mpc_try_cutoff(&board, side, 6, -1, 0, &mut ctx, hash, None), None);
+        assert_eq!(
+            mpc_try_cutoff(&board, side, 6, -1, 0, &mut ctx, hash, None, legal),
+            None
+        );
         assert_eq!(ctx.mpc_stats.skipped_exact_boundary, 1);
         assert_eq!(*ctx.exact_quota_remaining, 1234);
     }
@@ -4476,7 +4604,11 @@ mod tests {
             history: None,
         };
         let hash = zobrist_hash(&board, side);
-        assert_eq!(mpc_try_cutoff(&board, side, 6, -1, 0, &mut ctx, hash, None), None);
+        let legal = board.legal_moves(side);
+        assert_eq!(
+            mpc_try_cutoff(&board, side, 6, -1, 0, &mut ctx, hash, None, legal),
+            None
+        );
         assert!(*ctx.timed_out);
         assert!(!ctx.suppress_mpc);
         assert!(ctx.exact_enabled);
@@ -4514,8 +4646,9 @@ mod tests {
             history: None,
         };
         let hash = zobrist_hash(&board, side);
+        let legal = board.legal_moves(side);
         assert_eq!(
-            mpc_try_cutoff(&board, side, 6, -5001, -5000, &mut ctx, hash, None),
+            mpc_try_cutoff(&board, side, 6, -5001, -5000, &mut ctx, hash, None, legal),
             Some(-5000)
         );
         assert_eq!(
@@ -4688,6 +4821,44 @@ mod tests {
             incremental_state_checks() >= 200,
             "expected the T187 incremental-pattern-state debug check to fire at least 200 times, got {}",
             incremental_state_checks()
+        );
+    }
+
+    /// T189: `negascout`が`known_legal`(親の`ordered_moves`が保持する
+    /// `OrderedMove::legal`、およびMPCプローブの同ノード再帰)として受け取った
+    /// 合法手マスクを実際に使ったこと(発火0件のままpassしない)を確認する
+    /// テレメトリテスト(直上の`incremental_state_check_fires_across_diverse_midgame_searches`
+    /// と同じ考え方)。`known_legal`はヒューリスティックフォールバック
+    /// (`ctx.weights == None`)でも使われる経路(パターン重みに依存しない)
+    /// なので、T182の`incremental_hash_check_fires_across_diverse_midgame_searches`
+    /// と同様に重み無しで実行する。
+    #[test]
+    fn incremental_legal_check_fires_across_diverse_midgame_searches() {
+        reset_incremental_legal_checks();
+        let policy = SearchPolicy {
+            enable_history: true,
+            enable_aspiration: true,
+            enable_mpc: true,
+        };
+        for n in 0..8usize {
+            let (board, side) = play_until_empties(24, move |moves: &[u64]| moves[n % moves.len()]);
+            let limit = default_limit(8, 0);
+            let mut tt = TranspositionTable::new(4);
+            let _ = search_with_eval_with_policy(
+                &board,
+                side,
+                &limit,
+                &mut tt,
+                None,
+                None,
+                EXACT_QUOTA_PERCENT,
+                policy,
+            );
+        }
+        assert!(
+            incremental_legal_checks() >= 200,
+            "expected the T189 incremental-legal debug check to fire at least 200 times, got {}",
+            incremental_legal_checks()
         );
     }
 
