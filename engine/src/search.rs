@@ -1848,6 +1848,7 @@ fn negascout(
     let move_count = ordered_moves(
         board,
         side,
+        legal,
         tt_move,
         ctx.history.as_deref(),
         &mut ordered_buf,
@@ -2347,14 +2348,20 @@ impl OrderedMove {
 /// `sort_by_cached_key`は`[T]`スライスに対して汎用的に使えるため、
 /// `Vec`から固定長配列へ変えても、キーを要素ごとに1回だけ計算して
 /// キャッシュしてから並べ替えるというT184の恩恵はそのまま保たれる。
+///
+/// T186: `legal`(`board.legal_moves(side)`)を呼び出し元(`negascout`)から
+/// 引数で受け取るように変更した。以前は`negascout`がパス判定用に計算した
+/// 直後、`ordered_moves`内部で同じ`(board, side)`に対しもう一度
+/// `board.legal_moves(side)`を計算しており完全な無駄だった
+/// (`bench/edax-compare/t183_profiling_report.md`の`redundant_legal_moves`)。
 fn ordered_moves(
     board: &Board,
     side: Side,
+    legal: u64,
     tt_move: Option<u8>,
     history: Option<&HistoryTable>,
     out: &mut [OrderedMove; 64],
 ) -> usize {
-    let legal = board.legal_moves(side);
     let mut count = 0usize;
     let mut remaining = legal;
     while remaining != 0 {
