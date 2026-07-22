@@ -1,7 +1,7 @@
 ---
 id: T184
 title: 高速化(3): ordered_movesのsort_by_key→sort_by_cached_key修正(T183優先1位)
-status: todo
+status: done # verifier合格(差分精読・独立ビルドでの完全一致再現・NPS検算+スポット再現2.07-2.34倍・全テスト)、2026-07-22。**実測2.125倍(off)/2.313倍(on)、対Edax倍率57-69→27-30倍に半減**
 assignee: implementer
 attempts: 0
 ---
