@@ -1,7 +1,7 @@
 ---
 id: T191
 title: 高速化(10): lazy orderingのhistory有効経路への拡張(historyスナップショット方式)
-status: in_progress
+status: review
 assignee: implementer
 attempts: 0
 ---
@@ -63,3 +63,33 @@ T190のlazy ordering(TT手先行・残候補遅延構築、省略成功率67.5%)
 (なし)
 
 ## 作業ログ(担当エージェントが追記)
+
+- 2026-07-22 実装開始。T190コミット6a19815の`negascout`/`ordered_moves`/`HistoryTable`を精読し構造把握。
+  - `HistoryTable`に`fn snapshot(&self, side: Side) -> [u32; 64]`を追加(該当sideのscores配列を複製、ヒープ確保なし)。
+  - `ordered_moves`のhistoryパラメータを`Option<&HistoryTable>`から新設enum`HistorySource<'a> { Live(&'a HistoryTable), Snapshot(&'a [u32; 64]) }`(`.get(side, mv)`を持つ)経由の`Option<HistorySource>`へ変更。ソートロジック(タプルキー構成・比較順序・`sort_by_cached_key`)は無改変。
+  - `negascout`のlazyゲートから`ctx.history.is_none()`を除去(`lazy_ordering_enabled_for_run()`のみに)。
+  - lazy分岐(TT手処理)に入る直前、TT手のサブツリー探索(`process_candidate!`)より前に`let history_snapshot = ctx.history.as_deref().map(|h| h.snapshot(side));`を追加。cutoffなしで残候補構築する場合は`history_snapshot.as_ref().map(HistorySource::Snapshot)`を`ordered_moves`へ渡す。
+  - else分岐(TT手なし/非合法/lazy無効時の一括構築)は`ctx.history.as_deref().map(HistorySource::Live)`を渡す(まだ候補手を処理していない時点の呼び出しなのでLiveのままで問題なし)。
+  - `cargo check -p engine` パス確認。次はテスト拡張(history有効同一性テスト・regression-catching実証)へ進む。
+- 2026-07-22 テスト拡張。`engine/src/search.rs`のtestsモジュールへT191新規テスト2件を追加(T190の同種テストの直後、`SearchPolicy { enable_history: true, .. }`版):
+  - `lazy_ordering_matches_legacy_full_construction_with_history_enabled_across_diverse_midgame_searches`(絶対条件: lazy/legacy一致、8局面×best_move/score/depth/nodes)
+  - `lazy_ordering_activates_and_skips_residual_with_history_enabled_across_diverse_midgame_searches`(テレメトリ発火確認)
+  - `cargo test -p engine --lib` 257 passed(新規2件含む、全件green)。`cargo test -p engine`(bin/tests含むフル)も257 passed(ffo_bench等ignoredは既存どおり)。
+- 2026-07-22 regression-catching実証(タスク核心の検知力証明)。残候補構築の`ordered_moves`呼び出し(lazy分岐内)へ渡す第5引数を、意図的に`history_snapshot.as_ref().map(HistorySource::Snapshot)`から`ctx.history.as_deref().map(HistorySource::Live)`(=ノード入場時点のスナップショットではなく、TT手のサブツリー探索が完了した後の残候補ソート実行時点のライブhistory値)へ改変。
+  - 結果: `lazy_ordering_matches_legacy_full_construction_with_history_enabled_across_diverse_midgame_searches`が`n=5: nodes differs between lazy and legacy ordering (history enabled) left: 4409 right: 4408`で確実に失敗することを確認(検知力の証明)。
+  - 直後にスナップショット渡し(`history_snapshot.as_ref().map(HistorySource::Snapshot)`)へ復元し、`cargo test -p engine --lib`で257 passed(0 failed)を再確認。
+- 2026-07-22 `cargo test --release -p engine --test ffo_bench -- --nocapture`実行: fast問題(#40〜#44)5問全問正解(FAST TOTAL: 5 positions solved correctly, nodes=641077417, time=59.196s, nps=10829742)。次はNPS計測(worktree independent build)へ進む。
+- 2026-07-22 NPS計測(標準手順)。
+  - `git worktree add ../t191-worktrees/before 29a9c12`(T191着手直前のHEAD)で変更前を独立チェックアウトし、`cargo build --release --bin eval_cli --features mpc_enabled`を独立ビルド(SHA256差異確認: before=`26301bc0...`, after=`e52686da...`)。実行前に`tasklist`でcargo/rustc/eval_cli/pythonが動いていないことを確認(専有)。
+  - scratchpadにPythonドライバ`t191_nps_bench.py`(MPC off/on)・`t191_nps_bench_nodebudget.py`(node-budget参考条件、`--max-nodes 160000`)を作成し、`bench/edax-compare/t156_mpc_positions.json`のsplit==test・emptyBucket==29-36先頭20局面(`mpc-29-36-test-001..020`)で、before/after順序を入れ替えながら3ラウンドずつ実行。
+  - 結果: MPC off before=2,153,488 NPS→after=2,145,857 NPS(-0.35%、非悪化)。MPC on before=1,813,587→after=1,923,115 NPS(**+6.04%**)。node_budget(参考、`--max-nodes 160000`、本番経路相当)before=1,860,134→after=2,120,689 NPS(**+14.01%**)。3条件×3ラウンド=9ラウンドすべてでbefore/afterのノード数完全一致(mismatch=0、20局面×3条件×3ラウンド=180局面回)。
+  - `git worktree remove ../t191-worktrees/before --force`でworktree削除・`git worktree list`でmainのみに戻ったことを確認。
+  - テレメトリ: `lazy_ordering_activates_and_skips_residual_with_history_enabled_across_diverse_midgame_searches`実行(`--nocapture`) → activations=19423, residual_skipped=12848(66.1%)。
+  - `bench/edax-compare/t191_lazy_history_report.md`+`.raw.json`を作成(T190レポート同形式、実装内容・regression-catching実証・テレメトリ・NPS実測・採用判定を記載)。
+  - `git status --short`確認: `engine/src/search.rs`(M)・`bench/edax-compare/t191_lazy_history_report.md`(??)・`.raw.json`(??)のみ(tasks/T191自体を除く)。次はこれらをパス明示でコミット・pushし、GitHub Actionsデプロイ確認・Pages動作確認へ進む。
+- 2026-07-22 コミット・push・デプロイ確認。
+  - `git add engine/src/search.rs bench/edax-compare/t191_lazy_history_report.md bench/edax-compare/t191_lazy_history_report.raw.json`(パス明示、`git add .`不使用)でコミット: `93986f6`「engine: lazy orderingをhistory有効経路へ拡張(historyスナップショット方式、T191)」。
+  - `git push origin main`成功(`29a9c12..93986f6`)。
+  - `gh run watch`でDeploy to GitHub Pages(ID 29909290647)・Rust Tests(ID 29909290664)の両ワークフローが`success`で完了したことを確認(Rust Testsは`cargo test -p engine`(debug)・`--release --test ffo_bench`(FFO fast)・`cargo test -p train`を含む)。
+  - Playwright MCP(Claude Browser)で本番Pages(`https://giwarb.github.io/othello-trainer/`)を開き、「対局」→CPUの強さを「強い (depth12)」(本番のノード予算経路、`enable_history: true`)に設定→黒番で開始→d3を着手→CPU(白)が自動応手し評価値・定石名(牛)・盤面が正しく更新される(3-3)ことを確認。`read_console_messages`でエラー0件。
+  - `git status --short`最終確認: `tasks/T191-lazy-ordering-history.md`(作業ログ追記分)のみが残存(コミット対象外、オーケストレーター担当)。当該タスク由来のスコープ内差分・未追跡ファイルは残っていない。
