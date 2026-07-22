@@ -1,7 +1,7 @@
 ---
 id: T193
 title: 対Edax速度比較の更新計測(高速化第2弾後、T180方式)
-status: todo
+status: in_progress
 assignee: implementer
 attempts: 0
 ---
@@ -49,3 +49,11 @@ attempts: 0
 (なし)
 
 ## 作業ログ(担当エージェントが追記)
+
+### 2026-07-22 着手・準備確認(implementer)
+
+- **専有確認**: `Get-Process`でpython/cargo/eval_cli/wEdax/rustc/node系のプロセスが無いことを確認、`Get-CimInstance Win32_Processor`のLoadPercentage=1%。T192の照合バッチは停止済み。
+- T180(`tasks/T180-engine-bottleneck-analysis.md` + `bench/edax-compare/t180_bottleneck_report.md`/`.meta.json`)を精読し手法を確認: 中盤バッチはEdax `-l 12`(`wEdax-x86-64.exe`、`-book-usage off -eval-file data/eval.dat -vv`)、うちは`eval_cli best --depth 12 --exact-from-empties 0 --pattern-weights pattern_v6.bin`(MPC off/on)。T184で確立した「対Edax倍率更新値」はEdaxを再測定せず相対倍率を適用する方式だったが、本タスク(T193)はユーザー要求により**Edax側も直接再測定**する(要件2-4)。
+- 対象20局面(`t156_mpc_positions.json`のemptyBucket==29-36・split==test先頭20件、id `mpc-29-36-test-001`〜`020`)をOBF化しscratchpadに保存。
+- `eval_cli`をHEAD(`92341ca`)から2種ビルド: off(featureなし、sha256=`278c460e...`)/on(`--features mpc_enabled`、sha256=`92cc5745...`)。スモークチェックでノード数が既知値(off 59,440,032 / on 6,487,461)と完全一致することを確認済み(要件3充足)。
+- Edax実行条件を`wEdax-x86-64.exe`(sha256=`aabb5ac7d3f9a872fc0e7388ab1eee1d23c687f76c28642122524dc318b322b1`、v4.6公式リリース、`download-edax.ps1`で取得したもの、`.gitignore`対象で追跡外・T022以降未再取得〈mtime 2024-12-18で不変〉)で確認中。次に-vv出力の集計行フォーマットを確認してから交互3回計測に入る。
