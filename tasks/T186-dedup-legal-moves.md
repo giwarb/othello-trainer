@@ -1,7 +1,7 @@
 ---
 id: T186
 title: 高速化(5): negascout/ordered_movesのlegal_moves重複計算排除
-status: review
+status: done
 assignee: implementer
 attempts: 0
 ---
@@ -55,3 +55,12 @@ attempts: 0
 - `gh run watch` で `Rust Tests`(29891488861)・`Deploy to GitHub Pages`(29891488856)の両ワークフローが成功したことを確認。
 - Claude Browserで `https://giwarb.github.io/othello-trainer/` にアクセスし、「対局」→「黒番で開始」で新規対局を開始。1手打つと定石DBから応手(牛)、続けてもう1手打つと表示が「中盤(探索)」に切り替わり(=`negascout`/`ordered_moves`経路)、CPUが正常に応手して石数が更新されることを確認。コンソールエラーなし。
 - 最終`git status --short`はクリーン(コミット・push後、当該タスク由来の差分・未追跡ファイルなし)。
+
+- 2026-07-22 verifier: 受け入れ基準を検証。判定=**合格**。
+  1. `git show 4144c5d --stat` → `engine/src/search.rs | 9 ++++++++-` の1ファイルのみ。差分全文を確認し、変更は (a) `negascout`呼び出し箇所への`legal,`引数追加、(b) `ordered_moves`シグネチャへの`legal: u64`追加+doc comment追記、(c) 関数内`let legal = board.legal_moves(side);`の削除、の3点のみ。オーダリングキー計算`m.next_board.legal_moves(side.opposite())`(2382/2391/2405行)は差分に一切出現せず無変更を確認。
+  2. `cargo test -p engine` を2回実行、いずれも `247 passed; 0 failed; 2 ignored`。フレーキー指定の`protocol::tests::node_limited_protocol_requests_are_deterministic`も両回とも`ok`。
+  3. `t182_negascout_results_are_unchanged_by_the_incremental_hash_wiring` / `t184_sort_by_cached_key_matches_pre_change_baseline` / `t185_ordered_moves_fixed_array_matches_pre_change_baseline` はいずれもpass。かつT186コミットのdiff全文を確認し、テストコード(アサート値含む)への変更行が1行も無いことを確認済み(diffの`+`/`-`行はすべて`ordered_moves`シグネチャ・doc comment・呼び出し箇所のみ)。
+  4. `ordered_moves`本体(2357行〜)を読み、`board.legal_moves(side)`の再計算が残っていないことを確認。残る`legal_moves(`呼び出しは`next_board.legal_moves(side.opposite())`(相手モビリティ、オーダリングキー計算、対象外)のみ。`grep`で`ordered_moves`の呼び出し元は`negascout`(1848行)の1箇所のみであることも確認。
+  5. `git status --short`は空。`git log origin/main..HEAD`/`git log HEAD..origin/main`とも空でローカルmainとoriginが同期済み。
+  6. `gh run view 29891488861`(Rust Tests) → `✓ main Rust Tests`、`gh run view 29891488856`(Deploy to GitHub Pages) → `✓ main Deploy to GitHub Pages`、いずれも成功。実装者による本番Pages上での対局動作確認(定石→中盤探索経路への遷移・CPU応手・コンソールエラーなし)も作業ログに記載済み。
+  - 指示に従い時間計測(NPS等)は実施していない。
