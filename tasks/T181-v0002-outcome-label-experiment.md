@@ -1,7 +1,7 @@
 ---
 id: T181
 title: Egaroucid v0002(5200万局)の最終石差ラベル実験 — 取り込み+学習+ゲート
-status: todo
+status: done # verifier全項目合格(ゲート統計・共通frozen・変換ラベルの独立リプレイ照合まで)、2026-07-22。結論: 仮説不支持=E1/E2とも対v6有意悪化(CI完全マイナス)→不採用。資産: v0002変換ツール・frozen_mae_eval(データソース間公平比較)・v0002データ25M(ローカル、将来の再探索ラベル付け候補)
 assignee: implementer
 attempts: 0
 ---
@@ -146,3 +146,16 @@ attempts: 0
 25. **T182連携**: ゲート完了によりT182が待っていたCPU専有ウィンドウが利用可能になったことをレポート6節に明記。
 
 26. **コミット・完了確認**: `bench/edax-compare/t181_v0002_report.md`+`.meta.json`をパス明示でコミット(`git add -A`不使用)。データ本体・生対局ログ・スポットチェック結果はいずれも既存`.gitignore`ルールでローカルのみ(コミット対象外を確認)。作業中に誤ってリポジトリ直下へ書き出した中間集計ファイル(`bench/edax-compare/t181_gate_stats.json`)は削除済み。`git status --short`は本タスクファイル編集分を除きクリーンであることを確認。
+
+### 2026-07-22 verifier検収(合格)
+
+受け入れ基準1〜4および運用ルール(コミット規律・gitignore・test)をすべて独立に再検証した。
+
+1. **ゲート統計の独立再計算**: 生JSON(`bench/edax-compare/endgame-results/t174-v6-vs-edax-lv12-results.json`・`t181-e1-vs-edax-lv12-results.json`・`t181-e2-vs-edax-lv12-results.json`)をPythonで独立に読み込み、`margin_engine_minus_edax`からW/D/L・平均石差を再集計: v6=18/1/41/-6.0667、E1=17/3/40/-10.7667、E2=14/4/42/-8.8(いずれもレポートと完全一致)。`compare_pattern_v3.py`の`paired_bootstrap()`(`random.Random(seed)`+`rng.choice`+`percentile(fraction)=means[round(fraction*(len(means)-1))]`)を同一実装でスクリプト化し、開幕単位(per-opening平均、id昇順)・局単位(id昇順→黒→白のインターリーブ、報告書の値と突合してこの並び順であることを確定)の両方で再現: E1 opening CI=[-7.633,-1.967]、E1 game CI=[-7.3,-2.233]、E2 opening CI=[-5.533,-0.067]、E2 game CI=[-5.433,-0.133]、符号検定(pos/neg/p)もすべて桁まで完全一致。両CIとも開幕単位で完全にマイナスであることを確認(規準どおり不採用)。v6基準線(T174再利用)の妥当性は、T174コミット以降の`engine/`差分4件(T175/T176/T178/T182)とspotcheck(先頭6局、move/board_before/nodes/depth/discDiff/timedOut/nodeLimitHit/exactFallback/margin/pliesが完全一致、elapsedMs/npsのみ差異)の記録を確認、T169前例の判定基準に整合。
+2. **共通frozen比較の追試**: `cargo build --release -p train --bin frozen_mae_eval`後、`train/data/t181/lv17_frozen.txt`(3,189,392行、既存キャッシュ)を使い、v6/e1-seed1/e2-seed1の3重みで再実行し、v6=4.492196、e1-seed1=4.968667、e2-seed1=4.784592を再現(レポート完全一致)。重みファイルのSHA-256(`e1-v0002/...seed-1-earlystop.bin`=`fc394046...`、`e2-mixed/...seed-1-earlystop.bin`=`f9de1839...`)もmeta.json記載値と一致。学習からのfrozen除外設計(`split_by_position_hash`がデータソース非依存の純粋関数であるため、E1/E2の学習コーパスからlv17 frozenと同一ハッシュ判定になる局面は自動的に除外される)は`bench/edax-compare/t181_v0002_report.meta.json`の`frozenSplitMechanism`に明記されていることを確認。
+3. **変換の検証(サンプル)**: (a) `train/data/t181/v0002_25m.txt`(24,919,545行)からランダム2,000行を抽出し正規表現`^[XO-]{64} -?\d+$`で全件マッチ、盤面石数・スコア範囲も異常なし。(b) checkpoint(`v0002_25m.checkpoint.json`)の`per_bucket_written`集計がレポート本文のバケット別採用数(空き1=487,947・2=489,629・3=491,128・25=490,214・26=490,047・48=490,400・50=489,839・51=424,603)と完全一致、`samples_written`(24,919,545)・`output_bytes_committed`(1,699,033,615)が実ファイルの行数・バイト数とも一致することを確認。(c) 独立実装のPython版Othelloリプレイヤー(engineのコードを一切参照せず標準ルールを新規実装)で`egaroucid_v0002/extracted/zip0/.../8/0000000.txt`の100局を再生し、ランダム序盤除外(フォルダ名N=8として`samples[0..N)`除外)後の候補局面5,199件(uniq)のうち378件が変換出力ファイル中に完全一致する行(64文字盤面+半角スペース+スコア)として実在することを確認 — この一致は「盤面+ラベル」の組み合わせでの厳密一致であり、独立再生した最終石差ラベルが変換出力のラベルと整合していることを裏付ける。
+4. `cargo test -p train --release`: 全ターゲット合計158+件、0 failed(train_patterns_v3.exe含む全バイナリ、frozen_mae_evalの3テスト含む)。`cargo test -p engine --release`: 245 passed/0 failed/2 ignored(ignoredはFFO重量級テスト、既知の意図的スキップ)。データ本体のコミット確認: `774db9f`(frozen_mae_eval.rs+tsvのみ)・`e0e0814`(report.md+meta.jsonのみ)・`a45b02c`(convert.rsのみ)・`d2fd124`(simple_corpus.rs差分のみ)を`git show --stat`/`git ls-tree -r -l`で確認、いずれも大容量データファイルなし。`git check-ignore -v`で`train/data/t181/*`・`train/data/egaroucid_v0002`・`bench/edax-compare/endgame-results/t181-*-results.json`が全て`.gitignore`ルールでignore対象と確認。
+5. `git status --short`: 検証開始時点でクリーン(本追記のみ)。
+6. コード修正なし・学習/対局の再実行なし(frozen_mae_evalの再実行のみ、既存キャッシュ・既存重みファイルを読むだけの読み取り検証)。
+
+**総合判定: 合格**。全受け入れ基準・追加検証観点(paired統計の独立再計算、frozen比較の追試、変換サンプルの独立リプレイ照合)を満たすことを確認した。
