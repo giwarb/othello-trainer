@@ -226,8 +226,9 @@ def main() -> None:
                 "theoreticalScore/blackDiscCountAtGameEnd are verbatim from the WTHOR-format "
                 "record (both fields are byte-identical across all ~37.7k lines in this book, "
                 "confirmed empirically -- see t192_verification_report.md). "
-                "expectedScoreSideToMove/expectedWldSideToMove below are a HYPOTHESIS, not yet "
-                "independently verified by exact search."
+                "expectedScoreSideToMove/expectedWldSideToMove below are derived from that value "
+                "under the hypothesis stated below; see 'verification' for how well that "
+                "hypothesis actually held up against eval_cli solve (full-window exact search)."
             ),
             "hypothesis": (
                 "theoreticalScore is Black's final disc count (0..64) under the line's "
@@ -236,8 +237,38 @@ def main() -> None:
                 "expectedScoreSideToMove = (2*theoreticalScore-64) if side_to_move == 'black' "
                 "else -(2*theoreticalScore-64)."
             ),
-            "verified": False,
-            "verificationTool": "bench/logistello/verify_wld.py (eval_cli solve, full window)",
+            # T192 (2026-07-22): the 100-position batch in bench/logistello/verify_wld.py has run
+            # to completion; these figures are pinned from that run (see
+            # bench/logistello/verify_summary.json for the full per-position breakdown, and
+            # t192_verification_report.md for the analysis). Re-running select_sample.py
+            # regenerates positions/rows identically (same seed) but does NOT re-run the
+            # exact-solve verification, so keep this block in sync by hand if verify_wld.py is
+            # ever re-run against a different sample.
+            "verification": {
+                "status": "completed (T192, 2026-07-22)",
+                "tool": "bench/logistello/verify_wld.py (eval_cli solve, full window, --alpha -64 --beta 64)",
+                "totalPositions": 100,
+                "wldMatchRate": 0.99,
+                "wldMatchNote": (
+                    "99/100 expectedWldSideToMove matched the native exact-solve sign. The one "
+                    "mismatch (t192-logistello-025: expected loss(-8), native solve found win(+6)) "
+                    "is treated as a genuine post-24-empties deviation in that particular self-play "
+                    "line rather than a solver defect: FFO #40-49 remain fully solved by this engine "
+                    "(existing regression), and this book's own documentation only claims "
+                    "WLD-correctness at 24 empties, not immunity from all deviation."
+                ),
+                "scoreExactMatchRate": 0.62,
+                "scoreExactNote": (
+                    "62/100 expectedScoreSideToMove matched the native exact disc-count exactly; "
+                    "all remaining mismatches but the one above are small (+/-2..+/-8, i.e. 1-4 disc "
+                    "swings). This matches the book's own claim that only WLD is guaranteed at 24 "
+                    "empties, with the exact score only guaranteed correct '1-2 plies later' "
+                    "(https://skatgame.net/mburo/log.html). Conclusion: expectedWldSideToMove is a "
+                    "reliable independent WLD oracle at 24 empties; expectedScoreSideToMove is NOT "
+                    "a reliable exact-score oracle at 24 empties and should not be used as one."
+                ),
+                "summaryFile": "bench/logistello/verify_summary.json",
+            },
         },
         "totalPositions": len(rows),
         "rows": rows,
