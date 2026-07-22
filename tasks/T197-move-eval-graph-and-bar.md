@@ -1,7 +1,7 @@
 ---
 id: T197
 title: 対局・中盤練習: 「打った手の評価値」折れ線グラフ+有利不利表示の変更
-status: redo
+status: review
 assignee: implementer
 attempts: 1
 ---
@@ -137,3 +137,34 @@ attempts: 1
 - Pages実機での本番タイミングでの再現は試みた(黒の一手直後に間髪入れず「1手戻る」をDOM直叩きで発火)が、今回の試行では発生条件(`evaluateHumanMove`のPromise未解決の間にundoが成立するタイミング)に至らず未再現(むしろReactのクロージャ鮮度の問題でundo自体がno-opになるケースも観測)。ただしこれはタイミング窓が本番エンジン速度では狭いだけであり、コード上の脆弱性そのもの(世代ガード欠如→スパース配列→無条件呼び出し→クラッシュ)は独立検証で機構として成立することを確認済み。
 
 **判定(最終・全体): 不合格として扱うべき**。本タスクファイルは既に`status: redo`(attempts:1)へ遷移済みであり、この判断は妥当と判断する(codex-review相当の指摘を自分でも機構レベルで再現・裏付け済み)。ユーザー指示の検証項目1〜7自体はすべてパスしているが、同一コミット(871aecd)に存在するこの重大な競合バグ(現実的な操作=着手直後の連打的なアンドゥ/新規対局で到達可能)を理由に、当該コミットの内容単体を「合格」として`done`に進めることはできない。フィードバック本文(redo #1)の指摘・修正方針は妥当であり、追加で「再発防止テスト」の明記どおり、undo/新規対局と`evaluateHumanMove`未解決状態が競合するケースをテストに追加することを推奨する。
+
+### 2026-07-23 redo#1対応完了(implementer)
+
+**修正内容:**
+- `app/src/app.tsx`: `evaluateHumanMove`にCPU着手effectと同型の`gameGenerationRef`世代ガードを追加(呼び出し元`handleMove`が着手時点の世代を捕まえて渡し、`await`後に現在の世代と照合、不一致なら`evalInfo`/`moveEvalHistory`の更新を行わず早期return)。`prepareNewGame`にも`gameGenerationRef.current += 1`を追加(`undoMove`は既存)。`upsertMoveEval`自体にも「書き込み先indexが現在の配列長を超える(=穴ができる)場合は何もしない」という防御を追加(二重の安全網、review提案どおり)。
+- `app/src/components/moveEvalTimeline.ts`: `PlayedMoveEval`に`pending?: boolean`を追加。人間の着手直後、`evaluateHumanMove`解決までのプレースホルダー(discDiff:null)には`pending: true`を付与し、`buildEvalGraphPoints`/`lastMoveEvalBarStateFor`/`lastMoveEvalBarState`はいずれも`pending`な手・配列の穴(`undefined`)を読み飛ばす`isDisplayable`ヘルパーを共通で使う(review軽微2「一瞬『定石』表示のちらつき」も解消、かつ穴に対する防御としても機能)。
+- `app/src/components/moveEvalOverlayLogic.ts`: デッドexport`computeBoardEvalScore`を削除(review軽微1)。対応するテスト(`moveEvalOverlayLogic.test.ts`)からも該当describeを削除。
+- 影響を受けたコメント(`app.tsx`・`app.playmode.evalDisplay.test.tsx`)を更新。
+
+**再発防止テスト:**
+- `components/moveEvalTimeline.test.ts`に4件追加: pendingな手をグラフから除外・前後に解決済みの手がある場合の除外・配列に穴があっても例外を投げず読み飛ばす(review記載のTypeErrorが実際に再現することを、`isDisplayable`を意図的に無効化した状態で確認してから元に戻す手順で検証済み)。`lastMoveEvalBarStateFor`/`lastMoveEvalBarState`にもpending・穴のケースを追加(計4件)。
+- 新規 `app/src/app.playmode.moveEvalRace.test.tsx`(実物の`<App/>`経由の統合テスト、2件): (a)着手直後にアンドゥを連打→`evaluateHumanMove`の遅延解決が古い世代のまま届く→もう1手打って状態を露呈させ、`moveEvalHistory`に穴・混入がないことをグラフの点数で確認、(b)着手直後に新規対局を開始→前の対局の遅延解決が届いても新しい対局が汚染されないことを同様に確認。
+- **検証手順の重要な注記**: このvitest+jsdom+preact/test-utils環境では、`evaluateHumanMove`の非同期解決から生じる`setState`更新が、直後の`act()`/`flushAsyncEffects()`だけでは実際のレンダーに反映されず(Preactの内部スケジューリングのタイミング起因、本番ブラウザでは通常発生しない環境依存の挙動)、そのままでは統合テストが「クラッシュしない」ことしか確認できず「値が正しい」ことを discriminate できなかった。このため各シナリオの最後に「もう1手打つ」という追加の操作を入れ、それによって初めてPreactが保留中の状態を確定的にレンダーに反映することを実験的に確認したうえでテストを設計した(このテクニック自体を、修正前のコードに一時的に戻して意図的に「期待値と異なる結果(3ではなく5、または3ではなく4)」になることを確認し、テストが実際に regression を検知できることを検証済み。詳細な実験ログは本作業ログには残さず、確認手順のみ記載する)。
+- `components/moveEvalTimeline.test.ts`の穴・pending系テストは、`isDisplayable`を一時的に「常にtrue」に戻す実験で、review記載の`TypeError: Cannot read properties of undefined (reading 'source'/'side')`が実際に発生することを確認済み(その後正しい実装に戻して全テストがパスすることを確認)。
+
+**実行結果:**
+- `cd app && npx tsc --noEmit -p .` exit 0。
+- `cd app && npx vitest run` → Test Files 103 passed / Tests 865 passed(全件)。
+- `cd app && npm run build` → 成功。
+- コミット: `69c5c98`(`app:`プレフィックス、変更対象ファイルのみパス明示add)。push成功(`d35bc39..69c5c98 main -> main`)。
+- GitHub Actions: `gh run watch 29962761704` → build/deployとも成功。
+- Pages実機確認(`https://giwarb.github.io/othello-trainer/`、Browser pane+JS直接dispatch、`window.onerror`/`unhandledrejection`リスナーを仕込んで検証):
+  - 対局モード(CPU対戦・黒番): d3着手直後に「1手戻る」を待たずに5連打→3秒待機後も`window.__caughtErrors`は空、盤面は初期状態(2/2)に正しく復帰、バーは「まだ相手の手がありません」表示のまま正常。さらに1手進めてから同様の連打(6回)を実施しても同じく無エラー・正常復帰を確認。
+  - 対局モード: d3着手直後(待たずに)「新規対局」→「黒番で開始」で新しい対局を開始し3秒待機→無エラー、新しい対局は汚染されず初期状態(2/2、バー中立)のまま。
+  - 中盤練習(ステージ1「虎」): 通常操作(着手→悪手比較UI「続ける」)後、評価バーが数値("-1")・グラフの帯凡例つき折れ線を正しく表示することを確認(regressionが無いことの一般確認)。
+  - 全操作を通じて`window.__caughtErrors`は最後まで空配列のまま(白画面化なし)。
+  - Actions: `gh run view 29962761704` → build/deployとも成功(✓)。
+- `git status --short` → タスクファイル自体の作業ログ追記以外に差分・未追跡ファイルなし。
+
+**判断に迷った点:**
+- 統合テストがこのvitest環境特有のPreactレンダリングタイミングの都合で「即座には」regressionをdiscriminateできなかった点は、テスト設計上の工夫(もう1手打って状態を確定させる)で解決したが、根本原因(なぜこの環境でこの特定の非同期チェーンからの`setState`が即座にレンダーへ反映されないか)は特定できていない。本番ブラウザでの実機確認では問題なく即座に反映されている(Pages実機確認のとおり)ため、プロダクションコードの正しさには影響しないテスト環境固有の事象と判断した。
