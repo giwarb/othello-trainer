@@ -1,7 +1,7 @@
 ---
 id: T187
 title: 高速化(6): パターン評価の増分化(incremental pattern evaluation)
-status: review
+status: done
 assignee: implementer
 attempts: 0
 ---
