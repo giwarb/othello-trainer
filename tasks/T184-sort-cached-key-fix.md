@@ -33,4 +33,32 @@ T183の発見: `engine/src/search.rs` の `ordered_moves` 内3箇所の `Vec::so
 
 ## 作業ログ
 
-(ワーカーが節目ごとに追記)
+### 2026-07-22 実施・完了
+
+- 修正: `engine/src/search.rs`の`ordered_moves`内3箇所(history=None/Some+HISTORY_BEFORE_MOBILITY/Some既定)の`moves.sort_by_key(...)`を`moves.sort_by_cached_key(...)`へ置換。キーの型・タイブレーク条件・クロージャの中身は一切変更していない(関数名の置換のみ)。
+
+- **絶対条件(探索結果完全一致)の実証**:
+  1. `git worktree add`で変更前(HEAD、`sort_by_key`のまま)を独立ディレクトリにチェックアウトし、そこで`eval_cli`をreleaseビルド(現HEADの`target/`とは完全に分離)。
+  2. T180/T182/T183と同じ中盤20局面バッチ(depth12・exact_from_empties0、MPC off/on)を、変更前バイナリ(worktree)と変更後バイナリ(現ワークツリー)の両方で実行。
+  3. **結果: 20局面×MPC off/onの全40探索で、move/score/depth/nodes/isExact/timedOutが完全一致(mismatch=0件)**。totalNodesもmpc_off=59,440,032・mpc_on=6,487,461で前後一致(T180/T182で確立済みの値とも一致)。
+  4. `cargo test -p engine --lib`に新規回帰テスト`t184_sort_by_cached_key_matches_pre_change_baseline`を追加(T180バッチのindex0〈MPC off〉・index2〈MPC on〉をdepth12で探索し、上記(3)で確認した実測値をハードコード)。246 passed; 0 failed; 2 ignored(既存245+新規1)。
+
+- **NPS実測(標準手順: worktree独立ビルド+交互3回、専有確認済み)**:
+  `Get-Process`で競合プロセス無しを確認後、変更前(worktree)/変更後(現HEAD)の2バイナリを「mpc_off before→after、mpc_on before→after」の順で3ラウンド交互実行。
+
+  | 条件 | before(3回平均, range) | after(3回平均, range) | 倍率 |
+  |---|---:|---:|---:|
+  | MPC off | 591,002 NPS [587,631〜593,078] | 1,256,106 NPS [1,246,436〜1,262,613] | **2.125倍(+112.5%)** |
+  | MPC on | 521,976 NPS [518,044〜527,264] | 1,207,395 NPS [1,196,507〜1,214,425] | **2.313倍(+131.3%)** |
+
+  3ラウンドとも安定した値(rangeが平均の1%程度に収まる)で、系統誤差の兆候なし。T182で発生した「git stash+同一dir逐次ビルド」の系統誤差問題は、今回のworktree独立ビルド手順では再現しなかった。
+
+- **対Edax倍率の更新値**: T180のEdax NPS実測値(29,426,082、同一20局面バッチ・depth12)は不変のため、T180が報告したうちのエンジンNPS(mpc off 518,217・mpc on 429,832)に今回測定した倍率(2.125倍・2.313倍)を適用して更新値を算出(絶対NPSの直接比較はセッション間変動の影響を受けるため、T182の教訓により相対倍率を適用する方式を採用):
+  - MPC off: 518,217 → **約1,101,410 NPS**、対Edax比 **56.8倍 → 約26.7倍**
+  - MPC on: 429,832 → **約994,253 NPS**、対Edax比 **68.5倍 → 約29.6倍**
+
+  (参考: 今回の測定セッションでの生の「after」絶対値〈mpc off 1,256,106 / mpc on 1,207,395〉をそのままT180のEdax値と比較すると23.4倍/24.4倍とさらに縮んだ値になるが、セッション間のハードウェア状態変動を含みうるため、上記の相対倍率適用による更新値を正式な報告値とする。)
+
+- FFO fast(release): `cargo test -p engine --test ffo_bench --release -- --nocapture`: #40-#44全問正解(期待値と一致)、endgame.rsは無変更のため想定通り無影響。
+- `ANALYSIS_ENGINE_VERSION`: 探索結果(score含む)が40局面全て前後一致のため繰り上げ不要の判断を維持。
+- git worktreeは計測後`git worktree remove --force`で削除済み。`git status --short`: `engine/src/search.rs`のみ差分(パス明示コミット予定)。
