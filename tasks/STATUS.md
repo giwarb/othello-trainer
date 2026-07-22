@@ -12,7 +12,7 @@
 
 | ID | タスク | 担当 | 状態 | 試行 |
 |---|---|---|---|---|
-| T190 | 高速化(9): lazy ordering+パス経路マスク持ち越し | verifier+代替レビュー | review(実装完了6a19815。**NPS off+8.0%/on+0.6%・ノード完全一致・残候補省略率67.5%**。並列検収中) | 0 |
+| T191 | 高速化(10): lazy orderingのhistory有効経路への拡張(historyスナップショット方式) | implementer | in_progress | 0 |
 | — | ~~T177設計諮問~~ **中止**(2026-07-22ユーザー指示「codexに諮問しなくてよい」。増分評価等はオーケストレーター判断でタスク化する。依頼書 tasks/design/T177-*-request.md は参考資料として残置) | — | 中止 | — |
 | T179 | 公開教師データの追加調査 | general-purpose | **done**(7系統調査済み、詳細はタスクファイル)。**最有力: Egaroucid v0002=5200万局の対戦棋譜(2026-06新規、スコア無し→ラベル付け要)**+Logistello 3.7万ライン(高品質・変換容易)。「zip内未使用ボリューム」はオーケストレーター追試で実在せずと訂正。取り込み判断はT180後(ラベル付けコスト=エンジン速度依存) | 0 |
 | T185 | 高速化(4): ordering残余最適化+時間更新計測 | **採用**(c2cbd8e、verifier合格〔独立追試・時間分布再測定で核心主張裏付け〕、redo 0回)。固定長配列化+next_board持ち越しで+1.7-3.2%。sort_unstable試行は実測-45%で差分破棄(実測ファーストの正しい運用)。**深さ12の1手時間: mean-26.3%・max 10.2→8.4秒**。申し送り: 時間計測raw JSON保存・バッチフィルタ明記 |
@@ -90,6 +90,7 @@
 | ID | タスク | 結果1行サマリ |
 |---|---|---|
 | T186 | 高速化(5): legal_moves重複計算排除 | **採用**(4144c5d、verifier合格〔diff全文・テスト2回・CI/Pages確認〕、redo 0回)。ordered_movesへlegal引数追加の9行配線のみ、探索結果ビット不変。codex-review省略(挙動非影響の軽微規定を適用) |
+| T190 | 高速化(9): lazy ordering+パス経路マスク持ち越し | **採用**(6a19815、verifier〔raw再計算・historyゲート・固定値無改変確認。regression-catching直接再現は役割制約で実装者実施+構造確認の代替〕/代替レビュー〔重大0・中0・軽微1=可読性〕両合格、redo 0回)。**NPS off+8.0%/on+0.6%非悪化、ノード完全一致、TT手カットオフによる残候補構築省略率67.5%**。重要発見: 本番ノード予算経路はenable_history:trueハードコードでlazy対象外→T191で拡張 |
 | T189 | 高速化(8): 合法手マスクの親子持ち越し+スカラー再利用 | **採用**(f31f066、verifier〔regression-catching追試・raw再計算・ordering不変のdiff確認〕/代替レビュー〔重大0・中0・軽微1=パス経路の相手側マスク二重計算→T190で対応〕両合格、redo 0回)。**NPS off+12.4%/on+8.5%、ノード完全一致**。orderingで計算済みのマスクをOrderedMoveに保持し子negascout・MPCプローブ・葉スカラー(mover側)で再利用 |
 | T188 | 高速化(7): T187後のRDTSC再プロファイル | **完了**(90698d3、計測のみ・engine不変〔コミットstat+CI+status空で確認〕、軽微規定でverifier/レビュー省略、redo 0回)。**内訳: ordered_moves 47.7%(うちsort_legal_moves 16.5%〔off〕)/static_eval 21%(パターン表引き9.4-10%+スカラー8.6-8.7%)/legal_moves_top 5%/state.child 5.8%**。T184-187の累積で壁時計43.0s/5.03s(T183比2.9倍/3.3倍)、ノード数はT180以来完全一致。優先1=スカラー特徴削減、2=orderingモビリティキー削減、flipsテーブル化とTTは候補外と確定 |
 | T187 | 高速化(6): パターン評価の増分化 | **採用**(e680a75+0d454f2、verifier〔regression-catching追試・raw JSON再検算・CRLF差分ゼロ〕/代替レビュー〔重大0・中0・軽微4、swap12/f32加算順/全配線を数式レベルで確認〕両合格、redo 0回)。**NPS off+37.0%/on+38.1%、ノード数完全一致(40探索mismatch 0)**。黒視点絶対色raw状態+swap12写像テーブルで手番吸収、パスは更新ゼロ。申し送り: 次にpattern_eval.rsを触るタスクでpub(crate)絞り込み・zeroed_canonical二重構築解消を検討/idx写像表は最大約5MB(パターン形状拡張時に再確認)/PatternState値渡し(256B)の参照渡し化は追加最適化の余地 |
