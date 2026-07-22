@@ -1,7 +1,7 @@
 ---
 id: T195
 title: 中盤練習: 悪手直後の「2手先」2盤面比較フィードバック
-status: review
+status: done
 assignee: implementer
 attempts: 0
 ---
@@ -92,3 +92,26 @@ attempts: 0
 
 **仕様どおりにできなかった点・判断に迷った点**
 - なし(スコープ外のBoardOverlay併用は不採用、代替の「最終手マーカー」案は仕様が明示的に許容していた選択肢)。
+
+### 2026-07-23 verifier独立検証(判定: 合格)
+
+対象コミット `e9984a3`(検証時点でHEADは `ecd9792` だが、これは`tasks/`のみの差分でapp/配下に変更なし。実質同一内容を検証)。
+
+1. `cd app && npx vitest run` → 全99ファイル845件パス。新規テスト個別実行でも確認: `twoPlyCompare.test.ts`10件・`TwoPlyCompare.test.tsx`5件・`PracticeMode.flow.test.tsx`3件、いずれもパス。
+2. **検知力の抜き取り確認**: `twoPlyCompare.ts`の`computeTwoPlyBranch`内、相手最善応手の特定(`const best = bestOf(opponentMoves)`)を一時的に「最悪応手を選ぶ」実装(`opponentMoves.reduce((a,b)=>(b.discDiff<a.discDiff?b:a))`)に書き換えて`twoPlyCompare.test.ts`を再実行 → 想定どおり2件が検知して失敗(「通常ケース」で応手が`f4`期待に対し`d6`、「自分パス」で`kind`が`selfPass`期待に対し`ok`)。直後に元のコードへ復元し、`git diff app/src/midgame/twoPlyCompare.ts`が空(完全復元)であることを確認したうえで再実行し15件全パスに戻ることを確認。
+3. `cd app && npm run build`(`tsc -b && vite build`+wasm検証スクリプト+SW版数注入)→ 成功。
+4. `git show e9984a3 --stat` → 変更11ファイルはすべて`app/src/`配下(`app.css`/`ClearBlunderCompare.*`削除/`PracticeMode.css`/`PracticeMode.tsx`/`TwoPlyCompare.css`/`TwoPlyCompare.tsx`/`twoPlyCompare.test.ts`/`twoPlyCompare.ts`/`PracticeMode.flow.test.tsx`)。`tasks/`・`engine/`の混入なし。
+5. コード読解による要件突合:
+   (a) 閾値: `PracticeMode.tsx`の既存定数`PATTERN_DETECTION_LOSS_THRESHOLD = 1`(旧T129由来)をそのまま`handlePlayerMove`(L545, L598)・結果画面`worstMoveCompareInfo`(L753)双方のゲート条件に再利用。新規定数の追加なし。
+   (b) 悪手時のゲート: `handlePlayerMove`は`!isBest && lossDiscs >= PATTERN_DETECTION_LOSS_THRESHOLD`のとき`setSession`を呼ばず`setPendingCompare(...)`のみ実行(L598-616)。`session`が着手前のまま変わらないため相手自動応手`useEffect`(`session.sideToMove !== humanSide`条件)は発火せず、`handleContinueAfterCompare`(L654-662)が呼ばれて初めて`setSession(pending.nextSession)`される設計を確認。実機操作でも保留→続けるの動作を確認(下記6)。
+   (c) `getAnalyzedMoves`一元化: 表示・判定・応手は従来どおり`getAnalyzedMoves`(L265-273、局面+手番でキャッシュ)経由のまま変更なし。比較専用に`requestAnalyzeAllForCompare`(L284-286、キャッシュなしで`getEngine().requestAnalyzeAll`を直接呼ぶ別関数)を新設し、`loadTwoPlyCompare`→`computeTwoPlyCompare`→系列ごとに`computeTwoPlyBranch`が最大2回ずつ呼ぶ設計(最大合計4回)。既存キャッシュへの混入なし。
+   (d) `patternStats`記録: `handlePlayerMove`内の`recordPatternFailuresNow(allDetectedPatternIds)`(L563)呼び出しは即時フィードバック導入後も変更されておらず、`clearBlunderPatterns`の検出・記録経路は温存されていることを確認。結果画面側も`worst.clearBlunderPatterns`をそのまま`TwoPlyCompare`の`patterns`propに渡すのみで検出・記録ロジックの二重化なし。
+   (e) `resolveMover`使用: `twoPlyCompare.ts`が`resolveMover`を直接import(L41)し、規則1・3の終局判定に使用(L107, L139)。`PracticeMode.tsx`側も`resolveNextSideOrFallback`(`resolveMover`をラップ、`resolveMover.ts:48-50`)を着手適用後・比較後続行の両方で使用(L584, L671等)。
+6. **GitHub Pages実機確認(Playwright、`chromium.launch()`ヘッドレス、`https://giwarb.github.io/othello-trainer/`)**: `gh run list`で`e9984a3`のデプロイ実行(29956664974/29956665006)がいずれも`conclusion: success`であることを確認したうえで本番URLへ直接アクセスして検証(HEADは`ecd9792`だが差分はtasks/のみのため公開内容は同一)。
+   - シナリオA(悪手): 中盤練習ステージ1で合法手評価オーバーレイの最小値(-10、g5)を選んでクリック → 見出し「最善ではありません(最善より約12石損)」、盤面ヘッダ「あなた: g5 → 相手: e3 → 打てる場所: 6 か所」/「あなた: f4 → 相手: f6 → 打てる場所: 7 か所」、主文「この手だと次にあなたは6か所に打てます(いちばん良い手で-12)。最善手なら7か所(いちばん良い手で+1)でした。」、損失文「この手は最善手より約12石損しています。」、両盤面に合法手評価オーバーレイ(計13マス)を確認。実装者の報告値と完全一致。スクリーンショット保全(セッションscratchpad内`t195-compare.png`)。
+   - 「続ける」クリック→`.two-ply-compare`がDOMから消え、保留していた相手応手(e3、赤リング)が適用された通常プレイ画面に戻ることを確認(スクリーンショット`t195-after-continue.png`)。
+   - シナリオB(最善手): 新規セッションでオーバーレイ最大値(0、b4相当)をクリック→4秒待っても`.two-ply-compare`が出現しないこと(悪手でない手では比較が出ない)、その後相手が自動応手し通常どおりステージが続行すること(評価バー+1、相手応手に赤リング)を確認(スクリーンショット`t195-bestmove-noncompare.png`)。
+   - コンソールエラー・pageerrorともに0件。
+7. `git status --short` → クリーン(検証中に生成した一時ファイルはリポジトリ外のセッションscratchpadに保存し、リポジトリには残していない)。
+
+**総合判定**: 合格。受け入れ基準4項目すべて満たし、追加確認(検知力抜き取り・要件突合・実機2シナリオ)もすべて期待どおり。指摘事項なし。
