@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'preact/hooks'
 import './app.css'
 import { AnalysisMode } from './analysis/AnalysisMode.tsx'
+import { EvalGraph } from './analysis/EvalGraph.tsx'
 import { loadClassifyThresholds } from './analysis/thresholdSettings.ts'
 import type { ClassifyThresholds } from './analysis/types.ts'
 import { BlunderSettings } from './blunder/BlunderSettings.tsx'
@@ -10,7 +11,12 @@ import { BoardEditor, type BoardEditorResult } from './components/BoardEditor.ts
 import { EvalBadge, formatDiscDiff } from './components/EvalBadge.tsx'
 import { Board, DISPLAY_GAP_MS, FLIP_ANIMATION_MS } from './components/Board.tsx'
 import { MoveEvalOverlay } from './components/MoveEvalOverlay.tsx'
-import { computeBoardEvalScore } from './components/moveEvalOverlayLogic.ts'
+import {
+  buildEvalGraphPoints,
+  lastMoveEvalBarState,
+  lastMoveEvalBarStateFor,
+  type PlayedMoveEval,
+} from './components/moveEvalTimeline.ts'
 import { PlayerBadge } from './components/PlayerBadge.tsx'
 import { ResultCelebration } from './components/ResultCelebration.tsx'
 import { celebrationKindFor, type CelebrationKind } from './components/resultCelebrationLogic.ts'
@@ -451,8 +457,14 @@ function PlayMode({ onReviewGame }: PlayModeProps) {
   // 一手の反転アニメーションが終わってから演出を表示する(要件3)。
   const [celebrationVisible, setCelebrationVisible] = useState(false)
 
-  // 現在の評価値バー(T077要件2・3、T138要件5で常時表示化)。
-  const [evalBarValue, setEvalBarValue] = useState<number | null>(null)
+  // T197: 「打った手の評価値」の時系列記録(折れ線グラフ・評価バー用)。
+  // `moveHistory`と同じ順序・長さで対応する(パスは記録しない)。
+  // 人間の手(`handleMove`→`evaluateHumanMove`)・CPUの手(CPU着手effect)の
+  // 双方が非同期に解決するため、配列への追記は「push」ではなく`ply`(=着手時点の
+  // `moveHistory.length`)をキーにした上書き(upsert)で行う。これにより、
+  // 人間の着手の評価取得(`evaluateHumanMove`)がCPUの応手より後に解決しても
+  // 順序が壊れない(人間の着手時に即座にプレースホルダーを積んでおくため)。
+  const [moveEvalHistory, setMoveEvalHistory] = useState<readonly PlayedMoveEval[]>([])
 
   // T138要件6: 定石トレース表示(オセロクエスト風)。`displayGame`が定石DBの
   // いずれかのノードに一致する間、その`{names, ply}`を保持し続ける。一致しなく
@@ -537,7 +549,7 @@ function PlayMode({ onReviewGame }: PlayModeProps) {
         : null
 
     requestCpuMove(game, getEngine(), cpuMoveLimitForLevel(level, game.board), bookMove)
-      .then((next) => {
+      .then(({ state: next, evalScore }) => {
         // T140: `cancelled`(effect再実行によるクリーンアップ)に加え、対局世代も
         // 照合する。undo実行中にこのCPU応手が解決した場合、世代が食い違うため
         // 適用しない(思考中のCPU応手を破棄する要件1後段の安全網)。
@@ -545,7 +557,31 @@ function PlayMode({ onReviewGame }: PlayModeProps) {
           // T132: CPUの着手(書籍応手・探索応手いずれも)が実際に成立した場合のみ
           // 履歴へ追記する(`appendPlayedMove`は`lastMove`が変化していなければ
           // 何もしない)。
+          const moved = next.lastMove !== null && next.lastMove !== game.lastMove
           setMoveHistory((h) => appendPlayedMove(h, game, next))
+          if (moved) {
+            // T197: `evalScore`(`requestCpuMove`が返す、以前は捨てていた
+            // `response.score`)を`moveEvalHistory`へ記録する。定石ブック手
+            // (`evalScore === null`)は探索していないため評価値なし=定石扱い
+            // (T046規約、`moveEvalTimeline.ts`参照)。`h.length`をキーにした
+            // 追記(人間側と同じ`upsertMoveEval`と同じ考え方)により、この
+            // コールバックが人間の`evaluateHumanMove`より先に解決しても、
+            // 人間の着手は`handleMove`で既に同期的にプレースホルダーを
+            // 積んでいるため順序は保たれる。
+            setMoveEvalHistory((h) => {
+              const ply = h.length + 1
+              const copy = h.slice()
+              copy[h.length] = {
+                ply,
+                notation: squareToNotation(next.lastMove!),
+                side: game.sideToMove,
+                discDiff: evalScore ? evalScore.discDiff : null,
+                source: evalScore ? evalScore.type : 'joseki',
+                isExact: evalScore ? evalScore.type === 'exact' : false,
+              }
+              return copy
+            })
+          }
           setGame(next)
           // T134: CPUの着手はここで確定するが、盤面への反映(表示)は
           // `displaySequencerRef`に委ね、直前のアニメーション完了+間まで待たせる。
@@ -578,16 +614,18 @@ function PlayMode({ onReviewGame }: PlayModeProps) {
     if (game.phase !== 'cpu') setThinking(false)
   }, [game.phase])
 
-  // T138: 候補手評価オーバーレイ(T039)+現在の評価値バー(T077)を、1本の
-  // `requestAnalyzeAll`から導出する(仕様1・2・「値の整合が構造的に保証される」)。
-  // 人間の手番になった時点で現局面(着手前)の全合法手の評価をまとめて取得し、
-  // (a) マスごとのオーバーレイ表示用データ、(b) 定石ブックcap対象マス集合
-  // (`lookupJosekiNode`の`bookMoves`、仕様3・4)、(c) 盤面評価値(=合法手評価の
-  // 最大値にブックcapを適用したもの、`computeBoardEvalScore`)をまとめて更新する。
-  // どちらも常時表示(仕様5、ON/OFFの概念自体を廃止)。`evaluateHumanMove`
-  // (人間の着手*後*にその1手だけを評価するもの)とは目的・タイミングが異なるため
-  // 状態を分けている(将来的に1回のリクエストへ統合する余地はあるが、本タスクの
-  // スコープ外・作業ログ参照)。
+  // T138: 候補手評価オーバーレイ(T039)を`requestAnalyzeAll`から導出する
+  // (仕様3・4: マスごとのオーバーレイ表示用データ+定石ブックcap対象マス集合
+  // (`lookupJosekiNode`の`bookMoves`))。常時表示(仕様5、ON/OFFの概念自体を廃止)。
+  // `evaluateHumanMove`(人間の着手*後*にその1手だけを評価するもの)とは目的・
+  // タイミングが異なるため状態を分けている(将来的に1回のリクエストへ統合する
+  // 余地はあるが、本タスクのスコープ外・作業ログ参照)。
+  //
+  // T197: 評価値バー(現在の盤面評価)はこのエフェクト由来の`computeBoardEvalScore`
+  // への依存を撤去し、`moveEvalHistory`(打った手の評価値の記録)から導出する
+  // 「前回の相手の手の評価値」に置き換えた(下の`moveEvalBarState`参照)。この
+  // エフェクト自体はオーバーレイ表示用として引き続き必要(`requestAnalyzeAll`の
+  // 呼び出し回数・順序・limitは変えない)。
   //
   // `game`ではなく`displayGame`を見る(T134)。このオーバーレイは`<Board>`の
   // 各マスに重ねて描画するため、盤面がまだCPUの応手を表示していない
@@ -595,22 +633,9 @@ function PlayMode({ onReviewGame }: PlayModeProps) {
   // 出してしまうと、まだ画面上に残っている前の局面のマスと数値がずれて見える。
   // `displayGame`が人間の手番に追いつくのを待つことでこれを避ける。
   //
-  // CPUの手番中(`'cpu'`)は取得せず、直前(人間手番時)のオーバーレイだけ
-  // クリアする(評価値バーはあえて直前の値を残す。着手直後〜CPU応手までの
-  // 短い間、盤面評価がいったん消えて再度出るより、直前の値を残したほうが
-  // 見やすいため)。終局後(`'over'`)は合法手が無い局面をエンジンに問い合わせて
-  // エラーになるのを避けるため、石差をそのまま使う。
+  // CPUの手番中(`'cpu'`)・終局後(`'over'`)は取得せず、直前(人間手番時)の
+  // オーバーレイだけクリアする。
   useEffect(() => {
-    const perspectiveSide: Side = displayGame.vsHuman ? 'black' : displayGame.humanSide
-
-    if (displayGame.phase === 'over') {
-      setOverlayMoves(null)
-      const black = countDiscs(displayGame.board, 'black')
-      const white = countDiscs(displayGame.board, 'white')
-      setEvalBarValue(perspectiveSide === 'black' ? black - white : white - black)
-      return
-    }
-
     if (displayGame.phase !== 'human') {
       setOverlayMoves(null)
       return
@@ -627,14 +652,6 @@ function PlayMode({ onReviewGame }: PlayModeProps) {
         const lookup = safeLookupJosekiNode(josekiDb, displayGame.board, displayGame.sideToMove, firstMove)
         const bookSquares = new Set<number>((lookup?.bookMoves ?? []).map((bookMove) => bookMove.move))
         setOverlayBookSquares(bookSquares)
-
-        const boardScore = computeBoardEvalScore(moves, bookSquares)
-        if (boardScore === null) {
-          setEvalBarValue(null)
-          return
-        }
-        const value = displayGame.sideToMove === perspectiveSide ? boardScore : -boardScore
-        setEvalBarValue(value)
       })
       .catch((error: unknown) => {
         console.error('候補手評価オーバーレイの取得に失敗しました', error)
@@ -693,15 +710,37 @@ function PlayMode({ onReviewGame }: PlayModeProps) {
   }
 
   /**
+   * `ply`(=`moveHistory.length`、着手前時点)の位置にある`moveEvalHistory`の
+   * 記録を上書きする(T197)。人間の着手・CPUの着手のどちらも、着手成立時点で
+   * まず`ply`をキーにプレースホルダーを積み(`handleMove`・CPU着手effect参照)、
+   * 実際の評価値が解決し次第この関数で上書きする。`ply`をキーにすることで、
+   * 人間の評価取得(`evaluateHumanMove`、非同期)がCPUの応手より後に解決しても
+   * (2つの非同期処理は独立に進行するため順序は保証されない)、書き込み先の
+   * 位置がズレない。
+   */
+  function upsertMoveEval(ply: number, entry: PlayedMoveEval): void {
+    setMoveEvalHistory((h) => {
+      const next = h.slice()
+      next[ply] = entry
+      return next
+    })
+  }
+
+  /**
    * 着手前の局面(`preBoard`/`preSide`)を対象に `requestAnalyzeAll` を呼び、
    * 評価ソース(定石/中盤/終盤)・悪手判定結果を求めて `evalInfo` に反映する。
    * 人間の着手直後にのみ呼ぶ(CPUの着手には表示不要、要件5)。
+   *
+   * T197: 同じ`requestAnalyzeAll`結果から得られる「打った手の評価値」
+   * (`playedEval.discDiff`、新規のエンジン呼び出しは追加しない)を
+   * `moveEvalHistory`(`ply`位置)へも記録する。
    */
   async function evaluateHumanMove(
     preBoard: BoardState,
     preSide: Side,
     playedSquare: number,
     firstMove: number,
+    historyIndex: number,
   ): Promise<void> {
     const playedNotation = squareToNotation(playedSquare)
     try {
@@ -723,6 +762,14 @@ function PlayMode({ onReviewGame }: PlayModeProps) {
           : null
 
       setEvalInfo({ discDiff: playedEval.discDiff, source, blunder: judgement.blunder, reason })
+      upsertMoveEval(historyIndex, {
+        ply: historyIndex + 1,
+        notation: playedNotation,
+        side: preSide,
+        discDiff: playedEval.discDiff,
+        source,
+        isExact: playedEval.type === 'exact',
+      })
     } catch (error) {
       console.error('着手の評価取得に失敗しました', error)
     }
@@ -757,13 +804,26 @@ function PlayMode({ onReviewGame }: PlayModeProps) {
     // 履歴追記のような副作用を行うと、React 18 Strict Modeの二重呼び出しで
     // 履歴が二重に積まれる恐れがあるため、`setGame`の外で一度だけ計算する。
     const nextState = playMove(game, square)
+    // T197: この着手が`moveEvalHistory`に積まれる位置(=着手前時点の
+    // `moveHistory.length`)。評価値の解決(`evaluateHumanMove`)は非同期なので、
+    // 先にこの位置へプレースホルダーを積んでおく(CPUの応手が先に解決しても
+    // 順序がズレないようにするため、上の`upsertMoveEval`コメント参照)。
+    const historyIndex = moveHistory.length
     setMoveHistory((h) => appendPlayedMove(h, game, nextState))
     setGame(nextState)
     // T134 redo#1: 上の`displayGame !== game`ガードにより、この行に到達する
     // 時点では表示は必ず追いついている(=直列化キューはアイドル中)ため、
     // このpushは常に即座に反映される(待ちが発生するのはCPUの応手のpushのみ)。
     displaySequencerRef.current?.push(nextState)
-    void evaluateHumanMove(preBoard, preSide, square, firstMove)
+    upsertMoveEval(historyIndex, {
+      ply: historyIndex + 1,
+      notation: squareToNotation(square),
+      side: preSide,
+      discDiff: null,
+      source: 'midgame',
+      isExact: false,
+    })
+    void evaluateHumanMove(preBoard, preSide, square, firstMove, historyIndex)
   }
 
   /**
@@ -779,12 +839,12 @@ function PlayMode({ onReviewGame }: PlayModeProps) {
     setEvalInfo(null)
     setEditorOpen(false)
     setMoveHistory([])
+    setMoveEvalHistory([])
     // T138: 前の対局のオーバーレイ・評価値バー・定石トレースを持ち越さない
     // (人間が白番でCPUが初手を指す対局では、人間の手番になるまで候補手評価
     // エフェクトが発火せず、リセットしないと前の対局の値が一瞬残って見えてしまう)。
     setOverlayMoves(null)
     setOverlayBookSquares(new Set())
-    setEvalBarValue(null)
     setJosekiTrace(null)
   }
 
@@ -890,6 +950,7 @@ function PlayMode({ onReviewGame }: PlayModeProps) {
     const next = replayMoves(game.humanSide, game.vsHuman, truncated)
 
     setMoveHistory(truncated)
+    setMoveEvalHistory((h) => h.slice(0, keep))
     setGame(next)
     displaySequencerRef.current?.reset(next)
     setThinking(false)
@@ -944,6 +1005,23 @@ function PlayMode({ onReviewGame }: PlayModeProps) {
 
   // T138要件6: 定石トレース表示の文言(`josekiTrace`が無ければ何も表示しない)。
   const josekiTraceText = josekiTrace ? formatJosekiTrace(josekiTrace.names, josekiTrace.ply, !josekiTrace.active) : ''
+
+  // T197: 評価値バー=「前回の相手の手の評価値」。CPU対戦は相手(CPU)側の直近の手、
+  // 2人対戦は手番を問わない直近の手(打った側視点、色ラベル付きで表示)。
+  const moveEvalBarState = game.vsHuman
+    ? lastMoveEvalBarState(moveEvalHistory)
+    : lastMoveEvalBarStateFor(moveEvalHistory, opposite(game.humanSide))
+  // CPU対戦は相手(CPU)視点の値をあなた視点へ反転する。2人対戦は打った側視点のまま
+  // (キャプションもその側の視点であることを明示する)。
+  const barDisplayValue =
+    moveEvalBarState.kind === 'value' ? (game.vsHuman ? moveEvalBarState.discDiff : -moveEvalBarState.discDiff) : null
+  const barCaption = game.vsHuman
+    ? moveEvalBarState.kind === 'none'
+      ? '直前の手の評価(打った側視点、+なら打った側有利)'
+      : `${sideLabel(moveEvalBarState.side)}の直前の手の評価(${sideLabel(moveEvalBarState.side)}視点、+なら${sideLabel(moveEvalBarState.side)}有利)`
+    : '相手の直前の手の評価(あなた視点、+ならあなた有利)'
+  // T197: 「打った手の評価値」折れ線グラフ(黒視点、定石帯0固定のT046規約)。
+  const evalGraphPoints = buildEvalGraphPoints(moveEvalHistory)
 
   return (
     <>
@@ -1114,13 +1192,23 @@ function PlayMode({ onReviewGame }: PlayModeProps) {
           <div class="play-board-area__side">
             {displayGame.passMessage && <p class="notice">{displayGame.passMessage}</p>}
 
-            {/* T138要件5: 常時表示(旧ON/OFFチェックは廃止)。 */}
-            {evalBarValue !== null && (
-              <div class="play-eval-bar">
-                <p class="play-eval-bar__caption">
-                  現在の評価値({sideLabel(game.vsHuman ? 'black' : game.humanSide)}視点、+なら有利)
-                </p>
-                <EvalBar discDiff={evalBarValue} />
+            {/* T138要件5: 常時表示(旧ON/OFFチェックは廃止)。
+                T197: 表示内容を「現在の盤面評価」から「前回の相手の手の評価値」に
+                変更した。まだ相手の手が無い(初手前)・定石ブック手(評価値なし)は
+                数値の代わりに控えめなメッセージを出す(`moveEvalBarState`参照)。 */}
+            <div class="play-eval-bar">
+              <p class="play-eval-bar__caption">{barCaption}</p>
+              {moveEvalBarState.kind === 'value' && <EvalBar discDiff={barDisplayValue!} />}
+              {moveEvalBarState.kind === 'joseki' && <p class="play-eval-bar__note">定石</p>}
+              {moveEvalBarState.kind === 'none' && <p class="play-eval-bar__note">まだ相手の手がありません</p>}
+            </div>
+
+            {/* T197: 「打った手の評価値」折れ線グラフ。手を打つたびに点が増える
+                (`EvalGraph`を再利用、黒視点・定石帯0固定のT046規約)。まだ1手も
+                打たれていない間は表示しない。 */}
+            {moveHistory.length > 0 && (
+              <div class="play-eval-graph">
+                <EvalGraph points={evalGraphPoints} markers={[]} />
               </div>
             )}
 

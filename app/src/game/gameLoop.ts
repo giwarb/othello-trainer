@@ -65,9 +65,33 @@ export interface CreateGameOptions {
  * CPUの着手取得に必要な最小限のインターフェース。
  * T012の `EngineClient.requestAnalyze` はこれを満たすため、本番ではそのまま渡せる。
  * 単体テストでは `pv` フィールドだけを持つモックに差し替えられる。
+ *
+ * `score`(T197)は`AnalyzeResponseMessage.score`と同じ形(手番=CPU視点の評価値)。
+ * 単体テストの簡易モックが省略できるよう省略可能にしてある(省略時は
+ * `requestCpuMove`の戻り値`evalScore`が`null`になるだけで、着手適用自体には影響しない)。
  */
 export interface EngineQuery {
-  requestAnalyze(board: Board, turn: Side, limit: AnalyzeLimit): Promise<{ pv: readonly string[] }>
+  requestAnalyze(
+    board: Board,
+    turn: Side,
+    limit: AnalyzeLimit,
+  ): Promise<{ pv: readonly string[]; score?: { discDiff: number; type: 'midgame' | 'exact' } }>
+}
+
+/**
+ * `requestCpuMove`の戻り値(T197)。
+ *
+ * 「打った手の評価値」折れ線グラフ・評価バー(`app.tsx`のPlayMode)のため、
+ * 新規のエンジン呼び出しを増やさずこの関数が既に受け取っている
+ * `response.score`(捨てていた値)をそのまま呼び出し元へ渡す。
+ */
+export interface CpuMoveOutcome {
+  readonly state: GameState
+  /**
+   * 実際に適用した着手についてエンジンが返した評価値(着手した側=CPU視点)。
+   * 定石ブック手(探索していない)・CPUの手番でない・合法手取得失敗の場合は`null`。
+   */
+  readonly evalScore: { readonly discDiff: number; readonly type: 'midgame' | 'exact' } | null
 }
 
 function phaseFor(side: Side, humanSide: Side, vsHuman: boolean): GamePhase {
@@ -250,19 +274,23 @@ export async function requestCpuMove(
   engine: EngineQuery,
   limit: AnalyzeLimit,
   bookMove: number | null = null,
-): Promise<GameState> {
-  if (state.phase !== 'cpu') return state
+): Promise<CpuMoveOutcome> {
+  if (state.phase !== 'cpu') return { state, evalScore: null }
 
   // Apply a legal opening-book move immediately without invoking engine search (T093).
   // Missing or invalid book moves fall back to the existing engine path.
+  // T197: 定石ブック手は探索していないため評価値なし(`evalScore: null`)。
   if (bookMove !== null && legalMoves(state.board, state.sideToMove).includes(bookMove)) {
-    return playMove(state, bookMove)
+    return { state: playMove(state, bookMove), evalScore: null }
   }
 
   const response = await engine.requestAnalyze(state.board, state.sideToMove, limit)
   const bestMove = response.pv[0]
-  if (bestMove === undefined) return state
+  if (bestMove === undefined) return { state, evalScore: null }
 
   const square = notationToSquare(bestMove)
-  return playMove(state, square)
+  // T197: `response.score`(以前は捨てていた値)をそのまま呼び出し元へ返す。
+  // 新規のエンジン呼び出しは行わない。
+  const evalScore = response.score ? { discDiff: response.score.discDiff, type: response.score.type } : null
+  return { state: playMove(state, square), evalScore }
 }

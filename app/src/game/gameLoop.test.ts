@@ -47,9 +47,10 @@ describe('requestCpuMove', () => {
     const game = createGame('black') // phase: 'human'
     const engine: EngineQuery = { requestAnalyze: vi.fn() }
 
-    const next = await requestCpuMove(game, engine, limit)
+    const result = await requestCpuMove(game, engine, limit)
 
-    expect(next).toBe(game)
+    expect(result.state).toBe(game)
+    expect(result.evalScore).toBeNull()
     expect(engine.requestAnalyze).not.toHaveBeenCalled()
   })
 
@@ -62,39 +63,47 @@ describe('requestCpuMove', () => {
     const whiteReply = legalMoves(afterHumanMove.board, 'white')[0]
     expect(whiteReply).toBeDefined()
 
-    const requestAnalyze = vi.fn().mockResolvedValue({ pv: [squareToNotation(whiteReply)] })
+    const requestAnalyze = vi
+      .fn()
+      .mockResolvedValue({ pv: [squareToNotation(whiteReply)], score: { discDiff: 3, type: 'midgame' as const } })
     const engine: EngineQuery = { requestAnalyze }
 
-    const next = await requestCpuMove(afterHumanMove, engine, limit)
+    const result = await requestCpuMove(afterHumanMove, engine, limit)
 
     expect(requestAnalyze).toHaveBeenCalledWith(afterHumanMove.board, 'white', limit)
-    expect(next.lastMove).toBe(whiteReply)
-    expect(next.sideToMove).toBe('black')
-    expect(next.phase).toBe('human')
+    expect(result.state.lastMove).toBe(whiteReply)
+    expect(result.state.sideToMove).toBe('black')
+    expect(result.state.phase).toBe('human')
+    // T197: `response.score`(以前は捨てていた値)がそのまま返る(白=CPU視点)。
+    expect(result.evalScore).toEqual({ discDiff: 3, type: 'midgame' })
   })
 
-  it('applies a supplied book move without calling the engine', async () => {
+  it('applies a supplied book move without calling the engine, and returns evalScore: null (T197: 定石ブック手は探索していないため評価値なし)', async () => {
     const afterHumanMove = playMove(createGame('black'), notationToSquare('d3'))
     const bookMove = legalMoves(afterHumanMove.board, 'white')[0]!
     const engine: EngineQuery = { requestAnalyze: vi.fn() }
 
-    const next = await requestCpuMove(afterHumanMove, engine, limit, bookMove)
+    const result = await requestCpuMove(afterHumanMove, engine, limit, bookMove)
 
     expect(engine.requestAnalyze).not.toHaveBeenCalled()
-    expect(next.lastMove).toBe(bookMove)
-    expect(next.phase).toBe('human')
+    expect(result.state.lastMove).toBe(bookMove)
+    expect(result.state.phase).toBe('human')
+    expect(result.evalScore).toBeNull()
   })
 
   it('falls back to the engine when no book move is supplied', async () => {
     const afterHumanMove = playMove(createGame('black'), notationToSquare('d3'))
     const engineMove = legalMoves(afterHumanMove.board, 'white')[0]!
-    const requestAnalyze = vi.fn().mockResolvedValue({ pv: [squareToNotation(engineMove)] })
+    const requestAnalyze = vi
+      .fn()
+      .mockResolvedValue({ pv: [squareToNotation(engineMove)], score: { discDiff: -2, type: 'exact' as const } })
     const engine: EngineQuery = { requestAnalyze }
 
-    const next = await requestCpuMove(afterHumanMove, engine, limit, null)
+    const result = await requestCpuMove(afterHumanMove, engine, limit, null)
 
     expect(requestAnalyze).toHaveBeenCalledOnce()
-    expect(next.lastMove).toBe(engineMove)
+    expect(result.state.lastMove).toBe(engineMove)
+    expect(result.evalScore).toEqual({ discDiff: -2, type: 'exact' })
   })
 })
 
@@ -122,9 +131,10 @@ describe('createGame with vsHuman (T077)', () => {
     const afterBlackMove = playMove(game, notationToSquare('d3'))
     const engine: EngineQuery = { requestAnalyze: vi.fn() }
 
-    const next = await requestCpuMove(afterBlackMove, engine, { depth: 4, exactFromEmpties: 8 })
+    const result = await requestCpuMove(afterBlackMove, engine, { depth: 4, exactFromEmpties: 8 })
 
-    expect(next).toBe(afterBlackMove)
+    expect(result.state).toBe(afterBlackMove)
+    expect(result.evalScore).toBeNull()
     expect(engine.requestAnalyze).not.toHaveBeenCalled()
   })
 })

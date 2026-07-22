@@ -284,6 +284,22 @@
   color: var(--color-text-secondary);
 }
 
+/* T197: まだ相手の手が無い・定石扱い(理論上は発生しない)のときに数値の
+   代わりに出す控えめなメッセージ。 */
+.midgame-eval-bar-panel__note {
+  margin: 0.2rem 0;
+  font-size: 0.85rem;
+  color: var(--color-text-secondary);
+}
+
+/* T197: 「打った手の評価値」折れ線グラフ(プレイ画面・結果画面共通、`EvalGraph`を
+   再利用)。狭い画面幅でもはみ出さないよう幅いっぱいに追従させる
+   (`EvalGraph.css`側で`width: 100%`にしてあるため、このコンテナの幅追従だけで済む)。 */
+.midgame-eval-graph {
+  width: 100%;
+  box-sizing: border-box;
+}
+
 .midgame-practice__quit {
   background: none;
   border: 1px solid var(--color-border);

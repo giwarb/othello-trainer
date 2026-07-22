@@ -196,7 +196,8 @@ main {
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
 }
 
-/* T077: 対局モードの「現在の評価値」バー(`midgame/EvalBar.tsx`を転用)。 */
+/* T077: 対局モードの評価値バー(`midgame/EvalBar.tsx`を転用)。
+   T197: 表示内容を「現在の盤面評価」から「前回の相手の手の評価値」に変更した。 */
 .play-eval-bar {
   display: flex;
   flex-direction: column;
@@ -212,6 +213,25 @@ main {
   margin: 0;
   font-size: 0.9rem;
   color: var(--color-text-secondary);
+}
+
+/* T197: まだ相手の手が無い(初手前)・定石ブック手(評価値なし)のときに数値の
+   代わりに出す控えめなメッセージ。`EvalBar`と入れ替わるため同じ位置に収まる
+   高さにしておく。 */
+.play-eval-bar__note {
+  margin: 0.2rem 0;
+  font-size: 0.85rem;
+  color: var(--color-text-secondary);
+}
+
+/* T197: 「打った手の評価値」折れ線グラフ(`EvalGraph`を転用)。評価バーと同じ
+   最大幅に揃え、狭い画面幅でもはみ出さないようにする(`EvalGraph.css`側で
+   `width: 100%`にしてあるため、このコンテナの幅追従だけで済む)。 */
+.play-eval-graph {
+  margin: 0 auto 1rem;
+  max-width: var(--board-size-lg);
+  width: 100%;
+  box-sizing: border-box;
 }
 
 /* T077: 盤面自由配置エディタのパネル。開いている間は通常の対局盤を隠す
@@ -439,6 +459,10 @@ main {
     margin: 0;
     padding: 0;
     align-items: flex-start;
+  }
+
+  .play-eval-graph {
+    margin: 0;
   }
 
   .play-board-area__controls {

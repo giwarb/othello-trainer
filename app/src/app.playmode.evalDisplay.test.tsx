@@ -221,7 +221,7 @@ describe('T138: 評価値表示の新仕様(定石cap・常時表示・盤面評
     expect(container.querySelector('.play-eval-bar')).not.toBeNull()
   })
 
-  it('初手局面: 4合法手すべて定石ブックcapにより"0"表示になり、盤面評価値バーも0になる', async () => {
+  it('初手局面: 4合法手すべて定石ブックcapにより"0"表示になり、評価バーはまだ手が無いため中立', async () => {
     await renderAndStartVsHumanGame()
 
     const values = Array.from(container.querySelectorAll('.move-eval-overlay__value')).map((el) => el.textContent)
@@ -229,13 +229,13 @@ describe('T138: 評価値表示の新仕様(定石cap・常時表示・盤面評
     expect(values.length).toBe(4)
     expect(values.every((text) => text === '0')).toBe(true)
 
-    // 盤面評価値(評価バー)も定石内(仕様2)により0になる
-    // (`EvalBar`の表示ラベルは`formatDiscDiff`により符号付きで"+0"になる)。
-    const barLabel = container.querySelector('.midgame-eval-bar__label')?.textContent
-    expect(barLabel).toBe('+0')
+    // T197: 評価バーは「直前に打たれた手の評価値」表示に変更。まだ1手も
+    // 打たれていないので中立(控えめなメッセージ)になり、数値は出さない。
+    expect(container.querySelector('.midgame-eval-bar__label')).toBeNull()
+    expect(container.querySelector('.play-eval-bar__note')?.textContent).toBe('まだ相手の手がありません')
   })
 
-  it('定石トレースが表示され、ブックを離脱すると「(離脱)」が付く。離脱後は候補手評価に素の値(負の値含む)が出て、評価値バーはanalyzeAll最大値と一致する', async () => {
+  it('定石トレースが表示され、ブックを離脱すると「(離脱)」が付く。離脱後は候補手評価に素の値(負の値含む)が出て、評価値バーは直前の手(定石内)により「定石」表示になる', async () => {
     await renderAndStartVsHumanGame()
 
     // まだ1手も指していない間は(ply=0はapp.tsx側が追跡対象外にするため)
@@ -279,12 +279,11 @@ describe('T138: 評価値表示の新仕様(定石cap・常時表示・盤面評
     expect(cellValues.some((v) => v < 0)).toBe(true)
     expect(cellValues.every((v) => v === 0)).toBe(false)
 
-    // 評価値バー(盤面評価値)は、候補手評価(analyzeAllの結果)の最大値と一致する
-    // (T138仕様1・「値の整合が構造的に保証される」)。表示は黒視点(vsHumanは
-    // 黒基準)で、黒番なのでそのままの符号のはず。
-    const maxCellValue = Math.max(...cellValues)
-    const barLabel = container.querySelector('.midgame-eval-bar__label')?.textContent
-    expect(barLabel).not.toBeUndefined()
-    expect(parseEvalValue(barLabel ?? '')).toBe(maxCellValue)
+    // T197: 評価バーは「直前に打たれた手の評価値」表示に変更。直前の手(白の
+    // 応手)は着手前局面がply=1(モック上「兎」ラインの継続候補=定石内)だった
+    // ため、`evaluateHumanMove`はこの手を`source: 'joseki'`と判定する。よって
+    // バーは数値ではなく「定石」を表示する(候補手評価の最大値とは独立)。
+    expect(container.querySelector('.play-eval-bar__note')?.textContent).toBe('定石')
+    expect(container.querySelector('.midgame-eval-bar__label')).toBeNull()
   })
 })

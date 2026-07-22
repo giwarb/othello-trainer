@@ -105,13 +105,17 @@ vi.mock('./game/gameLoop.ts', async (importOriginal) => {
   const actual = await importOriginal<typeof import('./game/gameLoop.ts')>()
   return {
     ...actual,
+    // T197: `requestCpuMove`の戻り値は`{state, evalScore}`(以前は`GameState`単体)。
     requestCpuMove: async (...args: Parameters<typeof actual.requestCpuMove>) => {
       const state = args[0]
-      const next = await actual.requestCpuMove(...args)
-      if (next.lastMove === state.lastMove) return next // 非合法・パス等(このテストでは発生しない想定)
+      const result = await actual.requestCpuMove(...args)
+      if (result.state.lastMove === state.lastMove) return result // 非合法・パス等(このテストでは発生しない想定)
       // CPU(白)の応手が実際に成立した直後に対局を終局させる(実際のオセロは
       // 2手では終局しないため、テスト用に強制する)。
-      return { ...next, phase: 'over' as const, passMessage: null, result: 'black' as const }
+      return {
+        ...result,
+        state: { ...result.state, phase: 'over' as const, passMessage: null, result: 'black' as const },
+      }
     },
   }
 })

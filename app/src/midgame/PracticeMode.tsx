@@ -1,10 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks'
+import { EvalGraph } from '../analysis/EvalGraph.tsx'
 import { loadClassifyThresholds } from '../analysis/thresholdSettings.ts'
 import type { ClassifyThresholds } from '../analysis/types.ts'
 import { Board } from '../components/Board.tsx'
 import { formatDiscDiff } from '../components/EvalBadge.tsx'
 import { MoveEvalOverlay } from '../components/MoveEvalOverlay.tsx'
-import { computeBoardEvalScore } from '../components/moveEvalOverlayLogic.ts'
+import {
+  buildEvalGraphPoints,
+  lastMoveEvalBarStateFor,
+  type PlayedMoveEval,
+} from '../components/moveEvalTimeline.ts'
 import { PlayerBadge } from '../components/PlayerBadge.tsx'
 import type { EngineClient } from '../engine/client.ts'
 import { getSharedEngineClient } from '../engine/sharedClient.ts'
@@ -83,9 +88,6 @@ const ROUNDS_PER_STAGE = 3
 /** 苦手パターン検出・記録を行う損失の下限(石差、要件8「損失1石以上」)。 */
 const PATTERN_DETECTION_LOSS_THRESHOLD = 1
 
-/** 定石ブックcapを適用しない(要件3「中盤開始局面は定石外なので生値でよい」)。 */
-const EMPTY_BOOK_SQUARES: ReadonlySet<number> = new Set()
-
 type Phase = 'stageSelect' | 'playing' | 'result'
 
 /** プレイヤーの1手ぶんの結果(要件4・7)。 */
@@ -96,6 +98,8 @@ interface MoveOutcome {
   readonly bestSquare: number
   /** 最善手からの評価値ロス(石差、0以上)。 */
   readonly lossDiscs: number
+  /** この手自身の評価値(石差、プレイヤー視点。T197: 「打った手の評価値」グラフ・バー用)。 */
+  readonly playedDiscDiff: number
   readonly isBest: boolean
   /** この手を打つ前の局面(1手先対比・苦手パターン検出に使う)。 */
   readonly preMoveBoard: BoardState
@@ -119,6 +123,12 @@ interface SessionState {
   readonly startBoard: BoardState
   /** プレイヤーが完了した着手の結果(0〜3件、順序どおり)。 */
   readonly moveOutcomes: readonly MoveOutcome[]
+  /**
+   * 「打った手の評価値」の時系列記録(T197、プレイヤー+相手の全手、ply1始まり)。
+   * `EvalGraph`用の折れ線・評価バー(「前回の相手の手の評価値」)の両方をこの
+   * 配列から導出する(`moveEvalTimeline.ts`参照)。
+   */
+  readonly moveEvalHistory: readonly PlayedMoveEval[]
 }
 
 interface ResultInfo {
@@ -130,6 +140,8 @@ interface ResultInfo {
   readonly worstMoveIndex: number | null
   /** このクリアで自己ベスト(`bestStars`)が更新されたか。 */
   readonly justImprovedBest: boolean
+  /** 「打った手の評価値」の時系列記録(T197、結果画面の折れ線グラフ用)。 */
+  readonly moveEvalHistory: readonly PlayedMoveEval[]
 }
 
 /**
@@ -217,7 +229,6 @@ export function PracticeMode() {
   const [patternStats, setPatternStats] = useState<PatternStats>(() => loadPatternStats(localStorage))
   const [confirmingPatternStatsReset, setConfirmingPatternStatsReset] = useState(false)
 
-  const [evalBarValue, setEvalBarValue] = useState<number | null>(null)
   const [opponentThinking, setOpponentThinking] = useState(false)
   const [analyzing, setAnalyzing] = useState(false)
   /** 3往復完了後、完全読み相当の最終評価で結果を確定させている間`true`(T055の`finalizing`を踏襲)。 */
@@ -228,7 +239,8 @@ export function PracticeMode() {
   /**
    * 候補手評価オーバーレイの表示ON/OFF(T142)。既定ON(要件1)。
    * 判定(★算出)・相手応手・評価バーはこのON/OFFと無関係に常時動作する
-   * (要件2、`overlayMoves`・`evalBarValue`はこのstateと独立して更新され続ける)。
+   * (要件2、`overlayMoves`・評価バー(`session.moveEvalHistory`由来)はこの
+   * stateと独立して更新され続ける)。
    */
   const [moveEvalOverlayEnabled, setMoveEvalOverlayEnabled] = useState<boolean>(() =>
     loadMidgameMoveEvalOverlayEnabled(localStorage),
@@ -283,13 +295,6 @@ export function PracticeMode() {
    */
   function requestAnalyzeAllForCompare(board: BoardState, side: Side): Promise<MoveEvalJson[]> {
     return getEngine().requestAnalyzeAll(board, side, MIDGAME_ANALYZE_LIMIT)
-  }
-
-  /** `moves`(mover視点)から評価バーの値(プレイヤー視点)を更新する(要件3、対局モードT138と同じ`computeBoardEvalScore`を再利用)。 */
-  function updateEvalBarFromMoves(moves: readonly MoveEvalJson[], mover: Side, humanSide: Side): void {
-    const boardScore = computeBoardEvalScore(moves, EMPTY_BOOK_SQUARES)
-    if (boardScore === null) return
-    setEvalBarValue(mover === humanSide ? boardScore : -boardScore)
   }
 
   useEffect(() => {
@@ -379,7 +384,6 @@ export function PracticeMode() {
     const previousBestStars = stageBestStars(loadStageProgress(localStorage), s.stageKey)
     recordStageAttemptNow(s.stageKey, stars)
 
-    setEvalBarValue(endEval)
     setResultInfo({
       stars,
       startEval,
@@ -387,6 +391,7 @@ export function PracticeMode() {
       moveOutcomes: s.moveOutcomes,
       worstMoveIndex: findWorstMoveIndex(s.moveOutcomes),
       justImprovedBest: stars > previousBestStars,
+      moveEvalHistory: s.moveEvalHistory,
     })
     setPhase('result')
 
@@ -453,7 +458,6 @@ export function PracticeMode() {
       try {
         const allMoves = await getAnalyzedMoves(s.board, s.sideToMove)
         if (cancelled) return
-        updateEvalBarFromMoves(allMoves, s.sideToMove, s.humanSide)
         const moveNotation = pickOpponentMove(allMoves, 'best')
         await new Promise((resolve) => setTimeout(resolve, OPPONENT_MOVE_DELAY_MS))
         if (cancelled || moveNotation === null) return
@@ -461,7 +465,25 @@ export function PracticeMode() {
         const square = notationToSquare(moveNotation)
         const board = applyMove(s.board, s.sideToMove, square)
         const nextSide = resolveNextSideOrFallback(board, opposite(s.sideToMove))
-        const nextSession: SessionState = { ...s, board, sideToMove: nextSide, lastMove: square }
+        // T197: 相手応手の評価値記録。表示・判定と共有の`getAnalyzedMoves`結果
+        // (`allMoves`)から選んだ手のdiscDiffを引くだけで、追加のエンジン呼び出しは
+        // 発生しない。
+        const playedEval = allMoves.find((m) => m.move === moveNotation)
+        const evalEntry: PlayedMoveEval = {
+          ply: s.moveEvalHistory.length + 1,
+          notation: moveNotation,
+          side: s.sideToMove,
+          discDiff: playedEval?.discDiff ?? null,
+          source: playedEval?.type ?? 'midgame',
+          isExact: playedEval?.type === 'exact',
+        }
+        const nextSession: SessionState = {
+          ...s,
+          board,
+          sideToMove: nextSide,
+          lastMove: square,
+          moveEvalHistory: [...s.moveEvalHistory, evalEntry],
+        }
         setSession(nextSession)
         await checkSessionEnd(board, nextSide, nextSession, sessionGenerationRef.current)
       } catch (error) {
@@ -479,11 +501,13 @@ export function PracticeMode() {
     // eslint-disable-next-line
   }, [phase, session])
 
-  // 候補手評価オーバーレイ+評価バー用のデータ取得(要件3: 評価バーは常時表示)。
-  // `moveEvalOverlayEnabled`(T142)がOFFでもここでの取得自体は止めない
-  // (判定(★算出)がこの`getAnalyzedMoves`キャッシュに依存するため、表示だけを
-  // `MoveEvalOverlay`側の`visible`で止める)。プレイヤーの手番になった時点で
-  // 現局面(着手前)の全合法手評価をまとめて取得する(T078踏襲)。
+  // 候補手評価オーバーレイ用のデータ取得。`moveEvalOverlayEnabled`(T142)がOFFでも
+  // ここでの取得自体は止めない(判定(★算出)がこの`getAnalyzedMoves`キャッシュに
+  // 依存するため、表示だけを`MoveEvalOverlay`側の`visible`で止める)。プレイヤーの
+  // 手番になった時点で現局面(着手前)の全合法手評価をまとめて取得する(T078踏襲)。
+  //
+  // T197: 評価バーはここでの取得結果(現局面の盤面評価)には依存しない
+  // (`session.moveEvalHistory`由来の「前回の相手の手の評価値」に置き換えたため)。
   useEffect(() => {
     if (phase !== 'playing' || !session || session.sideToMove !== session.humanSide) {
       setOverlayMoves(null)
@@ -496,7 +520,6 @@ export function PracticeMode() {
       .then((moves) => {
         if (cancelled) return
         setOverlayMoves(moves)
-        updateEvalBarFromMoves(moves, s.sideToMove, s.humanSide)
       })
       .catch((error: unknown) => {
         console.error('候補手評価の取得に失敗しました', error)
@@ -574,10 +597,23 @@ export function PracticeMode() {
         bestMove: best.move,
         bestSquare,
         lossDiscs,
+        playedDiscDiff,
         isBest,
         preMoveBoard: s.board,
         preMoveSide: s.sideToMove,
         clearBlunderPatterns,
+      }
+
+      // T197: プレイヤーの着手の評価値記録。表示・判定と共有の`allMoves`
+      // (`getAnalyzedMoves`結果)から求めた`playedDiscDiff`をそのまま使うだけで、
+      // 追加のエンジン呼び出しは発生しない。
+      const evalEntry: PlayedMoveEval = {
+        ply: s.moveEvalHistory.length + 1,
+        notation: playedNotation,
+        side: s.sideToMove,
+        discDiff: playedDiscDiff,
+        source: played?.type ?? best.type,
+        isExact: (played?.type ?? best.type) === 'exact',
       }
 
       const board = applyMove(s.board, s.sideToMove, square)
@@ -588,6 +624,7 @@ export function PracticeMode() {
         sideToMove: nextSide,
         lastMove: square,
         moveOutcomes: [...s.moveOutcomes, outcome],
+        moveEvalHistory: [...s.moveEvalHistory, evalEntry],
       }
 
       // T195要件1: 悪手(損失`PATTERN_DETECTION_LOSS_THRESHOLD`石以上)なら、
@@ -677,11 +714,11 @@ export function PracticeMode() {
       stageKey: stage.key,
       startBoard: stage.board,
       moveOutcomes: [],
+      moveEvalHistory: [],
     }
     setSession(initialSession)
     setResultInfo(null)
     setOverlayMoves(null)
-    setEvalBarValue(null)
     setOpponentThinking(false)
     setAnalyzing(false)
     setFinalizing(false)
@@ -706,7 +743,6 @@ export function PracticeMode() {
     setActiveStage(null)
     setResultInfo(null)
     setOverlayMoves(null)
-    setEvalBarValue(null)
     setOpponentThinking(false)
     setAnalyzing(false)
     setFinalizing(false)
@@ -801,6 +837,17 @@ export function PracticeMode() {
   // 「クリア x/N」サマリ+進捗バー(要件5: bestStars>=1が「クリア」)。
   const clearedStageCount = (stagePool ?? []).filter((stage) => stageStatus(stageProgress, stage.key) === 'cleared').length
   const totalStageCount = stagePool?.length ?? 0
+
+  // T197: 評価バー=「前回の相手の手の評価値」(相手視点→あなた視点へ反転)。
+  // まだ相手が応手していなければ`{kind: 'none'}`(中立表示)。
+  const moveEvalBarState = session
+    ? lastMoveEvalBarStateFor(session.moveEvalHistory, opposite(session.humanSide))
+    : ({ kind: 'none' } as const)
+  const moveEvalBarDisplayValue = moveEvalBarState.kind === 'value' ? -moveEvalBarState.discDiff : null
+  // T197: 「打った手の評価値」折れ線グラフ(黒視点・定石帯0固定のT046規約、
+  // `EvalGraph`を再利用)。プレイ画面・結果画面の両方に表示する。
+  const evalGraphPoints = session ? buildEvalGraphPoints(session.moveEvalHistory) : []
+  const resultEvalGraphPoints = resultInfo ? buildEvalGraphPoints(resultInfo.moveEvalHistory) : []
 
   return (
     <div class="midgame-practice-mode">
@@ -999,10 +1046,19 @@ export function PracticeMode() {
                 {analyzing && <p class="notice">判定中...</p>}
                 {finalizing && <p class="notice midgame-finalizing">結果を確定しています…</p>}
 
-                {evalBarValue !== null && (
-                  <div class="midgame-eval-bar-panel">
-                    <p class="midgame-eval-bar-panel__caption">現在の評価値(あなた視点、+なら有利)</p>
-                    <EvalBar discDiff={evalBarValue} />
+                {/* T197: 「現在の盤面評価」から「前回の相手の手の評価値」表示へ変更。
+                    まだ相手が応手していない(1手目を打つ前)は中立の控えめ表示にする。 */}
+                <div class="midgame-eval-bar-panel">
+                  <p class="midgame-eval-bar-panel__caption">相手の直前の手の評価(あなた視点、+ならあなた有利)</p>
+                  {moveEvalBarState.kind === 'value' && <EvalBar discDiff={moveEvalBarDisplayValue!} />}
+                  {moveEvalBarState.kind === 'joseki' && <p class="midgame-eval-bar-panel__note">定石</p>}
+                  {moveEvalBarState.kind === 'none' && <p class="midgame-eval-bar-panel__note">まだ相手の手がありません</p>}
+                </div>
+
+                {/* T197: 「打った手の評価値」折れ線グラフ(`EvalGraph`を再利用)。 */}
+                {session.moveEvalHistory.length > 0 && (
+                  <div class="midgame-eval-graph">
+                    <EvalGraph points={evalGraphPoints} markers={[]} />
                   </div>
                 )}
 
@@ -1046,6 +1102,13 @@ export function PracticeMode() {
                 </li>
               ))}
             </ol>
+          )}
+
+          {/* T197: 「打った手の評価値」折れ線グラフ(結果画面、`EvalGraph`を再利用)。 */}
+          {resultInfo.moveEvalHistory.length > 0 && (
+            <div class="midgame-eval-graph">
+              <EvalGraph points={resultEvalGraphPoints} markers={[]} />
+            </div>
           )}
 
           {worstMoveCompareInfo &&
