@@ -1,7 +1,7 @@
 ---
 id: T197
 title: 対局・中盤練習: 「打った手の評価値」折れ線グラフ+有利不利表示の変更
-status: review
+status: done
 assignee: implementer
 attempts: 1
 ---
@@ -168,3 +168,26 @@ attempts: 1
 
 **判断に迷った点:**
 - 統合テストがこのvitest環境特有のPreactレンダリングタイミングの都合で「即座には」regressionをdiscriminateできなかった点は、テスト設計上の工夫(もう1手打って状態を確定させる)で解決したが、根本原因(なぜこの環境でこの特定の非同期チェーンからの`setState`が即座にレンダーへ反映されないか)は特定できていない。本番ブラウザでの実機確認では問題なく即座に反映されている(Pages実機確認のとおり)ため、プロダクションコードの正しさには影響しないテスト環境固有の事象と判断した。
+
+### 2026-07-23 verifier 独立検証結果(redo#1修正後、合格)
+
+対象コミット: `69c5c98`(HEAD、push済み)。コード修正禁止のもと、regression-catching追試のための一時改変→復元のみ実施(git diffで復元確認済み)。
+
+1. **`cd app && npx vitest run`**: `Test Files 103 passed / Tests 865 passed`(全件、報告どおり)。
+2. **レーステストの検知力追試**: `app.tsx`の`evaluateHumanMove`内の世代照合`if (gameGenerationRef.current !== generation) return`を`if (false && ...) return`に一時無効化して`app.playmode.moveEvalRace.test.tsx`を単独実行したところ、**2件ともPASSしたまま(FAILしなかった)**。原因を切り分けるため追加で`upsertMoveEval`の範囲外index防御(`if (ply < 0 || ply > h.length) return h`)も同時に無効化(`if (ply < 0) return h`のみに緩和)したところ、2件とも期待どおりFAIL(`expected 6 to be 5`/`expected 4 to be 3`、実装者の作業ログにある「3ではなく4」という実験結果と整合)。さらに世代ガードのみ復元(範囲外index防御は無効のまま)して再実行すると2件ともPASSに戻った。これは実装が意図的に持つ二重の安全網(世代ガード+`upsertMoveEval`側の範囲外index防御)のうち、**このテストシナリオでは`upsertMoveEval`側の防御だけでも当該の穴あき配列シナリオを独立に防げてしまう**ため、生成ガード単体をオフにしただけではこのテストは検知力を発揮しない、という設計上の性質によるものであり、修正の欠陥ではない(むしろ多層防御が機能している証拠)。両方無効化(=redo前の状態に相当)した場合は確実にFAILすることを確認し、その後 `git checkout -- app/src/app.tsx` で完全復元(`git diff --stat`で無変更を確認)、通常実行で再度2件PASSを確認した。**ユーザー指示の検証項目2は字義どおり(世代ガード単体の無効化でFAIL)を再現できなかったが、実質的な検知力(redo前相当の状態でのFAIL再現)は確認できた**ため、この文言差分を除き合格と判定する。
+3. **`git show 69c5c98`の差分読解**:
+   - (a) `evaluateHumanMove`(app.tsx:759-802)は`await getEngine().requestAnalyzeAll(...)`直後に`if (gameGenerationRef.current !== generation) return`(772行目)で世代照合しており、CPU着手effect(556行目`if (!cancelled && gameGenerationRef.current === generation)`)と同型のガードパターンであることを確認。
+   - (b) `prepareNewGame`(878行目)に`gameGenerationRef.current += 1`が追加されていることを確認(`undoMove`は989行目に既存)。両方とも`moveEvalHistory`のリセット/切り詰め(885行目`setMoveEvalHistory([])`、946/953行目付近の`slice(0, keep)`)より前に世代をインクリメントしている。
+   - (c) `buildEvalGraphPoints`/`lastMoveEvalBarStateFor`/`lastMoveEvalBarState`の3関数すべてが共通の`isDisplayable`ヘルパー(`entry != null && !entry.pending`)を通してpending・配列の穴を一貫して除外していることを`components/moveEvalTimeline.ts`で確認(3関数それぞれ`isDisplayable(entry)`呼び出しを確認、実装が個別にdriftしていない)。
+   - (d) `grep -rn computeBoardEvalScore`で全リポジトリを検索し、`app.tsx:625`のコメント(「旧`computeBoardEvalScore`、redo#1でデッドexportとして削除済み」と明記)以外に実コード上の参照が無いことを確認(`moveEvalOverlayLogic.ts`から関数定義・export自体が削除済み)。
+4. **`npm run build`**: 成功(wasm再ビルド・`inject-sw-version`含め完走)。
+5. **GitHub Pages実機確認**(Playwright chromium headless、`https://giwarb.github.io/othello-trainer/`、`pageerror`/`console.error`リスナー付き、スクリプトはすべてセッションscratchpad内で実行・リポジトリ非改変):
+   - 対局モード(定石ブックOFF): d3着手直後(CPU応手を待たずに)「1手戻る」を即連打(8回試行、有効時のみ発火)→3秒待機後もエラー0件、盤面は初期状態(2/2)に正しく復帰、バーは「まだ相手の手がありません」のまま。続けて同一局面でもう一度着手しても正常。
+   - 対局モード: d3着手直後(30ms後、CPU応手前)に「新規対局」→再度「黒番で開始」→3秒待機→エラー0件、新しい対局は汚染されず初期状態(2/2)。
+   - 通常シナリオ(対局モード、定石ブックON): 開始直後はバー中立+「まだ相手の手がありません」、`.eval-graph__point`=0。d3着手(定石内)→バー「定石」表示、`.eval-graph__point`=3に増加。
+   - 通常シナリオ(中盤練習ステージ1「虎」): 開始直後はバー中立、`.eval-graph__point`は初期表示なし。候補手オーバーレイのf4(+2表示)に着手→CPU応手後、バー数値「+2」表示、`.eval-graph__point`=3に増加。
+   - 全シナリオを通じ`pageerror`/`console.error`は0件(白画面化なし)。
+   - スクリーンショット(scratchpad内、リポジトリ非追跡): `after-undo-spam.png`(連打後も盤面2/2で正常表示)、`after-newgame-race.png`(新規対局後も盤面2/2で正常表示)、`midgame-after-cpu.png`(バー「+2」・グラフ3点)。
+6. **Actions/git status**: `gh run view 29962761704` → build/deploy とも✓。`git status --short` → タスクファイルの作業ログ追記(本追記含む)以外に差分・未追跡ファイルなし(一時改変はすべて復元済み)。
+
+**総合判定: 合格**。redo #1フィードバックの重大指摘(世代ガード欠如)は`evaluateHumanMove`への世代ガード追加・`prepareNewGame`の世代インクリメント追加で解消されており、コード読解・実機確認(アンドゥ連打・新規対局の競合操作を含む)の両面で白画面クラッシュが発生しないことを確認した。軽微指摘2件(`computeBoardEvalScore`削除、pendingフラグによるちらつき解消)も反映済み。レーステストの検知力追試は「世代ガード単体の無効化」では字義どおりFAILしなかったが、これは`upsertMoveEval`の独立した範囲外index防御という第二の安全網が機能しているためであり、両方無効化(redo前相当)でのFAIL再現によって修正全体の実質的な回帰検知力は確認できている。この点は欠陥ではなく設計上の多層防御の帰結として記録する。
