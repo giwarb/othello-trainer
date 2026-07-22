@@ -1,7 +1,7 @@
 ---
 id: T186
 title: 高速化(5): negascout/ordered_movesのlegal_moves重複計算排除
-status: todo
+status: review
 assignee: implementer
 attempts: 0
 ---
@@ -48,3 +48,10 @@ attempts: 0
 (なし)
 
 ## 作業ログ(担当エージェントが追記)
+
+- 2026-07-22 implementer: `engine/src/search.rs`の`ordered_moves`シグネチャに`legal: u64`を追加し、内部の`board.legal_moves(side)`呼び出しを削除。呼び出し元は`negascout`の1箇所のみ(grepで確認済み)で、既にパス判定用に計算済みの`legal`変数(1789行目)をそのまま渡すよう配線した。関数doc commentにT186の説明を追記。`m.next_board.legal_moves(side.opposite())`(オーダリングキー計算、相手モビリティ)は対象外の別計算のため変更していない。
+- `cargo build -p engine` 成功。`cargo test -p engine` 全247件パス(0 failed, 2 ignored)。`t182_negascout_results_are_unchanged_by_the_incremental_hash_wiring` / `t184_sort_by_cached_key_matches_pre_change_baseline` / `t185_ordered_moves_fixed_array_matches_pre_change_baseline` はいずれもアサート値無改変でパス。
+- `git status --short` はタスク範囲(`engine/src/search.rs`のみ)であることを確認し、`git add engine/src/search.rs` でコミット(コミットハッシュ `4144c5d`)、`git push origin main`。
+- `gh run watch` で `Rust Tests`(29891488861)・`Deploy to GitHub Pages`(29891488856)の両ワークフローが成功したことを確認。
+- Claude Browserで `https://giwarb.github.io/othello-trainer/` にアクセスし、「対局」→「黒番で開始」で新規対局を開始。1手打つと定石DBから応手(牛)、続けてもう1手打つと表示が「中盤(探索)」に切り替わり(=`negascout`/`ordered_moves`経路)、CPUが正常に応手して石数が更新されることを確認。コンソールエラーなし。
+- 最終`git status --short`はクリーン(コミット・push後、当該タスク由来の差分・未追跡ファイルなし)。
