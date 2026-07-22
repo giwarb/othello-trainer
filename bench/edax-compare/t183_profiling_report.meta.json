@@ -1,0 +1,145 @@
+{
+  "task": "T183",
+  "generatedAt": "2026-07-22T09:45:00+09:00",
+  "provenance": {
+    "gitCommitBase": "a76812e",
+    "gitCommitNote": "計測はT182配線済みmain(a76812e)上でengine/src/search.rsへ一時的なRDTSC計装を追加して実施。計測後にgit checkout -- engine/src/search.rsで完全復元し、一時バイナリengine/src/bin/t183_profile.rsを削除。本ファイル(report.md/meta.json)のみコミット対象。",
+    "patternWeightsSha256": "e69f3b1c33432bafd388af82adde64270ec8c51acaab070bbfff4cf4caf20fc9",
+    "patternWeightsPath": "train/weights/pattern_v6.bin",
+    "t156PositionsSourceSha256": "e86bf2383490cc356589c85307cdc85556288bd23cae1a2594932cd70ad748da",
+    "t156PositionsSourcePath": "bench/edax-compare/t156_mpc_positions.json",
+    "midgame20Sha256": "a52cdc9487275cadf75a8f6b1867ebc80a355a80a52243948e93ce19d373f2cc",
+    "midgame20Derivation": "t156_mpc_positions.jsonをemptyBucket=='29-36' and split=='test'でフィルタし先頭20件を抽出したもの(T180で作成、リポジトリ未コミット、セッションのscratchpadに保持)。T180/T182と同一のバッチをT183でも再利用。",
+    "cpuModel": "AMD Ryzen 7 5800U with Radeon Graphics (16 logical processors)",
+    "exclusiveWindowCheck": "Get-Process | Where-Object { $_.ProcessName -match 'cargo|python|aria2|curl|rustc|node|eval_cli|t183_profile' } で計測直前に競合プロセス無しを確認"
+  },
+  "methodology": {
+    "toolsConsidered": [
+      "Intel VTune (free)",
+      "AMD uProf",
+      "Windows Performance Recorder(ETW) + WPA",
+      "cargo flamegraph (blondie backend)"
+    ],
+    "toolsInstalled": [],
+    "note": "wpr.exeは標準搭載だがwpa.exe(解析用GUI)は未導入、cargo flamegraphも未導入。いずれも新規インストールが要承認のため、承認待ちより先にインストール不要な手段(RDTSC計装)で十分な精度が得られるか検証し、実際に十分だったため外部ツールは一切インストールしなかった。",
+    "approach": "engine/src/search.rsのnegascoutホットパスに一時的にRDTSC(core::arch::x86_64::_rdtsc)ベースの区間別サイクルカウンタ(thread_local Cell<u64>の累積、14バケット)を追加。専用の一時バイナリengine/src/bin/t183_profile.rsで、T180と同じ20局面をサブプロセスを起動せず1プロセス内でループし(search_with_eval_with_policyを直接呼び出し)、MPC off/on双方でバケット別サイクル数・呼び出し回数・総ノード数を収集した。",
+    "calibration": "std::time::Instant::now()と並行してrdtsc()を500ms間隔で相関させ、ns_per_cycle=elapsed_ns/elapsed_cyclesを実測。今回の値: ns_per_cycle=0.5273192010366813 (implied 1.896 GHz、Ryzen 7 5800Uのベースクロック1.9GHzとほぼ一致)。",
+    "overheadCaveat": "RDTSC自体の呼び出しコスト(約数ns/回)が計装済みバイナリの絶対wall時間に上乗せされている。MPC off条件でns/node=2093(本計測)はT180/T182の非計装ベースライン(1930〜2093ns/node程度)よりやや高めで、計装オーバーヘッド分の上振れを含むと考えられる。相対的な内訳比率(%)を主たる成果物として扱い、絶対値の増分は参考値とする。",
+    "revertProof": {
+      "command1": "git checkout -- engine/src/search.rs",
+      "command2": "rm engine/src/bin/t183_profile.rs",
+      "gitStatusShortAfter": "(空、diffゼロを確認)",
+      "cargoTestAfterRevert": "cargo test -p engine --lib: 245 passed; 0 failed; 2 ignored(T182までの状態と同一件数)"
+    },
+    "sortByKeyIndependentVerification": {
+      "description": "Vec<u32>::sort_by_key vs sort_by_cached_keyの呼び出し回数を、降順配列に対する単純なRustプログラムで比較(スタンドアロン検証、リポジトリ非コミット、scratchpadで実行のみ)。",
+      "results": [
+        {"n": 2, "sort_by_key_calls": 2, "sort_by_cached_key_calls": 2},
+        {"n": 4, "sort_by_key_calls": 12, "sort_by_cached_key_calls": 4},
+        {"n": 8, "sort_by_key_calls": 56, "sort_by_cached_key_calls": 8},
+        {"n": 12, "sort_by_key_calls": 132, "sort_by_cached_key_calls": 12},
+        {"n": 16, "sort_by_key_calls": 240, "sort_by_cached_key_calls": 16}
+      ],
+      "conclusion": "sort_by_keyは要素数nに対しO(n log n)〜それ以上の回数キー関数を呼び直す一方、sort_by_cached_keyは常にちょうどn回。実測(ordered_moves呼び出し1回あたり平均65.5回〜78.5回)と定性的に整合。"
+    }
+  },
+  "rawBucketData": [
+    {
+      "mpc": "mpc_off",
+      "totalNodes": 59440032,
+      "wallElapsedNs": 124405046200,
+      "nsPerCycle": 0.5273192010366813,
+      "totalBucketCycles": 360013125523,
+      "mpcProbeSubtreeNodes": 0,
+      "buckets": [
+        {"name": "entry_checks", "cycles": 1335092647, "calls": 59440032},
+        {"name": "legal_moves_top", "cycles": 3883344036, "calls": 59440032},
+        {"name": "tt_probe", "cycles": 389223229, "calls": 21619873},
+        {"name": "mpc_overhead_self", "cycles": 0, "calls": 0},
+        {"name": "ordered_moves_redundant_legal_moves", "cycles": 355263800, "calls": 21618686},
+        {"name": "ordered_moves_sort_apply_move", "cycles": 59032373728, "calls": 1417009316},
+        {"name": "ordered_moves_sort_legal_moves", "cycles": 75747403193, "calls": 1417009316},
+        {"name": "ordered_moves_sort_machinery_other", "cycles": 166298861681, "calls": 21618686},
+        {"name": "apply_move_loop", "cycles": 2653138311, "calls": 61083332},
+        {"name": "hash_diff_loop", "cycles": 1103615377, "calls": 61083332},
+        {"name": "etc_try_cutoff", "cycles": 2552837298, "calls": 61092329},
+        {"name": "tt_store", "cycles": 904697703, "calls": 21618686},
+        {"name": "static_eval", "cycles": 45756337288, "calls": 37766022},
+        {"name": "pass_hash", "cycles": 937232, "calls": 54136}
+      ]
+    },
+    {
+      "mpc": "mpc_on",
+      "totalNodes": 6487461,
+      "wallElapsedNs": 16815989100,
+      "nsPerCycle": 0.5273192010366813,
+      "totalBucketCycles": 41064498665,
+      "mpcProbeSubtreeNodes": 951171,
+      "buckets": [
+        {"name": "entry_checks", "cycles": 134912614, "calls": 6487461},
+        {"name": "legal_moves_top", "cycles": 432306576, "calls": 6487461},
+        {"name": "tt_probe", "cycles": 41986338, "calls": 2332277},
+        {"name": "mpc_overhead_self", "cycles": 38785603, "calls": 2117757},
+        {"name": "ordered_moves_redundant_legal_moves", "cycles": 37940796, "calls": 2295933},
+        {"name": "ordered_moves_sort_apply_move", "cycles": 7211755354, "calls": 180270086},
+        {"name": "ordered_moves_sort_legal_moves", "cycles": 3317584974, "calls": 180270086},
+        {"name": "ordered_moves_sort_machinery_other", "cycles": 23807571506, "calls": 2295933},
+        {"name": "apply_move_loop", "cycles": 303228231, "calls": 6707463},
+        {"name": "hash_diff_loop", "cycles": 121649437, "calls": 6707463},
+        {"name": "etc_try_cutoff", "cycles": 249978661, "calls": 6708797},
+        {"name": "tt_store", "cycles": 74524831, "calls": 2295933},
+        {"name": "static_eval", "cycles": 5292244790, "calls": 4153497},
+        {"name": "pass_hash", "cycles": 28954, "calls": 1687}
+      ]
+    }
+  ],
+  "derivedAnalysis": {
+    "note": "ordered_moves_sort_machinery_otherはordered_moves呼び出し全体のinclusive時間(内訳3項目=redundant_legal_moves/sort_apply_move/sort_legal_moves を含む)。二重計上を避けるため、レポート本文では「ordered_moves合計」からこの3項目を差し引いた残りを「純粋ソート機構」として分離している。",
+    "mpc_off": {
+      "orderedMovesTotalNs": 87692582875,
+      "orderedMovesTotalPctWall": 70.49,
+      "orderedMovesPureMachineryNs": 16433281170,
+      "orderedMovesPureMachineryPctWall": 13.21,
+      "nonOverlappingTotalNs": 118583000000,
+      "nonOverlappingTotalPctWall": 95.32,
+      "residualNs": 5823000000,
+      "residualPctWall": 4.68
+    },
+    "mpc_on": {
+      "orderedMovesTotalNs": 12554189585,
+      "orderedMovesTotalPctWall": 74.66,
+      "orderedMovesPureMachineryNs": 6981859346,
+      "orderedMovesPureMachineryPctWall": 41.52,
+      "nonOverlappingTotalNs": 16082000000,
+      "nonOverlappingTotalPctWall": 95.63,
+      "residualNs": 734000000,
+      "residualPctWall": 4.37
+    }
+  },
+  "revisedPriorityList": [
+    {
+      "rank": 1,
+      "title": "ordered_movesの3箇所のsort_by_keyをsort_by_cached_keyへ置換",
+      "estimatedUpperBound": "MPC off: 最大-56%(約2.3倍高速化)。MPC on: 最大-32.6%(約1.5倍高速化)。ソートキー計算コストが呼び出し回数と同じ比率(約1/65〜1/78)に削減されると仮定した理論上限。",
+      "risk": "低。ソート結果自体は不変、固定深さ回帰テストで前後一致を直接検証可能。"
+    },
+    {
+      "rank": 2,
+      "title": "ordered_movesの純粋ソート機構をヒープ確保無しの固定長配列(endgame.rsのMoveInfo型と同型)に置換",
+      "estimatedUpperBound": "優先1適用後に残る13.21%(MPC off)/41.52%(MPC on)のうち数%程度のさらなる削減",
+      "risk": "中。返り値の型変更を伴う。"
+    },
+    {
+      "rank": 3,
+      "title": "ordered_moves内で計算済みのnext_boardをnegascoutの候補手ループへ持ち越し、apply_move_loopの再計算を回避",
+      "estimatedUpperBound": "1.12%(MPC off)/0.95%(MPC on)のうち大半",
+      "risk": "中。優先2と同時実施が自然。"
+    },
+    {
+      "rank": 4,
+      "title": "static_evalの増分評価化(T180優先3、据え置き)",
+      "estimatedUpperBound": "理論上限19.39%(MPC off)/16.60%(MPC on)、実際の削減率は未検証",
+      "risk": "高。評価関数の再構築を伴う。"
+    }
+  ]
+}
