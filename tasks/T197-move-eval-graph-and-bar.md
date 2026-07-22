@@ -102,3 +102,38 @@ attempts: 1
 **判断に迷った点・仕様上の解釈:**
 - vsHumanモードのバーキャプション文言(仕様書は「手番色ラベル付きで表示する」とだけ指定し厳密な文言は未指定)は`「${色}の直前の手の評価(${色}視点、+なら${色}有利)」`とした。CPU対戦・中盤練習は仕様書に明記された文言をそのまま使用。
 - 評価バーが「定石」表示になるのは、CPUがブック手(探索なし)の場合に加え、人間の手が`evaluateHumanMove`のjosekiDB判定で`source==='joseki'`となった場合(既存のEvalBadge/評価情報バッジと同じ判定基準を流用)も含む。これは仕様書の「CPUが定石ブック手(評価値なし)→数値を出さず「定石」表示」の記述をベースに、人間側の定石内の手にも同じ表現を自然に拡張したもの(design方針2の「人間の定石内の手(source==='joseki')」記述と整合)。
+
+### 2026-07-23 verifier 検証結果(合格)
+
+**受け入れ基準の実行結果:**
+
+1. `cd app && npx vitest run` → Test Files 102 passed / Tests 861 passed(全件)。新規 `components/moveEvalTimeline.test.ts` は実測 **11件**(作業ログの「13件」は過大申告、実数は11件。`moveEvalTimeline.test.ts src/app.playmode.moveEval.test.tsx` を`--reporter=verbose`で単独実行し確認、合計14件=11+3で機能・件数自体に問題なし)。`app.playmode.moveEval.test.tsx`は実測3件(報告どおり)。`gameLoop.test.ts`/`app.playmode.cpuHistory.test.tsx`/`app.playmode.evalDisplay.test.tsx`の更新差分も確認、いずれも新返り値形状・新仕様に追従。
+2. `npm run build` → 成功(wasm再ビルド込み、`inject-sw-version`まで完走)。
+3. `npx tsc --noEmit -p .` → エラーなし(exit 0)。
+4. `git show 871aecd --stat` → 変更11ファイルはすべて`app/`配下(`app.tsx` `app.css` `game/gameLoop.ts(.test.ts)` `midgame/PracticeMode.tsx(.css)` `components/moveEvalTimeline.ts(.test.ts)` `app.playmode.*.test.tsx`)。`tasks/`混入なし。
+5. **エンジン呼び出し数不変**: `git diff 871aecd~1 871aecd -- app/src/game/gameLoop.ts app/src/app.tsx`を精読。`requestCpuMove`は`response.score`(既存で捨てていた値)を`CpuMoveOutcome.evalScore`として返すよう変更されただけで`requestAnalyze`呼び出し箇所は増えていない。`app.tsx`のオーバーレイ用`requestAnalyzeAll`エフェクト(646行目)・`evaluateHumanMove`内の`requestAnalyzeAll`(747行目)の呼び出し箇所数・行番号はコミット前後で同一、コメントも「呼び出し回数・順序・limitは変えない」と明記。`evalBarValue`算出が`computeBoardEvalScore`依存から`moveEvalHistory`導出へ置き換わっただけで新規リクエストなし。
+6. **視点変換の正しさ(コード読解)**:
+   - (a) `moveEvalTimeline.ts`の`buildEvalGraphPoints`: `entry.side === 'black' ? entry.discDiff! : -entry.discDiff!`(黒はそのまま/白は符号反転、黒視点)。`isJosekiLike`(source==='joseki' または discDiff===null)は値0固定+evalSource:'joseki'。テスト`moveEvalTimeline.test.ts`の該当ケース(黒4→value4、白3→value-3、joseki discDiff7でも value0、discDiff=null でも value0/joseki)は規約の直接検証であり自己参照(実装コピー)ではない(独立した期待値ハードコード)。
+   - (b) バー: `app.tsx`1017行目 `moveEvalBarState.kind === 'value' ? (game.vsHuman ? moveEvalBarState.discDiff : -moveEvalBarState.discDiff) : null` — CPU対戦時はCPU視点discDiffを符号反転して人間視点へ。`PracticeMode.tsx`846行目も同型 `-moveEvalBarState.discDiff`。Pages実機確認でも整合(下記)。
+   - (c) joseki/null→0固定+'joseki'ソースは(a)で確認済み、バー側も`barStateForEntry`が`isJosekiLike`該当時`{kind:'joseki'}`を返し数値を出さない設計。
+7. **既存テスト期待値更新が削除で逃げていないこと**: `app.playmode.evalDisplay.test.tsx`の当該2件を diff で確認。単純削除ではなく、(i)初手局面テストは「バー中立+『まだ相手の手がありません』」への具体的な新規アサーションに置換、(ii)離脱後テストは「直前の白の手が定石内→バー『定石』表示」という新仕様の具体的な検証ロジックに置換。いずれも意味のあるアサーションが残っている。
+8. **GitHub Pages実機確認**(Playwright、`https://giwarb.github.io/othello-trainer/`、chromium headless):
+   - 対局モード(CPU対戦・黒番、定石ブックOFFにして開始): 開始直後は`.play-eval-bar__caption`=「相手の直前の手の評価(あなた視点、+ならあなた有利)」、`.play-eval-bar__note`=「まだ相手の手がありません」、`.eval-graph__point`=0件(グラフ非表示)。d3着手→CPU応手(探索)後、バー数値「-1」表示・グラフ点数3件に増加(スクリーンショットで確認、序盤/中盤/終盤の帯凡例つき折れ線表示)。
+   - 対局モード(定石ブックON): 同様に着手後、CPUがブック応手した回では`.play-eval-bar__note`=「定石」表示、数値ラベルなし。
+   - 中盤練習(ステージ1「虎」): 開始直後はバー中立+「まだ相手の手がありません」(対局モードと同キャプション)。b3着手(最善外の手)→既存の悪手比較UI(T195/T196由来、スコープ外)が表示され「続ける」で通常画面へ戻ると、バーが「-1」表示・キャプション「相手の直前の手の評価(あなた視点、+ならあなた有利)」・`.eval-graph__point`3件に増加(スクリーンショットで確認)。
+   - Actions: `gh run view 29959263568` → build/deployとも成功(✓)。
+9. `git status --short` → タスクファイル自体の作業ログ追記以外に差分・未追跡ファイルなし(検証はPlaywrightスクリプトも含め全てセッションscratchpad配下で実施、リポジトリ内は無変更)。
+
+**判定(訂正前・上記1〜9の個別項目のみを見た場合): 合格**。エンジン呼び出し数不変・視点変換の符号規約・joseki/null時の0固定表示・評価バーの「相手の直前の手の評価」化・折れ線グラフの点数増加は、コード読解とPages実機確認の両面で一致した。
+
+**追記(同日、上記検証中に本タスクファイルが並行更新され`status: redo`(attempts:1)・「redo #1」フィードバックが追加されていることに気づいたため、指摘内容を自分でも独立に確認した):**
+
+フィードバック記載の重大指摘(`evaluateHumanMove`の非同期解決に`gameGenerationRef`世代ガードが無く、アンドゥ/新規対局と競合すると`moveEvalHistory`がスパース配列になり`buildEvalGraphPoints`が例外を投げて白画面化する)を、コード読解+隔離シミュレーションで独立に確認した。
+
+- `app.tsx`のCPU着手effect(556行目)は`gameGenerationRef.current === generation`で世代照合しているが、`evaluateHumanMove`(738行目、`upsertMoveEval`呼び出し765行目)には同様の世代チェックが無い。
+- `undoMove`(944行目)は`gameGenerationRef.current += 1`するが`moveEvalHistory`は`setMoveEvalHistory((h) => h.slice(0, keep))`で単純に切り詰めるのみ(946,953行目)。`prepareNewGame`(835行目)も`setMoveEvalHistory([])`で即座に空配列化する(842行目)。いずれも進行中の`evaluateHumanMove`Promiseを追跡・破棄していない。
+- 隔離シミュレーション(scratchpad上の独立スクリプト、リポジトリ非改変)で、切り詰め後の短い配列に古い`historyIndex`で`next[ply] = entry`する`upsertMoveEval`と同じパターンを再現したところ、`array length: 3`のスパース配列(`<2 empty items>`)が生成され、`buildEvalGraphPoints`相当のロジックの`for (const entry of history)`が`entry`を`undefined`として反復し、`isJosekiLike`アクセスで`TypeError: Cannot read properties of undefined (reading 'source')`が実際に発生することを確認した(review記載の失敗モードと一致)。
+- `evalGraphPoints = buildEvalGraphPoints(moveEvalHistory)`(app.tsx:1024)はレンダー本体で無条件・try/catch無しに呼ばれており、アプリ全体に`ErrorBoundary`/`componentDidCatch`/`getDerivedStateFromError`は1つも存在しない(grep確認)。したがって発生時は白画面クラッシュになるというreviewの評価も裏付けられる。
+- Pages実機での本番タイミングでの再現は試みた(黒の一手直後に間髪入れず「1手戻る」をDOM直叩きで発火)が、今回の試行では発生条件(`evaluateHumanMove`のPromise未解決の間にundoが成立するタイミング)に至らず未再現(むしろReactのクロージャ鮮度の問題でundo自体がno-opになるケースも観測)。ただしこれはタイミング窓が本番エンジン速度では狭いだけであり、コード上の脆弱性そのもの(世代ガード欠如→スパース配列→無条件呼び出し→クラッシュ)は独立検証で機構として成立することを確認済み。
+
+**判定(最終・全体): 不合格として扱うべき**。本タスクファイルは既に`status: redo`(attempts:1)へ遷移済みであり、この判断は妥当と判断する(codex-review相当の指摘を自分でも機構レベルで再現・裏付け済み)。ユーザー指示の検証項目1〜7自体はすべてパスしているが、同一コミット(871aecd)に存在するこの重大な競合バグ(現実的な操作=着手直後の連打的なアンドゥ/新規対局で到達可能)を理由に、当該コミットの内容単体を「合格」として`done`に進めることはできない。フィードバック本文(redo #1)の指摘・修正方針は妥当であり、追加で「再発防止テスト」の明記どおり、undo/新規対局と`evaluateHumanMove`未解決状態が競合するケースをテストに追加することを推奨する。
