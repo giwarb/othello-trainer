@@ -362,56 +362,27 @@
 }
 
 /**
- * T128: 失敗時の「1手先対比」表示(`ClearBlunderCompare.tsx`、要件3)。
- * 「あなたの手のあと」「最善手のあと」の盤面2枚を横並びにし、
- * `flex-wrap`+下記メディアクエリで狭い画面幅では縦積みに切り替える。
+ * T195: 悪手直後の2手先2盤面比較(`TwoPlyCompare.tsx`)を表示している間、
+ * 通常のプレイ画面(盤+候補手評価オーバーレイ+側パネル)の代わりに表示する
+ * ラッパー(要件1「相手の自動応手を保留」)。`TwoPlyCompare`自体のスタイルは
+ * 独立した`TwoPlyCompare.css`が持ち、ここでは見出し・「やめる」ボタンとの
+ * 縦積みだけを担う(T196で棋譜解析モードから`TwoPlyCompare`を再利用する際も
+ * このラッパーはPracticeMode固有のまま残る想定)。
  */
-.clear-blunder-compare {
-  display: flex;
-  flex-direction: column;
-  gap: 0.6rem;
-  width: 100%;
-  align-self: stretch;
-  text-align: left;
-  box-sizing: border-box;
-}
-
-.clear-blunder-compare__boards {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 0.75rem;
-  width: 100%;
-}
-
-.clear-blunder-compare__board-col {
+.midgame-practice__blunder-compare {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.3rem;
-  flex: 1 1 200px;
-  max-width: 260px;
+  gap: 0.6rem;
+  width: 100%;
   box-sizing: border-box;
 }
 
-.clear-blunder-compare__board-label {
+.midgame-practice__blunder-heading {
   margin: 0;
   font-weight: bold;
-  font-size: 0.85rem;
   text-align: center;
-}
-
-.clear-blunder-compare__board {
-  position: relative;
-  width: 100%;
-}
-
-.clear-blunder-compare__messages {
-  margin: 0;
-  padding-left: 1.2rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
+  color: var(--color-warning-text);
 }
 
 /* 狭い画面幅(スマートフォン想定、375px程度)ではボタン・文字を少し縮めて縦積みにする。 */
@@ -437,17 +408,8 @@
     font-size: 0.8rem;
   }
 
-  /* T128要件「モバイル幅(375px)で盤面2枚が縦積みになる」: 横並びをやめ、
-     それぞれ幅いっぱいに縦積みする。 */
-  .clear-blunder-compare__boards {
-    flex-direction: column;
-    align-items: center;
-  }
-
-  .clear-blunder-compare__board-col {
-    max-width: 100%;
-    width: 100%;
-  }
+  /* T195: `TwoPlyCompare.tsx`自身の375px以下モバイル幅対応(盤面2枚の縦積み)は
+     独立した`TwoPlyCompare.css`が持つため、ここでの重複定義は不要。 */
 
   /* T129: 苦手パターン統計のリセット確認ボタン群を縦積みにする。 */
   .midgame-pattern-stats__confirm {
@@ -509,13 +471,25 @@
     align-items: flex-start;
   }
 
-  /* 結果画面: 1手先対比(`ClearBlunderCompare`)が表示される場合、盤2枚(左)+
-     ★・損失一覧・操作ボタン(右)のレイアウトにする。T141: `ClearBlunderCompare`は
-     ★1〜3(クリア)でも損失1石以上の手があれば表示されうるため、旧`--fail`限定
-     から`.midgame-result`全体(★0の`--fail`・★1以上の`--clear`共通)に対象を
-     広げた。`ClearBlunderCompare`のルート要素を`display: contents`で透過に
-     することで、内部の`.clear-blunder-compare__boards`(盤2枚)・
-     `.clear-blunder-compare__messages`(言語化文)を、コンポーネントの境界を
+  /* T195: 悪手直後の2手先2盤面比較(`.midgame-practice__blunder-compare`、
+     相手の自動応手を保留して表示している間)。盤2枚の左右分割まではせず、
+     2行目(通常は盤+側パネルの行)を全幅使って内部スクロールさせる
+     (transientな表示であり、`.midgame-result`側ほど厳密な2カラム化は
+     行わない実装者判断)。 */
+  .midgame-practice > .midgame-practice__blunder-compare {
+    grid-column: 1 / span 2;
+    grid-row: 2;
+    min-height: 0;
+    overflow-y: auto;
+  }
+
+  /* 結果画面: 2手先2盤面比較(`TwoPlyCompare`、T195で`ClearBlunderCompare`から
+     置き換え)が表示される場合、盤2枚(左)+★・損失一覧・操作ボタン(右)の
+     レイアウトにする。T141: 表示条件は★1〜3(クリア)でも損失1石以上の手が
+     あれば成立するため、旧`--fail`限定から`.midgame-result`全体(★0の`--fail`・
+     ★1以上の`--clear`共通)に対象を広げてある。`TwoPlyCompare`のルート要素を
+     `display: contents`で透過にすることで、内部の`.two-ply-compare__boards`
+     (盤2枚)・`.two-ply-compare__messages`(言語化文)を、コンポーネントの境界を
      変えずに`.midgame-result`の直接のgridアイテムとして扱えるようにする
      (JSX変更不要)。
      T136追加要件2(T135代替レビュー指摘): `max-height: 100dvh`はスティッキー
@@ -523,7 +497,7 @@
      実際にはヘッダぶんだけ画面下端がはみ出しうる。
      `calc(100dvh - var(--app-header-height))`に揃える(T137追加要件2:
      マジックナンバーをトークン化)。 */
-  .midgame-result:has(.clear-blunder-compare) {
+  .midgame-result:has(.two-ply-compare) {
     display: grid;
     grid-template-columns: minmax(0, auto) minmax(0, 1fr);
     column-gap: 0.6rem;
@@ -538,19 +512,19 @@
     padding: 0.6rem;
   }
 
-  .midgame-result:has(.clear-blunder-compare) > h2,
-  .midgame-result:has(.clear-blunder-compare) > p,
-  .midgame-result:has(.clear-blunder-compare) > .midgame-result__moves,
-  .midgame-result:has(.clear-blunder-compare) > .midgame-result__buttons {
+  .midgame-result:has(.two-ply-compare) > h2,
+  .midgame-result:has(.two-ply-compare) > p,
+  .midgame-result:has(.two-ply-compare) > .midgame-result__moves,
+  .midgame-result:has(.two-ply-compare) > .midgame-result__buttons {
     grid-column: 2;
     margin: 0;
   }
 
-  .midgame-result:has(.clear-blunder-compare) .clear-blunder-compare {
+  .midgame-result:has(.two-ply-compare) .two-ply-compare {
     display: contents;
   }
 
-  .midgame-result:has(.clear-blunder-compare) .clear-blunder-compare__boards {
+  .midgame-result:has(.two-ply-compare) .two-ply-compare__boards {
     grid-column: 1;
     /* T133 redo: 過大な`span`値の危険性は上の`.midgame-practice > .board-container`
        コメント参照。右カラムの実項目数(見出し・★表示・評価値要約・損失一覧・
@@ -561,21 +535,11 @@
     max-width: none;
   }
 
-  .midgame-result:has(.clear-blunder-compare) .clear-blunder-compare__messages {
+  .midgame-result:has(.two-ply-compare) .two-ply-compare__messages {
     grid-column: 2;
   }
 
-  /* 盤2枚(1枚あたり)を通常のランドスケープ盤より小さくし、縦積み・横並び
-     いずれでも高さに収まりやすくする(`.board-container`より詳細度を上げて
-     `app.css`側の既定値を上書きする、要件「盤2枚を左に縦積みまたは横並び
-     (高さに収まる方)」)。 */
-  .clear-blunder-compare__board-col {
-    flex: 0 0 auto;
-    max-width: min(30vw, 150px);
-  }
-
-  .clear-blunder-compare__board.board-container {
-    width: min(24dvh, 28vw, 150px);
-    max-width: min(24dvh, 28vw, 150px);
-  }
+  /* 盤2枚(1枚あたり)のランドスケープ専用サイズ調整(`.board-container`より
+     詳細度を上げて`app.css`側の既定値を上書きする)は、`TwoPlyCompare`が
+     再利用される場所を選ばないよう独立した`TwoPlyCompare.css`側に持たせてある。 */
 }

@@ -35,7 +35,6 @@ import {
   saveReviewFilter,
   type ReviewFilter,
 } from '../settings/reviewFilter.ts'
-import { ClearBlunderCompare } from './ClearBlunderCompare.tsx'
 import {
   CLEAR_BLUNDER_PATTERN_LABELS,
   detectAllClearBlunderPatterns,
@@ -64,6 +63,8 @@ import {
   type StageProgress,
 } from './stageProgress.ts'
 import { computeStageStars, isBestMove, type Stars } from './stageStarJudge.ts'
+import { TwoPlyCompare } from './TwoPlyCompare.tsx'
+import { computeTwoPlyCompare, type TwoPlyCompareResult } from './twoPlyCompare.ts'
 import './PracticeMode.css'
 
 /**
@@ -131,6 +132,32 @@ interface ResultInfo {
   readonly justImprovedBest: boolean
 }
 
+/**
+ * T195: 悪手(損失`PATTERN_DETECTION_LOSS_THRESHOLD`石以上)を打った直後、相手の
+ * 自動応手を保留して2手先2盤面比較を見せている間の状態。
+ *
+ * 「保留」は`nextSession`(=通常ならこの場で`setSession`していたはずの値)を
+ * 確定させずに持っておくことで実現する。「続ける」(`handleContinueAfterCompare`)
+ * が押されるまで`session`は着手前のまま変化しないため、相手の自動応手
+ * `useEffect`(`session.sideToMove !== humanSide`で発火)は自然に発火しない。
+ */
+interface PendingBlunderCompare {
+  /** この比較がどのセッション世代のものか(離脱後の古い結果適用を防ぐ、既存の世代ガードと同じ考え方)。 */
+  readonly generation: number
+  readonly preMoveBoard: BoardState
+  readonly preMoveSide: Side
+  readonly playedSquare: number
+  readonly bestSquare: number
+  readonly playedMove: string
+  readonly bestMove: string
+  readonly lossDiscs: number
+  readonly patterns: readonly ClearBlunderPattern[] | null
+  /** 「続ける」が押されたときに確定させる、着手適用後のセッション状態。 */
+  readonly nextSession: SessionState
+  /** `computeTwoPlyCompare`の結果。取得完了まで`null`(ローディング表示)。 */
+  readonly compare: TwoPlyCompareResult | null
+}
+
 /** 復習フィルタの中盤練習向け表示ラベル(要件6)。値・絞り込みロジックは共有の`reviewFilter.ts`をそのまま使い、表示文言だけをこのモード向けに上書きする。 */
 const MIDGAME_FILTER_LABELS: Readonly<Record<ReviewFilter, string>> = {
   all: 'すべて',
@@ -166,6 +193,11 @@ export function PracticeMode() {
   const [session, setSession] = useState<SessionState | null>(null)
   const [resultInfo, setResultInfo] = useState<ResultInfo | null>(null)
   const [stageError, setStageError] = useState<string | null>(null)
+
+  /** T195: 悪手直後の2手先2盤面比較(相手の自動応手を保留中)。無ければ`null`(通常のプレイ画面)。 */
+  const [pendingCompare, setPendingCompare] = useState<PendingBlunderCompare | null>(null)
+  /** T195: 結果画面の最悪手についての2手先2盤面比較(`worstMoveCompareInfo`が非nullの間、非同期に計算する)。 */
+  const [worstMoveCompare, setWorstMoveCompare] = useState<TwoPlyCompareResult | null>(null)
 
   /** 定石DBが読み込まれ次第、決定的な順序で1回だけ列挙する(`josekiDb`が変わらない限り再計算しない)。 */
   const stagePool = useMemo<MidgameStage[] | null>(
@@ -238,6 +270,19 @@ export function PracticeMode() {
     const promise = getEngine().requestAnalyzeAll(board, side, MIDGAME_ANALYZE_LIMIT)
     analyzedMovesRef.current = { board, side, promise }
     return promise
+  }
+
+  /**
+   * T195: 2手先2盤面比較(`twoPlyCompare.ts`)専用の`requestAnalyzeAll`呼び出し。
+   * `getAnalyzedMoves`(表示・判定・応手が参照する一元化されたキャッシュ)とは
+   * 意図的に分離する(比較用の局面はライブセッションの局面と異なるため、
+   * 同じキャッシュに混ぜると無関係な局面のキャッシュを上書きしてしまう)。
+   * 1回の比較で最大4回まで(要件6)、呼び出し元(`loadTwoPlyCompare`)が
+   * `pendingCompare`/`worstMoveCompare`のstateに結果を保持することで、
+   * 同じ手の再表示による再計算を避ける。
+   */
+  function requestAnalyzeAllForCompare(board: BoardState, side: Side): Promise<MoveEvalJson[]> {
+    return getEngine().requestAnalyzeAll(board, side, MIDGAME_ANALYZE_LIMIT)
   }
 
   /** `moves`(mover視点)から評価バーの値(プレイヤー視点)を更新する(要件3、対局モードT138と同じ`computeBoardEvalScore`を再利用)。 */
@@ -544,6 +589,32 @@ export function PracticeMode() {
         lastMove: square,
         moveOutcomes: [...s.moveOutcomes, outcome],
       }
+
+      // T195要件1: 悪手(損失`PATTERN_DETECTION_LOSS_THRESHOLD`石以上)なら、
+      // ここで`setSession`せずに2手先2盤面比較を表示し、相手の自動応手を保留する。
+      // `session`が着手前のまま変わらないため、相手の自動応手`useEffect`
+      // (`session.sideToMove !== humanSide`で発火)はまだ発火しない
+      // (「続ける」を押した時点で`handleContinueAfterCompare`が`setSession`する)。
+      if (!isBest && lossDiscs >= PATTERN_DETECTION_LOSS_THRESHOLD) {
+        setPendingCompare({
+          generation,
+          preMoveBoard: s.board,
+          preMoveSide: s.sideToMove,
+          playedSquare: square,
+          bestSquare,
+          playedMove: playedNotation,
+          bestMove: best.move,
+          lossDiscs,
+          patterns: clearBlunderPatterns,
+          nextSession,
+          compare: null,
+        })
+        void loadTwoPlyCompare(generation, s.board, s.sideToMove, square, bestSquare, (result) => {
+          setPendingCompare((prev) => (prev && prev.generation === generation ? { ...prev, compare: result } : prev))
+        })
+        return
+      }
+
       setSession(nextSession)
       await checkSessionEnd(board, nextSide, nextSession, generation)
     } catch (error) {
@@ -551,6 +622,43 @@ export function PracticeMode() {
     } finally {
       setAnalyzing(false)
     }
+  }
+
+  /**
+   * T195: `computeTwoPlyCompare`を呼び、離脱していなければ`onResult`で結果を反映する
+   * (`pendingCompare`・`worstMoveCompare`の両方から共通で使う世代ガード付きヘルパー)。
+   */
+  async function loadTwoPlyCompare(
+    generation: number,
+    preMoveBoard: BoardState,
+    preMoveSide: Side,
+    playedSquare: number,
+    bestSquare: number,
+    onResult: (result: TwoPlyCompareResult) => void,
+  ): Promise<void> {
+    try {
+      const result = await computeTwoPlyCompare(
+        preMoveBoard,
+        preMoveSide,
+        playedSquare,
+        bestSquare,
+        requestAnalyzeAllForCompare,
+      )
+      if (sessionGenerationRef.current !== generation) return
+      onResult(result)
+    } catch (error) {
+      console.error('2手先2盤面比較の計算に失敗しました', error)
+    }
+  }
+
+  /** T195: 悪手直後の2手先2盤面比較を閉じ、保留していた相手の自動応手・セッション継続判定を再開する。 */
+  function handleContinueAfterCompare(): void {
+    const pending = pendingCompare
+    if (!pending) return
+    setPendingCompare(null)
+    if (sessionGenerationRef.current !== pending.generation) return
+    setSession(pending.nextSession)
+    void checkSessionEnd(pending.nextSession.board, pending.nextSession.sideToMove, pending.nextSession, pending.generation)
   }
 
   /** ステージ一覧のセルをクリックしたときの処理(要件2)。 */
@@ -577,6 +685,8 @@ export function PracticeMode() {
     setOpponentThinking(false)
     setAnalyzing(false)
     setFinalizing(false)
+    setPendingCompare(null)
+    setWorstMoveCompare(null)
     setPhase('playing')
     void checkSessionEnd(stage.board, sideToMove, initialSession, generation)
   }
@@ -600,6 +710,8 @@ export function PracticeMode() {
     setOpponentThinking(false)
     setAnalyzing(false)
     setFinalizing(false)
+    setPendingCompare(null)
+    setWorstMoveCompare(null)
   }
 
   /** 結果画面の「次のステージへ」(要件7): `stagePool`内で`activeStage`の次の番号のステージへ進む。 */
@@ -629,22 +741,54 @@ export function PracticeMode() {
   }
 
   /**
-   * 結果画面の1手先対比表示用の派生値(要件7「最も損失が大きかった手について
-   * ...表示(明確パターンが検出できた場合のみ)」)。
+   * T195: 結果画面の2手先2盤面比較表示用の派生値(要件5「結果画面の最悪手表示も
+   * 同コンポーネントに置き換える」)。表示条件は損失`PATTERN_DETECTION_LOSS_THRESHOLD`
+   * 石以上(即時フィードバックと同じ閾値、要件1)であり、`clearBlunderPatterns`の
+   * 検出有無は問わない(パターンは検出できた場合の補足行としてのみ使う、
+   * `clearBlunderPatterns`の検出・`patternStats`への記録自体は現状のまま)。
    */
   const worstMoveCompareInfo = (() => {
     if (!resultInfo || resultInfo.worstMoveIndex === null) return null
     const worst = resultInfo.moveOutcomes[resultInfo.worstMoveIndex]
-    if (!worst || !worst.clearBlunderPatterns || worst.clearBlunderPatterns.length === 0) return null
+    if (!worst || worst.lossDiscs < PATTERN_DETECTION_LOSS_THRESHOLD) return null
     return {
-      opponentSide: opposite(worst.preMoveSide),
-      boardAfterPlayed: applyMove(worst.preMoveBoard, worst.preMoveSide, worst.playedSquare),
-      boardAfterBest: applyMove(worst.preMoveBoard, worst.preMoveSide, worst.bestSquare),
+      preMoveBoard: worst.preMoveBoard,
+      preMoveSide: worst.preMoveSide,
       playedSquare: worst.playedSquare,
       bestSquare: worst.bestSquare,
+      playedMove: worst.playedMove,
+      bestMove: worst.bestMove,
+      lossDiscs: worst.lossDiscs,
       patterns: worst.clearBlunderPatterns,
     }
   })()
+
+  // T195: `worstMoveCompareInfo`が変わるたび(結果画面に入った・別の挑戦の結果に
+  // 差し替わった)に2手先2盤面比較を計算し直す。表示対象が無ければ(または
+  // 結果画面を離れたら)`null`に戻す。
+  useEffect(() => {
+    if (phase !== 'result' || !worstMoveCompareInfo) {
+      setWorstMoveCompare(null)
+      return
+    }
+    let cancelled = false
+    setWorstMoveCompare(null)
+    const generation = sessionGenerationRef.current
+    void loadTwoPlyCompare(
+      generation,
+      worstMoveCompareInfo.preMoveBoard,
+      worstMoveCompareInfo.preMoveSide,
+      worstMoveCompareInfo.playedSquare,
+      worstMoveCompareInfo.bestSquare,
+      (result) => {
+        if (!cancelled) setWorstMoveCompare(result)
+      },
+    )
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line
+  }, [phase, resultInfo])
 
   // 苦手パターン統計(T129要件2): failCount降順で最大5件。
   const topPatternRows = topPatternStats(patternStats)
@@ -806,47 +950,77 @@ export function PracticeMode() {
             />
           </div>
 
-          <p class="midgame-practice__round">{session.moveOutcomes.length}/{ROUNDS_PER_STAGE}手</p>
+          <p class="midgame-practice__round">
+            {(pendingCompare ? pendingCompare.nextSession.moveOutcomes.length : session.moveOutcomes.length)}/{ROUNDS_PER_STAGE}手
+          </p>
 
-          <div class="board-container board-with-move-eval-overlay">
-            <Board
-              board={session.board}
-              sideToMove={session.sideToMove}
-              lastMove={session.lastMove}
-              onMove={(square) => void handlePlayerMove(square)}
-            />
-            <MoveEvalOverlay
-              allMoves={overlayMoves}
-              mover={session.sideToMove}
-              thresholds={classifyThresholds}
-              visible={moveEvalOverlayEnabled}
-            />
-          </div>
-
-          <div class="midgame-practice__side">
-            {analyzing && <p class="notice">判定中...</p>}
-            {finalizing && <p class="notice midgame-finalizing">結果を確定しています…</p>}
-
-            {evalBarValue !== null && (
-              <div class="midgame-eval-bar-panel">
-                <p class="midgame-eval-bar-panel__caption">現在の評価値(あなた視点、+なら有利)</p>
-                <EvalBar discDiff={evalBarValue} />
+          {pendingCompare ? (
+            // T195要件1: 悪手を打った直後、相手の自動応手を保留して2手先2盤面比較を表示する。
+            <div class="midgame-practice__blunder-compare">
+              <p class="midgame-practice__blunder-heading">
+                最善ではありません(最善より約{Math.round(pendingCompare.lossDiscs)}石損)
+              </p>
+              {pendingCompare.compare ? (
+                <TwoPlyCompare
+                  mover={pendingCompare.preMoveSide}
+                  playedMoveNotation={pendingCompare.playedMove}
+                  bestMoveNotation={pendingCompare.bestMove}
+                  compare={pendingCompare.compare}
+                  lossDiscs={pendingCompare.lossDiscs}
+                  thresholds={classifyThresholds}
+                  patterns={pendingCompare.patterns}
+                  onContinue={handleContinueAfterCompare}
+                />
+              ) : (
+                <p class="notice">比較を計算しています…</p>
+              )}
+              <button type="button" class="midgame-practice__quit" onClick={goToStageSelect}>
+                やめる
+              </button>
+            </div>
+          ) : (
+            <>
+              <div class="board-container board-with-move-eval-overlay">
+                <Board
+                  board={session.board}
+                  sideToMove={session.sideToMove}
+                  lastMove={session.lastMove}
+                  onMove={(square) => void handlePlayerMove(square)}
+                />
+                <MoveEvalOverlay
+                  allMoves={overlayMoves}
+                  mover={session.sideToMove}
+                  thresholds={classifyThresholds}
+                  visible={moveEvalOverlayEnabled}
+                />
               </div>
-            )}
 
-            <label class="move-eval-overlay-toggle">
-              <input
-                type="checkbox"
-                checked={moveEvalOverlayEnabled}
-                onChange={(event) => handleToggleMoveEvalOverlay((event.target as HTMLInputElement).checked)}
-              />
-              候補手評価を表示
-            </label>
+              <div class="midgame-practice__side">
+                {analyzing && <p class="notice">判定中...</p>}
+                {finalizing && <p class="notice midgame-finalizing">結果を確定しています…</p>}
 
-            <button type="button" class="midgame-practice__quit" onClick={goToStageSelect}>
-              やめる
-            </button>
-          </div>
+                {evalBarValue !== null && (
+                  <div class="midgame-eval-bar-panel">
+                    <p class="midgame-eval-bar-panel__caption">現在の評価値(あなた視点、+なら有利)</p>
+                    <EvalBar discDiff={evalBarValue} />
+                  </div>
+                )}
+
+                <label class="move-eval-overlay-toggle">
+                  <input
+                    type="checkbox"
+                    checked={moveEvalOverlayEnabled}
+                    onChange={(event) => handleToggleMoveEvalOverlay((event.target as HTMLInputElement).checked)}
+                  />
+                  候補手評価を表示
+                </label>
+
+                <button type="button" class="midgame-practice__quit" onClick={goToStageSelect}>
+                  やめる
+                </button>
+              </div>
+            </>
+          )}
         </section>
       )}
 
@@ -874,16 +1048,20 @@ export function PracticeMode() {
             </ol>
           )}
 
-          {worstMoveCompareInfo && (
-            <ClearBlunderCompare
-              opponentSide={worstMoveCompareInfo.opponentSide}
-              boardAfterPlayed={worstMoveCompareInfo.boardAfterPlayed}
-              boardAfterBest={worstMoveCompareInfo.boardAfterBest}
-              playedSquare={worstMoveCompareInfo.playedSquare}
-              bestSquare={worstMoveCompareInfo.bestSquare}
-              patterns={worstMoveCompareInfo.patterns}
-            />
-          )}
+          {worstMoveCompareInfo &&
+            (worstMoveCompare ? (
+              <TwoPlyCompare
+                mover={worstMoveCompareInfo.preMoveSide}
+                playedMoveNotation={worstMoveCompareInfo.playedMove}
+                bestMoveNotation={worstMoveCompareInfo.bestMove}
+                compare={worstMoveCompare}
+                lossDiscs={worstMoveCompareInfo.lossDiscs}
+                thresholds={classifyThresholds}
+                patterns={worstMoveCompareInfo.patterns}
+              />
+            ) : (
+              <p class="notice">最も損失が大きかった手の比較を計算しています…</p>
+            ))}
 
           <div class="midgame-result__buttons">
             <button type="button" class="btn-primary" onClick={retryFromStart}>

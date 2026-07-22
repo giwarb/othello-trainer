@@ -364,15 +364,15 @@ main {
    * T135追加要件(T133代替レビュー tasks/review/T133-landscape-claude-review.md
    * 指摘): 以前はここが素の`.board-container`セレクタだったため、この
    * サイズ・margin上書きがページ上の**すべて**の`.board-container`要素
-   * (棋譜解析モードの`BlunderPanel`内の参考盤面、`ClearBlunderCompare`の
-   * 比較盤面等、本来この横置き2カラムレイアウトの対象外の画面)にまで
-   * 波及し、それらの盤が意図せず左寄せ(`margin: 0`)・過小サイズになる
-   * 不具合があった。各モードCSS側で実際に2カラムグリッドの左カラムとして
-   * 使っている`> .board-container`(直接の子)セレクタと同じ対象だけに
-   * スコープする(この6箇所が「盤(左)+情報(右)」の左カラム本体)。
-   * 2枚の盤を並べる`.clear-blunder-compare__board`(中盤練習の失敗画面)は
-   * これとは別に`PracticeMode.css`側でより小さい専用サイズに上書きする
-   * (詳細度`.clear-blunder-compare__board.board-container`で対応済み)。
+   * (棋譜解析モードの`BlunderPanel`内の参考盤面、`TwoPlyCompare`(T195、
+   * 旧`ClearBlunderCompare`)の比較盤面等、本来この横置き2カラムレイアウトの
+   * 対象外の画面)にまで波及し、それらの盤が意図せず左寄せ(`margin: 0`)・
+   * 過小サイズになる不具合があった。各モードCSS側で実際に2カラムグリッドの
+   * 左カラムとして使っている`> .board-container`(直接の子)セレクタと
+   * 同じ対象だけにスコープする(この6箇所が「盤(左)+情報(右)」の左カラム本体)。
+   * 2枚の盤を並べる`.two-ply-compare__board`(中盤練習の悪手直後表示・失敗
+   * 結果画面)はこれとは別に`TwoPlyCompare.css`側でより小さい専用サイズに
+   * 上書きする(詳細度`.two-ply-compare__board.board-container`で対応済み)。
    */
   .play-board-area > .board-container,
   .joseki-practice > .board-container,

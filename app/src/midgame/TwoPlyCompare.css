@@ -1,0 +1,110 @@
+/**
+ * T195: `TwoPlyCompare.tsx`のスタイル。旧`ClearBlunderCompare`
+ * (`PracticeMode.css`の`.clear-blunder-compare*`、T128)と同じレイアウト方針
+ * (盤面2枚を横並び+`flex-wrap`+メディアクエリで375px以下は縦積み)を踏襲する。
+ * 本コンポーネントは`midgame/`専用ではなく再利用(T196)を見込むため、
+ * `PracticeMode.css`に混在させず独立したCSSファイルにしてある。
+ */
+.two-ply-compare {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  width: 100%;
+  align-self: stretch;
+  text-align: left;
+  box-sizing: border-box;
+}
+
+.two-ply-compare__boards {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.75rem;
+  width: 100%;
+}
+
+.two-ply-compare__board-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+  flex: 1 1 200px;
+  max-width: 260px;
+  box-sizing: border-box;
+}
+
+.two-ply-compare__board-label {
+  margin: 0;
+  font-weight: bold;
+  font-size: 0.85rem;
+  text-align: center;
+}
+
+.two-ply-compare__board-header {
+  margin: 0;
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+  text-align: center;
+  overflow-wrap: break-word;
+}
+
+.two-ply-compare__board {
+  width: 100%;
+}
+
+.two-ply-compare__messages {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.two-ply-compare__messages p {
+  margin: 0;
+}
+
+.two-ply-compare__patterns {
+  margin: 0;
+  padding-left: 1.2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  font-size: 0.9rem;
+  color: var(--color-text-secondary);
+}
+
+.two-ply-compare__continue {
+  align-self: center;
+}
+
+@media (max-width: 400px) {
+  .two-ply-compare__boards {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .two-ply-compare__board-col {
+    max-width: 100%;
+    width: 100%;
+  }
+}
+
+/*
+ * T195: スマホ横置き(旧`.clear-blunder-compare__board-col`/
+ * `.clear-blunder-compare__board.board-container`、T133由来)向けの盤サイズ
+ * 縮小。`PracticeMode.css`側の`.midgame-result:has(.two-ply-compare)`
+ * グリッド配置と組み合わせて使う想定だが、本ファイル自体は使用先を選ばない
+ * よう`.midgame-practice`/`.midgame-result`等のモード固有クラスに依存しない
+ * (T196での再利用を見込む、コンポーネントdocコメント参照)。
+ */
+@media (orientation: landscape) and (max-height: 520px) {
+  .two-ply-compare__board-col {
+    flex: 0 0 auto;
+    max-width: min(30vw, 150px);
+  }
+
+  .two-ply-compare__board.board-container {
+    width: min(24dvh, 28vw, 150px);
+    max-width: min(24dvh, 28vw, 150px);
+  }
+}

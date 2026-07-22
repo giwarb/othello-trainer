@@ -235,7 +235,7 @@ describe('T141: 中盤練習ステージクリア型のプレイフロー', () =
   )
 
   it(
-    '損失があり明確な悪化パターンが検出できる手があると、結果画面に1手先対比(あなたの手のあと/最善手のあと)が表示される',
+    '損失がある手を打つと直後に2手先2盤面比較が表示され、「続ける」で進行し、結果画面にも同じ比較が表示される(T195)',
     async () => {
       // このテストだけは「決定局面」から始まるライン(DECISION_SEQ)を使う。
       const decisionLine: RawJosekiLine = {
@@ -266,6 +266,25 @@ describe('T141: 中盤練習ステージクリア型のプレイフロー', () =
       await act(async () => clickMove(container, 'g6'))
       await flushAsyncEffects()
 
+      // T195要件1: 損失1石以上の手を打った直後、相手の自動応手を保留して
+      // 2手先2盤面比較が表示される(「続ける」を押すまでステージが進まない)。
+      expect(container.querySelector('.midgame-practice__blunder-compare')).not.toBeNull()
+      expect(container.querySelector('.midgame-result')).toBeNull()
+      const continueButton = Array.from(container.querySelectorAll<HTMLButtonElement>('button')).find(
+        (btn) => btn.textContent === '続ける',
+      )
+      expect(continueButton).toBeDefined()
+      expect(container.textContent).toContain('実際に打った手')
+      expect(container.textContent).toContain('最善手')
+
+      await act(async () => {
+        continueButton?.click()
+      })
+      await flushAsyncEffects()
+
+      // 「続ける」を押した後は通常どおり相手が応手し、ステージが続行する。
+      expect(container.querySelector('.midgame-practice__blunder-compare')).toBeNull()
+
       // 2・3手目: 以後は決定局面ではなくなるため、常に「先頭の合法手」(損失0扱い)を打つ。
       for (let round = 0; round < 2; round += 1) {
         await act(async () => clickFirstMove(container))
@@ -280,10 +299,11 @@ describe('T141: 中盤練習ステージクリア型のプレイフロー', () =
       expect(moveItems[0]).toContain('最善手 b1')
       expect(moveItems[0]).toContain('ロス5石')
 
-      // 要件7: 最も損失が大きかった手(1手目)について1手先対比が表示される。
-      expect(container.querySelector('.clear-blunder-compare')).not.toBeNull()
-      expect(container.textContent).toContain('あなたの手のあと')
-      expect(container.textContent).toContain('最善手のあと')
+      // 要件5: 最も損失が大きかった手(1手目)について、結果画面にも同じ
+      // `TwoPlyCompare`が表示される。
+      await flushAsyncEffects()
+      expect(container.querySelector('.two-ply-compare')).not.toBeNull()
+      expect(container.textContent).toContain('実際に打った手')
     },
     15000,
   )
