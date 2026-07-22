@@ -1,0 +1,65 @@
+---
+id: T195
+title: 中盤練習: 悪手直後の「2手先」2盤面比較フィードバック
+status: todo
+assignee: implementer
+attempts: 0
+---
+
+# T195: 中盤練習: 悪手直後の「2手先」2盤面比較フィードバック
+
+## 目的(ユーザー依頼 2026-07-23)
+
+中盤練習で悪手を打った**その場で**(ステージの3手を打ち切る前に)、
+- **左**: 実際に打った手 + それへの相手の最善応手を進めた盤面
+- **右**: 打つべきだった最善手 + それへの相手の最善応手を進めた盤面
+を並べ、**なぜ最善手が良いかをシンプルな言葉で**説明する。第一の比較指標は「その2手が進んだ後の自分の番での着手可能数」とし、**両盤面に自分の各合法手の評価値を表示**する(着手可能数が増えても悪手だらけなら意味がないため)。既存の言語化(寄与の滝グラフ等)への「着手可能数の寄与ってなんやねん」という不満が起点なので、**数値の羅列ではなく盤面で見せる**ことが本質。
+
+## 背景・コンテキスト(explorer調査済み 2026-07-23。着手時に現物と突き合わせること)
+
+- 中盤練習: `app/src/midgame/PracticeMode.tsx`(903行)。1ステージ=プレイヤー3手×相手3応手(`ROUNDS_PER_STAGE=3`)。相手は常に最善手(`pickOpponentMove(allMoves,'best')`固定)。探索設定は `MIDGAME_ANALYZE_LIMIT = {depth:16, timeMs:1000, exactFromEmpties:24}`(表示・判定・応手すべて同一設定、`getAnalyzedMoves`キャッシュ一元化 — この一元化は壊さない)。
+- 悪手検出の現状: `handlePlayerMove`(`PracticeMode.tsx:474`)で `loss = best.discDiff - played.discDiff` を計算し `MoveOutcome` に蓄積、その場では表示せず結果画面で最悪手のみ `ClearBlunderCompare`(1手先の2盤面比較、`ClearBlunderCompare.tsx`)を表示。閾値は1石(`clearBlunder.ts`、1石未満は計算スキップ)。
+- 盤面部品: `Board`(Canvas)+`MoveEvalOverlay`(合法手の評価値を8x8グリッドで重ねる、`components/MoveEvalOverlay.tsx`)+`BoardOverlay`(強調マス)。小型盤2枚並べのCSS前例は `.clear-blunder-compare__board-col`(`PracticeMode.css:369-457`、375px以下縦積み)。**BoardOverlayとMoveEvalOverlayを同一盤面に同時に重ねる前例はない**(z-index・ラベル帯オフセットに注意、`Board.tsx:53-62`)。
+- 全合法手評価: `EngineClient.requestAnalyzeAll(board, turn, limit): Promise<MoveEvalJson[]>`(`client.ts:114-135`、`MoveEvalJson={move,score,discDiff,type}`、discDiffは**手番視点**)。
+- 手番解決: 相手応手後にパスが起きうるため `resolveMover`(`midgame/resolveMover.ts:26`)を使う既存規約。
+- 平易メッセージの前例: `clearBlunder.ts` の日本語文(「この手の後、相手は5か所に打てます。最善手なら2か所でした。」)。この文体を踏襲する。
+
+## 要件
+
+1. **即時フィードバック**: `handlePlayerMove` で loss ≥ 1石(既存閾値定数を使う)を検出したら、相手の自動応手を保留して比較モーダル(またはインライン差し替え画面)を表示する。「続ける」で閉じたら通常どおり相手が応手しステージ続行(左盤面の応手=実際に打たれる手になる。相手は'best'固定なので一致する)。
+2. **2系列の計算**(新規Worker呼び出し、`MIDGAME_ANALYZE_LIMIT`使用):
+   - 系列A(実際の手): `boardAfterPlayed` → `requestAnalyzeAll`で相手最善応手を特定 → 適用(`resolveMover`でパス解決) → その局面で`requestAnalyzeAll` → 自分の合法手評価一覧。
+   - 系列B(最善手): 同様に `boardAfterBest` から。
+   - 2系列は`Promise.all`で並列化してよい(系列内は逐次依存)。計算中はローディング表示(合計約2秒見込み)。
+3. **表示(新コンポーネント、例 `TwoPlyCompare.tsx`)**:
+   - 左右に小型`Board`。各盤面に (a) 打った手/最善手と相手応手の強調(`BoardOverlay`または最終手マーカー) (b) `MoveEvalOverlay`で自分の各合法手の評価値、を同時表示。
+   - 各盤面の上か下に「あなた: X → 相手: Y → **打てる場所: N か所**」のヘッダ。
+   - 説明文(平易な日本語、clearBlunder.ts文体): 主文=「この手だと次にあなたは N か所に打てます(いちばん良い手で {A})。最善手なら M か所(いちばん良い手で {B})でした。」のように**着手可能数**と**その中の最善評価値**を対で述べる。加えて損失(この手は最善より約L石損)を1行。既存の`detectClearBlunderPatterns`が検出された場合は補足行として最大2件併記してよい(廃止はしない)。
+   - レスポンシブ(375px以下で縦積み、既存CSSパターン踏襲)。
+4. **エッジケース**(挙動を実装しテストで固定):
+   - 相手が応手できない(パス)→ `resolveMover`で自分の番のまま進め、「相手はパス」と明記して自分の合法手評価を表示。
+   - 2手進める前に終局 → 盤面+「終局: 石差±S」を表示(合法手オーバーレイなし)。
+   - 自分の次の番が0か所(パス)→「打てる場所: 0 か所(パス)」と表示。
+5. **結果画面の置き換え**: 結果画面の最悪手表示(現行`ClearBlunderCompare`)も新コンポーネントに置き換える(1手先版は削除してよいが、`clearBlunderPatterns`の検出・`patternStats`への記録は現状のまま維持)。
+6. 既存の一元化設計(表示・判定・応手が同一`getAnalyzedMoves`を参照)を壊さない。新規呼び出しは比較用の4回のみ(結果はモーダル内でキャッシュし、同じ手の再表示で再計算しない)。
+
+## やらないこと(スコープ外)
+
+- 棋譜解析モードへの適用(T196で実施。ただし新コンポーネントはT196から再利用できるよう、PracticeMode固有のstateに依存しない純粋なprops設計にすること)
+- 評価値グラフ・有利不利表示の変更(T197)
+- エンジン側(Rust)の変更
+- 言語化支援の既存モジュール(attribution/whyBad等)の削除(棋譜解析側はT196で扱う)
+- `tasks/` 配下・`CLAUDE.md` のコミット(作業ログ追記のみ)
+
+## 受け入れ基準(検証コマンド)
+
+- [ ] `cd app && npm test` 全件パス(既存テスト回帰なし)。新規テスト: (a) 比較計算ロジック(2系列の相手最善特定→適用→合法手数、パス/終局エッジ含む)の単体テスト (b) メッセージ生成の単体テスト (c) 悪手時にモーダルが出て「続ける」で相手が応手するコンポーネントテスト(jsdom前例: T115/T117)。
+- [ ] `npm run build`(型チェック込み)成功。
+- [ ] 変更を main に push し、GitHub Actions のデプロイ成功を確認し、GitHub Pages 公開URL(https://giwarb.github.io/othello-trainer/)の中盤練習で**わざと悪手を打ち**、2盤面比較(合法手評価値オーバーレイ・着手可能数・説明文)が表示され「続ける」でステージ続行できることを実機確認(スクリーンショット相当の確認記録を作業ログへ)。
+- [ ] コミットは変更対象ファイルのみをパス明示で add(`git add .` 禁止)。タスク完了時点で当該タスク由来の差分・未追跡ファイルが `git status --short` に残っていないこと。
+
+## フィードバック(やり直し時にオーケストレーターが記入)
+
+(なし)
+
+## 作業ログ(担当エージェントが追記)
