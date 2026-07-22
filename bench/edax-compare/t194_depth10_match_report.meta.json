@@ -1,0 +1,63 @@
+{
+  "schemaVersion": 1,
+  "task": "T194",
+  "decision": "measurement_only_no_verdict",
+  "note": "Measurement-only task: how strong is the self-engine at Edax-matched depth (10 vs 10). No code changes to engine/app. Adoption of depth-based search is out of scope.",
+  "deviationFromT175": {
+    "requested": "T175 baseline is depth12+MPC; this task changes only depth (12 -> 10).",
+    "actualFinding": "T175 (both P1 and P2) did not pass --mpc-margin-t (the flag did not exist yet at T175's execution time; it was added in T176). T175 therefore ran with the implicit default calibration table, which corresponds to margin t=1.5. This task's spec explicitly requests margin t=1.0 (the T176-selected candidate value). Both differences (depth 12->10 AND margin t 1.5(implicit)->1.0(explicit)) are present versus T175, not depth alone.",
+    "resolution": "Followed the task file's explicit requirement (t=1.0) since it was stated multiple times and is more specific than the delegation summary. Both differing settings keys are recorded explicitly in t194_depth10_compare.py's settingsGuard.expectedDiffering and in the report's section 0/1."
+  },
+  "harness": "bench/edax-compare/vs_edax.py (unmodified, existing --engine-depth/--engine-enable-mpc/--engine-mpc-margin-t flags from T175/T176)",
+  "compareScript": "bench/edax-compare/t194_depth10_compare.py (new, adapted from T176's t176_confirmation_compare.py; excludes engine_depth and engine_mpc_margin_t from the required-matching-settings guard since they are the intentional experimental variables here)",
+  "engineSettings": {
+    "engine_depth": 10,
+    "engine_exact_from_empties": 16,
+    "engine_time_ms": 15000,
+    "engine_max_nodes": 100000000,
+    "engine_exact_quota_percent": 60,
+    "unlimited_exact_empties": 20,
+    "engine_tt_mb": 64,
+    "engine_enable_mpc": true,
+    "engine_mpc_margin_t": 1.0,
+    "weights": "train/weights/pattern_v6.bin",
+    "opening_set": "primary",
+    "opening_count": 30,
+    "levels": [10],
+    "engine_modes": ["single-root"]
+  },
+  "gamesPlayed": 60,
+  "gitCommitAtRun": "dcc011709d2d96a85079341d70c1566125dd98fa",
+  "results": {
+    "candidate": {"wins": 27, "draws": 2, "losses": 31, "meanMargin": -2.0, "medianMargin": -2.0},
+    "t175P2Baseline": {"wins": 34, "draws": 3, "losses": 23, "meanMargin": 1.05, "medianMargin": 3.0}
+  },
+  "pairedComparisonVsT175P2": {
+    "openingLevel": {"n": 30, "meanDiff": -3.05, "ci95": [-6.15, 0.25], "signTestP": 0.012354585017872122},
+    "gameLevel": {"n": 60, "meanDiff": -3.05, "ci95": [-5.866666666666666, -0.16666666666666666], "signTestP": 0.01184894092834754}
+  },
+  "timing": {
+    "candidateSecPerGameMean": 24.400983333333333,
+    "candidateSecPerGameMin": 20.14,
+    "candidateSecPerGameMax": 30.937,
+    "t175P2SecPerGameMean": 50.0417,
+    "candidateWallInsuranceFired": 0,
+    "t175P2WallInsuranceFired": 1,
+    "candidateNodeLimitHits": 0,
+    "t175P2NodeLimitHits": 0
+  },
+  "anomalies": {
+    "crashes": 0,
+    "illegalMoves": 0,
+    "fixedDepthDeterminism": "40/40 PASSED",
+    "nodeBudgetDeterminism": "10/10 PASSED",
+    "earlyTerminations": ["primary-29 (engine white, 63 discs)", "primary-30 (engine black, 63 discs)"]
+  },
+  "deliverables": {
+    "report": "bench/edax-compare/t194_depth10_match_report.md",
+    "compareScript": "bench/edax-compare/t194_depth10_compare.py",
+    "rawResults": "bench/edax-compare/endgame-results/t194-depth10-vs-edax-lv10-results-full.json (gitignored, local only)",
+    "precheckResults": "bench/edax-compare/endgame-results/t194-precheck-lv10-results.json (gitignored, local only)",
+    "compareOutput": "bench/edax-compare/endgame-results/t194_depth10_vs_t175p2_compare.json (gitignored, local only)"
+  }
+}
