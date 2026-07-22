@@ -83,3 +83,42 @@ attempts: 0
 (なし)
 
 ## 作業ログ(担当エージェントが追記)
+
+### 2026-07-22 着手・調査突き合わせ
+
+- `pattern_eval.rs`/`patterns.rs`/`search.rs`の該当箇所を読み、タスクの調査結果と現物を突き合わせた。差異なし(`score`の実装・`negascout`のパス/子局面ループ・`flips`導出・`OrderedMove`はいずれも記載どおり)。
+- `train/weights/pattern_v6.bin`のヘッダを実バイトで確認: `PWV6`, version=6, num_stages=61, stage_divisor=1, num_instances=46, num_classes=11, num_scalar_features=2。設計方針の「46パターンインスタンス」と一致(D1構成=V3Corner5x2)。canonical(PWV5/6系)。
+- `PatternWeights`の全公開コンストラクタ(`zeroed_with_stage_definition`/`zeroed_canonical`/`from_bytes_v1`〜`v6`)を洗い出し、`train`クレート・テストからの呼び出しがすべてこれら経由(構造体リテラル直書きなし)であることを確認。増分テーブルは各コンストラクタの最終ステップで構築する設計とした。
+
+### 2026-07-22 設計逸脱: MAX_PATTERN_INSTANCES固定長配列(64)を採用
+
+- タスク文面は「PatternState(46インスタンス分のu32配列)」と書いているが、`patterns.rs`のテストで使われる`PatternConfig`は22〜50インスタンスまで複数構成があり(本番は46だがテストはV3=38等も使う)、コンパイル時に46へ固定すると汎用性を失う。
+- 代わりに`pub const MAX_PATTERN_INSTANCES: usize = 64`の固定長配列(ヒープ確保なし)を採用し、実際に使うインスタンス数は`weights.patterns.len()`(<=64)に委ねた。`build_incremental_tables`内で`assert!(patterns.len() <= MAX_PATTERN_INSTANCES)`を入れ、将来これを超える構成を追加したら即座に気づけるようにした。
+- 理由: 既存の全`PatternConfig`(最大50インスタンス)を余裕を持ってカバーしつつ、`Vec`によるヒープ確保(増分更新のたびに発生しては本末転倒)を避けるため。64バイト×4=256Bのstack配列コピーは、フル再計算(400+回のtrit計算)より大幅に安い。
+
+### 2026-07-22 実装: pattern_eval.rs / patterns.rs(テーブル構築)
+
+- `patterns.rs`: `POW3`を`pub(crate)`に変更(値・意味は不変)。`swap12(state: u32) -> u32`を追加(3進数の桁ごとに1↔2を入替、0はそのまま)。
+- `pattern_eval.rs`: `PatternWeights`に`cell_to_instances: Vec<Vec<(u32,u32)>>`(セル→(instance_id, pow3_digit)一覧)・`idx_black`/`idx_white: Vec<Vec<u32>>`(黒/白視点rawからテーブル添字への写像)を追加。`build_incremental_tables(&mut self)`で構築(`table_index`経由、legacy/canonical両対応)。全6コンストラクタ(`zeroed_with_stage_definition`/`zeroed_canonical`/`from_bytes_v1`/`from_bytes_v2`/`from_bytes_v3`/`from_bytes_v5`)の末尾で呼ぶよう配線(`from_bytes_v4`/`v6`は`v3`/`v5`を内部で呼ぶので追加配線不要)。`zeroed_canonical`/`from_bytes_v5`は`canonical_tables`確定後に**作り直す**(先に`zeroed_with_stage_definition`/`from_bytes_self_describing`が`canonical_tables: None`前提で一度構築してしまうため)。
+- `PatternState`構造体(`raw: [u32; MAX_PATTERN_INSTANCES]`、Copy)を追加。`from_board`(フル再計算、常にBlack視点=絶対色)・`child`(親をコピーし着手マス+flipsマスだけ差分更新、delta = mover_trit - 元の色のtrit)を実装。
+- `PatternWeights::score_with_state`を追加。`score`と同一順序(i=0..patterns.len()昇順→スカラー特徴)でf32を加算するようコードを目視で並べ、コメントで絶対条件を明記。
+
+### 2026-07-22 プロパティテスト(pattern_eval.rs)
+
+- `incremental_pattern_state_matches_full_recompute_across_random_self_play_including_passes`を追加(`zobrist.rs`のT105/T182テストをテンプレートに、同じLCG擬似乱数・パス処理を流用)。実際の`pattern_v6.bin`(全クラス非ゼロ)を使い、30ゲームのランダム自己対局(パス含む)全手数で (a) `PatternState::child`によるインクリメンタル更新 == `PatternState::from_board`のフル再計算、(b) `score_with_state(...).to_bits() == score(...).to_bits()`(手番側・相手側両方の視点)を検証。
+- `cargo test -p engine --lib pattern_eval::` 51件全パス。`cargo test -p engine --lib patterns::` 33件全パス(swap12関連2件含む)。
+- **regression-catching実証**: `PatternState::child`の着手マス更新を`next.apply_delta(weights, mv, mover_trit + 1)`(意図的に1ずれたdeltaを入れる)に一時改変して実行 → `incremental_pattern_state_matches_full_recompute_across_random_self_play_including_passes`が即座にFAIL(`assertion left == right failed: incremental PatternState mismatch at square 19 ...`)することを確認。直後に元の`next.apply_delta(weights, mv, mover_trit);`へ戻し、再実行してPASSに復帰したことを確認済み。
+
+### 2026-07-22 探索への配線(search.rs)
+
+- `negascout`/`negascout_or_etc`/`mpc_try_cutoff`/`mpc_try_cutoff_inner`のシグネチャに`known_state`/`state`/`next_state: Option<PatternState>`を追加し、T182の`known_hash`と全く同じ構図で配線(パスは状態不変のまま渡す、子局面ループで`state.child(...)`を1手につき1回だけ計算してNWS/フルウィンドウ再探索の最大3回で使い回す、MPCプローブは現在ノードと同じ局面なので`state`をそのまま渡す)。
+- `depth==0`の葉では`static_eval_with_state`(新設、`state`があれば`score_with_state`経由、無ければ既存`static_eval`にそのまま委譲)を呼ぶよう変更。
+- `debug_assertions`時、パス・子局面ループの両方で`PatternState::from_board`によるフル再計算と`debug_assert_eq!`で照合し、T182と同型のテレメトリ(`TEST_INCREMENTAL_STATE_CHECKS`)を追加。
+- 適用範囲を厳守: `search_all_moves_with_eval_core_restricted`内の`static_eval`直接呼び出し(1380行目・1397行目付近)は無変更。ルート呼び出し(807/1084/1428行目)は`known_state`に`None`を渡すのみ(ルートでは`negascout`内部が`ctx.weights`ありなら自動でフル計算→以降増分)。
+- 新規テスト`search::tests::incremental_state_check_fires_across_diverse_midgame_searches`を追加(T182の`incremental_hash_check_fires_across_diverse_midgame_searches`と同型。実重み`pattern_v6.bin`を読み込み、8局面×反復深化+MPC+ETC+aspiration+historyの経路でdebug_assertが200回以上発火することを確認)。
+
+### 2026-07-22 検証: cargo test / FFO回帰
+
+- `cargo test -p engine --lib`: 251 passed; 0 failed; 2 ignored(既存の重いテストのみ)。**t182/t184/t185の固定値テスト(score/best_move/depth/nodes)はアサート値を一切変更せずに全パス**(絶対条件を満たすことを実測で確認)。`incremental_state_check_fires_across_diverse_midgame_searches`も200回以上発火してパス。
+- `cargo test -p engine`(統合テスト含む全件): 上記251件 + `calibrate_mpc`(4) + `eval_cli`(0) + `puzzlegen`(4) + `self_play_gen`(5) + 各種`_nps_bench`(すべて`#[ignore]`のまま、NPS計測は後続コマンドで個別実行)+ doctest(0)、全てok。
+- `cargo test -p engine --test ffo_bench --release -- --nocapture`: fast positions(#40〜#44)全5問が期待スコアと完全一致(`FAST TOTAL: 5 positions solved correctly`)。終盤ソルバー(`endgame.rs`)は評価関数を使わないため無変更のはずだが、念のための回帰として確認。
