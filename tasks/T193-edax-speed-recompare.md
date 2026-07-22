@@ -1,7 +1,7 @@
 ---
 id: T193
 title: 対Edax速度比較の更新計測(高速化第2弾後、T180方式)
-status: in_progress
+status: done
 assignee: implementer
 attempts: 0
 ---
@@ -57,3 +57,12 @@ attempts: 0
 - 対象20局面(`t156_mpc_positions.json`のemptyBucket==29-36・split==test先頭20件、id `mpc-29-36-test-001`〜`020`)をOBF化しscratchpadに保存。
 - `eval_cli`をHEAD(`92341ca`)から2種ビルド: off(featureなし、sha256=`278c460e...`)/on(`--features mpc_enabled`、sha256=`92cc5745...`)。スモークチェックでノード数が既知値(off 59,440,032 / on 6,487,461)と完全一致することを確認済み(要件3充足)。
 - Edax実行条件を`wEdax-x86-64.exe`(sha256=`aabb5ac7d3f9a872fc0e7388ab1eee1d23c687f76c28642122524dc318b322b1`、v4.6公式リリース、`download-edax.ps1`で取得したもの、`.gitignore`対象で追跡外・T022以降未再取得〈mtime 2024-12-18で不変〉)で確認中。次に-vv出力の集計行フォーマットを確認してから交互3回計測に入る。
+
+### 2026-07-22 計測実施・完了(implementer)
+
+- 20局面を1つのOBFにまとめ`wEdax-x86-64.exe -solve <obf> -l 12 -eval-file data/eval.dat -book-usage off -vv`を実行したところ、末尾に`<file>: N nodes in H:MM.SSS (cpu = H:MM.SSS) (NPS nodes/s).`という全局面集計行が出ることを確認(T180と同じ集計方式が再現可能と判断)。
+- 交互3回計測スクリプト(`t193_run_bench.py`、scratchpad保持・非コミット)で、MPC off比較・on比較それぞれ3ラウンド(ラウンドごとに自エンジン→Edax/Edax→自エンジンの順を入れ替え)を実行。実行前後に`Get-Process`で専有確認済み。
+- **結果**: MPC off — 自エンジン平均2,109,652 NPS(nodes=59,440,032、既知値と3ラウンド完全一致)、Edax平均32,870,844 NPS(nodes 9,620,755〜9,763,073で変動、T180の9,710,607も範囲内) → **倍率約15.58倍**。MPC on — 自エンジン平均1,944,520 NPS(nodes=6,487,461、既知値と完全一致)、Edax平均29,309,012 NPS → **倍率約15.07倍**。T180(57-69倍)・T184/T185(相対倍率方式の推定26-30倍)から大幅に縮小。
+- レポート`bench/edax-compare/t193_speed_recompare_report.md`+生データ`bench/edax-compare/t193_speed_recompare_report.meta.json`を作成。Edaxバイナリのsha256はT180未記録だったため本タスクで初めて記録(ファイルmtime不変・再取得記録なしから同一ファイルと判断できる旨をレポートに明記)。
+- 本タスクはコード変更なし(計測のみ)。`git status --short`確認後、レポート2ファイル(`bench/edax-compare/t193_speed_recompare_report.md`/`.meta.json`)のみをパス明示でコミット(4ff5de6)・push済み。GitHub Actions「Rust Tests」(run 29914366364)成功を確認済み(`gh run view --json status,conclusion` → `completed`/`success`)。アプリ無変更のためPages実機確認は対象外(要件どおり)。
+- コミット後の`git status --short`は本タスクファイル自身の差分のみ(作業ログ追記、コミットはオーケストレーター担当)で、他の当該タスク由来の差分・未追跡ファイルは残っていない。
