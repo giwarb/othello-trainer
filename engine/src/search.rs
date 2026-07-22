@@ -1844,15 +1844,27 @@ fn negascout(
         }
     }
 
-    let moves = ordered_moves(board, side, tt_move, ctx.history.as_deref());
+    let mut ordered_buf = [OrderedMove::EMPTY; 64];
+    let move_count = ordered_moves(
+        board,
+        side,
+        tt_move,
+        ctx.history.as_deref(),
+        &mut ordered_buf,
+    );
 
     let mut best_score = i32::MIN;
     let mut best_move: Option<u8> = None;
     let mut first = true;
 
-    for mv in moves {
+    for om in &ordered_buf[..move_count] {
+        let mv = om.mv;
         let mv_bit = 1u64 << mv;
-        let next_board = board.apply_move(side, mv_bit);
+        // T185: `ordered_moves`が既に計算済みの`next_board`をそのまま使う
+        // (以前は`ordered_moves`のソートキー計算〈T184まで〉と、ここでの
+        // 実際の使用の両方で`board.apply_move`を呼んでおり二重計算だった。
+        // T183優先3位)。
+        let next_board = om.next_board;
 
         // T182: `negascout_or_etc`はこの`(next_board, child_side, depth-1)`を
         // 最大3回(初手のフルウィンドウ・NWSの狭い窓・窓外れ時のフルウィンドウ
@@ -2281,7 +2293,28 @@ fn terminal_score_centi(board: &Board, side: Side) -> i32 {
     final_score(board, side) * 100
 }
 
-/// 合法手を簡易的なムーブオーダリングで並べ替えて返す。
+/// [`ordered_moves`]が1候補手ごとに事前計算する情報(T185)。
+///
+/// `mv`(着手マス)に加えて`next_board`(=`board.apply_move(side, ...)`の
+/// 結果)を保持しておくことで、呼び出し元(`negascout`の候補手ループ)が
+/// 同じ`apply_move`(内部で`flips_for_move`のbitboard全走査を伴う)を
+/// 二重に呼ぶ必要をなくす(T183優先3位、T182で導入したhash持ち越しと同じ
+/// 「一度計算した値を使い回す」発想)。
+#[derive(Clone, Copy)]
+struct OrderedMove {
+    mv: u8,
+    next_board: Board,
+}
+
+impl OrderedMove {
+    const EMPTY: Self = Self {
+        mv: 0,
+        next_board: Board { black: 0, white: 0 },
+    };
+}
+
+/// 合法手を簡易的なムーブオーダリングで並べ替え、`out`(呼び出し元が持つ
+/// 固定長バッファ)へ書き込む。返り値は実際に書き込んだ件数。
 ///
 /// 優先順位: TT手(あれば最優先) → 隅 → 相手の着手後合法手数(モビリティ)が
 /// 少ない順。
@@ -2295,49 +2328,61 @@ fn terminal_score_centi(board: &Board, side: Side) -> i32 {
 /// 2キーソート(corner優先→mobility昇順のみ)を行う(既存のfixed-depth
 /// 回帰テストが固定しているタイブレーク順・ノード数を変えないため)。
 ///
-/// T184: 3箇所とも`sort_by_key`ではなく`sort_by_cached_key`を使う。
-/// キー計算(`board.apply_move`+`next_board.legal_moves`)は盤面全体を
-/// 舐めるため決して安くないが、`sort_by_key`は比較のたびにキー関数を
-/// 再計算する仕様(T183実測: 要素数の65.5〜78.5倍も再計算されていた)
-/// なのに対し、`sort_by_cached_key`は要素ごとに1回だけ計算してキャッシュ
-/// してから並べ替える(標準ライブラリのドキュメント通り、キー計算が
-/// 高価な場合はこちらを使うのが定石)。安定ソート同士であり、キーの型・
-/// タイブレーク条件は一切変えていないため、生成される順序(ひいては
-/// 探索結果・ノード数)は変わらないはず(T184作業ログのbefore/after
-/// 完全一致実証を参照)。
+/// T184: 3箇所とも`sort_by_key`ではなく`sort_by_cached_key`(要素ごとに
+/// キーを1回だけ計算してキャッシュ)を使っていた(T183実測: `sort_by_key`
+/// は比較のたびにキー関数を再計算し要素数の65.5〜78.5倍も呼び直していた
+/// ため)。
+///
+/// T185: `Vec`のヒープ確保を排し、盤面が64マスしかないことを利用した
+/// 固定長配列(`out: &mut [OrderedMove; 64]`、`endgame.rs`の`MoveInfo`/
+/// T105と同じ考え方)に書き換えた。ソート自体は引き続き
+/// `sort_by_cached_key`のまま(**`sort_unstable_by_key`への変更は最初に
+/// 試したが、実測で明確な悪化〈約-41〜-45%〉が出たため差分を破棄した**。
+/// 標準ライブラリに`sort_unstable_by_cached_key`は存在せず、
+/// `sort_unstable_by_key`は`sort_by_key`と同様にキーを比較のたびに
+/// 再計算する仕様のため、T184で解消したはずのO(n log n)回のキー再計算が
+/// 復活してしまい、しかも1要素が24バイト〈`OrderedMove`、以前の`u8`単体
+/// より大きい〉になった分スワップコストも増え、二重に悪化したと考えられる。
+/// 詳細は`tasks/T185-ordering-residual-opts.md`の作業ログ参照)。
+/// `sort_by_cached_key`は`[T]`スライスに対して汎用的に使えるため、
+/// `Vec`から固定長配列へ変えても、キーを要素ごとに1回だけ計算して
+/// キャッシュしてから並べ替えるというT184の恩恵はそのまま保たれる。
 fn ordered_moves(
     board: &Board,
     side: Side,
     tt_move: Option<u8>,
     history: Option<&HistoryTable>,
-) -> Vec<u8> {
+    out: &mut [OrderedMove; 64],
+) -> usize {
     let legal = board.legal_moves(side);
-    let mut moves: Vec<u8> = Vec::with_capacity(legal.count_ones() as usize);
+    let mut count = 0usize;
     let mut remaining = legal;
     while remaining != 0 {
         let lsb = remaining & remaining.wrapping_neg();
-        moves.push(lsb.trailing_zeros() as u8);
+        let mv = lsb.trailing_zeros() as u8;
+        let next_board = board.apply_move(side, lsb);
+        out[count] = OrderedMove { mv, next_board };
+        count += 1;
         remaining &= remaining - 1;
     }
+    let moves = &mut out[..count];
 
     match history {
         None => {
-            moves.sort_by_cached_key(|&mv| {
-                let bit = 1u64 << mv;
+            moves.sort_by_cached_key(|m| {
+                let bit = 1u64 << m.mv;
                 let is_corner = bit & CORNER_MASK != 0;
-                let next_board = board.apply_move(side, bit);
-                let opp_mobility = next_board.legal_moves(side.opposite()).count_ones();
+                let opp_mobility = m.next_board.legal_moves(side.opposite()).count_ones();
                 (if is_corner { 0u32 } else { 1u32 }, opp_mobility)
             });
         }
         Some(history) if HISTORY_BEFORE_MOBILITY => {
             // 構成B: corner優先 → history降順 → mobility昇順。
-            moves.sort_by_cached_key(|&mv| {
-                let bit = 1u64 << mv;
+            moves.sort_by_cached_key(|m| {
+                let bit = 1u64 << m.mv;
                 let is_corner = bit & CORNER_MASK != 0;
-                let next_board = board.apply_move(side, bit);
-                let opp_mobility = next_board.legal_moves(side.opposite()).count_ones();
-                let hist = history.get(side, mv);
+                let opp_mobility = m.next_board.legal_moves(side.opposite()).count_ones();
+                let hist = history.get(side, m.mv);
                 (
                     if is_corner { 0u32 } else { 1u32 },
                     std::cmp::Reverse(hist),
@@ -2347,12 +2392,11 @@ fn ordered_moves(
         }
         Some(history) => {
             // 構成A(既定): corner優先 → mobility昇順 → history降順。
-            moves.sort_by_cached_key(|&mv| {
-                let bit = 1u64 << mv;
+            moves.sort_by_cached_key(|m| {
+                let bit = 1u64 << m.mv;
                 let is_corner = bit & CORNER_MASK != 0;
-                let next_board = board.apply_move(side, bit);
-                let opp_mobility = next_board.legal_moves(side.opposite()).count_ones();
-                let hist = history.get(side, mv);
+                let opp_mobility = m.next_board.legal_moves(side.opposite()).count_ones();
+                let hist = history.get(side, m.mv);
                 (
                     if is_corner { 0u32 } else { 1u32 },
                     opp_mobility,
@@ -2363,13 +2407,18 @@ fn ordered_moves(
     }
 
     if let Some(tm) = tt_move {
-        if let Some(pos) = moves.iter().position(|&m| m == tm) {
-            moves.remove(pos);
-            moves.insert(0, tm);
+        if let Some(pos) = moves.iter().position(|m| m.mv == tm) {
+            // T185: 固定長配列では`Vec::remove(pos)`+`insert(0, ..)`が使えない。
+            // その2操作の組み合わせは「先頭からposまでの部分列を右に1つ
+            // 回転させる(posにあった要素が先頭に来る)」ことと等価であり、
+            // `[0..=pos].rotate_right(1)`はまさにこの操作を行う(スライスの
+            // 末尾1要素を先頭へ回す)。tt_move以外の相対順序・posより後ろの
+            // 要素の位置は一切変わらないため、`Vec`版と完全に同じ結果になる。
+            moves[..=pos].rotate_right(1);
         }
     }
 
-    moves
+    count
 }
 
 /// 置換表から読み筋(PV)を再構成する。
@@ -4548,6 +4597,67 @@ mod tests {
     /// 理論的にも一致するはずという予測と一致した)。
     #[test]
     fn t184_sort_by_cached_key_matches_pre_change_baseline() {
+        let path = concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../train/weights/pattern_v6.bin"
+        );
+        let weights = PatternWeights::from_bytes(&std::fs::read(path).unwrap()).unwrap();
+
+        // MPC OFF: T180バッチの先頭局面(index 0)。
+        {
+            let board =
+                board_from_obf("------------------OOO----OOOX--X-OOOXXX--OOXOXOO--XXXO---OOOOOO-");
+            let side = Side::White;
+            let limit = default_limit(12, 0);
+            let mut tt = TranspositionTable::new(16);
+            let result = search_with_eval(&board, side, &limit, &mut tt, Some(&weights));
+            assert_eq!(result.best_move, Some(21), "f3");
+            assert_eq!(result.score, -1662);
+            assert_eq!(result.depth, 12);
+            assert_eq!(result.nodes, 1972257);
+        }
+
+        // MPC ON: T180バッチの3局面目(index 2)。
+        {
+            let board =
+                board_from_obf("------------------OO-OX---OOOXO--XOOOOOOXXXOXXOO--XXOO----XXOX--");
+            let side = Side::Black;
+            let limit = default_limit(12, 0);
+            let mut tt = TranspositionTable::new(16);
+            let policy = SearchPolicy {
+                enable_history: true,
+                enable_aspiration: true,
+                enable_mpc: true,
+            };
+            let result = search_with_eval_with_policy(
+                &board,
+                side,
+                &limit,
+                &mut tt,
+                Some(&weights),
+                None,
+                EXACT_QUOTA_PERCENT,
+                policy,
+            );
+            assert_eq!(result.best_move, Some(17), "b3");
+            assert_eq!(result.score, -749);
+            assert_eq!(result.depth, 12);
+            assert_eq!(result.nodes, 566636);
+        }
+    }
+
+    /// T185: `ordered_moves`の固定長配列化(`Vec`→`[OrderedMove; 64]`)+
+    /// `next_board`持ち越し(`negascout`ループでの`apply_move`二重呼び出し
+    /// 回避)の絶対条件(「探索結果が変更前後で完全一致すること」)を
+    /// 実証する回帰テスト(T182/T184と同じ方針)。値はT184時点の
+    /// `t184_sort_by_cached_key_matches_pre_change_baseline`と完全に同一
+    /// (T185はソートの中身・タイブレークを一切変えていないため理論的にも
+    /// 一致するはずという予測どおり)。git worktreeで作った変更前バイナリ
+    /// との比較で、20局面バッチ全40探索(MPC off/on)がmove/score/depth/nodes
+    /// 完全一致することを確認済み(手順・結果は
+    /// `tasks/T185-ordering-residual-opts.md`の作業ログ参照)。
+    #[test]
+    fn t185_ordered_moves_fixed_array_matches_pre_change_baseline() {
         let path = concat!(
             env!("CARGO_MANIFEST_DIR"),
             "/../train/weights/pattern_v6.bin"
