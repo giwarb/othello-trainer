@@ -1,9 +1,9 @@
 ---
 id: T197
 title: 対局・中盤練習: 「打った手の評価値」折れ線グラフ+有利不利表示の変更
-status: review
+status: redo
 assignee: implementer
-attempts: 0
+attempts: 1
 ---
 
 # T197: 対局・中盤練習: 「打った手の評価値」折れ線グラフ+有利不利表示の変更
@@ -56,7 +56,20 @@ attempts: 0
 
 ## フィードバック(やり直し時にオーケストレーターが記入)
 
-(なし)
+### redo #1(2026-07-23、代替レビューの重大指摘)
+
+**重大(必須修正): 対局モードの`evaluateHumanMove`非同期解決と、アンドゥ/新規対局リセットの間に世代ガードが無い。**
+
+- 現象: `undoMove`は`moveEvalHistory`を`slice(0, keep)`で切り詰め、`prepareNewGame`は`[]`に初期化するが、**その時点で未解決の`evaluateHumanMove`のPromiseが後から`upsertMoveEval(historyIndex, entry)`を実行すると、切り詰め後の短い配列に古い大きいindexへブラケット代入され、間が`undefined`の穴あき(スパース)配列になる**。`buildEvalGraphPoints`の`for...of`は穴を`undefined`として反復するため`entry.side`アクセスで`TypeError`→`evalGraphPoints`はレンダー本体で無条件計算されており、ErrorBoundary不在のため**白画面クラッシュ**。アンドゥは「CPU思考中でも押せる」設計なので現実的な操作で到達可能。
+- 対比: CPU着手effectは`cancelled`+`gameGenerationRef`世代照合でガード済み。中盤練習側も`sessionGenerationRef`で一貫ガード済み。**人間手の記録経路だけが未ガード**。
+- 修正方針(推奨、既存設計と整合): `evaluateHumanMove`(またはその結果を書き込む箇所)で`gameGenerationRef`の世代を捕捉し、解決時に現世代と一致する場合のみ`upsertMoveEval`する。`prepareNewGame`/`undoMove`の両方で世代がインクリメントされることを確認(されていなければ追加)。防御として`upsertMoveEval`側でも範囲外index(`historyIndex > h.length`)の書き込みを破棄してよい。
+- **再発防止テスト必須**: 「着手→evaluateHumanMove未解決のままアンドゥ(または新規対局)→遅延解決→moveEvalHistoryに穴・混入が無い/クラッシュしない」ことを検証するテストを追加する(app.playmode.undo.test.tsxの拡張または新規)。
+
+**軽微(同時に対応)**:
+1. `computeBoardEvalScore`(components/moveEvalOverlayLogic.ts)が生産コードから未参照のデッドexportとして残存 → 削除(テストも整理)。
+2. 人間の着手直後、プレースホルダー(`discDiff: null, source:'midgame'`)が`evaluateHumanMove`解決までの一瞬グラフ上で「定石」帯・値0として描画されるちらつき → プレースホルダー(discDiff=nullかつ未解決)の点はグラフから除外するか、解決まで点を追加しない等で解消。
+
+修正後: テスト全件パス・`npm run build`・push・Actions成功・Pages実機確認(アンドゥ連打のシナリオ含む)まで実施し、変更点を作業ログに追記して報告すること。
 
 ## 作業ログ(担当エージェントが追記)
 
