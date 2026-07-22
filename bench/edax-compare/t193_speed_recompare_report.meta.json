@@ -1,0 +1,104 @@
+{
+  "task": "T193",
+  "git_commit": "92341cacca22871de1d4f7135b80cb51968ad256",
+  "positions_source": "bench/edax-compare/t156_mpc_positions.json split==test emptyBucket==29-36 first 20 (mpc-29-36-test-001..020)",
+  "pattern_weights_sha256": "e69f3b1c33432bafd388af82adde64270ec8c51acaab070bbfff4cf4caf20fc9",
+  "edax_exe_sha256": "aabb5ac7d3f9a872fc0e7388ab1eee1d23c687f76c28642122524dc318b322b1",
+  "eval_cli_off_sha256": "278c460e5d8179e58a82f7e2a1d97dbefd3799d3c421e27dc15d91dc6fccfaa0",
+  "eval_cli_on_sha256": "92cc5745f249196693bedaa47717f9fca54b0ed08804b84ca6db22d9c46bdf18",
+  "command_template_ours": "eval_cli best --depth 12 --exact-from-empties 0 --pattern-weights train/weights/pattern_v6.bin [--enable-mpc]",
+  "command_template_edax": "wEdax-x86-64.exe -solve <20position.obf> -l 12 -eval-file data/eval.dat -book-usage off -vv",
+  "mpc_off": {
+    "mode": "off",
+    "rounds": [
+      {
+        "round": 0,
+        "ordering": "ours_first",
+        "ours_nodes": 59440032,
+        "ours_elapsed_ms": 28423,
+        "ours_nps": 2091265.2429370582,
+        "edax_nodes": 9620755,
+        "edax_wall_seconds": 0.297,
+        "edax_nps": 32393114,
+        "ratio_edax_over_ours": 15.489720450049555
+      },
+      {
+        "round": 1,
+        "ordering": "edax_first",
+        "ours_nodes": 59440032,
+        "ours_elapsed_ms": 27820,
+        "ours_nps": 2136593.5298346514,
+        "edax_nodes": 9763073,
+        "edax_wall_seconds": 0.327,
+        "edax_nps": 29856492,
+        "ratio_edax_over_ours": 13.973875509353697
+      },
+      {
+        "round": 2,
+        "ordering": "ours_first",
+        "ours_nodes": 59440032,
+        "ours_elapsed_ms": 28290,
+        "ours_nps": 2101096.9247083776,
+        "edax_nodes": 9636175,
+        "edax_wall_seconds": 0.265,
+        "edax_nps": 36362925,
+        "ratio_edax_over_ours": 17.306638533606442
+      }
+    ],
+    "avg_ours_nps": 2109651.899160029,
+    "avg_edax_nps": 32870843.666666668,
+    "ratio_avg": 15.581169424090486,
+    "ours_nodes_all_rounds_equal": true,
+    "ours_nodes": 59440032,
+    "edax_nodes_min": 9620755,
+    "edax_nodes_max": 9763073
+  },
+  "mpc_on": {
+    "mode": "on",
+    "rounds": [
+      {
+        "round": 0,
+        "ordering": "ours_first",
+        "ours_nodes": 6487461,
+        "ours_elapsed_ms": 3355,
+        "ours_nps": 1933669.4485842027,
+        "edax_nodes": 9704559,
+        "edax_wall_seconds": 0.343,
+        "edax_nps": 28293175,
+        "ratio_edax_over_ours": 14.631857073977015
+      },
+      {
+        "round": 1,
+        "ordering": "edax_first",
+        "ours_nodes": 6487461,
+        "ours_elapsed_ms": 3330,
+        "ours_nps": 1948186.4864864864,
+        "edax_nodes": 9724583,
+        "edax_wall_seconds": 0.314,
+        "edax_nps": 30970010,
+        "ratio_edax_over_ours": 15.896840582163039
+      },
+      {
+        "round": 2,
+        "ordering": "ours_first",
+        "ours_nodes": 6487461,
+        "ours_elapsed_ms": 3324,
+        "ours_nps": 1951703.0685920578,
+        "edax_nodes": 9831701,
+        "edax_wall_seconds": 0.343,
+        "edax_nps": 28663851,
+        "ratio_edax_over_ours": 14.686583969290913
+      }
+    ],
+    "avg_ours_nps": 1944519.6678875822,
+    "avg_edax_nps": 29309012.0,
+    "ratio_avg": 15.072623066774982,
+    "ours_nodes_all_rounds_equal": true,
+    "ours_nodes": 6487461,
+    "edax_nodes_min": 9704559,
+    "edax_nodes_max": 9831701
+  },
+  "schemaVersion": 1,
+  "reportMd": "bench/edax-compare/t193_speed_recompare_report.md",
+  "method": "Direct re-measurement (not the T184/T185 relative-multiplier method): both our engine and Edax re-executed in this session, 3 alternating rounds per MPC config, same 20-position batch and depth-12 conditions as T180."
+}
