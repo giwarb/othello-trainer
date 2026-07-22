@@ -149,3 +149,18 @@ attempts: 0
 - 最終`git status --short`はクリーン(`tasks/`配下の作業ログ差分はオーケストレーター担当のため意図的に残る。それ以外の未追跡ファイル・差分なし)。`git worktree list`もメインワークツリーのみで残骸なし。
 
 **完了サマリ**: コミット `e680a75`(実装本体)・`0d454f2`(改行コード復元)。NPS実測: MPC off **+37.0%**(1,292,744→1,770,617 NPS)、MPC on **+38.1%**(1,255,323→1,734,227 NPS)。ノード数完全一致: MPC off 59,440,032・MPC on 6,487,461(いずれもbefore/afterで0件不一致、T185レポート値とも一致)。GitHub Actions(Rust Tests・Deploy to GitHub Pages)両方success、Pages実機で対局(中盤探索経由のCPU応手を確認)・棋譜解析とも動作確認済み、コンソールエラーなし。受け入れ基準は全項目達成。
+
+### 2026-07-22 verifier検証(独立実施)
+
+**判定: 合格**。8項目すべて独立に確認した(コード修正なし、指示された規約に基づく一時バグ注入は例外として実施し、完了後にgit diff空で復元を確認)。
+
+1. `cargo test -p engine`: 251 passed; 0 failed; 2 ignored(全crate合計、統合テスト・doctest含め全てok)を実機再実行で確認。新規テスト4件の存在を`cargo test -p engine --lib -- --list`で確認: `pattern_eval::tests::incremental_pattern_state_matches_full_recompute_across_random_self_play_including_passes`、`patterns::tests::swap12_is_an_involution_and_fixes_zero`、`patterns::tests::swap12_of_black_perspective_state_equals_white_perspective_state`、`search::tests::incremental_state_check_fires_across_diverse_midgame_searches`。`protocol::` を単独再実行(18 passed; 0 failed)しフレーキー無しを確認。
+2. `git diff df2cc3e HEAD -- engine/src/search.rs`(pre-T187コミット↔現HEAD、CRLF問題は0d454f2で復元済みのためignore-cr不要)は175insertions/13deletionsの意味的差分のみで、`fn t182_...`/`fn t184_...`/`fn t185_...`のテスト関数定義行に変更なし。さらに3テストの本体を`diff`で行単位比較し(オフセットのみ考慮)完全一致(byte-identical)を確認。
+3. **regression-catching追試**: `engine/src/pattern_eval.rs`の`PatternState::child`内`next.apply_delta(weights, mv, mover_trit)`を`mover_trit + 1`へ一時改変し、`cargo test -p engine --lib pattern_eval::tests::incremental_pattern_state_matches_full_recompute_across_random_self_play_including_passes`を実行 → 即座にFAILED(`assertion left == right failed: incremental PatternState mismatch at square 19 ...`)を自分の手で確認。直後に`mover_trit`へ復元し、`git diff --stat -- engine/src/pattern_eval.rs`が空行(差分ゼロ)であることを確認したうえで同テストを再実行しPASSに復帰したことを確認。
+4. `bench/edax-compare/t187_incremental_eval_report.raw.json`を読み、mpc_off/mpc_onとも全6ラウンドエントリでtotalNodesが単一値(59,440,032 / 6,487,461)に一致、identityMismatches=0を確認。summary.beforeAvgNps/afterAvgNps/speedupPctを raw の3ラウンド値から手計算で再導出し完全一致(mpc_off: 1,292,744.43→1,770,617.17、+36.97%≒+37.0%表記と整合。mpc_on: 1,255,322.88→1,734,227.30、+38.15%≒+38.1%表記と整合)。`bench/edax-compare/t185_ordering_opts_report.md`の該当行「totalNodesはmpc_off=59,440,032・mpc_on=6,487,461」と完全一致を確認。
+5. `git show 0d454f2 --stat`は`engine/src/search.rs`のみ(4878 insertions/4878 deletions、CRLF変換相当行数)。`git diff e680a75 0d454f2 --ignore-cr-at-eol -- engine/src/search.rs`は出力0行(空)であり、内容差分が皆無(改行コードのみ)であることを確認。
+6. `cargo test -p engine --test ffo_bench --release -- --nocapture`実行 → `FAST TOTAL: 5 positions solved correctly`(#40〜#44全問expected一致)。
+7. `git status --short`はクリーン(regression-catching追試の復元確認込み)。`git worktree list`はメインワークツリーのみ(ベンチ用worktree残骸なし)。
+8. `gh run view 29894907952 --json status,conclusion,headSha` → Rust Tests: completed/success、headSha=0d454f2。`gh run view 29894907961` → Deploy to GitHub Pages: completed/success、headSha=0d454f2。両方とも実装者報告のコミット範囲に対応する最終headSha(0d454f2)で成功していることを確認。
+
+NPSの再計測(時間計測)は指示どおり実施していない(rawデータの再検算のみ)。全項目、実装者の完了レポートの記載と一致し、追加の不整合は発見されなかった。
