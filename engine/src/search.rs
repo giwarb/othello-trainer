@@ -59,7 +59,7 @@ use crate::endgame::{
 };
 use crate::eval::evaluate_for;
 use crate::mpc;
-use crate::pattern_eval::PatternWeights;
+use crate::pattern_eval::{PatternState, PatternWeights};
 use crate::tt::{Bound, TTDomain, TTEntry, TranspositionTable};
 use crate::zobrist::{incremental_move_hash, toggle_side_to_move, zobrist_hash};
 // `std::time::Instant::now()` は `wasm32-unknown-unknown` ターゲットでは
@@ -123,6 +123,30 @@ fn static_eval(board: &Board, side: Side, weights: Option<&PatternWeights>) -> i
     raw.clamp(-DISC_DIFF_BOUND_CENTIDISC, DISC_DIFF_BOUND_CENTIDISC)
 }
 
+/// T187: `negascout`の葉ノード評価専用の増分経路。呼び出し元が既に保持している
+/// 現在ノードの絶対色`PatternState`(`state`)が利用できる場合は
+/// `PatternWeights::score_with_state`で増分評価する(全パターン・全セルの
+/// フルスキャンを避ける)。`state`が`None`(重み無効=ヒューリスティック
+/// フォールバック、または増分状態を持たない呼び出し元)の場合は既存の
+/// [`static_eval`]にそのまま委譲してフル再計算する。クランプ・centi-disc
+/// スケール変換のロジックは[`static_eval`]側に一本化しここでは複製しない
+/// (適用範囲は`negascout`の葉評価経路のみ。`search_all_moves_with_eval_core_restricted`
+/// 等の既存`static_eval`直接呼び出しは本関数を経由せず無変更のまま)。
+fn static_eval_with_state(
+    board: &Board,
+    side: Side,
+    weights: Option<&PatternWeights>,
+    state: Option<PatternState>,
+) -> i32 {
+    match (weights, state) {
+        (Some(w), Some(state)) => {
+            let raw = (w.score_with_state(&state, board, side) * 100.0).round() as i32;
+            raw.clamp(-DISC_DIFF_BOUND_CENTIDISC, DISC_DIFF_BOUND_CENTIDISC)
+        }
+        _ => static_eval(board, side, weights),
+    }
+}
+
 /// 石差の理論上限(絶対値64石、centi-disc単位=×100)。[`static_eval`]の
 /// クランプに使う(T059)。
 const DISC_DIFF_BOUND_CENTIDISC: i32 = 64 * 100;
@@ -150,6 +174,29 @@ fn reset_incremental_hash_checks() {
 #[cfg(test)]
 fn incremental_hash_checks() -> u64 {
     TEST_INCREMENTAL_HASH_CHECKS.get()
+}
+
+#[cfg(test)]
+std::thread_local! {
+    // T187: `negascout`が増分計算した`PatternState`と、盤面全体を舐める
+    // `PatternState::from_board`のフル再計算を照合した(`debug_assert_eq!`を
+    // 通過した)回数を数える(T182のhash用テレメトリと同じ目的・同じパターン)。
+    static TEST_INCREMENTAL_STATE_CHECKS: std::cell::Cell<u64> = const { std::cell::Cell::new(0) };
+}
+
+#[cfg(test)]
+fn record_incremental_state_check() {
+    TEST_INCREMENTAL_STATE_CHECKS.set(TEST_INCREMENTAL_STATE_CHECKS.get() + 1);
+}
+
+#[cfg(test)]
+fn reset_incremental_state_checks() {
+    TEST_INCREMENTAL_STATE_CHECKS.set(0);
+}
+
+#[cfg(test)]
+fn incremental_state_checks() -> u64 {
+    TEST_INCREMENTAL_STATE_CHECKS.get()
 }
 
 /// 探索の制御パラメータ。
@@ -804,7 +851,7 @@ fn search_with_eval_inner(
                     &mut aspiration_fail_low,
                     &mut aspiration_fail_high,
                 ),
-                _ => negascout(board, side_to_move, depth, -INF, INF, &mut ctx, None),
+                _ => negascout(board, side_to_move, depth, -INF, INF, &mut ctx, None, None),
             }
         };
 
@@ -1081,7 +1128,7 @@ fn aspiration_search(
     let (mut alpha, mut beta) = aspiration_bounds(center, window_idx);
 
     loop {
-        let score = negascout(board, side, depth, alpha, beta, ctx, None);
+        let score = negascout(board, side, depth, alpha, beta, ctx, None, None);
         if *ctx.timed_out {
             // 呼び出し元(`search_with_eval_inner`)は`ctx.timed_out`を見て
             // このイテレーション全体を破棄するため、戻り値自体には意味が
@@ -1425,7 +1472,16 @@ fn search_all_moves_with_eval_core_restricted(
                         // このAPIの挙動を変えないため。
                         history: None,
                     };
-                    -negascout(&next_board, opponent, depth - 1, -INF, INF, &mut ctx, None)
+                    -negascout(
+                        &next_board,
+                        opponent,
+                        depth - 1,
+                        -INF,
+                        INF,
+                        &mut ctx,
+                        None,
+                        None,
+                    )
                 };
                 // T170: タイムアウトで未完走に終わった深さの分も、実際に
                 // 探索した(探索木を辿った)ノード数としてカウントする
@@ -1666,6 +1722,15 @@ const TIME_CHECK_NODE_INTERVAL: u64 = 1024;
 /// 等、親からの増分ハッシュが存在しない経路向けのフォールバック)。
 /// `Some`が渡された場合でも、実際に使う際は`zobrist_hash`によるフル再計算と
 /// `debug_assert_eq!`で照合する(T182、T105の`endgame::negamax`と同じ方針)。
+///
+/// `known_state`(T187): `known_hash`と全く同じ構図の増分パラメータ。
+/// 呼び出し元が既にこの`(board, side)`局面の絶対色`PatternState`
+/// (`crate::pattern_eval::PatternState`、手番非依存)を知っている場合は
+/// `Some`で渡す。`None`の場合(ルート呼び出し等)は本関数が`ctx.weights`が
+/// `Some`のときだけ`PatternState::from_board`のフルスキャンで求め、
+/// `ctx.weights`が`None`(ヒューリスティックフォールバック)の間は一切
+/// 計算しない。`Some`が渡された場合も、パス・子局面ループの各所で
+/// `PatternState::from_board`によるフル再計算と`debug_assert_eq!`で照合する。
 fn negascout(
     board: &Board,
     side: Side,
@@ -1674,6 +1739,7 @@ fn negascout(
     beta: i32,
     ctx: &mut SearchCtx,
     known_hash: Option<u64>,
+    known_state: Option<PatternState>,
 ) -> i32 {
     *ctx.nodes += 1;
 
@@ -1807,14 +1873,41 @@ fn negascout(
             record_incremental_hash_check();
             computed
         });
-        return -negascout(board, side.opposite(), depth, -beta, -alpha, ctx, pass_hash);
+        // T187: パスは盤面が変わらないため絶対色`PatternState`も不変
+        // (状態更新ゼロ、手番はスコア計算側〈idx_black/idx_white〉が吸収する)。
+        // それでも`debug_assertions`時は念のためフル再計算と照合する
+        // (`known_state`はそのまま渡すだけで一切更新しない)。
+        if let (Some(w), Some(state)) = (ctx.weights, known_state) {
+            debug_assert_eq!(
+                state,
+                PatternState::from_board(w, board),
+                "T187 incremental pattern state mismatch after pass"
+            );
+            #[cfg(test)]
+            record_incremental_state_check();
+        }
+        return -negascout(
+            board,
+            side.opposite(),
+            depth,
+            -beta,
+            -alpha,
+            ctx,
+            pass_hash,
+            known_state,
+        );
     }
 
     if depth == 0 {
-        return static_eval(board, side, ctx.weights);
+        return static_eval_with_state(board, side, ctx.weights, known_state);
     }
 
     let hash = known_hash.unwrap_or_else(|| zobrist_hash(board, side));
+    // T187: `known_hash`と同じ構図。`ctx.weights`が`Some`のときだけ状態を
+    // 解決する(ヒューリスティックフォールバック時は一切計算しない)。
+    let state: Option<PatternState> = ctx
+        .weights
+        .map(|w| known_state.unwrap_or_else(|| PatternState::from_board(w, board)));
     let alpha_orig = alpha;
     let mut tt_move: Option<u8> = None;
 
@@ -1839,7 +1932,7 @@ fn negascout(
     // いる)間は、MPCの再帰適用による誤差の積み重ねを避けるため試みない
     // (`mpc_try_cutoff`のドキュメント・`SearchCtx::suppress_mpc`参照)。
     if ctx.enable_mpc && !ctx.suppress_mpc {
-        if let Some(cut) = mpc_try_cutoff(board, side, depth, alpha, beta, ctx, hash) {
+        if let Some(cut) = mpc_try_cutoff(board, side, depth, alpha, beta, ctx, hash, state) {
             return cut;
         }
     }
@@ -1893,6 +1986,24 @@ fn negascout(
         #[cfg(test)]
         record_incremental_hash_check();
 
+        // T187: 親`state`をコピーし、着手マス・flipsマスの桁だけ差分更新
+        // した子`PatternState`を1手につき1回だけ計算する(T182のhash増分
+        // 計算と同じく、この後の最大3回の`negascout_or_etc`呼び出しで
+        // 使い回す)。
+        let child_state = match (ctx.weights, state) {
+            (Some(w), Some(s)) => Some(s.child(w, side, mv, flips)),
+            _ => None,
+        };
+        if let (Some(w), Some(cs)) = (ctx.weights, child_state) {
+            debug_assert_eq!(
+                cs,
+                PatternState::from_board(w, &next_board),
+                "T187 incremental pattern state mismatch at square {mv}"
+            );
+            #[cfg(test)]
+            record_incremental_state_check();
+        }
+
         let score = if first {
             -negascout_or_etc(
                 &next_board,
@@ -1902,6 +2013,7 @@ fn negascout(
                 -alpha,
                 ctx,
                 child_hash,
+                child_state,
             )
         } else {
             // Null Window Search: まず [alpha, alpha+1) の狭い窓で探索する。
@@ -1913,6 +2025,7 @@ fn negascout(
                 -alpha,
                 ctx,
                 child_hash,
+                child_state,
             );
             if scout_score > alpha && scout_score < beta {
                 // 窓を外れた(=このスコアが実は最善手かもしれない)ので
@@ -1925,6 +2038,7 @@ fn negascout(
                     -alpha,
                     ctx,
                     child_hash,
+                    child_state,
                 )
             } else {
                 scout_score
@@ -1995,6 +2109,7 @@ fn negascout_or_etc(
     beta: i32,
     ctx: &mut SearchCtx,
     next_hash: u64,
+    next_state: Option<PatternState>,
 ) -> i32 {
     if ctx.enable_etc {
         if let Some(score) = etc_try_cutoff(
@@ -2017,6 +2132,7 @@ fn negascout_or_etc(
         beta,
         ctx,
         Some(next_hash),
+        next_state,
     )
 }
 
@@ -2148,6 +2264,7 @@ fn mpc_try_cutoff(
     beta: i32,
     ctx: &mut SearchCtx,
     hash: u64,
+    state: Option<PatternState>,
 ) -> Option<i32> {
     // T048フィードバック(自己対戦検証で発覚した重大な不具合の修正):
     // `alpha`/`beta`のどちらかがまだ番兵値(`-INF`/`INF`)のままの場合、
@@ -2206,7 +2323,7 @@ fn mpc_try_cutoff(
     let old_exact_enabled = ctx.exact_enabled;
     ctx.suppress_mpc = true;
     ctx.exact_enabled = false;
-    let cut = mpc_try_cutoff_inner(board, side, calibration, alpha, beta, ctx, hash);
+    let cut = mpc_try_cutoff_inner(board, side, calibration, alpha, beta, ctx, hash, state);
     ctx.exact_enabled = old_exact_enabled;
     ctx.suppress_mpc = old_suppress_mpc;
     cut
@@ -2222,6 +2339,7 @@ fn mpc_try_cutoff_inner(
     beta: i32,
     ctx: &mut SearchCtx,
     hash: u64,
+    state: Option<PatternState>,
 ) -> Option<i32> {
     let probe_depth = calibration.probe_depth;
     let histogram_index = probe_depth.min(64) as usize;
@@ -2234,7 +2352,8 @@ fn mpc_try_cutoff_inner(
         let nodes_before = *ctx.nodes;
         // T182: プローブは呼び出し元(`negascout`)と同じ`(board, side)`を
         // 見るので、呼び出し元が既に持っている`hash`をそのまま渡せる
-        // (フルスキャンの再計算は不要)。
+        // (フルスキャンの再計算は不要)。T187: `state`も同じ理由でそのまま
+        // 渡せる(同じ局面なのでフル再計算は不要)。
         let probe = negascout(
             board,
             side,
@@ -2243,6 +2362,7 @@ fn mpc_try_cutoff_inner(
             high_bound,
             ctx,
             Some(hash),
+            state,
         );
         ctx.mpc_stats.probe_nodes += ctx.nodes.saturating_sub(nodes_before);
         if *ctx.timed_out {
@@ -2269,6 +2389,7 @@ fn mpc_try_cutoff_inner(
             low_bound + 1,
             ctx,
             Some(hash),
+            state,
         );
         ctx.mpc_stats.probe_nodes += ctx.nodes.saturating_sub(nodes_before);
         if *ctx.timed_out {
@@ -4318,9 +4439,9 @@ mod tests {
             history: None,
         };
         let hash = zobrist_hash(&board, side);
-        assert_eq!(mpc_try_cutoff(&board, side, 6, -INF, 0, &mut ctx, hash), None);
+        assert_eq!(mpc_try_cutoff(&board, side, 6, -INF, 0, &mut ctx, hash, None), None);
         assert_eq!(ctx.mpc_stats.skipped_pv_window, 1);
-        assert_eq!(mpc_try_cutoff(&board, side, 6, -1, 0, &mut ctx, hash), None);
+        assert_eq!(mpc_try_cutoff(&board, side, 6, -1, 0, &mut ctx, hash, None), None);
         assert_eq!(ctx.mpc_stats.skipped_exact_boundary, 1);
         assert_eq!(*ctx.exact_quota_remaining, 1234);
     }
@@ -4355,7 +4476,7 @@ mod tests {
             history: None,
         };
         let hash = zobrist_hash(&board, side);
-        assert_eq!(mpc_try_cutoff(&board, side, 6, -1, 0, &mut ctx, hash), None);
+        assert_eq!(mpc_try_cutoff(&board, side, 6, -1, 0, &mut ctx, hash, None), None);
         assert!(*ctx.timed_out);
         assert!(!ctx.suppress_mpc);
         assert!(ctx.exact_enabled);
@@ -4394,7 +4515,7 @@ mod tests {
         };
         let hash = zobrist_hash(&board, side);
         assert_eq!(
-            mpc_try_cutoff(&board, side, 6, -5001, -5000, &mut ctx, hash),
+            mpc_try_cutoff(&board, side, 6, -5001, -5000, &mut ctx, hash, None),
             Some(-5000)
         );
         assert_eq!(
@@ -4526,6 +4647,47 @@ mod tests {
             incremental_hash_checks() >= 200,
             "expected the T182 incremental-hash debug check to fire at least 200 times, got {}",
             incremental_hash_checks()
+        );
+    }
+
+    /// T187: `negascout`本体(パス経路・子局面ループ)が増分計算した
+    /// `PatternState`を実際に使ったこと(発火0件のままpassしない)を確認する
+    /// テレメトリテスト(直上の`incremental_hash_check_fires_across_diverse_midgame_searches`
+    /// と同じ考え方)。増分状態は`ctx.weights`が`Some`のときのみ計算される
+    /// ため、上記T182テストと異なり実際のパターン重み(`pattern_v6.bin`)を
+    /// 読み込んで渡す。
+    #[test]
+    fn incremental_state_check_fires_across_diverse_midgame_searches() {
+        reset_incremental_state_checks();
+        let path = concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../train/weights/pattern_v6.bin"
+        );
+        let weights = PatternWeights::from_bytes(&std::fs::read(path).unwrap()).unwrap();
+        let policy = SearchPolicy {
+            enable_history: true,
+            enable_aspiration: true,
+            enable_mpc: true,
+        };
+        for n in 0..8usize {
+            let (board, side) = play_until_empties(24, move |moves: &[u64]| moves[n % moves.len()]);
+            let limit = default_limit(8, 0);
+            let mut tt = TranspositionTable::new(4);
+            let _ = search_with_eval_with_policy(
+                &board,
+                side,
+                &limit,
+                &mut tt,
+                Some(&weights),
+                None,
+                EXACT_QUOTA_PERCENT,
+                policy,
+            );
+        }
+        assert!(
+            incremental_state_checks() >= 200,
+            "expected the T187 incremental-pattern-state debug check to fire at least 200 times, got {}",
+            incremental_state_checks()
         );
     }
 

@@ -118,7 +118,10 @@ pub enum PatternConfig {
     V3Corner5x2Diag4,
 }
 
-const POW3: [u32; 11] = [1, 3, 9, 27, 81, 243, 729, 2187, 6561, 19683, 59049];
+// T187: `pattern_eval`の増分評価(`cell_to_instances`構築)がパターン内での
+// 桁の重み(3^position)を必要とするため、モジュール内可視に広げる
+// (値・意味は不変)。
+pub(crate) const POW3: [u32; 11] = [1, 3, 9, 27, 81, 243, 729, 2187, 6561, 19683, 59049];
 
 /// v1で使う全22パターンのセルインデックスを機械的に生成して返す。
 ///
@@ -302,6 +305,38 @@ pub fn pattern_state_index(cells: &[u8], board: &Board, mover: Side) -> u32 {
         index += trit * POW3[position];
     }
     index
+}
+
+/// raw状態(`pattern_state_index`と同じ3進数エンコード、桁pの重みは3^p)の
+/// 全桁について、1(黒石)↔2(白石)を入れ替えた値を返す(0=空はそのまま)。
+///
+/// T187(増分パターン評価): `pattern_state_index(cells, board, Side::White)`は
+/// 常に`swap12(pattern_state_index(cells, board, Side::Black))`と一致する
+/// (`cell_trit`は`own`/`opp`を`mover`で選ぶだけであり、Black視点の
+/// `own`/`opp`〈黒/白〉とWhite視点の`own`/`opp`〈白/黒〉はちょうど入れ替わって
+/// いるため、各セルの3値〈0/1/2〉の対応もそのまま入れ替わる)。この事実により、
+/// 黒視点(絶対色、手番非依存)のraw状態を1つだけ保持すれば、手番に応じた
+/// テーブル参照の切り替え(`pattern_eval::PatternWeights::idx_black`/
+/// `idx_white`、ともに構築時に一度だけ計算する)だけでどちらの視点の
+/// テーブルインデックスも求まり、着手のたびに全パターンをフル再計算する
+/// 必要がなくなる(`pattern_eval::PatternState`/`score_with_state`参照)。
+/// この等価性は`swap12_of_black_perspective_state_equals_white_perspective_state`
+/// で検証している。
+pub fn swap12(mut state: u32) -> u32 {
+    let mut result = 0u32;
+    let mut place = 1u32;
+    while state > 0 {
+        let digit = state % 3;
+        let swapped = match digit {
+            1 => 2,
+            2 => 1,
+            _ => 0,
+        };
+        result += swapped * place;
+        state /= 3;
+        place *= 3;
+    }
+    result
 }
 
 /// 局面(`board`・`mover`)から、全パターンのアクティブな
@@ -1054,6 +1089,38 @@ mod tests {
         for state in [0u32, 1, 8, 42, 1000, 6560] {
             let expected = state.min(reverse_digits(state, 8));
             assert_eq!(table[state as usize], expected, "state={state}");
+        }
+    }
+
+    // -----------------------------------------------------------------
+    // T187: 増分パターン評価(swap12)
+    // -----------------------------------------------------------------
+
+    #[test]
+    fn swap12_is_an_involution_and_fixes_zero() {
+        assert_eq!(swap12(0), 0);
+        for state in [1u32, 2, 3, 8, 42, 1000, 6560, 19682, 59048] {
+            assert_eq!(swap12(swap12(state)), state, "state={state}");
+        }
+    }
+
+    #[test]
+    fn swap12_of_black_perspective_state_equals_white_perspective_state() {
+        // T187設計の根拠となる等価性: Black視点rawをswap12するとWhite視点raw
+        // に一致する(全パターン形状・多数のランダム局面で確認)。
+        let mut rng = TestXorshift64::new(0xABCDEF_0123_4567);
+        for cells in generate_patterns_for(PatternConfig::V3Corner5x2Diag4) {
+            for _ in 0..50 {
+                let board = random_board(&mut rng);
+                let black_state = pattern_state_index(&cells, &board, Side::Black);
+                let white_state = pattern_state_index(&cells, &board, Side::White);
+                assert_eq!(
+                    swap12(black_state),
+                    white_state,
+                    "cells={cells:?}, board={board:?}"
+                );
+                assert_eq!(swap12(white_state), black_state);
+            }
         }
     }
 

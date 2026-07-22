@@ -1,0 +1,92 @@
+{
+  "task": "T187",
+  "generatedAt": "2026-07-22T15:00:00+09:00",
+  "provenance": {
+    "gitCommitBase": "4144c5d",
+    "gitCommitBaseFull": "4144c5db8231e67b2240fee365afc7d5d6521156",
+    "gitCommitNote": "T186完了時点のHEAD(4144c5d)を基点に engine/src/pattern_eval.rs / engine/src/patterns.rs / engine/src/search.rs へ増分パターン評価を実装。git worktreeで4144c5dを独立ディレクトリにチェックアウトして変更前バイナリをビルドし、変更後(現ワークツリー)と比較。worktreeは計測後git worktree remove --forceで削除済み。",
+    "patternWeightsSha256": "e69f3b1c33432bafd388af82adde64270ec8c51acaab070bbfff4cf4caf20fc9",
+    "patternWeightsPath": "train/weights/pattern_v6.bin",
+    "midgame20Path": "bench/edax-compare/t156_mpc_positions.json filtered split=='test' and 29<=empties<=36, first 20 (ids mpc-29-36-test-001..020); regenerated deterministically from the same filter T180/T182-T185 used (their session-scratchpad copy was never committed).",
+    "cpuModel": "AMD Ryzen 7 5800U with Radeon Graphics (16 logical processors)",
+    "exclusiveWindowCheck": "tasklist //FI \"IMAGENAME eq cargo.exe\" //FI \"IMAGENAME eq rustc.exe\" //FI \"IMAGENAME eq eval_cli.exe\" //FI \"IMAGENAME eq python.exe\" //FI \"IMAGENAME eq node.exe\" で計測直前に競合プロセス無しを確認"
+  },
+  "implementation": {
+    "changedFiles": [
+      "engine/src/patterns.rs",
+      "engine/src/pattern_eval.rs",
+      "engine/src/search.rs"
+    ],
+    "newTypes": [
+      "pattern_eval::PatternState { raw: [u32; MAX_PATTERN_INSTANCES] }",
+      "pattern_eval::MAX_PATTERN_INSTANCES: usize = 64"
+    ],
+    "newFunctions": [
+      "patterns::swap12(state: u32) -> u32",
+      "PatternState::from_board(weights, board) -> Self",
+      "PatternState::child(&self, weights, side, mv, flips) -> Self",
+      "PatternWeights::score_with_state(&self, state, board, mover) -> f32",
+      "PatternWeights::build_incremental_tables(&mut self) (private, called once per constructor after canonical_tables is finalized)"
+    ],
+    "searchSignatureChanges": {
+      "negascout": "+known_state: Option<PatternState>",
+      "negascout_or_etc": "+next_state: Option<PatternState>",
+      "mpc_try_cutoff": "+state: Option<PatternState>",
+      "mpc_try_cutoff_inner": "+state: Option<PatternState>",
+      "static_eval_with_state": "new fn: static_eval_with_state(board, side, weights, state) -> i32, delegates to static_eval when state is None"
+    },
+    "designDeviation": {
+      "spec": "Task spec described PatternState as a 46-instance u32 array (matching production pattern_v6.bin).",
+      "chosen": "Fixed-capacity array MAX_PATTERN_INSTANCES=64 with the actual instance count taken from weights.patterns.len() at runtime (<=64), plus an assert in build_incremental_tables.",
+      "reason": "patterns.rs tests and the train crate exercise multiple PatternConfig variants (22 to 50 instances), not just the production 46. A compile-time 46 would break generality; 64 covers all existing configs with headroom while still avoiding heap allocation per node."
+    }
+  },
+  "correctnessVerification": {
+    "propertyTest": "pattern_eval::tests::incremental_pattern_state_matches_full_recompute_across_random_self_play_including_passes (30 random self-play games including passes, using real pattern_v6.bin weights)",
+    "regressionCatchingDemo": {
+      "method": "Temporarily changed PatternState::child's move-square delta from `mover_trit` to `mover_trit + 1`, reran the property test, confirmed immediate failure (`incremental PatternState mismatch at square 19`), then reverted and confirmed pass.",
+      "result": "confirmed fail-then-pass"
+    },
+    "debugAssertTelemetry": "search::tests::incremental_state_check_fires_across_diverse_midgame_searches: TEST_INCREMENTAL_STATE_CHECKS fired >=200 times across 8 diverse midgame searches (iterative deepening + MPC + ETC + aspiration + history all enabled)",
+    "identityVerification": {
+      "method": "eval_cli best --depth 12 --exact-from-empties 0 --pattern-weights pattern_v6.bin [--enable-mpc], 20-position batch, before (4144c5d) vs after (working tree) binaries, round 0 of each MPC mode",
+      "mpc_off": {"mismatches": 0, "positionsChecked": 20},
+      "mpc_on": {"mismatches": 0, "positionsChecked": 20},
+      "totalNodesMatch": {"mpc_off": 59440032, "mpc_on": 6487461},
+      "matchesT185ReportedTotals": true
+    },
+    "cargoTestLib": "251 passed; 0 failed; 2 ignored (was 247 at T186, +4 new tests: swap12_is_an_involution_and_fixes_zero, swap12_of_black_perspective_state_equals_white_perspective_state, incremental_pattern_state_matches_full_recompute_across_random_self_play_including_passes, incremental_state_check_fires_across_diverse_midgame_searches)",
+    "t182t184t185FixedValueTests": "search::tests::t182_negascout_results_are_unchanged_by_the_incremental_hash_wiring / t184_sort_by_cached_key_matches_pre_change_baseline / t185_ordered_moves_fixed_array_matches_pre_change_baseline all pass with unmodified assertion values"
+  },
+  "npsMeasurement": {
+    "procedure": "worktree-independent build (before=4144c5d) + current tree build (after), 3 alternating rounds per MPC mode (round0 before,after / round1 after,before / round2 before,after). Each round runs the full 20-position batch sequentially against a given binary via eval_cli best. aggNps = totalNodes / (totalElapsedMs/1000) summed over the 20 positions in that round/binary.",
+    "rawDataFile": "bench/edax-compare/t187_incremental_eval_report.raw.json",
+    "finalResult": {
+      "mpc_off": {
+        "beforeRoundsNps": [1303595.2, 1299292.5, 1275345.6],
+        "afterRoundsNps": [1765685.4, 1734412.0, 1811754.2],
+        "beforeAvgNps": 1292744.4,
+        "afterAvgNps": 1770617.2,
+        "speedupPct": 36.97,
+        "totalNodes": 59440032
+      },
+      "mpc_on": {
+        "beforeRoundsNps": [1187962.1, 1293869.4, 1284137.2],
+        "afterRoundsNps": [1718077.6, 1743004.0, 1741600.3],
+        "beforeAvgNps": 1255322.9,
+        "afterAvgNps": 1734227.3,
+        "speedupPct": 38.15,
+        "totalNodes": 6487461
+      }
+    }
+  },
+  "ffoFast": {
+    "command": "cargo test -p engine --test ffo_bench --release -- --nocapture",
+    "result": "5/5 positions solved correctly (#40-#44), unaffected by this task's change (endgame.rs untouched)"
+  },
+  "adoptionDecision": {
+    "criterion": "T187要件5: ノード数完全一致 + NPS改善が計測誤差を明確に超えること",
+    "result": "adopted",
+    "reason": "0 node-count mismatches across 40 searches (20 positions x MPC off/on) and a consistent +37.0%/+38.1% NPS improvement across all 3 alternating rounds in both MPC modes."
+  }
+}

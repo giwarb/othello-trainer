@@ -188,6 +188,100 @@ pub struct PatternWeights {
     /// レガシースキーム(PWV1〜PWV4)は常に`None`で、[`Self::table_index`]は
     /// 状態インデックスをそのまま返す(評価値のビット不変性を保証するため)。
     canonical_tables: Option<Vec<Vec<u32>>>,
+    /// T187(増分パターン評価): 盤面セル(0..64)ごとに、そのセルを含む全
+    /// パターンインスタンスの`(instance_id, pow3_digit)`一覧。
+    /// `pow3_digit`はそのインスタンスの`aligned_cells`内での桁の重み
+    /// (`patterns::POW3[position]`)。`build_incremental_tables`が構築時に
+    /// 一度だけ計算し(`class_info.aligned_cells`のみに依存し盤面に依存しない)、
+    /// [`PatternState::child`]が着手・flipsで変化したセルの更新先を
+    /// 引くのに使う。
+    cell_to_instances: Vec<Vec<(u32, u32)>>,
+    /// T187: 黒視点(絶対色)のraw状態から、そのクラスの`stage_tables`への
+    /// 実際のテーブル添字への写像。`idx_black[class_id][raw] ==
+    /// table_index(class_id, raw)`(手番が黒の場合はraw状態をそのまま
+    /// `table_index`に渡すのと同じ)。`build_incremental_tables`が構築時に
+    /// 一度だけ計算する。
+    idx_black: Vec<Vec<u32>>,
+    /// T187: 白視点のraw状態(=黒視点rawを`patterns::swap12`したもの)から
+    /// テーブル添字への写像。`idx_white[class_id][raw] ==
+    /// table_index(class_id, patterns::swap12(raw))`。
+    /// (`patterns::swap12`のドキュメントに等価性の根拠を記載。)
+    idx_white: Vec<Vec<u32>>,
+}
+
+/// T187: 増分パターン評価で1手ごとにコピー+差分更新する状態配列の上限
+/// インスタンス数。現行の全パターン形状(`patterns::PatternConfig`の最大
+/// 構成は`V3Corner5x2Diag4`の50インスタンス、本番`pattern_v6.bin`は
+/// 46インスタンス)を十分な余裕を持って収める固定長(ヒープ確保なしで
+/// コピーするため`Vec`ではなく固定長配列にしている)。これを超える
+/// パターン集合を将来追加する場合は、`PatternWeights::build_incremental_tables`
+/// のassertに引っかかるので、その時点でこの定数を引き上げること。
+pub const MAX_PATTERN_INSTANCES: usize = 64;
+
+/// T187: 黒視点(絶対色、手番に依存しない)のraw 3進パターン状態を全
+/// インスタンス分保持する固定長配列。桁の意味は「0=空・1=黒石・2=白石」で
+/// 固定。
+///
+/// 増分パターン評価の中心データ構造。`negascout`は着手のたびに親の
+/// `PatternState`をコピーし([`Self::child`])、着手マス・flipsマスの桁だけを
+/// 差分更新することで、[`PatternWeights::score`]のような全パターン・
+/// 全セルのフルスキャンを避ける。手番に応じたテーブル切り替え
+/// (`PatternWeights::idx_black`/`idx_white`)は[`PatternWeights::score_with_state`]
+/// 側で行うため、パス(手番だけが反転し盤面は変わらない)はこの構造体を
+/// 一切更新せずにそのまま使い回せる。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct PatternState {
+    raw: [u32; MAX_PATTERN_INSTANCES],
+}
+
+impl PatternState {
+    /// `board`の各パターンインスタンスの黒視点raw状態をフル再計算する
+    /// (`weights.class_info.aligned_cells`基準、[`PatternWeights::score`]が
+    /// 各インスタンスについて計算するのと同じセル順序)。増分計算の起点
+    /// (ルート局面)、および`debug_assertions`時の照合基準に使う。
+    pub fn from_board(weights: &PatternWeights, board: &Board) -> Self {
+        let mut raw = [0u32; MAX_PATTERN_INSTANCES];
+        for (i, slot) in raw.iter_mut().enumerate().take(weights.patterns.len()) {
+            let cells = &weights.class_info.aligned_cells[i];
+            // 常にBlack視点(own=黒石=1, opp=白石=2)で計算する: これが
+            // 「絶対色」の定義そのもの(`mover`ではなく常にBlackを渡す)。
+            *slot = patterns::pattern_state_index(cells, board, Side::Black);
+        }
+        PatternState { raw }
+    }
+
+    /// 親(`self`)の状態をコピーし、`side`が着手マス`mv`(空→mover色)と
+    /// `flips`(相手色→mover色)で書き換えたセルだけ差分更新した子状態を
+    /// 返す。呼び出し元(`search::negascout`)は`flips`を
+    /// `(own_after ^ own_before) & !mv_bit`で既に導出済みの値(T182の増分
+    /// hash計算と共通の導出)をそのまま渡す想定。f32を一切扱わないため
+    /// 加算順序の懸念はない(加算順序が問題になるのは
+    /// [`PatternWeights::score_with_state`]側)。
+    pub fn child(&self, weights: &PatternWeights, side: Side, mv: u8, flips: u64) -> Self {
+        // 黒視点での桁の値: 黒石=1, 白石=2(`from_board`と同じ規約)。
+        let (mover_trit, opponent_trit): (i32, i32) = match side {
+            Side::Black => (1, 2),
+            Side::White => (2, 1),
+        };
+        let mut next = *self;
+        // 着手マス: 空(0) → mover色。
+        next.apply_delta(weights, mv, mover_trit);
+        // flipsマス: 相手色 → mover色。
+        let mut remaining = flips;
+        while remaining != 0 {
+            let cell = remaining.trailing_zeros() as u8;
+            remaining &= remaining - 1;
+            next.apply_delta(weights, cell, mover_trit - opponent_trit);
+        }
+        next
+    }
+
+    fn apply_delta(&mut self, weights: &PatternWeights, cell: u8, delta: i32) {
+        for &(instance_id, pow3_digit) in &weights.cell_to_instances[cell as usize] {
+            let idx = instance_id as usize;
+            self.raw[idx] = (self.raw[idx] as i32 + delta * pow3_digit as i32) as u32;
+        }
+    }
 }
 
 fn sha256(input: &[u8]) -> [u8; 32] {
@@ -334,7 +428,7 @@ impl PatternWeights {
                 }
             })
             .collect();
-        PatternWeights {
+        let mut model = PatternWeights {
             patterns,
             class_info,
             class_tables,
@@ -343,7 +437,12 @@ impl PatternWeights {
             scalar_feature_weights: Vec::new(),
             scalar_features_enabled: true,
             canonical_tables: None,
-        }
+            cell_to_instances: Vec::new(),
+            idx_black: Vec::new(),
+            idx_white: Vec::new(),
+        };
+        model.build_incremental_tables();
+        model
     }
 
     /// T163: D4 canonical化スキームを有効にした状態で、全重みを0初期化したモデルを
@@ -360,6 +459,11 @@ impl PatternWeights {
         let mut model =
             Self::zeroed_with_stage_definition(patterns, num_stages, stage_empty_divisor);
         model.canonical_tables = Some(model.build_canonical_tables());
+        // T187: `zeroed_with_stage_definition`が`canonical_tables: None`前提で
+        // 一度構築した`idx_black`/`idx_white`は、上でcanonicalに切り替えた
+        // 直後は古い(レガシー扱いの)ままなので、確定後の`canonical_tables`を
+        // 使って作り直す。
+        model.build_incremental_tables();
         model
     }
 
@@ -465,6 +569,107 @@ impl PatternWeights {
             }
         }
         sum
+    }
+
+    /// T187: [`Self::score`]の増分版。呼び出し元(`search::negascout`)が
+    /// 既に保持している絶対色状態`state`([`PatternState`])を使い、
+    /// `patterns::pattern_state_index`によるフル再計算(全パターン・全セルの
+    /// スキャン)を行わずにパターン項を合算する。
+    ///
+    /// # f32加算順序について(絶対条件)
+    /// パターン項をインスタンス`i = 0..self.patterns.len()`の昇順で合算し、
+    /// 続けてスカラー特徴を`score`と全く同じ順序で加算する。`score`と
+    /// 1箇所でも加算順序が異なると、浮動小数点演算は結合則を満たさないため
+    /// 探索結果(TTに格納されるスコア、ひいてはbest_move/depth/ノード数)が
+    /// 変わりうる(T187タスク仕様の絶対条件)。`score`本体を変更する際は
+    /// 必ずこちらも同じ順序に保つこと(`score_with_state`のf32ビット表現が
+    /// `score`と一致することをプロパティテストで検証している)。
+    pub fn score_with_state(&self, state: &PatternState, board: &Board, mover: Side) -> f32 {
+        let stage = self.stage_for_empty_count(board.empty_count());
+        let idx_tables = match mover {
+            Side::Black => &self.idx_black,
+            Side::White => &self.idx_white,
+        };
+        let mut sum = 0f32;
+        for i in 0..self.patterns.len() {
+            let class_id = self.class_info.class_of[i];
+            let index = idx_tables[class_id][state.raw[i] as usize] as usize;
+            sum += self.class_tables[class_id].stage_tables[stage][index];
+        }
+        if self.scalar_features_enabled() {
+            let values = scalar_features(board, mover);
+            for kind in ALL_SCALAR_FEATURE_KINDS {
+                if let Some(feature) = self
+                    .scalar_feature_weights
+                    .iter()
+                    .find(|feature| feature.kind == kind)
+                {
+                    let raw = match kind {
+                        ScalarFeatureKind::ExactMobilityAdvantage => {
+                            values.exact_mobility_advantage
+                        }
+                        ScalarFeatureKind::EmptyAdjacencyExposureAdvantage => {
+                            values.empty_adjacency_exposure_advantage
+                        }
+                        ScalarFeatureKind::Constant => 1,
+                    };
+                    sum += feature.weights[stage]
+                        * (raw as f32 / (1u32 << feature.scale_shift) as f32);
+                }
+            }
+        }
+        sum
+    }
+
+    /// T187: `cell_to_instances`/`idx_black`/`idx_white`を現在の
+    /// `class_info`/`canonical_tables`から(再)構築する。パターン形状と
+    /// (canonicalスキームなら)canonical indexテーブルのみに依存し盤面には
+    /// 依存しないため、構築時に一度だけ呼べば以後は探索の全ノードで
+    /// 使い回せる。
+    ///
+    /// 呼び出し元の責務: `canonical_tables`が最終的な値に確定した**後**に
+    /// 呼ぶこと(`idx_black`/`idx_white`は`table_index`〈`canonical_tables`を
+    /// 参照する〉経由で計算するため、先に呼んでしまうと`canonical_tables`を
+    /// 後から`Some`にセットした際に古い〈レガシー扱いの〉テーブルが
+    /// 残ってしまう。[`Self::zeroed_canonical`]・[`Self::from_bytes_v5`]は
+    /// この理由で`canonical_tables`確定後に呼び直す)。
+    ///
+    /// 学習(`train::regression::Model`)による`class_tables`内の重み値
+    /// (f32)の更新はこのテーブルを無効化しない(`idx_black`/`idx_white`は
+    /// raw状態→テーブル添字の対応であり、その添字に入っている重みの値には
+    /// 依存しないため)。
+    fn build_incremental_tables(&mut self) {
+        assert!(
+            self.patterns.len() <= MAX_PATTERN_INSTANCES,
+            "T187: パターンインスタンス数({})がMAX_PATTERN_INSTANCES({})を超えています",
+            self.patterns.len(),
+            MAX_PATTERN_INSTANCES
+        );
+
+        let mut cell_to_instances: Vec<Vec<(u32, u32)>> = vec![Vec::new(); 64];
+        for i in 0..self.patterns.len() {
+            let cells = &self.class_info.aligned_cells[i];
+            for (position, &cell) in cells.iter().enumerate() {
+                cell_to_instances[cell as usize].push((i as u32, patterns::POW3[position]));
+            }
+        }
+        self.cell_to_instances = cell_to_instances;
+
+        let mut idx_black = Vec::with_capacity(self.class_tables.len());
+        let mut idx_white = Vec::with_capacity(self.class_tables.len());
+        for (class_id, table) in self.class_tables.iter().enumerate() {
+            let num_states = table.num_states;
+            let mut black = Vec::with_capacity(num_states as usize);
+            let mut white = Vec::with_capacity(num_states as usize);
+            for raw in 0..num_states {
+                black.push(self.table_index(class_id, raw) as u32);
+                white.push(self.table_index(class_id, patterns::swap12(raw)) as u32);
+            }
+            idx_black.push(black);
+            idx_white.push(white);
+        }
+        self.idx_black = idx_black;
+        self.idx_white = idx_white;
     }
 
     /// 重みファイルのバイナリ形式(v2)にシリアライズする。
@@ -888,7 +1093,9 @@ impl PatternWeights {
     }
 
     fn from_bytes_v3(bytes: &[u8]) -> Result<PatternWeights, String> {
-        Self::from_bytes_self_describing(bytes, 3, "PWV3")
+        let mut model = Self::from_bytes_self_describing(bytes, 3, "PWV3")?;
+        model.build_incremental_tables();
+        Ok(model)
     }
 
     /// T163: D4 canonical化スキーム版の自己記述形式(PWV5)を読み込む。
@@ -901,6 +1108,8 @@ impl PatternWeights {
     fn from_bytes_v5(bytes: &[u8]) -> Result<PatternWeights, String> {
         let mut model = Self::from_bytes_self_describing(bytes, 5, "PWV5")?;
         model.canonical_tables = Some(model.build_canonical_tables());
+        // T187: canonical_tables確定後に作り直す(zeroed_canonicalと同じ理由)。
+        model.build_incremental_tables();
         Ok(model)
     }
 
@@ -1055,6 +1264,11 @@ impl PatternWeights {
             return Err(format!("{format_label}に余剰bytesがあります"));
         }
 
+        // T187: `cell_to_instances`/`idx_black`/`idx_white`はここでは空のまま
+        // 返す。`canonical_tables`が本関数終了時点でまだ確定していない
+        // (呼び出し元の`from_bytes_v3`/`from_bytes_v5`が必要に応じて
+        // `canonical_tables`を設定してから`build_incremental_tables`を
+        // 呼び直す)ため。
         Ok(PatternWeights {
             patterns: pattern_defs,
             class_info,
@@ -1064,6 +1278,9 @@ impl PatternWeights {
             scalar_feature_weights: Vec::new(),
             scalar_features_enabled: true,
             canonical_tables: None,
+            cell_to_instances: Vec::new(),
+            idx_black: Vec::new(),
+            idx_white: Vec::new(),
         })
     }
 
@@ -1132,7 +1349,7 @@ impl PatternWeights {
             });
         }
 
-        Ok(PatternWeights {
+        let mut model = PatternWeights {
             patterns: pattern_defs,
             class_info,
             class_tables,
@@ -1141,7 +1358,12 @@ impl PatternWeights {
             scalar_feature_weights: Vec::new(),
             scalar_features_enabled: true,
             canonical_tables: None,
-        })
+            cell_to_instances: Vec::new(),
+            idx_black: Vec::new(),
+            idx_white: Vec::new(),
+        };
+        model.build_incremental_tables();
+        Ok(model)
     }
 
     /// v1形式(T041、22インスタンス独立の重みテーブル)を読み込む。
@@ -1213,7 +1435,7 @@ impl PatternWeights {
             aligned_cells: pattern_defs.clone(),
         };
 
-        Ok(PatternWeights {
+        let mut model = PatternWeights {
             patterns: pattern_defs,
             class_info,
             class_tables,
@@ -1222,7 +1444,12 @@ impl PatternWeights {
             scalar_feature_weights: Vec::new(),
             scalar_features_enabled: true,
             canonical_tables: None,
-        })
+            cell_to_instances: Vec::new(),
+            idx_black: Vec::new(),
+            idx_white: Vec::new(),
+        };
+        model.build_incremental_tables();
+        Ok(model)
     }
 }
 
@@ -2328,5 +2555,124 @@ mod tests {
         // 発火しないセルへの設定なので影響しない)。少なくともpanicせず
         // 有限の値が返ることを確認する。
         assert!(weights.score(&board, Side::Black).is_finite());
+    }
+
+    // -----------------------------------------------------------------
+    // T187: 増分パターン評価(PatternState)
+    // -----------------------------------------------------------------
+
+    /// T187絶対条件のプロパティテスト: ランダム自己対局(パス含む・複数
+    /// ゲーム)の全局面で、(a) 増分`PatternState`(`PatternState::child`で
+    /// 差分更新したもの)が`PatternState::from_board`によるフル再計算と
+    /// 一致すること、(b) `score_with_state`のf32ビット表現(`to_bits()`)が
+    /// 現行`score`と一致すること、を検証する。`zobrist.rs`の
+    /// `incremental_move_hash_matches_full_recompute_across_random_self_play_including_passes`
+    /// (T105/T182)を直接のテンプレートにしている。
+    ///
+    /// 実際の学習済み重み(`pattern_v6.bin`、全クラス非ゼロ)を使うことで、
+    /// テーブル添字の選び間違い(idx_black/idx_whiteの取り違え等)があれば
+    /// 単なるゼロ一致ではなく実際の値のズレとして検出できるようにしている。
+    #[test]
+    fn incremental_pattern_state_matches_full_recompute_across_random_self_play_including_passes()
+    {
+        let path = concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../train/weights/pattern_v6.bin"
+        );
+        let weights = PatternWeights::from_bytes(&std::fs::read(path).unwrap()).unwrap();
+
+        fn play_and_check(weights: &PatternWeights, mut seed: u64) -> (usize, usize) {
+            let mut board = Board::initial();
+            let mut side = Side::Black;
+            let mut state = PatternState::from_board(weights, &board);
+            let mut move_steps = 0usize;
+            let mut pass_steps = 0usize;
+
+            loop {
+                // (b) score_with_stateがscoreと一致すること(手番側・相手側
+                // 両方の視点で、idx_black/idx_white双方のテーブルを通す)。
+                assert_eq!(
+                    weights.score_with_state(&state, &board, side).to_bits(),
+                    weights.score(&board, side).to_bits(),
+                    "score_with_state mismatch (seed={seed}, side={side:?})"
+                );
+                assert_eq!(
+                    weights
+                        .score_with_state(&state, &board, side.opposite())
+                        .to_bits(),
+                    weights.score(&board, side.opposite()).to_bits(),
+                    "score_with_state mismatch for opposite mover (seed={seed})"
+                );
+
+                let legal = board.legal_moves(side);
+                if legal == 0 {
+                    if board.legal_moves(side.opposite()) == 0 {
+                        break;
+                    }
+                    // パス: 盤面は変わらないので絶対色状態は不変のはず。
+                    side = side.opposite();
+                    pass_steps += 1;
+                    assert_eq!(
+                        state,
+                        PatternState::from_board(weights, &board),
+                        "pass should not change PatternState (seed={seed})"
+                    );
+                    continue;
+                }
+
+                // zobrist.rsのテストと同じLCGによる決定的な擬似乱数選択。
+                seed = seed
+                    .wrapping_mul(6_364_136_223_846_793_005)
+                    .wrapping_add(1_442_695_040_888_963_407);
+                let selected = (seed % legal.count_ones() as u64) as u32;
+                let mut remaining = legal;
+                for _ in 0..selected {
+                    remaining &= remaining - 1;
+                }
+                let mv_bit = remaining & remaining.wrapping_neg();
+                let mv = mv_bit.trailing_zeros() as u8;
+
+                let own_before = match side {
+                    Side::Black => board.black,
+                    Side::White => board.white,
+                };
+                let next_board = board.apply_move(side, mv_bit);
+                let own_after = match side {
+                    Side::Black => next_board.black,
+                    Side::White => next_board.white,
+                };
+                let flips = (own_after ^ own_before) & !mv_bit;
+
+                // (a) 増分更新がフル再計算と一致すること。
+                let next_state = state.child(weights, side, mv, flips);
+                assert_eq!(
+                    next_state,
+                    PatternState::from_board(weights, &next_board),
+                    "incremental PatternState mismatch at square {mv} (seed={seed})"
+                );
+
+                board = next_board;
+                state = next_state;
+                side = side.opposite();
+                move_steps += 1;
+            }
+            (move_steps, pass_steps)
+        }
+
+        let mut total_moves = 0usize;
+        let mut total_passes = 0usize;
+        for seed in 1..=30u64 {
+            let (moves, passes) = play_and_check(&weights, seed);
+            total_moves += moves;
+            total_passes += passes;
+        }
+        assert!(
+            total_moves > 500,
+            "expected substantial move coverage across 30 self-play games, got {total_moves}"
+        );
+        assert!(
+            total_passes > 0,
+            "expected at least one pass across 30 self-play games, got {total_passes}"
+        );
     }
 }
