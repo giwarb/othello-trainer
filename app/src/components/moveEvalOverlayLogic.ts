@@ -81,21 +81,6 @@ export function applyBookCap(
 }
 
 /**
- * 盤面評価値(T138仕様1・2)。「各合法手の評価値の最大値」を基本とするが、
- * 定石ブックcapが働く間(`bookSquares`が空でない間、=現在の進行が定石ブック内)は
- * 0(互角)を返す。`allMoves`が`null`または空配列(合法手が無い・未取得)なら
- * `null`を返す。
- */
-export function computeBoardEvalScore(
-  allMoves: readonly MoveEvalJson[] | null,
-  bookSquares: ReadonlySet<number>,
-): number | null {
-  if (!allMoves || allMoves.length === 0) return null
-  if (bookSquares.size > 0) return 0
-  return allMoves.reduce((max, move) => Math.max(max, move.discDiff), -Infinity)
-}
-
-/**
  * 評価値を「+3」「-1」のような符号付き整数石差の表示用文字列に整形する
  * (T138仕様: 丸めは四捨五入の整数石差、+0/-0は符号を付けず「0」)。
  */

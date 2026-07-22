@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { DEFAULT_CLASSIFY_THRESHOLDS } from '../analysis/classifyMove.ts'
 import type { ClassifyThresholds } from '../analysis/types.ts'
 import type { MoveEvalJson } from '../engine/types.ts'
-import { applyBookCap, computeBoardEvalScore, computeCellEvals, formatEvalScore } from './moveEvalOverlayLogic.ts'
+import { applyBookCap, computeCellEvals, formatEvalScore } from './moveEvalOverlayLogic.ts'
 
 function move(notation: string, discDiff: number): MoveEvalJson {
   return { move: notation, score: discDiff * 100, discDiff, type: 'midgame' }
@@ -88,26 +88,6 @@ describe('applyBookCap(T138仕様2〜4)', () => {
     const result = applyBookCap(cellEvals, new Set([0, 1]))
     expect(result.get(1)?.evalScore).toBe(0)
     expect(result.get(1)?.classification).toBe('blunder')
-  })
-})
-
-describe('computeBoardEvalScore(T138仕様1・2)', () => {
-  it('allMovesがnullならnullを返す', () => {
-    expect(computeBoardEvalScore(null, new Set())).toBeNull()
-  })
-
-  it('allMovesが空配列ならnullを返す', () => {
-    expect(computeBoardEvalScore([], new Set())).toBeNull()
-  })
-
-  it('仕様1: bookSquaresが空のとき、各合法手の評価値の最大値を返す', () => {
-    const moves = [move('a1', 1.0), move('b1', 3.0), move('c1', -2.0)]
-    expect(computeBoardEvalScore(moves, new Set())).toBe(3.0)
-  })
-
-  it('仕様2: bookSquaresが空でない(定石ブック内)なら、最大値に関わらず0を返す', () => {
-    const moves = [move('a1', 1.0), move('b1', 3.0)]
-    expect(computeBoardEvalScore(moves, new Set([0]))).toBe(0)
   })
 })
 

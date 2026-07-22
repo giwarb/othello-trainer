@@ -5,10 +5,11 @@
  *
  * ユーザー報告(初手の4合法手が「0, 0, -1, -1」と表示される)を受け、表示の
  * 考え方を「最善手からのロス量」から「評価値そのもの(定石ブックcap適用後)」へ
- * 作り替えた。本テストはUI配線(`app.tsx`が`applyBookCap`/`computeBoardEvalScore`/
- * `formatJosekiTrace`を正しく呼び出しているか)を検証する(純粋関数自体の
- * 全分岐は`components/moveEvalOverlayLogic.test.ts`・`joseki/traceDisplay.test.ts`で
- * 別途担保済み)。
+ * 作り替えた。本テストはUI配線(`app.tsx`が`applyBookCap`/`formatJosekiTrace`を
+ * 正しく呼び出しているか)を検証する(純粋関数自体の全分岐は
+ * `components/moveEvalOverlayLogic.test.ts`・`joseki/traceDisplay.test.ts`で
+ * 別途担保済み)。評価バー自体はT197で「前回の相手の手の評価値」表示へ変更
+ * 済み(該当テストの更新はT197参照)。
  *
  * 2人対戦モード(`vsHuman`)で検証する: CPU着手(`selectCpuBookMove`・
  * `requestCpuMove`)を一切経由しないため、`app.playmode.test.tsx`(T115)のような

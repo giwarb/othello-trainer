@@ -621,8 +621,9 @@ function PlayMode({ onReviewGame }: PlayModeProps) {
   // タイミングが異なるため状態を分けている(将来的に1回のリクエストへ統合する
   // 余地はあるが、本タスクのスコープ外・作業ログ参照)。
   //
-  // T197: 評価値バー(現在の盤面評価)はこのエフェクト由来の`computeBoardEvalScore`
-  // への依存を撤去し、`moveEvalHistory`(打った手の評価値の記録)から導出する
+  // T197: 評価値バー(現在の盤面評価)はこのエフェクト由来の盤面評価値
+  // (旧`computeBoardEvalScore`、redo#1でデッドexportとして削除済み)への
+  // 依存を撤去し、`moveEvalHistory`(打った手の評価値の記録)から導出する
   // 「前回の相手の手の評価値」に置き換えた(下の`moveEvalBarState`参照)。この
   // エフェクト自体はオーバーレイ表示用として引き続き必要(`requestAnalyzeAll`の
   // 呼び出し回数・順序・limitは変えない)。
@@ -717,9 +718,20 @@ function PlayMode({ onReviewGame }: PlayModeProps) {
    * 人間の評価取得(`evaluateHumanMove`、非同期)がCPUの応手より後に解決しても
    * (2つの非同期処理は独立に進行するため順序は保証されない)、書き込み先の
    * 位置がズレない。
+   *
+   * redo#1(重大指摘): `evaluateHumanMove`解決時に呼び出し側で世代ガード
+   * (`gameGenerationRef`)をかけているため通常は発生しないが、万一ズレた古い
+   * `ply`(既に`undoMove`/`prepareNewGame`で切り詰め・リセットされた後の配列より
+   * 大きいindex)で書き込もうとした場合、素朴な`next[ply] = entry`は配列に穴
+   * (`undefined`要素)を作り、`buildEvalGraphPoints`等がその穴を読んで
+   * `TypeError`→白画面クラッシュに至る。ここで`ply`が現在の配列の範囲外
+   * (`ply > h.length`、=書き込むと穴ができる)なら何もせず`h`をそのまま返す
+   * 防御を入れる(呼び出し側の世代ガードが正しく効いていれば通常は発火しない、
+   * 二重の安全網)。
    */
   function upsertMoveEval(ply: number, entry: PlayedMoveEval): void {
     setMoveEvalHistory((h) => {
+      if (ply < 0 || ply > h.length) return h
       const next = h.slice()
       next[ply] = entry
       return next
@@ -734,6 +746,15 @@ function PlayMode({ onReviewGame }: PlayModeProps) {
    * T197: 同じ`requestAnalyzeAll`結果から得られる「打った手の評価値」
    * (`playedEval.discDiff`、新規のエンジン呼び出しは追加しない)を
    * `moveEvalHistory`(`ply`位置)へも記録する。
+   *
+   * redo#1(重大指摘): この関数は非同期(`requestAnalyzeAll`のawait)であり、
+   * 解決前に`undoMove`(自分の直前の手を取り消す)・`prepareNewGame`(新規対局)が
+   * 実行されると、`moveEvalHistory`が既に切り詰め・リセットされた後にこの関数の
+   * 古い結果が書き込まれてしまう(CPU着手effectが`gameGenerationRef`で世代照合
+   * しているのと同じ問題)。呼び出し元(`handleMove`)から着手時点の世代
+   * (`generation`)を受け取り、`await`から戻った時点で現在の世代と一致する場合
+   * にのみ`evalInfo`・`moveEvalHistory`を更新する(世代が変わっていれば、この
+   * 着手はもう対局の履歴上に存在しないので何もしない)。
    */
   async function evaluateHumanMove(
     preBoard: BoardState,
@@ -741,10 +762,15 @@ function PlayMode({ onReviewGame }: PlayModeProps) {
     playedSquare: number,
     firstMove: number,
     historyIndex: number,
+    generation: number,
   ): Promise<void> {
     const playedNotation = squareToNotation(playedSquare)
     try {
       const moves = await getEngine().requestAnalyzeAll(preBoard, preSide, LEVELS[level].limit)
+      // redo#1: undo・新規対局等でこの着手自体が既に無効化されていれば、
+      // 遅れて届いたこの結果は反映しない(下のコメント参照)。
+      if (gameGenerationRef.current !== generation) return
+
       const playedEval = moves.find((m) => m.move === playedNotation)
       if (!playedEval) return
 
@@ -806,9 +832,17 @@ function PlayMode({ onReviewGame }: PlayModeProps) {
     const nextState = playMove(game, square)
     // T197: この着手が`moveEvalHistory`に積まれる位置(=着手前時点の
     // `moveHistory.length`)。評価値の解決(`evaluateHumanMove`)は非同期なので、
-    // 先にこの位置へプレースホルダーを積んでおく(CPUの応手が先に解決しても
-    // 順序がズレないようにするため、上の`upsertMoveEval`コメント参照)。
+    // 先にこの位置へプレースホルダー(`pending: true`)を積んでおく(CPUの応手が
+    // 先に解決しても順序がズレないようにするため、上の`upsertMoveEval`
+    // コメント参照)。`pending: true`により、解決するまでの一瞬グラフ・評価バー
+    // 双方から除外される(redo#1軽微2、`moveEvalTimeline.ts`の`isDisplayable`参照。
+    // 以前は`discDiff: null`が「定石ブック手」と同じ扱いになり、一瞬「定石」
+    // 帯・表示がちらついた)。
     const historyIndex = moveHistory.length
+    // T197 redo#1: `evaluateHumanMove`の非同期解決とundo/新規対局リセットの
+    // 競合を防ぐため、着手時点の対局世代を捕まえておく(CPU着手effectと同じ
+    // 考え方)。
+    const generation = gameGenerationRef.current
     setMoveHistory((h) => appendPlayedMove(h, game, nextState))
     setGame(nextState)
     // T134 redo#1: 上の`displayGame !== game`ガードにより、この行に到達する
@@ -822,8 +856,9 @@ function PlayMode({ onReviewGame }: PlayModeProps) {
       discDiff: null,
       source: 'midgame',
       isExact: false,
+      pending: true,
     })
-    void evaluateHumanMove(preBoard, preSide, square, firstMove, historyIndex)
+    void evaluateHumanMove(preBoard, preSide, square, firstMove, historyIndex, generation)
   }
 
   /**
@@ -831,8 +866,16 @@ function PlayMode({ onReviewGame }: PlayModeProps) {
    * `startNewGame`/`startVsHumanGame`/`startFromEditor`(対局開始の3経路すべて)が
    * この関数を経由するため、`setStarted(true)`もここでまとめて行う(T136要件2:
    * 開始ボタンのいずれを押してもセットアップカードを隠し盤面エリアへ切り替える)。
+   *
+   * redo#1(重大指摘): 直前の対局に、まだ解決していないCPU着手・
+   * `evaluateHumanMove`のPromiseが残っている状態で新規対局を開始すると、
+   * それらが後から解決した際に(ここで空にした)新しい対局の`moveHistory`/
+   * `moveEvalHistory`へ古い着手を書き込んでしまう恐れがある。`undoMove`と
+   * 同様に`gameGenerationRef`をインクリメントし、CPU着手effect・
+   * `evaluateHumanMove`双方の世代照合で古い結果を確実に無視させる。
    */
   function prepareNewGame() {
+    gameGenerationRef.current += 1
     setStarted(true)
     setThinking(false)
     firstMoveSquareRef.current = null

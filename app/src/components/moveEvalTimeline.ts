@@ -31,6 +31,16 @@ export interface PlayedMoveEval {
   readonly discDiff: number | null
   readonly source: EvalSource
   readonly isExact: boolean
+  /**
+   * 未解決(redo#1、対局モードの人間の手専用)。着手成立時点でまず
+   * `discDiff: null`のプレースホルダーを積み、評価値の解決(`evaluateHumanMove`)
+   * 完了時にこのフラグを外して上書きする(`app.tsx`の`upsertMoveEval`参照)。
+   * `true`の間、この手はグラフ・評価バーの双方から除外する(`discDiff === null`
+   * の「定石ブック手」と紛れて一瞬「定石」帯・表示が出るちらつきを防ぐため)。
+   * 中盤練習(`midgame/PracticeMode.tsx`)は着手適用前に評価値を確定させてから
+   * 記録するため、このフラグは常に`undefined`(=解決済み扱い)。
+   */
+  readonly pending?: boolean
 }
 
 /** `source === 'joseki'`または`discDiff === null`(定石ブック手)かどうか。 */
@@ -39,10 +49,20 @@ function isJosekiLike(entry: PlayedMoveEval): boolean {
 }
 
 /**
+ * 表示対象として扱ってよいエントリかどうか。`undefined`/`null`(redo#1: 世代
+ * ガードの取りこぼし等で配列に穴ができた場合の防御)・`pending: true`
+ * (未解決、上の`PlayedMoveEval.pending`参照)は除外する。
+ */
+function isDisplayable(entry: PlayedMoveEval | null | undefined): entry is PlayedMoveEval {
+  return entry != null && !entry.pending
+}
+
+/**
  * `history`(ply1..Nの各手の記録)から`EvalGraph`用の点列を組み立てる。
  * ply0(初期局面、互角0)を先頭に補い、各手の評価値を黒視点に変換する
  * (黒の手はそのまま、白の手は符号反転)。定石内の手・CPUの定石ブック手は
- * 値0固定+`evalSource: 'joseki'`にする(T046規約)。
+ * 値0固定+`evalSource: 'joseki'`にする(T046規約)。未解決(`pending`)の手・
+ * 配列の穴(`undefined`)はスキップする(redo#1、上の`isDisplayable`参照)。
  *
  * 悪手マーカー・ツールチップの`move`情報(最善手とのロス量・分類)は本タスクの
  * スコープ外(T195/T196)のため付与しない(`EvalGraphPoint.move`は省略可)。
@@ -50,6 +70,7 @@ function isJosekiLike(entry: PlayedMoveEval): boolean {
 export function buildEvalGraphPoints(history: readonly PlayedMoveEval[]): EvalGraphPoint[] {
   const points: EvalGraphPoint[] = [{ ply: 0, value: 0, isExact: false, evalSource: 'midgame' }]
   for (const entry of history) {
+    if (!isDisplayable(entry)) continue
     const joseki = isJosekiLike(entry)
     const value = joseki ? 0 : entry.side === 'black' ? entry.discDiff! : -entry.discDiff!
     points.push({
@@ -77,18 +98,26 @@ function barStateForEntry(entry: PlayedMoveEval | undefined): MoveEvalBarState {
 /**
  * 指定した側(`side`。対局モードのCPU・中盤練習の相手)の直近の手の評価バー状態を返す。
  * その側の手がまだ1つも記録されていなければ`{kind: 'none'}`(まだ相手が打っていない)。
+ * 未解決(`pending`)の手・配列の穴(`undefined`)は無視して、その手前の解決済みの
+ * 手までさかのぼる(redo#1)。
  */
 export function lastMoveEvalBarStateFor(history: readonly PlayedMoveEval[], side: Side): MoveEvalBarState {
   for (let i = history.length - 1; i >= 0; i -= 1) {
-    if (history[i]!.side === side) return barStateForEntry(history[i])
+    const entry = history[i]
+    if (isDisplayable(entry) && entry.side === side) return barStateForEntry(entry)
   }
   return { kind: 'none' }
 }
 
 /**
  * 直近の手(手番を問わない)の評価バー状態を返す(2人対戦モード用、T197)。
- * まだ1手も打たれていなければ`{kind: 'none'}`。
+ * まだ1手も打たれていなければ`{kind: 'none'}`。未解決(`pending`)の手・配列の穴
+ * (`undefined`)は無視して、その手前の解決済みの手までさかのぼる(redo#1)。
  */
 export function lastMoveEvalBarState(history: readonly PlayedMoveEval[]): MoveEvalBarState {
-  return barStateForEntry(history[history.length - 1])
+  for (let i = history.length - 1; i >= 0; i -= 1) {
+    const entry = history[i]
+    if (isDisplayable(entry)) return barStateForEntry(entry)
+  }
+  return { kind: 'none' }
 }
