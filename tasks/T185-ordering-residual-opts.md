@@ -1,7 +1,7 @@
 ---
 id: T185
 title: 高速化(4): ordered_moves残余最適化(T183優先2・3位)+深さベース時間の更新計測
-status: todo
+status: done # verifier合格(差分精読・完全一致の独立追試・NPS再計測〔悪化なし確認〕・時間分布の独立再測定で核心主張を裏付け)、2026-07-22。+1.7-3.2%採用、1手max 10.2→8.4秒。申し送り: 時間計測のraw JSONも保存すること・20局面バッチのフィルタ条件を明記すること(verifier)
 assignee: implementer
 attempts: 0
 ---
