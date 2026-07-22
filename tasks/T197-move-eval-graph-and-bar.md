@@ -1,7 +1,7 @@
 ---
 id: T197
 title: 対局・中盤練習: 「打った手の評価値」折れ線グラフ+有利不利表示の変更
-status: todo
+status: review
 assignee: implementer
 attempts: 0
 ---
@@ -59,3 +59,33 @@ attempts: 0
 (なし)
 
 ## 作業ログ(担当エージェントが追記)
+
+### 2026-07-23 実装完了(implementer)
+
+**設計判断:**
+- 共有ロジックを新規 `app/src/components/moveEvalTimeline.ts`(純粋関数、`.test.ts`あり)に集約: `PlayedMoveEval`型(`ply/notation/side/discDiff/source/isExact`)・`buildEvalGraphPoints`(黒視点変換+joseki時0固定)・`lastMoveEvalBarStateFor`(指定側の直近手)・`lastMoveEvalBarState`(手番不問の直近手、vsHuman用)。対局モード(`app.tsx`)・中盤練習(`midgame/PracticeMode.tsx`)の双方から再利用し、ロジックの重複・drift を避けた。
+- `game/gameLoop.ts`の`requestCpuMove`の戻り値を`GameState`単体から`{state, evalScore}`(`CpuMoveOutcome`)に変更し、これまで捨てていた`response.score`をCPU視点の評価値として呼び出し元へ渡す配線を追加(`EngineQuery.requestAnalyze`の返り値型に`score?`を追加)。エンジン呼び出し自体は増やしていない。
+- 対局モード: `moveEvalHistory`(useState、`moveHistory`と同順・同長)を新設。人間の手は`handleMove`でply位置にプレースホルダー(discDiff:null)を同期的に積み、`evaluateHumanMove`解決時に同じ位置を上書き(upsert)。CPUの手は着手effectの`.then`で`h.length`をキーに追記。両者が非同期で解決順不同でもズレない設計にした。評価バーは`computeBoardEvalScore`依存を撤去し、`lastMoveEvalBarStateFor(moveEvalHistory, opposite(humanSide))`(CPU対戦)/`lastMoveEvalBarState(moveEvalHistory)`(vsHuman)から導出。キャプションは仕様書指定どおり「相手の直前の手の評価(あなた視点、+ならあなた有利)」(CPU対戦)、vsHumanは手番色ラベル付き。
+- 中盤練習: `SessionState`/`ResultInfo`に`moveEvalHistory`を追加(プレイヤー+相手の全手)。`MoveOutcome`に`playedDiscDiff`フィールドを追加(仕様書指定)。`updateEvalBarFromMoves`(旧・盤面評価ベース)は削除し、同キャプション文言で評価バーを表示。プレイ画面・結果画面の両方に`EvalGraph`を配置。
+- グラフの`move`(ツールチップの最善手ロス・分類)フィールドは付与していない(悪手比較UI=T195/T196のスコープ外のため、誤った"最善/準最善"表示を避ける意図的な省略)。
+
+**テスト:**
+- 新規: `components/moveEvalTimeline.test.ts`(黒視点変換・joseki 0固定・null=joseki扱い・side別直近手/手番不問直近手、13ケース)。
+- 新規: `game/gameLoop.test.ts`の`requestCpuMove`系4ケースを新返り値形状に更新(`evalScore`の値も検証)。
+- 新規: `app.playmode.moveEval.test.tsx`(CPU対戦、実物`requestCpuMove`経由): (a)CPU未着手時は中立表示 (b)CPU探索応手時は`response.score`があなた視点へ反転してバー表示+グラフ点数が3に増える (c)CPUブック手時はバーが「定石」表示。
+- 更新: `app.playmode.cpuHistory.test.tsx`(`requestCpuMove`ラッパーの戻り値形状変更に追従)、`app.playmode.evalDisplay.test.tsx`(vsHumanモードの旧「盤面評価バー」前提2件を新仕様「前回の手の評価値」に更新、うち1件はf5後の白応手がモック上joseki判定になるため「定石」表示になることを確認する内容に変更)。
+- 既存テスト回帰: `npm test`(vitest run)102ファイル/861件全件パス。
+
+**実行結果:**
+- `cd app && npx tsc --noEmit -p .` exit 0。
+- `cd app && npx vitest run` → Test Files 102 passed / Tests 861 passed。
+- `cd app && npm run build` → 成功(wasm再ビルド込み)。
+- コミット: `871aecd`(`app:` プレフィックス、変更対象ファイルのみパス明示add)。push成功(`6f63735..871aecd main -> main`、T196との競合なし)。
+- GitHub Actions: `gh run watch 29959263568` → build/deploy とも成功。
+- Pages実機確認(`https://giwarb.github.io/othello-trainer/`、Browser pane+JS直接dispatch、canvasクリック不可のためcanvas要素へMouseEventを直接dispatchして操作):
+  - 対局モード(CPU対戦、黒番): 開始直後は評価バー「相手の直前の手の評価(あなた視点、+ならあなた有利)」+「まだ相手の手がありません」。定石ブックONのままd3着手→CPU応手(定石内)でバーが「定石」表示に。新規対局し定石ブックOFFでd3着手→CPUが探索応手し、バーが数値(例: "-1")表示、`.eval-graph__point`が3個(初期+2手)に増加。
+  - 中盤練習(ステージ1「虎」): 開始直後は評価バー中立表示。1手打つと相手が応手し、バーが数値表示("+2"等)に更新、`.eval-graph__point`が3個に。3往復完了後の結果画面でも折れ線グラフが表示され`.eval-graph__point`が7個(初期+6手)。
+
+**判断に迷った点・仕様上の解釈:**
+- vsHumanモードのバーキャプション文言(仕様書は「手番色ラベル付きで表示する」とだけ指定し厳密な文言は未指定)は`「${色}の直前の手の評価(${色}視点、+なら${色}有利)」`とした。CPU対戦・中盤練習は仕様書に明記された文言をそのまま使用。
+- 評価バーが「定石」表示になるのは、CPUがブック手(探索なし)の場合に加え、人間の手が`evaluateHumanMove`のjosekiDB判定で`source==='joseki'`となった場合(既存のEvalBadge/評価情報バッジと同じ判定基準を流用)も含む。これは仕様書の「CPUが定石ブック手(評価値なし)→数値を出さず「定石」表示」の記述をベースに、人間側の定石内の手にも同じ表現を自然に拡張したもの(design方針2の「人間の定石内の手(source==='joseki')」記述と整合)。
