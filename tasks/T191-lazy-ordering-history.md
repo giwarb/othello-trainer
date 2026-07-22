@@ -1,7 +1,7 @@
 ---
 id: T191
 title: 高速化(10): lazy orderingのhistory有効経路への拡張(historyスナップショット方式)
-status: review
+status: done
 assignee: implementer
 attempts: 0
 ---
@@ -93,3 +93,15 @@ T190のlazy ordering(TT手先行・残候補遅延構築、省略成功率67.5%)
   - `gh run watch`でDeploy to GitHub Pages(ID 29909290647)・Rust Tests(ID 29909290664)の両ワークフローが`success`で完了したことを確認(Rust Testsは`cargo test -p engine`(debug)・`--release --test ffo_bench`(FFO fast)・`cargo test -p train`を含む)。
   - Playwright MCP(Claude Browser)で本番Pages(`https://giwarb.github.io/othello-trainer/`)を開き、「対局」→CPUの強さを「強い (depth12)」(本番のノード予算経路、`enable_history: true`)に設定→黒番で開始→d3を着手→CPU(白)が自動応手し評価値・定石名(牛)・盤面が正しく更新される(3-3)ことを確認。`read_console_messages`でエラー0件。
   - `git status --short`最終確認: `tasks/T191-lazy-ordering-history.md`(作業ログ追記分)のみが残存(コミット対象外、オーケストレーター担当)。当該タスク由来のスコープ内差分・未追跡ファイルは残っていない。
+
+- 2026-07-22 verifier検収(対象コミット93986f6、独立検証8項目、コード修正は3のみ一時改変→復元で許可)。
+  1. `cargo test -p engine`: 257 passed; 0 failed; 2 ignored(debug-onlyのffo_bench fastはrelease専用のため既知ignore)。新規2テスト`lazy_ordering_matches_legacy_full_construction_with_history_enabled_across_diverse_midgame_searches`・`lazy_ordering_activates_and_skips_residual_with_history_enabled_across_diverse_midgame_searches`の存在・実行(ok)を`cargo test -p engine --lib`出力で確認。フレーキーなし。→合格。
+  2. `git show 93986f6 -- engine/src/search.rs`のdiffにt182/t184/t185のテスト関数(`t182_*`/`t184_sort_by_cached_key_matches_pre_change_baseline`/`t185_ordered_moves_fixed_array_matches_pre_change_baseline`)への変更行が一切含まれないことを確認(diff全336行を目視、該当テストへの変更ゼロ)。→合格。
+  3. regression-catching追試: `engine/src/search.rs`のlazy分岐内`ordered_moves`呼び出し(2327行目)の第5引数を`history_snapshot.as_ref().map(HistorySource::Snapshot)`から`ctx.history.as_deref().map(HistorySource::Live)`へ一時改変→`cargo test -p engine --lib lazy_ordering_matches_legacy_full_construction_with_history_enabled`実行→`n=5: nodes differs between lazy and legacy ordering (history enabled) left: 4409 right: 4408`で確実にFAILすることを確認(実装者の報告値と完全一致)→即座に復元→`git diff`で差分ゼロを確認→再実行で1 passed(ok)を確認。→合格(検知力を実証)。
+  4. コード読解: `history_snapshot`の取得(`let history_snapshot: Option<[u32; 64]> = ctx.history.as_deref().map(|h| h.snapshot(side));`)がTT手の`process_candidate!(&tt_om)`(サブツリー探索開始)より前の行にあることを確認。else分岐(一括経路、TT手なし/非合法/lazy無効時)は`ctx.history.as_deref().map(HistorySource::Live)`のままで、この時点ではまだ候補手を1つも処理していないためLiveで正当であることをコードとコメントで確認。→合格。
+  5. `bench/edax-compare/t191_lazy_history_report.raw.json`を読み、mpc_off/mpc_on/node_budgetの3条件×3ラウンドすべてで`before_nodes == after_nodes`かつ`mismatches: 0`であることを確認(9ラウンド全件)。各条件の`avg_before_nps`/`avg_after_nps`/`speedup_pct`を手計算で再検算し、JSON記載値と完全一致(mpc_off -0.354%, mpc_on +6.039%, node_budget +14.007%)。テレメトリ(activations=19423, residual_skipped=12848, 66.1%)もJSONと作業ログの記載が一致。→合格。
+  6. `cargo test -p engine --test ffo_bench --release -- --nocapture`実行(注: リリースビルドでは`ffo_endgame_fast_positions_solved_correctly_with_timing_and_nps`の`#[ignore]`は`cfg_attr(debug_assertions, ...)`によりデバッグビルド限定のため、`--ignored`フラグ不要かつ付けると誤ってheavyテストのみが選択されてしまうことを確認した上で、テストファイル冒頭のドキュメント記載どおりのコマンドで実行)。#40〜#44の5問全問がexpected_scoreと完全一致(#40: 38/38, #41: 0/0, #42: 6/6, #43: -12/-12, #44: -14/-14)、`1 passed; 0 failed; 1 ignored`(heavyは意図的ignore)。→合格。
+     - 検証中の副作用として、誤って`--ignored`付きでheavy問題(#45以降、長時間)を2度誤起動してしまい、`taskkill`でプロセスを強制終了して復旧した。ソースコード・成果物には影響なし(該当プロセスはビルド済みバイナリの実行のみで、ファイル改変を伴わない)。
+  7. `git status --short`: クリーン(タスクファイル自体の作業ログ追記分を除き差分・未追跡ファイルなし)。`git worktree list`: mainのみ(t191 worktree残骸なし)。リポジトリ内・`bench/edax-compare/`にscratchpad由来のPythonベンチスクリプト(`t191_nps_bench*.py`)混入なし(`git ls-files`で不存在確認)。→合格。
+  8. `gh api repos/giwarb/othello-trainer/commits/93986f6/check-runs`で`deploy`/`build`/`test`すべて`success`。`gh run list`でRun ID 29909290664(Rust Tests)・29909290647(Deploy to GitHub Pages)が実装者報告どおり成功していることを確認。→合格。
+  - 総合判定: **合格**。8項目すべてパス、regression-catching実証も再現・復元確認済み、git状態もクリーン。
