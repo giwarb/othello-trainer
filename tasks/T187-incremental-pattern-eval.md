@@ -1,7 +1,7 @@
 ---
 id: T187
 title: 高速化(6): パターン評価の増分化(incremental pattern evaluation)
-status: in_progress
+status: review
 assignee: implementer
 attempts: 0
 ---
@@ -70,13 +70,13 @@ attempts: 0
 
 ## 受け入れ基準(検証コマンド)
 
-- [ ] `cargo test -p engine` 全件パス(`protocol.rs` の既知フレーキーは単独再実行で切り分け)。
-- [ ] 新規プロパティテスト(要件2)がパスし、かつ**増分更新ロジックに意図的なバグを入れると失敗する**ことを確認済み(regression-catching実証、確認後は元に戻す)。
-- [ ] t182/t184/t185 固定値テストが無改変でパス。
-- [ ] NPS計測(要件4)の結果、ノード数完全一致かつNPS改善。レポート `bench/edax-compare/t187_incremental_eval_report.md` + raw JSON をコミット。
-- [ ] `cargo test --release -p engine --test ffo_bench` 相当のFFO回帰が従来どおりパス(終盤は評価不使用だが念のため)。
-- [ ] 変更を main に push し、GitHub Actions のデプロイ成功を確認し、GitHub Pages 公開URL(https://giwarb.github.io/othello-trainer/)で対局・棋譜解析が動作することを確認する(playwright CLI等、`gh run watch` でデプロイ完了を待つ)。
-- [ ] コミットは変更対象ファイルのみをパス明示で add(`git add .` 禁止)。タスク完了時点で、当該タスク由来の差分・未追跡ファイルが `git status --short` に残っていないこと。
+- [x] `cargo test -p engine` 全件パス(`protocol.rs` の既知フレーキーは単独再実行で切り分け)。→ 251 passed; 0 failed; 2 ignored(統合テスト含め全件ok)。
+- [x] 新規プロパティテスト(要件2)がパスし、かつ**増分更新ロジックに意図的なバグを入れると失敗する**ことを確認済み(regression-catching実証、確認後は元に戻す)。→ 作業ログ「プロパティテスト」節参照。
+- [x] t182/t184/t185 固定値テストが無改変でパス。→ 作業ログ「検証: cargo test / FFO回帰」節参照。
+- [x] NPS計測(要件4)の結果、ノード数完全一致かつNPS改善。レポート `bench/edax-compare/t187_incremental_eval_report.md` + raw JSON をコミット。→ MPC off +37.0%・MPC on +38.1%、ノード完全一致(コミット`e680a75`)。
+- [x] `cargo test --release -p engine --test ffo_bench` 相当のFFO回帰が従来どおりパス(終盤は評価不使用だが念のため)。→ #40〜#44全5問正解。
+- [x] 変更を main に push し、GitHub Actions のデプロイ成功を確認し、GitHub Pages 公開URL(https://giwarb.github.io/othello-trainer/)で対局・棋譜解析が動作することを確認する(playwright CLI等、`gh run watch` でデプロイ完了を待つ)。→ push済み(`e680a75`,`0d454f2`)、Rust Tests・Deploy to GitHub Pages両方success、Pages実機で対局(中盤探索経由のCPU応手)・棋譜解析とも動作確認済み。
+- [x] コミットは変更対象ファイルのみをパス明示で add(`git add .` 禁止)。タスク完了時点で、当該タスク由来の差分・未追跡ファイルが `git status --short` に残っていないこと。→ パス明示addで確認済み、`git status --short`クリーン。
 
 ## フィードバック(やり直し時にオーケストレーターが記入)
 
@@ -133,3 +133,19 @@ attempts: 0
 - **NPS実測結果**: MPC off = before 1,292,744 → after 1,770,617(**+37.0%**)、MPC on = before 1,255,323 → after 1,734,227(**+38.1%**)。3ラウンドとも(順序を入れ替えても)一貫してafterが上回っており系統誤差の兆候なし。要件5の採用条件(ノード数完全一致+改善が計測誤差を明確に超える)を満たすため**採用**。
 - レポート`bench/edax-compare/t187_incremental_eval_report.md`・machine-readable版`t187_incremental_eval_report.meta.json`・raw JSON `t187_incremental_eval_report.raw.json`(ラウンドごとの内訳・局面ID一覧込み)を作成。
 - worktreeは計測後`git worktree remove --force`で削除済み(`git worktree list`で残存無しを確認)。
+
+### 2026-07-22 コミット・改行コード事故の修正・push・CI・Pages実機確認
+
+- 変更対象ファイル(`engine/src/pattern_eval.rs`/`patterns.rs`/`search.rs`、`bench/edax-compare/t187_incremental_eval_report.{md,meta.json,raw.json}`)のみをパス明示で`git add`し、コミット`e680a75`(`engine: パターン評価の増分化(incremental pattern evaluation)(T187)`)を作成。
+- コミット後、`git diff --stat`で`search.rs`の変更行数が9594行(実際の意味的差分は約188行のはず)と異常に大きいことに気付いた。原因調査の結果、`mpc_try_cutoff`呼び出し4箇所への`None`引数追加をPythonスクリプト経由で行った際、Windows上のテキストモード書き込み(`open(path, "w", encoding="utf-8")`)が改行コードをCRLFへ変換してしまい、実際に編集した箇所以外の全行が(改行コードの違いだけで)差分として記録されていたことが判明(`engine/src/pattern_eval.rs`/`patterns.rs`はEditツール経由の編集で、元々LFのまま保たれていたため無事)。
+- `search.rs`のバイト列を`\r\n`→`\n`へ一括変換して元のLF規約へ復元し、`git diff --stat df2cc3e HEAD -- engine/src/search.rs`で意味的差分が188行(+175/-13)まで縮んだことを確認。リポジトリルールの「新規コミットを作る(amendしない)」に従い、修正専用のコミット`0d454f2`(`engine: search.rsの改行コードをLFへ復元(T187)`)を作成(コード内容は無変更、改行コードのみの復元であることをコミットメッセージに明記)。
+- 修正後に`cargo test -p engine --lib`を再実行し、251 passed; 0 failed; 2 ignoredで変化がないことを確認(改行コード修正が内容に影響しないことの裏付け)。
+- `git push origin main`で2コミット(`e680a75`,`0d454f2`)をpush。`gh run list`で新規キューされたRust Tests(29894907952)・Deploy to GitHub Pages(29894907961)を確認し、`gh run view --json status,conclusion`のポーリングで両方`completed`/`success`になるまで待機して確認した。
+- GitHub Pages公開URL(https://giwarb.github.io/othello-trainer/)を実機確認:
+  - **対局**: 黒番・CPU強さ「強い(depth12)」で新規対局を開始し、canvas盤へJS経由でクリックイベントを送って黒の初手(d3相当)を着手。スコアが2-2→3-3へ変化し、CPU(白)が自動応手したことを確認。さらにもう1手(c4相当)進めたところ、直近手の評価値表示に「中盤(探索)」ラベル(`+1`)が表示され、**NegaScout中盤探索経路(本タスクT187の変更対象そのもの)がWASM上で実際に実行され、UIへ結果が反映されている**ことを確認した。投了して対局を終了(白の勝ち)。
+  - **棋譜解析**: 対局終了画面の「この対局を棋譜解析で振り返る」から棋譜解析モードへ遷移し、「解析完了: 4手(解析時間: 6.01秒)」を確認。ムーブリストに4手分の着手・評価・分類(本ゲームは全手が定石一致だったため4手とも「定石」ラベル)が表示され、解析パイプライン(終盤側から解析)が正常動作することを確認した。
+  - 上記操作の全過程で`read_console_messages`によるコンソールエラーは0件(`No console logs.`)。
+  - 備考(ツール制約): headlessブラウザで`document.visibilityState === "hidden"`のため`requestAnimationFrame`ベースのcanvas再描画が実行されず、canvasピクセルの直接読み取りによる盤面確認は信頼できなかった(初期局面の4石は正しく読めたが、着手後の新しい石は反映されなかった)。そのためスコア表示・評価値ソースラベル・「1手戻る」での状態復元(3-3→2-2に正しく戻ることを確認済み)という、DOM上の実際のアプリ状態を反映するテキスト情報で動作を検証した。これはツール(ヘッドレスブラウザのタブ可視性)側の制約であり、アプリ・エンジン側の不具合ではない。
+- 最終`git status --short`はクリーン(`tasks/`配下の作業ログ差分はオーケストレーター担当のため意図的に残る。それ以外の未追跡ファイル・差分なし)。`git worktree list`もメインワークツリーのみで残骸なし。
+
+**完了サマリ**: コミット `e680a75`(実装本体)・`0d454f2`(改行コード復元)。NPS実測: MPC off **+37.0%**(1,292,744→1,770,617 NPS)、MPC on **+38.1%**(1,255,323→1,734,227 NPS)。ノード数完全一致: MPC off 59,440,032・MPC on 6,487,461(いずれもbefore/afterで0件不一致、T185レポート値とも一致)。GitHub Actions(Rust Tests・Deploy to GitHub Pages)両方success、Pages実機で対局(中盤探索経由のCPU応手を確認)・棋譜解析とも動作確認済み、コンソールエラーなし。受け入れ基準は全項目達成。
