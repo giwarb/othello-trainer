@@ -122,3 +122,14 @@ attempts: 0
 - `cargo test -p engine --lib`: 251 passed; 0 failed; 2 ignored(既存の重いテストのみ)。**t182/t184/t185の固定値テスト(score/best_move/depth/nodes)はアサート値を一切変更せずに全パス**(絶対条件を満たすことを実測で確認)。`incremental_state_check_fires_across_diverse_midgame_searches`も200回以上発火してパス。
 - `cargo test -p engine`(統合テスト含む全件): 上記251件 + `calibrate_mpc`(4) + `eval_cli`(0) + `puzzlegen`(4) + `self_play_gen`(5) + 各種`_nps_bench`(すべて`#[ignore]`のまま、NPS計測は後続コマンドで個別実行)+ doctest(0)、全てok。
 - `cargo test -p engine --test ffo_bench --release -- --nocapture`: fast positions(#40〜#44)全5問が期待スコアと完全一致(`FAST TOTAL: 5 positions solved correctly`)。終盤ソルバー(`endgame.rs`)は評価関数を使わないため無変更のはずだが、念のための回帰として確認。
+
+### 2026-07-22 NPS計測(worktree独立ビルド+交互3回+専有確認)
+
+- `git worktree add`でT186完了時点のHEAD(`4144c5d`)を独立ディレクトリにチェックアウトし、`cargo build --release --bin eval_cli --features mpc_enabled`で変更前バイナリを独立ビルド。現ワークツリー(変更後)も同様にビルド(バイナリサイズが異なることを確認し、別ビルドであることを担保)。
+- 実行直前に`tasklist`でcargo/rustc/eval_cli/python等が動いていないことを確認(専有状態)。
+- 局面バッチ: `bench/edax-compare/t156_mpc_positions.json`を`split=='test' かつ 29<=empties<=36`でフィルタし先頭20件(ID `mpc-29-36-test-001..020`)を抽出(T180由来・T182〜T185が使ってきたのと同じフィルタ条件、セッションscratchpadに保存されていた実体は未コミットだったため同じ条件で再生成)。`train/weights/pattern_v6.bin`のSHA256(`e69f3b1c...`)がT185レポート記載値と完全一致することを確認済み(重みファイル自体は本タスクで無変更)。
+- `eval_cli best --depth 12 --exact-from-empties 0 --pattern-weights pattern_v6.bin [--enable-mpc]`を、before/afterの順序を各ラウンドで入れ替えながら(round0: before→after / round1: after→before / round2: before→after)3ラウンド×MPC off/on実行。
+- **絶対条件(探索結果完全一致)**: 20局面×MPC off/on全40探索でmove/depth/nodes/discDiff完全一致(mismatch=0件)。totalNodesは`mpc_off=59,440,032`・`mpc_on=6,487,461`で、T185レポート記載値と完全一致。
+- **NPS実測結果**: MPC off = before 1,292,744 → after 1,770,617(**+37.0%**)、MPC on = before 1,255,323 → after 1,734,227(**+38.1%**)。3ラウンドとも(順序を入れ替えても)一貫してafterが上回っており系統誤差の兆候なし。要件5の採用条件(ノード数完全一致+改善が計測誤差を明確に超える)を満たすため**採用**。
+- レポート`bench/edax-compare/t187_incremental_eval_report.md`・machine-readable版`t187_incremental_eval_report.meta.json`・raw JSON `t187_incremental_eval_report.raw.json`(ラウンドごとの内訳・局面ID一覧込み)を作成。
+- worktreeは計測後`git worktree remove --force`で削除済み(`git worktree list`で残存無しを確認)。
