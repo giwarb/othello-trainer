@@ -2294,6 +2294,17 @@ fn terminal_score_centi(board: &Board, side: Side) -> i32 {
 /// `search_all_moves*`経路)は、本タスク(T089a)着手前と完全に同じ
 /// 2キーソート(corner優先→mobility昇順のみ)を行う(既存のfixed-depth
 /// 回帰テストが固定しているタイブレーク順・ノード数を変えないため)。
+///
+/// T184: 3箇所とも`sort_by_key`ではなく`sort_by_cached_key`を使う。
+/// キー計算(`board.apply_move`+`next_board.legal_moves`)は盤面全体を
+/// 舐めるため決して安くないが、`sort_by_key`は比較のたびにキー関数を
+/// 再計算する仕様(T183実測: 要素数の65.5〜78.5倍も再計算されていた)
+/// なのに対し、`sort_by_cached_key`は要素ごとに1回だけ計算してキャッシュ
+/// してから並べ替える(標準ライブラリのドキュメント通り、キー計算が
+/// 高価な場合はこちらを使うのが定石)。安定ソート同士であり、キーの型・
+/// タイブレーク条件は一切変えていないため、生成される順序(ひいては
+/// 探索結果・ノード数)は変わらないはず(T184作業ログのbefore/after
+/// 完全一致実証を参照)。
 fn ordered_moves(
     board: &Board,
     side: Side,
@@ -2311,7 +2322,7 @@ fn ordered_moves(
 
     match history {
         None => {
-            moves.sort_by_key(|&mv| {
+            moves.sort_by_cached_key(|&mv| {
                 let bit = 1u64 << mv;
                 let is_corner = bit & CORNER_MASK != 0;
                 let next_board = board.apply_move(side, bit);
@@ -2321,7 +2332,7 @@ fn ordered_moves(
         }
         Some(history) if HISTORY_BEFORE_MOBILITY => {
             // 構成B: corner優先 → history降順 → mobility昇順。
-            moves.sort_by_key(|&mv| {
+            moves.sort_by_cached_key(|&mv| {
                 let bit = 1u64 << mv;
                 let is_corner = bit & CORNER_MASK != 0;
                 let next_board = board.apply_move(side, bit);
@@ -2336,7 +2347,7 @@ fn ordered_moves(
         }
         Some(history) => {
             // 構成A(既定): corner優先 → mobility昇順 → history降順。
-            moves.sort_by_key(|&mv| {
+            moves.sort_by_cached_key(|&mv| {
                 let bit = 1u64 << mv;
                 let is_corner = bit & CORNER_MASK != 0;
                 let next_board = board.apply_move(side, bit);
@@ -4521,6 +4532,68 @@ mod tests {
             assert_eq!(result.score, -690);
             assert_eq!(result.depth, 8);
             assert_eq!(result.nodes, 73122);
+        }
+    }
+
+    /// T184: `ordered_moves`の`sort_by_key`→`sort_by_cached_key`置換の絶対条件
+    /// (「探索結果が変更前後で完全一致すること」)を実証する回帰テスト
+    /// (T182の`t182_negascout_results_are_unchanged_by_the_incremental_hash_wiring`
+    /// と同じ方針)。ここで固定しているscore/best_move/depth/nodesは、
+    /// T180のEdax比較用20局面バッチの先頭2局面を depth=12 で探索した値で、
+    /// `sort_by_key`のまま(git worktreeで作った変更前バイナリ)と
+    /// `sort_by_cached_key`置換後(現在のコード)の両方で実際に探索し、
+    /// 20局面全件・MPC off/on両方で完全一致することを確認した後に固定した
+    /// (手順・結果は`tasks/T184-sort-cached-key-fix.md`の作業ログ参照。
+    /// 安定ソート同士でありキーの型・タイブレークも変えていないため、
+    /// 理論的にも一致するはずという予測と一致した)。
+    #[test]
+    fn t184_sort_by_cached_key_matches_pre_change_baseline() {
+        let path = concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../train/weights/pattern_v6.bin"
+        );
+        let weights = PatternWeights::from_bytes(&std::fs::read(path).unwrap()).unwrap();
+
+        // MPC OFF: T180バッチの先頭局面(index 0)。
+        {
+            let board =
+                board_from_obf("------------------OOO----OOOX--X-OOOXXX--OOXOXOO--XXXO---OOOOOO-");
+            let side = Side::White;
+            let limit = default_limit(12, 0);
+            let mut tt = TranspositionTable::new(16);
+            let result = search_with_eval(&board, side, &limit, &mut tt, Some(&weights));
+            assert_eq!(result.best_move, Some(21), "f3");
+            assert_eq!(result.score, -1662);
+            assert_eq!(result.depth, 12);
+            assert_eq!(result.nodes, 1972257);
+        }
+
+        // MPC ON: T180バッチの3局面目(index 2)。
+        {
+            let board =
+                board_from_obf("------------------OO-OX---OOOXO--XOOOOOOXXXOXXOO--XXOO----XXOX--");
+            let side = Side::Black;
+            let limit = default_limit(12, 0);
+            let mut tt = TranspositionTable::new(16);
+            let policy = SearchPolicy {
+                enable_history: true,
+                enable_aspiration: true,
+                enable_mpc: true,
+            };
+            let result = search_with_eval_with_policy(
+                &board,
+                side,
+                &limit,
+                &mut tt,
+                Some(&weights),
+                None,
+                EXACT_QUOTA_PERCENT,
+                policy,
+            );
+            assert_eq!(result.best_move, Some(17), "b3");
+            assert_eq!(result.score, -749);
+            assert_eq!(result.depth, 12);
+            assert_eq!(result.nodes, 566636);
         }
     }
 }
