@@ -1,7 +1,7 @@
 ---
 id: T195
 title: 中盤練習: 悪手直後の「2手先」2盤面比較フィードバック
-status: todo
+status: review
 assignee: implementer
 attempts: 0
 ---
@@ -63,3 +63,32 @@ attempts: 0
 (なし)
 
 ## 作業ログ(担当エージェントが追記)
+
+### 2026-07-23 実装完了(implementer)
+
+**調査・設計判断**
+- `MoveEvalOverlay`/`BoardOverlay`/`Board`(`lastMove`組み込みマーカー)・`ClearBlunderCompare.tsx`(旧1手先対比)・`clearBlunder.ts`・`resolveMover.ts`・`PracticeMode.tsx`の既存実装を精読。
+- **BoardOverlayとMoveEvalOverlayの同時重ねは採用しなかった**: タスク仕様が「強調(BoardOverlayまたは最終手マーカー)」と選択肢を与えていたため、後者(`Board`組み込みの`lastMove`赤リング)を採用。理由は`TwoPlyCompare.tsx`のdocコメントに記載: `Board`+`MoveEvalOverlay`の組み合わせは既存プレイ画面(`.board-with-move-eval-overlay`)に前例があるのに対し、`BoardOverlay`+`MoveEvalOverlay`の同時重ねは前例が無くz-index検証コストが増えるため。1手目(打った手/最善手)の位置はヘッダ文言で明記し、リングは直近の手(相手応手、相手パス時は自分の手)にのみ付与する。
+- 2手先の解決規則は「相手が応手できない場合パス」「(応手/パス後に)自分に合法手が無ければ`selfPass`」「いずれかの段階で双方合法手なしなら`ended`」の3分岐+通常`ok`の計4種として`twoPlyCompare.ts`にモジュールdocを添えて実装(エッジケース3種を要件どおりカバー)。
+- 局面フィクスチャ(相手パス/自分パス/2種類の真の終局)は`scratchpad`で`npx tsx`により`game/othello.ts`を直接実行して構成・検証済み(`resolveMover.test.ts`の`buildIsolatedPocketsBoard`と同じ「独立した孤立領域」構成手法。自分パス用は3つの孤立領域+ブロッカー2箇所で構成)。
+- 結果画面の最悪手表示条件を、旧「`clearBlunderPatterns`検出時のみ」から「損失`PATTERN_DETECTION_LOSS_THRESHOLD`(1石)以上」に変更(即時フィードバックと同じ閾値に統一。パターン検出・記録自体は変更していない、要件5どおり)。
+
+**変更・追加ファイル**
+- 新規: `app/src/midgame/twoPlyCompare.ts`(純粋計算: 2手先分岐計算・ヘッダ/主文/損失文言の生成)、`app/src/midgame/twoPlyCompare.test.ts`(単体テスト10件: 通常/相手パス/自分パス/終局2種/並列計算/メッセージ生成)。
+- 新規: `app/src/midgame/TwoPlyCompare.tsx`(純粋props表示コンポーネント、T196向けにPracticeMode固有stateへ非依存)、`app/src/midgame/TwoPlyCompare.css`(独立スタイル、ランドスケープ盤サイズ調整含む)、`app/src/midgame/TwoPlyCompare.test.tsx`(コンポーネントテスト5件: 通常表示/続けるボタン有無/自分パス時オーバーレイ無し/終局時オーバーレイ無し/補足パターン表示)。
+- 変更: `app/src/midgame/PracticeMode.tsx`(`handlePlayerMove`に悪手保留分岐追加、`pendingCompare`/`worstMoveCompare`state・`loadTwoPlyCompare`/`handleContinueAfterCompare`関数追加、プレイ画面・結果画面のJSXを`TwoPlyCompare`使用に置き換え)。
+- 変更: `app/src/midgame/PracticeMode.css`(`.clear-blunder-compare*`削除、`.midgame-practice__blunder-compare`等追加、ランドスケープメディアクエリを`.two-ply-compare`向けに書き換え)。
+- 変更: `app/src/midgame/PracticeMode.flow.test.tsx`(悪手直後に保留→「続ける」クリック→継続、のフローに合わせてテスト更新)。
+- 変更: `app/src/app.css`(コメント内の`ClearBlunderCompare`参照を`TwoPlyCompare`に更新、挙動変更なし)。
+- 削除: `app/src/midgame/ClearBlunderCompare.tsx`・`ClearBlunderCompare.test.tsx`(`TwoPlyCompare`に統合・置き換え)。
+
+**受け入れ基準の実行結果**
+- `cd app && npx vitest run` → 全99ファイル845件パス(`src/midgame`のみでも16ファイル149件パス)。
+- `cd app && npm run build`(`tsc -b && vite build`ほか) → 成功。
+- コミット `e9984a3`(`main`へpush済み、`git push origin main` 6a3492f..e9984a3)。ワーカー(自分)がタスク変更対象ファイルのみパス明示`git add`してコミット(`tasks/`・`CLAUDE.md`は含めていない)。
+- GitHub Actions「Deploy to GitHub Pages」(run 29956664974)→ `build`・`deploy`ジョブとも成功(`gh run watch`で完走を確認)。
+- 実機確認(Playwright MCPのBrowserツール、`https://giwarb.github.io/othello-trainer/`): 中盤練習ステージ1でわざと悪手(-10、最善+2との差12石)を打つと、「1/3手」の位置で相手の自動応手が保留され、「最善ではありません(最善より約12石損)」見出し+「実際に打った手」(あなた: g5 → 相手: e3 → 打てる場所: 6 か所、合法手評価オーバーレイ)/「最善手」(あなた: f4 → 相手: f6 → 打てる場所: 7 か所、合法手評価オーバーレイ)の2盤面+主文「この手だと次にあなたは6か所に打てます(いちばん良い手で-12)。最善手なら7か所(いちばん良い手で+1)でした。」+損失文「この手は最善手より約12石損しています。」+「続ける」ボタンを確認。「続ける」クリックで相手が応手し通常のプレイ画面(オーバーレイ付き)に戻ることを確認。ローカル(`npm run dev`)でも同一シナリオを先に確認済み(結果画面の最悪手表示も同じ`TwoPlyCompare`で表示されることを含む)。
+- `git status --short` はタスク由来の差分・未追跡ファイルなし(コミット後クリーン)。
+
+**仕様どおりにできなかった点・判断に迷った点**
+- なし(スコープ外のBoardOverlay併用は不採用、代替の「最終手マーカー」案は仕様が明示的に許容していた選択肢)。
