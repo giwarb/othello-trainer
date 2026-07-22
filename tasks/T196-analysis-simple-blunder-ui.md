@@ -1,7 +1,7 @@
 ---
 id: T196
 title: 棋譜解析: 悪手解析をシンプルな2盤面比較UIへ刷新
-status: todo
+status: review
 assignee: implementer
 attempts: 0
 ---
@@ -46,3 +46,15 @@ attempts: 0
 (なし)
 
 ## 作業ログ(担当エージェントが追記)
+
+- 2026-07-23 implementer: 実装完了。
+  - 変更ファイル: `app/src/analysis/BlunderPanel.tsx`(T195の`TwoPlyCompare`/`computeTwoPlyCompare`を再利用する「2手先比較」セクションを最上部に追加、探索は`ANALYZE_LIMIT`で`requestAnalyzeAll`を2系列×最大2回=最大4回呼び出し、`classifyThresholds`宣言を先頭寄りに移動。比較PV・評価内訳waterfall・反証層・whyBad文章は`<details class="blunder-panel__advanced">`(既定`open`なし)へロジック無変更のまま退避。フリー分岐探索・練習送りは既存位置のまま維持)/`app/src/analysis/BlunderPanel.css`(`.blunder-panel__advanced`関連スタイル追加)/`app/src/analysis/BlunderPanel.test.tsx`(新規、BlunderPanel単体のコンポーネントテストがこれまで存在しなかったため新設。既定表示に2手先比較+損失1行が出ること、詳細分析detailsが既定で閉じていること、開くと比較PV/評価内訳/反証層/なぜ悪いかが描画されること、フリー分岐探索・練習送りが常に見えることを検証)。
+  - 設計判断(仕様が「最上部」「残す」「退避」の3バケットのみを明示し「着手前の局面」セクションの扱いを明記していなかったため、実装者判断): 2手先比較をヘッダー直後の文字どおりの最上部に置き、「着手前の局面」(モチーフ・盤面オーバーレイ)セクションはその次にそのまま残置(退避リストに名指しされていないため)。ハイライト連動(評価内訳/whyBadホバー→着手前局面ボードへの反映)は`<details>`の開閉状態と無関係にstateで動くため機能に影響なし。
+  - 受け入れ基準の実行結果:
+    - `cd app && npm test` → 100 files / 847 tests 全件パス(新規BlunderPanel.test.tsx 2件含む)。
+    - `npm run build` → 成功(wasmビルド含め正常終了)。
+    - コミット `f47632a`(パス明示add: `BlunderPanel.css` `BlunderPanel.tsx` `BlunderPanel.test.tsx`のみ。並行作業中のT197由来の未追跡ファイル`app/src/components/moveEvalTimeline.ts`等は対象外のまま放置)。`git push origin main`成功(4a88159..f47632a)。
+    - GitHub Actions: `Deploy to GitHub Pages`(run 29958288015)が`build`→`deploy`とも成功。
+    - 実機確認(`https://giwarb.github.io/othello-trainer/`、Playwright系ブラウザツール): 棋譜解析モードで盤面手入力(f5 d6 c3 d3 c4 f4 e3 b4 e6 f3、10手)→解析実行→ムーブリストの8手目(白 b4、??悪手)をクリック→BlunderPanelが開き、最上部に「2手先比較」(実際に打った手/最善手の2盤面+主文+「この手は最善手より約11石損しています。」)が既定表示されることを確認。「詳細分析(上級者向け)」の`<summary>`をクリックすると比較PV・評価内訳・反証層・なぜ悪いかが展開表示されることを確認(削除されていない)。フリー分岐探索・練習送りは折りたたみの外に常時表示。コンソールエラー無し。
+    - `git status --short`: タスク由来の差分・未追跡ファイルは残っていない(上記コミット済み。残る差分はすべてT197由来で対象外)。
+  - 仕様が曖昧だった点: 上記「着手前の局面」セクションの配置(退避対象か残置か)。低リスクな表示順の判断のため作業は継続し、この報告で明記した。問題があればオーケストレーターの指示で再配置可能。
