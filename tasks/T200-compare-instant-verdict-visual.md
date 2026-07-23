@@ -1,7 +1,7 @@
 ---
 id: T200
 title: 悪手比較の即時「悪手です」表示+ローディング+全体ビジュアル改善
-status: review
+status: done
 assignee: implementer
 attempts: 2
 ---
@@ -115,6 +115,25 @@ attempts: 2
 - **push・Actions**: `git push origin main` → GitHub Actions「Deploy to GitHub Pages」成功(`gh run watch`、run 29974703215)。
 - **Pages実機確認(必須シナリオ)**: 本番URLに対してPlaywright(chromium)で、(1)悪手を打つ→生成中(比較未描画)のうちに「続ける」を押す→相手の自動応手を待つ→ただちに次の一手を打つ→「2/3手」に反映されることを確認(スクリーンショット`pages-redo1-after-second-move.png`、2手目がたまたま別の悪手だったため新たな「悪手です」パネルが正常に開いていることも確認できた=`analyzing`が固着せずhandlePlayerMoveが正常に再入できている証跡)。あわせて前回確認済みの3状態(即時バナー→生成中→5盤面差し替え)・デスクトップ/モバイル・BlunderPanel側も崩れていないことを再確認した。
 - **仕様どおりにできなかった点・判断に迷った点**: なし。
+
+### 2026-07-23 verifier(redo#2まで適用後の独立検証)
+
+対象コミット: `a723dec`+`6a792e2`+`87bc492`(HEAD=`4c23b41`)。以下を実行・確認した。
+
+- **`cd app && npx vitest run`**: 103ファイル/875件 全件パス(実測どおり)。
+- **regression-catching追試**: `PracticeMode.tsx`の`loadTwoPlyCompare`コールバック(693-699行目)と`detectPatternsForPendingCompare`末尾(844-850行目)の2箇所にある`&& prev.token === token`をsedで一時除去(`prev && prev.generation === generation`のみに)し、`npx vitest run src/midgame/PracticeMode.flow.test.tsx`を実行 → **T200 redo#2再発防止テストが期待どおり失敗**(`AssertionError: expected '1/3手' to contain '2/3手'`、フィードバック記載の症状と一致)。他6件はパス。その後`cp`でバックアップから復元し、`md5sum`が編集前と完全一致(`952b74172a331c8bb56cb1eaf547ec28`)、`git diff --stat`/`git status --short`とも差分なしを確認。復元後に同テストファイルを再実行し7件全件パスを再確認した。ガードが実際に機能していること・一時改変が完全に復元されたことの両方を実証。
+- **`npm run build`**: 成功(wasm再ビルド込み、wasm-testの決定的ノード予算・pattern_v6サニティ値も従来レンジ内)。
+- **GitHub Actions**: `gh run view 29975626583` → `build`/`deploy`両ジョブ成功(✓)。
+- **git status**: `git status --short`出力なし(残骸なし、tasks/含め全てクリーン)。
+- **Pages実機確認(Playwright chromium、`https://giwarb.github.io/othello-trainer/`)**:
+  - (a) 中盤練習でCanvas盤へ座標クリック(reverse-scanで悪手を誘発)→クリック直後(waitなし)に「悪手です(最善より約X石損)」バナー+「解説を生成中…」スピナーが表示され`.two-ply-compare`は未描画(`compareVisible=0, loadingVisible=1`)であることを確認。数秒後に5盤面へ差し替わることも確認(スクリーンショット`A1-immediate-banner.png`/`A2-compare-loaded-desktop.png`)。
+  - (b) 生成中(compare未ロード)に「続ける」をクリック→検出直後で即座に次の一手が打てることを確認。さらに**2手連続で悪手**(1手目ロス10-11石、2手目ロス6石)を発生させ、いずれも生成中に即「続ける」をクリックする操作を繰り返した結果、手数表示が`1/3手→2/3手→3/3手`と単調に前進(巻き戻りなし、3秒待機後も後退しないことを確認)、最終結果画面の手一覧が1手目(g6/ロス10石)・2手目(b5/ロス6石)・3手目(最善手)を欠落・混入なく正しく記録していることを確認(`G-final-result.png`)。T200 redo#2で修正されたトークンガードが本番でも機能していることの実機的傍証。
+  - (c) 棋譜解析側: ランダム合法手で生成した40手の棋譜(`c4c3e6b4...`)をテキスト入力で解析し、悪手行のボタンをクリック→中盤練習と同様に、クリック直後に「悪手分析」モーダルが開き損失1行(「この手は最善手より約8石損しています。」)+「解説を生成中…」スピナーが即時表示され(`.two-ply-compare`未描画)、数秒後に5盤面へ差し替わることを確認(`K2-blunderpanel-immediate.png`/`K3-blunderpanel-loaded.png`)。
+  - (d) 元局面のセンタリング: `.two-ply-compare`のroot中心Xと5枚のboard-col中心Xを`getBoundingClientRect`で計測 → 元局面(640)を軸に実際/最善の各列ペアが対称(504/504と776/776、いずれも640から136離れて対称)に配置されていることを数値で確認。列見出し(「実際に打った手」警告色チップ/「最善手」成功色チップ)・カード化(枠線・角丸・影)も画面上で確認。
+  - (e) モバイル幅(390×844): ローディング状態・比較読み込み後状態のいずれも`document.documentElement.scrollWidth > clientWidth`が`false`(横スクロールなし)。縦積みレイアウト・カード化は維持されていることをスクリーンショットで確認(`M2-mobile-compare-loaded.png`)。
+- 検証に使用したPlaywrightスクリプト・スクリーンショットはすべてセッションのscratchpadに保存し、リポジトリには含めていない。
+
+**判定: 合格。** redo#1・redo#2で指摘された重大バグ(analyzing固着によるクリック無視、連続悪手でのpendingCompare誤マージ)はいずれも(a)コードレベルのガード除去による意図的な再発確認、(b)本番環境での連続悪手操作、の両面で解消を確認した。要件1〜4(即時表示・ローディング統一・ビジュアル改善・既存機能不変)もすべて実機で確認できた。
 
 ### 2026-07-23 implementer(redo #2対応)
 
