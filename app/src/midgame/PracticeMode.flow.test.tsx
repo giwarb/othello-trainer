@@ -96,12 +96,17 @@ function neutralMoves(board: Board, side: Side): MoveEvalJson[] {
   return legalMoves(board, side).map((square) => ({ move: squareToNotation(square), score: 0, discDiff: 0, type: 'midgame' }))
 }
 
-/** 決定局面専用: `bestMoveNotation`だけ評価値5、他は0(要件「損失があるが検出困難ではない手」)。 */
+/**
+ * 決定局面専用: `DECISION_BEST_MOVE`だけ評価値`decisionBestDiscDiff`、他は0
+ * (要件「損失があるが検出困難ではない手」)。`decisionBestDiscDiff`はテストごとに
+ * 差し替える(T199: 発火閾値の境界テストのため、既定は新閾値と同じ6石)。
+ */
 const DECISION_BEST_MOVE = 'b1'
+let decisionBestDiscDiff = 6
 function decisionMoves(board: Board, side: Side): MoveEvalJson[] {
   return legalMoves(board, side).map((square) => {
     const notation = squareToNotation(square)
-    const discDiff = notation === DECISION_BEST_MOVE ? 5 : 0
+    const discDiff = notation === DECISION_BEST_MOVE ? decisionBestDiscDiff : 0
     return { move: notation, score: discDiff * 100, discDiff, type: 'midgame' }
   })
 }
@@ -183,6 +188,7 @@ describe('T141: 中盤練習ステージクリア型のプレイフロー', () =
   beforeEach(() => {
     localStorage.clear()
     stagePoolOverride = null
+    decisionBestDiscDiff = 6
     container = document.createElement('div')
     document.body.appendChild(container)
   })
@@ -235,7 +241,7 @@ describe('T141: 中盤練習ステージクリア型のプレイフロー', () =
   )
 
   it(
-    '損失がある手を打つと直後に2手先2盤面比較が表示され、「続ける」で進行し、結果画面にも同じ比較が表示される(T195)',
+    '損失が発火閾値以上の手を打つと直後に2手先2盤面比較が表示され、「続ける」で進行し、結果画面にも同じ比較が表示される(T195/T199)',
     async () => {
       // このテストだけは「決定局面」から始まるライン(DECISION_SEQ)を使う。
       const decisionLine: RawJosekiLine = {
@@ -262,12 +268,14 @@ describe('T141: 中盤練習ステージクリア型のプレイフロー', () =
       await flushAsyncEffects()
       expect(container.querySelector('.midgame-practice')).not.toBeNull()
 
-      // 1手目: あえて最善(b1)ではないg6を打つ(損失5石、明確な悪化パターンが検出される)。
+      // 1手目: あえて最善(b1)ではないg6を打つ(損失6石=既定の発火閾値ちょうど、
+      // 明確な悪化パターンが検出される)。
       await act(async () => clickMove(container, 'g6'))
       await flushAsyncEffects()
 
-      // T195要件1: 損失1石以上の手を打った直後、相手の自動応手を保留して
-      // 2手先2盤面比較が表示される(「続ける」を押すまでステージが進まない)。
+      // T195要件1・T199要件3: 損失が発火閾値(既定6石)以上の手を打った直後、
+      // 相手の自動応手を保留して2手先2盤面比較が表示される
+      // (「続ける」を押すまでステージが進まない)。
       expect(container.querySelector('.midgame-practice__blunder-compare')).not.toBeNull()
       expect(container.querySelector('.midgame-result')).toBeNull()
       const continueButton = Array.from(container.querySelectorAll<HTMLButtonElement>('button')).find(
@@ -297,13 +305,71 @@ describe('T141: 中盤練習ステージクリア型のプレイフロー', () =
       expect(moveItems.length).toBe(3)
       expect(moveItems[0]).toContain('g6')
       expect(moveItems[0]).toContain('最善手 b1')
-      expect(moveItems[0]).toContain('ロス5石')
+      expect(moveItems[0]).toContain('ロス6石')
 
       // 要件5: 最も損失が大きかった手(1手目)について、結果画面にも同じ
       // `TwoPlyCompare`が表示される。
       await flushAsyncEffects()
       expect(container.querySelector('.two-ply-compare')).not.toBeNull()
       expect(container.textContent).toContain('実際に打った手')
+    },
+    15000,
+  )
+
+  it(
+    'T199境界テスト: 損失が発火閾値未満(3石、「1〜3石損では発火しない」要件)なら即時フィードバック・結果画面比較のいずれも表示されない',
+    async () => {
+      decisionBestDiscDiff = 3
+
+      const decisionLine: RawJosekiLine = {
+        name: 'テスト用決定局面ライン(閾値未満)',
+        aliases: [],
+        moves: DECISION_SEQ,
+        firstMoveBasis: DECISION_SEQ[0]!,
+        depth: DECISION_SEQ.length,
+      }
+      const { buildMidgameStagePool } = await import('./stagePool.ts')
+      stagePoolOverride = buildMidgameStagePool(buildJosekiDb([decisionLine]))
+
+      const { PracticeMode } = await import('./PracticeMode.tsx')
+      await act(async () => {
+        render(<PracticeMode />, container)
+      })
+      await flushAsyncEffects()
+
+      const stageCell = container.querySelector<HTMLButtonElement>('.midgame-stage-grid__cell')
+      expect(stageCell).not.toBeNull()
+      await act(async () => {
+        stageCell?.click()
+      })
+      await flushAsyncEffects()
+      expect(container.querySelector('.midgame-practice')).not.toBeNull()
+
+      // 1手目: あえて最善(b1)ではないg6を打つ(損失3石、発火閾値6石未満)。
+      await act(async () => clickMove(container, 'g6'))
+      await flushAsyncEffects()
+
+      // T199要件3の核心: 損失3石(「1〜3石損」)では即時フィードバック(2手先2盤面比較)が
+      // 表示されず、相手の自動応手がそのまま進む(保留されない)。
+      expect(container.querySelector('.midgame-practice__blunder-compare')).toBeNull()
+
+      // 2・3手目: 以後は決定局面ではなくなるため、常に「先頭の合法手」(損失0扱い)を打つ。
+      for (let round = 0; round < 2; round += 1) {
+        await act(async () => clickFirstMove(container))
+        await flushAsyncEffects()
+      }
+
+      expect(container.querySelector('.midgame-result')).not.toBeNull()
+
+      const moveItems = Array.from(container.querySelectorAll('.midgame-result__moves li')).map((li) => li.textContent)
+      expect(moveItems.length).toBe(3)
+      expect(moveItems[0]).toContain('g6')
+      expect(moveItems[0]).toContain('最善手 b1')
+      expect(moveItems[0]).toContain('ロス3石')
+
+      // 結果画面の最悪手比較(`worstMoveCompareInfo`)も同じ閾値のため表示されない。
+      await flushAsyncEffects()
+      expect(container.querySelector('.two-ply-compare')).toBeNull()
     },
     15000,
   )

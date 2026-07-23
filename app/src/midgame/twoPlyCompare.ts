@@ -225,23 +225,33 @@ export async function computeTwoPlyCompare(
   return { played, best }
 }
 
-/** 元局面(自分の番)パネルの「打てる場所」ヘッダ(T198要件3)。`originalMoves`未取得中は計算中である旨を表示する。 */
+/**
+ * 元局面(自分の番)パネルの「打てる場所」ヘッダ(T198要件3、T199要件2で主語「あなたの」を明記)。
+ * `originalMoves`未取得中は計算中である旨を表示する。
+ */
 export function formatOriginalLegalCountHeader(originalMoves: readonly MoveEvalJson[] | null): string {
   if (!originalMoves) return '打てる場所を計算しています…'
-  return `打てる場所: ${originalMoves.length} か所`
+  return `あなたの打てる場所: ${originalMoves.length} か所`
 }
 
-/** 1手先(相手番)パネルの「打てる場所」ヘッダ(T198要件3)。相手がパス/その時点で終局なら明記する。 */
+/**
+ * 1手先(相手番)パネルの「打てる場所」ヘッダ(T198要件3、T199要件2で主語「相手の」を明記)。
+ * 相手がパス/その時点で終局なら明記する。
+ */
 export function formatOpponentLegalCountHeader(branch: TwoPlyBranchResult): string {
-  if (branch.opponentMoves) return `打てる場所: ${branch.opponentMoves.length} か所`
-  if (branch.opponentPassed) return '打てる場所: 0 か所(パス)'
-  return '打てる場所: 0 か所(終局)'
+  if (branch.opponentMoves) return `相手の打てる場所: ${branch.opponentMoves.length} か所`
+  if (branch.opponentPassed) return '相手の打てる場所: 0 か所(パス)'
+  return '相手の打てる場所: 0 か所(終局)'
 }
 
-/** 2手先(自分の番)パネルの「打てる場所」ヘッダ(T198要件3)。旧`formatTwoPlyBranchHeader`のうち末尾部分を独立させたもの。 */
+/**
+ * 2手先(自分の番)パネルの「打てる場所」ヘッダ(T198要件3、T199要件2で主語「あなたの」を明記)。
+ * 旧`formatTwoPlyBranchHeader`のうち末尾部分を独立させたもの。終局(`kind: 'ended'`)は
+ * 「打てる場所」の話ではなく結果報告のため、主語を付けない従来の文言のままとする。
+ */
 export function formatSelfLegalCountHeader(branch: TwoPlyBranchResult): string {
-  if (branch.kind === 'ok') return `打てる場所: ${branch.selfLegalCount} か所`
-  if (branch.kind === 'selfPass') return '打てる場所: 0 か所(パス)'
+  if (branch.kind === 'ok') return `あなたの打てる場所: ${branch.selfLegalCount} か所`
+  if (branch.kind === 'selfPass') return 'あなたの打てる場所: 0 か所(パス)'
   return `終局(石差${formatDiscDiff(branch.finalDiscDiff)})`
 }
 

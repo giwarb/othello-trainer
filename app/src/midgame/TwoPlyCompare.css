@@ -60,10 +60,12 @@
   text-align: center;
 }
 
+/* T199要件2: 「打てる場所」ヘッダを主要情報として強調(太字・大きめ・主要文字色)。 */
 .two-ply-compare__board-header {
   margin: 0;
-  font-size: 0.75rem;
-  color: var(--color-text-secondary);
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: var(--color-text);
   text-align: center;
   overflow-wrap: break-word;
 }
@@ -82,12 +84,14 @@
 }
 
 /*
- * T198要件4: 着手位置を盤面上で明示する文字バッジ(「自分」「相手」)。
+ * T198要件4・T199要件1: 着手位置を盤面上で明示する色ドット(青=自分、赤=相手)。
  * `MoveEvalOverlay`/`analysis/BoardOverlay`と同じ8x8 CSS Grid重ね方式
  * (`.board-with-move-eval-overlay`の`position:relative`ラッパー前提)。
- * 着手マス(石が置かれた、もう合法手ではないマス)にだけバッジを置くため、
+ * 着手マス(石が置かれた、もう合法手ではないマス)にだけドットを置くため、
  * `MoveEvalOverlay`の数値セル(まだ打たれていない合法手マス)とは常に別マスで
- * 重ならない。
+ * 重ならない。T199: 旧文字バッジ(「自分」「相手」)は盤面が小さいと潰れて
+ * 読めなかったため、石の中心に置く小さな色ドット+白黒二重の縁取り(黒石・
+ * 白石どちらの上でも視認できる)に変更した。色の意味は`__legend`側で示す。
  */
 .two-ply-compare__move-markers {
   position: absolute;
@@ -101,28 +105,60 @@
 .two-ply-compare__move-markers__cell {
   box-sizing: border-box;
   display: flex;
-  align-items: flex-start;
-  justify-content: flex-end;
-  padding: 0.12em;
+  align-items: center;
+  justify-content: center;
 }
 
-.two-ply-compare__move-markers__badge {
-  font-size: 0.6rem;
-  font-weight: bold;
-  line-height: 1;
-  padding: 0.12em 0.32em;
-  border-radius: 0.6em;
-  color: #fff;
-  white-space: nowrap;
-  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35);
+.two-ply-compare__move-markers__dot {
+  box-sizing: border-box;
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 50%;
+  border: 1.5px solid #fff;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.55);
 }
 
-.two-ply-compare__move-markers__badge--own {
-  background: rgba(37, 99, 235, 0.92);
+.two-ply-compare__move-markers__dot--own {
+  background: rgba(37, 99, 235, 0.95);
 }
 
-.two-ply-compare__move-markers__badge--opponent {
-  background: rgba(220, 38, 38, 0.92);
+.two-ply-compare__move-markers__dot--opponent {
+  background: rgba(220, 38, 38, 0.95);
+}
+
+/* T199要件1: 色ドットの意味を示す凡例(比較表示内に1箇所だけ)。 */
+.two-ply-compare__legend {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 1rem;
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--color-text-secondary);
+}
+
+.two-ply-compare__legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35em;
+}
+
+.two-ply-compare__legend-dot {
+  box-sizing: border-box;
+  display: inline-block;
+  width: 0.6em;
+  height: 0.6em;
+  border-radius: 50%;
+  border: 1.5px solid #fff;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.55);
+}
+
+.two-ply-compare__legend-dot--own {
+  background: rgba(37, 99, 235, 0.95);
+}
+
+.two-ply-compare__legend-dot--opponent {
+  background: rgba(220, 38, 38, 0.95);
 }
 
 .two-ply-compare__messages {
@@ -166,9 +202,14 @@
     width: 100%;
   }
 
-  .two-ply-compare__move-markers__badge {
-    font-size: 0.52rem;
-    padding: 0.08em 0.24em;
+  .two-ply-compare__move-markers__dot {
+    width: 0.42rem;
+    height: 0.42rem;
+  }
+
+  .two-ply-compare__legend {
+    gap: 0.7rem;
+    font-size: 0.72rem;
   }
 }
 
@@ -195,5 +236,10 @@
   .two-ply-compare__board.board-container {
     width: min(18dvh, 24vw, 130px);
     max-width: min(18dvh, 24vw, 130px);
+  }
+
+  .two-ply-compare__move-markers__dot {
+    width: 0.4rem;
+    height: 0.4rem;
   }
 }

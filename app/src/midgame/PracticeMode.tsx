@@ -152,7 +152,7 @@ interface ResultInfo {
 }
 
 /**
- * T195: 悪手(損失`PATTERN_DETECTION_LOSS_THRESHOLD`石以上)を打った直後、相手の
+ * T195: 悪手(損失`compareFireThreshold`石以上、T199で見直し)を打った直後、相手の
  * 自動応手を保留して2手先2盤面比較を見せている間の状態。
  *
  * 「保留」は`nextSession`(=通常ならこの場で`setSession`していたはずの値)を
@@ -244,6 +244,22 @@ export function PracticeMode() {
   const [finalizing, setFinalizing] = useState(false)
 
   const [classifyThresholds] = useState<ClassifyThresholds>(() => loadClassifyThresholds(localStorage))
+  /**
+   * T199: 即時フィードバック(2手先2盤面比較)・結果画面比較の発火閾値。
+   *
+   * 見直し前は`PATTERN_DETECTION_LOSS_THRESHOLD`(=1石)をそのまま流用していたため、
+   * 最善手以外のほぼ全ての手で比較モーダルが開いてしまっていた
+   * (ユーザーフィードバック 2026-07-23)。棋譜解析の既存分類
+   * (`classifyMove.ts`/`thresholdSettings.ts`)と用語・値を揃えるのを第一候補とし、
+   * 「悪手」(??、`classifyThresholds.blunder`)をそのまま発火閾値として再利用する
+   * と決めた(判断理由は本タスクの作業ログ参照)。既定値は6石(≥2石のため
+   * 「既定が2石未満なら4石」の下限規定には該当しない)で、「1〜3石損では
+   * 発火しない」という受け入れ条件をそのまま満たす。棋譜解析の閾値設定画面
+   * (`AnalysisMode.tsx`)で調整すれば、この発火閾値にもそのまま反映される。
+   * 苦手パターン検出・記録(`PATTERN_DETECTION_LOSS_THRESHOLD`)は本タスクの
+   * スコープ外のため1石のまま変更しない。
+   */
+  const compareFireThreshold = classifyThresholds.blunder
   const [overlayMoves, setOverlayMoves] = useState<MoveEvalJson[] | null>(null)
   /**
    * 候補手評価オーバーレイの表示ON/OFF(T142)。既定ON(要件1)。
@@ -637,12 +653,14 @@ export function PracticeMode() {
         moveEvalHistory: [...s.moveEvalHistory, evalEntry],
       }
 
-      // T195要件1: 悪手(損失`PATTERN_DETECTION_LOSS_THRESHOLD`石以上)なら、
+      // T195要件1・T199要件3: 悪手(損失`compareFireThreshold`石以上)なら、
       // ここで`setSession`せずに2手先2盤面比較を表示し、相手の自動応手を保留する。
       // `session`が着手前のまま変わらないため、相手の自動応手`useEffect`
       // (`session.sideToMove !== humanSide`で発火)はまだ発火しない
       // (「続ける」を押した時点で`handleContinueAfterCompare`が`setSession`する)。
-      if (!isBest && lossDiscs >= PATTERN_DETECTION_LOSS_THRESHOLD) {
+      // (苦手パターンの検出・記録自体は上の`PATTERN_DETECTION_LOSS_THRESHOLD`
+      // ブロックで既に完了済みで、この閾値とは独立に動く。)
+      if (!isBest && lossDiscs >= compareFireThreshold) {
         setPendingCompare({
           generation,
           preMoveBoard: s.board,
@@ -789,15 +807,15 @@ export function PracticeMode() {
 
   /**
    * T195: 結果画面の2手先2盤面比較表示用の派生値(要件5「結果画面の最悪手表示も
-   * 同コンポーネントに置き換える」)。表示条件は損失`PATTERN_DETECTION_LOSS_THRESHOLD`
-   * 石以上(即時フィードバックと同じ閾値、要件1)であり、`clearBlunderPatterns`の
+   * 同コンポーネントに置き換える」)。表示条件は損失`compareFireThreshold`石以上
+   * (T199要件3、即時フィードバックと同じ閾値)であり、`clearBlunderPatterns`の
    * 検出有無は問わない(パターンは検出できた場合の補足行としてのみ使う、
    * `clearBlunderPatterns`の検出・`patternStats`への記録自体は現状のまま)。
    */
   const worstMoveCompareInfo = (() => {
     if (!resultInfo || resultInfo.worstMoveIndex === null) return null
     const worst = resultInfo.moveOutcomes[resultInfo.worstMoveIndex]
-    if (!worst || worst.lossDiscs < PATTERN_DETECTION_LOSS_THRESHOLD) return null
+    if (!worst || worst.lossDiscs < compareFireThreshold) return null
     return {
       preMoveBoard: worst.preMoveBoard,
       preMoveSide: worst.preMoveSide,

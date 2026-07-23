@@ -13,15 +13,19 @@
  * 手番側の全合法手評価(`MoveEvalOverlay`)を重ねる(元局面=自分、
  * 1手先=相手、2手先=自分)。
  *
- * 着手位置の明示(T198要件4): `Board`組み込みの`lastMove`(赤いリング印、
- * その盤面での直近の着手)に加え、`MoveMarkerOverlay`(本ファイル内、
- * `MoveEvalOverlay`/`analysis/BoardOverlay`と同じ8x8 CSS Gridの重ね方式)で
- * 「自分」「相手」の文字バッジを着手マスに直接表示する。着手マスは(合法手
- * オーバーレイが数値を表示する)まだ打たれていないマスとは常に別集合なので、
- * `MoveEvalOverlay`とバッジが同じマスに重なって表示が競合することはない
- * (盤面上の石が置かれたマスにだけバッジを置くため)。色だけに頼らず文字
- * ラベルにしてあるのは、色弱ユーザーでも「自分」「相手」を区別できるように
- * するため(実装者判断、実機で視認性を確認済み)。
+ * 着手位置の明示(T198要件4、T199で文字バッジ→色ドットに変更): `Board`組み込みの
+ * `lastMove`(赤いリング印、その盤面での直近の着手)に加え、`MoveMarkerOverlay`
+ * (本ファイル内、`MoveEvalOverlay`/`analysis/BoardOverlay`と同じ8x8 CSS Gridの
+ * 重ね方式)で青(自分)/赤(相手)の小さな色ドットを着手マスの中心(石の中心)に
+ * 重ねて表示する。着手マスは(合法手オーバーレイが数値を表示する)まだ打たれて
+ * いないマスとは常に別集合なので、`MoveEvalOverlay`とドットが同じマスに重なって
+ * 表示が競合することはない(盤面上の石が置かれたマスにだけドットを置くため)。
+ *
+ * T199(ユーザーフィードバック): 旧「自分」「相手」の文字バッジは盤面が小さい
+ * (特にモバイル・横置き)と文字が潰れて読めなかった。文字を廃止し、石より
+ * 十分小さい色ドット+白黒二重の縁取り(黒石・白石どちらの上でも視認できる)に
+ * 変更した。色だけでは意味が伝わらないため、比較表示内に1箇所だけ凡例
+ * (`MoveMarkerLegend`)を表示する(パネルごとには置かない)。
  *
  * 純粋props設計(T196の棋譜解析モードから再利用するため、`PracticeMode`固有の
  * stateには一切依存しない。計算(`twoPlyCompare.ts`)・表示(本ファイル)を
@@ -48,18 +52,18 @@ import {
 } from './twoPlyCompare.ts'
 import './TwoPlyCompare.css'
 
-/** 着手マスに重ねる文字バッジ1件分(`MoveMarkerOverlay`参照)。 */
+/** 着手マスに重ねる色ドット1件分(`MoveMarkerOverlay`参照、T199で文字ラベルを廃止)。 */
 interface MoveMarker {
   readonly square: number
-  readonly label: string
   readonly kind: 'own' | 'opponent'
 }
 
 const ALL_SQUARES = Array.from({ length: 64 }, (_, sq) => sq)
 
 /**
- * 着手マスに「自分」「相手」の文字バッジを重ねる(T198要件4)。
- * `MoveEvalOverlay`/`analysis/BoardOverlay`と同じ8x8 CSS Grid重ね方式。
+ * 着手マスに青(自分)/赤(相手)の色ドットを石の中心に重ねる(T198要件4、T199で
+ * 文字バッジから変更)。`MoveEvalOverlay`/`analysis/BoardOverlay`と同じ
+ * 8x8 CSS Grid重ね方式。色の意味は比較表示内1箇所の`MoveMarkerLegend`で示す。
  */
 function MoveMarkerOverlay({ markers }: { readonly markers: readonly MoveMarker[] }) {
   if (markers.length === 0) return null
@@ -70,14 +74,30 @@ function MoveMarkerOverlay({ markers }: { readonly markers: readonly MoveMarker[
         const marker = bySquare.get(sq)
         return (
           <div key={sq} class="two-ply-compare__move-markers__cell">
-            {marker && (
-              <span class={`two-ply-compare__move-markers__badge two-ply-compare__move-markers__badge--${marker.kind}`}>
-                {marker.label}
-              </span>
-            )}
+            {marker && <span class={`two-ply-compare__move-markers__dot two-ply-compare__move-markers__dot--${marker.kind}`} />}
           </div>
         )
       })}
+    </div>
+  )
+}
+
+/**
+ * 色ドットの意味を示す凡例(T199要件1)。比較表示内に1箇所だけ表示する
+ * (パネルごとには置かない)。ドット自体は装飾なので`aria-hidden`にするが、
+ * ラベル文字列は通常どおり読み上げ対象にする。
+ */
+function MoveMarkerLegend() {
+  return (
+    <div class="two-ply-compare__legend">
+      <span class="two-ply-compare__legend-item">
+        <span class="two-ply-compare__legend-dot two-ply-compare__legend-dot--own" aria-hidden="true" />
+        自分の手
+      </span>
+      <span class="two-ply-compare__legend-item">
+        <span class="two-ply-compare__legend-dot two-ply-compare__legend-dot--opponent" aria-hidden="true" />
+        相手の手
+      </span>
     </div>
   )
 }
@@ -149,7 +169,7 @@ function onePlyPanelProps(
     mover: opponentSide,
     moves: branch.opponentMoves,
     lastMoveSquare: branch.ownSquare,
-    markers: [{ square: branch.ownSquare, label: '自分', kind: 'own' }],
+    markers: [{ square: branch.ownSquare, kind: 'own' }],
     thresholds,
   }
 }
@@ -161,9 +181,9 @@ function twoPlyPanelProps(
   mover: Side,
   thresholds: ClassifyThresholds,
 ): BoardPanelProps {
-  const markers: MoveMarker[] = [{ square: branch.ownSquare, label: '自分', kind: 'own' }]
+  const markers: MoveMarker[] = [{ square: branch.ownSquare, kind: 'own' }]
   if (branch.opponentSquare !== null) {
-    markers.push({ square: branch.opponentSquare, label: '相手', kind: 'opponent' })
+    markers.push({ square: branch.opponentSquare, kind: 'opponent' })
   }
   return {
     label: `${branchLabel}: 2手先(あなたの番)`,
@@ -195,6 +215,7 @@ export function TwoPlyCompare({
 
   return (
     <div class="two-ply-compare">
+      <MoveMarkerLegend />
       <div class="two-ply-compare__original">
         <BoardPanel
           label="元局面"

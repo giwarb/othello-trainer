@@ -258,16 +258,16 @@ describe('midgame/twoPlyCompare: メッセージ生成', () => {
 })
 
 describe('midgame/twoPlyCompare: T198 パネルヘッダ生成', () => {
-  it('formatOriginalLegalCountHeader: 未取得はローディング文言、取得済みは「打てる場所: N か所」', () => {
+  it('formatOriginalLegalCountHeader: 未取得はローディング文言、取得済みは「あなたの打てる場所: N か所」(T199要件2)', () => {
     expect(formatOriginalLegalCountHeader(null)).toBe('打てる場所を計算しています…')
     const moves: MoveEvalJson[] = [
       { move: 'd3', score: 0, discDiff: 0, type: 'midgame' },
       { move: 'c4', score: 0, discDiff: 0, type: 'midgame' },
     ]
-    expect(formatOriginalLegalCountHeader(moves)).toBe('打てる場所: 2 か所')
+    expect(formatOriginalLegalCountHeader(moves)).toBe('あなたの打てる場所: 2 か所')
   })
 
-  it('formatOpponentLegalCountHeader: 相手が応手可能なら合法手数、パスなら「0 か所(パス)」、終局なら「0 か所(終局)」', async () => {
+  it('formatOpponentLegalCountHeader: 相手が応手可能なら「相手の打てる場所: N か所」、パスなら「0 か所(パス)」、終局なら「0 か所(終局)」(T199要件2)', async () => {
     const board = createBoard(
       [notationToSquare('d5'), notationToSquare('e4')],
       [notationToSquare('d4'), notationToSquare('e5')],
@@ -278,7 +278,7 @@ describe('midgame/twoPlyCompare: T198 パネルヘッダ生成', () => {
       notationToSquare('f5'),
       async (b, side) => movesFor(b, side, 'f4', 4),
     )
-    expect(formatOpponentLegalCountHeader(okBranch)).toMatch(/^打てる場所: \d+ か所$/)
+    expect(formatOpponentLegalCountHeader(okBranch)).toMatch(/^相手の打てる場所: \d+ か所$/)
 
     const passBoard = createBoard(
       [notationToSquare('a1'), notationToSquare('h8')],
@@ -290,7 +290,7 @@ describe('midgame/twoPlyCompare: T198 パネルヘッダ生成', () => {
       notationToSquare('e1'),
       async (b, side) => movesFor(b, side),
     )
-    expect(formatOpponentLegalCountHeader(passBranch)).toBe('打てる場所: 0 か所(パス)')
+    expect(formatOpponentLegalCountHeader(passBranch)).toBe('相手の打てる場所: 0 か所(パス)')
 
     const isolatedPockets = createBoard(
       [notationToSquare('a1'), notationToSquare('h8')],
@@ -305,10 +305,10 @@ describe('midgame/twoPlyCompare: T198 パネルヘッダ生成', () => {
         throw new Error('呼ばれないはず')
       },
     )
-    expect(formatOpponentLegalCountHeader(endedBranch)).toBe('打てる場所: 0 か所(終局)')
+    expect(formatOpponentLegalCountHeader(endedBranch)).toBe('相手の打てる場所: 0 か所(終局)')
   })
 
-  it('formatSelfLegalCountHeader: kindごとに合法手数/パス/終局(石差)を表示する', () => {
+  it('formatSelfLegalCountHeader: kindごとに「あなたの打てる場所: N か所」/パス/終局(石差)を表示する(T199要件2)', () => {
     const board = createBoard([notationToSquare('a1')], [])
     const okBranch: TwoPlyBranchResult = {
       kind: 'ok',
@@ -322,7 +322,7 @@ describe('midgame/twoPlyCompare: T198 パネルヘッダ生成', () => {
       selfLegalCount: 1,
       bestSelfEval: 0,
     }
-    expect(formatSelfLegalCountHeader(okBranch)).toBe('打てる場所: 1 か所')
+    expect(formatSelfLegalCountHeader(okBranch)).toBe('あなたの打てる場所: 1 か所')
 
     const selfPassBranch: TwoPlyBranchResult = {
       kind: 'selfPass',
@@ -333,7 +333,7 @@ describe('midgame/twoPlyCompare: T198 パネルヘッダ生成', () => {
       opponentSquare: null,
       opponentPassed: false,
     }
-    expect(formatSelfLegalCountHeader(selfPassBranch)).toBe('打てる場所: 0 か所(パス)')
+    expect(formatSelfLegalCountHeader(selfPassBranch)).toBe('あなたの打てる場所: 0 か所(パス)')
 
     const endedBranch: TwoPlyBranchResult = {
       kind: 'ended',
