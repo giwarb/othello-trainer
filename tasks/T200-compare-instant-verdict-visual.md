@@ -1,7 +1,7 @@
 ---
 id: T200
 title: 悪手比較の即時「悪手です」表示+ローディング+全体ビジュアル改善
-status: redo
+status: review
 assignee: implementer
 attempts: 2
 ---
@@ -115,3 +115,18 @@ attempts: 2
 - **push・Actions**: `git push origin main` → GitHub Actions「Deploy to GitHub Pages」成功(`gh run watch`、run 29974703215)。
 - **Pages実機確認(必須シナリオ)**: 本番URLに対してPlaywright(chromium)で、(1)悪手を打つ→生成中(比較未描画)のうちに「続ける」を押す→相手の自動応手を待つ→ただちに次の一手を打つ→「2/3手」に反映されることを確認(スクリーンショット`pages-redo1-after-second-move.png`、2手目がたまたま別の悪手だったため新たな「悪手です」パネルが正常に開いていることも確認できた=`analyzing`が固着せずhandlePlayerMoveが正常に再入できている証跡)。あわせて前回確認済みの3状態(即時バナー→生成中→5盤面差し替え)・デスクトップ/モバイル・BlunderPanel側も崩れていないことを再確認した。
 - **仕様どおりにできなかった点・判断に迷った点**: なし。
+
+### 2026-07-23 implementer(redo #2対応)
+
+- **原因確認**: レビュー指摘どおり、`sessionGenerationRef`はステージ挑戦単位(`startStagePractice`/`goToStageSelect`でのみ増加)でしか変わらないため、同一ステージ内で連続して悪手を打つとN手目・N+1手目の`pendingCompare`が同じ`generation`を共有する。redo#1で`detectPatternsForPendingCompare`/`loadTwoPlyCompare`を`handlePlayerMove`から切り離した結果、「N手目悪手→生成中に続ける→相手応手→N+1手目も悪手」の状況でN手目の未解決の非同期結果が、N+1手目の`pendingCompare`表示中に解決すると、`generation`一致判定だけでは区別できず素通りしてマージされてしまい、特に`detectPatternsForPendingCompare`が持つN手目単独の`nextSession`(N+1手目の着手を含まない)でN+1手目の`pendingCompare`を上書きしてしまう(「続ける」でN手目直後まで巻き戻る)ことを確認した。
+- **修正**: `PendingBlunderCompare`に`token`フィールド(この`pendingCompare`インスタンス固有の一意な値)を追加。新規`pendingCompareTokenRef`(単調増加のref)から`handlePlayerMove`の悪手分岐で発行し、`setPendingCompare`(初回)に含める。`loadTwoPlyCompare`のコールバック・`detectPatternsForPendingCompare`の最終`setPendingCompare`双方の結果マージ条件を「`prev.generation === generation`」から「`prev.generation === generation && prev.token === token`」に変更した(`generation`ガードはステージ離脱用として残した、フィードバックの修正方針どおり)。`recordPatternFailuresNow`(統計記録)の実行条件・タイミングは一切変更していない(従来どおり各手のクロージャデータで無条件実行、表示だけを`token`不一致で破棄する)。
+- **修正の効果を手動で実証**: 一時的に両箇所の`&& prev.token === token`を`sed`で除去し(=redo#2のバグを再現)、新規追加した再発防止テストがその状態で実際に失敗する(`expected '1/3手' to contain '2/3手'`、フィードバック記載の症状そのもの)ことを確認したうえで、バックアップから元の修正済みコードに復元(`diff`でバイト単位一致を確認)した。
+- **再発防止テスト追加**(`PracticeMode.flow.test.tsx`): 「決定局面2」(`DECISION_BOARD_2`/`DECISION_SIDE_2`)を、決定局面1で1手目の悪手`g6`を打った直後の局面から、プロダクションコードと同じ`pickOpponentMove(neutralMoves, 'best')`・`resolveNextSideOrFallback`を使って決定的にシミュレートして構築(`Array.sort`の安定性により相手の応手が一意に定まることを利用)。2手目用の決定局面として、1手目とは異なる損失値(10石、1手目は6石)を持つ`decisionMoves2`モックを追加し、パネルの取り違えを検知しやすくした。テスト「T200 redo#2(重大指摘の再発防止): 連続悪手でN手目の未解決な非同期結果がN+1手目のpendingCompareに混入しない」を追加し、(a)1手目悪手→生成中に続ける→相手応手→2手目も悪手→2手目のパネルが`2/3手`・損失10石を表示 (b)1手目の`requestFeatureSet`(`featureDelayMs`=1500msで遅延)が解決する時間まで待っても、2手目のパネルが`2/3手`・損失10石のまま(混入していない)ことを確認 (c)続けるで2手目の着手が保持されたまま3手目まで完走し、結果画面の損失一覧に1手目(g6、ロス6石)・2手目(`DECISION_BAD_MOVE_2`、ロス10石)の両方が正しく記録されていることを確認する。
+- **検証コマンド**:
+  - `cd app && npx tsc -b` → エラーなし。
+  - `cd app && npx vitest run` → 103ファイル / 875件 全件パス(新規1件含む)。
+  - `cd app && npm run build` → 成功。
+- **コミット**: `87bc492`(`app: T200 redo#2対応 — 連続悪手でのpendingCompare誤マージを解消(T200)`)。変更対象2ファイル(`PracticeMode.tsx`/`.flow.test.tsx`)のみパス指定でadd。無関係な変更は含めていない(フィードバックの「修正は指摘された機構の解消に絞り、無関係な変更を混ぜないこと」の指示どおり)。
+- **push・Actions**: `git push origin main` → GitHub Actions「Deploy to GitHub Pages」成功(`gh run watch`、run 29975626583)。
+- **Pages実機確認(連続悪手シナリオ)**: 本番URLに対してPlaywright(chromium)で、3手とも「評価値が最も低い手」を選んで打ち、悪手パネルが出るたびに(生成中でも)ただちに「続ける」を押す、という連続悪手に近い操作を行った。各手クリック直後の`.midgame-practice__round`表示が`1/3手`→`2/3手`→`3/3手`と単調に前進し(巻き戻りなし)、最終的に結果画面の損失一覧に3手すべて(g5/b2/c2、各ロス12・23・8石)が欠落・重複なく記録されていることを確認した(スクリーンショット`pages-redo2-final-longwait.png`)。本番engineは実行時間を制御できないため、ユニットテストのように狙った通りの正確なレース窓を実機で再現することはできないが、連続悪手操作でセッション状態が壊れないことは実機でも確認できた。
+- **仕様どおりにできなかった点・判断に迷った点**: なし。修正はフィードバックで指摘された機構(`token`によるpendingCompareマージガード)の追加に絞り、無関係なリファクタリングは行っていない。
