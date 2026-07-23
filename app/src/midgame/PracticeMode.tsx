@@ -163,6 +163,17 @@ interface ResultInfo {
 interface PendingBlunderCompare {
   /** この比較がどのセッション世代のものか(離脱後の古い結果適用を防ぐ、既存の世代ガードと同じ考え方)。 */
   readonly generation: number
+  /**
+   * T200 redo#2: この`pendingCompare`インスタンス固有のトークン(`pendingCompareTokenRef`から
+   * 発行される単調増加値)。`generation`はステージ挑戦単位でしか変わらないため、
+   * 同一ステージ内でN手目・N+1手目と連続で悪手を打つと両方とも同じ`generation`になる。
+   * N手目の非同期結果(`loadTwoPlyCompare`/`detectPatternsForPendingCompare`)が
+   * N+1手目の`pendingCompare`が既に存在している間に解決すると、`generation`だけの
+   * 一致判定では素通りして誤ってマージされてしまう(N+1手目の`nextSession`がN手目の
+   * ものに巻き戻る事故、redo#2指摘)。`pendingCompare`ごとに一意な`token`も併せて
+   * 一致条件に加えることで、この誤マージを防ぐ。
+   */
+  readonly token: number
   readonly preMoveBoard: BoardState
   readonly preMoveSide: Side
   readonly playedSquare: number
@@ -294,6 +305,17 @@ export function PracticeMode() {
    * `await`から戻った際に一致するか確認してから結果確定・記録を行う。
    */
   const sessionGenerationRef = useRef(0)
+
+  /**
+   * T200 redo#2: `pendingCompare`インスタンス固有のトークン発行カウンタ。
+   * 悪手を検出して新しい`pendingCompare`を作るたびにインクリメントし、その値を
+   * `PendingBlunderCompare.token`として持たせる。`sessionGenerationRef`(ステージ
+   * 挑戦単位)とは粒度が異なり、同一ステージ内の連続した悪手それぞれを区別する
+   * ために使う(`PendingBlunderCompare`docコメント参照)。ステージをまたいでも
+   * リセットする必要はない(単調増加であれば、どのステージのどの手のものかを
+   * 一意に区別できれば十分なため)。
+   */
+  const pendingCompareTokenRef = useRef(0)
 
   function getEngine(): EngineClient {
     return getSharedEngineClient()
@@ -648,8 +670,14 @@ export function PracticeMode() {
       // (ローディング表示)で先に`setPendingCompare`し、完了ししだい該当フィールド
       // だけを更新する。
       if (isBlunder) {
+        // T200 redo#2(重大指摘対応): この`pendingCompare`インスタンス固有のトークンを
+        // 発行する(`pendingCompareTokenRef`docコメント参照)。同一ステージ内で連続して
+        // 悪手を打つと`generation`だけでは前の手の非同期結果と区別できないため。
+        pendingCompareTokenRef.current += 1
+        const token = pendingCompareTokenRef.current
         setPendingCompare({
           generation,
+          token,
           preMoveBoard: s.board,
           preMoveSide: s.sideToMove,
           playedSquare: square,
@@ -663,7 +691,12 @@ export function PracticeMode() {
           originalMoves: allMoves,
         })
         void loadTwoPlyCompare(generation, s.board, s.sideToMove, square, bestSquare, (result) => {
-          setPendingCompare((prev) => (prev && prev.generation === generation ? { ...prev, compare: result } : prev))
+          // T200 redo#2: `generation`(ステージ挑戦単位)だけでなく`token`(この手固有)も
+          // 一致する場合のみ反映する。連続悪手でN手目の結果がN+1手目の`pendingCompare`に
+          // 誤ってマージされるのを防ぐ。
+          setPendingCompare((prev) =>
+            prev && prev.generation === generation && prev.token === token ? { ...prev, compare: result } : prev,
+          )
         })
         // T200 redo#1(重大指摘対応): 明確な悪化パターン検出(`requestFeatureSet`×2)を
         // `handlePlayerMove`から完全に切り離した非同期処理(`detectPatternsForPendingCompare`)
@@ -672,9 +705,10 @@ export function PracticeMode() {
         // ユーザーが生成中に「続ける」を押して盤面へ戻っても、このawaitが解決するまで
         // `analyzing`が固着し、次の一手クリックが冒頭ガード(`analyzing`)で黙って
         // 無視される無反応ウィンドウが生じていた(「無反応の解消」という本タスクの
-        // 目的と正反対の退行、redoフィードバック参照)。
+        // 目的と正反対の退行、redo#1フィードバック参照)。
         void detectPatternsForPendingCompare(
           generation,
+          token,
           s,
           square,
           bestSquare,
@@ -756,15 +790,23 @@ export function PracticeMode() {
    * 非同期処理として`void`で起動されるため(`handlePlayerMove`自体の`analyzing`固着を
    * 防ぐため、上の呼び出し元コメント参照)、この関数の中で例外を握りつぶさず外へ
    * 投げると未処理のPromise拒否になってしまう。既存のロジック(検出条件・世代ガード・
-   * エラー時`null`扱い)は移設前と完全に同じにしてある。
+   * エラー時`null`扱い、`recordPatternFailuresNow`の無条件実行)は移設前と完全に同じ
+   * にしてある(T200 redo#2でも統計記録の条件は変更しない)。
    *
-   * 結果は`setPendingCompare`の関数型更新(世代ガード付き)で反映する。「続ける」が
-   * 既に押されて`pendingCompare`が破棄済み(またはnullを返す=世代不一致)の場合は
-   * 何もしない(「続ける」を押した以上、比較・パターン表示は不要というユーザーの
-   * 意思のため許容する、要件1)。
+   * 結果は`setPendingCompare`の関数型更新で反映する。T200 redo#2(重大指摘対応):
+   * `generation`(ステージ挑戦単位)に加えて`token`(この`pendingCompare`インスタンス
+   * 固有、`pendingCompareTokenRef`参照)も一致する場合のみ反映する。同一ステージ内で
+   * 連続して悪手を打つと(N手目→生成中に「続ける」→N+1手目も悪手)、N手目のこの関数の
+   * 結果がN+1手目の`pendingCompare`表示中に解決しうるが、`generation`だけでは
+   * 両者を区別できず、N手目の(N+1手目の着手を含まない)`nextSession`でN+1手目の
+   * `pendingCompare`を上書きし、「続ける」を押すとセッションがN手目直後まで
+   * 巻き戻ってしまっていた(redo#2指摘)。「続ける」が既に押されて`pendingCompare`が
+   * 破棄済み、または後続の手で別の`pendingCompare`に差し替わっている場合は
+   * 何もしない(表示だけを破棄し、統計記録は上記のとおり無条件で行う)。
    */
   async function detectPatternsForPendingCompare(
     generation: number,
+    token: number,
     s: SessionState,
     square: number,
     bestSquare: number,
@@ -802,7 +844,9 @@ export function PracticeMode() {
     if (sessionGenerationRef.current !== generation) return
     const nextSession = buildNextSession(clearBlunderPatterns)
     setPendingCompare((prev) =>
-      prev && prev.generation === generation ? { ...prev, patterns: clearBlunderPatterns, nextSession } : prev,
+      prev && prev.generation === generation && prev.token === token
+        ? { ...prev, patterns: clearBlunderPatterns, nextSession }
+        : prev,
     )
   }
 
