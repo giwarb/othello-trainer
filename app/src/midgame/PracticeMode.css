@@ -521,19 +521,24 @@
   }
 
   /* 結果画面: 2手先2盤面比較(`TwoPlyCompare`、T195で`ClearBlunderCompare`から
-     置き換え)が表示される場合、盤2枚(左)+★・損失一覧・操作ボタン(右)の
-     レイアウトにする。T141: 表示条件は★1〜3(クリア)でも損失1石以上の手が
-     あれば成立するため、旧`--fail`限定から`.midgame-result`全体(★0の`--fail`・
-     ★1以上の`--clear`共通)に対象を広げてある。`TwoPlyCompare`のルート要素を
-     `display: contents`で透過にすることで、内部の`.two-ply-compare__boards`
-     (盤2枚)・`.two-ply-compare__messages`(言語化文)を、コンポーネントの境界を
-     変えずに`.midgame-result`の直接のgridアイテムとして扱えるようにする
-     (JSX変更不要)。
+     置き換え)が表示される場合、★・損失一覧・操作ボタン(右)のレイアウトにする。
+     T141: 表示条件は★1〜3(クリア)でも損失1石以上の手があれば成立するため、
+     旧`--fail`限定から`.midgame-result`全体(★0の`--fail`・★1以上の`--clear`
+     共通)に対象を広げてある。`TwoPlyCompare`のルート要素を`display: contents`
+     で透過にすることで、内部要素を、コンポーネントの境界を変えずに
+     `.midgame-result`の直接のgridアイテムとして扱えるようにする(JSX変更不要)。
      T136追加要件2(T135代替レビュー指摘): `max-height: 100dvh`はスティッキー
      ヘッダ(`.app-header`、この幅高さでは約40px)の高さを考慮しておらず、
      実際にはヘッダぶんだけ画面下端がはみ出しうる。
      `calc(100dvh - var(--app-header-height))`に揃える(T137追加要件2:
-     マジックナンバーをトークン化)。 */
+     マジックナンバーをトークン化)。
+     T200 redo#1軽微指摘: 以前ここに`.two-ply-compare__boards`(盤2枚を左カラムへ
+     固定配置する意図のルール)があったが、T198で`TwoPlyCompare`の内部構造が
+     `.two-ply-compare__original`+`.two-ply-compare__columns`(元局面1+下段2列の
+     5盤面)に変わって以降、存在しないクラス名を参照したまま何の効果も持たない
+     死んだセレクタになっていた。削除した(スマホ横置きの結果画面では、盤面群は
+     現状h2/p等と同じ暗黙のgridフローに乗る。左カラム固定は本タスクのスコープ外
+     のため作業ログで別タスク化を推奨するに留める)。 */
   .midgame-result:has(.two-ply-compare) {
     display: grid;
     grid-template-columns: minmax(0, auto) minmax(0, 1fr);
@@ -559,17 +564,6 @@
 
   .midgame-result:has(.two-ply-compare) .two-ply-compare {
     display: contents;
-  }
-
-  .midgame-result:has(.two-ply-compare) .two-ply-compare__boards {
-    grid-column: 1;
-    /* T133 redo: 過大な`span`値の危険性は上の`.midgame-practice > .board-container`
-       コメント参照。右カラムの実項目数(見出し・★表示・評価値要約・損失一覧・
-       言語化文・操作ボタン、多くても8程度)を軽く超える値にとどめる。 */
-    grid-row: 1 / span 12;
-    align-self: start;
-    width: auto;
-    max-width: none;
   }
 
   .midgame-result:has(.two-ply-compare) .two-ply-compare__messages {

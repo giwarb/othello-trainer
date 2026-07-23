@@ -159,6 +159,16 @@ const FEATURE_OVERRIDES_BY_MOVE: Record<string, Partial<FeatureSetJson>> = {
  */
 let branchDelayMs = 0
 
+/**
+ * T200 redo#1: 明確な悪化パターン検出(`requestFeatureSet`)の応答を意図的に
+ * 遅延させるためのスイッチ(既定0=遅延なし、既存テストの挙動を変えない)。
+ * 「生成中に『続ける』を押した直後でも次の一手がanalyzingフラグの固着で
+ * 無視されない」再発防止テストだけがこれを使う(`detectPatternsForPendingCompare`が
+ * `handlePlayerMove`から完全に切り離されているかを検証するため、意図的に
+ * 長く未解決のままにする)。
+ */
+let featureDelayMs = 0
+
 vi.mock('../engine/sharedClient.ts', () => ({
   getSharedEngineClient: () => ({
     requestAnalyzeAll: (board: Board, side: Side): Promise<MoveEvalJson[]> => {
@@ -168,8 +178,17 @@ vi.mock('../engine/sharedClient.ts', () => ({
       }
       return Promise.resolve(neutralMoves(board, side))
     },
-    requestFeatureSet: (_board: Board, _side: Side, move: string): Promise<FeatureSetResponseMessage> =>
-      Promise.resolve({ id: 0, final: true, features: neutralFeatures(FEATURE_OVERRIDES_BY_MOVE[move]) }),
+    requestFeatureSet: (_board: Board, _side: Side, move: string): Promise<FeatureSetResponseMessage> => {
+      const response: FeatureSetResponseMessage = {
+        id: 0,
+        final: true,
+        features: neutralFeatures(FEATURE_OVERRIDES_BY_MOVE[move]),
+      }
+      if (featureDelayMs > 0) {
+        return new Promise((resolve) => setTimeout(() => resolve(response), featureDelayMs))
+      }
+      return Promise.resolve(response)
+    },
     requestAnalyze: () => Promise.reject(new Error('T141フローテストでは使用しない')),
     requestEvalTerms: () => Promise.reject(new Error('T141フローテストでは使用しない')),
     terminate: () => {},
@@ -204,6 +223,7 @@ describe('T141: 中盤練習ステージクリア型のプレイフロー', () =
     stagePoolOverride = null
     decisionBestDiscDiff = 6
     branchDelayMs = 0
+    featureDelayMs = 0
     container = document.createElement('div')
     document.body.appendChild(container)
   })
@@ -393,6 +413,72 @@ describe('T141: 中盤練習ステージクリア型のプレイフロー', () =
       await flushAsyncEffects(20, 80)
       expect(container.querySelector('.two-ply-compare')).not.toBeNull()
       expect(container.textContent).not.toContain('解説を生成中…')
+    },
+    15000,
+  )
+
+  it(
+    'T200 redo#1(重大指摘の再発防止): 生成中に「続ける」を押した直後でも、次の一手がanalyzingフラグの固着で無視されない',
+    async () => {
+      // 明確な悪化パターン検出(`requestFeatureSet`)の応答を長く未解決のままにする。
+      // これが`handlePlayerMove`と同じtryブロックに残っていた(redo#1指摘)場合、
+      // このPromiseが解決するまで`analyzing`が固着し、後続の一手クリックが
+      // 冒頭ガードで黙って無視されるはず(=このテストがその回帰を検知する)。
+      featureDelayMs = 1500
+
+      const decisionLine: RawJosekiLine = {
+        name: 'テスト用決定局面ライン(T200 redo#1)',
+        aliases: [],
+        moves: DECISION_SEQ,
+        firstMoveBasis: DECISION_SEQ[0]!,
+        depth: DECISION_SEQ.length,
+      }
+      const { buildMidgameStagePool } = await import('./stagePool.ts')
+      stagePoolOverride = buildMidgameStagePool(buildJosekiDb([decisionLine]))
+
+      const { PracticeMode } = await import('./PracticeMode.tsx')
+      await act(async () => {
+        render(<PracticeMode />, container)
+      })
+      await flushAsyncEffects()
+
+      const stageCell = container.querySelector<HTMLButtonElement>('.midgame-stage-grid__cell')
+      expect(stageCell).not.toBeNull()
+      await act(async () => {
+        stageCell?.click()
+      })
+      await flushAsyncEffects()
+      expect(container.querySelector('.midgame-practice')).not.toBeNull()
+
+      // 1手目: 悪手(g6、損失6石)を打つ。
+      await act(async () => clickMove(container, 'g6'))
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 60))
+      })
+      expect(container.querySelector('.midgame-practice__blunder-compare')).not.toBeNull()
+
+      // 生成中(パターン検出がまだ未解決)のうちに「続ける」を押す。
+      const continueButton = Array.from(container.querySelectorAll<HTMLButtonElement>('button')).find(
+        (btn) => btn.textContent === '続ける',
+      )
+      expect(continueButton).toBeDefined()
+      await act(async () => {
+        continueButton?.click()
+      })
+
+      // 相手の自動応手(`OPPONENT_MOVE_DELAY_MS`=350ms)が終わり、人間の手番に
+      // 戻るまで待つ(`featureDelayMs`=1500msより十分短い)。
+      await flushAsyncEffects(10, 60)
+      const moveButton = container.querySelector<HTMLButtonElement>('[data-testid^="move-"]')
+      expect(moveButton).not.toBeNull()
+
+      // 2手目をただちに打つ(この時点でパターン検出のPromiseはまだ未解決のはず)。
+      await act(async () => clickFirstMove(container))
+      await flushAsyncEffects(5, 60)
+
+      // 2手目が実際に反映されている(黙って無視されていない)ことを確認する。
+      const roundText = container.querySelector('.midgame-practice__round')?.textContent ?? ''
+      expect(roundText).toContain('2/3手')
     },
     15000,
   )

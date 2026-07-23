@@ -665,6 +665,25 @@ export function PracticeMode() {
         void loadTwoPlyCompare(generation, s.board, s.sideToMove, square, bestSquare, (result) => {
           setPendingCompare((prev) => (prev && prev.generation === generation ? { ...prev, compare: result } : prev))
         })
+        // T200 redo#1(重大指摘対応): 明確な悪化パターン検出(`requestFeatureSet`×2)を
+        // `handlePlayerMove`から完全に切り離した非同期処理(`detectPatternsForPendingCompare`)
+        // として起動し、ここで`handlePlayerMove`自体を直ちに終える(下の`finally`で
+        // `analyzing`を解除する)。以前はこのawaitが同じtryブロック内に残ったままだったため、
+        // ユーザーが生成中に「続ける」を押して盤面へ戻っても、このawaitが解決するまで
+        // `analyzing`が固着し、次の一手クリックが冒頭ガード(`analyzing`)で黙って
+        // 無視される無反応ウィンドウが生じていた(「無反応の解消」という本タスクの
+        // 目的と正反対の退行、redoフィードバック参照)。
+        void detectPatternsForPendingCompare(
+          generation,
+          s,
+          square,
+          bestSquare,
+          playedNotation,
+          best.move,
+          lossDiscs,
+          buildNextSession,
+        )
+        return
       }
 
       let clearBlunderPatterns: readonly ClearBlunderPattern[] | null = null
@@ -695,18 +714,6 @@ export function PracticeMode() {
       }
 
       const nextSession = buildNextSession(clearBlunderPatterns)
-
-      if (isBlunder) {
-        // T200: 「続ける」が既に押されていた場合(`pendingCompare`がnull化/世代不一致)は
-        // ここでの更新を諦める(パターン検出前のプレースホルダーのまま確定した
-        // セッションはそのままにする。「続ける」を押した以上、比較・パターン表示は
-        // 不要というユーザーの意思のため許容する、要件1)。
-        setPendingCompare((prev) =>
-          prev && prev.generation === generation ? { ...prev, patterns: clearBlunderPatterns, nextSession } : prev,
-        )
-        return
-      }
-
       setSession(nextSession)
       await checkSessionEnd(board, nextSide, nextSession, generation)
     } catch (error) {
@@ -741,6 +748,62 @@ export function PracticeMode() {
     } catch (error) {
       console.error('2手先2盤面比較の計算に失敗しました', error)
     }
+  }
+
+  /**
+   * T200 redo#1: 悪手検出直後、`pendingCompare`表示済みの状態で明確な悪化パターン検出
+   * (`requestFeatureSet`×2、要件8)を行う。`handlePlayerMove`から完全に切り離した
+   * 非同期処理として`void`で起動されるため(`handlePlayerMove`自体の`analyzing`固着を
+   * 防ぐため、上の呼び出し元コメント参照)、この関数の中で例外を握りつぶさず外へ
+   * 投げると未処理のPromise拒否になってしまう。既存のロジック(検出条件・世代ガード・
+   * エラー時`null`扱い)は移設前と完全に同じにしてある。
+   *
+   * 結果は`setPendingCompare`の関数型更新(世代ガード付き)で反映する。「続ける」が
+   * 既に押されて`pendingCompare`が破棄済み(またはnullを返す=世代不一致)の場合は
+   * 何もしない(「続ける」を押した以上、比較・パターン表示は不要というユーザーの
+   * 意思のため許容する、要件1)。
+   */
+  async function detectPatternsForPendingCompare(
+    generation: number,
+    s: SessionState,
+    square: number,
+    bestSquare: number,
+    playedNotation: string,
+    bestMoveNotation: string,
+    lossDiscs: number,
+    buildNextSession: (patterns: readonly ClearBlunderPattern[] | null) => SessionState,
+  ): Promise<void> {
+    let clearBlunderPatterns: readonly ClearBlunderPattern[] | null = null
+    if (lossDiscs >= PATTERN_DETECTION_LOSS_THRESHOLD) {
+      try {
+        const [playedFeatureResp, bestFeatureResp] = await Promise.all([
+          getEngine().requestFeatureSet(s.board, s.sideToMove, playedNotation),
+          getEngine().requestFeatureSet(s.board, s.sideToMove, bestMoveNotation),
+        ])
+        if (sessionGenerationRef.current !== generation) return
+        const clearBlunderInput = {
+          preMoveBoard: s.board,
+          preMoveSide: s.sideToMove,
+          playedSquare: square,
+          bestSquare,
+          playedFeatures: playedFeatureResp.features,
+          bestFeatures: bestFeatureResp.features,
+        }
+        clearBlunderPatterns = detectClearBlunderPatterns(clearBlunderInput)
+        // 要件8: 表示は`clearBlunderPatterns`(最大2件)、統計には検出全件のIDを使う(T129と同じ方針)。
+        const allDetectedPatternIds = detectAllClearBlunderPatterns(clearBlunderInput).map((p) => p.id)
+        recordPatternFailuresNow(allDetectedPatternIds)
+      } catch (error) {
+        console.error('明確な悪化パターン判定用の特徴量取得に失敗しました', error)
+        clearBlunderPatterns = null
+      }
+    }
+
+    if (sessionGenerationRef.current !== generation) return
+    const nextSession = buildNextSession(clearBlunderPatterns)
+    setPendingCompare((prev) =>
+      prev && prev.generation === generation ? { ...prev, patterns: clearBlunderPatterns, nextSession } : prev,
+    )
   }
 
   /** T195: 悪手直後の2手先2盤面比較を閉じ、保留していた相手の自動応手・セッション継続判定を再開する。 */
