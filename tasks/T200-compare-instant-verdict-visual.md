@@ -1,7 +1,7 @@
 ---
 id: T200
 title: 悪手比較の即時「悪手です」表示+ローディング+全体ビジュアル改善
-status: todo
+status: review
 assignee: implementer
 attempts: 0
 ---
@@ -54,3 +54,23 @@ attempts: 0
 (なし)
 
 ## 作業ログ(担当エージェントが追記)
+
+### 2026-07-23 implementer
+
+- **調査**: `TwoPlyCompare.tsx`/`.css`、`PracticeMode.tsx`/`.css`、`BlunderPanel.tsx`/`.css`、関連テストを確認。GitHub Pages本番(T199適用後)をPlaywrightで操作し、悪手を実際に打って現状の見た目("最善ではありません(最善より約X石損)"+プレーンテキストの"比較を計算しています…"、ローディング表示が弱い)と、5盤面レイアウトのDOM座標(`page.evaluate`でboundingRect計測)を確認した。数式上は各要素とも同じcenterXに揃っていたが、コンテナに`max-width`が無く`main`のフル幅(デスクトップで1216px)に対して260px幅のカラム群がぽつんと浮く配置になっており、これが「変なセンタリング」に見える主因と判断した。
+- **実装(即時表示、要件1・2)**:
+  - `TwoPlyCompare.tsx`に`TwoPlyCompareLoading`(スピナー+「解説を生成中…」)をexportし、`PracticeMode.tsx`・`BlunderPanel.tsx`の両方から共通利用する形に統一。
+  - `PracticeMode.tsx`の`handlePlayerMove`: 悪手判定(`lossDiscs`/`isBest`)が確定した直後、明確な悪化パターン検出(`requestFeatureSet`×2)・2手先比較計算(`loadTwoPlyCompare`)の完了を待たずに`setPendingCompare`するよう並び替えた(`patterns`/`compare`とも`null`から開始し、それぞれ完了時に関数型更新で差し替え)。バナー文言を仕様どおり「悪手です(最善より約L石損)」に変更。ローディング中も「続ける」ボタン(`handleContinueAfterCompare`呼び出し)を表示し、生成中でも押せるようにした。
+  - `BlunderPanel.tsx`: 「2手先比較」セクションで`moveAnalysis.lossDiscs`から即時に損失1行(`formatTwoPlyCompareLossMessage`)を表示し、`TwoPlyCompareLoading`を差し込んだ。
+- **実装(ビジュアル改善、要件3)**:
+  - `TwoPlyCompare.css`: ルート`.two-ply-compare`に`max-width: var(--board-size-lg)`(640px)+`margin:0 auto`を追加してコンテナ幅を適正化。5枚全ての`.two-ply-compare__board-col`をカード化(背景・枠線・角丸・影)。列見出し(`.two-ply-compare__column-heading`、TSX側で追加)を「実際に打った手」=警告色チップ・「最善手」=成功色チップで色分け(`color-mix()`でライト/ダーク両対応)。ローディング用スピナー(`.two-ply-compare__spinner`、`PlayerBadge.css`と同じborder方式)を追加。モバイル(≤400px)・横置きの既存メディアクエリにもカード padding調整を追加。
+  - `PracticeMode.css`: `.midgame-practice__blunder-heading`をバナー風(警告色チップ+太字+大きめ文字)に強化。
+- **テスト**: `PracticeMode.flow.test.tsx`に「悪手検出直後(比較計算の完了前)に『悪手です』バナーと生成中表示が出て、完了後に5盤面へ差し替わる」テストを追加(`branchDelayMs`スイッチで2手先比較用`requestAnalyzeAll`だけを遅延させ、判定用の初回呼び出しは即時のままにすることで中間状態を再現)。`BlunderPanel.test.tsx`にも同様のテスト(`makeDelayedFakeEngine`)を追加。
+- **検証コマンド**:
+  - `cd app && npx tsc -b` → エラーなし。
+  - `cd app && npx vitest run` → 103ファイル / 873件 全件パス(新規2件含む)。
+  - `cd app && npm run build` → 成功(wasm再ビルド込み)。
+- **実機確認(3状態×デスクトップ/モバイル)**: `npm run preview`のローカルビルドとPlaywright(chromium、`node`スクリプトをscratchpadに作成)で、(a)中盤練習: 悪手を打った瞬間に「悪手です」バナー+「解説を生成中…」が出て(`.two-ply-compare`未描画を確認)、数秒後に5盤面へ差し替わる (b)元局面パネルが列カード群の中央に整列し、各パネルがカード化・列見出しで色分けされている (c)棋譜解析(BlunderPanel、`盤面で並べる`タブで実局面を入力→解析→悪手クリック)でも同じローディング表現(損失1行+スピナー)が即時に出て5盤面に差し替わる (d)モバイル幅(390px)で崩れ・横スクロールなし、をそれぞれスクリーンショットで確認(スクリーンショットはscratchpadに保存、リポジトリには含めない)。「続ける」を生成中に押すと比較をスキップしてただちに次の手番へ進むことも確認。
+  - コミット後、`git push origin main` → GitHub Actions「Deploy to GitHub Pages」成功(`gh run watch`で確認、run 29973696413)を確認した上で、本番URL(`https://giwarb.github.io/othello-trainer/`)に対して同じPlaywright検証(中盤練習のローディング→5盤面差し替え、デスクトップ/モバイル、「続ける」の生成中クリック)を再実行し、全て期待どおりであることを確認した。
+- **コミット**: `a723dec`(`app: 悪手比較の即時表示+ローディング+見た目全面改善(T200)`)。変更対象8ファイルのみをパス指定でadd。
+- **仕様どおりにできなかった点・判断に迷った点**: なし。ただし気づいた点として、`PracticeMode.css`の横置き(landscape、`orientation:landscape and max-height:520px`)メディアクエリ内に`.midgame-result:has(.two-ply-compare) .two-ply-compare__boards`という、T198で構造が`.two-ply-compare__original`/`.two-ply-compare__columns`に変わって以降マッチしなくなっている(存在しないクラス名を参照した)死んだセレクタが残っていた。本タスクのスコープ外(構成変更ではなく、T198由来の既存の取りこぼし)のため修正していない。スマホ横置きの結果画面レイアウトに影響しうるため、別タスクでの確認・修正を推奨する。
