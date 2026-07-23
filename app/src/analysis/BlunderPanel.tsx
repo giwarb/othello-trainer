@@ -16,8 +16,8 @@ import {
   type Side,
 } from '../game/othello.ts'
 import { resolveMover } from '../midgame/resolveMover.ts'
-import { TwoPlyCompare } from '../midgame/TwoPlyCompare.tsx'
-import { computeTwoPlyCompare, type TwoPlyCompareResult } from '../midgame/twoPlyCompare.ts'
+import { TwoPlyCompare, TwoPlyCompareLoading } from '../midgame/TwoPlyCompare.tsx'
+import { computeTwoPlyCompare, formatTwoPlyCompareLossMessage, type TwoPlyCompareResult } from '../midgame/twoPlyCompare.ts'
 import { loadMoveEvalOverlayEnabled, saveMoveEvalOverlayEnabled } from '../settings/moveEvalOverlaySettings.ts'
 import { judgePuzzleMove } from '../tsume/judgePuzzleMove.ts'
 import type { Puzzle } from '../tsume/types.ts'
@@ -598,7 +598,16 @@ export function BlunderPanel({ moveAnalysis, gameMoves, engine, onClose }: Blund
         <section class="blunder-panel__section">
           <h3>2手先比較</h3>
           {twoPlyCompareError && <p class="notice notice--error">{twoPlyCompareError}</p>}
-          {!twoPlyCompare && !twoPlyCompareError && <p class="notice">比較を計算しています…</p>}
+          {/* T200要件2: 損失は`moveAnalysis.lossDiscs`として最初から確定しているため、
+              比較計算(`computeTwoPlyCompare`)の完了を待たずただちに表示し、
+              中盤練習の即時フィードバックと同じローディング表現(`TwoPlyCompareLoading`)
+              に統一する。 */}
+          {!twoPlyCompare && !twoPlyCompareError && (
+            <>
+              <p class="notice blunder-panel__loss-line">{formatTwoPlyCompareLossMessage(moveAnalysis.lossDiscs)}</p>
+              <TwoPlyCompareLoading />
+            </>
+          )}
           {twoPlyCompare && (
             <TwoPlyCompare
               mover={moveAnalysis.side}

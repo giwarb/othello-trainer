@@ -148,10 +148,24 @@ const FEATURE_OVERRIDES_BY_MOVE: Record<string, Partial<FeatureSetJson>> = {
   b1: { moverMobilityAfter: 6 },
 }
 
+/**
+ * T200: 決定局面**以外**(=2手先2盤面比較の`computeTwoPlyBranch`が着手後の
+ * 盤面に対して呼ぶ`requestAnalyzeAll`)の応答を意図的に遅延させるための
+ * スイッチ(既定0=遅延なし、既存テストの挙動を変えない)。「悪手検出直後
+ * (計算完了前)に『悪手です』バナーが出る」テストだけがこれを使い、
+ * 判定用の初回`requestAnalyzeAll`(決定局面向け、`isDecisionBoard`で分岐)は
+ * 遅延させずに済ませることで、「損失は確定済みだが比較はまだ計算中」という
+ * 状態を意図的に作り出す。
+ */
+let branchDelayMs = 0
+
 vi.mock('../engine/sharedClient.ts', () => ({
   getSharedEngineClient: () => ({
     requestAnalyzeAll: (board: Board, side: Side): Promise<MoveEvalJson[]> => {
       if (isDecisionBoard(board, side)) return Promise.resolve(decisionMoves(board, side))
+      if (branchDelayMs > 0) {
+        return new Promise((resolve) => setTimeout(() => resolve(neutralMoves(board, side)), branchDelayMs))
+      }
       return Promise.resolve(neutralMoves(board, side))
     },
     requestFeatureSet: (_board: Board, _side: Side, move: string): Promise<FeatureSetResponseMessage> =>
@@ -189,6 +203,7 @@ describe('T141: 中盤練習ステージクリア型のプレイフロー', () =
     localStorage.clear()
     stagePoolOverride = null
     decisionBestDiscDiff = 6
+    branchDelayMs = 0
     container = document.createElement('div')
     document.body.appendChild(container)
   })
@@ -312,6 +327,72 @@ describe('T141: 中盤練習ステージクリア型のプレイフロー', () =
       await flushAsyncEffects()
       expect(container.querySelector('.two-ply-compare')).not.toBeNull()
       expect(container.textContent).toContain('実際に打った手')
+    },
+    15000,
+  )
+
+  it(
+    'T200: 悪手検出直後(比較計算の完了前)に「悪手です」バナーと生成中表示が出て、完了後に5盤面へ差し替わる',
+    async () => {
+      // 2手先2盤面比較(`computeTwoPlyBranch`)が着手後の盤面に投げる
+      // `requestAnalyzeAll`だけを意図的に遅延させる(判定用の初回呼び出しは
+      // 決定局面向けで遅延しない、`branchDelayMs`のコメント参照)。
+      branchDelayMs = 400
+
+      const decisionLine: RawJosekiLine = {
+        name: 'テスト用決定局面ライン(T200)',
+        aliases: [],
+        moves: DECISION_SEQ,
+        firstMoveBasis: DECISION_SEQ[0]!,
+        depth: DECISION_SEQ.length,
+      }
+      const { buildMidgameStagePool } = await import('./stagePool.ts')
+      stagePoolOverride = buildMidgameStagePool(buildJosekiDb([decisionLine]))
+
+      const { PracticeMode } = await import('./PracticeMode.tsx')
+      await act(async () => {
+        render(<PracticeMode />, container)
+      })
+      await flushAsyncEffects()
+
+      const stageCell = container.querySelector<HTMLButtonElement>('.midgame-stage-grid__cell')
+      expect(stageCell).not.toBeNull()
+      await act(async () => {
+        stageCell?.click()
+      })
+      await flushAsyncEffects()
+      expect(container.querySelector('.midgame-practice')).not.toBeNull()
+
+      // 1手目: あえて最善(b1)ではないg6を打つ(損失6石=既定の発火閾値ちょうど)。
+      await act(async () => clickMove(container, 'g6'))
+      // `branchDelayMs`(400ms)より十分短い時間だけ待つ: 判定用の初回
+      // `requestAnalyzeAll`(遅延なし)は既に解決しているはずだが、
+      // 2手先2盤面比較の計算(遅延あり)はまだ終わっていないはず。
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 60))
+      })
+
+      // 悪手検出直後、比較計算の完了を待たずにパネル自体と「悪手です」バナーが
+      // 出ている(損失は検出時点で確定済みのため即表示、要件1)。
+      expect(container.querySelector('.midgame-practice__blunder-compare')).not.toBeNull()
+      expect(container.textContent).toContain('悪手です')
+      expect(container.textContent).toContain('最善より約6石損')
+      // 5盤面比較(`TwoPlyCompare`本体)はまだ計算中で描画されていない。
+      expect(container.querySelector('.two-ply-compare')).toBeNull()
+      // その間も「解説を生成中…」のローディング表示が出ている(要件1・2)。
+      expect(container.textContent).toContain('解説を生成中…')
+      // 「続ける」ボタンは生成中でも押せる(要件1)。
+      const continueButtonWhileLoading = Array.from(container.querySelectorAll<HTMLButtonElement>('button')).find(
+        (btn) => btn.textContent === '続ける',
+      )
+      expect(continueButtonWhileLoading).toBeDefined()
+
+      // 比較計算が完了するまで待つと、5盤面比較に差し替わる。
+      // (`computeTwoPlyBranch`は1系列あたり最大2回まで逐次`requestAnalyzeAll`を
+      // 呼ぶため、`branchDelayMs`ぶんの遅延が最大2回連続しうる。余裕を見て待つ。)
+      await flushAsyncEffects(20, 80)
+      expect(container.querySelector('.two-ply-compare')).not.toBeNull()
+      expect(container.textContent).not.toContain('解説を生成中…')
     },
     15000,
   )

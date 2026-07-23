@@ -54,6 +54,12 @@
   font-size: 0.95rem;
 }
 
+/* T200要件2: 比較計算の完了前でも即時表示する損失1行(`formatTwoPlyCompareLossMessage`)。
+   `.notice`の警告色をそのまま使い、太字にして目立たせる。 */
+.blunder-panel__loss-line {
+  font-weight: bold;
+}
+
 .blunder-panel__board {
   width: 100%;
   max-width: var(--board-size-sm);

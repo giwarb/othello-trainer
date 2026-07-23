@@ -394,11 +394,32 @@
   box-sizing: border-box;
 }
 
+/*
+ * T200要件1・3: 悪手検出の瞬間に表示するバナー。見出し階層のトップ
+ * (「悪手です」バナー > 列見出し > 打てる場所 > 盤面)として、他のどの要素
+ * よりも強く目立たせる(警告色のチップ+太字+大きめの文字)。以前は
+ * ただの太字テキスト1行(`最善ではありません(最善より約X石損)`)で、
+ * ローディング中の画面と地続きに見えて気づきにくかった
+ * (ユーザーフィードバック「悪手を打った後、ロードまで無反応で何が起きた?
+ * となる」)。
+ */
 .midgame-practice__blunder-heading {
   margin: 0;
+  padding: 0.5rem 1rem;
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--color-warning-text) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-warning-text) 35%, transparent);
   font-weight: bold;
+  font-size: 1.05rem;
   text-align: center;
   color: var(--color-warning-text);
+  box-sizing: border-box;
+  max-width: 100%;
+}
+
+.midgame-practice__blunder-loss {
+  font-weight: normal;
+  font-size: 0.9rem;
 }
 
 /* 狭い画面幅(スマートフォン想定、375px程度)ではボタン・文字を少し縮めて縦積みにする。 */

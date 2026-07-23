@@ -68,7 +68,7 @@ import {
   type StageProgress,
 } from './stageProgress.ts'
 import { computeStageStars, isBestMove, type Stars } from './stageStarJudge.ts'
-import { TwoPlyCompare } from './TwoPlyCompare.tsx'
+import { TwoPlyCompare, TwoPlyCompareLoading } from './TwoPlyCompare.tsx'
 import { computeTwoPlyCompare, type TwoPlyCompareResult } from './twoPlyCompare.ts'
 import './PracticeMode.css'
 
@@ -589,6 +589,84 @@ export function PracticeMode() {
         startEvalRef.current = best.discDiff
       }
 
+      const board = applyMove(s.board, s.sideToMove, square)
+      const nextSide = resolveNextSideOrFallback(board, opposite(s.sideToMove))
+
+      // T197: プレイヤーの着手の評価値記録。表示・判定と共有の`allMoves`
+      // (`getAnalyzedMoves`結果)から求めた`playedDiscDiff`をそのまま使うだけで、
+      // 追加のエンジン呼び出しは発生しない。
+      const evalEntry: PlayedMoveEval = {
+        ply: s.moveEvalHistory.length + 1,
+        notation: playedNotation,
+        side: s.sideToMove,
+        discDiff: playedDiscDiff,
+        source: played?.type ?? best.type,
+        isExact: (played?.type ?? best.type) === 'exact',
+      }
+
+      /**
+       * T200: 明確な悪化パターン検出の完了を待たずに`SessionState`を組み立てられる
+       * よう、`patterns`を引数化したヘルパー(悪手表示を即時に出すため、後段の
+       * パターン検出が終わる前に一旦`patterns: null`版で`pendingCompare`を
+       * 作り、検出完了後に同じヘルパーで組み直した版に差し替える)。
+       */
+      function buildNextSession(patterns: readonly ClearBlunderPattern[] | null): SessionState {
+        const outcome: MoveOutcome = {
+          playedMove: playedNotation,
+          playedSquare: square,
+          bestMove: best.move,
+          bestSquare,
+          lossDiscs,
+          playedDiscDiff,
+          isBest,
+          preMoveBoard: s.board,
+          preMoveSide: s.sideToMove,
+          clearBlunderPatterns: patterns,
+          allMoves,
+        }
+        return {
+          ...s,
+          board,
+          sideToMove: nextSide,
+          lastMove: square,
+          moveOutcomes: [...s.moveOutcomes, outcome],
+          moveEvalHistory: [...s.moveEvalHistory, evalEntry],
+        }
+      }
+
+      const isBlunder = !isBest && lossDiscs >= compareFireThreshold
+
+      // T195要件1・T199要件3・T200要件1: 悪手(損失`compareFireThreshold`石以上)なら、
+      // ここで`setSession`せずに2手先2盤面比較を表示し、相手の自動応手を保留する。
+      // `session`が着手前のまま変わらないため、相手の自動応手`useEffect`
+      // (`session.sideToMove !== humanSide`で発火)はまだ発火しない
+      // (「続ける」を押した時点で`handleContinueAfterCompare`が`setSession`する)。
+      // T200: 損失(`lossDiscs`)はこの時点で既に確定しているため、明確な悪化
+      // パターン検出(`requestFeatureSet`×2、下記)・比較計算(`loadTwoPlyCompare`)の
+      // 完了を待たずただちにパネルを表示する(ユーザーフィードバック「打った後
+      // ロードまで無反応」対応)。両方とも`patterns`/`compare`が`null`のまま
+      // (ローディング表示)で先に`setPendingCompare`し、完了ししだい該当フィールド
+      // だけを更新する。
+      if (isBlunder) {
+        setPendingCompare({
+          generation,
+          preMoveBoard: s.board,
+          preMoveSide: s.sideToMove,
+          playedSquare: square,
+          bestSquare,
+          playedMove: playedNotation,
+          bestMove: best.move,
+          lossDiscs,
+          patterns: null,
+          nextSession: buildNextSession(null),
+          compare: null,
+          originalMoves: allMoves,
+        })
+        void loadTwoPlyCompare(generation, s.board, s.sideToMove, square, bestSquare, (result) => {
+          setPendingCompare((prev) => (prev && prev.generation === generation ? { ...prev, compare: result } : prev))
+        })
+      }
+
       let clearBlunderPatterns: readonly ClearBlunderPattern[] | null = null
       if (!isBest && lossDiscs >= PATTERN_DETECTION_LOSS_THRESHOLD) {
         try {
@@ -616,68 +694,16 @@ export function PracticeMode() {
         }
       }
 
-      const outcome: MoveOutcome = {
-        playedMove: playedNotation,
-        playedSquare: square,
-        bestMove: best.move,
-        bestSquare,
-        lossDiscs,
-        playedDiscDiff,
-        isBest,
-        preMoveBoard: s.board,
-        preMoveSide: s.sideToMove,
-        clearBlunderPatterns,
-        allMoves,
-      }
+      const nextSession = buildNextSession(clearBlunderPatterns)
 
-      // T197: プレイヤーの着手の評価値記録。表示・判定と共有の`allMoves`
-      // (`getAnalyzedMoves`結果)から求めた`playedDiscDiff`をそのまま使うだけで、
-      // 追加のエンジン呼び出しは発生しない。
-      const evalEntry: PlayedMoveEval = {
-        ply: s.moveEvalHistory.length + 1,
-        notation: playedNotation,
-        side: s.sideToMove,
-        discDiff: playedDiscDiff,
-        source: played?.type ?? best.type,
-        isExact: (played?.type ?? best.type) === 'exact',
-      }
-
-      const board = applyMove(s.board, s.sideToMove, square)
-      const nextSide = resolveNextSideOrFallback(board, opposite(s.sideToMove))
-      const nextSession: SessionState = {
-        ...s,
-        board,
-        sideToMove: nextSide,
-        lastMove: square,
-        moveOutcomes: [...s.moveOutcomes, outcome],
-        moveEvalHistory: [...s.moveEvalHistory, evalEntry],
-      }
-
-      // T195要件1・T199要件3: 悪手(損失`compareFireThreshold`石以上)なら、
-      // ここで`setSession`せずに2手先2盤面比較を表示し、相手の自動応手を保留する。
-      // `session`が着手前のまま変わらないため、相手の自動応手`useEffect`
-      // (`session.sideToMove !== humanSide`で発火)はまだ発火しない
-      // (「続ける」を押した時点で`handleContinueAfterCompare`が`setSession`する)。
-      // (苦手パターンの検出・記録自体は上の`PATTERN_DETECTION_LOSS_THRESHOLD`
-      // ブロックで既に完了済みで、この閾値とは独立に動く。)
-      if (!isBest && lossDiscs >= compareFireThreshold) {
-        setPendingCompare({
-          generation,
-          preMoveBoard: s.board,
-          preMoveSide: s.sideToMove,
-          playedSquare: square,
-          bestSquare,
-          playedMove: playedNotation,
-          bestMove: best.move,
-          lossDiscs,
-          patterns: clearBlunderPatterns,
-          nextSession,
-          compare: null,
-          originalMoves: allMoves,
-        })
-        void loadTwoPlyCompare(generation, s.board, s.sideToMove, square, bestSquare, (result) => {
-          setPendingCompare((prev) => (prev && prev.generation === generation ? { ...prev, compare: result } : prev))
-        })
+      if (isBlunder) {
+        // T200: 「続ける」が既に押されていた場合(`pendingCompare`がnull化/世代不一致)は
+        // ここでの更新を諦める(パターン検出前のプレースホルダーのまま確定した
+        // セッションはそのままにする。「続ける」を押した以上、比較・パターン表示は
+        // 不要というユーザーの意思のため許容する、要件1)。
+        setPendingCompare((prev) =>
+          prev && prev.generation === generation ? { ...prev, patterns: clearBlunderPatterns, nextSession } : prev,
+        )
         return
       }
 
@@ -1034,10 +1060,14 @@ export function PracticeMode() {
           </p>
 
           {pendingCompare ? (
-            // T195要件1: 悪手を打った直後、相手の自動応手を保留して2手先2盤面比較を表示する。
+            // T195要件1・T200要件1: 悪手を打った直後、相手の自動応手を保留して
+            // 2手先2盤面比較を表示する。損失(`lossDiscs`)は検出時点で確定済みなので
+            // バナーはただちに表示し、比較計算(`pendingCompare.compare`)が終わるまでは
+            // ローディング表示に差し替える(ユーザーフィードバック「打った後ロードまで
+            // 無反応」対応)。「続ける」は生成中でも押せる(要件1)。
             <div class="midgame-practice__blunder-compare">
               <p class="midgame-practice__blunder-heading">
-                最善ではありません(最善より約{Math.round(pendingCompare.lossDiscs)}石損)
+                悪手です<span class="midgame-practice__blunder-loss">(最善より約{Math.round(pendingCompare.lossDiscs)}石損)</span>
               </p>
               {pendingCompare.compare ? (
                 <TwoPlyCompare
@@ -1053,7 +1083,12 @@ export function PracticeMode() {
                   onContinue={handleContinueAfterCompare}
                 />
               ) : (
-                <p class="notice">比較を計算しています…</p>
+                <>
+                  <TwoPlyCompareLoading />
+                  <button type="button" class="btn-primary" onClick={handleContinueAfterCompare}>
+                    続ける
+                  </button>
+                </>
               )}
               <button type="button" class="midgame-practice__quit" onClick={goToStageSelect}>
                 やめる

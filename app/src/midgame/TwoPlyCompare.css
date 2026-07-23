@@ -9,12 +9,28 @@
  * `.two-ply-compare__original`(上段、元局面1枚)+`.two-ply-compare__columns`
  * (下段、実際の手列/最善手列の2列。各列は1手先→2手先を縦に並べる)という
  * 構成にした(タスク仕様の推奨レイアウト)。
+ *
+ * T200(ユーザーフィードバック「変なセンタリング」「見た目をよくして」対応):
+ * - ルート自体に`max-width`を持たせ、`margin:0 auto`で中央寄せする。以前は
+ *   幅制約が無く、デスクトップの広い`main`幅(横置きでない画面は`main`に
+ *   `max-width`指定が無い)いっぱいに`.two-ply-compare__columns`
+ *   (`width:100%`)が広がる一方、その中の実コンテンツ(260px列2つ)は
+ *   ずっと小さいため、上段の元局面パネルと下段2列の中心は数式上は一致して
+ *   いても、視覚的には「だだっ広い空間に3つの小さい塊が散らばっている」
+ *   ように見えていた(実機スクリーンショットで確認、`--board-size-lg`と
+ *   同じ640pxに収めることで意図的にまとまった塊に見せる)。
+ * - 5枚のパネル(`.two-ply-compare__board-col`)をカード化(背景・角丸・枠線)
+ *   して区切りを明確にした。
+ * - 列見出し(`.two-ply-compare__column-heading`)を追加し、「実際に打った手」
+ *   =警告系(オレンジ)・「最善手」=成功系(緑)のアクセント色で列を色分けした。
  */
 .two-ply-compare {
   display: flex;
   flex-direction: column;
-  gap: 0.6rem;
+  gap: 0.75rem;
   width: 100%;
+  max-width: var(--board-size-lg);
+  margin: 0 auto;
   align-self: stretch;
   text-align: left;
   box-sizing: border-box;
@@ -40,9 +56,45 @@
   gap: 0.6rem;
   flex: 1 1 200px;
   max-width: 260px;
+  padding: 0.5rem;
+  border-radius: var(--radius-lg);
+  border: 1px solid transparent;
   box-sizing: border-box;
 }
 
+/* T200要件3: 列見出し(見出し階層「バナー > 列見出し > 打てる場所 > 盤面」の2段目)。
+   「実際に打った手」=警告系(オレンジ)、「最善手」=成功系(緑)のチップにして、
+   2列を一目で見分けられるようにする。 */
+.two-ply-compare__column-heading {
+  margin: 0;
+  padding: 0.15rem 0.75rem;
+  border-radius: var(--radius-full);
+  font-size: 0.85rem;
+  font-weight: bold;
+}
+
+.two-ply-compare__column--played {
+  background: color-mix(in srgb, var(--color-warning-text) 6%, transparent);
+  border-color: color-mix(in srgb, var(--color-warning-text) 25%, transparent);
+}
+
+.two-ply-compare__column--played .two-ply-compare__column-heading {
+  background: color-mix(in srgb, var(--color-warning-text) 18%, transparent);
+  color: var(--color-warning-text);
+}
+
+.two-ply-compare__column--best {
+  background: color-mix(in srgb, var(--color-success-text) 6%, transparent);
+  border-color: color-mix(in srgb, var(--color-success-text) 25%, transparent);
+}
+
+.two-ply-compare__column--best .two-ply-compare__column-heading {
+  background: color-mix(in srgb, var(--color-success-text) 18%, transparent);
+  color: var(--color-success-text);
+}
+
+/* T200要件3: 5枚すべてのパネル(元局面+1手先×2+2手先×2)をカード化し、
+   のっぺりした背景から区切りを明確にする。 */
 .two-ply-compare__board-col {
   display: flex;
   flex-direction: column;
@@ -51,6 +103,11 @@
   width: 100%;
   max-width: 260px;
   box-sizing: border-box;
+  padding: 0.5rem;
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 }
 
 .two-ply-compare__board-label {
@@ -186,6 +243,51 @@
   align-self: center;
 }
 
+/*
+ * T200要件1・2: `TwoPlyCompareLoading`(比較計算の完了を待つ間のプレースホルダー)。
+ * `components/PlayerBadge.css`の`.player-badge__spinner`(border-based CSS
+ * スピナー)と同じ技法をこのファイル内に複製している(コンポーネント間の
+ * CSS読み込み順への依存を避ける、本ファイル冒頭のコメントと同じ方針)。
+ * `min-height`で最低限の高さを確保し、5盤面表示への差し替え時のレイアウト
+ * シフトを緩和する(完全な高さ一致は狙わない配慮)。
+ */
+.two-ply-compare__loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  min-height: 14rem;
+  color: var(--color-text-secondary);
+  font-size: 0.9rem;
+}
+
+.two-ply-compare__loading p {
+  margin: 0;
+}
+
+.two-ply-compare__spinner {
+  display: inline-block;
+  width: 1.6rem;
+  height: 1.6rem;
+  border-radius: 50%;
+  border: 3px solid var(--color-accent);
+  border-top-color: transparent;
+  animation: two-ply-compare-spin 0.8s linear infinite;
+}
+
+@keyframes two-ply-compare-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .two-ply-compare__spinner {
+    animation: none;
+  }
+}
+
 @media (max-width: 400px) {
   .two-ply-compare__columns {
     flex-direction: column;
@@ -211,6 +313,15 @@
     gap: 0.7rem;
     font-size: 0.72rem;
   }
+
+  .two-ply-compare__column,
+  .two-ply-compare__board-col {
+    padding: 0.35rem;
+  }
+
+  .two-ply-compare__loading {
+    min-height: 10rem;
+  }
 }
 
 /*
@@ -231,6 +342,11 @@
 
   .two-ply-compare__board-col {
     max-width: min(26vw, 130px);
+    padding: 0.25rem;
+  }
+
+  .two-ply-compare__column {
+    padding: 0.25rem;
   }
 
   .two-ply-compare__board.board-container {

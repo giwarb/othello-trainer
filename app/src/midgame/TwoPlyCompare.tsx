@@ -32,6 +32,15 @@
  * 分離してあるのも同じ理由)。元局面の自分の合法手評価(`originalMoves`)は
  * 呼び出し元が既存のキャッシュ(中盤練習)または追加1回の`requestAnalyzeAll`
  * (棋譜解析)で用意し、propsとして渡す(T198要件1)。
+ *
+ * T200: ユーザーフィードバック(「悪手を打った後、ロードまで無反応で何が
+ * 起きた?となる」「変なセンタリング」「とにかく見た目をよくして」)対応。
+ * 呼び出し元(`PracticeMode.tsx`の即時フィードバック・`BlunderPanel.tsx`の
+ * 2手先比較)は、`computeTwoPlyCompare`の計算が終わるのを待たずに損失1行を
+ * 即時表示し、その間このファイルが公開する`TwoPlyCompareLoading`(スピナー+
+ * 「解説を生成中…」)を表示する設計にした(要件1・2、表示の統一)。5盤面
+ * レイアウト自体もカード化・列単位のアクセント色・コンテナ幅の適正化で
+ * 見た目を磨き込んだ(要件3、詳細は`TwoPlyCompare.css`参照)。
  */
 import type { ClassifyThresholds } from '../analysis/types.ts'
 import { Board } from '../components/Board.tsx'
@@ -98,6 +107,24 @@ function MoveMarkerLegend() {
         <span class="two-ply-compare__legend-dot two-ply-compare__legend-dot--opponent" aria-hidden="true" />
         相手の手
       </span>
+    </div>
+  )
+}
+
+/**
+ * T200要件1・2: 比較計算(`computeTwoPlyCompare`)の完了を待つ間に表示する、
+ * 統一されたローディング表現(スピナー+「解説を生成中…」)。中盤練習の即時
+ * フィードバック(`PracticeMode.tsx`)・棋譜解析の悪手分析パネル(`BlunderPanel.tsx`)
+ * の両方が、損失1行(発生元ごとに即時算出できる値)をそれぞれ自前で表示した
+ * すぐ下にこれを差し込む(要件2「同様の『解説を生成中…』表現に統一」)。
+ * `min-height`で最低限のプレースホルダー高さを確保し、5盤面表示への
+ * 差し替え時のレイアウトシフトを緩和する(完全な高さ一致までは狙わない)。
+ */
+export function TwoPlyCompareLoading() {
+  return (
+    <div class="two-ply-compare__loading" role="status">
+      <span class="two-ply-compare__spinner" aria-hidden="true" />
+      <p>解説を生成中…</p>
     </div>
   )
 }
@@ -229,11 +256,14 @@ export function TwoPlyCompare({
         />
       </div>
       <div class="two-ply-compare__columns">
-        <div class="two-ply-compare__column">
+        {/* T200要件3: 列単位で「実際に打った手」=警告系・「最善手」=成功系のアクセントを付ける。 */}
+        <div class="two-ply-compare__column two-ply-compare__column--played">
+          <p class="two-ply-compare__column-heading">実際に打った手</p>
           <BoardPanel {...onePlyPanelProps('実際に打った手', playedMoveNotation, compare.played, opponentSide, thresholds)} />
           <BoardPanel {...twoPlyPanelProps('実際に打った手', compare.played, mover, thresholds)} />
         </div>
-        <div class="two-ply-compare__column">
+        <div class="two-ply-compare__column two-ply-compare__column--best">
+          <p class="two-ply-compare__column-heading">最善手</p>
           <BoardPanel {...onePlyPanelProps('最善手', bestMoveNotation, compare.best, opponentSide, thresholds)} />
           <BoardPanel {...twoPlyPanelProps('最善手', compare.best, mover, thresholds)} />
         </div>

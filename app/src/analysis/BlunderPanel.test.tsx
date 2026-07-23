@@ -109,6 +109,22 @@ function makeFakeEngine(): EngineClient {
   } as unknown as EngineClient
 }
 
+/**
+ * T200: `requestAnalyzeAll`の応答を意図的に遅延させるフェイクエンジン
+ * (「悪手検出直後(比較計算の完了前)に損失1行と生成中表示が出る」テスト専用)。
+ * `2手先比較`セクションが依存する`computeTwoPlyCompare`・元局面の
+ * `originalMoves`取得のいずれも`requestAnalyzeAll`経由のため、これだけ遅延
+ * させれば両方とも計算中の状態を作れる。
+ */
+function makeDelayedFakeEngine(delayMs: number): EngineClient {
+  const base = makeFakeEngine()
+  return {
+    ...base,
+    requestAnalyzeAll: (board: Board, side: Side): Promise<MoveEvalJson[]> =>
+      new Promise((resolve) => setTimeout(() => resolve(neutralMoves(board, side)), delayMs)),
+  } as unknown as EngineClient
+}
+
 const BOARD = initialBoard()
 
 const MOVE_ANALYSIS: MoveAnalysis = {
@@ -204,5 +220,36 @@ describe('analysis/BlunderPanel: T196既定表示の刷新', () => {
     expect(text).toContain('評価内訳(実際の進行 vs 最善進行の末端局面)')
     expect(text).toContain('反証層: 回収点(寄与が急変した手)')
     expect(text).toContain('なぜ悪いか')
+  })
+
+  it('T200: 2手先比較の計算完了前でも損失1行と生成中表示がただちに出て、完了後に5盤面へ差し替わる', async () => {
+    const { BlunderPanel } = await import('./BlunderPanel.tsx')
+
+    await act(async () => {
+      render(
+        <BlunderPanel
+          moveAnalysis={MOVE_ANALYSIS}
+          gameMoves={['d3']}
+          engine={makeDelayedFakeEngine(300)}
+          onClose={() => {}}
+        />,
+        container,
+      )
+    })
+    // 300msの遅延より十分短い時間だけ待つ(`moveAnalysis.lossDiscs`は
+    // props経由で最初から確定しているため、比較計算の完了を待たず表示できるはず)。
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 60))
+    })
+
+    const text = container.textContent ?? ''
+    expect(text).toContain('この手は最善手より約5石損しています。')
+    expect(text).toContain('解説を生成中…')
+    // 5盤面比較本体(`TwoPlyCompare`)はまだ計算中で描画されていない。
+    expect(container.querySelector('.two-ply-compare')).toBeNull()
+
+    await flushAsyncEffects(10, 60)
+    expect(container.querySelector('.two-ply-compare')).not.toBeNull()
+    expect(container.textContent).not.toContain('解説を生成中…')
   })
 })
