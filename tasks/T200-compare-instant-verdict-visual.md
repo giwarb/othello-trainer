@@ -1,7 +1,7 @@
 ---
 id: T200
 title: 悪手比較の即時「悪手です」表示+ローディング+全体ビジュアル改善
-status: redo
+status: review
 assignee: implementer
 attempts: 1
 ---
@@ -86,3 +86,21 @@ attempts: 1
   - コミット後、`git push origin main` → GitHub Actions「Deploy to GitHub Pages」成功(`gh run watch`で確認、run 29973696413)を確認した上で、本番URL(`https://giwarb.github.io/othello-trainer/`)に対して同じPlaywright検証(中盤練習のローディング→5盤面差し替え、デスクトップ/モバイル、「続ける」の生成中クリック)を再実行し、全て期待どおりであることを確認した。
 - **コミット**: `a723dec`(`app: 悪手比較の即時表示+ローディング+見た目全面改善(T200)`)。変更対象8ファイルのみをパス指定でadd。
 - **仕様どおりにできなかった点・判断に迷った点**: なし。ただし気づいた点として、`PracticeMode.css`の横置き(landscape、`orientation:landscape and max-height:520px`)メディアクエリ内に`.midgame-result:has(.two-ply-compare) .two-ply-compare__boards`という、T198で構造が`.two-ply-compare__original`/`.two-ply-compare__columns`に変わって以降マッチしなくなっている(存在しないクラス名を参照した)死んだセレクタが残っていた。本タスクのスコープ外(構成変更ではなく、T198由来の既存の取りこぼし)のため修正していない。スマホ横置きの結果画面レイアウトに影響しうるため、別タスクでの確認・修正を推奨する。
+
+### 2026-07-23 implementer(redo #1対応)
+
+- **原因確認**: レビュー指摘どおり、`handlePlayerMove`の悪手分岐で`setPendingCompare`直後に`return`しておらず、同じtryブロック内に明確な悪化パターン検出(`await Promise.all(requestFeatureSet×2)`)が残っていた。この結果、悪手検出→即時パネル表示は達成できていたが、`analyzing`(冒頭ガードで次の一手クリックを弾く唯一の条件)がこのawaitの解決(パターン検出が終わるまで)固着し、生成中に「続ける」を押して盤面へ戻っても次の一手が黙って無視される新たな無反応ウィンドウが生じていた。
+- **修正**: `PracticeMode.tsx`に`detectPatternsForPendingCompare`(新規、`loadTwoPlyCompare`の直後に定義)を追加し、パターン検出ロジック(検出条件・`requestFeatureSet`×2・`detectClearBlunderPatterns`・`recordPatternFailuresNow`・世代ガード)を丸ごと移設。悪手分岐では`setPendingCompare`(初回)→`loadTwoPlyCompare`(`void`起動)→`detectPatternsForPendingCompare`(`void`起動)→即座に`return`という構成に変更し、`handlePlayerMove`自体の`finally`が(パターン検出・比較計算の完了を待たず)ただちに走って`analyzing`を解除するようにした。結果反映は既存どおり`setPendingCompare`の関数型更新(世代ガード付き)で行う。非悪手パス(`isBlunder`が偽)のロジックは変更していない(元のまま`await`して`setSession`する)。
+- **修正の効果を手動で実証**: 一時的に`void detectPatternsForPendingCompare(...)`+`return`を`await detectPatternsForPendingCompare(...)`(旧・バグの構造)に書き換え、新規追加した再発防止テストがその状態で実際に失敗する(`expected '1/3手' to contain '2/3手'`)ことを確認したうえで、元の修正済みコードに復元(`diff`でバイト単位一致を確認)した。
+- **再発防止テスト追加**(`PracticeMode.flow.test.tsx`): 新たに`featureDelayMs`スイッチ(`requestFeatureSet`応答を遅延、既定0)を導入。テスト「T200 redo#1(重大指摘の再発防止): 生成中に『続ける』を押した直後でも、次の一手がanalyzingフラグの固着で無視されない」を追加し、`featureDelayMs=1500`の状態で悪手→生成中に「続ける」→相手の自動応手を待つ→ただちに次の一手→「2/3手」に反映されることを確認する(パターン検出のPromiseがまだ未解決の間に検証している)。
+- **軽微指摘への対応**:
+  1. `PracticeMode.css`の死んだセレクタ`.midgame-result:has(.two-ply-compare) .two-ply-compare__boards`を削除。周辺コメントも実態に合わせて更新(存在しないクラス名への言及を除去)。
+  2. 既存の中間状態テスト(`branchDelayMs`方式)の決定的制御化は見送った(任意項目、今回は重大指摘の確実な解消と再発防止テストを優先。実タイマー方式自体は今回の全テスト実行(3回、後述)で安定してパスしており、直ちに手を入れる必要性は低いと判断)。
+- **検証コマンド**:
+  - `cd app && npx tsc -b` → エラーなし(テスト内`FeatureSetResponseMessage`の型不整合を1件修正して解消)。
+  - `cd app && npx vitest run` → 103ファイル / 874件 全件パス(新規1件含む、既存の5件は変更なし)。
+  - `cd app && npm run build` → 成功。
+- **コミット**: `6a792e2`(`app: T200 redo#1対応 — 生成中「続ける」後のanalyzing固着を解消(T200)`)。変更対象3ファイル(`PracticeMode.tsx`/`.css`/`.flow.test.tsx`)のみパス指定でadd。
+- **push・Actions**: `git push origin main` → GitHub Actions「Deploy to GitHub Pages」成功(`gh run watch`、run 29974703215)。
+- **Pages実機確認(必須シナリオ)**: 本番URLに対してPlaywright(chromium)で、(1)悪手を打つ→生成中(比較未描画)のうちに「続ける」を押す→相手の自動応手を待つ→ただちに次の一手を打つ→「2/3手」に反映されることを確認(スクリーンショット`pages-redo1-after-second-move.png`、2手目がたまたま別の悪手だったため新たな「悪手です」パネルが正常に開いていることも確認できた=`analyzing`が固着せずhandlePlayerMoveが正常に再入できている証跡)。あわせて前回確認済みの3状態(即時バナー→生成中→5盤面差し替え)・デスクトップ/モバイル・BlunderPanel側も崩れていないことを再確認した。
+- **仕様どおりにできなかった点・判断に迷った点**: なし。
