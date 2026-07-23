@@ -1,9 +1,9 @@
 ---
 id: T200
 title: 悪手比較の即時「悪手です」表示+ローディング+全体ビジュアル改善
-status: review
+status: redo
 assignee: implementer
-attempts: 1
+attempts: 2
 ---
 
 # T200: 悪手比較の即時「悪手です」表示+ローディング+全体ビジュアル改善
@@ -64,6 +64,17 @@ attempts: 1
 2. (任意)中間状態テストの実タイマー依存(branchDelayMs=400/60ms待ち)はflaky懸念があるため、余力があれば決定的な制御(resolveを手動保持する方式)へ。
 
 修正後: テスト全件パス・build・push・Actions成功・Pages実機確認(**生成中に「続ける」→即次の一手、のシナリオを必ず実機で確認**)まで実施し、作業ログに追記して報告すること。
+
+### redo #2(2026-07-23、再レビューの重大指摘)
+
+**重大(必須修正): redo#1の切り離しにより、2手連続悪手で古い手の非同期結果が新しい手のpendingCompareに混入し、セッション状態が巻き戻される新レース。**
+
+- 機構: `sessionGenerationRef`は**ステージ挑戦単位**(startStagePractice/goToStageSelectでのみ増加、「続ける」では増えない)なので、同一ステージ内のN手目とN+1手目は同じgeneration。redo#1でanalyzingロックが外れた結果、「N手目悪手→生成中に続ける→相手応手→N+1手目も悪手」の時点で、**N手目の未解決のdetectPatterns/loadTwoPlyCompareがN+1手目のpendingCompareに世代ガードを素通りしてマージされる**。特にdetectPatternsのクロージャが持つN手目用`nextSession`が注入され、N+1手目のパネルで「続ける」を押すと`setSession`で**N手目直後の状態に巻き戻る**(N+1手目の着手がmoveOutcomes・盤面から消え、★判定・localStorage永続化まで誤りうる)。redo#1以前はanalyzingロックがこの並行状態自体を防いでいた。
+- 修正方針: `pendingCompare`ごとに**一意なトークン**(生成のたびにインクリメントするref値、またはpendingCompareオブジェクト参照そのもの)を持たせ、`loadTwoPlyCompare`/`detectPatternsForPendingCompare`の結果マージ条件を「`prev`が自分のトークンと一致する場合のみ」に変更する(generationガードはステージ離脱用として残してよい)。`recordPatternFailuresNow`(統計記録)は現在どおり各手のクロージャデータで無条件実行を維持(表示だけ破棄)。
+- **再発防止テスト必須**: 「1手目悪手(検出を遅延モックで未解決に保つ)→生成中に続ける→相手応手→2手目も悪手→1手目の検出が解決→2手目のパネルに1手目のデータが混入しないこと(パネルの損失表示が2手目の値のまま/続けるで2手目の着手が保持され`3/3手`へ進む)」を検証するテストを追加。
+- 参考: 現行の新規テストは2手目が悪手にならない盤面(neutralMoves)を使っておりこの経路を通らない。連続悪手を作るには決定局面のモック(decisionMoves相当)を2手分用意する。
+
+修正後の完了条件はredo#1と同じ(テスト全件・build・push・Actions・Pages実機〔可能なら連続悪手シナリオも実機確認〕・作業ログ・報告)。
 
 ## 作業ログ(担当エージェントが追記)
 
