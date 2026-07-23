@@ -1,7 +1,7 @@
 ---
 id: T199
 title: 5盤面比較のUI磨き(ドットマーカー・打てる場所の強調)+悪手判定閾値の見直し
-status: review
+status: done
 assignee: implementer
 attempts: 0
 ---
@@ -92,6 +92,44 @@ T198の5盤面比較に対する改善指示3点:
 - コンポーネントテスト(`TwoPlyCompare.test.tsx`のjsdom環境)は上記のピクセル確認が取れない分を補う形で、ドットのクラス付与・凡例の描画・ヘッダ文言を厳密にアサートしている。
 
 GitHub Pages本番URLでの確認はこの後コミット・push・Actionsデプロイ完了後にオーケストレーター(または後続の検証)が実施する(本作業ログはコミット前に記載、実機確認はローカルpreview分まで)。
+
+### 2026-07-23 10:40 verifier検証(受け入れ基準の独立実行)
+
+対象コミット: `1d50848`(push済み・デプロイ済み)。以下、受け入れ基準を1件ずつ独立に実行した。
+
+**1. `cd app && npx vitest run` 全件パス:**
+- 実行結果: `Test Files 103 passed (103)` / `Tests 871 passed (871)`(Duration 21.00s)。合格。
+
+**2. regression-catching追試(境界テスト「損失3石では発火しない」がFAILすることを確認→復元):**
+- `app/src/midgame/PracticeMode.tsx`の`const compareFireThreshold = classifyThresholds.blunder`を一時的に`const compareFireThreshold = PATTERN_DETECTION_LOSS_THRESHOLD`(=1)へEditツールで書き換え、`npx vitest run src/midgame/PracticeMode.flow.test.tsx -t "T199境界テスト"`を実行。
+- 結果: 期待どおり **FAIL**(`expect(container.querySelector('.midgame-practice__blunder-compare')).toBeNull()`が失敗し、実際には比較モーダルが表示された。閾値=1のとき損失3石でも発火してしまうため境界テストが正しくリグレッションを検知することを確認)。
+- 直後にEditツールで元の`classifyThresholds.blunder`へ復元し、`git diff --stat app/src/midgame/PracticeMode.tsx`で差分ゼロ(完全復元)を確認。
+- 復元後に`npx vitest run src/midgame/PracticeMode.flow.test.tsx`を再実行し、`Test Files 1 passed (1)` / `Tests 4 passed (4)`で全件パスに戻ることを確認。
+- 合格(意図どおりリグレッションを検知できるテストであることを実証)。
+
+**3. `git show 1d50848 --stat` で変更がapp/src/midgame/配下のみ:**
+- 実行結果: 変更7ファイルすべて`app/src/midgame/PracticeMode.flow.test.tsx` `PracticeMode.tsx` `TwoPlyCompare.css` `TwoPlyCompare.test.tsx` `TwoPlyCompare.tsx` `twoPlyCompare.test.ts` `twoPlyCompare.ts`で、`app/src/midgame/`配下のみ。合格。
+
+**4. `npm run build` 成功:**
+- 実行結果: `tsc -b && vite build`成功、wasmビルド・node-budget/pattern-v6検証スクリプトも成功。合格。
+
+**5. GitHub Pages実機確認:**
+- Browserペイン(スクリーンショット機能)が本セッションでは利用可能だったため、Playwright(npxキャッシュ内の既存インストールを`NODE_PATH`経由で利用)でスクリプトを書き、本番URL `https://giwarb.github.io/othello-trainer/` に対しデスクトップ幅(1280x800)・モバイル幅(375x812)の両方で実機操作した。
+  - 中盤練習→第1ステージへ遷移し、`MoveEvalOverlay`(候補手評価オーバーレイ、既定ON)のセルから`--blunder`分類(損失7石)の手と、損失1石・3石(閾値未満)の手をそれぞれクリックして比較モーダルの発火/非発火を検証した。
+  - **(a) ドットマーカー**: 発火時のスクリーンショットをクロップ拡大し、文字バッジではなく小さな青丸(自分)・石の中心に配置され、白/黒の縁取りが視認できることを確認。`getComputedStyle`でドット幅がデスクトップ8.79688px(0.55rem)・モバイル6.71875px(0.42rem)とメディアクエリどおりに縮小されることも確認。文字潰れなし。
+  - **(b) 凡例**: `.two-ply-compare__legend`が1件のみ描画され、テキストに「自分の手」「相手の手」を含むことを確認(パネルごとの重複なし)。
+  - **(c) ヘッダ強調**: 発火時の5盤面すべてで「あなたの打てる場所: N か所」「相手の打てる場所: N か所」の主語付き文言が表示され、`font-weight`計算値が`700`であることを確認。
+  - **(d) 発火閾値**: 損失1石・3石の手ではクリック後10秒待ってもcompareラッパー自体が出現せず(非発火)、損失7石の手では比較モーダル(`.midgame-practice__blunder-compare`→`.two-ply-compare`)が実際にレンダリングされ「最善ではありません(最善より約7石損)」の見出しが表示された(発火)。デスクトップ・モバイル両方で同じ結果。
+  - モバイル幅375pxのスクリーンショットも取得し、5盤面が縦積みでレイアウト崩れなく表示されることを確認(既存のナビタブ折り返し表示はT199スコープ外の既存挙動で本タスクの回帰ではない)。
+  - スクリーンショットはscratchpadに保存(リポジトリには含めていない): `t199_desktop_fired.png` `t199_mobile_fired.png` `t199_desktop_initial.png` `t199_mobile_initial.png`。
+- 合格(a)〜(d)すべて実機DOM操作・computedStyle・スクリーンショットで確認。
+
+**6. Actions・git status:**
+- `gh run view 29971662482`(コミット1d50848のDeploy to GitHub Pages)→`build`・`deploy`両ジョブとも`conclusion: success`。
+- 検証実行中に別コミット(`05ccb71`・`f1ba764`、いずれもtasks/配下のみの変更)がpushされ再デプロイが走ったが、`app/`配下の差分はなくproduction上のアプリ挙動はコミット`1d50848`のままであることを確認済み(上記5の実機確認はこれらのデプロイ後に実施し、同じ結果を得た)。
+- `git status --short`(検証終了時点): 出力なし(残骸なし)。合格。
+
+**総合判定: 合格。** 受け入れ基準6項目すべて満たしていることを確認した。
 
 ### 2026-07-23 コミット・デプロイ・本番Pages確認
 
