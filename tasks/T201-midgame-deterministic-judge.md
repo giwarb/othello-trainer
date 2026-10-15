@@ -1,7 +1,7 @@
 ---
 id: T201
 title: 中盤練習の★判定を決定的にする(allMoves解析のノード予算化)
-status: in_progress
+status: review
 assignee: codex(gpt-5.6-sol)
 attempts: 0
 ---
@@ -66,3 +66,14 @@ attempts: 0
 ## 作業ログ(担当エージェントが追記)
 
 <!-- 例: 2026-07-06 12:00 implementer: xxx を実装。`npm test` 12件パス。 -->
+
+### 2026-10-15 20:26 implementer: Codex
+
+- `allMoves + maxNodes` を受理し、総ノード予算を合法手数で固定均等割り(商を全手、余りをマス番号順の先頭から1ずつ配分)する経路を追加した。各手は従来どおり手ごとに空のローカルTTから開始し、着手後局面を既存のノード制限付き反復深化で探索して、予算内で完了した最深反復の値を採用する。`timeMs` も固定均等割りするが、ノード予算より十分大きい壁時計保険としてのみ機能する。`maxNodes` 未指定時は従来の残り時間動的再配分経路をそのまま通す。
+- 中盤練習の共通設定を `{ depth: 16, timeMs: 10000, maxNodes: 1500000, exactFromEmpties: 24 }` に変更した。`getAnalyzedMoves` と2手先比較用コールバックが同じ定数を使うため、開始評価・終了評価・各手損失・相手応手・表示はすべて同じノード予算方式になった。
+- 予算選定実測(WASM release、pattern_v6、問題86、通常時): 150万ノードで analyzeAll 7回の平均/最大は1回目 849.5/888.2ms、2回目 785.3/925.1ms(現行目安の約1秒以下)。問題86 `g6/f2/h5` は2回とも応手 `g5/c2/h6`、start=-0.09、end=-4.29、各手loss=3.42/0/2.92、★1で完全一致した。
+- Rust統合回帰はテスト時間短縮のため24万ノードを使い、問題86を開始手順から組み立てて2回通し実行(間に初期局面解析を挿入)。両回とも応手 `g5/c2/d6`、start=4.58、end=-5.34、★0で完全一致した。別テストで同一allMovesを連続実行・別局面を挟んだ再実行・`timeMs=10000/20000`変更のすべてについてmoves/PV/score完全一致も確認した。
+- `requestAnalyzeAll` / allMoves 呼び出し元を全件確認: `app.tsx`、`analysis/analyzeGame.ts`、`analysis/BlunderPanel.tsx`、`analysis/sendToPractice.ts`、`joseki/PracticeMode.tsx`、`midgame/PracticeMode.tsx`(注入先`midgame/twoPlyCompare.ts`を含む)、`tsume/PlayMode.tsx`、`verbalize/PracticeMode.tsx`、`verbalize/TwoChoiceDrill.tsx`、`verbalize/glossaryExamples.ts`、および共通入口`engine/client.ts`。着手前にallMovesへ`maxNodes`を渡していた呼び出し元は0件(`app.tsx`の既存`maxNodes`はCPU着手のsingle-root `requestAnalyze`専用)。今回挙動が変わるのは中盤練習だけで、IndexedDB解析キャッシュを使う棋譜解析は`maxNodes`未指定のままなので `ANALYSIS_ENGINE_VERSION` は8から変更していない。
+- WASM成果物は `app/src/engine/pkg` がgitignore対象で、CI/`npm run build`が毎回再生成する構成を確認。`npm run wasm:build`、`npm run typecheck`、`npm run build`内で新エンジンを再ビルド済み(コミット対象成果物なし)。
+- 検証: `cd engine && cargo test` = 259 passed / 0 failed / 2 ignored、`cargo test -p engine --release --test ffo_bench` = fast 1 passed / heavy 1 ignored、`cd app && npx vitest run` はサンドボックスがViteの`net use`と既定fork workerを`spawn EPERM`で拒否したため、同じ全スイートを一時preload＋`--pool=threads --maxWorkers=1`で実行して103 files / 876 tests passed、`npm run typecheck`成功、`npm run build`成功(WASM node-budget決定性検査・pattern_v6検査を含む)。`git diff --check`成功。一時preload・wasm-packキャッシュ・誤相対出力は削除済み。
+- コミット: 未実施(`.git`書き込み禁止のため、オーケストレーターが代行)。
