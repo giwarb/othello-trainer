@@ -74,10 +74,15 @@ import './PracticeMode.css'
 
 /**
  * 中盤練習モードのエンジン解析に使う探索条件(T141要件: 表示・判定・応手で
- * 同一設定を使う。旧`judgeMidgameMove`時代からの値をそのまま引き継ぐ、
- * `timeMs`引き上げの経緯は旧`tasks/T076-*.md`参照)。
+ * 同一設定を使う。`maxNodes`を全合法手へ固定配分することで判定値を決定的にし、
+ * `timeMs`は異常に遅い環境での壁時計保険としてのみ使う。
  */
-const MIDGAME_ANALYZE_LIMIT: AnalyzeLimit = { depth: 16, timeMs: 1000, exactFromEmpties: 24 }
+const MIDGAME_ANALYZE_LIMIT: AnalyzeLimit = {
+  depth: 16,
+  timeMs: 10_000,
+  maxNodes: 1_500_000,
+  exactFromEmpties: 24,
+}
 
 /** 相手が着手するまでの見せかけの「考慮時間」(ミリ秒、`joseki/PracticeMode.tsx`と同じ演出)。 */
 const OPPONENT_MOVE_DELAY_MS = 350

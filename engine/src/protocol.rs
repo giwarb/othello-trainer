@@ -13,7 +13,10 @@
 
 use crate::bitboard::{Board, Side};
 use crate::pattern_eval::PatternWeights;
-use crate::search::{search_all_moves_with_eval, search_with_eval, search_with_eval_with_node_limit, SearchLimit};
+use crate::search::{
+    search_all_moves_with_eval, search_all_moves_with_eval_with_node_limit, search_with_eval,
+    search_with_eval_with_node_limit, SearchLimit,
+};
 use crate::tt::TranspositionTable;
 use serde::{Deserialize, Serialize};
 // search.rs 同様、`wasm32-unknown-unknown` で実行時panicする
@@ -211,10 +214,6 @@ pub fn handle_analyze(request_json: &str, tt: &mut TranspositionTable, weights: 
         return error_json(Some(request.id), format!("unsupported command: {cmd}"));
     }
 
-    if request.all_moves && request.limit.max_nodes.is_some() {
-        return error_json(Some(request.id), "maxNodes is not supported with allMoves: true".to_string());
-    }
-
     let (board, side) = match parse_board(&request.board) {
         Ok(v) => v,
         Err(e) => return error_json(Some(request.id), e),
@@ -262,7 +261,16 @@ pub fn handle_analyze(request_json: &str, tt: &mut TranspositionTable, weights: 
         // しない(関数内で完結するローカルTTを使う)。この分岐でも`tt`を
         // 渡さなくなったことで、表示用のこの経路が対局用のTTを汚す経路が
         // なくなった(詳細はsearch.rsの関数docコメント参照)。
-        let evals = search_all_moves_with_eval(&board, side, &limit, weights);
+        let evals = match request.limit.max_nodes {
+            Some(max_nodes) => search_all_moves_with_eval_with_node_limit(
+                &board,
+                side,
+                &limit,
+                weights,
+                max_nodes,
+            ),
+            None => search_all_moves_with_eval(&board, side, &limit, weights),
+        };
 
         let moves: Vec<MoveEvalJson> = evals
             .iter()
@@ -421,6 +429,105 @@ mod tests {
             board = board.apply_move(side, mv);
             side = side.opposite();
         }
+    }
+
+    fn apply_notation(board: Board, side: Side, notation: &str) -> Board {
+        let square = notation_to_square(notation).expect("test move notation should be valid");
+        let move_bit = 1u64 << square;
+        assert_ne!(
+            board.legal_moves(side) & move_bit,
+            0,
+            "{notation} should be legal for {side:?}"
+        );
+        board.apply_move(side, move_bit)
+    }
+
+    fn analyze_all_for_test(
+        engine: &mut Engine,
+        board: &Board,
+        side: Side,
+        id: &mut u64,
+        max_nodes: u64,
+    ) -> Vec<(String, i32)> {
+        let black = board.black;
+        let white = board.white;
+        let turn = if side == Side::Black { "black" } else { "white" };
+        let request = format!(
+            r#"{{"id":{id},"cmd":"analyze","board":{{"black":"0x{black:x}","white":"0x{white:x}","turn":"{turn}"}},"limit":{{"depth":16,"timeMs":60000,"maxNodes":{max_nodes},"exactFromEmpties":24}},"allMoves":true}}"#
+        );
+        *id += 1;
+        let response: serde_json::Value = serde_json::from_str(&engine.analyze(&request)).unwrap();
+        assert!(response.get("error").is_none(), "unexpected response: {response}");
+        response["moves"]
+            .as_array()
+            .expect("moves should be an array")
+            .iter()
+            .map(|mv| {
+                (
+                    mv["move"].as_str().unwrap().to_string(),
+                    mv["score"].as_i64().unwrap() as i32,
+                )
+            })
+            .collect()
+    }
+
+    fn run_problem_86_attempt(engine: &mut Engine, id: &mut u64) -> (i32, i32, u8, Vec<String>) {
+        const TEST_MAX_NODES: u64 = 240_000;
+        let mut board = Board::initial();
+        let mut side = Side::Black;
+        for mv in [
+            "f5", "f6", "e6", "f4", "e3", "c5", "c4", "d7", "c6", "e2", "f3", "d3",
+            "c3", "d2",
+        ] {
+            board = apply_notation(board, side, mv);
+            side = side.opposite();
+        }
+        assert_eq!(side, Side::Black);
+        assert_eq!(board.black, 0x0000040c0c2c0000);
+        assert_eq!(board.white, 0x0008303030101800);
+
+        let mut start_score = None;
+        let mut all_best = true;
+        let mut replies = Vec::new();
+        for player_move in ["g6", "f2", "h5"] {
+            let moves = analyze_all_for_test(engine, &board, side, id, TEST_MAX_NODES);
+            let best_score = moves.first().expect("player should have a legal move").1;
+            start_score.get_or_insert(best_score);
+            let played_score = moves
+                .iter()
+                .find(|(mv, _)| mv == player_move)
+                .unwrap_or_else(|| panic!("planned move {player_move} should be legal"))
+                .1;
+            all_best &= played_score == best_score;
+            board = apply_notation(board, side, player_move);
+            side = side.opposite();
+
+            let opponent_moves = analyze_all_for_test(engine, &board, side, id, TEST_MAX_NODES);
+            let reply = opponent_moves
+                .first()
+                .expect("opponent should have a legal move")
+                .0
+                .clone();
+            board = apply_notation(board, side, &reply);
+            side = side.opposite();
+            replies.push(reply);
+        }
+
+        let end_score = analyze_all_for_test(engine, &board, side, id, TEST_MAX_NODES)
+            .first()
+            .expect("final position should have a legal move")
+            .1;
+        let loss = (start_score.unwrap() - end_score).max(0);
+        let stars = if all_best {
+            3
+        } else if loss < 100 {
+            2
+        } else if loss < 500 {
+            1
+        } else {
+            0
+        };
+        (start_score.unwrap(), end_score, stars, replies)
     }
 
     #[test]
@@ -766,16 +873,67 @@ mod tests {
     }
 
     #[test]
-    fn analyze_rejects_all_moves_with_max_nodes_via_standard_error_response() {
-        let request = format!(
-            r#"{{"id":33,"cmd":"analyze","board":{{"black":"{INITIAL_BLACK}","white":"{INITIAL_WHITE}","turn":"black"}},"limit":{{"depth":12,"timeMs":1500,"maxNodes":160000,"exactFromEmpties":16}},"allMoves":true}}"#
+    fn analyze_all_moves_with_max_nodes_is_deterministic_across_time_limits_and_prior_requests() {
+        const SMOKE_01_BLACK: &str = "0x1030100004080000";
+        const SMOKE_01_WHITE: &str = "0x0000241C18100000";
+        let request_10s = format!(
+            r#"{{"id":33,"cmd":"analyze","board":{{"black":"{INITIAL_BLACK}","white":"{INITIAL_WHITE}","turn":"black"}},"limit":{{"depth":12,"timeMs":10000,"maxNodes":40000,"exactFromEmpties":16}},"allMoves":true}}"#
+        );
+        let request_20s = format!(
+            r#"{{"id":33,"cmd":"analyze","board":{{"black":"{INITIAL_BLACK}","white":"{INITIAL_WHITE}","turn":"black"}},"limit":{{"depth":12,"timeMs":20000,"maxNodes":40000,"exactFromEmpties":16}},"allMoves":true}}"#
+        );
+        let unrelated_request = format!(
+            r#"{{"id":34,"cmd":"analyze","board":{{"black":"{SMOKE_01_BLACK}","white":"{SMOKE_01_WHITE}","turn":"black"}},"limit":{{"depth":8,"timeMs":10000,"maxNodes":20000,"exactFromEmpties":12}},"allMoves":true}}"#
         );
         let mut engine = Engine::new();
-        let response: serde_json::Value = serde_json::from_str(&engine.analyze(&request)).unwrap();
+        let first: serde_json::Value = serde_json::from_str(&engine.analyze(&request_10s)).unwrap();
+        let second: serde_json::Value = serde_json::from_str(&engine.analyze(&request_10s)).unwrap();
+        let unrelated: serde_json::Value =
+            serde_json::from_str(&engine.analyze(&unrelated_request)).unwrap();
+        let after_unrelated_with_more_time: serde_json::Value =
+            serde_json::from_str(&engine.analyze(&request_20s)).unwrap();
 
-        assert_eq!(response["id"], 33);
-        assert_eq!(response["error"], "maxNodes is not supported with allMoves: true");
-        assert!(response.get("final").is_none());
+        assert!(first.get("error").is_none(), "maxNodes should be accepted for allMoves");
+        assert!(unrelated.get("error").is_none());
+        assert_eq!(first["moves"].as_array().unwrap().len(), 4);
+        for response in [&second, &after_unrelated_with_more_time] {
+            assert_eq!(response["moves"], first["moves"]);
+            assert_eq!(response["pv"], first["pv"]);
+            assert_eq!(response["score"], first["score"]);
+        }
+    }
+
+    #[test]
+    fn problem_86_g6_f2_h5_has_deterministic_start_end_and_stars() {
+        let weights = include_bytes!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../train/weights/pattern_v6.bin"
+        ));
+        let mut engine = Engine::new();
+        engine
+            .load_pattern_weights(weights)
+            .expect("pattern_v6 weights should load");
+        let mut id = 50;
+
+        let first = run_problem_86_attempt(&mut engine, &mut id);
+        let _unrelated = analyze_all_for_test(
+            &mut engine,
+            &Board::initial(),
+            Side::Black,
+            &mut id,
+            20_000,
+        );
+        let second = run_problem_86_attempt(&mut engine, &mut id);
+
+        assert_eq!(first, second);
+        assert_eq!(first.3, vec!["g5", "c2", "d6"]);
+        println!(
+            "problem86 deterministic result: start={} end={} stars={} replies={:?}",
+            first.0 as f64 / 100.0,
+            first.1 as f64 / 100.0,
+            first.2,
+            first.3
+        );
     }
 
     /// T139関連の確認: CPU着手経路(`cpuLimit`、`maxNodes`指定)の探索は、

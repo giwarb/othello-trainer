@@ -1398,6 +1398,34 @@ pub fn search_all_moves_with_eval(
         .collect()
 }
 
+/// [`search_all_moves_with_eval`] に、全合法手を通じた総ノード予算を追加した
+/// 決定的解析用入口。
+///
+/// 予算は合法手数で固定的に均等分配し、余りはマス番号順の先頭から1ノードずつ
+/// 配る。各手は割り当て内で完了した最深の反復の値を採用するため、
+/// `limit.time_ms` の壁時計保険が発火しない限り、同一入力から常に同一結果を
+/// 得られる。`max_nodes` を指定しない既存入口の時間配分・探索内容は変更しない。
+pub fn search_all_moves_with_eval_with_node_limit(
+    board: &Board,
+    side_to_move: Side,
+    limit: &SearchLimit,
+    weights: Option<&PatternWeights>,
+    max_nodes: u64,
+) -> Vec<MoveEval> {
+    search_all_moves_with_eval_core_restricted(
+        board,
+        side_to_move,
+        limit,
+        weights,
+        ANALYZE_ALL_LOCAL_TT_MB,
+        None,
+        Some(max_nodes),
+    )
+    .into_iter()
+    .map(|(eval, _nodes)| eval)
+    .collect()
+}
+
 /// [`search_all_moves_with_eval`]の実装本体。ローカルTTのサイズ
 /// (`tt_size_mb`)と各合法手の総ノード数(反復深化の全深さを合計したもの、
 /// 完全読みに委譲した場合は`solve_exact_with_nodes`/
@@ -1417,7 +1445,15 @@ fn search_all_moves_with_eval_core(
     weights: Option<&PatternWeights>,
     tt_size_mb: usize,
 ) -> Vec<(MoveEval, u64)> {
-    search_all_moves_with_eval_core_restricted(board, side_to_move, limit, weights, tt_size_mb, None)
+    search_all_moves_with_eval_core_restricted(
+        board,
+        side_to_move,
+        limit,
+        weights,
+        tt_size_mb,
+        None,
+        None,
+    )
 }
 
 /// [`search_all_moves_with_eval_core`]の実装本体。`restrict_to`が`Some`の
@@ -1436,6 +1472,7 @@ fn search_all_moves_with_eval_core_restricted(
     weights: Option<&PatternWeights>,
     tt_size_mb: usize,
     restrict_to: Option<&[u8]>,
+    max_nodes: Option<u64>,
 ) -> Vec<(MoveEval, u64)> {
     let legal = board.legal_moves(side_to_move);
     let mut moves: Vec<u8> = Vec::with_capacity(legal.count_ones() as usize);
@@ -1493,8 +1530,16 @@ fn search_all_moves_with_eval_core_restricted(
         // `time_ms` が指定されていなければ(時間無制限)従来どおり `limit`
         // をそのまま使う(このコピーは安価: `SearchLimit` は4つのプリミ
         // ティブフィールドのみ)。
-        let per_move_limit: SearchLimit = match limit.time_ms {
-            Some(total_time_ms) => {
+        let per_move_limit: SearchLimit = match (limit.time_ms, max_nodes) {
+            // ノード予算経路では時間は結果を決める予算ではなく壁時計保険。
+            // マシン速度で後続手の持ち時間が変わらないよう固定均等割りにする。
+            (Some(total_time_ms), Some(_)) => SearchLimit {
+                max_depth: limit.max_depth,
+                time_ms: Some(fair_share_count(total_time_ms, total_moves, i)),
+                exact_from_empties: limit.exact_from_empties,
+            },
+            // maxNodes未指定時はT076以来の動的な余り時間再配分を維持する。
+            (Some(total_time_ms), None) => {
                 let elapsed_ms = start.elapsed().as_millis() as u64;
                 let moves_left = total_moves - i;
                 SearchLimit {
@@ -1503,7 +1548,7 @@ fn search_all_moves_with_eval_core_restricted(
                     exact_from_empties: limit.exact_from_empties,
                 }
             }
-            None => limit.clone(),
+            (None, _) => limit.clone(),
         };
         // この手専用の経過時間の起点。`per_move_limit.time_ms`
         // (この手の持ち分)はこの起点からの経過時間として消費される
@@ -1516,7 +1561,32 @@ fn search_all_moves_with_eval_core_restricted(
         // (本番`search_all_moves_with_eval`は`_nodes`として捨てる)。
         let mut move_nodes: u64 = 0;
 
-        let (score, is_exact) = if next_empties <= limit.exact_from_empties as u32 {
+        let (score, is_exact) = if let Some(total_max_nodes) = max_nodes {
+            // 総予算を合法手数で固定均等割りする。子局面から見た探索結果を
+            // 符号反転すれば、この手を選んだ元手番側の評価値になる。
+            // max_depthは元のallMovesと同じ「ルート着手を1プライに数える」
+            // 規約に合わせ、子局面へ渡すときに1減らす。
+            let per_move_max_nodes = fair_share_count(total_max_nodes, total_moves, i);
+            let child_limit = SearchLimit {
+                max_depth: per_move_limit.max_depth.saturating_sub(1),
+                time_ms: per_move_limit.time_ms,
+                exact_from_empties: per_move_limit.exact_from_empties,
+            };
+            let result = search_with_eval_inner(
+                &next_board,
+                opponent,
+                &child_limit,
+                &mut local_tt,
+                weights,
+                true,
+                Some(per_move_max_nodes),
+                EXACT_QUOTA_PERCENT,
+                SearchPolicy::default(),
+                None,
+            );
+            move_nodes = result.nodes;
+            (-result.score, result.is_exact)
+        } else if next_empties <= limit.exact_from_empties as u32 {
             // T034: `search()`/`negascout`と同じ理由により、`time_ms`が
             // 指定されていれば`solve_exact_bounded`を使う。特定の局面
             // (安定石カット等の高度な枝刈りを持たない完全読みソルバーが
@@ -1633,6 +1703,18 @@ fn search_all_moves_with_eval_core_restricted(
 
     evals.sort_by_key(|(e, _)| std::cmp::Reverse(e.score));
     evals
+}
+
+/// 整数の総予算を`parts`個へ決定的に均等分配したときの`index`番目の持ち分。
+/// 商を全要素へ配り、余りは先頭から1ずつ配るため、合計は元の予算と一致し、
+/// 各持ち分の差は最大1になる。合法手0件では呼ばれないが、0除算を避けるため
+/// 防御的に0を返す。
+fn fair_share_count(total: u64, parts: usize, index: usize) -> u64 {
+    if parts == 0 {
+        return 0;
+    }
+    let parts = parts as u64;
+    total / parts + u64::from((index as u64) < total % parts)
 }
 
 /// history heuristic(T089a)用の `(side, move)` カウンタ表。
@@ -3351,7 +3433,7 @@ mod tests {
 
         // full: 通常どおり全合法手を評価する(mv_keepは最後)。
         let full = search_all_moves_with_eval_core_restricted(
-            &board, side, &limit, None, TINY_TT_MB, None,
+            &board, side, &limit, None, TINY_TT_MB, None, None,
         );
         let (full_eval, full_nodes) = *full
             .iter()
@@ -3368,6 +3450,7 @@ mod tests {
             None,
             TINY_TT_MB,
             Some(&[mv_keep]),
+            None,
         );
         assert_eq!(solo.len(), 1);
         let (solo_eval, solo_nodes) = solo[0];
@@ -3558,6 +3641,15 @@ mod tests {
             25,
             "1手目が持ち分ちょうど(25ms)を使い切った直後、残り11手はまだ25msずつ持てる"
         );
+    }
+
+    #[test]
+    fn fair_share_count_is_fixed_even_and_preserves_the_total_budget() {
+        let shares: Vec<u64> = (0..4).map(|i| fair_share_count(10, 4, i)).collect();
+        assert_eq!(shares, vec![3, 3, 2, 2]);
+        assert_eq!(shares.iter().sum::<u64>(), 10);
+        assert_eq!(fair_share_count(0, 4, 0), 0);
+        assert_eq!(fair_share_count(10, 0, 0), 0);
     }
 
     #[test]

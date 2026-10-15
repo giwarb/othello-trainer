@@ -198,6 +198,15 @@ describe('EngineClient', () => {
       ]);
     });
 
+    it('passes maxNodes through in an allMoves analyze request', () => {
+      const { client, worker } = createClient();
+      const nodeLimited = { ...limit, timeMs: 10_000, maxNodes: 1_500_000 };
+
+      void client.requestAnalyzeAll(board, 'black', nodeLimited);
+
+      expect(worker.sent[0]).toMatchObject({ allMoves: true, limit: nodeLimited });
+    });
+
     it('resolves with an empty array when the response has no moves field', async () => {
       const { client, worker } = createClient();
 
