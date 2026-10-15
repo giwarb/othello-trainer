@@ -1,7 +1,7 @@
 ---
 id: T202
 title: 中盤練習の結果画面: 評価値・グラフ・損失を同じ基準で一貫させる(深さ偶奇の統一)
-status: review
+status: done
 assignee: codex(gpt-5.6-sol)
 attempts: 2
 ---
@@ -190,3 +190,14 @@ f2 → (AI応手) → f1 → (AI応手) → e1 → (AI応手) と打った結果
   - `cd app && npm run typecheck`: エラー0。`npm run build`: 成功。engine本体は変更しておらず生成済みWASMが同一であるため、書き込み禁止のグローバルCargo領域を使うpre-scriptの `wasm-pack` 再生成だけ一時preloadで省略した。build内のWASM決定性・問題86二手順・pattern_v6検査はすべて成功。
   - `git diff --check`: 成功。検証用一時ファイルは削除済み。
 - コミット: 未実施（.git書き込み禁止）。この作業ログは追記のみでコミット対象外。
+
+### 2026-10-16 verifier (redo#2 再検証): 合格
+- GitHub Actions(head d4b3d32、555ff56含む): Rust Tests(38822718741, 4m36s)・Deploy to GitHub Pages(38822718690, 1m40s)とも success。
+- `cd app && npx vitest run`(サンドボックス外・オプションなし): 104 files / 882 tests passed。`npm run typecheck` エラー0、`npm run build` 成功。engine は redo#2 未変更(cargo test は CI success で確認)。
+- テスト内容: PracticeMode.flow.test は結果文言「0.0 → +1.5」とツールチップ(pointerdown→可視テキスト)始点「評価値: 0.0石(白視点)」・終点「+1.5石(白視点)」を固定、表示差0なら「0.0 → 0.0(変化なし)」を固定。EvalGraph.test は valueFormatter 省略時 -2.75 が「-3石(黒視点)」になることを固定。いずれもリテラル期待値で空洞化なし。
+- Pages実機(Playwright chromium-1234): 問題86 f2/f1/e1 は初回・リトライとも「-2.7 → -1.8(開始より0.9石改善)」★★★、ツールチップ始点「初期局面 -2.7石」・終点「6手目 -1.8石」で一致(データ値 -2.75/-1.84)。白番ステージ1 f4/g5/d7 は「0.0 → +1.5(開始より1.5石改善)」、ツールチップ始点「0.0石(白視点)」・終点「+1.5石(白視点)」。対局モードのグラフは「+0石(黒視点)」の整数表示のまま。SS: scratchpad の r3_s86_a1_tip_start/end.png, r3_s86_a2retry_tip_*.png, r3_s1_a1_tip_*.png, r3_play_tip.png。
+- git status --short: 当該タスク由来の残骸なし(tasks/review/ のレポートに既存の変更のみ)。
+
+### 2026-10-16 オーケストレーター: done判定
+
+- 3巡目検収: verifier合格(CI green、Pages実機で結果文言とツールチップ始点・終点一致、他モード整数表示維持)、codex-review合格(重大・中なし)。**done**。
