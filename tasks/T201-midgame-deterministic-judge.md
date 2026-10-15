@@ -1,7 +1,7 @@
 ---
 id: T201
 title: 中盤練習の★判定を決定的にする(allMoves解析のノード予算化)
-status: redo
+status: review
 assignee: codex(gpt-5.6-sol)
 attempts: 1
 ---
@@ -119,3 +119,36 @@ attempts: 1
 - 品質測定を開始。ステージ1,4,7,…,109に問題86を加えた代表38局面を対象とし、旧方式150万ノードと新方式候補250万ノードはWASM releaseで局面ごとにJSONLへ逐次保存済み。深い参照はパリティを揃えた固定深さ12をrelease版eval_cli movesで測定中(20:58時点で13/38局面完了)。測定スクリプトは完了済みstageNumberをスキップしてresumeでき、各局面完了時に即時追記する。
 
 - 2026-10-15 implementer: 中断後の作業ツリー整理(fmt差分の差し戻し・一時ファイル移動)を実施。全差分バックアップは scratchpad の t201-wip-full.patch、一時ファイルは logs/t201/ へ移動。cargo build 成功。
+
+### 2026-10-16 01:43 implementer: Codex (redo#1完了)
+
+- allMoves + maxNodes の中盤経路を、合法手ごとの独立反復深化・均等割りから「深さ d=1,2,… ごとに全ルート手をマス番号順で一巡する」方式へ変更した。全手が完走した最深ラウンドだけを採用し、総ノード予算または壁時計保険で途中終了したラウンドは全手ぶん破棄する。各ルート手は独立TT(最大4MB)を反復間でのみ再利用し、共通の総ノードカウンタで決定的に停止する。着手後空き数が exactFromEmpties 以下の直接完全読み経路と、maxNodes 未指定の従来時間配分経路は変更していない。
+- 中盤練習の共通設定を { depth: 10, timeMs: 10000, maxNodes: 2400000, exactFromEmpties: 24 } に確定した。timeMs は壁時計保険であり、通常測定では発火しない。WASM release・pattern_v6 の代表38局面で平均778.5ms、最大1288.1ms、問題86は1033.4msで、目安の約1.5秒以内だった。275万候補は平均838.2ms・最大1392.1msだが参照一致率が63.2%へ低下したため不採用。深さ10完走を優先する1000万候補は最大約4.95秒となり上限目安を超えるため不採用。
+- 品質測定はステージ1,4,7,…,109に問題86を加えた38局面。深い参照は同一深さ方式の2500万ノード・depth16(候補の約10倍、平均14629.0ms)とした。logs/t201/tmp_t201_quality_measure.mjs は局面ごとにJSONLへ即時追記し、完了済み (mode, maxNodes, stageNumber) をスキップしてresumeできる。測定表(参照評価上のregret、石):
+
+  | 方式 | 参照最善手一致 | 平均regret | 最大regret | 通常時平均/最大 |
+  |---|---:|---:|---:|---:|
+  | 旧: 手ごと均等割り150万、depth16 | 25/38 (65.8%) | 0.37 | 2.66 | 730.4/821.5ms |
+  | 新: 全手共通深さ240万、depth10 | 25/38 (65.8%) | 0.46 | 3.88 | 778.5/1288.1ms |
+
+  新方式の一致率は旧方式以上(同率)。問題86開始局面は旧方式 e1=-0.09 に対し、新方式 f2=-2.75、参照も f2=-0.49 で最善手が一致した。
+- 現WASMで問題86の g6 → (g5) → f2 → (c2) → h5 → (d6) を間に別局面解析を挟んで2回通し実測し、2回とも start=-2.75 / end=-6.21 / ★1、応手=g5/c2/d6、各手の「最善手/ロス」は f2/3.01石, f2/0石, d6/1.03石 で完全一致した。Rust回帰では本番240万ノードで開始局面を2回解析し、両方の先頭手が明示的に f2 であることもassertした。
+- 要件7の経路一覧:
+  - 開始評価・各手損失・最善判定: handlePlayerMove が getAnalyzedMoves の同一allMoves結果から best.move / best.discDiff / played.discDiff を一度だけ算出し、startEvalRef と MoveOutcome(bestMove, lossDiscs, isBest, allMoves)へ保存する。
+  - ★3判定: finalizeSession → computeStageStars は保存済み MoveOutcome.isBest のみを使い、再解析しない。
+  - 結果画面の各手「最善手(正解)」: 保存済み MoveOutcome.bestMove をそのまま表示する。
+  - worstMoveCompare: worstMoveCompareInfo は同じ MoveOutcome.bestMove と MoveOutcome.allMoves を bestMove/originalMoves として再利用する。元局面の最善手を再解析しない。分岐先の2手先解析だけ requestAnalyzeAllForCompare を使い、これも同じ MIDGAME_ANALYZE_LIMIT。
+  - 相手最善応手・終了評価・候補手オーバーレイ: すべてキャッシュ付き getAnalyzedMoves と同じ MIDGAME_ANALYZE_LIMIT。これにより開始/終了/表示/判定の設定が一致する。
+  - appフローテストで全 requestAnalyzeAll に本番limitが渡ること、判定の最善手 b1 が結果一覧と worstMoveCompare の最善手盤面ラベルの両方で b1 のままであることを検証した。
+- requestAnalyzeAll / allMoves 呼び出し元を再確認: app.tsx、analysis/analyzeGame.ts、analysis/BlunderPanel.tsx、analysis/sendToPractice.ts、joseki/PracticeMode.tsx、midgame/PracticeMode.tsx(注入先 midgame/twoPlyCompare.ts)、tsume/PlayMode.tsx、verbalize/PracticeMode.tsx、verbalize/TwoChoiceDrill.tsx、verbalize/glossaryExamples.ts、共通入口 engine/client.ts。T201以前に本番allMovesへ maxNodes を渡す呼び出し元は0件(client.test.tsの転送テストは本番呼び出しではない)。今回変更した中盤練習以外は maxNodes 未指定で従来挙動のまま。棋譜解析キャッシュも不変のため ANALYSIS_ENGINE_VERSION は8のまま。app.tsx の maxNodes はsingle-root CPU着手専用で変更なし。
+- app/scripts/test-node-budget-wasm.mjs に allMoves + maxNodes を同条件2回・別局面後にtimeMsだけ変えて再実行する直接検査を追加した。これにより2026-10-15ログの「build内でallMovesも検査済み」という不正確だった記載は、今回のbuildから実態どおりになった。
+- WASM成果物 app/src/engine/pkg はgitignore対象で、CIと npm run build が再生成するためコミット対象なし。書き込み可能な既存 WASM_PACK_CACHE を指定して再ビルドした。
+- 検証:
+  - cd engine && cargo test: engine lib 260 passed / 0 failed / 2 ignored。workspace内の各bin・補助テスト・doc-testも全件成功。
+  - cargo test -p engine --release --test ffo_bench: fast 1 passed / heavy 1 ignored。
+  - cd app && npx vitest run: sandboxのVite net use とforkを一時preload + threads/maxWorkers=1で回避し、103 files / 876 tests passed。対象 PracticeMode.flow.test.tsx は7/7 passed。
+  - cd app && npm run typecheck: WASM再ビルドを含め成功、TypeScriptエラー0。
+  - cd app && npm run build: WASM再ビルド、tsc、Vite、allMoves node-budget決定性検査、pattern_v6検査、SW version注入まで成功。
+  - git diff --check: 成功。
+- Pages実機確認とGitHub Actions確認は、オーケストレーターのcommit/push後にverifierが実施する受け入れ項目のため未実施。
+- コミット: 未実施(.git書き込み禁止)。コミット対象は engine/src/search.rs、engine/src/protocol.rs、app/src/midgame/PracticeMode.tsx、app/src/midgame/PracticeMode.flow.test.tsx、app/scripts/test-node-budget-wasm.mjs。tasks/T201-midgame-deterministic-judge.md は作業ログ追記のみでコミット対象外。
