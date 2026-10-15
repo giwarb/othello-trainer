@@ -6,7 +6,7 @@
 
 ## 現在地
 
-**【2026-10-15 バグ修正 T201】** ユーザー報告「中盤練習 問題86で同じ g6/f2/h5 手順が1回目正解・2回目失敗」。explorer調査で根本原因確定: 中盤練習の解析(`MIDGAME_ANALYZE_LIMIT`)が timeMs:1000 の時間打ち切りで、allMoves経路は maxNodes を無視 → PC負荷で到達深さが変わり★判定(損失=開始評価−終了評価)が境界を跨ぐ。T201 1回目: 決定性は達成(Pages実機・CPU飽和下で一致)したが、均等割り150万ノードでは問題86の最善手がe1に化ける品質問題(codex-review不合格)+要件7テスト欠如 → redo#1(全ルート手を同一深さで比較する決定的反復深化+参照解析との一致率で予算校正)をCodexに再委譲 → **Codex usage limitで途中停止(再開可 10/16 01:01)**。未コミットWIP(protocol.rs/search.rs/PracticeMode.tsx、バックアップpatchはscratchpad)・測定データは logs/t201/。01:05以降にCodexで再開する。
+**【2026-10-15 バグ修正 T201】** ユーザー報告「中盤練習 問題86で同じ g6/f2/h5 手順が1回目正解・2回目失敗」。explorer調査で根本原因確定: 中盤練習の解析(`MIDGAME_ANALYZE_LIMIT`)が timeMs:1000 の時間打ち切りで、allMoves経路は maxNodes を無視 → PC負荷で到達深さが変わり★判定(損失=開始評価−終了評価)が境界を跨ぐ。T201 1回目: 決定性は達成(Pages実機・CPU飽和下で一致)したが、均等割り150万ノードでは問題86の最善手がe1に化ける品質問題(codex-review不合格)+要件7テスト欠如 → redo#1(全ルート手を同一深さで比較する決定的反復深化+参照解析との一致率で予算校正)をCodexに再委譲 → **Codex usage limitで途中停止→ 10/16 01:21 Codexで再開済み**。未コミットWIP(protocol.rs/search.rs/PracticeMode.tsx、バックアップpatchはscratchpad)・測定データは logs/t201/。01:05以降にCodexで再開する。
 
 (前回まで: 高速化第2弾・UI刷新シリーズ完了。大物候補=マルチスレッド化・反復深化+持ち時間管理はユーザー判断待ち、T177諮問依頼書は参考資料として残置)
 
