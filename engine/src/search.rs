@@ -1401,10 +1401,11 @@ pub fn search_all_moves_with_eval(
 /// [`search_all_moves_with_eval`] に、全合法手を通じた総ノード予算を追加した
 /// 決定的解析用入口。
 ///
-/// 予算は合法手数で固定的に均等分配し、余りはマス番号順の先頭から1ノードずつ
-/// 配る。各手は割り当て内で完了した最深の反復の値を採用するため、
-/// `limit.time_ms` の壁時計保険が発火しない限り、同一入力から常に同一結果を
-/// 得られる。`max_nodes` を指定しない既存入口の時間配分・探索内容は変更しない。
+/// 中盤探索では深さ1, 2, ...の順に全合法手を同じ深さで一巡し、全手が
+/// 完走した最深ラウンドだけを採用する。総予算の途中で止まったラウンドは
+/// 丸ごと破棄するため、異なる深さの評価値を比較しない。`limit.time_ms` の
+/// 壁時計保険が発火しない限り、同一入力から常に同一結果を得られる。
+/// `max_nodes` を指定しない既存入口の時間配分・探索内容は変更しない。
 pub fn search_all_moves_with_eval_with_node_limit(
     board: &Board,
     side_to_move: Side,
@@ -1484,6 +1485,24 @@ fn search_all_moves_with_eval_core_restricted(
     }
     if let Some(allowed) = restrict_to {
         moves.retain(|mv| allowed.contains(mv));
+    }
+
+    // T201 redo#1: 中盤のmaxNodes経路は、全ルート手を同一深さに揃える。
+    // 着手後が直接exact対象になる境界だけは、下の従来分岐
+    // (手ごとの限定完全読み)を維持する。
+    if let Some(total_max_nodes) = max_nodes {
+        let next_empties = board.empty_count().saturating_sub(1);
+        if next_empties > limit.exact_from_empties as u32 {
+            return search_all_moves_uniform_depth_with_node_limit(
+                board,
+                side_to_move,
+                limit,
+                weights,
+                tt_size_mb,
+                moves,
+                total_max_nodes,
+            );
+        }
     }
 
     let opponent = side_to_move.opposite();
@@ -1702,6 +1721,175 @@ fn search_all_moves_with_eval_core_restricted(
     }
 
     evals.sort_by_key(|(e, _)| std::cmp::Reverse(e.score));
+    evals
+}
+
+/// allMoves+maxNodesの中盤用実装。
+///
+/// 各反復深さについて全ルート手をマス番号順に探索し、全手が完走した場合だけ
+/// そのラウンドの値を採用する。途中で総ノード予算または壁時計保険に達した
+/// ラウンドは全手ぶん破棄し、直前の共通深さの値を返す。
+///
+/// ルート手同士のTT汚染を避けつつWASMのメモリ使用量を抑えるため、独立した
+/// 小容量TTを各手に持たせる(本番の従来allMoves用16MBより小さい、
+/// 1手あたり最大4MB)。
+/// TTサイズは探索量だけに影響し、完走した固定深さの値には影響しない。
+fn search_all_moves_uniform_depth_with_node_limit(
+    board: &Board,
+    side_to_move: Side,
+    limit: &SearchLimit,
+    weights: Option<&PatternWeights>,
+    tt_size_mb: usize,
+    moves: Vec<u8>,
+    max_nodes: u64,
+) -> Vec<(MoveEval, u64)> {
+    if moves.is_empty() {
+        return Vec::new();
+    }
+
+    struct MoveState {
+        mv: u8,
+        next_board: Board,
+        tt: TranspositionTable,
+        score: i32,
+        nodes: u64,
+        exact_quota_remaining: u64,
+    }
+
+    let opponent = side_to_move.opposite();
+    let total_moves = moves.len();
+    let per_move_tt_mb = tt_size_mb.min(4).max(1);
+    let mut states: Vec<MoveState> = moves
+        .into_iter()
+        .map(|mv| {
+            let next_board = board.apply_move(side_to_move, 1u64 << mv);
+            let mut tt = TranspositionTable::new(per_move_tt_mb);
+            tt.set_last_exact_from_empties(limit.exact_from_empties);
+            MoveState {
+                mv,
+                next_board,
+                tt,
+                score: -static_eval(&next_board, opponent, weights),
+                nodes: 0,
+                exact_quota_remaining: 0,
+            }
+        })
+        .collect();
+
+    let start = Instant::now();
+    let mut total_nodes = 0u64;
+
+    for depth in 1..=limit.max_depth {
+        let mut round_scores = Vec::with_capacity(total_moves);
+        let mut round_complete = true;
+
+        for state in &mut states {
+            if total_nodes >= max_nodes {
+                round_complete = false;
+                break;
+            }
+
+            let mut nodes = 0u64;
+            let mut timed_out = false;
+            let mut exact_stats = ExactStats::default();
+            let mut mpc_stats = MpcStats::default();
+            let candidate = {
+                let mut ctx = SearchCtx {
+                    limit,
+                    tt: &mut state.tt,
+                    nodes: &mut nodes,
+                    nodes_before: total_nodes,
+                    max_nodes: Some(max_nodes),
+                    start,
+                    timed_out: &mut timed_out,
+                    weights,
+                    suppress_mpc: false,
+                    enable_mpc: false,
+                    mpc_margin_t: None,
+                    mpc_stats: &mut mpc_stats,
+                    enable_etc: true,
+                    // search_with_eval_innerのnode-budget経路と同じく、
+                    // baseline(depth=1)ではexact接続を行わない。
+                    exact_enabled: depth > 2,
+                    exact_quota_remaining: &mut state.exact_quota_remaining,
+                    exact_stats: &mut exact_stats,
+                    history: None,
+                };
+                -negascout(
+                    &state.next_board,
+                    opponent,
+                    depth - 1,
+                    -INF,
+                    INF,
+                    &mut ctx,
+                    None,
+                    None,
+                    None,
+                )
+            };
+
+            total_nodes += nodes;
+            state.nodes += nodes;
+            if timed_out {
+                round_complete = false;
+                break;
+            }
+            round_scores.push(candidate);
+
+            if limit
+                .time_ms
+                .is_some_and(|time_ms| start.elapsed().as_millis() as u64 >= time_ms)
+                && round_scores.len() < total_moves
+            {
+                round_complete = false;
+                break;
+            }
+        }
+
+        if !round_complete || round_scores.len() != total_moves {
+            break;
+        }
+
+        for (state, score) in states.iter_mut().zip(round_scores) {
+            state.score = score;
+        }
+
+        // 単一ルートnode-budget探索と同じタイミング(子局面depth=1完走後)
+        // で、残予算の一定割合を木内exact用に確保する。ルート手ごとに
+        // 決定的に均等分配し、先に探索する手がquotaを独占しないようにする。
+        if depth == 2 {
+            let exact_budget = max_nodes
+                .saturating_sub(total_nodes)
+                .saturating_mul(EXACT_QUOTA_PERCENT as u64)
+                / 100;
+            for (index, state) in states.iter_mut().enumerate() {
+                state.exact_quota_remaining = fair_share_count(exact_budget, total_moves, index);
+            }
+        }
+
+        if total_nodes >= max_nodes
+            || limit
+                .time_ms
+                .is_some_and(|time_ms| start.elapsed().as_millis() as u64 >= time_ms)
+        {
+            break;
+        }
+    }
+
+    let mut evals: Vec<(MoveEval, u64)> = states
+        .into_iter()
+        .map(|state| {
+            (
+                MoveEval {
+                    mv: state.mv,
+                    score: state.score,
+                    is_exact: false,
+                },
+                state.nodes,
+            )
+        })
+        .collect();
+    evals.sort_by_key(|(eval, _)| std::cmp::Reverse(eval.score));
     evals
 }
 

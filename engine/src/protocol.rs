@@ -442,6 +442,24 @@ mod tests {
         board.apply_move(side, move_bit)
     }
 
+    const MIDGAME_PRODUCTION_MAX_NODES: u64 = 2_400_000;
+
+    fn problem_86_start_position() -> (Board, Side) {
+        let mut board = Board::initial();
+        let mut side = Side::Black;
+        for mv in [
+            "f5", "f6", "e6", "f4", "e3", "c5", "c4", "d7", "c6", "e2", "f3", "d3",
+            "c3", "d2",
+        ] {
+            board = apply_notation(board, side, mv);
+            side = side.opposite();
+        }
+        assert_eq!(side, Side::Black);
+        assert_eq!(board.black, 0x0000040c0c2c0000);
+        assert_eq!(board.white, 0x0008303030101800);
+        (board, side)
+    }
+
     fn analyze_all_for_test(
         engine: &mut Engine,
         board: &Board,
@@ -453,7 +471,7 @@ mod tests {
         let white = board.white;
         let turn = if side == Side::Black { "black" } else { "white" };
         let request = format!(
-            r#"{{"id":{id},"cmd":"analyze","board":{{"black":"0x{black:x}","white":"0x{white:x}","turn":"{turn}"}},"limit":{{"depth":16,"timeMs":60000,"maxNodes":{max_nodes},"exactFromEmpties":24}},"allMoves":true}}"#
+            r#"{{"id":{id},"cmd":"analyze","board":{{"black":"0x{black:x}","white":"0x{white:x}","turn":"{turn}"}},"limit":{{"depth":10,"timeMs":60000,"maxNodes":{max_nodes},"exactFromEmpties":24}},"allMoves":true}}"#
         );
         *id += 1;
         let response: serde_json::Value = serde_json::from_str(&engine.analyze(&request)).unwrap();
@@ -471,27 +489,24 @@ mod tests {
             .collect()
     }
 
-    fn run_problem_86_attempt(engine: &mut Engine, id: &mut u64) -> (i32, i32, u8, Vec<String>) {
+    fn run_problem_86_attempt(
+        engine: &mut Engine,
+        id: &mut u64,
+    ) -> (String, i32, i32, u8, Vec<String>) {
         const TEST_MAX_NODES: u64 = 240_000;
-        let mut board = Board::initial();
-        let mut side = Side::Black;
-        for mv in [
-            "f5", "f6", "e6", "f4", "e3", "c5", "c4", "d7", "c6", "e2", "f3", "d3",
-            "c3", "d2",
-        ] {
-            board = apply_notation(board, side, mv);
-            side = side.opposite();
-        }
-        assert_eq!(side, Side::Black);
-        assert_eq!(board.black, 0x0000040c0c2c0000);
-        assert_eq!(board.white, 0x0008303030101800);
+        let (mut board, mut side) = problem_86_start_position();
 
+        let mut start_best_move = None;
         let mut start_score = None;
         let mut all_best = true;
         let mut replies = Vec::new();
         for player_move in ["g6", "f2", "h5"] {
             let moves = analyze_all_for_test(engine, &board, side, id, TEST_MAX_NODES);
-            let best_score = moves.first().expect("player should have a legal move").1;
+            let (best_move, best_score) = moves.first().expect("player should have a legal move");
+            if start_best_move.is_none() {
+                start_best_move = Some(best_move.clone());
+            }
+            let best_score = *best_score;
             start_score.get_or_insert(best_score);
             let played_score = moves
                 .iter()
@@ -527,7 +542,13 @@ mod tests {
         } else {
             0
         };
-        (start_score.unwrap(), end_score, stars, replies)
+        (
+            start_best_move.unwrap(),
+            start_score.unwrap(),
+            end_score,
+            stars,
+            replies,
+        )
     }
 
     #[test]
@@ -926,14 +947,50 @@ mod tests {
         let second = run_problem_86_attempt(&mut engine, &mut id);
 
         assert_eq!(first, second);
-        assert_eq!(first.3, vec!["g5", "c2", "d6"]);
+        assert_eq!(first.4, vec!["g5", "c2", "d6"]);
         println!(
-            "problem86 deterministic result: start={} end={} stars={} replies={:?}",
-            first.0 as f64 / 100.0,
+            "problem86 deterministic result: best={} start={} end={} stars={} replies={:?}",
+            first.0,
             first.1 as f64 / 100.0,
-            first.2,
-            first.3
+            first.2 as f64 / 100.0,
+            first.3,
+            first.4
         );
+    }
+
+    #[test]
+    fn problem_86_start_best_move_is_f2_with_production_node_budget_on_repeated_calls() {
+        let weights = include_bytes!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../train/weights/pattern_v6.bin"
+        ));
+        let mut engine = Engine::new();
+        engine
+            .load_pattern_weights(weights)
+            .expect("pattern_v6 weights should load");
+        let (board, side) = problem_86_start_position();
+        let mut id = 80;
+
+        let first = analyze_all_for_test(
+            &mut engine,
+            &board,
+            side,
+            &mut id,
+            MIDGAME_PRODUCTION_MAX_NODES,
+        );
+        let _unrelated =
+            analyze_all_for_test(&mut engine, &Board::initial(), Side::Black, &mut id, 20_000);
+        let second = analyze_all_for_test(
+            &mut engine,
+            &board,
+            side,
+            &mut id,
+            MIDGAME_PRODUCTION_MAX_NODES,
+        );
+
+        assert_eq!(first, second);
+        assert_eq!(first.first().map(|(mv, _)| mv.as_str()), Some("f2"));
+        assert_eq!(second.first().map(|(mv, _)| mv.as_str()), Some("f2"));
     }
 
     /// T139関連の確認: CPU着手経路(`cpuLimit`、`maxNodes`指定)の探索は、

@@ -40,6 +40,30 @@ const unrelatedRequest = JSON.stringify({
   allMoves: true,
 })
 
+const allMovesRequest = JSON.stringify({
+  id: 3,
+  cmd: 'analyze',
+  board: {
+    black: '0x0000000810000000',
+    white: '0x0000001008000000',
+    turn: 'black',
+  },
+  limit: { depth: 12, timeMs: 10_000, maxNodes: 40_000, exactFromEmpties: 16 },
+  allMoves: true,
+})
+
+const allMovesMoreTimeRequest = JSON.stringify({
+  id: 4,
+  cmd: 'analyze',
+  board: {
+    black: '0x0000000810000000',
+    white: '0x0000001008000000',
+    turn: 'black',
+  },
+  limit: { depth: 12, timeMs: 20_000, maxNodes: 40_000, exactFromEmpties: 16 },
+  allMoves: true,
+})
+
 const engine = new Engine()
 engine.load_pattern_weights(weights)
 
@@ -47,6 +71,9 @@ const first = JSON.parse(engine.analyze(request))
 const second = JSON.parse(engine.analyze(request))
 const unrelated = JSON.parse(engine.analyze(unrelatedRequest))
 const afterUnrelated = JSON.parse(engine.analyze(request))
+const allMovesFirst = JSON.parse(engine.analyze(allMovesRequest))
+const allMovesSecond = JSON.parse(engine.analyze(allMovesRequest))
+const allMovesAfterUnrelated = JSON.parse(engine.analyze(allMovesMoreTimeRequest))
 
 function deterministicFields(response) {
   return {
@@ -54,6 +81,14 @@ function deterministicFields(response) {
     score: response.score,
     depth: response.depth,
     nodes: response.nodes,
+  }
+}
+
+function deterministicAllMovesFields(response) {
+  return {
+    moves: response.moves,
+    pv: response.pv,
+    score: response.score,
   }
 }
 
@@ -69,4 +104,20 @@ if (
   throw new Error(`node-budget WASM determinism check failed: ${JSON.stringify({ first, second, unrelated, afterUnrelated })}`)
 }
 
+const allMovesExpected = JSON.stringify(deterministicAllMovesFields(allMovesFirst))
+if (
+  allMovesFirst.error
+  || allMovesSecond.error
+  || allMovesAfterUnrelated.error
+  || JSON.stringify(deterministicAllMovesFields(allMovesSecond)) !== allMovesExpected
+  || JSON.stringify(deterministicAllMovesFields(allMovesAfterUnrelated)) !== allMovesExpected
+) {
+  throw new Error(
+    `allMoves node-budget WASM determinism check failed: ${JSON.stringify({ allMovesFirst, allMovesSecond, allMovesAfterUnrelated })}`,
+  )
+}
+
 console.log(`[wasm-test] deterministic node-budget result: ${first.pv[0]} (${first.score.discDiff}), depth ${first.depth}, nodes ${first.nodes}`)
+console.log(
+  `[wasm-test] deterministic allMoves node-budget result: ${allMovesFirst.pv[0]} (${allMovesFirst.score.discDiff}), ${allMovesFirst.moves.length} moves`,
+)

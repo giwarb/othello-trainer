@@ -74,13 +74,14 @@ import './PracticeMode.css'
 
 /**
  * 中盤練習モードのエンジン解析に使う探索条件(T141要件: 表示・判定・応手で
- * 同一設定を使う。`maxNodes`を全合法手へ固定配分することで判定値を決定的にし、
- * `timeMs`は異常に遅い環境での壁時計保険としてのみ使う。
+ * 同一設定を使う。`maxNodes`付きallMovesが全合法手を共通深さで比較する
+ * ことで判定値を決定的にし、`timeMs`は異常に遅い環境での壁時計保険として
+ * のみ使う。
  */
 const MIDGAME_ANALYZE_LIMIT: AnalyzeLimit = {
-  depth: 16,
+  depth: 10,
   timeMs: 10_000,
-  maxNodes: 1_500_000,
+  maxNodes: 2_400_000,
   exactFromEmpties: 24,
 }
 

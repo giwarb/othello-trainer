@@ -16,7 +16,7 @@
 import { render } from 'preact'
 import { act } from 'preact/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { FeatureSetJson, FeatureSetResponseMessage, MoveEvalJson } from '../engine/types.ts'
+import type { AnalyzeLimit, FeatureSetJson, FeatureSetResponseMessage, MoveEvalJson } from '../engine/types.ts'
 import {
   applyMove,
   countDiscs,
@@ -238,9 +238,13 @@ let branchDelayMs = 0
  */
 let featureDelayMs = 0
 
+/** T201: 中盤練習からエンジンへ渡された全allMoves探索条件。 */
+let capturedAnalyzeLimits: AnalyzeLimit[] = []
+
 vi.mock('../engine/sharedClient.ts', () => ({
   getSharedEngineClient: () => ({
-    requestAnalyzeAll: (board: Board, side: Side): Promise<MoveEvalJson[]> => {
+    requestAnalyzeAll: (board: Board, side: Side, limit: AnalyzeLimit): Promise<MoveEvalJson[]> => {
+      capturedAnalyzeLimits.push({ ...limit })
       if (isDecisionBoard(board, side)) return Promise.resolve(decisionMoves(board, side))
       // T200 redo#2: 決定局面2(連続悪手テスト用)も、判定用の初回呼び出しは
       // 決定局面1と同様に遅延させない(損失確定はただちに行われる必要があるため)。
@@ -297,6 +301,7 @@ describe('T141: 中盤練習ステージクリア型のプレイフロー', () =
     decisionBestDiscDiff2 = 10
     branchDelayMs = 0
     featureDelayMs = 0
+    capturedAnalyzeLimits = []
     container = document.createElement('div')
     document.body.appendChild(container)
   })
@@ -344,6 +349,13 @@ describe('T141: 中盤練習ステージクリア型のプレイフロー', () =
       expect(entries.length).toBe(1)
       expect(entries[0]?.bestStars).toBe(3)
       expect(entries[0]?.attempts).toBe(1)
+
+      // T201: 表示・判定・応手・終了評価の全allMovesが、同じ決定的な
+      // 本番探索条件を使うことを配線レベルで固定する。
+      expect(capturedAnalyzeLimits.length).toBeGreaterThan(0)
+      capturedAnalyzeLimits.forEach((limit) =>
+        expect(limit).toEqual({ depth: 10, timeMs: 10_000, maxNodes: 2_400_000, exactFromEmpties: 24 }),
+      )
     },
     15000,
   )
@@ -420,6 +432,13 @@ describe('T141: 中盤練習ステージクリア型のプレイフロー', () =
       await flushAsyncEffects()
       expect(container.querySelector('.two-ply-compare')).not.toBeNull()
       expect(container.textContent).toContain('実際に打った手')
+
+      // T201要件7: 着手判定で採用した最善手b1がMoveOutcomeへ保存され、
+      // 結果一覧だけでなくworstMoveCompareの最善手盤面にも同じ手として渡る。
+      const resultBestLabel = container.querySelector(
+        '.midgame-result .two-ply-compare__column--best .two-ply-compare__board-label',
+      )
+      expect(resultBestLabel?.textContent).toContain(`最善手(${DECISION_BEST_MOVE})`)
     },
     15000,
   )
