@@ -26,7 +26,8 @@ export interface EvalGraphPointMove {
 export interface EvalGraphPoint {
   readonly ply: number
   /**
-   * 黒視点の評価値(石差、クリップ前)。局面ごとに独立した探索の生値ではなく、
+   * `valuePerspective`で指定された視点の評価値(既定は黒視点、石差、クリップ前)。
+   * 局面ごとに独立した探索の生値ではなく、
    * `analyzeGame`が計算する累積評価値(T056、最善手が続く区間は変化しない)。
    * 定石区間は0(互角)に固定される(T046)。
    */

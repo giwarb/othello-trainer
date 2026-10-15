@@ -3978,6 +3978,58 @@ mod tests {
     }
 
     #[test]
+    fn all_moves_node_budget_keeps_even_round_when_next_odd_round_is_interrupted() {
+        let board = Board::initial();
+        let limit = SearchLimit {
+            max_depth: 10,
+            time_ms: None,
+            exact_from_empties: 24,
+        };
+        let moves = vec![19, 26, 37, 44];
+        let even_complete = search_all_moves_uniform_depth_with_node_limit(
+            &board,
+            Side::Black,
+            &limit,
+            None,
+            1,
+            moves.clone(),
+            9_000,
+        );
+        assert_eq!(even_complete.deepest_completed_depth, 8);
+
+        // depth=8が9,000ノード以内で全手完走することを上で確認したうえで、
+        // 10,000ノードを使い切っても最深完走が8なので、次のdepth=9の途中で
+        // 停止したケースになる。偶数上限の結果はdepth=8を採用し、2回とも一致する。
+        let first = search_all_moves_uniform_depth_with_node_limit(
+            &board,
+            Side::Black,
+            &limit,
+            None,
+            1,
+            moves.clone(),
+            10_000,
+        );
+        let second = search_all_moves_uniform_depth_with_node_limit(
+            &board,
+            Side::Black,
+            &limit,
+            None,
+            1,
+            moves,
+            10_000,
+        );
+        assert_eq!(first.deepest_completed_depth, 8);
+        assert_eq!(first.adopted_depth, 8);
+        assert_eq!(first.evals.len(), 4);
+        let consumed_nodes =
+            first.evals[0].1 + first.evals[1].1 + first.evals[2].1 + first.evals[3].1;
+        assert!(consumed_nodes >= 10_000);
+        assert_eq!(second.deepest_completed_depth, first.deepest_completed_depth);
+        assert_eq!(second.adopted_depth, first.adopted_depth);
+        assert_eq!(second.evals, first.evals);
+    }
+
+    #[test]
     fn fair_share_time_ms_lets_a_move_that_finishes_early_pass_its_leftover_budget_to_the_rest() {
         // T076: ある合法手が自分の持ち分より早く完走すれば、その分は
         // 後続の合法手の持ち分の計算(`elapsed_ms`が小さいまま)に自動的に

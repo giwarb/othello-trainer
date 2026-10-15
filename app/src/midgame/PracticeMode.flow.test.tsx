@@ -782,7 +782,7 @@ describe('T141: 中盤練習ステージクリア型のプレイフロー', () =
         josekiNames: ['T202白番テスト'],
       }]
       scriptedHumanSide = 'white'
-      scriptedRootValues = [-3, -1, 2, 4]
+      scriptedRootValues = [-0.02, 1.12, 1.33, 1.49]
 
       const { PracticeMode } = await import('./PracticeMode.tsx')
       await act(async () => {
@@ -797,12 +797,13 @@ describe('T141: 中盤練習ステージクリア型のプレイフロー', () =
       }
 
       expect(container.querySelector('.midgame-result')).not.toBeNull()
-      expect(resultGraphValues(container)).toEqual([-3, -3, -1, -1, 2, 2, 4])
+      expect(resultGraphValues(container)).toEqual([-0.02, -0.02, 1.12, 1.12, 1.33, 1.33, 1.49])
       expect(container.querySelector('.midgame-result .eval-graph__svg')?.getAttribute('aria-label')).toContain(
         '白優勢が上',
       )
-      expect(container.textContent).toContain('評価値 -3 → +4(開始より7石改善)')
+      expect(container.textContent).toContain('評価値 0.0 → +1.5(開始より1.5石改善)')
       expect(container.textContent).toContain('各手を打った後のあなた視点の評価値')
+      expect(container.textContent).toContain('最後の点は終了局面の評価です')
     },
     15000,
   )
@@ -818,7 +819,7 @@ describe('T141: 中盤練習ステージクリア型のプレイフロー', () =
         josekiNames: ['T202損失テスト'],
       }]
       scriptedHumanSide = 'black'
-      scriptedRootValues = [3, 2, 1, -2]
+      scriptedRootValues = [3.04, 2, 1, -1.94]
 
       const { PracticeMode } = await import('./PracticeMode.tsx')
       await act(async () => {
@@ -832,8 +833,89 @@ describe('T141: 中盤練習ステージクリア型のプレイフロー', () =
         await flushAsyncEffects()
       }
 
-      expect(container.textContent).toContain('評価値 +3 → -2(損失5石)')
-      expect(resultGraphValues(container).at(-1)).toBe(-2)
+      // 差分は丸め前の4.98→5.0ではなく、表示値+3.0と-1.9の差4.9を使う。
+      expect(container.textContent).toContain('評価値 +3.0 → -1.9(損失4.9石)')
+      expect(resultGraphValues(container).at(-1)).toBe(-1.94)
+    },
+    15000,
+  )
+
+  it(
+    'T202 redo#1: 相手パスでユーザーが連続着手しても、根評価をafterPlyで対応付けて最終点をBにする',
+    async () => {
+      // 先頭合法手を選び続けると H:a1 → O:g6 → H:h4 → (Oパス) →
+      // H:a5 → O:a6 となる。実着手数とユーザー着手回数がここでずれる。
+      stagePoolOverride = [{
+        key: 't202-opponent-pass-stage',
+        stageNumber: 1,
+        board: { black: 0x403814002cf0fcn, white: 0x403e066a7fd30f02n },
+        sideToMove: 'black',
+        josekiNames: ['T202相手パステスト'],
+      }]
+      scriptedHumanSide = 'black'
+      scriptedRootValues = [-3, -1, 2, 4]
+
+      const { PracticeMode } = await import('./PracticeMode.tsx')
+      await act(async () => {
+        render(<PracticeMode />, container)
+      })
+      await flushAsyncEffects()
+      await act(async () => container.querySelector<HTMLButtonElement>('.midgame-stage-grid__cell')?.click())
+      await flushAsyncEffects()
+
+      await act(async () => clickMove(container, 'a1'))
+      await flushAsyncEffects()
+      await act(async () => clickMove(container, 'h4'))
+      await flushAsyncEffects()
+      await act(async () => clickMove(container, 'a5'))
+      await flushAsyncEffects(30)
+
+      expect(container.querySelector('.midgame-result')).not.toBeNull()
+      expect(resultGraphValues(container)).toEqual([-3, -3, -1, -1, 2, 4])
+      expect(resultGraphValues(container)[0]).toBe(-3)
+      expect(resultGraphValues(container).at(-1)).toBe(4)
+      expect(container.textContent).toContain('評価値 -3.0 → +4.0(開始より7.0石改善)')
+    },
+    15000,
+  )
+
+  it(
+    'T202 redo#1: ユーザーパスで相手が連続着手する途中は直前値を維持し、最後の応手点をBにする',
+    async () => {
+      // 先頭合法手を選び続けると H:b1 → O:c1 → H:e6 → O:g6 →
+      // H:h7 → O:c8 → (Hパス) O:e8 → (Hパス) O:g8 となる。
+      stagePoolOverride = [{
+        key: 't202-user-pass-stage',
+        stageNumber: 1,
+        board: { black: 0x903215b15012300n, white: 0x227c8ea4eafedcf9n },
+        sideToMove: 'white',
+        josekiNames: ['T202ユーザーパステスト'],
+      }]
+      scriptedHumanSide = 'white'
+      scriptedRootValues = [-3, -1, 2, 4]
+
+      const { PracticeMode } = await import('./PracticeMode.tsx')
+      await act(async () => {
+        render(<PracticeMode />, container)
+      })
+      await flushAsyncEffects()
+      await act(async () => container.querySelector<HTMLButtonElement>('.midgame-stage-grid__cell')?.click())
+      await flushAsyncEffects()
+
+      await act(async () => clickMove(container, 'b1'))
+      await flushAsyncEffects()
+      await act(async () => clickMove(container, 'e6'))
+      await flushAsyncEffects()
+      await act(async () => clickMove(container, 'h7'))
+      await flushAsyncEffects(60)
+
+      expect(container.querySelector('.midgame-result')).not.toBeNull()
+      // c8/e8後はまだユーザー手番の根解析が無いため直前値2を維持し、
+      // ユーザー手番へ戻るg8後だけ終了評価B=4へ更新する。
+      expect(resultGraphValues(container)).toEqual([-3, -3, -1, -1, 2, 2, 2, 2, 4])
+      expect(resultGraphValues(container)[0]).toBe(-3)
+      expect(resultGraphValues(container).at(-1)).toBe(4)
+      expect(container.textContent).toContain('評価値 -3.0 → +4.0(開始より7.0石改善)')
     },
     15000,
   )

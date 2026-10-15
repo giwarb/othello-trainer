@@ -3,11 +3,11 @@ import { EvalGraph } from '../analysis/EvalGraph.tsx'
 import { loadClassifyThresholds } from '../analysis/thresholdSettings.ts'
 import type { ClassifyThresholds } from '../analysis/types.ts'
 import { Board } from '../components/Board.tsx'
-import { formatDiscDiff } from '../components/EvalBadge.tsx'
 import { MoveEvalOverlay } from '../components/MoveEvalOverlay.tsx'
 import {
   buildEvalGraphPoints,
   lastMoveEvalBarStateFor,
+  type EvalGraphValue,
   type PlayedMoveEval,
 } from '../components/moveEvalTimeline.ts'
 import { PlayerBadge } from '../components/PlayerBadge.tsx'
@@ -94,6 +94,25 @@ const ROUNDS_PER_STAGE = 3
 /** 苦手パターン検出・記録を行う損失の下限(石差、要件8「損失1石以上」)。 */
 const PATTERN_DETECTION_LOSS_THRESHOLD = 1
 
+/** 結果画面専用: 評価値を小数1桁へ丸め、`-0`を通常の`0`へ正規化する。 */
+function roundResultDiscDiff(value: number): number {
+  const rounded = Math.round(value * 10) / 10
+  return Object.is(rounded, -0) ? 0 : rounded
+}
+
+/** 結果画面専用の符号付き小数1桁表示。0は`0.0`と表示する。 */
+function formatResultDiscDiff(value: number): string {
+  const rounded = roundResultDiscDiff(value)
+  if (rounded === 0) return '0.0'
+  return `${rounded > 0 ? '+' : ''}${rounded.toFixed(1)}`
+}
+
+/** A・Bそれぞれの表示値から、結果画面に表示する改善/損失の差分を求める。 */
+function formatResultEvalChange(startEval: number, endEval: number): string {
+  const change = roundResultDiscDiff(roundResultDiscDiff(endEval) - roundResultDiscDiff(startEval))
+  return change > 0 ? `(開始より${change.toFixed(1)}石改善)` : `(損失${Math.abs(change).toFixed(1)}石)`
+}
+
 type Phase = 'stageSelect' | 'playing' | 'result'
 
 /** プレイヤーの1手ぶんの結果(要件4・7)。 */
@@ -127,6 +146,8 @@ interface MoveOutcome {
 
 /** ユーザー手番局面を根から解析した最善値(常にユーザー視点)。 */
 interface UserTurnRootEval {
+  /** この根解析の対象局面に至る直前までの実着手数。パスは数えない。 */
+  readonly afterPly: number
   readonly discDiff: number
   readonly source: MoveEvalJson['type']
   readonly isExact: boolean
@@ -149,7 +170,7 @@ interface SessionState {
    * 配列から導出する(`moveEvalTimeline.ts`参照)。
    */
   readonly moveEvalHistory: readonly PlayedMoveEval[]
-  /** 開始局面と、各応手後に次の手のため取得したユーザー手番局面の根解析。 */
+  /** 各ユーザー着手前の局面と終了局面について取得した、ユーザー手番の根解析。 */
   readonly userTurnRootEvals: readonly UserTurnRootEval[]
 }
 
@@ -165,7 +186,7 @@ interface ResultInfo {
   /** 「打った手の評価値」の時系列記録(T197、結果画面の折れ線グラフ用)。 */
   readonly moveEvalHistory: readonly PlayedMoveEval[]
   readonly humanSide: Side
-  /** 最後の要素は終了評価B。 */
+  /** `afterPly`で実着手後の局面と対応付ける。最後の要素は終了評価B。 */
   readonly userTurnRootEvals: readonly UserTurnRootEval[]
 }
 
@@ -435,8 +456,9 @@ export function PracticeMode() {
     return worst
   }
 
-  function toUserTurnRootEval(best: MoveEvalJson): UserTurnRootEval {
+  function toUserTurnRootEval(best: MoveEvalJson, afterPly: number): UserTurnRootEval {
     return {
+      afterPly,
       discDiff: best.discDiff,
       source: best.type,
       isExact: best.type === 'exact',
@@ -479,7 +501,7 @@ export function PracticeMode() {
     const oppDiscs = countDiscs(board, opposite(s.humanSide))
     finalizeSession(
       s,
-      { discDiff: humanDiscs - oppDiscs, source: 'exact', isExact: true },
+      { afterPly: s.moveEvalHistory.length, discDiff: humanDiscs - oppDiscs, source: 'exact', isExact: true },
       generation,
     )
   }
@@ -513,7 +535,7 @@ export function PracticeMode() {
       }
       const best = allMoves.reduce((a, b) => (b.discDiff > a.discDiff ? b : a))
       // mover === s.humanSide なので discDiff はそのままプレイヤー視点。
-      finalizeSession(s, toUserTurnRootEval(best), generation)
+      finalizeSession(s, toUserTurnRootEval(best, s.moveEvalHistory.length), generation)
       return true
     } catch (error) {
       console.error('セッション終了判定のための解析に失敗しました', error)
@@ -685,7 +707,7 @@ export function PracticeMode() {
           lastMove: square,
           moveOutcomes: [...s.moveOutcomes, outcome],
           moveEvalHistory: [...s.moveEvalHistory, evalEntry],
-          userTurnRootEvals: [...s.userTurnRootEvals, toUserTurnRootEval(best)],
+          userTurnRootEvals: [...s.userTurnRootEvals, toUserTurnRootEval(best, s.moveEvalHistory.length)],
         }
       }
 
@@ -1048,26 +1070,47 @@ export function PracticeMode() {
   const evalGraphPoints = session ? buildEvalGraphPoints(session.moveEvalHistory) : []
   const resultEvalGraphPoints = (() => {
     if (!resultInfo) return []
-    const pointOverrides = new Map<number, { value: number; isExact: boolean; evalSource: MoveEvalJson['type'] }>()
-    let nextRootIndex = 1
-    for (const entry of resultInfo.moveEvalHistory) {
-      if (entry.side === resultInfo.humanSide) continue
-      const rootEval = resultInfo.userTurnRootEvals[nextRootIndex]
-      if (rootEval) {
-        pointOverrides.set(entry.ply, {
-          value: rootEval.discDiff,
-          isExact: rootEval.isExact,
-          evalSource: rootEval.source,
-        })
-      }
-      nextRootIndex += 1
-    }
+    const toGraphValue = (root: UserTurnRootEval): EvalGraphValue => ({
+      value: root.discDiff,
+      isExact: root.isExact,
+      evalSource: root.source,
+    })
     const startRoot = resultInfo.userTurnRootEvals[0]
+    const initialPoint = startRoot
+      ? toGraphValue(startRoot)
+      : { value: resultInfo.startEval, isExact: false, evalSource: 'midgame' as const }
+    const rootsByAfterPly = new Map(resultInfo.userTurnRootEvals.map((root) => [root.afterPly, root]))
+    const pointOverrides = new Map<number, EvalGraphValue>()
+    let previousValue = initialPoint
+    for (const entry of resultInfo.moveEvalHistory) {
+      if (entry.side === resultInfo.humanSide) {
+        const isJoseki = entry.source === 'joseki' || entry.discDiff === null
+        previousValue = {
+          value: isJoseki ? 0 : entry.discDiff!,
+          isExact: isJoseki ? false : entry.isExact,
+          evalSource: isJoseki ? 'joseki' : entry.source,
+        }
+        continue
+      }
+
+      // ユーザーがパスして相手が連続着手する途中にはユーザー手番の根解析が
+      // 存在しないため、直前のグラフ値を維持する。ユーザー手番へ戻った相手手、
+      // または終了局面に対応する相手手だけ、同じafterPlyの根評価へ更新する。
+      const rootEval = rootsByAfterPly.get(entry.ply)
+      const override = rootEval ? toGraphValue(rootEval) : previousValue
+      pointOverrides.set(entry.ply, override)
+      previousValue = override
+    }
+
+    // 相手パス・途中終局により最後の実着手がユーザー側でも、最終点は必ず
+    // 結果表示と同じ終了評価Bにする。
+    const lastEntry = resultInfo.moveEvalHistory.at(-1)
+    const endRoot = resultInfo.userTurnRootEvals.at(-1)
+    if (lastEntry && endRoot) pointOverrides.set(lastEntry.ply, toGraphValue(endRoot))
+
     return buildEvalGraphPoints(resultInfo.moveEvalHistory, {
       perspective: resultInfo.humanSide,
-      initialPoint: startRoot
-        ? { value: startRoot.discDiff, isExact: startRoot.isExact, evalSource: startRoot.source }
-        : { value: resultInfo.startEval, isExact: false, evalSource: 'midgame' },
+      initialPoint,
       pointOverrides,
     })
   })()
@@ -1323,10 +1366,8 @@ export function PracticeMode() {
           </p>
           {resultInfo.justImprovedBest && <p class="midgame-result__star-earned">自己ベストを更新しました!</p>}
           <p>
-            評価値 {formatDiscDiff(resultInfo.startEval)} → {formatDiscDiff(resultInfo.endEval)}
-            {resultInfo.endEval > resultInfo.startEval
-              ? `(開始より${Math.round(resultInfo.endEval - resultInfo.startEval)}石改善)`
-              : `(損失${Math.round(resultInfo.startEval - resultInfo.endEval)}石)`}
+            評価値 {formatResultDiscDiff(resultInfo.startEval)} → {formatResultDiscDiff(resultInfo.endEval)}
+            {formatResultEvalChange(resultInfo.startEval, resultInfo.endEval)}
           </p>
 
           {resultInfo.moveOutcomes.length > 0 && (
@@ -1344,8 +1385,7 @@ export function PracticeMode() {
           {resultInfo.moveEvalHistory.length > 0 && (
             <div class="midgame-eval-graph">
               <p>
-                各手を打った後のあなた視点の評価値。
-                {resultInfo.moveOutcomes.length === ROUNDS_PER_STAGE && '最後の点は相手の3手目の応手後です。'}
+                各手を打った後のあなた視点の評価値。最後の点は終了局面の評価です。
               </p>
               <EvalGraph points={resultEvalGraphPoints} markers={[]} valuePerspective={resultInfo.humanSide} />
             </div>
