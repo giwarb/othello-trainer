@@ -1,33 +1,38 @@
-## 最終レビューレポート
+## (a) 重大（done を止めるブロッカー）
 
-### (a) 重大（done を止めるブロッカー）
+1. 結果画面の評価値とグラフのホバーツールチップで、丸め精度が一致しません。
 
-1. 相手またはユーザーのパスが発生すると、根評価とグラフ上の応手がずれ、最終点が B と一致しません。
+   [PracticeMode.tsx:1369](C:/Users/yoshi/work/othello-trainer/app/src/midgame/PracticeMode.tsx:1369) はA・Bを小数1桁で表示します。一方、[EvalGraph.tsx:329](C:/Users/yoshi/work/othello-trainer/app/src/analysis/EvalGraph.tsx:329) のツールチップは従来の `formatDiscDiff` を使い、整数へ丸めています。
 
-   [PracticeMode.tsx:688](C:/Users/yoshi/work/othello-trainer/app/src/midgame/PracticeMode.tsx:688) では根評価を「ユーザーが着手した回数」ごとに追加しています。一方、[PracticeMode.tsx:1052](C:/Users/yoshi/work/othello-trainer/app/src/midgame/PracticeMode.tsx:1052) 以降では「相手の実着手数」ごとに配列を進めて応手点へ割り当てています。この二つは黒白が交互に着手した場合しか対応しません。
+   問題86の実値 `A=-2.75、B=-1.84` では、結果文言が `-2.8 → -1.8` なのに、グラフの始点・終点をホバーまたはタップすると `-3 → -2` と表示されます。内部の点列は正しくても、ユーザーが確認できる数値表示は一致しておらず、本タスクの目的と「評価値A→Bとグラフの始点・終点が一致する」という受け入れ基準に反します。
 
-   例えば `U1 → 相手パス → U2 → O1 → U3 → O2` の場合、根評価列が `[A, U1後, O1後, B]` になるのに対し、O1へ `U1後`、O2へ `O1後` が割り当てられ、最終点は B ではなくなります。ユーザーがパスして相手が連続着手する場合も同様です。
+   [PracticeMode.flow.test.tsx:800](C:/Users/yoshi/work/othello-trainer/app/src/midgame/PracticeMode.flow.test.tsx:800) はSVGの `data-value` 生値だけを検証しており、ツールチップの表示精度を検証していないため、この不整合を検出できません。
 
-   `resolveNextSideOrFallback` によりパスは正式に扱われているため、これは未対応の入力ではありません。また [PracticeMode.tsx:1348](C:/Users/yoshi/work/othello-trainer/app/src/midgame/PracticeMode.tsx:1348) もユーザーが3手打ったことだけで「相手の3手目の応手後」と表示するため、パス時には説明も事実と異なります。
+   他モードを変えないため、`EvalGraph` に省略可能な表示フォーマッターまたは精度指定を追加し、既定は従来の整数表示、中盤練習結果だけ小数1桁にする必要があります。始点・終点のツールチップ表示を確認するテストも必要です。
 
-   根評価を単なる配列添字ではなく、対応する盤面または `afterPly` と関連付けて保存し、パスを含むフローテストで「最終点 = B」を固定する必要があります。これは要件2・4および本タスクの中心目的への直接的な違反です。
+## (b) 中（次タスクで対応すべき）
 
-### (b) 中（次タスクで対応すべき）
+なし。
 
-1. 必須指定された「奇数深さの途中で予算切れ」の回帰テストになっていません。
+redo#1で指定された以下は適切に修正されています。
 
-   [search.rs:3954](C:/Users/yoshi/work/othello-trainer/engine/src/search.rs:3954) は最深完走深さが奇数、[search.rs:3955](C:/Users/yoshi/work/othello-trainer/engine/src/search.rs:3955) はその一つ前の偶数深さを採用したことを検証しています。これは奇数深さを完走後、次の偶数深さの途中または開始前で停止したケースです。
+- `afterPly` によるパス時の根評価対応付け
+- 相手連続着手中の直前値維持と、最終点のBへの上書き
+- 偶数深さ完走後、奇数深さ途中停止となる回帰テスト
+- A・B・差分の小数1桁表示
+- 白番でのユーザー視点化
+- maxNodesなし・完全読み経路・共有コンポーネント既定の維持
 
-   仕様が必須としているのは、偶数深さを完走後、次の奇数深さの途中で停止するケースです。最深完走深さが偶数である予算を用意し、その偶数深さが採用され、2回の結果も一致することを追加検証してください。
+## (c) 軽微（記録のみ）
 
-### (c) 軽微（記録のみ）
+1. `EvalGraph` の説明コメントに旧前提が残っています。
 
-1. [EvalGraph.tsx:29](C:/Users/yoshi/work/othello-trainer/app/src/analysis/EvalGraph.tsx:29) の `EvalGraphPoint.value` は依然として「黒視点」と記述されていますが、今回 `valuePerspective` により白視点の値も格納する設計になりました。将来の誤用を避けるため、指定視点の値である旨へ更新するのが適切です。
+   [EvalGraph.tsx:31](C:/Users/yoshi/work/othello-trainer/app/src/analysis/EvalGraph.tsx:31) は値を常に `analyzeGame` の累積評価値と説明し、[EvalGraph.tsx:135](C:/Users/yoshi/work/othello-trainer/app/src/analysis/EvalGraph.tsx:135) は縦軸を常に「黒優勢が上」と説明しています。今回の中盤練習結果では独立した根解析値を渡し、白番では白優勢が上になるため、汎用コンポーネントとして説明を更新するのが適切です。
 
-### (d) 総合判定
+2. 指定コミット範囲全体への `git diff --check` は終了コード2となります。`tasks/STATUS.md` と `tasks/T202-midgame-result-eval-consistency.md` の変更行がCRLF由来の trailing whitespace と判定されます。`app/`・`engine/` のコード差分だけなら成功し、実行時影響もありませんが、作業ログの無条件な「`git diff --check`: 成功」は指定範囲全体については再現できません。
+
+## (d) 総合判定
 
 **不合格**です。
 
-通常の3往復経路については、偶奇を揃えた engine 実装、A/B・改善文言、白視点変換、問題86の検証および共有コンポーネントの既定維持は概ね仕様どおりです。しかし、正式にサポートされているパス経路で本タスクが解消すべき「グラフ最終点と B の不一致」が再発するため、done にはできません。
-
-`git diff --check` は成功し、`git status --short` は空でした。作業ログに記載されたテスト結果も確認しました。
+探索深さの偶奇統一、決定性、パスを含むグラフ点の対応、終了点B、ユーザー視点、改善・損失計算の主要ロジックは仕様どおりです。しかし、結果文言を小数1桁へ変更した一方でグラフのツールチップが整数表示のまま残り、ユーザーに見えるA・Bとグラフ端点が再び食い違います。本タスクの中心目的に直接関わるため、doneにはできません。
