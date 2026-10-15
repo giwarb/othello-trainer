@@ -1,7 +1,7 @@
 ---
 id: T201
 title: 中盤練習の★判定を決定的にする(allMoves解析のノード予算化)
-status: review
+status: done
 assignee: codex(gpt-5.6-sol)
 attempts: 1
 ---
@@ -167,4 +167,4 @@ attempts: 1
 - codex-review: 合格(重大0)。中1件=allMoves+maxNodes指定時、着手後空きがexactFromEmpties以下でも直接完全読み分岐に到達せず search_with_eval_inner の予算内exact試行経路になる(中盤練習は空き約40で境界に届かず本件無影響)→STATUS申し送り。軽微: regret悪化(0.37→0.46/最大3.88)、WASMゲートの変数名と実行順の不一致、tasks/のCRLF。
 - verifier: CIのRust Testsのみ不合格(問題86本番予算テストがCI debugで1回目だけ壁時計保険〔timeMs 60000を手数で割った値〕に掛かり e1 先頭)。Pages実機は6回(うちCPU飽和3回)とも ★1 / -3→-6 / g6の最善手f2 で完全一致。
 - 対応: 例外規定(挙動に影響しない1ファイル1行のテスト修正)を宣言し、テストヘルパーの timeMs を 3600000 に変更。ローカル `cargo test --lib problem_86` 2件パス(84s)。CIで再確認する。
-
+- CI再確認: Rust Tests(38773281369)・Deploy to GitHub Pages とも success。**done判定**。
