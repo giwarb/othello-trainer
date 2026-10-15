@@ -14,8 +14,8 @@
 use crate::bitboard::{Board, Side};
 use crate::pattern_eval::PatternWeights;
 use crate::search::{
-    search_all_moves_with_eval, search_all_moves_with_eval_with_node_limit, search_with_eval,
-    search_with_eval_with_node_limit, SearchLimit,
+    search_all_moves_with_eval, search_all_moves_with_eval_with_node_limit_and_depth,
+    search_with_eval, search_with_eval_with_node_limit, SearchLimit,
 };
 use crate::tt::TranspositionTable;
 use serde::{Deserialize, Serialize};
@@ -261,15 +261,18 @@ pub fn handle_analyze(request_json: &str, tt: &mut TranspositionTable, weights: 
         // しない(関数内で完結するローカルTTを使う)。この分岐でも`tt`を
         // 渡さなくなったことで、表示用のこの経路が対局用のTTを汚す経路が
         // なくなった(詳細はsearch.rsの関数docコメント参照)。
-        let evals = match request.limit.max_nodes {
-            Some(max_nodes) => search_all_moves_with_eval_with_node_limit(
+        let (evals, adopted_depth) = match request.limit.max_nodes {
+            Some(max_nodes) => search_all_moves_with_eval_with_node_limit_and_depth(
                 &board,
                 side,
                 &limit,
                 weights,
                 max_nodes,
             ),
-            None => search_all_moves_with_eval(&board, side, &limit, weights),
+            None => (
+                search_all_moves_with_eval(&board, side, &limit, weights),
+                limit.max_depth,
+            ),
         };
 
         let moves: Vec<MoveEvalJson> = evals
@@ -299,7 +302,7 @@ pub fn handle_analyze(request_json: &str, tt: &mut TranspositionTable, weights: 
                     let next_board = board.apply_move(side, 1u64 << best.mv);
                     next_board.empty_count() as u8
                 } else {
-                    limit.max_depth
+                    adopted_depth
                 };
                 (pv, best.score, kind, depth)
             }
@@ -917,10 +920,12 @@ mod tests {
         assert!(first.get("error").is_none(), "maxNodes should be accepted for allMoves");
         assert!(unrelated.get("error").is_none());
         assert_eq!(first["moves"].as_array().unwrap().len(), 4);
+        assert_eq!(first["depth"].as_u64().unwrap() % 2, 0);
         for response in [&second, &after_unrelated_with_more_time] {
             assert_eq!(response["moves"], first["moves"]);
             assert_eq!(response["pv"], first["pv"]);
             assert_eq!(response["score"], first["score"]);
+            assert_eq!(response["depth"], first["depth"]);
         }
     }
 
@@ -947,7 +952,7 @@ mod tests {
         let second = run_problem_86_attempt(&mut engine, &mut id);
 
         assert_eq!(first, second);
-        assert_eq!(first.4, vec!["g5", "c2", "d6"]);
+        assert_eq!(first.4, vec!["g5", "d6", "g3"]);
         println!(
             "problem86 deterministic result: best={} start={} end={} stars={} replies={:?}",
             first.0,

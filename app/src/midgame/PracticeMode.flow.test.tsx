@@ -240,11 +240,29 @@ let featureDelayMs = 0
 
 /** T201: 中盤練習からエンジンへ渡された全allMoves探索条件。 */
 let capturedAnalyzeLimits: AnalyzeLimit[] = []
+/** T202: 結果評価グラフ用にユーザー手番の根評価を順番に返すテスト設定。 */
+let scriptedHumanSide: Side | null = null
+let scriptedRootValues: number[] = []
+let scriptedRootIndex = 0
 
 vi.mock('../engine/sharedClient.ts', () => ({
   getSharedEngineClient: () => ({
     requestAnalyzeAll: (board: Board, side: Side, limit: AnalyzeLimit): Promise<MoveEvalJson[]> => {
       capturedAnalyzeLimits.push({ ...limit })
+      if (scriptedHumanSide) {
+        const discDiff =
+          side === scriptedHumanSide
+            ? scriptedRootValues[Math.min(scriptedRootIndex++, scriptedRootValues.length - 1)]!
+            : 99
+        return Promise.resolve(
+          legalMoves(board, side).map((square) => ({
+            move: squareToNotation(square),
+            score: discDiff * 100,
+            discDiff,
+            type: 'midgame',
+          })),
+        )
+      }
       if (isDecisionBoard(board, side)) return Promise.resolve(decisionMoves(board, side))
       // T200 redo#2: 決定局面2(連続悪手テスト用)も、判定用の初回呼び出しは
       // 決定局面1と同様に遅延させない(損失確定はただちに行われる必要があるため)。
@@ -291,6 +309,12 @@ function clickMove(container: HTMLDivElement, notation: string): void {
   btn?.click()
 }
 
+function resultGraphValues(container: HTMLDivElement): number[] {
+  return Array.from(container.querySelectorAll<SVGCircleElement>('.midgame-result .eval-graph__point')).map(
+    (point) => Number(point.dataset.value),
+  )
+}
+
 describe('T141: 中盤練習ステージクリア型のプレイフロー', () => {
   let container: HTMLDivElement
 
@@ -302,6 +326,9 @@ describe('T141: 中盤練習ステージクリア型のプレイフロー', () =
     branchDelayMs = 0
     featureDelayMs = 0
     capturedAnalyzeLimits = []
+    scriptedHumanSide = null
+    scriptedRootValues = []
+    scriptedRootIndex = 0
     container = document.createElement('div')
     document.body.appendChild(container)
   })
@@ -739,6 +766,74 @@ describe('T141: 中盤練習ステージクリア型のプレイフロー', () =
       // 結果画面の最悪手比較(`worstMoveCompareInfo`)も同じ閾値のため表示されない。
       await flushAsyncEffects()
       expect(container.querySelector('.two-ply-compare')).toBeNull()
+    },
+    15000,
+  )
+
+  it(
+    'T202: 白番でも開始A・ユーザー着手・各応手後の根評価・終了Bをユーザー視点でグラフ化し、改善を表示する',
+    async () => {
+      const whiteStart = boardAfterSequence(['f5'])
+      stagePoolOverride = [{
+        key: 't202-white-stage',
+        stageNumber: 1,
+        board: whiteStart.board,
+        sideToMove: whiteStart.side,
+        josekiNames: ['T202白番テスト'],
+      }]
+      scriptedHumanSide = 'white'
+      scriptedRootValues = [-3, -1, 2, 4]
+
+      const { PracticeMode } = await import('./PracticeMode.tsx')
+      await act(async () => {
+        render(<PracticeMode />, container)
+      })
+      await flushAsyncEffects()
+      await act(async () => container.querySelector<HTMLButtonElement>('.midgame-stage-grid__cell')?.click())
+      await flushAsyncEffects()
+      for (let round = 0; round < 3; round += 1) {
+        await act(async () => clickFirstMove(container))
+        await flushAsyncEffects()
+      }
+
+      expect(container.querySelector('.midgame-result')).not.toBeNull()
+      expect(resultGraphValues(container)).toEqual([-3, -3, -1, -1, 2, 2, 4])
+      expect(container.querySelector('.midgame-result .eval-graph__svg')?.getAttribute('aria-label')).toContain(
+        '白優勢が上',
+      )
+      expect(container.textContent).toContain('評価値 -3 → +4(開始より7石改善)')
+      expect(container.textContent).toContain('各手を打った後のあなた視点の評価値')
+    },
+    15000,
+  )
+
+  it(
+    'T202: 終了評価が開始評価より低い場合は従来どおり正の損失を表示する',
+    async () => {
+      stagePoolOverride = [{
+        key: 't202-loss-stage',
+        stageNumber: 1,
+        board: initialBoard(),
+        sideToMove: 'black',
+        josekiNames: ['T202損失テスト'],
+      }]
+      scriptedHumanSide = 'black'
+      scriptedRootValues = [3, 2, 1, -2]
+
+      const { PracticeMode } = await import('./PracticeMode.tsx')
+      await act(async () => {
+        render(<PracticeMode />, container)
+      })
+      await flushAsyncEffects()
+      await act(async () => container.querySelector<HTMLButtonElement>('.midgame-stage-grid__cell')?.click())
+      await flushAsyncEffects()
+      for (let round = 0; round < 3; round += 1) {
+        await act(async () => clickFirstMove(container))
+        await flushAsyncEffects()
+      }
+
+      expect(container.textContent).toContain('評価値 +3 → -2(損失5石)')
+      expect(resultGraphValues(container).at(-1)).toBe(-2)
     },
     15000,
   )

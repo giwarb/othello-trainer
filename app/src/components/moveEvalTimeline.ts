@@ -59,7 +59,7 @@ function isDisplayable(entry: PlayedMoveEval | null | undefined): entry is Playe
 
 /**
  * `history`(ply1..Nの各手の記録)から`EvalGraph`用の点列を組み立てる。
- * ply0(初期局面、互角0)を先頭に補い、各手の評価値を黒視点に変換する
+ * 既定ではply0(初期局面、互角0)を先頭に補い、各手の評価値を黒視点に変換する
  * (黒の手はそのまま、白の手は符号反転)。定石内の手・CPUの定石ブック手は
  * 値0固定+`evalSource: 'joseki'`にする(T046規約)。未解決(`pending`)の手・
  * 配列の穴(`undefined`)はスキップする(redo#1、上の`isDisplayable`参照)。
@@ -67,12 +67,37 @@ function isDisplayable(entry: PlayedMoveEval | null | undefined): entry is Playe
  * 悪手マーカー・ツールチップの`move`情報(最善手とのロス量・分類)は本タスクの
  * スコープ外(T195/T196)のため付与しない(`EvalGraphPoint.move`は省略可)。
  */
-export function buildEvalGraphPoints(history: readonly PlayedMoveEval[]): EvalGraphPoint[] {
-  const points: EvalGraphPoint[] = [{ ply: 0, value: 0, isExact: false, evalSource: 'midgame' }]
+export interface EvalGraphValue {
+  readonly value: number
+  readonly isExact: boolean
+  readonly evalSource: EvalSource
+}
+
+export interface BuildEvalGraphPointsOptions {
+  /** 省略時は従来どおり黒視点。 */
+  readonly perspective?: Side
+  /** 省略時は従来どおり互角0の中盤評価。値は`perspective`視点。 */
+  readonly initialPoint?: EvalGraphValue
+  /** 指定plyだけ着手評価値を局面の根評価値へ差し替える。値は`perspective`視点。 */
+  readonly pointOverrides?: ReadonlyMap<number, EvalGraphValue>
+}
+
+export function buildEvalGraphPoints(
+  history: readonly PlayedMoveEval[],
+  options: BuildEvalGraphPointsOptions = {},
+): EvalGraphPoint[] {
+  const perspective = options.perspective ?? 'black'
+  const initialPoint = options.initialPoint ?? { value: 0, isExact: false, evalSource: 'midgame' }
+  const points: EvalGraphPoint[] = [{ ply: 0, ...initialPoint }]
   for (const entry of history) {
     if (!isDisplayable(entry)) continue
+    const override = options.pointOverrides?.get(entry.ply)
+    if (override) {
+      points.push({ ply: entry.ply, ...override })
+      continue
+    }
     const joseki = isJosekiLike(entry)
-    const value = joseki ? 0 : entry.side === 'black' ? entry.discDiff! : -entry.discDiff!
+    const value = joseki ? 0 : entry.side === perspective ? entry.discDiff! : -entry.discDiff!
     points.push({
       ply: entry.ply,
       value,

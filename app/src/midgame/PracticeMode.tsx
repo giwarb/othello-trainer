@@ -125,6 +125,13 @@ interface MoveOutcome {
   readonly allMoves: readonly MoveEvalJson[]
 }
 
+/** ユーザー手番局面を根から解析した最善値(常にユーザー視点)。 */
+interface UserTurnRootEval {
+  readonly discDiff: number
+  readonly source: MoveEvalJson['type']
+  readonly isExact: boolean
+}
+
 interface SessionState {
   readonly board: BoardState
   readonly sideToMove: Side
@@ -142,6 +149,8 @@ interface SessionState {
    * 配列から導出する(`moveEvalTimeline.ts`参照)。
    */
   readonly moveEvalHistory: readonly PlayedMoveEval[]
+  /** 開始局面と、各応手後に次の手のため取得したユーザー手番局面の根解析。 */
+  readonly userTurnRootEvals: readonly UserTurnRootEval[]
 }
 
 interface ResultInfo {
@@ -155,6 +164,9 @@ interface ResultInfo {
   readonly justImprovedBest: boolean
   /** 「打った手の評価値」の時系列記録(T197、結果画面の折れ線グラフ用)。 */
   readonly moveEvalHistory: readonly PlayedMoveEval[]
+  readonly humanSide: Side
+  /** 最後の要素は終了評価B。 */
+  readonly userTurnRootEvals: readonly UserTurnRootEval[]
 }
 
 /**
@@ -423,14 +435,22 @@ export function PracticeMode() {
     return worst
   }
 
+  function toUserTurnRootEval(best: MoveEvalJson): UserTurnRootEval {
+    return {
+      discDiff: best.discDiff,
+      source: best.type,
+      isExact: best.type === 'exact',
+    }
+  }
+
   /** セッションを★判定して結果画面へ遷移させる(要件4)。 */
-  function finalizeSession(s: SessionState, endEval: number, generation: number): void {
+  function finalizeSession(s: SessionState, endEval: UserTurnRootEval, generation: number): void {
     if (sessionGenerationRef.current !== generation) return
 
-    const startEval = startEvalRef.current ?? endEval
+    const startEval = startEvalRef.current ?? endEval.discDiff
     const stars = computeStageStars({
       startEval,
-      endEval,
+      endEval: endEval.discDiff,
       moveOutcomes: s.moveOutcomes.map((m) => ({ lossDiscs: m.lossDiscs, isBest: m.isBest })),
     })
 
@@ -440,11 +460,13 @@ export function PracticeMode() {
     setResultInfo({
       stars,
       startEval,
-      endEval,
+      endEval: endEval.discDiff,
       moveOutcomes: s.moveOutcomes,
       worstMoveIndex: findWorstMoveIndex(s.moveOutcomes),
       justImprovedBest: stars > previousBestStars,
       moveEvalHistory: s.moveEvalHistory,
+      humanSide: s.humanSide,
+      userTurnRootEvals: [...s.userTurnRootEvals, endEval],
     })
     setPhase('result')
 
@@ -455,7 +477,11 @@ export function PracticeMode() {
     if (sessionGenerationRef.current !== generation) return
     const humanDiscs = countDiscs(board, s.humanSide)
     const oppDiscs = countDiscs(board, opposite(s.humanSide))
-    finalizeSession(s, humanDiscs - oppDiscs, generation)
+    finalizeSession(
+      s,
+      { discDiff: humanDiscs - oppDiscs, source: 'exact', isExact: true },
+      generation,
+    )
   }
 
   /**
@@ -487,7 +513,7 @@ export function PracticeMode() {
       }
       const best = allMoves.reduce((a, b) => (b.discDiff > a.discDiff ? b : a))
       // mover === s.humanSide なので discDiff はそのままプレイヤー視点。
-      finalizeSession(s, best.discDiff, generation)
+      finalizeSession(s, toUserTurnRootEval(best), generation)
       return true
     } catch (error) {
       console.error('セッション終了判定のための解析に失敗しました', error)
@@ -659,6 +685,7 @@ export function PracticeMode() {
           lastMove: square,
           moveOutcomes: [...s.moveOutcomes, outcome],
           moveEvalHistory: [...s.moveEvalHistory, evalEntry],
+          userTurnRootEvals: [...s.userTurnRootEvals, toUserTurnRootEval(best)],
         }
       }
 
@@ -883,6 +910,7 @@ export function PracticeMode() {
       startBoard: stage.board,
       moveOutcomes: [],
       moveEvalHistory: [],
+      userTurnRootEvals: [],
     }
     setSession(initialSession)
     setResultInfo(null)
@@ -1015,10 +1043,34 @@ export function PracticeMode() {
     ? lastMoveEvalBarStateFor(session.moveEvalHistory, opposite(session.humanSide))
     : ({ kind: 'none' } as const)
   const moveEvalBarDisplayValue = moveEvalBarState.kind === 'value' ? -moveEvalBarState.discDiff : null
-  // T197: 「打った手の評価値」折れ線グラフ(黒視点・定石帯0固定のT046規約、
-  // `EvalGraph`を再利用)。プレイ画面・結果画面の両方に表示する。
+  // プレイ中はT197以来の黒視点を維持する。結果画面だけはT202として、
+  // ユーザー手番の根解析を応手点へ差し替え、ユーザー視点へ統一する。
   const evalGraphPoints = session ? buildEvalGraphPoints(session.moveEvalHistory) : []
-  const resultEvalGraphPoints = resultInfo ? buildEvalGraphPoints(resultInfo.moveEvalHistory) : []
+  const resultEvalGraphPoints = (() => {
+    if (!resultInfo) return []
+    const pointOverrides = new Map<number, { value: number; isExact: boolean; evalSource: MoveEvalJson['type'] }>()
+    let nextRootIndex = 1
+    for (const entry of resultInfo.moveEvalHistory) {
+      if (entry.side === resultInfo.humanSide) continue
+      const rootEval = resultInfo.userTurnRootEvals[nextRootIndex]
+      if (rootEval) {
+        pointOverrides.set(entry.ply, {
+          value: rootEval.discDiff,
+          isExact: rootEval.isExact,
+          evalSource: rootEval.source,
+        })
+      }
+      nextRootIndex += 1
+    }
+    const startRoot = resultInfo.userTurnRootEvals[0]
+    return buildEvalGraphPoints(resultInfo.moveEvalHistory, {
+      perspective: resultInfo.humanSide,
+      initialPoint: startRoot
+        ? { value: startRoot.discDiff, isExact: startRoot.isExact, evalSource: startRoot.source }
+        : { value: resultInfo.startEval, isExact: false, evalSource: 'midgame' },
+      pointOverrides,
+    })
+  })()
 
   return (
     <div class="midgame-practice-mode">
@@ -1272,7 +1324,9 @@ export function PracticeMode() {
           {resultInfo.justImprovedBest && <p class="midgame-result__star-earned">自己ベストを更新しました!</p>}
           <p>
             評価値 {formatDiscDiff(resultInfo.startEval)} → {formatDiscDiff(resultInfo.endEval)}
-            (損失{Math.round(Math.max(0, resultInfo.startEval - resultInfo.endEval))}石)
+            {resultInfo.endEval > resultInfo.startEval
+              ? `(開始より${Math.round(resultInfo.endEval - resultInfo.startEval)}石改善)`
+              : `(損失${Math.round(resultInfo.startEval - resultInfo.endEval)}石)`}
           </p>
 
           {resultInfo.moveOutcomes.length > 0 && (
@@ -1289,7 +1343,11 @@ export function PracticeMode() {
           {/* T197: 「打った手の評価値」折れ線グラフ(結果画面、`EvalGraph`を再利用)。 */}
           {resultInfo.moveEvalHistory.length > 0 && (
             <div class="midgame-eval-graph">
-              <EvalGraph points={resultEvalGraphPoints} markers={[]} />
+              <p>
+                各手を打った後のあなた視点の評価値。
+                {resultInfo.moveOutcomes.length === ROUNDS_PER_STAGE && '最後の点は相手の3手目の応手後です。'}
+              </p>
+              <EvalGraph points={resultEvalGraphPoints} markers={[]} valuePerspective={resultInfo.humanSide} />
             </div>
           )}
 

@@ -31,6 +31,20 @@ describe('buildEvalGraphPoints', () => {
     expect(points[2]).toMatchObject({ ply: 2, value: -3, evalSource: 'midgame' })
   })
 
+  it('開始値・局面根評価の差し替え・白視点を指定でき、引数省略時の既定は変わらない', () => {
+    const history = [
+      move({ ply: 1, side: 'white', discDiff: -2 }),
+      move({ ply: 2, side: 'black', discDiff: 9 }),
+    ]
+    const points = buildEvalGraphPoints(history, {
+      perspective: 'white',
+      initialPoint: { value: -3, isExact: false, evalSource: 'midgame' },
+      pointOverrides: new Map([[2, { value: 4, isExact: false, evalSource: 'midgame' }]]),
+    })
+    expect(points.map((point) => point.value)).toEqual([-3, -2, 4])
+    expect(buildEvalGraphPoints(history).map((point) => point.value)).toEqual([0, 2, 9])
+  })
+
   it('source===josekiの手は値0固定+evalSource joseki(discDiffが数値でも無視する)', () => {
     const points = buildEvalGraphPoints([move({ ply: 1, side: 'black', discDiff: 7, source: 'joseki' })])
     expect(points[1]).toMatchObject({ ply: 1, value: 0, evalSource: 'joseki', isExact: false })

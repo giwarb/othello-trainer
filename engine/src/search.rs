@@ -1402,8 +1402,9 @@ pub fn search_all_moves_with_eval(
 /// 決定的解析用入口。
 ///
 /// 中盤探索では深さ1, 2, ...の順に全合法手を同じ深さで一巡し、全手が
-/// 完走した最深ラウンドだけを採用する。総予算の途中で止まったラウンドは
-/// 丸ごと破棄するため、異なる深さの評価値を比較しない。`limit.time_ms` の
+/// 完走したうち`limit.max_depth`と同じ偶奇の最深ラウンドだけを採用する。
+/// 総予算の途中で止まったラウンドと偶奇が異なるラウンドは返却値に使わないため、
+/// 異なる深さ・偶奇の評価値を比較しない。`limit.time_ms` の
 /// 壁時計保険が発火しない限り、同一入力から常に同一結果を得られる。
 /// `max_nodes` を指定しない既存入口の時間配分・探索内容は変更しない。
 pub fn search_all_moves_with_eval_with_node_limit(
@@ -1413,7 +1414,54 @@ pub fn search_all_moves_with_eval_with_node_limit(
     weights: Option<&PatternWeights>,
     max_nodes: u64,
 ) -> Vec<MoveEval> {
-    search_all_moves_with_eval_core_restricted(
+    search_all_moves_with_eval_with_node_limit_and_depth(
+        board,
+        side_to_move,
+        limit,
+        weights,
+        max_nodes,
+    )
+    .0
+}
+
+/// [`search_all_moves_with_eval_with_node_limit`] と同じ探索を行い、値と一緒に
+/// 実際に採用した共通深さを返す。JSONプロトコルの`depth`表示とT202の
+/// 偶奇回帰テストが、上限値ではなく採用値を参照するための入口。
+pub(crate) fn search_all_moves_with_eval_with_node_limit_and_depth(
+    board: &Board,
+    side_to_move: Side,
+    limit: &SearchLimit,
+    weights: Option<&PatternWeights>,
+    max_nodes: u64,
+) -> (Vec<MoveEval>, u8) {
+    let next_empties = board.empty_count().saturating_sub(1);
+    if next_empties > limit.exact_from_empties as u32 {
+        let legal = board.legal_moves(side_to_move);
+        let mut moves = Vec::with_capacity(legal.count_ones() as usize);
+        let mut remaining = legal;
+        while remaining != 0 {
+            let lsb = remaining & remaining.wrapping_neg();
+            moves.push(lsb.trailing_zeros() as u8);
+            remaining &= remaining - 1;
+        }
+        let result = search_all_moves_uniform_depth_with_node_limit(
+            board,
+            side_to_move,
+            limit,
+            weights,
+            ANALYZE_ALL_LOCAL_TT_MB,
+            moves,
+            max_nodes,
+        );
+        let evals = result
+            .evals
+            .into_iter()
+            .map(|(eval, _nodes)| eval)
+            .collect();
+        return (evals, result.adopted_depth);
+    }
+
+    let evals = search_all_moves_with_eval_core_restricted(
         board,
         side_to_move,
         limit,
@@ -1424,7 +1472,8 @@ pub fn search_all_moves_with_eval_with_node_limit(
     )
     .into_iter()
     .map(|(eval, _nodes)| eval)
-    .collect()
+    .collect();
+    (evals, limit.max_depth)
 }
 
 /// [`search_all_moves_with_eval`]の実装本体。ローカルTTのサイズ
@@ -1501,7 +1550,8 @@ fn search_all_moves_with_eval_core_restricted(
                 tt_size_mb,
                 moves,
                 total_max_nodes,
-            );
+            )
+            .evals;
         }
     }
 
@@ -1726,14 +1776,24 @@ fn search_all_moves_with_eval_core_restricted(
 
 /// allMoves+maxNodesの中盤用実装。
 ///
-/// 各反復深さについて全ルート手をマス番号順に探索し、全手が完走した場合だけ
-/// そのラウンドの値を採用する。途中で総ノード予算または壁時計保険に達した
-/// ラウンドは全手ぶん破棄し、直前の共通深さの値を返す。
+/// 各反復深さについて全ルート手をマス番号順に探索し、全手が完走したうち
+/// `limit.max_depth`と同じ偶奇のラウンドだけ値を採用する。異なる偶奇の
+/// ラウンドもmove ordering・TT更新のため探索するが、その値は採用しない。
+/// 途中で総ノード予算または壁時計保険に達したラウンドは全手ぶん破棄し、
+/// 直前に採用した共通深さの値を返す。
 ///
 /// ルート手同士のTT汚染を避けつつWASMのメモリ使用量を抑えるため、独立した
 /// 小容量TTを各手に持たせる(本番の従来allMoves用16MBより小さい、
 /// 1手あたり最大4MB)。
 /// TTサイズは探索量だけに影響し、完走した固定深さの値には影響しない。
+struct UniformDepthSearchResult {
+    evals: Vec<(MoveEval, u64)>,
+    /// 予算内で全ルート手が完走した最深ラウンド。
+    deepest_completed_depth: u8,
+    /// `limit.max_depth`と同じ偶奇で、結果値として採用した最深ラウンド。
+    adopted_depth: u8,
+}
+
 fn search_all_moves_uniform_depth_with_node_limit(
     board: &Board,
     side_to_move: Side,
@@ -1742,9 +1802,13 @@ fn search_all_moves_uniform_depth_with_node_limit(
     tt_size_mb: usize,
     moves: Vec<u8>,
     max_nodes: u64,
-) -> Vec<(MoveEval, u64)> {
+) -> UniformDepthSearchResult {
     if moves.is_empty() {
-        return Vec::new();
+        return UniformDepthSearchResult {
+            evals: Vec::new(),
+            deepest_completed_depth: 0,
+            adopted_depth: 0,
+        };
     }
 
     struct MoveState {
@@ -1759,6 +1823,8 @@ fn search_all_moves_uniform_depth_with_node_limit(
     let opponent = side_to_move.opposite();
     let total_moves = moves.len();
     let per_move_tt_mb = tt_size_mb.min(4).max(1);
+    let target_parity = limit.max_depth % 2;
+    let depth_zero_score = static_eval(board, side_to_move, weights);
     let mut states: Vec<MoveState> = moves
         .into_iter()
         .map(|mv| {
@@ -1769,7 +1835,14 @@ fn search_all_moves_uniform_depth_with_node_limit(
                 mv,
                 next_board,
                 tt,
-                score: -static_eval(&next_board, opponent, weights),
+                // 偶数上限では「同じ偶奇」の最低値として根depth=0を使う。
+                // 奇数上限では着手後の静的評価がそのまま根depth=1なので、
+                // ノード予算が極端に小さくても返却深さの偶奇を保証できる。
+                score: if target_parity == 0 {
+                    depth_zero_score
+                } else {
+                    -static_eval(&next_board, opponent, weights)
+                },
                 nodes: 0,
                 exact_quota_remaining: 0,
             }
@@ -1778,6 +1851,8 @@ fn search_all_moves_uniform_depth_with_node_limit(
 
     let start = Instant::now();
     let mut total_nodes = 0u64;
+    let mut deepest_completed_depth = if target_parity == 1 { 1 } else { 0 };
+    let mut adopted_depth = deepest_completed_depth;
 
     for depth in 1..=limit.max_depth {
         let mut round_scores = Vec::with_capacity(total_moves);
@@ -1850,8 +1925,12 @@ fn search_all_moves_uniform_depth_with_node_limit(
             break;
         }
 
-        for (state, score) in states.iter_mut().zip(round_scores) {
-            state.score = score;
+        deepest_completed_depth = depth;
+        if depth % 2 == target_parity {
+            for (state, score) in states.iter_mut().zip(round_scores) {
+                state.score = score;
+            }
+            adopted_depth = depth;
         }
 
         // 単一ルートnode-budget探索と同じタイミング(子局面depth=1完走後)
@@ -1890,7 +1969,11 @@ fn search_all_moves_uniform_depth_with_node_limit(
         })
         .collect();
     evals.sort_by_key(|(eval, _)| std::cmp::Reverse(eval.score));
-    evals
+    UniformDepthSearchResult {
+        evals,
+        deepest_completed_depth,
+        adopted_depth,
+    }
 }
 
 /// 整数の総予算を`parts`個へ決定的に均等分配したときの`index`番目の持ち分。
@@ -3838,6 +3921,60 @@ mod tests {
         assert_eq!(shares.iter().sum::<u64>(), 10);
         assert_eq!(fair_share_count(0, 4, 0), 0);
         assert_eq!(fair_share_count(10, 0, 0), 0);
+    }
+
+    #[test]
+    fn all_moves_node_budget_adopts_requested_depth_parity() {
+        let board = Board::initial();
+        let limit = SearchLimit {
+            max_depth: 10,
+            time_ms: None,
+            exact_from_empties: 24,
+        };
+        let moves = vec![19, 26, 37, 44];
+        let first = search_all_moves_uniform_depth_with_node_limit(
+            &board,
+            Side::Black,
+            &limit,
+            None,
+            1,
+            moves.clone(),
+            40_000,
+        );
+        let second = search_all_moves_uniform_depth_with_node_limit(
+            &board,
+            Side::Black,
+            &limit,
+            None,
+            1,
+            moves,
+            40_000,
+        );
+        assert_eq!(first.adopted_depth % 2, limit.max_depth % 2);
+        assert_eq!(first.deepest_completed_depth % 2, 1);
+        assert_eq!(first.adopted_depth + 1, first.deepest_completed_depth);
+        assert_eq!(
+            second.deepest_completed_depth,
+            first.deepest_completed_depth
+        );
+        assert_eq!(second.adopted_depth, first.adopted_depth);
+        assert_eq!(second.evals, first.evals);
+
+        let odd_limit = SearchLimit {
+            max_depth: 9,
+            time_ms: None,
+            exact_from_empties: 24,
+        };
+        let odd = search_all_moves_uniform_depth_with_node_limit(
+            &board,
+            Side::Black,
+            &odd_limit,
+            None,
+            1,
+            vec![19, 26, 37, 44],
+            40_000,
+        );
+        assert_eq!(odd.adopted_depth % 2, odd_limit.max_depth % 2);
     }
 
     #[test]

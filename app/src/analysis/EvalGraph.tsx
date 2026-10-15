@@ -56,6 +56,8 @@ export interface EvalGraphMarker {
 export interface EvalGraphProps {
   readonly points: readonly EvalGraphPoint[]
   readonly markers: readonly EvalGraphMarker[]
+  /** 評価値の視点。省略時は既定の黒視点を維持する。 */
+  readonly valuePerspective?: Side
   /** 現在選択中の局面(ハイライト表示、`AnalysisMode`のジャンプ機能と連動)。 */
   readonly currentPly?: number | null
   /** グラフ上のいずれかの局面がクリックされたときに呼ばれる。 */
@@ -144,7 +146,14 @@ function bandClass(point: EvalGraphPoint): string {
  * レスポンシブ対応: SVGの`viewBox`を使い、CSS側で`width:100%; height:auto`とする
  * ことでコンテナ幅に追従する(`Board.tsx`のようなJS側のリサイズ処理は不要)。
  */
-export function EvalGraph({ points, markers, currentPly = null, onSelectPly, onMarkerClick }: EvalGraphProps) {
+export function EvalGraph({
+  points,
+  markers,
+  valuePerspective = 'black',
+  currentPly = null,
+  onSelectPly,
+  onMarkerClick,
+}: EvalGraphProps) {
   const [hoverPly, setHoverPly] = useState<number | null>(null)
 
   const maxPly = Math.max(1, points.length - 1)
@@ -190,7 +199,7 @@ export function EvalGraph({ points, markers, currentPly = null, onSelectPly, onM
           class="eval-graph__svg"
           viewBox={`0 0 ${width} ${HEIGHT}`}
           role="img"
-          aria-label="評価グラフ(横軸: 手数、縦軸: 石差、黒優勢が上)"
+          aria-label={`評価グラフ(横軸: 手数、縦軸: 石差、${sideLabel(valuePerspective)}優勢が上)`}
           preserveAspectRatio="xMidYMid meet"
           onPointerMove={(event) => updateHover(event.currentTarget.getBoundingClientRect(), event.clientX)}
           onPointerDown={(event) => updateHover(event.currentTarget.getBoundingClientRect(), event.clientX)}
@@ -257,6 +266,8 @@ export function EvalGraph({ points, markers, currentPly = null, onSelectPly, onM
               cx={xFor(p.ply)}
               cy={yFor(p.value)}
               r={p.ply === currentPly ? 4 : 2.5}
+              data-ply={p.ply}
+              data-value={p.value}
               onClick={() => onSelectPly?.(p.ply)}
             />
           ))}
@@ -313,7 +324,9 @@ export function EvalGraph({ points, markers, currentPly = null, onSelectPly, onM
                 {sideLabel(hoverPoint.move.side)}番 {hoverPoint.move.notation}
               </p>
             )}
-            <p>評価値: {formatDiscDiff(hoverPoint.value)}石(黒視点)</p>
+            <p>
+              評価値: {formatDiscDiff(hoverPoint.value)}石({sideLabel(valuePerspective)}視点)
+            </p>
             {hoverPoint.move && (
               <>
                 <p>ロス: {hoverPoint.move.lossDiscs > 0 ? `${formatDiscDiff(-hoverPoint.move.lossDiscs)}石` : '±0石'}</p>
