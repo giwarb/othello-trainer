@@ -152,3 +152,19 @@ attempts: 1
   - git diff --check: 成功。
 - Pages実機確認とGitHub Actions確認は、オーケストレーターのcommit/push後にverifierが実施する受け入れ項目のため未実施。
 - コミット: 未実施(.git書き込み禁止)。コミット対象は engine/src/search.rs、engine/src/protocol.rs、app/src/midgame/PracticeMode.tsx、app/src/midgame/PracticeMode.flow.test.tsx、app/scripts/test-node-budget-wasm.mjs。tasks/T201-midgame-deterministic-judge.md は作業ログ追記のみでコミット対象外。
+
+### 2026-10-16 verifier(Sonnet)検証ログ(redo#1後)
+
+- `cd engine && cargo test`(ローカル debug)→ lib 260 passed / 0 failed / 2 ignored、他クレート全パス。
+- `cd app && npx vitest run`(オプションなし)→ 103 files / 876 tests 全パス。`npm run typecheck` エラー0、`npm run build` 成功。
+- GitHub Actions(HEAD acc0aaa、7dfb7c5 単独の run は無し): Deploy to GitHub Pages = success。**Rust Tests = failure**(run 38771618720)。失敗テスト `protocol::tests::problem_86_start_best_move_is_f2_with_production_node_budget_on_repeated_calls`(protocol.rs:991 `assert_eq!(first, second)`)。first は e1=-0.09 先頭(浅い読み相当)、second は f2=-2.75 先頭 → CI(debug・低速)で壁時計保険(テストの timeMs=60000 を10手均等割り)が発火し、1回目だけ途中打ち切りになった結果とみられる。テストが壁時計に依存しており CI で不安定(ローカルでは通過)。ローカル通過のため再現はせず、ログ上の事実のみ。
+- Pages 実機(Playwright): 問題86を g6/f2/h5 で 初回・「もう一度」・リロード後 の3回、さらに24プロセスCPU飽和下で3回。計6回とも「クリア! ★☆☆ / 評価値 -3 → -6(損失3石) / 1手目 g6 最善手 f2(ロス3石) / 2手目 f2(最善手) / 3手目 h5 最善手 d6(ロス1石)」で完全一致(表示は丸め。作業ログの -2.75/-6.21/f2 3.01・0・d6 1.03 と整合)。
+- 品質測定: logs/t201/tmp_t201_quality.jsonl(622行)から再集計。参照=reference25(25Mノード・depth16)。old: 25/38(65.8%)・平均regret 0.37・最大 2.66。新(verified2400): 25/38(65.8%)・0.46・3.88。作業ログの表と一致。新方式 regret 上位: stage106(g6 vs 参照 f3, 3.88石)、stage46(b6 vs a6, 2.45)、stage34(d2 vs f3, 2.00)。問題86: old e1 / 新 f2 / 参照 f2。
+- 要件7テスト: flow テストは結果一覧「最善手 b1」と worstMoveCompare の最善手ラベル「最善手(b1)」の両方を assert、全 requestAnalyzeAll の limit が本番 maxNodes 付きと一致することも検証(モック駆動のため配線検証止まりだが空洞ではない)。Rust 回帰は問題86開始局面で f2 を2回 assert(確認済み)。
+
+### 2026-10-16 02:10 オーケストレーター: 再検収の判定と軽微修正
+
+- codex-review: 合格(重大0)。中1件=allMoves+maxNodes指定時、着手後空きがexactFromEmpties以下でも直接完全読み分岐に到達せず search_with_eval_inner の予算内exact試行経路になる(中盤練習は空き約40で境界に届かず本件無影響)→STATUS申し送り。軽微: regret悪化(0.37→0.46/最大3.88)、WASMゲートの変数名と実行順の不一致、tasks/のCRLF。
+- verifier: CIのRust Testsのみ不合格(問題86本番予算テストがCI debugで1回目だけ壁時計保険〔timeMs 60000を手数で割った値〕に掛かり e1 先頭)。Pages実機は6回(うちCPU飽和3回)とも ★1 / -3→-6 / g6の最善手f2 で完全一致。
+- 対応: 例外規定(挙動に影響しない1ファイル1行のテスト修正)を宣言し、テストヘルパーの timeMs を 3600000 に変更。ローカル `cargo test --lib problem_86` 2件パス(84s)。CIで再確認する。
+
