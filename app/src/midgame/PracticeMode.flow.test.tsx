@@ -315,6 +315,16 @@ function resultGraphValues(container: HTMLDivElement): number[] {
   )
 }
 
+async function showResultGraphTooltip(container: HTMLDivElement, clientX: number): Promise<string> {
+  const svg = container.querySelector<SVGSVGElement>('.midgame-result .eval-graph__svg')
+  expect(svg).not.toBeNull()
+  vi.spyOn(svg!, 'getBoundingClientRect').mockReturnValue({ left: 0, width: 320 } as DOMRect)
+  await act(async () => {
+    svg?.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, clientX }))
+  })
+  return container.querySelector('.midgame-result .eval-graph__tooltip')?.textContent ?? ''
+}
+
 describe('T141: 中盤練習ステージクリア型のプレイフロー', () => {
   let container: HTMLDivElement
 
@@ -364,6 +374,7 @@ describe('T141: 中盤練習ステージクリア型のプレイフロー', () =
       expect(container.querySelector('.midgame-result')).not.toBeNull()
       expect(container.querySelector('.midgame-result--clear')).not.toBeNull()
       expect(container.querySelector('.midgame-result__stars')?.textContent).toBe('★★★')
+      expect(container.textContent).toContain('評価値 0.0 → 0.0(変化なし)')
 
       const moveItems = Array.from(container.querySelectorAll('.midgame-result__moves li')).map((li) => li.textContent)
       expect(moveItems.length).toBe(3)
@@ -802,6 +813,8 @@ describe('T141: 中盤練習ステージクリア型のプレイフロー', () =
         '白優勢が上',
       )
       expect(container.textContent).toContain('評価値 0.0 → +1.5(開始より1.5石改善)')
+      expect(await showResultGraphTooltip(container, 32)).toContain('評価値: 0.0石(白視点)')
+      expect(await showResultGraphTooltip(container, 288)).toContain('評価値: +1.5石(白視点)')
       expect(container.textContent).toContain('各手を打った後のあなた視点の評価値')
       expect(container.textContent).toContain('最後の点は終了局面の評価です')
     },

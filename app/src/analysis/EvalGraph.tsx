@@ -27,9 +27,8 @@ export interface EvalGraphPoint {
   readonly ply: number
   /**
    * `valuePerspective`で指定された視点の評価値(既定は黒視点、石差、クリップ前)。
-   * 局面ごとに独立した探索の生値ではなく、
-   * `analyzeGame`が計算する累積評価値(T056、最善手が続く区間は変化しない)。
-   * 定石区間は0(互角)に固定される(T046)。
+   * 値の算出基準は呼び出し側が決定する(`analyzeGame`の累積評価値や、
+   * 局面ごとに独立した根解析値など)。
    */
   readonly value: number
   /** この点に至る直前の解析(`ply`>0の場合)が完全読みだったか。`ply === 0`では未使用。 */
@@ -59,6 +58,8 @@ export interface EvalGraphProps {
   readonly markers: readonly EvalGraphMarker[]
   /** 評価値の視点。省略時は既定の黒視点を維持する。 */
   readonly valuePerspective?: Side
+  /** ツールチップの評価値フォーマッター。省略時は従来どおり整数表示。 */
+  readonly valueFormatter?: (value: number) => string
   /** 現在選択中の局面(ハイライト表示、`AnalysisMode`のジャンプ機能と連動)。 */
   readonly currentPly?: number | null
   /** グラフ上のいずれかの局面がクリックされたときに呼ばれる。 */
@@ -132,7 +133,8 @@ function bandClass(point: EvalGraphPoint): string {
 /**
  * 評価グラフ(要件6、設計書§6.3)。
  *
- * 横軸=手数、縦軸=石差(黒優勢を上)。縦軸の範囲は実際のデータの最大絶対値に
+ * 横軸=手数、縦軸=`valuePerspective`で指定した視点の石差(既定は黒優勢を上)。
+ * 縦軸の範囲は実際のデータの最大絶対値に
  * 応じて±8〜±64石の間で自動調整し(T063、`axisConfigFor`)、数値目盛りを表示する。
  * 完全読み区間(`isExact`)はヒューリスティック区間と塗り(帯の色)を変えて表示する。
  * 悪手マーカー(?!/?/??、逆転悪手は赤強調)をプロット上に表示し、クリックで
@@ -151,6 +153,7 @@ export function EvalGraph({
   points,
   markers,
   valuePerspective = 'black',
+  valueFormatter = formatDiscDiff,
   currentPly = null,
   onSelectPly,
   onMarkerClick,
@@ -326,7 +329,7 @@ export function EvalGraph({
               </p>
             )}
             <p>
-              評価値: {formatDiscDiff(hoverPoint.value)}石({sideLabel(valuePerspective)}視点)
+              評価値: {valueFormatter(hoverPoint.value)}石({sideLabel(valuePerspective)}視点)
             </p>
             {hoverPoint.move && (
               <>

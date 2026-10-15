@@ -110,6 +110,7 @@ function formatResultDiscDiff(value: number): string {
 /** A・Bそれぞれの表示値から、結果画面に表示する改善/損失の差分を求める。 */
 function formatResultEvalChange(startEval: number, endEval: number): string {
   const change = roundResultDiscDiff(roundResultDiscDiff(endEval) - roundResultDiscDiff(startEval))
+  if (change === 0) return '(変化なし)'
   return change > 0 ? `(開始より${change.toFixed(1)}石改善)` : `(損失${Math.abs(change).toFixed(1)}石)`
 }
 
@@ -1387,7 +1388,12 @@ export function PracticeMode() {
               <p>
                 各手を打った後のあなた視点の評価値。最後の点は終了局面の評価です。
               </p>
-              <EvalGraph points={resultEvalGraphPoints} markers={[]} valuePerspective={resultInfo.humanSide} />
+              <EvalGraph
+                points={resultEvalGraphPoints}
+                markers={[]}
+                valuePerspective={resultInfo.humanSide}
+                valueFormatter={formatResultDiscDiff}
+              />
             </div>
           )}
 
