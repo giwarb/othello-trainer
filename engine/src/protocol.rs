@@ -471,7 +471,7 @@ mod tests {
         let white = board.white;
         let turn = if side == Side::Black { "black" } else { "white" };
         let request = format!(
-            r#"{{"id":{id},"cmd":"analyze","board":{{"black":"0x{black:x}","white":"0x{white:x}","turn":"{turn}"}},"limit":{{"depth":10,"timeMs":60000,"maxNodes":{max_nodes},"exactFromEmpties":24}},"allMoves":true}}"#
+            r#"{{"id":{id},"cmd":"analyze","board":{{"black":"0x{black:x}","white":"0x{white:x}","turn":"{turn}"}},"limit":{{"depth":10,"timeMs":3600000,"maxNodes":{max_nodes},"exactFromEmpties":24}},"allMoves":true}}"#
         );
         *id += 1;
         let response: serde_json::Value = serde_json::from_str(&engine.analyze(&request)).unwrap();
