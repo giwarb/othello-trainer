@@ -1,0 +1,268 @@
+[
+ {
+  "id": "p86_end_d1",
+  "source": "stage86 start + f2 c2 f1 d6 e1 d1",
+  "board": "---OXX----OOXX----XOXX----XOOO----XOOO----XOOO-----O------------",
+  "side": "black",
+  "empties": 40
+ },
+ {
+  "id": "p86_end_g3",
+  "source": "stage86 start + f2 c2 f1 d6 e1 g3",
+  "board": "----XX----OXXX----XOOOO---XOOO----XOOO----XOOO-----O------------",
+  "side": "black",
+  "empties": 40
+ },
+ {
+  "id": "p86_alt_end",
+  "source": "stage86 start + g6 g5 f2 c2 h5 d6",
+  "board": "----------OOOX----XOXX----XOOO----XOOXXX--XOOOX----O------------",
+  "side": "black",
+  "empties": 40
+ },
+ {
+  "id": "s86_start",
+  "source": "midgame stage 86 start (logs/t201/tmp_t201_positions.jsonl)",
+  "board": "-----------OO-----XXOX----XXOO----XXOO----X-OO-----O------------",
+  "side": "black",
+  "empties": 46
+ },
+ {
+  "id": "s34_start",
+  "source": "midgame stage 34 start (logs/t201/tmp_t201_positions.jsonl)",
+  "board": "--------X-------XX-XX-X-XOXXXX--XXXXXO----OOOO-----O------------",
+  "side": "white",
+  "empties": 41
+ },
+ {
+  "id": "s37_start",
+  "source": "midgame stage 37 start (logs/t201/tmp_t201_positions.jsonl)",
+  "board": "------------------XO-O-X--XXOOOX---XXXOX---XXXXX---XXO-X-----X--",
+  "side": "white",
+  "empties": 39
+ },
+ {
+  "id": "s40_start",
+  "source": "midgame stage 40 start (logs/t201/tmp_t201_positions.jsonl)",
+  "board": "------------------XO-O---OOOOO-X-XOXOXX--XXOXXOO--OOOX------OX--",
+  "side": "black",
+  "empties": 36
+ },
+ {
+  "id": "s49_start",
+  "source": "midgame stage 49 start (logs/t201/tmp_t201_positions.jsonl)",
+  "board": "--OO------OOOO--OOOXOXX-OOXOXXO--XXXXX--X-OO--------------------",
+  "side": "black",
+  "empties": 36
+ },
+ {
+  "id": "s52_start",
+  "source": "midgame stage 52 start (logs/t201/tmp_t201_positions.jsonl)",
+  "board": "----------X------OXXX---OOXOXO--OXXXXO--O-XXXO----OXX-----------",
+  "side": "white",
+  "empties": 39
+ },
+ {
+  "id": "s58_start",
+  "source": "midgame stage 58 start (logs/t201/tmp_t201_positions.jsonl)",
+  "board": "----------X------OOOO----OOXXXX--OOXXX----OOXO------------------",
+  "side": "black",
+  "empties": 44
+ },
+ {
+  "id": "s67_start",
+  "source": "midgame stage 67 start (logs/t201/tmp_t201_positions.jsonl)",
+  "board": "----------OXX----OOOXX----OOOO----OXOO----XXXO------------------",
+  "side": "black",
+  "empties": 44
+ },
+ {
+  "id": "s76_start",
+  "source": "midgame stage 76 start (logs/t201/tmp_t201_positions.jsonl)",
+  "board": "------------OX----XXXX----XXOX----XXOOO---OXOOO----X------------",
+  "side": "white",
+  "empties": 43
+ },
+ {
+  "id": "s82_start",
+  "source": "midgame stage 82 start (logs/t201/tmp_t201_positions.jsonl)",
+  "board": "---O-X------OX-----XOOOO---XOXOO--XXOXXO--OOOOOO----------------",
+  "side": "black",
+  "empties": 38
+ },
+ {
+  "id": "s85_start",
+  "source": "midgame stage 85 start (logs/t201/tmp_t201_positions.jsonl)",
+  "board": "------------OO------OO-X--XXXOX--XXXOXX----OOOX-----O-----------",
+  "side": "white",
+  "empties": 43
+ },
+ {
+  "id": "s88_start",
+  "source": "midgame stage 88 start (logs/t201/tmp_t201_positions.jsonl)",
+  "board": "------------------XOXX----XXXX----OOOOOO---OXXO----OXX-----X----",
+  "side": "black",
+  "empties": 42
+ },
+ {
+  "id": "s91_start",
+  "source": "midgame stage 91 start (logs/t201/tmp_t201_positions.jsonl)",
+  "board": "----------XO-------XXXO---OOXX----OXOXX---OOOO----OOO-----------",
+  "side": "black",
+  "empties": 42
+ },
+ {
+  "id": "s109_start",
+  "source": "midgame stage 109 start (logs/t201/tmp_t201_positions.jsonl)",
+  "board": "------------------OOXX---OOOOOO---XXOOO---OXXOX----XX-----------",
+  "side": "black",
+  "empties": 42
+ },
+ {
+  "id": "rnd_1",
+  "source": "eval_cli gen seed=11 empties30-34",
+  "board": "----X--O----XX-O---XXXXO-OOXXOOO-XXXXOOO----OX-O--XXOXX---O-O---",
+  "side": "black",
+  "empties": 30
+ },
+ {
+  "id": "rnd_2",
+  "source": "eval_cli gen seed=11 empties30-34",
+  "board": "---X------OOOOOO-XOOOXO--XOOXOO-X-OXOX----OOOOXO----OO-X-----O--",
+  "side": "black",
+  "empties": 30
+ },
+ {
+  "id": "rnd_3",
+  "source": "eval_cli gen seed=11 empties30-34",
+  "board": "--X--O---OXXO----XOOXOX-XXXOXX----XOO-X---XXXXXX--XXX-O--X------",
+  "side": "white",
+  "empties": 31
+ },
+ {
+  "id": "s25_start",
+  "source": "midgame stage 25 start (logs/t201/tmp_t201_positions.jsonl)",
+  "board": "-------------------XX------XXO----XOXO----OOOO-----O------------",
+  "side": "black",
+  "empties": 50
+ },
+ {
+  "id": "s28_start",
+  "source": "midgame stage 28 start (logs/t201/tmp_t201_positions.jsonl)",
+  "board": "-------------------XX------XXXX---XOXO----OOOO-----O------------",
+  "side": "white",
+  "empties": 49
+ },
+ {
+  "id": "s31_start",
+  "source": "midgame stage 31 start (logs/t201/tmp_t201_positions.jsonl)",
+  "board": "--------------------X------OXO----OOXO----XOOO------XO----------",
+  "side": "black",
+  "empties": 50
+ },
+ {
+  "id": "s43_start",
+  "source": "midgame stage 43 start (logs/t201/tmp_t201_positions.jsonl)",
+  "board": "----------XOO----XOOOX--XXXXOX----XOOOXX--XOOOO----OO-----------",
+  "side": "white",
+  "empties": 37
+ },
+ {
+  "id": "s46_start",
+  "source": "midgame stage 46 start (logs/t201/tmp_t201_positions.jsonl)",
+  "board": "----------O------XOO-----OOOOO--XXXXXX----OXX------X------------",
+  "side": "white",
+  "empties": 45
+ },
+ {
+  "id": "s61_start",
+  "source": "midgame stage 61 start (logs/t201/tmp_t201_positions.jsonl)",
+  "board": "-----------------OOO-XX---XXXXO---XOXO----OOOX------------------",
+  "side": "black",
+  "empties": 46
+ },
+ {
+  "id": "s64_start",
+  "source": "midgame stage 64 start (logs/t201/tmp_t201_positions.jsonl)",
+  "board": "------------------XXX-----XXOO---OOXOX----XX-------X------------",
+  "side": "white",
+  "empties": 49
+ },
+ {
+  "id": "s70_start",
+  "source": "midgame stage 70 start (logs/t201/tmp_t201_positions.jsonl)",
+  "board": "-----------XO-----XXXO----XXXXX----OXO----OOXO------X-----------",
+  "side": "white",
+  "empties": 45
+ },
+ {
+  "id": "s73_start",
+  "source": "midgame stage 73 start (logs/t201/tmp_t201_positions.jsonl)",
+  "board": "------------X------XXO----XXXO----XXXO----OXOO-----O------O-----",
+  "side": "black",
+  "empties": 46
+ },
+ {
+  "id": "s79_start",
+  "source": "midgame stage 79 start (logs/t201/tmp_t201_positions.jsonl)",
+  "board": "----------XX------XXX-----XXXO---OOOOOO----OOO------------------",
+  "side": "black",
+  "empties": 46
+ },
+ {
+  "id": "rndB_1",
+  "source": "eval_cli gen seed=12 empties34-44",
+  "board": "----------O--------OXX---X-OXX--OOOOXO---O--XXO-O----XXX--------",
+  "side": "black",
+  "empties": 42
+ },
+ {
+  "id": "rndB_2",
+  "source": "eval_cli gen seed=12 empties34-44",
+  "board": "---O-------O----X-XXXO--OOOXXOO---XOXOOO-XO--XO-XXX-------------",
+  "side": "white",
+  "empties": 37
+ },
+ {
+  "id": "rndB_3",
+  "source": "eval_cli gen seed=12 empties34-44",
+  "board": "-----------------O-XX---XXOXXXX--XXOOX--O-OXO-X--O-X-O-----X----",
+  "side": "black",
+  "empties": 40
+ },
+ {
+  "id": "rndB_4",
+  "source": "eval_cli gen seed=12 empties34-44",
+  "board": "---XX----O-XXO--OOXXOX---OXOX----OOXOX--XO--XXX-------O--------O",
+  "side": "black",
+  "empties": 36
+ },
+ {
+  "id": "rndB_5",
+  "source": "eval_cli gen seed=12 empties34-44",
+  "board": "X--------X-OX---O-OOX----OXOXXX---XOOOXO--XXXXXX-OO-X----O------",
+  "side": "black",
+  "empties": 34
+ },
+ {
+  "id": "rndB_6",
+  "source": "eval_cli gen seed=12 empties34-44",
+  "board": "--O-------XOX-X----XOX----XOO----XXXOO------OOO-----O-O--------O",
+  "side": "black",
+  "empties": 42
+ },
+ {
+  "id": "rndB_7",
+  "source": "eval_cli gen seed=12 empties34-44",
+  "board": "X--------X-O-----XXOOX----XXXO-----XX-----XXXOO-----O--------O--",
+  "side": "white",
+  "empties": 43
+ },
+ {
+  "id": "rndB_8",
+  "source": "eval_cli gen seed=12 empties34-44",
+  "board": "-------------X----O-XOX--XXXOX----OOXXXX--O-X-X---OX------X-----",
+  "side": "black",
+  "empties": 42
+ }
+]

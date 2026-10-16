@@ -1,0 +1,8 @@
+[package]
+name = "stagejump"
+version = "0.1.0"
+edition = "2021"
+[dependencies]
+engine = { path = "C:/Users/yoshi/work/othello-trainer/engine" }
+serde_json = "1"
+[workspace]
