@@ -1443,7 +1443,7 @@ export function PracticeMode() {
           {resultInfo.moveEvalHistory.length > 0 && (
             <div class="midgame-eval-graph">
               <p>
-                各手を打った後のあなた視点の評価値(点の横の文字が打った手)。最後の点はあなたの最後の手を打った後の評価です。
+                各手を打った後のあなた視点の評価値(下の文字が打った手)。最後の点はあなたの最後の手を打った後の評価です。
               </p>
               <EvalGraph
                 points={resultEvalGraphPoints}

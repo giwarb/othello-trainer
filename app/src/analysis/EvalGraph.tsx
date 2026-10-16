@@ -291,18 +291,16 @@ export function EvalGraph({
             />
           ))}
 
-          {/* 点の注記(着手の記法など)。値が上半分なら点の下、下半分なら点の上に置き、
-              折れ線や枠と重なりにくくする。 */}
+          {/* 点の注記(着手の記法など)。折れ線と重ならないよう、横軸の目盛りラベルの
+              ようにプロット下端の余白へ一列に並べる。 */}
           {points.map((p) => {
             if (!p.annotation) return null
-            const y = yFor(p.value)
-            const below = clampValue(p.value) > 0
             return (
               <text
                 key={`annotation-${p.ply}`}
                 class={`eval-graph__annotation${p.annotation.side ? ` eval-graph__annotation--${p.annotation.side}` : ''}`}
                 x={xFor(p.ply)}
-                y={below ? y + 14 : y - 8}
+                y={PADDING_Y + PLOT_HEIGHT + 12}
                 text-anchor="middle"
               >
                 {p.annotation.text}
