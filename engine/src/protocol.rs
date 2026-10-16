@@ -964,15 +964,17 @@ mod tests {
     }
 
     #[test]
-    fn problem_86_start_best_move_is_f2_with_production_node_budget_on_repeated_calls() {
+    fn problem_86_start_best_move_is_e1_with_production_weights_and_node_budget_on_repeated_calls() {
+        // T205: 本番重みがpattern_v7(v6の偶奇保存ステージ平滑化)に切り替わったため本番追従。
+        // v7の最善手はe1(Edax 4.6 depth14 無選択でも最善手e1・評価0)。v6ではf2だった。
         let weights = include_bytes!(concat!(
             env!("CARGO_MANIFEST_DIR"),
-            "/../train/weights/pattern_v6.bin"
+            "/../train/weights/pattern_v7.bin"
         ));
         let mut engine = Engine::new();
         engine
             .load_pattern_weights(weights)
-            .expect("pattern_v6 weights should load");
+            .expect("pattern_v7 weights should load");
         let (board, side) = problem_86_start_position();
         let mut id = 80;
 
@@ -994,8 +996,8 @@ mod tests {
         );
 
         assert_eq!(first, second);
-        assert_eq!(first.first().map(|(mv, _)| mv.as_str()), Some("f2"));
-        assert_eq!(second.first().map(|(mv, _)| mv.as_str()), Some("f2"));
+        assert_eq!(first.first().map(|(mv, _)| mv.as_str()), Some("e1"));
+        assert_eq!(second.first().map(|(mv, _)| mv.as_str()), Some("e1"));
     }
 
     /// T139関連の確認: CPU着手経路(`cpuLimit`、`maxNodes`指定)の探索は、

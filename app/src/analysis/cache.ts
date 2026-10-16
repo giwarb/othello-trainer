@@ -94,8 +94,13 @@ function defaultIndexedDb(): IDBFactory {
  * 対Edaxゲートで対v5+4.53石・95%CI[1.78,7.33]の有意改善を確認し、サイズ増
  * gzip約5.9MB→10.7MBをユーザーが了承のうえ採用裁定)へ切り替え、同一局面・
  * 同一探索条件でも評価値が変わるため、古い解析結果を無効化する(7 -> 8)。
+ *
+ * T205: 本番パターン重みをv6からv7(v6の重みを同じ偶奇の段どうしで1-2-1
+ * 平滑化したもの、段間不連続による深さ偶奇の評価値の揺れを抑える)へ
+ * 切り替え、同一局面・同一探索条件でも評価値が変わるため、古い解析結果を
+ * 無効化する(8 -> 9)。
  */
-export const ANALYSIS_ENGINE_VERSION = 8
+export const ANALYSIS_ENGINE_VERSION = 9
 
 /** 探索条件をキャッシュキー用の安定したタグへ変換する。 */
 export function analysisLimitTag(limit: AnalyzeLimit): string {

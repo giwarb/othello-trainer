@@ -54,7 +54,16 @@ let readyPromise: Promise<void> | undefined;
 //
 // v5以前(v2/v3/v4)や将来のcanonical再学習版へ切り替える場合も同様に、
 // ファイル名変更とANALYSIS_ENGINE_VERSIONの繰り上げを必ずセットで行う。
-const PATTERN_WEIGHTS_URL = `${import.meta.env.BASE_URL}pattern_v6.bin`;
+//
+// T205: v6の61段(空き数1刻み)独立重みテーブルの段間不連続が、同じ偶奇の
+// 探索深さ間の評価値の揺れ|v(d)-v(d-2)|をEdax比約1.8倍に増やしていた(T203)。
+// 重みを同じ偶奇の段どうし(s±2)で1-2-1平滑化したv7
+// (`bench/edax-compare/t205_smooth_weights.py --alpha 1.0`でv6から生成、
+// 再学習なし)へ切り替えた。core38で揺れ1.82→1.11(Edax 0.99)、Edax d12との
+// 最善手一致も改善(詳細は`bench/edax-compare/t205_smoothing_report.md`)。
+// v6へ切り戻す場合も上記手順どおり、ファイル名をpattern_v6.binへ戻したうえで
+// ANALYSIS_ENGINE_VERSIONを直近の最大値+1へ繰り上げること。
+const PATTERN_WEIGHTS_URL = `${import.meta.env.BASE_URL}pattern_v7.bin`;
 
 /**
  * 本番用パターン重みをfetchして `engine.load_pattern_weights` に渡す。

@@ -15,7 +15,12 @@ initSync({ module: wasm })
 // 切り替わったため、本ゲートも本番追従でv6を参照するよう更新した。上記の
 // 「固定goldenを持たない自己参照的な決定性チェック」という設計はそのまま
 // なので、今回もgoldenの再取得は不要(理由はT170と同じ)。
-const weights = await readFile(new URL('../public/pattern_v6.bin', import.meta.url))
+//
+// T205: 本番配線がpattern_v6.bin→pattern_v7.binに切り替わったため本番追従。
+// 決定性チェックは自己参照のまま。問題86の開始局面の最善手の期待値だけは
+// 重み依存の固定値なので、v7での値(e1。Edax 4.6 depth14 無選択でも最善手e1)
+// に更新した。
+const weights = await readFile(new URL('../public/pattern_v7.bin', import.meta.url))
 
 const MIDGAME_LIMIT = { depth: 10, timeMs: 10_000, maxNodes: 2_400_000, exactFromEmpties: 24 }
 const PROBLEM_86_START = {
@@ -149,7 +154,7 @@ function analyzeAll(engine, board, side, id) {
 function runProblem86Attempt(engine, playerMoves, firstId) {
   let board = PROBLEM_86_START
   let currentRoot = analyzeAll(engine, board, 'black', firstId)
-  if (currentRoot.error || currentRoot.moves?.[0]?.move !== 'f2') {
+  if (currentRoot.error || currentRoot.moves?.[0]?.move !== 'e1') {
     throw new Error(`problem 86 start analysis failed: ${JSON.stringify(currentRoot)}`)
   }
   const startEval = currentRoot.moves[0].discDiff
@@ -157,7 +162,9 @@ function runProblem86Attempt(engine, playerMoves, firstId) {
   const replies = []
   let allBest = true
   let id = firstId + 1
-  for (const playerMove of playerMoves) {
+  // playerMovesのnullは「その局面の最善手」(重みが変わっても合法手であり続ける)。
+  for (const plannedMove of playerMoves) {
+    const playerMove = plannedMove ?? currentRoot.moves[0].move
     const played = currentRoot.moves.find((move) => move.move === playerMove)
     if (!played) throw new Error(`problem 86 planned move is illegal: ${playerMove}`)
     graph.push(played.discDiff)
@@ -203,9 +210,9 @@ if (
   )
 }
 
-const problem86First = runProblem86Attempt(engine, ['f2', 'f1', 'e1'], 100)
-const problem86Second = runProblem86Attempt(engine, ['f2', 'f1', 'e1'], 200)
-const problem86Alternate = runProblem86Attempt(engine, ['g6', 'f2', 'h5'], 300)
+const problem86First = runProblem86Attempt(engine, [null, null, null], 100)
+const problem86Second = runProblem86Attempt(engine, [null, null, null], 200)
+const problem86Alternate = runProblem86Attempt(engine, ['g6', null, null], 300)
 if (
   JSON.stringify(problem86Second) !== JSON.stringify(problem86First)
   || problem86First.graph[0] !== problem86First.startEval
@@ -222,5 +229,5 @@ console.log(`[wasm-test] deterministic node-budget result: ${first.pv[0]} (${fir
 console.log(
   `[wasm-test] deterministic allMoves node-budget result: ${allMovesFirst.pv[0]} (${allMovesFirst.score.discDiff}), ${allMovesFirst.moves.length} moves`,
 )
-console.log(`[wasm-test] problem 86 f2/f1/e1: ${JSON.stringify(problem86First)}`)
-console.log(`[wasm-test] problem 86 g6/f2/h5: ${JSON.stringify(problem86Alternate)}`)
+console.log(`[wasm-test] problem 86 best x3: ${JSON.stringify(problem86First)}`)
+console.log(`[wasm-test] problem 86 g6/best/best: ${JSON.stringify(problem86Alternate)}`)

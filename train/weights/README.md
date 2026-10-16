@@ -19,6 +19,16 @@ regret 0.9667)が`pattern_v4.bin`(同じくPWV3形式、`num_stages=61`)。比�
 (`search::search_with_eval`/`search_all_moves_with_eval`、T043。
 `eval_cli`の`--pattern-weights PATH`はv1/v2どちらのファイルパスでも動作する)。
 
+## T205: `pattern_v7.bin`(現行本番、v6の偶奇保存ステージ平滑化)
+
+`pattern_v6.bin`(T171で本番採用、PWV6形式・61段)の重みを、段方向に同じ偶奇の段
+どうし(s±2)で1-2-1平滑化したもの(再学習なし、形式・形状はv6と同一)。
+`python bench/edax-compare/t205_smooth_weights.py train/weights/pattern_v6.bin
+train/weights/pattern_v7.bin --alpha 1.0` で再生成できる。T203で、61段独立
+テーブルの段間不連続が深さの偶奇をまたいだ評価値の揺れを増やしていると判明した
+ことへの対策。指標・対局ゲートは`bench/edax-compare/t205_smoothing_report.md`。
+v6は切り戻し用にそのまま残している。
+
 ## T044: 対称変換による重み共有(v2)とパターンのクラス分類
 
 T043の自己対戦検証で、v1(22インスタンス独立の重みテーブル)は静的評価が
