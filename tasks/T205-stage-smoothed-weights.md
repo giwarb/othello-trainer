@@ -1,7 +1,7 @@
 ---
 id: T205
 title: 偶奇保存のステージ平滑化重み(pattern_v7候補)の作成とゲート評価
-status: todo        # 提案中(ユーザー承認待ち)。依存: T204
+status: done
 assignee: codex(gpt-5.6-sol)
 attempts: 0
 ---
@@ -74,3 +74,11 @@ attempts: 0
 (なし)
 
 ## 作業ログ(担当エージェントが追記)
+
+### 2026-10-16 オーケストレーター(ユーザー指示「サブエージェントに任せず一気に直す」により直接実施、例外適用)
+
+- 変換ツール `bench/edax-compare/t205_smooth_weights.py`(--self-test で α=0 ビット一致・定数列/偶奇交互列不変・期待値を確認)。候補 α=0.5/1.0 を生成し α=1.0 を採用(`train/weights/pattern_v7.bin`)。
+- core38: 同偶奇差 1.82→1.11(Edax 0.99)、Edax d12 一致 d8/d10/d12 73.7/68.4/63.2→78.9/73.7/65.8%、MAE d10 1.53→1.34。
+- 中盤練習38問: Edax d14 一致 23→25/38、問題86の最善手 f2→e1(Edax d14 も e1)。
+- 対Edax paired: lv10 −0.23[−2.98,+2.62]、lv12 +0.90[−1.47,+3.07]、合算120局 +0.33[−1.475,+2.15] → 非劣性達成。
+- holdout frozen MAE は未実施(Edax誤差・対局で代替)。詳細 `bench/edax-compare/t205_smoothing_report.md`、コミット a0aad10。

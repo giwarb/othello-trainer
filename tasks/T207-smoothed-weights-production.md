@@ -1,7 +1,7 @@
 ---
 id: T207
 title: 平滑化重みの本番配線と中盤練習の一致率再計測
-status: todo        # 提案中。T205(または T206)の採用裁定後に着手
+status: done
 assignee: implementer
 attempts: 0
 ---
@@ -40,3 +40,7 @@ T205(または T206)のレポートで採用候補が強度ゲートを通過し
 - タスク完了時点で、当該タスク由来の差分・未追跡ファイルが `git status --short` に残っていないこと。
 
 ## 作業ログ(担当エージェントが追記)
+
+### 2026-10-16 オーケストレーター(直接実施、例外適用)
+
+- `app/public/pattern_v7.bin` 追加、`worker.ts` URL を v7 へ、`ANALYSIS_ENGINE_VERSION` 8→9、`test-pattern-v6-wasm.mjs`→`test-pattern-v7-wasm.mjs`、`test-node-budget-wasm.mjs` の問題86期待値を e1 に(手順は「最善手」指定で重み非依存に)、engine の問題86本番予算テストを v7/e1 に。engine lib 262件・app vitest 882件・`npm run build`(WASMゲート込み)パス。コミット a0aad10。Pages 実機確認は下記に追記。

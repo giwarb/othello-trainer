@@ -1,7 +1,7 @@
 ---
 id: T204
 title: 偶奇振れ計測ハーネスと固定局面セットの恒常化(bench/parity/)
-status: todo        # 提案中(ユーザー承認待ち)
+status: done
 assignee: implementer
 attempts: 0
 ---
@@ -60,3 +60,7 @@ attempts: 0
 (なし)
 
 ## 作業ログ(担当エージェントが追記)
+
+### 2026-10-16 オーケストレーター: done(縮小実施)
+
+- ユーザー指示で一気に修正したため恒常ハーネス化は見送り、T205の計測は T203 の局面セット・Edax計測値を再利用したscratchスクリプトで実施(結果は t205_smoothing_report.md に記録)。恒常化が必要になったら再起票する。
