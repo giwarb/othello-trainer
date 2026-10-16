@@ -35,6 +35,10 @@
  * 実時間で数秒かかる(フェイクタイマーは使わず、実`setTimeout`を繰り返し
  * `flushAsyncEffects`で待つ、既存テストと同じ手法をラウンド数・待ち時間だけ
  * 増やして流用)。
+ *
+ * 2026-10-16: プレイヤーの3手目で終了し(相手の3回目の応手・終了局面の追加解析を
+ * 行わない)仕様へ変更したため、保留させる呼び出しを「3手目前の局面の解析」
+ * (=最後の判定)へ移した。終了時に追加の解析が発生しないことも別テストで固定する。
  */
 import { render } from 'preact'
 import { act } from 'preact/test-utils'
@@ -130,7 +134,7 @@ function clickBoard(container: HTMLDivElement): void {
   board?.click()
 }
 
-describe('T119 redo #1(T141改訂): 3往復完了後の最終評価判定中に離脱した後、古い判定完了が記録・結果遷移を行わない', () => {
+describe('T119 redo #1(T141改訂): 最後の手(3手目)の判定中に離脱した後、古い判定完了が記録・結果遷移を行わない', () => {
   let container: HTMLDivElement
 
   beforeEach(() => {
@@ -151,7 +155,7 @@ describe('T119 redo #1(T141改訂): 3往復完了後の最終評価判定中に�
   })
 
   it(
-    '3往復完了後の最終評価中に「やめる」で離脱すると、後から判定が解決してもlocalStorage記録も結果画面遷移も起きない',
+    '3手目の判定中に「やめる」で離脱すると、後から判定が解決してもlocalStorage記録も結果画面遷移も起きない',
     async () => {
       const { PracticeMode } = await import('./PracticeMode.tsx')
       await act(async () => {
@@ -167,23 +171,28 @@ describe('T119 redo #1(T141改訂): 3往復完了後の最終評価判定中に�
       await flushAsyncEffects()
       expect(container.querySelector('.midgame-practice')).not.toBeNull()
 
-      // ステージ開始〜3往復完了までのエンジン呼び出しは、局面ごとに1回だけ
-      // (`getAnalyzedMoves`キャッシュ)発生する: プレイヤー3手ぶんのオーバーレイ
-      // 取得3回+相手3応手ぶんの取得3回=6回。7回目(3往復完了後の最終評価)
-      // だけを以後保留させる(呼び出し順序はコード上決定的、テスト冒頭コメント参照)。
-      holdAfterCallCount = 6
+      // 2026-10-16(プレイヤーの3手目で終了する仕様変更)以後、エンジン呼び出しは
+      // 局面ごとに1回だけ(`getAnalyzedMoves`キャッシュ)で、プレイヤー1手目前・
+      // 相手1応手・プレイヤー2手目前・相手2応手の4回のあと、5回目がプレイヤー
+      // 3手目前の局面の解析(この結果で3手目を判定し、そのままセッションを
+      // 終了する)。5回目以降だけを保留させる(呼び出し順序はコード上決定的)。
+      holdAfterCallCount = 4
 
-      // 3往復ぶん、常に(先頭の合法手を選ぶ)クリックを行う。プレイヤーの
-      // クリック後、相手の応手(モック内で決定的に先頭手を選ぶ)が
-      // `OPPONENT_MOVE_DELAY_MS`後に反映されるのを待つ。
-      for (let round = 0; round < 3; round += 1) {
+      // 2往復ぶん、常に(先頭の合法手を選ぶ)クリックを行い、相手の応手
+      // (`OPPONENT_MOVE_DELAY_MS`後)の反映を待つ。
+      for (let round = 0; round < 2; round += 1) {
         await act(async () => {
           clickBoard(container)
         })
         await flushAsyncEffects()
       }
+      // 3手目(セッションを終了させる手)をクリックする。
+      await act(async () => {
+        clickBoard(container)
+      })
+      await flushAsyncEffects()
 
-      // この時点で最終評価の`requestAnalyzeAll`がawaitで止まっているはず。
+      // この時点で3手目判定(=終了判定)の`requestAnalyzeAll`がawaitで止まっているはず。
       expect(pendingResolvers.length).toBeGreaterThan(0)
       expect(container.querySelector('.midgame-result')).toBeNull()
 
@@ -211,6 +220,35 @@ describe('T119 redo #1(T141改訂): 3往復完了後の最終評価判定中に�
       // 結果画面にも遷移しない。ステージ一覧に留まったまま。
       expect(container.querySelector('.midgame-result')).toBeNull()
       expect(container.querySelector('.midgame-stage-select')).not.toBeNull()
+    },
+    15000,
+  )
+
+  it(
+    'プレイヤーの3手目を打った時点で結果画面になり、相手の3回目の応手も終了局面の追加解析も行わない',
+    async () => {
+      const { PracticeMode } = await import('./PracticeMode.tsx')
+      await act(async () => {
+        render(<PracticeMode />, container)
+      })
+      await flushAsyncEffects()
+      await act(async () => {
+        container.querySelector<HTMLButtonElement>('.midgame-stage-grid__cell')?.click()
+      })
+      await flushAsyncEffects()
+
+      for (let round = 0; round < 3; round += 1) {
+        await act(async () => {
+          clickBoard(container)
+        })
+        await flushAsyncEffects()
+      }
+
+      expect(container.querySelector('.midgame-result')).not.toBeNull()
+      // 解析はプレイヤー3局面+相手2局面の計5回だけ(相手の3回目の応手・終了局面の解析なし)。
+      expect(engineCallCount).toBe(5)
+      // グラフは開始局面+5手(あなた・相手・あなた・相手・あなた)の6点。
+      expect(container.querySelectorAll('.midgame-result .eval-graph__point').length).toBe(6)
     },
     15000,
   )

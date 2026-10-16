@@ -44,6 +44,21 @@ export interface EvalGraphPoint {
    * 表示用。`ply === 0`(初期局面)では着手が存在しないため`undefined`。
    */
   readonly move?: EvalGraphPointMove
+  /**
+   * ツールチップの見出しの上書き(例: 「あなたの2手目 f1」)。省略時は従来どおり
+   * 「N手目」/「初期局面」。
+   */
+  readonly label?: string
+  /** ツールチップの見出し直下に出す補足1行(例: 「最善手」)。省略時は出さない。 */
+  readonly detail?: string
+  /** 点の近くに常時表示する短い注記(着手の記法など)。省略時は描画しない。 */
+  readonly annotation?: EvalGraphPointAnnotation
+}
+
+/** 点の近くに常時表示する注記。`side`で文字色を打った側(黒/白)に合わせる。 */
+export interface EvalGraphPointAnnotation {
+  readonly text: string
+  readonly side?: Side
 }
 
 /** 悪手マーカー(要件6)。`ply`はその手を打った**後**の局面(グラフ上のx位置)。 */
@@ -276,6 +291,25 @@ export function EvalGraph({
             />
           ))}
 
+          {/* 点の注記(着手の記法など)。値が上半分なら点の下、下半分なら点の上に置き、
+              折れ線や枠と重なりにくくする。 */}
+          {points.map((p) => {
+            if (!p.annotation) return null
+            const y = yFor(p.value)
+            const below = clampValue(p.value) > 0
+            return (
+              <text
+                key={`annotation-${p.ply}`}
+                class={`eval-graph__annotation${p.annotation.side ? ` eval-graph__annotation--${p.annotation.side}` : ''}`}
+                x={xFor(p.ply)}
+                y={below ? y + 14 : y - 8}
+                text-anchor="middle"
+              >
+                {p.annotation.text}
+              </text>
+            )
+          })}
+
           {/* 悪手マーカー(要件6): ?!/?/??、逆転悪手は赤強調。 */}
           {points.map((p) => {
             const marker = markerByPly.get(p.ply)
@@ -321,8 +355,9 @@ export function EvalGraph({
             style={{ left: `${(xFor(hoverPoint.ply) / width) * 100}%` }}
           >
             <p class="eval-graph__tooltip-title">
-              {hoverPoint.ply === 0 ? '初期局面' : `${hoverPoint.ply}手目`}
+              {hoverPoint.label ?? (hoverPoint.ply === 0 ? '初期局面' : `${hoverPoint.ply}手目`)}
             </p>
+            {hoverPoint.detail && <p>{hoverPoint.detail}</p>}
             {hoverPoint.move && (
               <p>
                 {sideLabel(hoverPoint.move.side)}番 {hoverPoint.move.notation}

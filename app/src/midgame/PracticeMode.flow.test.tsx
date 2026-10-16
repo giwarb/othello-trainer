@@ -463,7 +463,7 @@ describe('T141: 中盤練習ステージクリア型のプレイフロー', () =
       expect(moveItems.length).toBe(3)
       expect(moveItems[0]).toContain('g6')
       expect(moveItems[0]).toContain('最善手 b1')
-      expect(moveItems[0]).toContain('ロス6石')
+      expect(moveItems[0]).toContain('ロス6.0石')
 
       // 要件5: 最も損失が大きかった手(1手目)について、結果画面にも同じ
       // `TwoPlyCompare`が表示される。
@@ -716,9 +716,9 @@ describe('T141: 中盤練習ステージクリア型のプレイフロー', () =
       const moveItems = Array.from(container.querySelectorAll('.midgame-result__moves li')).map((li) => li.textContent)
       expect(moveItems.length).toBe(3)
       expect(moveItems[0]).toContain('g6')
-      expect(moveItems[0]).toContain('ロス6石')
+      expect(moveItems[0]).toContain('ロス6.0石')
       expect(moveItems[1]).toContain(DECISION_BAD_MOVE_2)
-      expect(moveItems[1]).toContain('ロス10石')
+      expect(moveItems[1]).toContain('ロス10.0石')
     },
     15000,
   )
@@ -772,7 +772,7 @@ describe('T141: 中盤練習ステージクリア型のプレイフロー', () =
       expect(moveItems.length).toBe(3)
       expect(moveItems[0]).toContain('g6')
       expect(moveItems[0]).toContain('最善手 b1')
-      expect(moveItems[0]).toContain('ロス3石')
+      expect(moveItems[0]).toContain('ロス3.0石')
 
       // 結果画面の最悪手比較(`worstMoveCompareInfo`)も同じ閾値のため表示されない。
       await flushAsyncEffects()
@@ -793,7 +793,8 @@ describe('T141: 中盤練習ステージクリア型のプレイフロー', () =
         josekiNames: ['T202白番テスト'],
       }]
       scriptedHumanSide = 'white'
-      scriptedRootValues = [-0.02, 1.12, 1.33, 1.49]
+      // 2026-10-16: プレイヤーの3手目で終了するため4つ目(相手3応手後)は使われない。
+      scriptedRootValues = [-0.02, 1.12, 1.49, 9.99]
 
       const { PracticeMode } = await import('./PracticeMode.tsx')
       await act(async () => {
@@ -808,15 +809,21 @@ describe('T141: 中盤練習ステージクリア型のプレイフロー', () =
       }
 
       expect(container.querySelector('.midgame-result')).not.toBeNull()
-      expect(resultGraphValues(container)).toEqual([-0.02, -0.02, 1.12, 1.12, 1.33, 1.33, 1.49])
+      expect(resultGraphValues(container)).toEqual([-0.02, -0.02, 1.12, 1.12, 1.49, 1.49])
       expect(container.querySelector('.midgame-result .eval-graph__svg')?.getAttribute('aria-label')).toContain(
         '白優勢が上',
       )
       expect(container.textContent).toContain('評価値 0.0 → +1.5(開始より1.5石改善)')
       expect(await showResultGraphTooltip(container, 32)).toContain('評価値: 0.0石(白視点)')
+      expect(await showResultGraphTooltip(container, 32)).toContain('開始局面')
       expect(await showResultGraphTooltip(container, 288)).toContain('評価値: +1.5石(白視点)')
+      // 2026-10-16: ツールチップの手の呼び方を結果一覧(「あなたのN手目」)と統一し、着手と判定も出す。
+      expect(await showResultGraphTooltip(container, 288)).toContain('あなたの3手目')
+      expect(await showResultGraphTooltip(container, 288)).toContain('最善手')
+      // 各点の注記に打った手の記法を出す(開始局面以外の5点)。
+      expect(container.querySelectorAll('.midgame-result .eval-graph__annotation').length).toBe(5)
       expect(container.textContent).toContain('各手を打った後のあなた視点の評価値')
-      expect(container.textContent).toContain('最後の点は終了局面の評価です')
+      expect(container.textContent).toContain('最後の点はあなたの最後の手を打った後の評価です')
     },
     15000,
   )
@@ -832,7 +839,8 @@ describe('T141: 中盤練習ステージクリア型のプレイフロー', () =
         josekiNames: ['T202損失テスト'],
       }]
       scriptedHumanSide = 'black'
-      scriptedRootValues = [3.04, 2, 1, -1.94]
+      // 2026-10-16: 終了評価Bは3手目の着手評価値(=3手目前の局面の根の最善値、先頭手が最善)。
+      scriptedRootValues = [3.04, 2, -1.94, 0]
 
       const { PracticeMode } = await import('./PracticeMode.tsx')
       await act(async () => {
@@ -884,10 +892,11 @@ describe('T141: 中盤練習ステージクリア型のプレイフロー', () =
       await flushAsyncEffects(30)
 
       expect(container.querySelector('.midgame-result')).not.toBeNull()
-      expect(resultGraphValues(container)).toEqual([-3, -3, -1, -1, 2, 4])
+      // 2026-10-16: プレイヤーの3手目(a5)で終了し、相手のa6は打たれない。
+      expect(resultGraphValues(container)).toEqual([-3, -3, -1, -1, 2])
       expect(resultGraphValues(container)[0]).toBe(-3)
-      expect(resultGraphValues(container).at(-1)).toBe(4)
-      expect(container.textContent).toContain('評価値 -3.0 → +4.0(開始より7.0石改善)')
+      expect(resultGraphValues(container).at(-1)).toBe(2)
+      expect(container.textContent).toContain('評価値 -3.0 → +2.0(開始より5.0石改善)')
     },
     15000,
   )
@@ -923,12 +932,14 @@ describe('T141: 中盤練習ステージクリア型のプレイフロー', () =
       await flushAsyncEffects(60)
 
       expect(container.querySelector('.midgame-result')).not.toBeNull()
-      // c8/e8後はまだユーザー手番の根解析が無いため直前値2を維持し、
-      // ユーザー手番へ戻るg8後だけ終了評価B=4へ更新する。
-      expect(resultGraphValues(container)).toEqual([-3, -3, -1, -1, 2, 2, 2, 2, 4])
+      // 2026-10-16: プレイヤーの3手目(h7)で終了するため、以後の相手c8・
+      // (ユーザーパス)・e8・g8は打たれない。最終点はh7の着手評価値=終了評価B。
+      // (ユーザーパス中の相手連続着手で直前値を維持する分岐は、パスが3手目より
+      // 前に起きる局面でのみ通る。この局面ではもう通らない。)
+      expect(resultGraphValues(container)).toEqual([-3, -3, -1, -1, 2, 2])
       expect(resultGraphValues(container)[0]).toBe(-3)
-      expect(resultGraphValues(container).at(-1)).toBe(4)
-      expect(container.textContent).toContain('評価値 -3.0 → +4.0(開始より7.0石改善)')
+      expect(resultGraphValues(container).at(-1)).toBe(2)
+      expect(container.textContent).toContain('評価値 -3.0 → +2.0(開始より5.0石改善)')
     },
     15000,
   )

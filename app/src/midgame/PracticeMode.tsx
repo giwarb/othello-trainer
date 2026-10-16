@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks'
-import { EvalGraph } from '../analysis/EvalGraph.tsx'
+import { EvalGraph, type EvalGraphPoint } from '../analysis/EvalGraph.tsx'
 import { loadClassifyThresholds } from '../analysis/thresholdSettings.ts'
 import type { ClassifyThresholds } from '../analysis/types.ts'
 import { Board } from '../components/Board.tsx'
@@ -88,7 +88,11 @@ const MIDGAME_ANALYZE_LIMIT: AnalyzeLimit = {
 /** 相手が着手するまでの見せかけの「考慮時間」(ミリ秒、`joseki/PracticeMode.tsx`と同じ演出)。 */
 const OPPONENT_MOVE_DELAY_MS = 350
 
-/** 1ステージの往復回数(要件2「3回応手しあう」)。 */
+/**
+ * 1ステージでプレイヤーが打つ手数(要件2)。ユーザー指示(2026-10-16)により、
+ * プレイヤーの3手目を打った時点(開始局面から5手目)で終了し、相手の3回目の
+ * 応手は打たない(あなた→相手→あなた→相手→あなた)。
+ */
 const ROUNDS_PER_STAGE = 3
 
 /** 苦手パターン検出・記録を行う損失の下限(石差、要件8「損失1石以上」)。 */
@@ -112,6 +116,11 @@ function formatResultEvalChange(startEval: number, endEval: number): string {
   const change = roundResultDiscDiff(roundResultDiscDiff(endEval) - roundResultDiscDiff(startEval))
   if (change === 0) return '(変化なし)'
   return change > 0 ? `(開始より${change.toFixed(1)}石改善)` : `(損失${Math.abs(change).toFixed(1)}石)`
+}
+
+/** 結果一覧とグラフのツールチップで共通の、最善手でなかった手の文言(ロスは小数1桁)。 */
+function moveLossText(move: Pick<MoveOutcome, 'bestMove' | 'lossDiscs'>): string {
+  return `最善手 ${move.bestMove}(ロス${roundResultDiscDiff(move.lossDiscs).toFixed(1)}石)`
 }
 
 type Phase = 'stageSelect' | 'playing' | 'result'
@@ -245,10 +254,10 @@ const MIDGAME_FILTER_LABELS: Readonly<Record<ReviewFilter, string>> = {
  * ユーザー指示(2026-07-19朝)により、モード・相手の強さ・開始局面ソースの
  * 選択画面を廃止し、111ステージの一覧から選ぶだけの構成へ全面改訂した。
  * 1ステージにつき: プレイヤーが3手打ち、そのたびに相手(エンジン)が最善応手を
- * 返す(3往復)。評価バーは対局モード(T138)と同じ部品で常時表示する。候補手
+ * 返す(2026-10-16以降はプレイヤーの3手目で終了し、相手の3回目の応手はない)。評価バーは対局モード(T138)と同じ部品で常時表示する。候補手
  * 評価オーバーレイは既定ONで表示するが、「候補手評価を表示」トグル(T142)で
  * OFFにでき、その場合も判定(★算出)・相手応手はオーバーレイ非表示と無関係に
- * 裏で正常に動作する(表示だけの切り替え、要件2)。3往復後(または途中終局時)の
+ * 裏で正常に動作する(表示だけの切り替え、要件2)。プレイヤーの3手目の後(または途中終局時)の
  * 評価値ロスに応じて★0〜3を判定する(`stageStarJudge.ts`)。詳細は
  * `tasks/T141-midgame-stage-stars.md`・`tasks/T142-midgame-eval-toggle.md`参照。
  *
@@ -291,7 +300,7 @@ export function PracticeMode() {
 
   const [opponentThinking, setOpponentThinking] = useState(false)
   const [analyzing, setAnalyzing] = useState(false)
-  /** 3往復完了後、完全読み相当の最終評価で結果を確定させている間`true`(T055の`finalizing`を踏襲)。 */
+  /** 終了評価の解析で結果を確定させている間`true`(T055の`finalizing`を踏襲。2026-10-16以降は着手評価値が無い例外時のみ)。 */
   const [finalizing, setFinalizing] = useState(false)
 
   const [classifyThresholds] = useState<ClassifyThresholds>(() => loadClassifyThresholds(localStorage))
@@ -512,9 +521,12 @@ export function PracticeMode() {
    * 場合はその時点で終了」・要件4)。
    * - 真の終局(`resolveMover`が`null`)なら、そのまま石差で★判定を確定する
    *   (ラウンド数に関わらず即座に)。
-   * - まだ3往復(プレイヤー3手)に達していなければ何もしない(継続)。
-   * - 3往復に達し、かつ手番がプレイヤー側に戻っていれば、`getAnalyzedMoves`
-   *   (表示用と共有のキャッシュ)で終了時評価値を求めて★判定を確定する。
+   * - まだプレイヤーが3手打っていなければ何もしない(継続)。
+   * - プレイヤーが3手目を打ったら、相手の応手を待たずにその場で終了する
+   *   (2026-10-16ユーザー指示)。終了評価Bは3手目の着手評価値(3手目を打つ前の
+   *   局面の根解析で得た、打った手の値=グラフの最終点と同じ値)をそのまま使い、
+   *   追加の解析は行わない。この分岐は`await`を挟まず同期的に結果画面へ遷移する
+   *   ため、相手の自動応手(`useEffect`)が走る隙はない(念のため相手応手の`useEffect`側にもガードあり)。
    * 戻り値は「この呼び出しでセッションが終了したか」。
    */
   async function checkSessionEnd(board: BoardState, sideToMove: Side, s: SessionState, generation: number): Promise<boolean> {
@@ -524,7 +536,26 @@ export function PracticeMode() {
       return true
     }
     if (s.moveOutcomes.length < ROUNDS_PER_STAGE) return false
-    if (mover !== s.humanSide) return false // 相手がパスして手番が戻っていない等(通常到達しない防御的分岐)
+
+    const lastHumanEntry = [...s.moveEvalHistory].reverse().find((entry) => entry.side === s.humanSide)
+    if (lastHumanEntry && lastHumanEntry.discDiff !== null && lastHumanEntry.source !== 'joseki') {
+      // 人間の手の`discDiff`は打った側(=プレイヤー)視点。
+      finalizeSession(
+        s,
+        {
+          afterPly: s.moveEvalHistory.length,
+          discDiff: lastHumanEntry.discDiff,
+          source: lastHumanEntry.source,
+          isExact: lastHumanEntry.isExact,
+        },
+        generation,
+      )
+      return true
+    }
+
+    // 着手評価値が無い(定石扱い等、通常到達しない)場合だけ、従来どおり
+    // プレイヤー手番の局面を解析して終了評価を求める。
+    if (mover !== s.humanSide) return false
 
     setFinalizing(true)
     try {
@@ -551,6 +582,8 @@ export function PracticeMode() {
     if (phase !== 'playing' || !session) return
     const s = session
     if (s.sideToMove === s.humanSide) return
+    // プレイヤーの3手目で終了するため、3手目の後に相手は応手しない。
+    if (s.moveOutcomes.length >= ROUNDS_PER_STAGE) return
     if (!hasLegalMove(s.board, s.sideToMove)) return
 
     let cancelled = false
@@ -639,7 +672,7 @@ export function PracticeMode() {
    * 旧実装(T021〜T128)にあった「毎手ごとの合否判定→不合格ならただちに
    * セッション終了」というゲートは廃止した。T141では常に3手まで打ち切り、
    * 各手の評価値ロス・最善手一致は`MoveOutcome`として蓄積するだけで、
-   * セッションの継続可否は`checkSessionEnd`(終局・往復数)だけが決める。
+   * セッションの継続可否は`checkSessionEnd`(終局・プレイヤーの手数)だけが決める。
    */
   async function handlePlayerMove(square: number): Promise<void> {
     if (phase !== 'playing' || !session || analyzing) return
@@ -1109,10 +1142,34 @@ export function PracticeMode() {
     const endRoot = resultInfo.userTurnRootEvals.at(-1)
     if (lastEntry && endRoot) pointOverrides.set(lastEntry.ply, toGraphValue(endRoot))
 
-    return buildEvalGraphPoints(resultInfo.moveEvalHistory, {
+    const points = buildEvalGraphPoints(resultInfo.moveEvalHistory, {
       perspective: resultInfo.humanSide,
       initialPoint,
       pointOverrides,
+    })
+
+    // 2026-10-16ユーザー指示: グラフの各点に「何の手か」を出し、呼び方を結果一覧
+    // (「あなたの1手目」…)と統一する。手数は打った側ごとに数える(パスは数えない)。
+    const entryByPly = new Map(resultInfo.moveEvalHistory.map((entry) => [entry.ply, entry]))
+    let humanCount = 0
+    let opponentCount = 0
+    return points.map((point): EvalGraphPoint => {
+      if (point.ply === 0) return { ...point, label: '開始局面' }
+      const entry = entryByPly.get(point.ply)
+      if (!entry) return point
+      const annotation = { text: entry.notation, side: entry.side }
+      if (entry.side === resultInfo.humanSide) {
+        humanCount += 1
+        const outcome = resultInfo.moveOutcomes[humanCount - 1]
+        return {
+          ...point,
+          label: `あなたの${humanCount}手目 ${entry.notation}`,
+          detail: outcome ? (outcome.isBest ? '最善手' : moveLossText(outcome)) : undefined,
+          annotation,
+        }
+      }
+      opponentCount += 1
+      return { ...point, label: `相手の${opponentCount}手目 ${entry.notation}`, annotation }
     })
   })()
 
@@ -1375,8 +1432,8 @@ export function PracticeMode() {
             <ol class="midgame-result__moves">
               {resultInfo.moveOutcomes.map((move, index) => (
                 <li key={index} class={move.isBest ? 'midgame-result__move--best' : undefined}>
-                  {index + 1}手目: あなたの手 {move.playedMove}
-                  {move.isBest ? '(最善手)' : ` / 最善手 ${move.bestMove}(ロス${Math.round(move.lossDiscs)}石)`}
+                  あなたの{index + 1}手目 {move.playedMove}
+                  {move.isBest ? '(最善手)' : ` / ${moveLossText(move)}`}
                 </li>
               ))}
             </ol>
@@ -1386,7 +1443,7 @@ export function PracticeMode() {
           {resultInfo.moveEvalHistory.length > 0 && (
             <div class="midgame-eval-graph">
               <p>
-                各手を打った後のあなた視点の評価値。最後の点は終了局面の評価です。
+                各手を打った後のあなた視点の評価値(点の横の文字が打った手)。最後の点はあなたの最後の手を打った後の評価です。
               </p>
               <EvalGraph
                 points={resultEvalGraphPoints}

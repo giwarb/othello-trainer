@@ -163,13 +163,20 @@ function runProblem86Attempt(engine, playerMoves, firstId) {
   let allBest = true
   let id = firstId + 1
   // playerMovesのnullは「その局面の最善手」(重みが変わっても合法手であり続ける)。
-  for (const plannedMove of playerMoves) {
+  // 2026-10-16: 中盤練習はプレイヤーの3手目で終了する(相手の3回目の応手なし)。
+  // 終了評価Bは3手目の着手評価値で、グラフの最終点と同じ値。
+  let endEval = startEval
+  for (const [index, plannedMove] of playerMoves.entries()) {
     const playerMove = plannedMove ?? currentRoot.moves[0].move
     const played = currentRoot.moves.find((move) => move.move === playerMove)
     if (!played) throw new Error(`problem 86 planned move is illegal: ${playerMove}`)
     graph.push(played.discDiff)
     allBest &&= played.score === currentRoot.moves[0].score
     board = applyMove(board, 'black', playerMove)
+    if (index === playerMoves.length - 1) {
+      endEval = played.discDiff
+      break
+    }
 
     const opponent = analyzeAll(engine, board, 'white', id++)
     const reply = opponent.moves?.[0]?.move
@@ -179,7 +186,6 @@ function runProblem86Attempt(engine, playerMoves, firstId) {
     currentRoot = analyzeAll(engine, board, 'black', id++)
     graph.push(currentRoot.moves[0].discDiff)
   }
-  const endEval = currentRoot.moves[0].discDiff
   const loss = Math.max(0, startEval - endEval)
   const stars = allBest ? 3 : loss < 1 ? 2 : loss < 5 ? 1 : 0
   return { startEval, endEval, graph, replies, stars }

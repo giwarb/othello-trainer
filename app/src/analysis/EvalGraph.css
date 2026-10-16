@@ -104,6 +104,29 @@
   font-size: 12px;
 }
 
+/* 点の注記(着手の記法)。打った側の石の色で表示し、縁取りで背景・折れ線と見分ける。 */
+.eval-graph__annotation {
+  font-size: 10px;
+  font-weight: bold;
+  fill: #374151;
+  paint-order: stroke;
+  stroke: #ffffff;
+  stroke-width: 3px;
+  stroke-linejoin: round;
+  pointer-events: none;
+  user-select: none;
+}
+
+.eval-graph__annotation--black {
+  fill: #111827;
+  stroke: #ffffff;
+}
+
+.eval-graph__annotation--white {
+  fill: #ffffff;
+  stroke: #374151;
+}
+
 .eval-graph__legend {
   display: flex;
   flex-wrap: wrap;
