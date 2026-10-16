@@ -44,3 +44,4 @@ T205(または T206)のレポートで採用候補が強度ゲートを通過し
 ### 2026-10-16 オーケストレーター(直接実施、例外適用)
 
 - `app/public/pattern_v7.bin` 追加、`worker.ts` URL を v7 へ、`ANALYSIS_ENGINE_VERSION` 8→9、`test-pattern-v6-wasm.mjs`→`test-pattern-v7-wasm.mjs`、`test-node-budget-wasm.mjs` の問題86期待値を e1 に(手順は「最善手」指定で重み非依存に)、engine の問題86本番予算テストを v7/e1 に。engine lib 262件・app vitest 882件・`npm run build`(WASMゲート込み)パス。コミット a0aad10。Pages 実機確認は下記に追記。
+- Pages実機(2026-10-16、内蔵ブラウザ): SWキャッシュ版 va0aad10・`pattern_v7.bin` 取得済み、コンソールエラーなし。中盤練習 問題86の候補手評価で e1 が最善(+1)、e1→(c1)→f1→(c2)→f2 で「評価値 +1.2 → +4.9(開始より3.7石改善)」★★、グラフ始点+1.2・終点+4.9。WASMゲートの値(1.18→4.92、応手 c1/c2)と一致。CI(Rust Tests・Deploy)は a0aad10・3677dad とも success。
